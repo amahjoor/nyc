@@ -1,0 +1,702 @@
+// Simulation units are metres and seconds. A heading of zero points along +Z.
+// This module deliberately has no renderer or browser dependencies.
+const TAU = Math.PI * 2;
+const FIXED_STEP = 1 / 120;
+const PLAYER_RADIUS = 0.4;
+const CAR_RADIUS = 0.92;
+const CAR_HALF_AXLE = 1.12;
+const GRID_SIZE = 24;
+
+const clamp = (value, low, high) => Math.min(high, Math.max(low, value));
+const distance = (a, b) => Math.hypot(a.x - b.x, a.z - b.z);
+const turnDelta = (from, to) => ((to - from + Math.PI) % TAU + TAU) % TAU - Math.PI;
+const emptyMission = () => ({ phase: 'idle', target: null, timeLeft: 0, totalTime: 0, reward: 0 });
+const finite = (value, fallback = 0) => Number.isFinite(value) ? value : fallback;
+
+function closestOnSegment(x, z, ax, az, bx, bz) {
+  const dx = bx - ax;
+  const dz = bz - az;
+  const lengthSq = dx * dx + dz * dz;
+  const t = lengthSq ? clamp(((x - ax) * dx + (z - az) * dz) / lengthSq, 0, 1) : 0;
+  return { x: ax + dx * t, z: az + dz * t, t };
+}
+
+function pointInPolygon(x, z, polygon) {
+  let inside = false;
+  for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
+    const [ax, az] = polygon[i];
+    const [bx, bz] = polygon[j];
+    if ((az > z) !== (bz > z) && x < (bx - ax) * (z - az) / (bz - az) + ax) inside = !inside;
+  }
+  return inside;
+}
+
+function circlePolygonContact(x, z, radius, polygon) {
+  let nearest;
+  let minimum = Infinity;
+  for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
+    const [ax, az] = polygon[j];
+    const [bx, bz] = polygon[i];
+    const point = closestOnSegment(x, z, ax, az, bx, bz);
+    const d = Math.hypot(x - point.x, z - point.z);
+    if (d < minimum) {
+      minimum = d;
+      nearest = { ...point, ax, az, bx, bz };
+    }
+  }
+  if (!nearest) return null;
+  const inside = pointInPolygon(x, z, polygon);
+  if (!inside && minimum >= radius) return null;
+  if (minimum > 0.000001) {
+    const sign = inside ? -1 : 1;
+    return { nx: sign * (x - nearest.x) / minimum, nz: sign * (z - nearest.z) / minimum, depth: inside ? radius + minimum : radius - minimum };
+  }
+  // A point exactly on an edge has no separation vector. Probe the edge normal
+  // to pick its exterior, independent of clockwise/counterclockwise OSM rings.
+  const length = Math.hypot(nearest.bx - nearest.ax, nearest.bz - nearest.az) || 1;
+  let nx = (nearest.bz - nearest.az) / length;
+  let nz = -(nearest.bx - nearest.ax) / length;
+  if (pointInPolygon(x + nx * 0.01, z + nz * 0.01, polygon)) { nx = -nx; nz = -nz; }
+  return { nx, nz, depth: radius };
+}
+
+function segmentIntersection(a, b) {
+  const rx = a.bx - a.ax, rz = a.bz - a.az;
+  const sx = b.bx - b.ax, sz = b.bz - b.az;
+  const cross = rx * sz - rz * sx;
+  if (Math.abs(cross) < 0.00001) return null;
+  const qx = b.ax - a.ax, qz = b.az - a.az;
+  const t = (qx * sz - qz * sx) / cross;
+  const u = (qx * rz - qz * rx) / cross;
+  return t >= -0.00001 && t <= 1.00001 && u >= -0.00001 && u <= 1.00001 ? { t: clamp(t, 0, 1), u: clamp(u, 0, 1) } : null;
+}
+
+/** Build directed edges at shared OSM nodes and geometric street crossings. */
+function buildRoadGraph(roads) {
+  const segments = [];
+  for (const road of roads) {
+    for (let i = 1; i < road.points.length; i++) {
+      const [ax, az] = road.points[i - 1], [bx, bz] = road.points[i];
+      if (Math.hypot(bx - ax, bz - az) < 0.5) continue;
+      segments.push({ ax, az, bx, bz, road, cuts: [0, 1] });
+    }
+  }
+  // Most streets already share vertices. The grid also joins crossings in
+  // simplified map extracts without a quadratic whole-city intersection pass.
+  const buckets = new Map();
+  const pairs = new Set();
+  for (let index = 0; index < segments.length; index++) {
+    const segment = segments[index];
+    for (let gx = Math.floor(Math.min(segment.ax, segment.bx) / 64); gx <= Math.floor(Math.max(segment.ax, segment.bx) / 64); gx++) {
+      for (let gz = Math.floor(Math.min(segment.az, segment.bz) / 64); gz <= Math.floor(Math.max(segment.az, segment.bz) / 64); gz++) {
+        const key = `${gx},${gz}`;
+        const others = buckets.get(key) || [];
+        for (const otherIndex of others) {
+          const pair = `${otherIndex}:${index}`;
+          if (pairs.has(pair)) continue;
+          pairs.add(pair);
+          const intersection = segmentIntersection(segment, segments[otherIndex]);
+          if (intersection) {
+            segment.cuts.push(intersection.t);
+            segments[otherIndex].cuts.push(intersection.u);
+          }
+        }
+        others.push(index);
+        buckets.set(key, others);
+      }
+    }
+  }
+  const nodes = [];
+  const nodeKeys = new Map();
+  const nodeAt = (x, z) => {
+    const key = `${Math.round(x * 2)},${Math.round(z * 2)}`;
+    if (!nodeKeys.has(key)) {
+      nodeKeys.set(key, nodes.length);
+      nodes.push({ id: nodes.length, x, z, edges: [] });
+    }
+    return nodes[nodeKeys.get(key)];
+  };
+  const edges = [];
+  const addEdge = (from, to, road) => {
+    const length = distance(from, to);
+    if (from === to || length < 0.4) return;
+    const edge = { id: edges.length, from, to, road, length, angle: Math.atan2(to.x - from.x, to.z - from.z) };
+    edge.lane = clamp(finite(road.width, 10) * 0.19, 0.65, 2.5);
+    edges.push(edge);
+    from.edges.push(edge);
+  };
+  for (const segment of segments) {
+    const cuts = [...new Set(segment.cuts.map(cut => Math.round(cut * 100000) / 100000))].sort((a, b) => a - b);
+    const oneWay = segment.road.oneway;
+    for (let i = 1; i < cuts.length; i++) {
+      const a = nodeAt(segment.ax + (segment.bx - segment.ax) * cuts[i - 1], segment.az + (segment.bz - segment.az) * cuts[i - 1]);
+      const b = nodeAt(segment.ax + (segment.bx - segment.ax) * cuts[i], segment.az + (segment.bz - segment.az) * cuts[i]);
+      if (oneWay !== '-1' && oneWay !== -1) addEdge(a, b, segment.road);
+      if (oneWay !== true && oneWay !== 'yes' && oneWay !== '1' && oneWay !== 1) addEdge(b, a, segment.road);
+    }
+  }
+  return { nodes, edges };
+}
+
+export class Simulation {
+  constructor(city) {
+    this.city = city;
+    this.bounds = city.bounds;
+    this._rngState = 0x51f05a;
+    this._buildings = new Map();
+    for (const building of city.buildings || []) {
+      if (!building.polygon || building.polygon.length < 3) continue;
+      const xs = building.polygon.map(point => point[0]);
+      const zs = building.polygon.map(point => point[1]);
+      for (let gx = Math.floor(Math.min(...xs) / GRID_SIZE); gx <= Math.floor(Math.max(...xs) / GRID_SIZE); gx++) {
+        for (let gz = Math.floor(Math.min(...zs) / GRID_SIZE); gz <= Math.floor(Math.max(...zs) / GRID_SIZE); gz++) {
+          const key = `${gx},${gz}`;
+          if (!this._buildings.has(key)) this._buildings.set(key, []);
+          this._buildings.get(key).push(building);
+        }
+      }
+    }
+    this._graph = buildRoadGraph(city.roads || []);
+    this.player = { x: city.spawn.x, z: city.spawn.z, angle: city.spawn.angle || 0, speed: 0, mode: 'walk', vehicleId: null, velocityX: 0, velocityZ: 0 };
+    this.cars = [];
+    this.heat = 0;
+    this.health = 100;
+    this.cash = 0;
+    this.deliveries = 0;
+    this.mission = emptyMission();
+    this.notice = 'Welcome to SoHo. Walk to the yellow cab and press E.';
+    this.noticeTime = 8;
+    this.distanceTravelled = 0;
+    this.elapsed = 0;
+    this._accumulator = 0;
+    this._impactCooldown = 0;
+    this._timeSinceCrime = 100;
+    this._policeRouteTimer = 0;
+    this._lastTarget = null;
+    this._bustedTime = 0;
+    this._lastBoundaryNotice = -Infinity;
+    this._seedCars();
+    const safeSpawn = this._findSafePoint(city.spawn.x, city.spawn.z, PLAYER_RADIUS);
+    this.player.x = safeSpawn.x;
+    this.player.z = safeSpawn.z;
+  }
+
+  _random() {
+    this._rngState = (Math.imul(this._rngState, 1664525) + 1013904223) >>> 0;
+    return this._rngState / 4294967296;
+  }
+
+  _contact(x, z, radius) {
+    let contact = null;
+    const keep = hit => { if (hit && (!contact || hit.depth > contact.depth)) contact = hit; };
+    const bounds = this.bounds;
+    if (x - radius < bounds.minX) keep({ nx: 1, nz: 0, depth: bounds.minX - x + radius, kind: 'boundary' });
+    if (x + radius > bounds.maxX) keep({ nx: -1, nz: 0, depth: x + radius - bounds.maxX, kind: 'boundary' });
+    if (z - radius < bounds.minZ) keep({ nx: 0, nz: 1, depth: bounds.minZ - z + radius, kind: 'boundary' });
+    if (z + radius > bounds.maxZ) keep({ nx: 0, nz: -1, depth: z + radius - bounds.maxZ, kind: 'boundary' });
+    const checked = new Set();
+    for (let gx = Math.floor((x - radius) / GRID_SIZE); gx <= Math.floor((x + radius) / GRID_SIZE); gx++) {
+      for (let gz = Math.floor((z - radius) / GRID_SIZE); gz <= Math.floor((z + radius) / GRID_SIZE); gz++) {
+        for (const building of this._buildings.get(`${gx},${gz}`) || []) {
+          if (checked.has(building)) continue;
+          checked.add(building);
+          keep(circlePolygonContact(x, z, radius, building.polygon));
+        }
+      }
+    }
+    return contact;
+  }
+
+  /** Static map collision query for cameras and pedestrian placement. */
+  isBlocked(x, z, radius = 0.5) {
+    return Boolean(this._contact(x, z, Math.max(0.01, radius)));
+  }
+
+  _carContact(x, z, angle) {
+    let best = null;
+    for (const offset of [-CAR_HALF_AXLE, 0, CAR_HALF_AXLE]) {
+      const hit = this._contact(x + Math.sin(angle) * offset, z + Math.cos(angle) * offset, CAR_RADIUS);
+      if (hit && (!best || hit.depth > best.depth)) best = hit;
+    }
+    return best;
+  }
+
+  _nearCar(x, z, radius, ignoredId = null) {
+    for (const car of this.cars) {
+      if (car.id === ignoredId || Math.hypot(x - car.x, z - car.z) > 3 + radius) continue;
+      const dx = Math.sin(car.angle) * CAR_HALF_AXLE;
+      const dz = Math.cos(car.angle) * CAR_HALF_AXLE;
+      const closest = closestOnSegment(x, z, car.x - dx, car.z - dz, car.x + dx, car.z + dz);
+      const gap = Math.hypot(x - closest.x, z - closest.z);
+      if (gap < CAR_RADIUS + radius) {
+        return { car, nx: gap ? (x - closest.x) / gap : Math.cos(car.angle), nz: gap ? (z - closest.z) / gap : -Math.sin(car.angle), depth: CAR_RADIUS + radius - gap };
+      }
+    }
+    return null;
+  }
+
+  _resolvePosition(x, z, radius, angle = null) {
+    let hit = null;
+    for (let iteration = 0; iteration < 5; iteration++) {
+      const contact = angle === null ? this._contact(x, z, radius) : this._carContact(x, z, angle);
+      if (!contact) break;
+      if (!hit || contact.depth > hit.depth) hit = contact;
+      x += contact.nx * (contact.depth + 0.0001);
+      z += contact.nz * (contact.depth + 0.0001);
+    }
+    return { x, z, hit };
+  }
+
+  _findSafePoint(x, z, radius, ignoreCar = null) {
+    for (let ring = 0; ring < 24; ring++) {
+      for (let i = 0; i < (ring ? 16 : 1); i++) {
+        const angle = i / 16 * TAU;
+        const point = { x: x + Math.sin(angle) * ring * 1.5, z: z + Math.cos(angle) * ring * 1.5 };
+        if (!this.isBlocked(point.x, point.z, radius) && !this._nearCar(point.x, point.z, radius, ignoreCar)) return point;
+      }
+    }
+    return this._resolvePosition(x, z, radius);
+  }
+
+  _lanePoint(edge, fraction) {
+    return { x: edge.from.x + (edge.to.x - edge.from.x) * fraction + Math.cos(edge.angle) * edge.lane, z: edge.from.z + (edge.to.z - edge.from.z) * fraction - Math.sin(edge.angle) * edge.lane };
+  }
+
+  _makeCar(id, type, point, angle, edge = null) {
+    const palette = ['#172e35', '#d8d0be', '#a64438', '#427374', '#d6dce0', '#33413e'];
+    return { id, type, x: point.x, z: point.z, angle, speed: 0, color: type === 'taxi' ? '#f2b91c' : type === 'police' ? '#f1f2e9' : palette[Math.floor(this._random() * palette.length)], parked: !edge, controlled: false, radius: CAR_RADIUS, siren: false, _edge: edge, _route: [], _stuckTime: 0, _cruise: 6 + this._random() * 3, _wait: 0 };
+  }
+
+  _seedCars() {
+    const spawn = this.city.spawn;
+    let taxiPoint = null;
+    let taxiAngle = spawn.angle || 0;
+    // Keep the cab close enough for the first interaction, with enough space
+    // between its body and the on-foot spawn that they never begin overlapping.
+    for (const offset of [[0, 3.8], [3.2, 0], [-3.2, 0], [0, -3.8], [4.5, 0], [-4.5, 0]]) {
+      const point = { x: spawn.x + Math.cos(taxiAngle) * offset[0] + Math.sin(taxiAngle) * offset[1], z: spawn.z - Math.sin(taxiAngle) * offset[0] + Math.cos(taxiAngle) * offset[1] };
+      if (!this._carContact(point.x, point.z, taxiAngle)) { taxiPoint = point; break; }
+    }
+    if (!taxiPoint) {
+      const nearest = this._nearestEdge(spawn.x, spawn.z);
+      if (nearest) { taxiPoint = this._lanePoint(nearest.edge, nearest.t); taxiAngle = nearest.edge.angle; }
+      else taxiPoint = this._findSafePoint(spawn.x + 4, spawn.z, 2.1);
+    }
+    this.cars.push(this._makeCar('player-taxi', 'taxi', taxiPoint, taxiAngle));
+    const edges = this._graph.edges.filter(edge => edge.length > 16);
+    if (!edges.length) return;
+    for (let i = 0; i < 15; i++) {
+      const police = i >= 12;
+      for (let attempt = 0; attempt < 50; attempt++) {
+        const edge = edges[Math.floor(this._random() * edges.length)];
+        const point = this._lanePoint(edge, 0.15 + this._random() * 0.7);
+        if (distance(point, spawn) < (police ? 50 : 16) || this._carContact(point.x, point.z, edge.angle) || this._nearCar(point.x, point.z, 5)) continue;
+        const car = this._makeCar(`${police ? 'police' : 'traffic'}-${i}`, police ? 'police' : i % 4 === 0 ? 'taxi' : 'sedan', point, edge.angle, edge);
+        car.speed = car._cruise * 0.65;
+        this.cars.push(car);
+        break;
+      }
+    }
+  }
+
+  _nearestEdge(x, z) {
+    let nearest = null;
+    for (const edge of this._graph.edges) {
+      const point = closestOnSegment(x, z, edge.from.x, edge.from.z, edge.to.x, edge.to.z);
+      const d = Math.hypot(x - point.x, z - point.z);
+      if (!nearest || d < nearest.distance) nearest = { edge, ...point, distance: d };
+    }
+    return nearest;
+  }
+
+  getStreet() {
+    return this._nearestEdge(this.player.x, this.player.z)?.edge.road.name || 'SoHo';
+  }
+
+  getNearbyCar() {
+    if (this.player.mode === 'drive') return null;
+    let nearest = null;
+    let best = 5;
+    for (const car of this.cars) {
+      if (car.type === 'police' || car.controlled) continue;
+      const d = distance(this.player, car);
+      if (d < best) { nearest = car; best = d; }
+    }
+    return nearest;
+  }
+
+  _say(message, seconds = 4) { this.notice = message; this.noticeTime = seconds; }
+
+  interact() {
+    const player = this.player;
+    if (player.mode === 'walk') {
+      const car = this.getNearbyCar();
+      if (!car) { this._say('Move closer to a taxi or parked car.'); return false; }
+      if (Math.abs(car.speed) > 4) { this._say('Wait for the car to slow down.'); return false; }
+      car.controlled = true;
+      car.parked = true;
+      car._route = [];
+      Object.assign(player, { mode: 'drive', vehicleId: car.id, x: car.x, z: car.z, angle: car.angle, speed: car.speed, velocityX: 0, velocityZ: 0 });
+      this._say('W / S to accelerate and reverse. A / D to steer. Space to brake.');
+      return true;
+    }
+    const car = this.cars.find(item => item.id === player.vehicleId);
+    if (!car) { this.reset(); return false; }
+    if (Math.abs(car.speed) > 4) { this._say('Slow down before getting out.'); return false; }
+    for (const [side, front] of [[-2.2, 0], [2.2, 0], [-2.5, -1.8], [2.5, -1.8], [0, -3.2], [0, 3.2]]) {
+      const x = car.x + Math.cos(car.angle) * side + Math.sin(car.angle) * front;
+      const z = car.z - Math.sin(car.angle) * side + Math.cos(car.angle) * front;
+      if (this.isBlocked(x, z, PLAYER_RADIUS) || this._nearCar(x, z, PLAYER_RADIUS, car.id)) continue;
+      car.controlled = false;
+      car.parked = true;
+      car.speed = 0;
+      Object.assign(player, { x, z, mode: 'walk', vehicleId: null, speed: 0, velocityX: 0, velocityZ: 0 });
+      this._say('On foot. Hold Shift to run. E to get back in.');
+      return true;
+    }
+    this._say('Both doors are blocked. Move the car into an open space.');
+    return false;
+  }
+
+  startMission() {
+    if (this.mission.phase === 'active') { this._say('Finish your current delivery first.'); return false; }
+    const all = (this.city.missionPoints || []).filter(point => Number.isFinite(point.x) && Number.isFinite(point.z) && !this.isBlocked(point.x, point.z, 1));
+    let options = all.filter(point => distance(point, this.player) > 45 && point.name !== this._lastTarget);
+    if (!options.length) options = all.filter(point => distance(point, this.player) > 20);
+    if (!options.length) { this._say('No reachable delivery destination is available.'); return false; }
+    const target = options[Math.floor(this._random() * options.length)];
+    const routeDistance = distance(this.player, target);
+    const totalTime = Math.round(clamp(55 + routeDistance / 7, 65, 180));
+    const reward = Math.round((120 + routeDistance * 0.45) / 5) * 5;
+    this.mission = { phase: 'active', target: { ...target }, timeLeft: totalTime, totalTime, reward };
+    this._lastTarget = target.name;
+    this._say(`Delivery accepted: ${target.name}. Follow the gold marker and stop inside it.`, 7);
+    return true;
+  }
+
+  reset() {
+    const car = this.cars.find(item => item.id === this.player.vehicleId);
+    if (car) { car.controlled = false; car.parked = true; car.speed = 0; }
+    const taxi = this.cars.find(item => item.id === 'player-taxi');
+    if (taxi) {
+      const angle = this.city.spawn.angle || 0;
+      const recovered = this._resolvePosition(this.city.spawn.x + Math.sin(angle) * 3.8, this.city.spawn.z + Math.cos(angle) * 3.8, CAR_RADIUS, angle);
+      Object.assign(taxi, { x: recovered.x, z: recovered.z, angle, speed: 0, parked: true, controlled: false });
+    }
+    const point = this._findSafePoint(this.city.spawn.x, this.city.spawn.z, PLAYER_RADIUS);
+    Object.assign(this.player, { ...point, angle: this.city.spawn.angle || 0, speed: 0, mode: 'walk', vehicleId: null, velocityX: 0, velocityZ: 0 });
+    this.health = 100;
+    this.heat = 0;
+    this._timeSinceCrime = 100;
+    this._impactCooldown = 0;
+    this._bustedTime = 0;
+    if (this.mission.phase === 'active') this.mission.phase = 'failed';
+    this._say('Back in SoHo. Your earnings and completed deliveries are saved.');
+  }
+
+  step(input = {}, dt = 0) {
+    // A fixed accumulator makes handling independent of display refresh rate.
+    // Capping a background-tab pause avoids simulating a long unattended chase.
+    this._accumulator += clamp(finite(dt), 0, 0.25);
+    const normalized = { forward: clamp(finite(input.forward), -1, 1), turn: clamp(finite(input.turn), -1, 1), moveX: clamp(finite(input.moveX), -1, 1), moveZ: clamp(finite(input.moveZ), -1, 1), brake: Boolean(input.brake), run: Boolean(input.run) };
+    while (this._accumulator + 1e-10 >= FIXED_STEP) {
+      this._tick(normalized, FIXED_STEP);
+      this._accumulator -= FIXED_STEP;
+    }
+  }
+
+  _tick(input, dt) {
+    this.elapsed += dt;
+    this.noticeTime = Math.max(0, this.noticeTime - dt);
+    this._impactCooldown = Math.max(0, this._impactCooldown - dt);
+    this._timeSinceCrime += dt;
+    const before = { x: this.player.x, z: this.player.z };
+    if (this.player.mode === 'drive') this._drive(input, dt);
+    else this._walk(input, dt);
+    this.distanceTravelled += distance(before, this.player);
+    this._policeRouteTimer -= dt;
+    const refreshRoutes = this._policeRouteTimer <= 0;
+    if (refreshRoutes) this._policeRouteTimer = 1.2;
+    for (const car of this.cars) {
+      if (car.controlled || car.parked) continue;
+      if (refreshRoutes && car.type === 'police' && this.heat > 0.05) this._routePolice(car);
+      this._traffic(car, dt);
+    }
+    this._updateHeat(dt);
+    this._updateMission(dt);
+    if (this.health <= 0) {
+      const charge = Math.min(this.cash, 75);
+      this.cash -= charge;
+      this.reset();
+      this._say(`Vehicle recovered. Repairs: $${charge}.`, 6);
+    }
+  }
+
+  _walk(input, dt) {
+    const player = this.player;
+    const magnitude = Math.hypot(input.moveX, input.moveZ);
+    const divisor = Math.max(1, magnitude);
+    const topSpeed = input.run ? 7.3 : 4.25;
+    const desiredX = input.moveX / divisor * topSpeed;
+    const desiredZ = input.moveZ / divisor * topSpeed;
+    const blend = 1 - Math.exp(-13 * dt);
+    player.velocityX += (desiredX - player.velocityX) * blend;
+    player.velocityZ += (desiredZ - player.velocityZ) * blend;
+    if (magnitude > 0.02) player.angle += turnDelta(player.angle, Math.atan2(desiredX, desiredZ)) * (1 - Math.exp(-16 * dt));
+    let next = this._resolvePosition(player.x + player.velocityX * dt, player.z + player.velocityZ * dt, PLAYER_RADIUS);
+    const carHit = this._nearCar(next.x, next.z, PLAYER_RADIUS);
+    if (carHit) {
+      next = this._resolvePosition(next.x + carHit.nx * (carHit.depth + 0.001), next.z + carHit.nz * (carHit.depth + 0.001), PLAYER_RADIUS);
+    }
+    player.speed = Math.hypot(next.x - player.x, next.z - player.z) / dt;
+    if (next.hit) {
+      const inward = player.velocityX * next.hit.nx + player.velocityZ * next.hit.nz;
+      if (inward < 0) { player.velocityX -= inward * next.hit.nx; player.velocityZ -= inward * next.hit.nz; }
+    }
+    player.x = next.x;
+    player.z = next.z;
+  }
+
+  _drive(input, dt) {
+    const car = this.cars.find(item => item.id === this.player.vehicleId);
+    if (!car) { this.reset(); return; }
+    const speedBefore = car.speed;
+    let acceleration = input.forward * (input.forward < 0 ? 8 : 11.5);
+    if (input.forward !== 0 && Math.sign(car.speed) !== Math.sign(input.forward) && Math.abs(car.speed) > 0.15) acceleration = input.forward * 19;
+    car.speed += acceleration * dt;
+    // Exponential drag and steering interpolation preserve the same response
+    // at 30/60/144 Hz. Braking removes a fixed speed per second without reversal.
+    car.speed *= Math.exp(-(input.forward ? 0.25 : 0.63) * dt);
+    if (input.brake) car.speed = Math.sign(car.speed) * Math.max(0, Math.abs(car.speed) - 25 * dt);
+    car.speed = clamp(car.speed, -9, 30);
+    if (Math.abs(car.speed) < 0.015) car.speed = 0;
+    const steeringLimit = 0.59 / (1 + Math.abs(car.speed) / 17);
+    car._steering = finite(car._steering) + (input.turn * steeringLimit - finite(car._steering)) * (1 - Math.exp(-10 * dt));
+    car.angle += car.speed / 2.65 * Math.tan(car._steering) * dt;
+    car.angle %= TAU;
+    const next = this._resolvePosition(car.x + Math.sin(car.angle) * car.speed * dt, car.z + Math.cos(car.angle) * car.speed * dt, CAR_RADIUS, car.angle);
+    if (next.hit) {
+      const approach = -(Math.sin(car.angle) * next.hit.nx + Math.cos(car.angle) * next.hit.nz) * car.speed;
+      if (approach > 0.3) {
+        // The edge of the extract is a gameplay limit, not a crashable object.
+        // Clamp movement there without fining or damaging a curious player.
+        if (next.hit.kind !== 'boundary') this._impact(Math.abs(speedBefore), 'building');
+        else if (this.elapsed - this._lastBoundaryNotice > 6) {
+          this._lastBoundaryNotice = this.elapsed;
+          this._say('Map edge. Turn back toward SoHo.', 4);
+        }
+        car.speed *= Math.max(0, 1 - Math.abs(approach) / Math.max(0.1, Math.abs(car.speed)));
+      }
+    }
+    car.x = next.x;
+    car.z = next.z;
+    for (const offset of [-CAR_HALF_AXLE, CAR_HALF_AXLE]) {
+      const collision = this._nearCar(car.x + Math.sin(car.angle) * offset, car.z + Math.cos(car.angle) * offset, CAR_RADIUS, car.id);
+      if (!collision) continue;
+      const relativeSpeed = Math.abs(car.speed - collision.car.speed * Math.cos(turnDelta(car.angle, collision.car.angle)));
+      const corrected = this._resolvePosition(car.x + collision.nx * (collision.depth + 0.01), car.z + collision.nz * (collision.depth + 0.01), CAR_RADIUS, car.angle);
+      car.x = corrected.x;
+      car.z = corrected.z;
+      this._impact(relativeSpeed, collision.car.type === 'police' ? 'police' : 'vehicle');
+      car.speed *= 0.4;
+      collision.car.speed *= 0.55;
+      collision.car._wait = 0.7;
+      break;
+    }
+    Object.assign(this.player, { x: car.x, z: car.z, angle: car.angle, speed: car.speed });
+  }
+
+  _impact(speed, kind) {
+    if (this._impactCooldown > 0 || speed < 4) return;
+    this._impactCooldown = 0.8;
+    this.health = Math.max(0, this.health - Math.max(1, (speed - 3) * 0.75));
+    if (speed > 9 || kind === 'police') {
+      this.heat = clamp(this.heat + (kind === 'police' ? 0.9 : kind === 'vehicle' ? 0.65 : 0.4), 0, 3);
+      this._timeSinceCrime = 0;
+      this._say(kind === 'police' ? 'Police collision. Lose the patrols to clear your heat.' : 'Reckless driving reported. Lose the patrols to clear your heat.');
+    }
+  }
+
+  _pickNextEdge(car) {
+    const edge = car._edge;
+    if (car.type === 'police' && this.heat > 0.05 && car._route.length) {
+      const next = car._route.shift();
+      if (next.from.id === edge.to.id) return next;
+      car._route = [];
+    }
+    const options = edge.to.edges.filter(option => option.to.id !== edge.from.id);
+    if (!options.length) return edge.to.edges[0] || null;
+    let total = 0;
+    const weighted = options.map(option => {
+      const turn = Math.abs(turnDelta(edge.angle, option.angle));
+      const weight = turn < 0.25 ? 3 : 1;
+      total += weight;
+      return { edge: option, weight };
+    });
+    let pick = this._random() * total;
+    for (const option of weighted) { pick -= option.weight; if (pick <= 0) return option.edge; }
+    return options[0];
+  }
+
+  _atBoundary(point, margin = 5) {
+    return point.x < this.bounds.minX + margin || point.x > this.bounds.maxX - margin || point.z < this.bounds.minZ + margin || point.z > this.bounds.maxZ - margin;
+  }
+
+  _recycleTraffic(car) {
+    if (distance(car, this.player) < 95) return false;
+    // The OSM extract clips streets at its borders. Let cars leave and enter
+    // outside the player's view so finite one-way streets do not fill with
+    // permanently stopped traffic. Both locations remain on legal road lanes.
+    let entrances = this._graph.edges.filter(edge => this._atBoundary(edge.from, 8) && !this._atBoundary(edge.to, 8));
+    if (!entrances.length) entrances = this._graph.edges.filter(edge => edge.length > 20);
+    for (let i = 0; i < Math.min(30, entrances.length * 2); i++) {
+      const edge = entrances[Math.floor(this._random() * entrances.length)];
+      const point = this._lanePoint(edge, clamp(9 / edge.length, 0.15, 0.75));
+      if (distance(point, this.player) < 120 || this._carContact(point.x, point.z, edge.angle) || this._nearCar(point.x, point.z, 6, car.id)) continue;
+      Object.assign(car, { x: point.x, z: point.z, angle: edge.angle, speed: car._cruise * 0.6, _edge: edge, _route: [], _stuckTime: 0 });
+      return true;
+    }
+    return false;
+  }
+
+  _traffic(car, dt) {
+    if (!car._edge) return;
+    car.siren = car.type === 'police' && this.heat > 0.05;
+    car._wait = Math.max(0, car._wait - dt);
+    let edge = car._edge;
+    let start = this._lanePoint(edge, 0), end = this._lanePoint(edge, 1);
+    let projection = closestOnSegment(car.x, car.z, start.x, start.z, end.x, end.z);
+    if (this._atBoundary(edge.to) && distance(car, end) < 7) {
+      if (!this._recycleTraffic(car)) car.speed = Math.max(0, car.speed - 16 * dt);
+      return;
+    }
+    if ((projection.t > 0.96 && distance(car, end) < 5) || distance(car, end) < 2.8) {
+      const next = this._pickNextEdge(car);
+      if (next) {
+        edge = car._edge = next;
+        start = this._lanePoint(edge, 0); end = this._lanePoint(edge, 1);
+        projection = closestOnSegment(car.x, car.z, start.x, start.z, end.x, end.z);
+      } else {
+        // A clipped one-way street can end at the map boundary. Keep its car
+        // stopped there instead of inventing a U-turn against the OSM direction.
+        car.speed = Math.max(0, car.speed - 14 * dt);
+        this._recycleTraffic(car);
+        return;
+      }
+    }
+    const lookAhead = Math.max(3.5, Math.abs(car.speed) * 0.7);
+    const target = this._lanePoint(edge, clamp(projection.t + lookAhead / edge.length, 0, 1));
+    const desiredAngle = Math.atan2(target.x - car.x, target.z - car.z);
+    const delta = turnDelta(car.angle, desiredAngle);
+    car.angle += clamp(delta, -1.9 * dt, 1.9 * dt);
+    let desiredSpeed = (car.siren ? 13 + this.heat * 1.8 : car._cruise) / (1 + Math.abs(delta) * 1.8);
+    if (car._wait > 0) desiredSpeed = 0;
+    for (const other of this.cars) {
+      if (other === car) continue;
+      const dx = other.x - car.x, dz = other.z - car.z;
+      const along = dx * Math.sin(car.angle) + dz * Math.cos(car.angle);
+      const across = Math.abs(dx * Math.cos(car.angle) - dz * Math.sin(car.angle));
+      if (along > 0 && along < 6 + car.speed * 0.55 && across < 1.95) desiredSpeed = Math.min(desiredSpeed, Math.max(0, (along - 5) * 1.2));
+    }
+    if (this.player.mode === 'walk') {
+      const dx = this.player.x - car.x, dz = this.player.z - car.z;
+      const along = dx * Math.sin(car.angle) + dz * Math.cos(car.angle);
+      const across = Math.abs(dx * Math.cos(car.angle) - dz * Math.sin(car.angle));
+      if (along > 0 && along < 9 && across < 2.2) desiredSpeed = Math.min(desiredSpeed, Math.max(0, (along - 3.8) * 1.2));
+    }
+    car.speed += (desiredSpeed - car.speed) * (1 - Math.exp(-2.8 * dt));
+    const beforeX = car.x, beforeZ = car.z;
+    const resolved = this._resolvePosition(car.x + Math.sin(car.angle) * car.speed * dt, car.z + Math.cos(car.angle) * car.speed * dt, CAR_RADIUS, car.angle);
+    car.x = resolved.x; car.z = resolved.z;
+    if (resolved.hit) { car.speed *= 0.9; car._stuckTime += dt; }
+    else car._stuckTime = Math.max(0, car._stuckTime - dt);
+    if (car._stuckTime > 3 && Math.hypot(car.x - beforeX, car.z - beforeZ) < 0.015) {
+      // Rejoin the same legal lane when a tight imported corner traps a patrol.
+      // Recovery is constrained to a nearby clear point, never through a block.
+      const rejoin = this._lanePoint(edge, clamp(projection.t + 3 / edge.length, 0.08, 0.92));
+      if (distance(car, rejoin) < 5 && !this._carContact(rejoin.x, rejoin.z, edge.angle) && !this._nearCar(rejoin.x, rejoin.z, 3, car.id)) {
+        car.x = rejoin.x; car.z = rejoin.z; car.angle = edge.angle;
+      }
+      car._stuckTime = 0;
+    }
+  }
+
+  _routePolice(car) {
+    const nearest = this._nearestEdge(this.player.x, this.player.z);
+    if (!nearest || !car._edge) return;
+    const destination = nearest.t < 0.5 ? nearest.edge.from : nearest.edge.to;
+    const start = car._edge.to;
+    if (start === destination) { car._route = []; return; }
+    const cost = new Map([[start.id, 0]]);
+    const previous = new Map();
+    const open = [start];
+    const visited = new Set();
+    while (open.length) {
+      let bestIndex = 0;
+      for (let i = 1; i < open.length; i++) if (cost.get(open[i].id) < cost.get(open[bestIndex].id)) bestIndex = i;
+      const node = open.splice(bestIndex, 1)[0];
+      if (visited.has(node.id)) continue;
+      if (node === destination) break;
+      visited.add(node.id);
+      for (const edge of node.edges) {
+        const candidate = cost.get(node.id) + edge.length;
+        if (candidate >= (cost.get(edge.to.id) ?? Infinity)) continue;
+        cost.set(edge.to.id, candidate);
+        previous.set(edge.to.id, edge);
+        open.push(edge.to);
+      }
+    }
+    const route = [];
+    let cursor = destination;
+    while (cursor !== start && previous.has(cursor.id)) {
+      const edge = previous.get(cursor.id);
+      route.unshift(edge);
+      cursor = edge.from;
+    }
+    car._route = cursor === start ? route : [];
+  }
+
+  _hasSight(a, b) {
+    const steps = Math.max(1, Math.ceil(distance(a, b) / 5));
+    for (let i = 1; i < steps; i++) {
+      if (this.isBlocked(a.x + (b.x - a.x) * i / steps, a.z + (b.z - a.z) * i / steps, 0.05)) return false;
+    }
+    return true;
+  }
+
+  _updateHeat(dt) {
+    if (this.heat <= 0) return;
+    const visiblePatrol = this.cars.find(car => car.type === 'police' && distance(car, this.player) < 85 && this._hasSight(car, this.player));
+    if (!visiblePatrol && this._timeSinceCrime > 10) {
+      this.heat = Math.max(0, this.heat - dt * 0.14);
+      if (this.heat === 0) this._say('You lost the police. Heat cleared.');
+    }
+    if (visiblePatrol && distance(visiblePatrol, this.player) < 8 && Math.abs(this.player.speed) < 1.2) this._bustedTime += dt;
+    else this._bustedTime = Math.max(0, this._bustedTime - dt * 2);
+    if (this._bustedTime > 5) {
+      const fine = Math.min(this.cash, Math.round(50 + this.heat * 50));
+      this.cash -= fine;
+      this.reset();
+      this._say(`Busted. Fine: $${fine}. Your cab is waiting at the start.`, 7);
+    }
+  }
+
+  _updateMission(dt) {
+    if (this.mission.phase !== 'active') return;
+    this.mission.timeLeft = Math.max(0, this.mission.timeLeft - dt);
+    if (this.mission.timeLeft <= 0) {
+      this.mission.phase = 'failed';
+      this._say('Delivery timed out. Press N to try another job.', 6);
+      return;
+    }
+    if (distance(this.player, this.mission.target) < 10 && Math.abs(this.player.speed) < 3) {
+      const bonus = Math.round(this.mission.timeLeft / this.mission.totalTime * 50 / 5) * 5;
+      const payout = this.mission.reward + bonus;
+      this.cash += payout;
+      this.deliveries += 1;
+      this.mission.phase = 'complete';
+      this.mission.payout = payout;
+      this._say(`Delivery complete. +$${payout}. Press N for your next job.`, 7);
+    }
+  }
+}

@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#16191a">
+  <meta name="description" content="Hit the streets of SoHo. An original NYC driving and walking sandbox built on real city geography.">
+  <title>NYC After Hours · SoHo</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <canvas id="world" aria-label="Playable 3D SoHo neighborhood"></canvas>
+  <div class="film-grain" aria-hidden="true"></div>
+  <header class="topbar">
+    <a class="wordmark" href="#" id="brand" aria-label="NYC After Hours menu"><span class="brand-icon">N<span>Y</span></span><span>AFTER<br>HOURS<span class="edition">NEW YORK CITY</span></span></a>
+    <div class="location-title"><span class="live-dot"></span> MANHATTAN, NYC <span class="slash">/</span> <strong>SOHO</strong><span class="district-coordinates">40.7235° N &nbsp; 74.0015° W</span></div>
+    <nav class="top-actions" aria-label="Game options"><button id="sound-button" title="Toggle sound" aria-label="Turn sound on">SOUND OFF</button><button id="quality-button" title="Toggle graphics quality">QUALITY: BALANCED</button><button id="help-button" aria-label="Show controls">?</button></nav>
+  </header>
+  <section id="intro" class="overlay intro" aria-label="Start game">
+    <div class="intro-body">
+      <p class="eyebrow"><span class="short-rule"></span> AN OPEN CITY. YOUR NIGHT.</p>
+      <h1>NEW YORK.<br><span>AFTER HOURS.</span></h1>
+      <p class="intro-copy">A yellow cab. A city that never clocks out.<br>Take a walk through SoHo, find a ride, and make your first drop.</p>
+      <button class="primary-button" id="start-button" disabled><span id="load-text">BUILDING THE BLOCK…</span><span aria-hidden="true">↗</span></button>
+      <div class="intro-meta"><span>SOHO FREE ROAM</span><span>SINGLE PLAYER</span><span>KEYBOARD / CONTROLLER</span></div>
+    </div>
+    <div class="intro-bottom"><span class="small-label">THE NEIGHBORHOOD IS REAL.<br>THE NIGHT IS YOURS.</span><span class="build-label">PLAYABLE PROTOTYPE &nbsp; / &nbsp; 001</span></div>
+    <p id="load-error" class="load-error" role="alert" hidden></p>
+  </section>
+  <section class="mission-panel" id="mission-panel" hidden aria-label="Current job">
+    <div class="panel-kicker"><span class="orange-dot"></span><span id="mission-kicker">THE NIGHT SHIFT</span><span id="mission-number">01</span></div>
+    <h2 id="mission-title">Make your first drop.</h2>
+    <p id="mission-description">Find a car and take a delivery job. The city is yours to explore.</p>
+    <div class="mission-meta"><span id="mission-distance">FREE ROAM</span><span id="mission-timer">NO RUSH</span></div>
+    <button id="job-button" class="job-button">TAKE A JOB <kbd>N</kbd></button>
+  </section>
+  <div id="wanted" class="wanted" hidden aria-label="Police attention"><span id="wanted-stars">☆☆☆</span><span id="wanted-label">KEEP IT CLEAN</span></div>
+  <div class="hud-bottom" id="hud" hidden>
+    <section class="map-panel" id="map-panel" aria-label="Neighborhood map">
+      <div class="map-header"><span class="small-label">SOHO / LOWER MANHATTAN</span><button id="map-button" aria-label="Expand map" title="Expand map (M)">↗</button></div>
+      <canvas id="minimap" width="440" height="440" aria-label="Map showing player and delivery destination"></canvas>
+      <div class="map-footer"><span class="north">↑ N</span><span id="street-name">GREENE STREET</span><kbd>M</kbd></div>
+    </section>
+    <div class="center-hud"><div id="toast" class="toast" role="status"></div><div id="interact-prompt" class="interact-prompt"><kbd>E</kbd><span>GET IN THE CAB</span></div><div class="key-guide"><span><kbd>W A S D</kbd> MOVE</span><span><kbd>E</kbd> ENTER / EXIT</span><span><kbd>SPACE</kbd> BRAKE</span><span><kbd>R</kbd> RECOVER</span></div></div>
+    <section class="drive-panel" aria-label="Player status"><div class="cash"><span class="small-label">TONIGHT'S TAKE</span><strong id="cash">$0</strong></div><div class="speed"><strong id="speed">00</strong><div><span id="speed-unit">ON FOOT</span><span id="gear">FREE ROAM</span></div></div><div class="condition"><span id="health-label">CONDITION</span><div><i id="health-bar"></i></div><span id="health-number">100</span></div><div class="trip"><span id="deliveries">0 DELIVERIES</span><span id="distance">0.0 MI</span></div></section>
+  </div>
+  <div id="touch-controls" class="touch-controls" hidden>
+    <div class="touch-dpad"><button data-control="forward" aria-label="Forward">↑</button><div><button data-control="left" aria-label="Left">←</button><button data-control="back" aria-label="Reverse">↓</button><button data-control="right" aria-label="Right">→</button></div></div>
+    <div class="touch-actions"><button id="touch-enter">ENTER</button><button data-control="brake">BRAKE</button></div>
+  </div>
+  <dialog id="help-dialog" class="modal"><form method="dialog"><button class="close-dialog" aria-label="Close controls">×</button></form><p class="eyebrow">KNOW THE STREETS</p><h2>Your city.<br>Your pace.</h2><div class="control-grid"><span>Walk / drive</span><kbd>W A S D / ARROWS</kbd><span>Enter / exit a car</span><kbd>E</kbd><span>Sprint on foot</span><kbd>SHIFT</kbd><span>Brake / handbrake</span><kbd>SPACE</kbd><span>Accept delivery job</span><kbd>N</kbd><span>Look around</span><kbd>DRAG MOUSE</kbd><span>Expand map</span><kbd>M</kbd><span>Camera distance</span><kbd>C</kbd><span>Horn</span><kbd>H</kbd><span>Recover to starting street</span><kbd>R</kbd><span>Pause</span><kbd>ESC</kbd></div><p class="modal-note">Controller: left stick moves / steers, triggers accelerate and reverse, A enters a car, X brakes, Y takes a job. Right stick looks around.</p><p class="modal-note">Drive carefully to keep police attention down. Stop at the orange marker to finish a delivery. Earnings save on this device.</p></dialog>
+  <dialog id="pause-dialog" class="modal pause-modal"><p class="eyebrow">TAKE A BREATHER</p><h2>The city<br>can wait.</h2><button id="resume-button" class="primary-button">BACK TO THE STREETS <span>↗</span></button><button id="recover-button" class="secondary-button">RECOVER TO START</button></dialog>
+  <footer class="credits"><span>ORIGINAL CITY SANDBOX</span><span>Map data © <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">OpenStreetMap contributors</a> · ODbL</span></footer>
+  <script type="module" src="main.js"></script>
+</body>
+</html>
