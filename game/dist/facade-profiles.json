@@ -1,0 +1,141 @@
+{
+  "note": "All listed local images downloaded and visually inspected 2026-10-11. Observed colors are approximate under photographed lighting, not measured samples. Historical capture dates retained. Facts from cited official survey/restoration architect. Actual facade rendering should not imply present-day photographic coverage.",
+  "profiles": [
+    {
+      "id": "haughwout",
+      "address": "488-492 Broadway",
+      "stories": 5,
+      "bays": {
+        "Broadway": 9,
+        "Broome Street": 14
+      },
+      "countSource": "https://sohobroadway.org/wp-content/uploads/2018/08/LPC-SoHo-CastIron-Historic-District-Designation-Report_1973.pdf#page=51",
+      "observed": "Pale warm grey cast iron. Full semicircular window arches on four upper stories; slim column pairs frame arches; small balustrades beneath windows. Strong horizontal bands and bracketed projecting cornice. Broad ground-floor glass openings between tall columns. Cream metal fire escape on Broome near Broadway corner. Cylindrical dark rooftop water tank toward Broome side.",
+      "refs": [
+        {
+          "local": "haughwout-south.jpg",
+          "file": "https://upload.wikimedia.org/wikipedia/commons/0/0e/Haughwout_Building_from_south.jpg",
+          "page": "https://commons.wikimedia.org/wiki/File:Haughwout_Building_from_south.jpg",
+          "author": "Beyond My Ken",
+          "license": "CC BY-SA 4.0",
+          "date": "2011-03-03",
+          "url": "./assets/references/haughwout-south.jpg",
+          "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/"
+        }
+      ],
+      "bin": "1007227",
+      "surveyId": "gml_36RR44T200N50HUG554DVCCIJMVV8TFINLI8",
+      "anchor": {
+        "x": 169.835,
+        "z": 188.186
+      },
+      "matchingSource": "NYC BIN identifier retained in OSM extract and NYC CityGML survey"
+    },
+    {
+      "id": "king-greene",
+      "address": "72-76 Greene Street",
+      "stories": 5,
+      "bays": {
+        "Greene Street": 10
+      },
+      "countSource": "https://sohobroadway.org/wp-content/uploads/2018/08/LPC-SoHo-CastIron-Historic-District-Designation-Report_1973.pdf#page=105",
+      "observed": "Cream/ivory facade, five stories. Projecting central columned section with large sculpted capitals and ledges at each floor, rising to pediment at roof. Small broken triangular pediment over main ground entrance. Flat/rusticated side pilasters; tall windows with shallow curved corners rather than full semicircles. Paired ivory fire escape stacks on each side of center. Cornice with closely spaced rectangular brackets.",
+      "refs": [
+        {
+          "local": "72-greene.jpg",
+          "file": "https://upload.wikimedia.org/wikipedia/commons/8/89/72_Greene_Street_from_north.jpg",
+          "page": "https://commons.wikimedia.org/wiki/File:72_Greene_Street_from_north.jpg",
+          "author": "Beyond My Ken",
+          "license": "CC BY-SA 4.0",
+          "date": "2012-06-30",
+          "url": "./assets/references/72-greene.jpg",
+          "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/"
+        }
+      ],
+      "bin": "1079933"
+    },
+    {
+      "id": "judd-spring",
+      "address": "101 Spring Street",
+      "stories": 5,
+      "bays": {
+        "Mercer Street": 10,
+        "Spring Street": 3
+      },
+      "countSource": "https://www.aro.net/adolf-loos-donald-judd-and-101-spring-street-lecture-2011/",
+      "observed": "Medium cool grey cast iron. Extremely large windows; short elevation three broad bays, long elevation ten. Broad rectangular glass openings with slightly rounded upper corners; thinner columns/pilasters than neighboring building. Horizontal cornices project at every floor. Dark grey fire escape on long Mercer elevation close to Spring corner, spans roughly 2-3 bays. Heavy flat bracketed roof cornice.",
+      "refs": [
+        {
+          "local": "101-spring.jpg",
+          "file": "https://upload.wikimedia.org/wikipedia/commons/9/90/101_Spring_Street_01.JPG",
+          "page": "https://commons.wikimedia.org/wiki/File:101_Spring_Street_01.JPG",
+          "author": "Elisa.rolle",
+          "license": "CC BY-SA 4.0",
+          "date": "2014-08-15",
+          "url": "./assets/references/101-spring.jpg",
+          "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/"
+        }
+      ],
+      "bin": "1007585",
+      "surveyId": "gml_C71MDJS5PY5KAF0S9ZUJH7DOJ0Z7RVXYGAXJ",
+      "anchor": {
+        "x": 178.835,
+        "z": -1.333
+      },
+      "matchingSource": "NYC BIN identifier retained in OSM extract and NYC CityGML survey"
+    },
+    {
+      "id": "gunther",
+      "address": "469-475 Broome Street / 55 Greene Street",
+      "stories": 6,
+      "bays": {
+        "Broome Street": 11,
+        "Greene Street": 6
+      },
+      "countSource": "https://sohobroadway.org/wp-content/uploads/2018/08/LPC-SoHo-CastIron-Historic-District-Designation-Report_1973.pdf#page=69",
+      "observed": "Warm off-white six-story facade. Distinct curved corner bay with one window on each upper floor. Heavy horizontal projecting cornices follow curved corner. Mostly rectangular windows with softened upper corners, not full arches. Rusticated end/corner pilasters. Balustrade below second-story windows. Corner sculpted name cartouche Gunther Building above second floor. Cream fire escape on Broome mid-facade. Black/charcoal window framing.",
+      "refs": [
+        {
+          "local": "gunther.jpg",
+          "file": "https://live.staticflickr.com/3755/12668867454_363a8c7779_o.jpg",
+          "page": "https://commons.wikimedia.org/wiki/File:Gunther_Building_(12668867454).jpg",
+          "author": "Paul Sableman",
+          "license": "CC BY 2.0",
+          "date": "2014-02-18",
+          "url": "./assets/references/gunther.jpg",
+          "licenseUrl": "https://creativecommons.org/licenses/by/2.0/"
+        }
+      ],
+      "bin": "1007078",
+      "surveyId": "gml_KDID059A17H1JX4P31CDL3HCRFL6AHFTS3Y4",
+      "anchor": {
+        "x": -30.183,
+        "z": 120.637
+      },
+      "matchingSource": "NYC BIN identifier retained in OSM extract and NYC CityGML survey"
+    },
+    {
+      "id": "queen-greene",
+      "address": "28-30 Greene Street",
+      "stories": 6,
+      "bays": {
+        "Greene Street": 6
+      },
+      "countSource": "https://sohobroadway.org/wp-content/uploads/2018/08/LPC-SoHo-CastIron-Historic-District-Designation-Report_1973.pdf#page=98",
+      "observed": "Cool grey iron facade. Five main wall stories plus dark grey mansard attic/dormer story. Six bays, middle pair projects forward. Tall rectangular windows with shallow segmental arches at top, slim round columns with decorated capitals. Strong ledges at every floor. Mansard has central double dormer and flanking single dormers with elaborate pediments. Broad raised ground-floor iron steps. No fire escape across primary facade in inspected photos.",
+      "refs": [
+        {
+          "local": "28-30-greene.jpg",
+          "file": "https://upload.wikimedia.org/wikipedia/commons/2/26/28-31_Greene_Street.JPG",
+          "page": "https://commons.wikimedia.org/wiki/File:28-31_Greene_Street.JPG",
+          "author": "Elisa.rolle",
+          "license": "CC BY-SA 4.0",
+          "date": "2014-08-15",
+          "url": "./assets/references/28-30-greene.jpg",
+          "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/"
+        }
+      ],
+      "bin": "1002991"
+    }
+  ]
+}

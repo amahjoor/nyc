@@ -4,13 +4,16 @@ import { Simulation } from './simulation.js';
 import { Input } from './input.js';
 import { HUD } from './hud.js';
 import { CityAudio } from './audio.js';
+import { applySurvey } from './survey-city.js';
+import { loadOrthophoto } from './orthophoto.js';
 
 const $ = id => document.getElementById(id);
 const clamp = (n,a,b) => Math.max(a,Math.min(b,n));
 const angleDifference = (a,b) => Math.atan2(Math.sin(a-b),Math.cos(a-b));
 const SAVE_KEY = 'nyc-after-hours-v1';
 let sim, city, renderer, scene, camera, world, hud, avatar, marker, markerDiamond, enterHint;
-let started=false, paused=false, highQuality=false, farCamera=false, savedEarnings='';
+let started=false, paused=false, highQuality=false, farCamera=false, aerialView=false, savedEarnings='';
+let survey, imageryLoaded=false, pausedBeforeSources=false;
 let yaw=0, pitch=.38, lookIdle=0, elapsed=0, lastFrame=0, hudTime=0, qualityTimer=0, slowFrames=0;
 const carModels = new Map(), pedestrians=[];
 const audio = new CityAudio();
@@ -22,6 +25,7 @@ function announce(text) { if(sim){sim.notice=text;sim.noticeTime=4;} }
 function action(name) {
   if(!sim)return;
   if(name==='pause') { if(started)togglePause();return; }
+  if(name==='view') { aerialView=!aerialView;$('view-button').textContent=aerialView?'STREET CAMERA':'AERIAL VIEW';return; }
   if(!started||paused)return;
   if(name==='interact')sim.interact();
   if(name==='job')sim.startMission();
@@ -34,7 +38,7 @@ function togglePause(force) {
   if(!started)return;
   paused=force??!paused;
   input.clear();
-  if(paused && !$('pause-dialog').open && !$('help-dialog').open)$('pause-dialog').showModal();
+  if(paused && !$('pause-dialog').open && !$('help-dialog').open && !$('sources-dialog').open)$('pause-dialog').showModal();
   if(!paused&&$('pause-dialog').open)$('pause-dialog').close();
 }
 
@@ -54,6 +58,9 @@ $('sound-button').addEventListener('click',async()=>{
 $('quality-button').addEventListener('click',()=>{highQuality=!highQuality;applyQuality();});
 $('help-button').addEventListener('click',()=>{if(started){paused=true;input.clear();}$('help-dialog').showModal();});
 $('help-dialog').addEventListener('close',()=>{if(started)paused=false;input.clear();});
+$('view-button').addEventListener('click',()=>action('view'));
+$('sources-button').addEventListener('click',()=>{pausedBeforeSources=paused;if(started)paused=true;input.clear();$('sources-dialog').showModal();});
+$('sources-dialog').addEventListener('close',()=>{paused=pausedBeforeSources;input.clear();});
 $('pause-dialog').addEventListener('cancel',e=>{e.preventDefault();togglePause(false);});
 $('resume-button').addEventListener('click',()=>togglePause(false));
 $('recover-button').addEventListener('click',()=>{togglePause(false);action('recover');});
@@ -142,9 +149,6 @@ function syncScene(dt,controls) {
     mesh.visible=Math.hypot(car.x-p.x,car.z-p.z)<230;
     mesh.position.set(car.x,.025,car.z);mesh.rotation.y=car.angle;
     if(car.id===p.vehicleId){
-      const road=sim.getStreet();
-      const rough=/Greene|Wooster|Crosby/.test(road)&&Math.abs(car.speed)>1;
-      mesh.position.y+=rough?Math.sin(elapsed*55)*Math.min(.026,Math.abs(car.speed)*.0015):0;
       mesh.rotation.z=THREE.MathUtils.damp(mesh.rotation.z,-controls.turn*Math.min(Math.abs(car.speed)*.0019,.045),7,dt);
     }else mesh.rotation.z=0;
     for(const wheel of mesh.userData.wheels||[])if(wheel?.rotation)wheel.rotation.x-=car.speed*dt/.35;
@@ -170,6 +174,12 @@ function syncScene(dt,controls) {
 
 function updateCamera(dt) {
   const p=sim.player,driving=p.mode==='drive';
+  if(aerialView||!started){
+    // The overview looks across the same surveyed buildings used at street level.
+    desiredCamera.set(p.x-95,240,p.z+180);
+    camera.position.lerp(desiredCamera,1-Math.exp(-dt*4));
+    camera.lookAt(p.x,0,p.z);camera.fov=52;camera.updateProjectionMatrix();return;
+  }
   const look=input.lookDelta,vertical=input.lookVertical;input.lookDelta=0;input.lookVertical=0;
   yaw+=look;pitch=clamp(pitch+vertical,.17,.85);lookIdle=look||vertical?0:lookIdle+dt;
   if(!started){yaw=p.angle+Math.sin(elapsed*.12)*.13;pitch=.48;}
@@ -216,24 +226,29 @@ function frame(now) {
 }
 
 async function boot() {
-  const response=await fetch('./city.json');if(!response.ok)throw new Error('The city data could not load. Reload to try again.');city=await response.json();
-  $('load-text').textContent='OPENING SOHO…';
+  const loadData=async file=>{const response=await fetch('./'+file);if(!response.ok)throw new Error('The city data could not load. Reload to try again.');return response.json();};
+  const [osmCity, surveyData, profiles, ortho]=await Promise.all(['city.json','survey.json','facade-profiles.json','ortho.json'].map(loadData));
+  survey=surveyData;city=applySurvey(osmCity,survey);
+  $('load-text').textContent='LOADING NYC AERIALS…';
   renderer=new THREE.WebGLRenderer({canvas,antialias:true,powerPreference:'high-performance'});
   renderer.outputColorSpace=THREE.SRGBColorSpace;renderer.toneMapping=THREE.ACESFilmicToneMapping;renderer.toneMappingExposure=1.15;
   renderer.shadowMap.type=THREE.PCFSoftShadowMap;
-  scene=new THREE.Scene();scene.background=new THREE.Color('#b6ac9e');scene.fog=new THREE.FogExp2('#b6ac9e',.0032);
+  scene=new THREE.Scene();scene.background=new THREE.Color('#bbcbd3');scene.fog=new THREE.FogExp2('#bbcbd3',.0011);
   camera=new THREE.PerspectiveCamera(57,innerWidth/innerHeight,.15,1600);
-  const sky=new THREE.HemisphereLight(0xe7edf0,0x807566,2.4);scene.add(sky);
-  const sun=new THREE.DirectionalLight(0xffc08a,3.5);sun.position.set(-160,210,90);sun.castShadow=true;
+  const sky=new THREE.HemisphereLight(0xe7edf0,0x8a8580,2.1);scene.add(sky);
+  const sun=new THREE.DirectionalLight(0xfff0db,2.2);sun.position.set(-160,210,90);sun.castShadow=true;
   sun.shadow.mapSize.set(2048,2048);sun.shadow.camera.left=-160;sun.shadow.camera.right=160;sun.shadow.camera.top=160;sun.shadow.camera.bottom=-160;sun.shadow.camera.near=1;sun.shadow.camera.far=550;sun.shadow.bias=-.001;sun.shadow.normalBias=.1;scene.add(sun);scene.add(sun.target);
   sim=new Simulation(city);restoreProgress();yaw=sim.player.angle;
-  world=createWorld(city);scene.add(world.group);
+  let imagery={};
+  try{imagery=await loadOrthophoto(ortho,renderer.capabilities?.maxTextureSize||4096);imageryLoaded=true;}
+  catch(error){console.warn(error);$('imagery-status').textContent='Aerial imagery could not load. The surveyed building model is available; reload to retry imagery.';}
+  world=createWorld(city,survey,{...imagery,profiles});scene.add(world.group);
   avatar=createPerson(0xd7774e);scene.add(avatar);marker=createMissionMarker();enterHint=createEnterHint();
   populatePedestrians();hud=new HUD(city);applyQuality();
-  camera.position.set(sim.player.x-Math.sin(yaw)*18,11,sim.player.z-Math.cos(yaw)*18);
+  camera.position.set(sim.player.x-95,240,sim.player.z+180);
   $('start-button').disabled=false;$('load-text').textContent='HIT THE STREETS';
   // This read-only diagnostic surface helps inspect runtime state during QA.
-  window.nycGame={getState:()=>({player:{...sim.player},heat:sim.heat,health:sim.health,mission:{...sim.mission},cash:sim.cash,deliveries:sim.deliveries,cars:sim.cars.length,buildings:city.buildings.length,drawCalls:renderer.info.render.calls,triangles:renderer.info.render.triangles,started,paused})};
+  window.nycGame={getState:()=>({player:{...sim.player},heat:sim.heat,health:sim.health,mission:{...sim.mission},cash:sim.cash,deliveries:sim.deliveries,cars:sim.cars.length,buildings:city.buildings.length,surveyBuildings:survey.buildings.length,imageryLoaded,aerialView,drawCalls:renderer.info.render.calls,triangles:renderer.info.render.triangles,started,paused})};
   requestAnimationFrame(frame);
 }
 boot().catch(error=>{

@@ -8,10 +8,15 @@ import { Simulation } from '../dist/simulation.js';
 import { Input } from '../dist/input.js';
 import { HUD } from '../dist/hud.js';
 import { CityAudio } from '../dist/audio.js';
+import { applySurvey } from '../dist/survey-city.js';
+import { loadOrthophoto } from '../dist/orthophoto.js';
 
 // This is application integration QA, not a browser/GPU rendering test. The
 // actual city geometry, physics, input and HUD run; browser primitives are fake.
 const city = JSON.parse(readFileSync(new URL('../dist/city.json', import.meta.url), 'utf8'));
+const survey = JSON.parse(readFileSync(new URL('../dist/survey.json', import.meta.url), 'utf8'));
+const profiles = JSON.parse(readFileSync(new URL('../dist/facade-profiles.json', import.meta.url), 'utf8'));
+const ortho = JSON.parse(readFileSync(new URL('../dist/ortho.json', import.meta.url), 'utf8'));
 const html = readFileSync(new URL('../dist/index.html', import.meta.url), 'utf8');
 const main = readFileSync(new URL('../dist/main.js', import.meta.url), 'utf8');
 
@@ -30,7 +35,7 @@ class EventTarget {
 
 function canvasContext() {
   const context = {};
-  for (const method of ['fillRect', 'strokeRect', 'clearRect', 'beginPath', 'closePath', 'moveTo', 'lineTo', 'roundRect', 'arc', 'fill', 'stroke', 'fillText', 'save', 'restore', 'translate', 'rotate', 'setLineDash']) {
+  for (const method of ['quadraticCurveTo', 'drawImage', 'fillRect', 'strokeRect', 'clearRect', 'beginPath', 'closePath', 'moveTo', 'lineTo', 'roundRect', 'arc', 'fill', 'stroke', 'fillText', 'save', 'restore', 'translate', 'rotate', 'setLineDash']) {
     context[method] = () => {};
   }
   context.createLinearGradient = () => ({ addColorStop() {} });
@@ -97,7 +102,7 @@ function makeDocument() {
   return { document, elements };
 }
 
-async function bootHarness({ stored = null, unavailableStorage = false, fetchOK = true } = {}) {
+async function bootHarness({ stored = null, unavailableStorage = false, fetchOK = true, imageryOK = true } = {}) {
   const { document, elements } = makeDocument();
   const window = new EventTarget();
   const pads = [];
@@ -135,18 +140,21 @@ async function bootHarness({ stored = null, unavailableStorage = false, fetchOK 
     }
   }
   const navigator = { getGamepads: () => pads };
-  const globals = { document, window, navigator };
+  class ImageStub {
+    set src(url) { assert.ok(url.startsWith('./assets/ortho/'));queueMicrotask(()=>imageryOK?this.onload():this.onerror()); }
+  }
+  const globals = { document, window, navigator, Image: ImageStub };
   const original = new Map(Object.keys(globals).map(key => [key, Object.getOwnPropertyDescriptor(globalThis, key)]));
   for (const [key, value] of Object.entries(globals)) Object.defineProperty(globalThis, key, { value, configurable: true });
   const context = vm.createContext({
     ...globals,
     THREE: { ...THREE, WebGLRenderer: RendererStub },
-    createWorld, createCar, createPerson, Simulation, Input, HUD, CityAudio,
+    createWorld, createCar, createPerson, Simulation, Input, HUD, CityAudio, applySurvey, loadOrthophoto,
     console: { error: error => errors.push(error), warn: () => {}, log: () => {} },
     matchMedia: () => ({ matches: false }),
     innerWidth: 1440, innerHeight: 900, devicePixelRatio: 2,
     requestAnimationFrame: callback => frames.push(callback),
-    fetch: async () => ({ ok: fetchOK, json: async () => city }),
+    fetch: async url => ({ ok: fetchOK, json: async () => ({'./city.json':city,'./survey.json':survey,'./facade-profiles.json':profiles,'./ortho.json':ortho})[url] }),
     localStorage: {
       getItem: key => { if (unavailableStorage) throw new Error('Storage disabled'); return storage.get(key) ?? null; },
       setItem: (key, value) => { if (unavailableStorage) throw new Error('Storage disabled'); storage.set(key, value); },
@@ -185,7 +193,9 @@ test('real city boots, walks, enters a cab, delivers, saves and pauses through p
   try {
     assert.equal(app.errors.length, 0, app.errors[0]?.stack);
     assert.equal(app.elements.get('start-button').disabled, false);
-    assert.equal(app.state().buildings, city.buildings.length);
+    assert.equal(app.state().buildings, applySurvey(city,survey).buildings.length);
+    assert.equal(app.state().surveyBuildings, survey.buildings.length);
+    assert.equal(app.state().imageryLoaded, true);
     assert.equal(app.state().cars, 16);
     assert.equal(app.state().cash, 225);
     app.frames(2);
@@ -193,6 +203,12 @@ test('real city boots, walks, enters a cab, delivers, saves and pauses through p
     assert.equal(app.state().started, true);
     assert.equal(app.elements.get('intro').hidden, true);
     assert.equal(app.elements.get('world').focused, true);
+    app.key('KeyV');app.key('KeyV',false);app.frames(2);
+    assert.equal(app.state().aerialView,true);
+    app.click('view-button');assert.equal(app.state().aerialView,false);
+    app.click('sources-button');assert.equal(app.state().paused,true);
+    assert.equal(app.elements.get('sources-dialog').open,true);
+    app.elements.get('sources-dialog').close();assert.equal(app.state().paused,false);
     const initial = app.state().player;
     app.key('KeyW'); app.frames(12); app.key('KeyW', false);
     const walked = app.state().player;
@@ -283,5 +299,17 @@ test('a failed city request displays the loading error and keeps play disabled',
     assert.equal(app.elements.get('load-error').hidden, false);
     assert.match(app.elements.get('load-error').textContent, /city data could not load/);
     assert.equal(app.window.nycGame, undefined);
+  } finally { app.close(); }
+});
+
+test('failed aerial images retain playable surveyed geometry and disclose missing imagery', async () => {
+  const app = await bootHarness({ imageryOK: false });
+  try {
+    assert.equal(app.errors.length, 0, app.errors[0]?.stack);
+    assert.equal(app.state().imageryLoaded, false);
+    assert.match(app.elements.get('imagery-status').textContent,/could not load/);
+    assert.equal(app.elements.get('start-button').disabled,false);
+    app.click('start-button');app.frames(2);
+    assert.equal(app.state().started,true);
   } finally { app.close(); }
 });

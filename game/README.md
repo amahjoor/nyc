@@ -1,6 +1,6 @@
 # NYC After Hours
 
-A playable browser prototype set in a roughly 590 × 556 metre slice of SoHo. Explore on foot, enter a yellow cab or another car, take timed delivery jobs, and escape police attention after reckless driving. Original procedural artwork sits on real OpenStreetMap streets and building footprints.
+A playable browser prototype set in a roughly 590 × 556 metre slice of SoHo. Explore on foot, enter a yellow cab or another car, take timed delivery jobs, and escape police attention after reckless driving. The city now uses NYC’s actual surveyed 3D building geometry and georeferenced aerial photographs, with OpenStreetMap roads.
 
 ## Play locally
 
@@ -27,44 +27,62 @@ Click **Hit the streets**. Press **E** to enter the yellow taxi ahead of you, th
 | Expand map | M | View / Back |
 | Pause | Escape | Start |
 | Change chase camera | C | |
+| Street / aerial view | V | |
 | Horn | H | |
 | Recover to starting street | R | |
 
-## Scope and behavior
+## City coverage
 
-- Real SoHo streets and 594 building footprints; original generated facades, signage, cars, street details and sound.
-- On-foot movement and arcade vehicle handling with fixed-step physics, building collisions, traffic, police pursuit and a repeatable delivery loop.
-- Local minimap, destination markers, saved earnings, graphics quality controls and pause menu.
-- This is a neighborhood prototype. Building interiors, combat, multiplayer, a campaign and a Steam executable are future work.
+The playable SoHo rectangle contains 587 buildings from NYC’s official 3D survey. The rendered surroundings contain 1,596 surveyed buildings in total, with 94,532 source triangles. Surveyed walls, roof setbacks and courtyard holes replace the previous invented architecture. Collision and the minimap use the same surveyed ground polygons.
 
-Police heat rises after forceful collisions and decays after escaping patrol sight. Getting caught or wrecking the car recovers the player and can charge a fine. Map edges are prototype boundaries. Street widths and heights without source measurements are estimated for playability. Pedestrians are decorative and have no combat behavior.
+The ground and roofs use NYC’s 2024 orthophotography, geographically aligned with the 3D model. Use **V** or **Aerial view** to see the neighborhood from above. **Map sources / Real NYC** opens the imagery dates, limitations and landmark reference photographs.
 
-## Data and references
+Five landmark facades are matched by exact NYC BIN: Haughwout, 101 Spring / Judd, Gunther, King of Greene and Queen of Greene. Their window counts and simplified materials follow cited architectural surveys and inspected photographs. Other walls remain neutral and untextured. The old fictional shop labels, random rooftop props, fabricated skyline and street-name-based cobblestone assumptions are removed.
 
-`data/soho.osm` is the OSM XML snapshot downloaded from:
+The game retains walking, arcade driving, building collisions, traffic, police pursuit and repeatable delivery jobs. Map edges bound this neighborhood prototype. Interiors, combat, multiplayer, a campaign and a Steam executable remain future work. Cars, people and missions are game elements, not surveyed objects.
 
-https://api.openstreetmap.org/api/0.6/map?bbox=-74.005,40.721,-73.998,40.726
+## Geographic accuracy and limits
 
-The converter keeps street centerlines and building polygons, projects them into local metre coordinates, and emits `dist/city.json`. Most building heights use OSM height tags; each building carries `heightSource` and `heightEstimated`. Courtyard holes are currently filled in the simplified geometry. Facade materials and street furniture are artistic interpretations, not surveyed features. Rebuild offline:
+- The building model represents the **2014 aerial survey**, published in 2016. It preserves measured volumes, not every architectural ornament.
+- Aerial photographs were captured **March 14–24, 2024**. Redeveloped buildings can differ from the older geometry. Shadows, painted road markings and captured parked vehicles are flat photographic details.
+- The game flattens each building’s ground elevation independently. Original absolute elevations remain in `survey.json`; the current driving plane does not reproduce the roughly 10 m terrain variation.
+- OpenStreetMap provides road centerlines, names and direction. Lane widths and traffic behavior are simplified. This is a dated reconstruction, not live Street View or a complete photorealistic city scan.
+
+## Data and reproducible pipeline
+
+| Input | Local source / derived artifact | Provenance |
+| --- | --- | --- |
+| OSM streets | `data/soho.osm` → `dist/city.json` | [OpenStreetMap](https://api.openstreetmap.org/api/0.6/map?bbox=-74.005,40.721,-73.998,40.726), © contributors, [ODbL](https://www.openstreetmap.org/copyright) |
+| Surveyed 3D buildings | `data/soho-survey.gml.gz` → `dist/survey.json` | [NYC OTI 3D Building Model](https://github.com/CityOfNewYork/nyc-geo-metadata/blob/main/Metadata/Metadata_3DBuildingModel.md), [NYC Open Data terms](https://cityofnewyork.github.io/opendatatsm/publicpolicies.html) |
+| Aerial images | `dist/assets/ortho/` + `dist/ortho.json` | NYC OTI / New York State, [2024 imagery metadata](https://github.com/CityOfNewYork/nyc-geo-metadata/blob/main/Metadata/Metadata_AerialImagery.md), [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/) |
+| Facade photographs | `dist/assets/references/` + `dist/facade-profiles.json` | Per-photo author, license and original URL in the manifest and in-game sources panel |
+
+CityGML comes from development area DA12 in the [official archive](https://maps.nyc.gov/download/3dmodel/DA_WISE_GML.zip). Its EPSG:2263 coordinates use US survey feet. The importer converts them into the game’s east-positive X, south-positive Z metre coordinates and triangulates surfaces while preserving holes. The bundled extract rebuilds the geometry offline. Source IDs and elevations remain available for audit.
+
+The imagery importer downloads unchanged public map tiles and records each tile’s bounds and SHA-256. The browser assembles them into a north-up texture atlas, then projects it onto the ground and surveyed roof surfaces. The bounded extract is about 0.45 metres per pixel. No Google Maps API key is needed for these bundled open datasets.
+
+Rebuild from `game/`:
 
 ```sh
 python3 scripts/build-city.py
+python3 -m venv /tmp/nyc-survey-venv
+/tmp/nyc-survey-venv/bin/pip install -r scripts/requirements-survey.txt
+/tmp/nyc-survey-venv/bin/python scripts/import-survey.py
+python3 scripts/import-ortho.py
 ```
 
-Map data © OpenStreetMap contributors, licensed under [ODbL 1.0](https://www.openstreetmap.org/copyright). The raw snapshot and derived city database are provided in this source checkout; the browser download at `city.json` also exposes the derived database. Retain attribution and the applicable ODbL database terms when redistributing. ODbL does not license Google imagery.
+Existing aerial tiles are reused; missing tiles require network access. All reference JPEGs are unchanged. Their individual CC BY 2.0 or CC BY-SA 4.0 attribution is retained. The source-based facade interpretations are also offered under CC BY-SA 4.0 with the cited photo credits. All five photographs were inspected during this build; no live Google Street View session was used.
 
-The earlier Street View scouting notebook remains in the parent project. This game does not load or contain Google imagery. No live Street View inspection was completed during this build because the browser connection was unavailable. The current artwork is procedural and has not been certified against street-level photography. The distant skyline is a stylized backdrop rather than additional playable geography.
-
-Three.js 0.180.0 is vendored in `dist/vendor`, with its MIT license. There are no third-party models, music recordings or texture downloads. All visible shop names are fictional art labels.
+The earlier scouting notebook remains in the parent project. Three.js 0.180.0 is vendored in `dist/vendor` with its MIT license. OSM height estimates remain in the intermediate map file, but the renderer and collisions use `survey.json` exclusively for buildings.
 
 ## Verification
 
 ```sh
 npm run check
 npm test
-python3 -m unittest discover -s tests -p 'test_*.py' -v
+/tmp/nyc-survey-venv/bin/python -m unittest discover -s tests -p 'test_*.py' -v
 ```
 
-The simulation tests include variable display frame rates, collision tunneling, car entry/exit, mission rewards, police escape and sustained traffic on the real map. Data tests check projection, safe connected mission points and source provenance. Integration and geometry tests use mocked DOM/canvas/WebGL surfaces; they do not verify real GPU rendering or browser frame rate.
+The simulation tests include variable display frame rates, collision tunneling, car entry/exit, mission rewards, police escape and sustained traffic on the real map. Data tests check coordinate projection, triangulation with holes, source IDs, tile coverage, image checksums and safe connected mission points. The importer tests require the optional survey dependencies; plain Python runs artifact checks and skips conversion tests when they are absent. Integration and geometry tests use mocked DOM/canvas/WebGL surfaces; they do not verify real GPU rendering or browser frame rate.
 
 The render and simulation code are separate ES modules. A later Steam build could package a desktop runtime or port the simulation and geographic pipeline into a native game engine; controller support here is an initial implementation, not Steam Deck certification.

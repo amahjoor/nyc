@@ -62,7 +62,11 @@ export class HUD {
     c.fillStyle='#465151';
     for(const b of buildings) {
       if(!b.polygon.length)continue;
-      c.beginPath(); b.polygon.forEach(([x,z],i)=>{const [px,py]=xy(x,z);i?c.lineTo(px,py):c.moveTo(px,py);}); c.closePath(); c.fill();
+      c.beginPath();
+      for(const ring of [b.polygon,...(b.holes||[])]){
+        ring.forEach(([x,z],i)=>{const [px,py]=xy(x,z);i?c.lineTo(px,py):c.moveTo(px,py);});c.closePath();
+      }
+      c.fill('evenodd');
     }
     c.strokeStyle='#6d7772';c.lineCap='round';c.lineJoin='round';
     for(const r of roads) {

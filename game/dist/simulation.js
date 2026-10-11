@@ -31,21 +31,26 @@ function pointInPolygon(x, z, polygon) {
   return inside;
 }
 
-function circlePolygonContact(x, z, radius, polygon) {
+function circlePolygonContact(x, z, radius, polygon, holes = []) {
   let nearest;
   let minimum = Infinity;
-  for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
-    const [ax, az] = polygon[j];
-    const [bx, bz] = polygon[i];
-    const point = closestOnSegment(x, z, ax, az, bx, bz);
-    const d = Math.hypot(x - point.x, z - point.z);
-    if (d < minimum) {
-      minimum = d;
-      nearest = { ...point, ax, az, bx, bz };
+  // Survey ground surfaces include open courtyards. Their inner boundaries are
+  // solid walls, but their interiors must stay walkable regardless of winding.
+  const inSolid = (px, pz) => pointInPolygon(px, pz, polygon) && !holes.some(hole => pointInPolygon(px, pz, hole));
+  for (const ring of [polygon, ...holes]) {
+    for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
+      const [ax, az] = ring[j];
+      const [bx, bz] = ring[i];
+      const point = closestOnSegment(x, z, ax, az, bx, bz);
+      const d = Math.hypot(x - point.x, z - point.z);
+      if (d < minimum) {
+        minimum = d;
+        nearest = { ...point, ax, az, bx, bz };
+      }
     }
   }
   if (!nearest) return null;
-  const inside = pointInPolygon(x, z, polygon);
+  const inside = inSolid(x, z);
   if (!inside && minimum >= radius) return null;
   if (minimum > 0.000001) {
     const sign = inside ? -1 : 1;
@@ -56,7 +61,7 @@ function circlePolygonContact(x, z, radius, polygon) {
   const length = Math.hypot(nearest.bx - nearest.ax, nearest.bz - nearest.az) || 1;
   let nx = (nearest.bz - nearest.az) / length;
   let nz = -(nearest.bx - nearest.ax) / length;
-  if (pointInPolygon(x + nx * 0.01, z + nz * 0.01, polygon)) { nx = -nx; nz = -nz; }
+  if (inSolid(x + nx * 0.01, z + nz * 0.01)) { nx = -nx; nz = -nz; }
   return { nx, nz, depth: radius };
 }
 
@@ -200,7 +205,7 @@ export class Simulation {
         for (const building of this._buildings.get(`${gx},${gz}`) || []) {
           if (checked.has(building)) continue;
           checked.add(building);
-          keep(circlePolygonContact(x, z, radius, building.polygon));
+          keep(circlePolygonContact(x, z, radius, building.polygon, building.holes));
         }
       }
     }

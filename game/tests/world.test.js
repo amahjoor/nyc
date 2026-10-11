@@ -11,6 +11,7 @@ globalThis.document = {
     assert.equal(tag, 'canvas');
     const context = {
       fillRect() {}, strokeRect() {}, beginPath() {}, roundRect() {}, fill() {}, fillText() {},
+      moveTo() {}, lineTo() {}, arc() {}, quadraticCurveTo() {}, closePath() {},
       createLinearGradient() { return { addColorStop() {} }; },
     };
     return { width: 0, height: 0, getContext: () => context };
@@ -18,7 +19,14 @@ globalThis.document = {
 };
 
 const city = JSON.parse(readFileSync(new URL('../dist/city.json', import.meta.url), 'utf8'));
-const world = createWorld(city);
+const survey = JSON.parse(readFileSync(new URL('../dist/survey.json', import.meta.url), 'utf8'));
+const profiles = JSON.parse(readFileSync(new URL('../dist/facade-profiles.json', import.meta.url), 'utf8'));
+const world = createWorld(city, survey, { profiles });
+
+test('official survey is required instead of quietly generating a substitute city', () => {
+  assert.throws(() => createWorld(city), /survey geometry is required/);
+  assert.throws(() => createWorld(city, { ...survey, origin: { lat: 0, lon: 0 } }), /origins do not match/);
+});
 
 test('full SoHo geometry contains only finite coordinates and valid triangle indices', () => {
   let vertices = 0;
@@ -36,12 +44,67 @@ test('full SoHo geometry contains only finite coordinates and valid triangle ind
   assert.ok(vertices > 100_000, 'test the full geographic scene, not an empty placeholder');
 });
 
-test('594 footprints stay within the static scene draw and triangle budgets', () => {
+test('all city triangles come from the official survey, with only a ground-image plane added', () => {
+  let triangles = 0;
+  const sourcePositions = new Set();
+  for (const building of survey.buildings) {
+    for (let i = 0; i < building.vertices.length; i += 3) {
+      sourcePositions.add([Math.fround(building.vertices[i]), Math.fround(building.vertices[i + 1] - building.baseElevation), Math.fround(building.vertices[i + 2])].join(','));
+    }
+  }
+  for (const mesh of world.group.children) {
+    if (!mesh.userData.worldTile) continue;
+    triangles += mesh.geometry.index.count / 3;
+    const p = mesh.geometry.attributes.position;
+    for (let i = 0; i < p.count; i++) assert.ok(sourcePositions.has([p.getX(i), p.getY(i), p.getZ(i)].join(',')), 'every building vertex must retain a surveyed coordinate');
+  }
+  assert.equal(triangles, survey.stats.triangles);
+  assert.equal(world.stats.surveyBuildings, survey.buildings.length);
+  assert.equal(world.stats.playableBuildings, survey.stats.playableBuildings);
+});
+
+test('the complete official survey stays within the static scene rendering budget', () => {
   let triangles = 0;
   for (const mesh of world.group.children) triangles += mesh.geometry.index.count / 3;
   assert.ok(world.group.children.length < 500, `${world.group.children.length} static batches exceeds budget`);
-  assert.ok(triangles < 600_000, `${triangles} static triangles exceeds budget`);
+  assert.ok(triangles < 150_000, `${triangles} static triangles exceeds budget`);
   assert.ok(new Set(world.group.children.map(mesh => mesh.material)).size < 20, 'textures must be shared, not created per building');
+});
+
+test('observed facade styles apply only to buildings with the exact documented NYC identifier', () => {
+  const bound = profiles.profiles.filter(profile => profile.bin || profile.surveyId);
+  assert.equal(world.stats.facadeProfiles.length, bound.length);
+  for (const facade of world.stats.facadeProfiles) {
+    const profile = bound.find(profile => profile.id === facade.profileId);
+    assert.ok(profile);
+    assert.equal(String(facade.bin), String(profile.bin));
+    assert.ok(facade.triangles > 0);
+    assert.ok(facade.reference.startsWith('https://'));
+  }
+  const invalidProfile = { ...bound[0], bin: 'not-a-real-bin', surveyId: 'not-a-real-id' };
+  const subset = { ...survey, buildings: [survey.buildings.find(building => String(building.bin) === String(bound[0].bin))] };
+  const unbound = createWorld(city, subset, { profiles: [invalidProfile] });
+  assert.equal(unbound.stats.facadeProfiles.length, 0, 'a nearby or similarly shaped building must not inherit a facade');
+});
+
+test('orthophoto projects north-up onto surveyed roofs using local meter coordinates', () => {
+  const bounds = { minX: -1000, maxX: 1000, minZ: -1000, maxZ: 1000 };
+  const texture = new THREE.Texture();
+  const subset = { ...survey, buildings: [survey.buildings[0]] };
+  const textured = createWorld(city, subset, { orthoTexture: texture, orthoBounds: bounds });
+  const roofMeshes = textured.group.children.filter(mesh => mesh.userData.worldTile && mesh.material.map === texture);
+  assert.ok(roofMeshes.length > 0);
+  for (const mesh of roofMeshes) {
+    const p = mesh.geometry.attributes.position, uv = mesh.geometry.attributes.uv;
+    for (let i = 0; i < p.count; i++) {
+      assert.ok(Math.abs(uv.getX(i) - (p.getX(i) + 1000) / 2000) < 1e-6);
+      assert.ok(Math.abs(uv.getY(i) - (1000 - p.getZ(i)) / 2000) < 1e-6);
+    }
+  }
+  assert.throws(() => createWorld(city, subset, { orthoTexture: texture }), /valid local meter bounds/);
+  const uncovered = createWorld(city, subset, { orthoTexture: texture, orthoBounds: { minX: 1000, maxX: 1100, minZ: 1000, maxZ: 1100 } });
+  assert.equal(uncovered.stats.imageryUncoveredBuildings, 1);
+  assert.ok(uncovered.group.children.filter(mesh => mesh.userData.worldTile).every(mesh => mesh.material.map !== texture), 'out-of-coverage roofs must not smear unrelated image-edge pixels');
 });
 
 test('distance culling keeps the local city visible and drops distant batches', () => {
