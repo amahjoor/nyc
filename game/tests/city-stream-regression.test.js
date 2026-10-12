@@ -86,6 +86,55 @@ test('decoder rejects non-finite vertex data rather than marking its borough rea
   }
 });
 
+test('a cached survey tile recovers after collision publication fails without a second download or stale error',async()=>{
+  const sample=samples.find(sample=>sample.name==='soho');
+  const node={...sample.node,id:0,children:[],parent:null};
+  const localIndex={...index,root:0,roots:[0],nodes:[node]};
+  const focus={x:node.x,z:node.z};
+  let failPublication=true,downloads=0,published=[];
+  const stream=createCityStream(localIndex,{
+    fetcher:async()=>{downloads++;return{ok:true,arrayBuffer:async()=>sample.buffer.slice(0)};},
+    onCollisionChange:buildings=>{
+      if(failPublication)throw new Error('temporary collision consumer failure');
+      published=buildings;
+    },
+  });
+  try{
+    stream.update(focus,null,{overview:false});
+    await assert.rejects(stream.prepareAt(focus,4),/temporary collision consumer failure/);
+    assert.equal(stream.cache.size,1,'a consumer error must not discard valid measured geometry');
+    assert.equal(stream.isReadyAt(focus.x,focus.z,4),false,'failed publication is not usable collision coverage');
+    assert.match(stream.getStatus().error,/temporary collision consumer failure/);
+    failPublication=false;
+    await stream.prepareAt(focus,4);
+    assert.equal(downloads,1,'recovery republishes the existing geometry instead of downloading it again');
+    assert.equal(stream.isReadyAt(focus.x,focus.z,4),true);
+    assert.ok(published.length>=sample.features);
+    assert.equal(stream.getStatus().error,null,'a successful publication must clear its previous failure');
+  }finally{stream.dispose();}
+});
+
+test('collision recovery preserves an unrelated visible tile network failure',async()=>{
+  const soho=samples.find(sample=>sample.name==='soho'),brooklyn=samples.find(sample=>sample.name==='brooklyn');
+  const nodes=[soho,brooklyn].map((sample,id)=>({...sample.node,id,children:[],parent:null}));
+  const localIndex={...index,root:0,roots:[0,1],nodes};
+  const focus={x:nodes[0].x,z:nodes[0].z};let failPublication=true;
+  const stream=createCityStream(localIndex,{
+    fetcher:async url=>url.includes(`/nodes/${brooklyn.resource}/`)?{ok:false,status:503}:
+      {ok:true,arrayBuffer:async()=>soho.buffer.slice(0)},
+    onCollisionChange:()=>{if(failPublication)throw new Error('temporary collision consumer failure');},
+  });
+  try{
+    stream.update(focus,null,{overview:true});
+    await assert.rejects(stream.prepareAt(focus,4),/temporary collision consumer failure/);
+    for(let attempt=0;attempt<200&&stream.getStatus().loading;attempt++)await new Promise(resolve=>setTimeout(resolve,10));
+    assert.equal(stream.getStatus().loading,0,'the unrelated tile has exhausted its bounded retry attempts');
+    failPublication=false;await stream.prepareAt(focus,4);
+    assert.equal(stream.isReadyAt(focus.x,focus.z,4),true);
+    assert.match(stream.getStatus().error,/503/,'recovering SoHo collisions cannot hide the failed Brooklyn request');
+  }finally{stream.dispose();}
+});
+
 test('failed travel map replacement can roll back without stale car routes or lost progress', () => {
   const roads = [{ id: 'old-street', name: 'Current Street', points: [[0, -300], [0, 300]], width: 14, oneway: true }];
   const sim = new Simulation({ bounds: { minX: -30000, maxX: 30000, minZ: -30000, maxZ: 30000 },

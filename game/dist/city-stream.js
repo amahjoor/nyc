@@ -369,6 +369,10 @@ class CityStream {
     this.collisionRecords = records;
     try {
       this.onCollisionChange([...unique.values()], { readyAtFocus: this.isReadyAt(this.focus.x, this.focus.z, 40), loadedChunks: this.cache.size, collisionChunks: records.size });
+      // A callback failure can outlive its successfully downloaded geometry.
+      // Once those cached walls publish successfully, that old error no longer
+      // describes the current state and must not leave a permanent outage UI.
+      for (const id of records.keys()) this.errors.delete(id);
     } catch (error) {
       this.collisionRecords = previous;
       throw error;
