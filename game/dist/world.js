@@ -1,3 +1,4 @@
+import { updateRide } from './vehicle-presentation.js';
 import * as THREE from './vendor/three.module.min.js';
 
 // The city mesh comes from NYC's measured 2014 CityGML survey. Only the
@@ -363,8 +364,8 @@ export function createCar({ type = 'sedan', color: tint = 0xbcc5bd } = {}) {
   if (police) {
     batch.box(carPaint, 0, 1.73, -0.2, 1.18, 0.09, 0.27, 0x313a3d);
   }
-  // Suspension tilts the body independently so all four tire contacts stay
-  // on the flat driving surface while cornering, accelerating or braking.
+  // The body rides above independent wheel pivots. Each tire can follow a
+  // different measured height while the chassis absorbs terrain changes.
   const chassis = new THREE.Group();
   batch.finish(chassis);group.add(chassis);group.userData.chassis = chassis;
   group.userData.lights = [];
@@ -396,10 +397,12 @@ export function updateCarVisuals(mesh, car, dt) {
   const steering = Number.isFinite(car._steering) ? car._steering : 0;
   const speed = Number.isFinite(car.speed) ? car.speed : 0;
   const seconds = Math.max(0, dt);
-  mesh.position.set(car.x, (Number.isFinite(car.y) ? car.y : 0) + 0.025, car.z);
-  // Ground slope belongs to the whole vehicle; acceleration-induced lean is
-  // applied only to the chassis below, keeping tire contacts on their plane.
-  mesh.rotation.set(car.pitch || 0, car.angle, car.roll || 0, 'YXZ');
+  const previous=mesh.userData.ride;
+  const ride=mesh.userData.ride=updateRide(previous,car,dt);
+  mesh.position.set(car.x,ride.height+0.025,car.z);
+  // A yaw-only root lets each tire follow its own measured contact. Terrain
+  // tilt is damped on the chassis instead of shaking the complete vehicle.
+  mesh.rotation.set(0,car.angle,0,'YXZ');
   // Positive lateral acceleration points along local +X. The body leans
   // outward, even when countersteering against a slide. Route-following NPCs
   // have no tire dynamics, so retain their wheel-angle approximation.
@@ -407,10 +410,16 @@ export function updateCarVisuals(mesh, car, dt) {
   const longitudinal = Number.isFinite(car.longitudinalAcceleration) ? car.longitudinalAcceleration : 0;
   const chassis = mesh.userData.chassis;
   if (chassis) {
-    chassis.rotation.z = THREE.MathUtils.damp(chassis.rotation.z, THREE.MathUtils.clamp(lateral * .0045, -.055, .055), 7, seconds);
-    chassis.rotation.x = THREE.MathUtils.damp(chassis.rotation.x, THREE.MathUtils.clamp(-longitudinal * .002, -.035, .035), 8, seconds);
+    ride.leanRoll = THREE.MathUtils.damp(ride.leanRoll, THREE.MathUtils.clamp(lateral * .0045, -.055, .055), 7, seconds);
+    ride.leanPitch = THREE.MathUtils.damp(ride.leanPitch, THREE.MathUtils.clamp(-longitudinal * .002, -.035, .035), 8, seconds);
+    chassis.rotation.set(ride.pitch+ride.leanPitch,0,ride.roll+ride.leanRoll,'YXZ');
   }
-  for (const wheel of mesh.userData.wheels || []) {
+  for (const [i,wheel] of (mesh.userData.wheels || []).entries()) {
+    const measured=car.wheelHeights?.[i];
+    const height=Number.isFinite(measured)?measured:(Number.isFinite(car.y)?car.y:0)
+      +wheel.position.x*Math.tan(car.roll||0)-wheel.position.z*Math.tan(car.pitch||0);
+    // Counter the body's filtered heave so tires stay at their source height.
+    wheel.position.y=.36+height-ride.height;
     wheel.rotation.y = wheel.userData.front ? steering : 0;
     const roll = wheel.userData.roll;
     if (roll) {

@@ -255,7 +255,24 @@ test('car rendering applies terrain support height and slope independently of bo
   updateCarVisuals(mesh,{x:40,y:25,z:60,angle:.4,pitch:-.12,roll:.08,speed:0,lateralAcceleration:4,longitudinalAcceleration:-5},.2);
   assert.equal(mesh.position.y,25.025);
   assert.equal(mesh.rotation.order,'YXZ');
-  assert.equal(mesh.rotation.x,-.12);assert.equal(mesh.rotation.z,.08);
-  assert.ok(mesh.userData.chassis.rotation.x>0);
-  assert.ok(mesh.userData.chassis.rotation.z>0);
+  assert.equal(mesh.rotation.x,0);assert.equal(mesh.rotation.z,0);
+  assert.ok(mesh.userData.chassis.rotation.x>-.12&&mesh.userData.chassis.rotation.x<0);
+  assert.ok(mesh.userData.chassis.rotation.z>.08);
+});
+
+
+test('visual suspension filters bumps while individual tires retain measured nonplanar contacts', () => {
+  const mesh=createCar(), state={x:0,y:20,z:0,angle:.7,pitch:0,roll:0,speed:10,wheelHeights:[20,20,20,20]};
+  updateCarVisuals(mesh,state,1/60);
+  Object.assign(state,{y:20.12,pitch:.08,roll:-.06,wheelHeights:[20.04,20.20,20.01,20.23]});
+  updateCarVisuals(mesh,state,1/60);mesh.updateMatrixWorld(true);
+  assert.ok(mesh.position.y>20.025&&mesh.position.y<20.145,'body heave is damped');
+  assert.ok(mesh.userData.chassis.rotation.x>0&&mesh.userData.chassis.rotation.x<.08);
+  for(const [i,wheel] of mesh.userData.wheels.entries()){
+    const hub=wheel.getWorldPosition(new THREE.Vector3());
+    assert.ok(Math.abs(hub.y-wheel.userData.radius-.035-state.wheelHeights[i])<1e-8,'body filtering cannot detach a tire');
+  }
+  const pose=mesh.position.clone(), rotation=mesh.userData.chassis.rotation.clone();
+  updateCarVisuals(mesh,state,0);
+  assert.ok(mesh.position.equals(pose)&&mesh.userData.chassis.rotation.equals(rotation));
 });

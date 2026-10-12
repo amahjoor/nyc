@@ -234,7 +234,9 @@ test('streamed bridge levels use the same imagery and retain a fallback while lo
   t.after(()=>detail.dispose());
   const focus={x:5,z:5};detail.update(focus);await tick();detail.update(focus);
   assert.equal(detail.getStatus().transport.surfaces,1,'duplicate tile deck appears once');
-  assert.equal(detail.sampleSurface(5,5,{referenceHeight:8,mode:'drive'}).elevation,8.5);
+  assert.equal(detail.sampleSurface(5,5,{referenceHeight:8.25,mode:'drive'}).elevation,8.5,'a nearly continuous approach can enter the measured deck');
+  assert.equal(detail.sampleSurface(5,5,{referenceHeight:8,mode:'drive'}),null,'a half-meter gap cannot lift ground traffic onto a new deck');
+  assert.equal(detail.sampleSurface(5,5,{referenceHeight:8,mode:'drive',transportId:deck.id}).elevation,8.5,'an existing deck contact keeps its measured level through a slope');
   assert.equal(detail.sampleSurface(5,5,{referenceHeight:0,mode:'drive'}),null,'lower road stays below');
   assert.equal(detail.sampleSurface(5,5),null,'unhinted terrain queries do not choose an overhead deck');
   const transportGroup=detail.group.children.find(group=>group.name==='NYC measured transport decks');

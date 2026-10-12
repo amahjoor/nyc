@@ -1,3 +1,4 @@
+import { updateChaseHeight } from './vehicle-presentation.js';
 import * as THREE from './vendor/three.module.min.js';
 import { createCar, createPerson, updateCarVisuals } from './world.js';
 import { Simulation } from './simulation.js';
@@ -23,6 +24,7 @@ let cityIndex, roadIndex, roadStream, ground, streetDetail, sun, localFog, bootR
 let cityView=false, cityZoom=1, cityOrbit=0, cityFocus=null, roadCell='', roadEpoch=0, roadBusy=false, buildings=[], boroughs=[];
 let landscape=null, landscapeRevision=0, landscapeDirty=false, landscapeManifest=null, reconstructionReview=null, roadReconstructionReview=null, streetManifest=null;
 const terrainHeight=(x,z)=>landscape?.sampleHeight(x,z)??0;
+let chaseHeight=null, chaseEyeOffset=null;
 let yaw=0, pitch=.38, lookIdle=0, elapsed=0, lastFrame=0, hudTime=0, qualityTimer=0, slowFrames=0;
 const carModels = new Map(), pedestrians=[];
 const audio = new CityAudio();
@@ -52,7 +54,7 @@ function action(name) {
     }
   }
   if(name==='job')sim.startMission();
-  if(name==='recover'){sim.reset();yaw=sim.player.angle;aerialTracking=false;chaseLookAhead.set(0,0,0);announce('Recovered to a nearby street. Your next ride is waiting.');}
+  if(name==='recover'){chaseHeight=null;chaseEyeOffset=null;sim.reset();yaw=sim.player.angle;aerialTracking=false;chaseLookAhead.set(0,0,0);announce('Recovered to a nearby street. Your next ride is waiting.');}
   if(name==='map')hud.toggleMap();
   if(name==='camera'){farCamera=!farCamera;announce(farCamera?'Camera: wide chase':'Camera: close chase');}
   if(name==='horn')audio.horn();
@@ -238,6 +240,7 @@ function syncScene(dt,controls) {
 function updateCamera(dt) {
   const p=sim.player,driving=p.mode==='drive';
   if(cityView||!started){
+    chaseHeight=null;chaseEyeOffset=null;
     input.lookVertical=0;cityOrbit+=input.lookDelta;input.lookDelta=0;
     const b=city.bounds,cx=cityFocus?.x??(b.minX+b.maxX)/2,cz=cityFocus?.z??(b.minZ+b.maxZ)/2,span=Math.max(b.maxX-b.minX,b.maxZ-b.minZ);
     desiredCamera.set(cx+Math.sin(cityOrbit-.3)*span*.65*cityZoom,span*.86*cityZoom,cz+Math.cos(cityOrbit-.3)*span*.65*cityZoom);
@@ -245,6 +248,7 @@ function updateCamera(dt) {
   }
   camera.near=.15;camera.far=6500;scene.fog=localFog;
   if(aerialView){
+    chaseHeight=null;chaseEyeOffset=null;
     input.lookDelta=0;input.lookVertical=0;
     cameraTarget.set(p.x,p.y||0,p.z);
     // Move the eye and its target together. Smoothing only the eye while
@@ -295,9 +299,17 @@ function updateCamera(dt) {
   for(let d=1;d<=distance;d+=.6){
     if(sim.isBlocked(p.x-Math.sin(yaw)*d,p.z-Math.cos(yaw)*d,.2,{ignoreWater:true})){safeDistance=Math.max(.9,d-.7);break;}
   }
-  const height=(p.y||0)+1.55+Math.sin(pitch)*safeDistance;
+  const previousHeight=chaseHeight;
+  chaseHeight=updateChaseHeight(chaseHeight,p,dt,driving?'car:'+p.vehicleId:'walk');
+  const eyeOffset=1.55+Math.sin(pitch)*safeDistance;
+  if(chaseHeight!==previousHeight||chaseEyeOffset===null)chaseEyeOffset=eyeOffset;
+  else chaseEyeOffset=THREE.MathUtils.damp(chaseEyeOffset,eyeOffset,safeDistance<3?22:driving?13:8,dt);
+  // Eye and aim share the same smoothed elevation. Filtering only the eye
+  // while looking at raw terrain height makes every bump pitch the camera.
+  const height=chaseHeight.height+chaseEyeOffset;
   desiredCamera.set(p.x-Math.sin(yaw)*safeDistance,height,p.z-Math.cos(yaw)*safeDistance);
   camera.position.lerp(desiredCamera,1-Math.exp(-dt*(safeDistance<3?22:driving?13:8)));
+  camera.position.y=height;
   // A smoothed camera can cut across a corner even when its destination is safe.
   // Clamp inward immediately, then ease back out once the sightline clears.
   const dx=camera.position.x-p.x,dz=camera.position.z-p.z,actualDistance=Math.hypot(dx,dz);
@@ -308,7 +320,7 @@ function updateCamera(dt) {
     }
   }
   camera.position.y=Math.max(camera.position.y,terrainHeight(camera.position.x,camera.position.z)+.6);
-  cameraTarget.set(p.x,(p.y||0)+(driving?1.1:1.45),p.z);
+  cameraTarget.set(p.x,chaseHeight.height+(driving?1.1:1.45),p.z);
   if(driving)cameraTarget.add(chaseLookAhead);
   camera.lookAt(cameraTarget);
   const targetFov=driving?60+Math.min(9,Math.abs(p.speed)*.24):57;
@@ -422,7 +434,7 @@ async function travel(place){
     // Data readiness is a prerequisite for changing the player position.
     sim.setActiveCity({roads,buildings,missionPoints:localDestinations(roads,target)},{spawn:{...target,name:place.name}});
     if(sim.mission.phase==='active'){sim.mission.phase='failed';announce('Travel canceled the active delivery. Your earnings are saved.');}
-    city=sim.city;yaw=sim.player.angle;roadCell='';
+    city=sim.city;yaw=sim.player.angle;roadCell='';chaseHeight=null;chaseEyeOffset=null;
     for(const ped of pedestrians)scene.remove(ped.mesh);pedestrians.length=0;populatePedestrians();
     camera.position.set(sim.player.x-Math.sin(yaw)*12,(sim.player.y||0)+9,sim.player.z-Math.cos(yaw)*12);
     if(!started)$('start-button').click();

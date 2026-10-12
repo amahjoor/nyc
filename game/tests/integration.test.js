@@ -1,3 +1,4 @@
+import { updateChaseHeight } from '../dist/vehicle-presentation.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
@@ -237,7 +238,7 @@ async function bootHarness({ stored = null, displayStored = null, unavailableSto
       assert.equal(fullIndex.stats.buildingFeatures,index.stats.buildingFeatures);
       return createCityStream(geometryIndex,options);
     },
-    createCityGround, worldToGeographic, createRoadStream, nearestStreet, localDestinations, createCityNavigation,
+    updateChaseHeight, createCityGround, worldToGeographic, createRoadStream, nearestStreet, localDestinations, createCityNavigation,
     createStreetDetail:(manifest,options)=>createStreetDetail(manifest,{...options,now:()=>timestamp}),
     Landscape, AbortSignal,
     console: { error: error => errors.push(error), warn: () => {}, log: () => {} },
@@ -1241,6 +1242,26 @@ test('road and bridge destinations use source-backed arrival points and disclose
       assert.equal(app.state().streetDetail.covered,true);
       assert.equal(app.elements.get('transport-travel-button').disabled,false);
     }
+    assert.equal(app.errors.length,0);
+  }finally{app.close();}
+});
+
+test('uneven-road camera uses one elevation anchor without pitching at every bump',async()=>{
+  const app=await bootHarness();
+  try{
+    app.click('start-button');app.click('view-button');app.key('KeyE');
+    const sim=app.simulation();assert.equal(sim.player.mode,'drive');
+    let elevation=10;
+    sim.setActiveCity({sampleSurface:()=>({elevation,normal:{x:0,y:1,z:0}})});
+    app.frames(180);
+    const pitches=[];
+    for(let i=0;i<180;i++){
+      elevation=10+.2*Math.sin(i/60*8*Math.PI*2);app.frames();
+      const direction=new THREE.Vector3(0,0,-1).applyQuaternion(app.camera().quaternion);
+      pitches.push(Math.atan2(direction.y,Math.hypot(direction.x,direction.z)));
+      assert.ok(app.camera().position.y>.6,'terrain clearance remains enforced');
+    }
+    assert.ok(Math.max(...pitches)-Math.min(...pitches)<.0001,'vertical bumps must not nod the whole view');
     assert.equal(app.errors.length,0);
   }finally{app.close();}
 });

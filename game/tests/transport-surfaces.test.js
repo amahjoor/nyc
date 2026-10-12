@@ -40,7 +40,9 @@ test('a deck above a ground road cannot capture its actor or a query without a p
   assert.equal(decks.sampleSurface(10, 5, { referenceHeight: NaN }), null);
   assert.equal(decks.sampleSurface(10, 5, { referenceHeight: 0 }), null);
   assert.equal(decks.sampleSurface(10, 5, { referenceHeight: 8 }), null);
-  assert.equal(decks.sampleSurface(10, 5, { referenceHeight: 7.4 }).elevation, 6);
+  assert.equal(decks.sampleSurface(10, 5, { referenceHeight: 7.4 }), null, 'a nearby road level cannot capture a deck across a 1.4 m gap');
+  assert.equal(decks.sampleSurface(10, 5, { referenceHeight: 6.29 }).elevation, 6);
+  assert.equal(decks.sampleSurface(10, 5, { referenceHeight: 7.4, transportId: 'transport:1:0' }).elevation, 6, 'an actor already on the measured deck retains its level');
   assert.equal(decks.sampleSurface(30, 5, { referenceHeight: 6 }), null);
 });
 
@@ -48,8 +50,10 @@ test('overlapping bridge levels select the closest accessible measured surface',
   const lower = feature(), upper = feature({ id: 'transport:2:0', sourceId: 'survey-2',
     elevations: { polygon: [6.8, 8.8, 8.8, 6.8], holes: [] } });
   const decks = fixture(t, [lower, upper]);
-  assert.equal(decks.sampleSurface(10, 5, { referenceHeight: 6.5 }).transportId, lower.id);
+  assert.equal(decks.sampleSurface(10, 5, { referenceHeight: 6.5 }), null);
+  assert.equal(decks.sampleSurface(10, 5, { referenceHeight: 6.5, transportId: lower.id }).transportId, lower.id);
   assert.equal(decks.sampleSurface(10, 5, { referenceHeight: 7.7 }).transportId, upper.id);
+  assert.equal(decks.sampleSurface(10, 5, { referenceHeight: 7.3, transportId: lower.id }).transportId, lower.id);
 });
 
 test('surveyed concavities and courtyard holes stay open in both the mesh and surface queries', t => {

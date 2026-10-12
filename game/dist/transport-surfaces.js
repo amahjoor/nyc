@@ -3,6 +3,7 @@ import * as THREE from './vendor/three.module.min.js';
 const DECK_TYPES = new Set(['bridge', 'overpass', 'pedestrian bridge']);
 const CELL_SIZE = 64;
 const MAX_LEVEL_CHANGE = 1.5;
+const MAX_ENTRY_CHANGE = .30;
 
 function prepareFeature(feature) {
   if (!feature || feature.kind !== 'transport' || !DECK_TYPES.has(feature.subtype)
@@ -107,7 +108,7 @@ export class TransportSurfaces {
     this.status = { surfaces: accepted.length, triangles: indices.length / 3, rejectedFeatures: source.length - accepted.length };
   }
 
-  sampleSurface(x, z, { referenceHeight, mode = 'walk' } = {}) {
+  sampleSurface(x, z, { referenceHeight, mode = 'walk', transportId = null } = {}) {
     if (this.disposed || ![x, z, referenceHeight].every(Number.isFinite)) return null;
     const candidates = [...(this.cells.get(`${Math.floor(x / CELL_SIZE)},${Math.floor(z / CELL_SIZE)}`) || []), ...this.largeTriangles];
     let best = null, distance = Infinity;
@@ -120,9 +121,13 @@ export class TransportSurfaces {
       const wb = ((c.z - a.z) * (x - c.x) + (a.x - c.x) * (z - c.z)) / denominator, wc = 1 - wa - wb;
       if (Math.min(wa, wb, wc) < -1e-7) continue;
       const elevation = wa * a.y + wb * b.y + wc * c.y, delta = Math.abs(elevation - referenceHeight);
-      // An overhead bridge is not a teleport target. The previous actor height
-      // admits a nearby ramp/deck level while retaining the road below it.
-      if (delta > MAX_LEVEL_CHANGE || delta >= distance) continue;
+      // Enter only a nearly continuous measured approach. Once an actor is
+      // already on a deck, retain that level through ordinary slope changes.
+      // Prefer its current deck over another overlapping span to avoid level
+      // changes caused only by which triangle happens to be closest this tick.
+      const current = triangle.id === transportId, retaining = best?.transportId === transportId;
+      if (delta > (current ? MAX_LEVEL_CHANGE : MAX_ENTRY_CHANGE)
+        || best && (retaining && !current || retaining === current && delta >= distance)) continue;
       distance = delta;
       best = { elevation, normal: { ...triangle.normal }, sourceId: triangle.sourceId,
         transportId: triangle.id, verticalDatum: 'NAVD88', units: 'meters',

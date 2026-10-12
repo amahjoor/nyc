@@ -283,7 +283,7 @@ export class Simulation {
     const target = this._travelSpawn(spawn);
     this.city = { ...this.city, spawn: target };
     this.cars = [];
-    Object.assign(this.player, { x: target.x, z: target.z, y: undefined, angle: target.angle, speed: 0, mode: 'walk', vehicleId: null, velocityX: 0, velocityZ: 0 });
+    Object.assign(this.player, { x: target.x, z: target.z, y: undefined, transportId: null, angle: target.angle, speed: 0, mode: 'walk', vehicleId: null, velocityX: 0, velocityZ: 0 });
     this._seedCars();
     const safe = this._findSafePoint(target.x, target.z, PLAYER_RADIUS);
     Object.assign(this.player, { x: safe.x, z: safe.z });
@@ -355,13 +355,19 @@ export class Simulation {
       const sin = Math.sin(car.angle), cos = Math.cos(car.angle);
       // A new or teleported actor has no previous level. Its first sample is
       // ground-only; carrying an old Y could capture an unrelated overpass.
-      const options = Number.isFinite(car.y) ? { referenceHeight: car.y, mode: 'drive' } : undefined;
+      const options = Number.isFinite(car.y) ? { referenceHeight: car.y, mode: 'drive', transportId: car.transportId } : undefined;
       const center = this._sampleSurface?.(car.x, car.z, options);
+      const wheelOptions = center?.transportId ? { referenceHeight: center.elevation, mode: 'drive', transportId: center.transportId } : undefined;
+      const supported = [];
       const height = (side, along) => {
         const x = car.x + cos * side + sin * along, z = car.z - sin * side + cos * along;
-        const sample = this._sampleSurface?.(x, z, options);
-        if (center?.transportId && sample?.transportId !== center.transportId
-          && Math.abs(finite(sample?.elevation) - center.elevation) > 1.5) {
+        // Pick one level for the entire axle assembly. Independent wheel
+        // capture previously combined a bridge's left side with the lower
+        // road on its right side, producing abrupt 40+ degree body rotations.
+        const sample = this._sampleSurface?.(x, z, wheelOptions);
+        const sameLevel = !center?.transportId || sample?.transportId === center.transportId;
+        supported.push(Boolean(sameLevel && Number.isFinite(sample?.elevation)));
+        if (!sameLevel) {
           // A wheel just beyond a deck edge is unsupported, not resting on
           // the road far below. Retain the chassis support plane under its
           // center instead of averaging two separate road levels together.
@@ -373,14 +379,24 @@ export class Simulation {
         }
         return finite(sample?.elevation);
       };
-      const fl = height(-.90, 1.30), fr = height(.90, 1.30), rl = height(-.90, -1.37), rr = height(.90, -1.37);
+      const rl = height(-.90, -1.37), fl = height(-.90, 1.30), rr = height(.90, -1.37), fr = height(.90, 1.30);
+      car.wheelHeights = [rl, fl, rr, fr];car.wheelSupported = supported;
+      car.supportSurface = center || null;car.transportId = center?.transportId || null;
       car.y = (fl + fr + rl + rr) / 4;
       car.pitch = -Math.atan2((fl + fr - rl - rr) / 2, 2.67);
       car.roll = Math.atan2((fr + rr - fl - rl) / 2, 1.80);
     }
     const vehicle = this.player.mode === 'drive' && this.cars.find(car => car.id === this.player.vehicleId);
-    const options = Number.isFinite(this.player.y) ? { referenceHeight: this.player.y, mode: 'walk' } : undefined;
-    this.player.y = vehicle ? vehicle.y : finite(this._sampleSurface?.(this.player.x, this.player.z, options)?.elevation);
+    const options = Number.isFinite(this.player.y) ? { referenceHeight: this.player.y, mode: 'walk', transportId: this.player.transportId } : undefined;
+    const surface = vehicle ? vehicle.supportSurface : this._sampleSurface?.(this.player.x, this.player.z, options);
+    this.player.y = vehicle ? vehicle.y : finite(surface?.elevation);
+    this.player.transportId = surface?.transportId || null;
+  }
+
+  _unsupportedDeckExit(actor, x, z, mode) {
+    if (!actor?.transportId || !Number.isFinite(actor.y)) return false;
+    const surface = this._sampleSurface?.(x, z, { referenceHeight: actor.y, mode, transportId: actor.transportId });
+    return !Number.isFinite(surface?.elevation) || Math.abs(surface.elevation - actor.y) > 1.5;
   }
 
   _carContact(x, z, angle) {
@@ -408,6 +424,12 @@ export class Simulation {
   }
 
   _resolvePosition(x, z, radius, angle = null, previous = null) {
+    // Vertical falls are not simulated. Stop an actor already on a measured
+    // deck before an unsupported drop instead of snapping it onto a road below.
+    if (previous && this._unsupportedDeckExit(previous, x, z, angle === null ? 'walk' : 'drive')) {
+      const dx = previous.x - x, dz = previous.z - z, length = Math.hypot(dx, dz) || 1;
+      return { x: previous.x, z: previous.z, hit: { kind: 'surface', nx: dx / length, nz: dz / length, depth: 0 } };
+    }
     let hit = null;
     for (let iteration = 0; iteration < 5; iteration++) {
       const contact = angle === null ? this._contact(x, z, radius) : this._carContact(x, z, angle);
@@ -531,7 +553,7 @@ export class Simulation {
     for (const [side, front] of [[-2.2, 0], [2.2, 0], [-2.5, -1.8], [2.5, -1.8], [0, -3.2], [0, 3.2]]) {
       const x = car.x + Math.cos(car.angle) * side + Math.sin(car.angle) * front;
       const z = car.z - Math.sin(car.angle) * side + Math.cos(car.angle) * front;
-      const surface = this._sampleSurface?.(x, z, { referenceHeight: car.y, mode: 'walk' });
+      const surface = this._sampleSurface?.(x, z, { referenceHeight: car.y, mode: 'walk', transportId: car.transportId });
       // Clear horizontal space beside a bridge is not a supported exit. Check
       // the actual walking surface before switching out of the vehicle so a
       // door beyond the deck cannot teleport its passenger to the road below.
@@ -540,7 +562,7 @@ export class Simulation {
       car.controlled = false;
       car.parked = true;
       resetVehicleDynamics(car);
-      Object.assign(player, { x, z, mode: 'walk', vehicleId: null, speed: 0, velocityX: 0, velocityZ: 0 });
+      Object.assign(player, { x, z, mode: 'walk', vehicleId: null, transportId: car.transportId || null, speed: 0, velocityX: 0, velocityZ: 0 });
       this.updateGrounding();
       this._say('On foot. Hold Shift to run. E to get back in.');
       return true;
@@ -582,11 +604,11 @@ export class Simulation {
     if (taxi) {
       const angle = this.city.spawn.angle || 0;
       const recovered = this._resolvePosition(this.city.spawn.x + Math.sin(angle) * 3.8, this.city.spawn.z + Math.cos(angle) * 3.8, CAR_RADIUS, angle);
-      Object.assign(taxi, { x: recovered.x, z: recovered.z, y: undefined, angle, speed: 0, parked: true, controlled: false });
+      Object.assign(taxi, { x: recovered.x, z: recovered.z, y: undefined, transportId: null, angle, speed: 0, parked: true, controlled: false });
       resetVehicleDynamics(taxi);
     }
     const point = this._findSafePoint(this.city.spawn.x, this.city.spawn.z, PLAYER_RADIUS);
-    Object.assign(this.player, { ...point, y: undefined, angle: this.city.spawn.angle || 0, speed: 0, mode: 'walk', vehicleId: null, velocityX: 0, velocityZ: 0 });
+    Object.assign(this.player, { ...point, y: undefined, transportId: null, angle: this.city.spawn.angle || 0, speed: 0, mode: 'walk', vehicleId: null, velocityX: 0, velocityZ: 0 });
     this.updateGrounding();
     this.health = 100;
     this.heat = 0;
@@ -669,20 +691,20 @@ export class Simulation {
     const next = this._resolvePosition(car.x + car.velocityX * dt, car.z + car.velocityZ * dt, CAR_RADIUS, car.angle, car);
     if (next.hit) {
       const approach = -(car.velocityX * next.hit.nx + car.velocityZ * next.hit.nz);
-      const loadingBoundary = next.hit.kind === 'boundary' || next.hit.kind === 'loading' || next.hit.kind === 'water';
+      const loadingBoundary = next.hit.kind === 'boundary' || next.hit.kind === 'loading' || next.hit.kind === 'water' || next.hit.kind === 'surface';
       if (approach > 0.3) {
         // Lateral impacts count too. Loading and geographic limits never cause
         // damage or heat, and must not store motion that launches after loading.
         if (!loadingBoundary) this._impact(approach, 'building');
         else if (this.elapsed - this._lastBoundaryNotice > 6) {
           this._lastBoundaryNotice = this.elapsed;
-          this._say(next.hit.kind === 'loading' ? 'Loading the next streets. Please wait.' : next.hit.kind === 'water' ? 'Water ahead. Stay on the mapped shore or road.' : 'New York City map edge.', 4);
+          this._say(next.hit.kind === 'loading' ? 'Loading the next streets. Please wait.' : next.hit.kind === 'water' ? 'Water ahead. Stay on the mapped shore or road.' : next.hit.kind === 'surface' ? 'Deck edge. Stay on the supported road.' : 'New York City map edge.', 4);
         }
       }
       const inward = Math.max(0, approach);
       // Missing coverage rejects the entire pose. Rolling back only position
       // could leave the rotated front or rear capsule inside an unloaded tile.
-      if (next.hit.kind === 'loading') car.angle = previousAngle;
+      if (next.hit.kind === 'loading' || next.hit.kind === 'surface') car.angle = previousAngle;
       stopVehicleRotation(car,
         loadingBoundary ? 0 : car.velocityX + next.hit.nx * inward,
         loadingBoundary ? 0 : car.velocityZ + next.hit.nz * inward);
@@ -706,7 +728,7 @@ export class Simulation {
       if (corrected.hit) {
         // A vehicle can push us against a wall or a streaming limit. Keep the
         // corrected position and velocity consistent within this same tick.
-        if (corrected.hit.kind === 'loading' || corrected.hit.kind === 'boundary' || corrected.hit.kind === 'water') {
+        if (corrected.hit.kind === 'loading' || corrected.hit.kind === 'boundary' || corrected.hit.kind === 'water' || corrected.hit.kind === 'surface') {
           velocityX = 0; velocityZ = 0;
         } else {
           const inward = Math.min(0, velocityX * corrected.hit.nx + velocityZ * corrected.hit.nz);
@@ -768,7 +790,7 @@ export class Simulation {
       const edge = entrances[Math.floor(this._random() * entrances.length)];
       const point = this._lanePoint(edge, clamp(9 / edge.length, 0.15, 0.75));
       if (distance(point, this.player) < 120 || this._carContact(point.x, point.z, edge.angle) || this._nearCar(point.x, point.z, 6, car.id)) continue;
-      Object.assign(car, { x: point.x, z: point.z, y: undefined, angle: edge.angle, speed: car._cruise * 0.6, _edge: edge, _route: [], _stuckTime: 0, _steering: 0, _shiftHold: 0 });
+      Object.assign(car, { x: point.x, z: point.z, y: undefined, transportId: null, angle: edge.angle, speed: car._cruise * 0.6, _edge: edge, _route: [], _stuckTime: 0, _steering: 0, _shiftHold: 0 });
       resetVehicleDynamics(car, car.speed);
       return true;
     }
@@ -831,7 +853,7 @@ export class Simulation {
       // Rejoin the same legal lane when a tight imported corner traps a patrol.
       // Recovery is constrained to a nearby clear point, never through a block.
       const rejoin = this._lanePoint(edge, clamp(projection.t + 3 / edge.length, 0.08, 0.92));
-      if (distance(car, rejoin) < 5 && !this._carContact(rejoin.x, rejoin.z, edge.angle) && !this._nearCar(rejoin.x, rejoin.z, 3, car.id)) {
+      if (distance(car, rejoin) < 5 && !this._unsupportedDeckExit(car, rejoin.x, rejoin.z, 'drive') && !this._carContact(rejoin.x, rejoin.z, edge.angle) && !this._nearCar(rejoin.x, rejoin.z, 3, car.id)) {
         car.x = rejoin.x; car.z = rejoin.z; car.angle = edge.angle;
       }
       car._stuckTime = 0;
