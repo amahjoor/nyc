@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import * as THREE from '../dist/vendor/three.module.min.js';
-import { createWorld, createCar, createPerson } from '../dist/world.js';
+import { createWorld, createCar, createPerson, updateCarVisuals } from '../dist/world.js';
 
 // Geometry can be validated without a GPU. The canvas stand-in only supports
 // procedural texture painting; these checks do not replace browser visual QA.
@@ -156,6 +156,64 @@ test('police flashers can animate independently without changing other cars', ()
   first.userData.lights[0].material.emissiveIntensity = 0.05;
   assert.equal(second.userData.lights[0].material.emissiveIntensity, original);
   assert.notEqual(first.userData.lights[0].material.emissive.getHex(), first.userData.lights[1].material.emissive.getHex());
+});
+
+test('vehicle headlights face physical +Z while red tail lamps face -Z', () => {
+  const car = createCar();
+  const headColor = new THREE.Color(0xffe2a4), tailColor = new THREE.Color(0xb54130);
+  const heads = [], tails = [];
+  car.traverse(mesh => {
+    if (!mesh.isMesh || mesh.material.emissiveIntensity !== 0.55) return;
+    const position = mesh.geometry.attributes.position, color = mesh.geometry.attributes.color;
+    for (let i = 0; i < position.count; i++) {
+      const matches = target => Math.abs(color.getX(i) - target.r) + Math.abs(color.getY(i) - target.g) + Math.abs(color.getZ(i) - target.b) < 1e-5;
+      if (matches(headColor)) heads.push(position.getZ(i));
+      if (matches(tailColor)) tails.push(position.getZ(i));
+    }
+  });
+  assert.ok(heads.length > 0 && heads.every(z => z > 2));
+  assert.ok(tails.length > 0 && tails.every(z => z < -2));
+  for (const angle of [0, Math.PI / 2, Math.PI, -Math.PI / 2]) {
+    updateCarVisuals(car, { x: 8, z: 12, angle, speed: 0 }, 1 / 60);
+    const visualForward = new THREE.Vector3(0, 0, 1).applyQuaternion(car.quaternion);
+    const physicsForward = new THREE.Vector3(Math.sin(angle), 0, Math.cos(angle));
+    assert.ok(visualForward.distanceTo(physicsForward) < 1e-10);
+  }
+});
+
+test('forward and reverse wheel spin cancel ground-contact velocity', () => {
+  for (const speed of [6, -6]) {
+    const car = createCar(), dt = 1 / 60;
+    updateCarVisuals(car, { x: 0, z: 0, angle: 0, speed, _steering: 0 }, dt);
+    for (const wheel of car.userData.wheels) {
+      const angularVelocity = wheel.userData.roll.rotation.x / dt;
+      const contactRadius = new THREE.Vector3(0, -wheel.userData.radius, 0);
+      const contactVelocity = new THREE.Vector3(angularVelocity, 0, 0).cross(contactRadius).add(new THREE.Vector3(0, 0, speed));
+      assert.ok(contactVelocity.length() < 1e-10, 'rolling must not slide the tire against its direction of travel');
+      assert.equal(Math.sign(angularVelocity), Math.sign(speed));
+    }
+    const before = car.userData.wheels.map(wheel => wheel.userData.roll.rotation.x);
+    updateCarVisuals(car, { x: 0, z: 0, angle: 0, speed, _steering: 0 }, 0);
+    assert.deepEqual(car.userData.wheels.map(wheel => wheel.userData.roll.rotation.x), before, 'paused visuals do not advance the wheels');
+  }
+});
+
+test('front steering pivots remain independent from wheel roll and reverse speed', () => {
+  const car = createCar(), steering = -0.3;
+  updateCarVisuals(car, { x: 0, z: 0, angle: 0, speed: 7, _steering: steering }, 1 / 60);
+  for (const wheel of car.userData.wheels) {
+    assert.equal(wheel.rotation.y, wheel.userData.front ? steering : 0);
+    assert.equal(wheel.rotation.x, 0);
+    assert.equal(wheel.userData.roll.parent, wheel);
+    const axleBefore = new THREE.Vector3(1, 0, 0).applyQuaternion(wheel.userData.roll.quaternion).applyQuaternion(wheel.quaternion);
+    wheel.userData.roll.rotation.x += 1.9;
+    const axleAfter = new THREE.Vector3(1, 0, 0).applyQuaternion(wheel.userData.roll.quaternion).applyQuaternion(wheel.quaternion);
+    assert.ok(axleBefore.distanceTo(axleAfter) < 1e-10, 'spinning the wheel must not wobble the steered axle');
+  }
+  assert.ok(car.rotation.z < 0, 'right steering leans the body outward toward local +X');
+  updateCarVisuals(car, { x: 0, z: 0, angle: 0, speed: -7, _steering: steering }, 1 / 60);
+  assert.ok(car.userData.wheels.filter(wheel => wheel.userData.front).every(wheel => wheel.rotation.y === steering), 'reversing changes roll direction, not wheel steering orientation');
+  assert.ok(car.rotation.z < 0, 'reverse cornering retains the physical outward bank');
 });
 
 test('walking avatars expose separate limb pivots and human-scale ground contact', () => {

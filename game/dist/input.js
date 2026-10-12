@@ -65,8 +65,10 @@ export class Input {
     } else this.padButtons = [];
     return {
       forward, turn, brake, run,
-      moveX: Math.sin(cameraYaw) * walkForward + Math.cos(cameraYaw) * turn,
-      moveZ: Math.cos(cameraYaw) * walkForward - Math.sin(cameraYaw) * turn,
+      // The chase camera looks toward +Z at yaw zero. Its screen-right basis
+      // is forward cross up = (-cos(yaw), 0, sin(yaw)), not world +X.
+      moveX: Math.sin(cameraYaw) * walkForward - Math.cos(cameraYaw) * turn,
+      moveZ: Math.cos(cameraYaw) * walkForward + Math.sin(cameraYaw) * turn,
     };
   }
 }

@@ -376,11 +376,37 @@ export function createCar({ type = 'sedan', color: tint = 0xbcc5bd } = {}) {
   group.userData.wheels = [];
   for (const x of [-0.90, 0.90]) for (const z of [-1.37, 1.30]) {
     const wheel = new THREE.Group(); wheel.position.set(x, 0.36, z);
+    const roll = new THREE.Group();
     const tire = new THREE.Mesh(wheelGeometry, tireMaterial); tire.castShadow = true;
     const hub = new THREE.Mesh(hubGeometry, hubMaterial);
-    wheel.add(tire, hub); wheel.userData.front = z > 0; group.add(wheel); group.userData.wheels.push(wheel);
+    // Steering turns the axle around Y; the child spins around that axle's X.
+    // Mixing both rotations on one default Euler pivot would wobble the axle.
+    roll.add(tire, hub); wheel.add(roll);
+    wheel.userData.front = z > 0; wheel.userData.roll = roll; wheel.userData.radius = 0.35;
+    group.add(wheel); group.userData.wheels.push(wheel);
   }
   return group;
+}
+
+/** Pose a +Z-facing car using its physical heading, steering yaw and signed speed. */
+export function updateCarVisuals(mesh, car, dt) {
+  const steering = Number.isFinite(car._steering) ? car._steering : 0;
+  const speed = Number.isFinite(car.speed) ? car.speed : 0;
+  const seconds = Math.max(0, dt);
+  mesh.position.set(car.x, 0.025, car.z);
+  mesh.rotation.y = car.angle;
+  // Centrifugal lean follows physical wheel angle, including while reversing.
+  const bank = THREE.MathUtils.clamp(steering * speed * speed * 0.00075, -0.055, 0.055);
+  mesh.rotation.z = THREE.MathUtils.damp(mesh.rotation.z, bank, 7, seconds);
+  for (const wheel of mesh.userData.wheels || []) {
+    wheel.rotation.y = wheel.userData.front ? steering : 0;
+    const roll = wheel.userData.roll;
+    if (roll) {
+      // At the bottom of a +X-spinning wheel, tangential velocity points -Z,
+      // canceling forward +Z travel at contact with the road.
+      roll.rotation.x = (roll.rotation.x + speed * seconds / wheel.userData.radius) % TAU;
+    }
+  }
 }
 
 const personMaterial = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.93 });

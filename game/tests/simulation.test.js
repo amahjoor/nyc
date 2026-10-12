@@ -43,7 +43,99 @@ test('acceleration and steering are consistent at 30, 60 and 144 Hz', () => {
     assert.ok(Math.abs(state.angle - states[0].angle) < 0.002);
     assert.ok(Math.abs(state.speed - states[0].speed) < 0.02);
   }
-  assert.ok(states[0].x > 0, 'positive steering turns right');
+  assert.ok(states[0].x < 0, 'right steering moves toward screen-right when the chase camera looks along +Z');
+});
+
+test('forward and reverse follow the vehicle nose at every cardinal heading', () => {
+  for (const angle of [0, Math.PI / 2, Math.PI, -Math.PI / 2]) for (const forward of [-1, 1]) {
+    const sim = new Simulation(city({ spawn: { x: 0, z: 0, angle } }));
+    sim.interact();
+    const start = { ...sim.player };
+    advance(sim, 1, { forward });
+    const dx = sim.player.x - start.x, dz = sim.player.z - start.z;
+    assert.ok((dx * Math.sin(angle) + dz * Math.cos(angle)) * forward > 2);
+    assert.ok(Math.abs(dx * Math.cos(angle) - dz * Math.sin(angle)) < 0.001, 'straight throttle has no lateral motion');
+    assert.equal(Math.sign(sim.player.speed), forward);
+  }
+});
+
+test('right and left steering follow the chase camera in forward and reverse at every heading', () => {
+  for (const angle of [0, Math.PI / 2, Math.PI, -Math.PI / 2]) for (const turn of [-1, 1]) for (const forward of [-1, 1]) {
+    const sim = new Simulation(city({ spawn: { x: 0, z: 0, angle } }));
+    sim.interact();
+    const start = { ...sim.player }, car = sim.cars.find(car => car.controlled);
+    advance(sim, 0.8, { forward, turn });
+    // Camera-forward is +Z in the car's frame. Its right vector is -X.
+    const rightX = -Math.cos(angle), rightZ = Math.sin(angle);
+    const lateral = (sim.player.x - start.x) * rightX + (sim.player.z - start.z) * rightZ;
+    assert.ok(lateral * turn > 0.1, `heading=${angle}, gear=${forward}, steering=${turn}`);
+    const noseRight = Math.sin(sim.player.angle) * rightX + Math.cos(sim.player.angle) * rightZ;
+    assert.ok(noseRight * turn * forward > 0, 'reverse changes nose yaw while the rear follows the steering direction');
+    assert.equal(Math.sign(car._steering), -turn, 'physical wheel yaw can drive the visual steering directly');
+  }
+});
+
+test('brake overrides either accelerator and holds a stationary vehicle still', () => {
+  for (const forward of [-1, 1]) {
+    const sim = new Simulation(city());sim.interact();
+    const initial = { ...sim.player };
+    advance(sim, 2, { forward, brake: true });
+    assert.equal(sim.player.speed, 0);
+    assert.equal(sim.player.x, initial.x);assert.equal(sim.player.z, initial.z);
+    const car = sim.cars.find(car => car.controlled);car.speed = forward * 15;
+    advance(sim, 1, { forward, brake: true });
+    assert.equal(sim.player.speed, 0, 'a held throttle cannot weaken braking or cause creep');
+  }
+});
+
+test('opposing throttle stops before engaging the other direction', () => {
+  for (const direction of [-1, 1]) for (const initialSpeed of [0.19, 10]) {
+    const sim = new Simulation(city());sim.interact();
+    const car = sim.cars.find(car => car.controlled);car.speed = direction * initialSpeed;
+    let stopped = false, neutralSteps = 0;
+    for (let step = 0; step < 120; step++) {
+      sim.step({ forward: -direction }, 1 / 120);
+      if (car.speed === 0) { stopped = true;neutralSteps++; }
+      if (car.speed * direction < 0) {
+        assert.ok(stopped, 'braking must reach an actual stop before reversing');
+        break;
+      }
+    }
+    assert.ok(neutralSteps >= 12, 'direction changes include a short predictable neutral hold');
+    assert.ok(car.speed * direction < 0, 'holding the opposite throttle eventually changes direction');
+  }
+});
+
+test('high-speed steering stays controlled and released steering recenters smoothly', () => {
+  const high = new Simulation(city()), low = new Simulation(city());high.interact();low.interact();
+  const highCar = high.cars.find(car => car.controlled), lowCar = low.cars.find(car => car.controlled);
+  highCar.speed = 30;lowCar.speed = 4;
+  high.step({ forward: 1, turn: 1 }, 1 / 120);
+  assert.ok(highCar._steering < 0 && highCar._steering > -0.01, 'steering turns in progressively');
+  advance(high, 1, { forward: 1, turn: 1 });advance(low, 1, { forward: 0.1, turn: 1 });
+  assert.ok(Math.abs(high.player.angle) < 0.5, 'full steering at top speed cannot spin the car in one second');
+  assert.ok(Math.abs(low.player.angle) > Math.abs(high.player.angle) * 2, 'slow parking turns retain a useful steering range');
+  advance(high, 0.5, { forward: 1 });
+  assert.ok(Math.abs(highCar._steering) < 0.0001);
+  const settledAngle = high.player.angle;
+  advance(high, 0.5, { forward: 1 });
+  assert.ok(Math.abs(high.player.angle - settledAngle) < 0.001, 'released steering does not leave a persistent curve');
+});
+
+test('traffic lanes lie to each driver’s right on roads in every cardinal direction', () => {
+  for (const angle of [0, Math.PI / 2, Math.PI, -Math.PI / 2]) {
+    const dx = Math.sin(angle) * 150, dz = Math.cos(angle) * 150;
+    const sim = new Simulation(city({ roads: [{ id: 'avenue', name: 'Avenue', points: [[-dx, -dz], [dx, dz]], width: 14 }] }));
+    assert.equal(sim._graph.edges.length, 2);
+    const points = [];
+    for (const edge of sim._graph.edges) {
+      const lane = sim._lanePoint(edge, 0.5);
+      const rightOffset = lane.x * -Math.cos(edge.angle) + lane.z * Math.sin(edge.angle);
+      assert.ok(rightOffset > 1, 'traffic occupies the right-hand side, including the reverse road direction');
+      points.push(lane);
+    }
+    assert.ok(Math.hypot(points[0].x - points[1].x, points[0].z - points[1].z) > 3, 'opposing traffic has separated lanes');
+  }
 });
 
 test('brakes stop without turning forward speed into reverse speed', () => {

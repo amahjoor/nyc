@@ -20,7 +20,7 @@ Click **Explore New York** to open the full-city view. Pick a neighborhood and c
 | Action | Keyboard | Controller |
 | --- | --- | --- |
 | Walk / steer | WASD or arrows | Left stick |
-| Accelerate / reverse | W / S | Right / left trigger |
+| Accelerate / brake then reverse | W / S | Right / left trigger |
 | Enter / exit car | E | A |
 | Sprint on foot | Shift | Left stick click |
 | Brake | Space | X |
@@ -32,6 +32,8 @@ Click **Explore New York** to open the full-city view. Pick a neighborhood and c
 | Street / aerial / city view | V | Right bumper |
 | City orbit / zoom | Drag / scroll in city view | |
 | Travel to a mapped street | Double-click in city view | |
+
+Walking follows the direction of the current camera. While driving, A/D turn the front wheels left/right; reverse uses the same steering wheel direction. S slows forward motion to a stop before backing up, and Space overrides the accelerator to brake. Steering eases toward center when released and becomes gentler at higher speeds. Entering a car places the chase camera behind its front-facing direction.
 | Horn | H | |
 | Recover to starting street | R | |
 

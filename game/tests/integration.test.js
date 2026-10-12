@@ -4,7 +4,7 @@ import { readFileSync } from 'node:fs';
 import { gunzipSync } from 'node:zlib';
 import vm from 'node:vm';
 import * as THREE from '../dist/vendor/three.module.min.js';
-import { createCar, createPerson } from '../dist/world.js';
+import { createCar, createPerson, updateCarVisuals } from '../dist/world.js';
 import { Simulation } from '../dist/simulation.js';
 import { Input } from '../dist/input.js';
 import { HUD } from '../dist/hud.js';
@@ -183,7 +183,7 @@ async function bootHarness({ stored = null, unavailableStorage = false, fetchOK 
   const context = vm.createContext({
     ...globals,
     THREE: { ...THREE, WebGLRenderer: RendererStub },
-    createCar, createPerson, Simulation, Input, HUD, CityAudio,
+    createCar, createPerson, updateCarVisuals, Simulation, Input, HUD, CityAudio,
     createCityStream:(fullIndex,options)=>{
       assert.equal(fullIndex.stats.buildingFeatures,index.stats.buildingFeatures);
       return createCityStream(fixtureIndex,options);
@@ -223,6 +223,18 @@ async function bootHarness({ stored = null, unavailableStorage = false, fetchOK 
       waitingRoads:()=>roadWaiters.length,
       state: () => window.nycGame.getState(),
       simulation: () => vm.runInContext('sim', context),
+      camera: () => vm.runInContext('({position:camera.position.clone(),quaternion:camera.quaternion.clone(),yaw})',context),
+      vehicleVisual() {
+        const simulation=vm.runInContext('sim',context),mesh=vm.runInContext('carModels',context).get(simulation.player.vehicleId);
+        assert.ok(mesh,'the controlled vehicle must have a production scene model');
+        mesh.updateWorldMatrix(true,true);
+        const axle=front=>{
+          const wheels=mesh.userData.wheels.filter(wheel=>wheel.userData.front===front);
+          assert.equal(wheels.length,2);
+          return wheels.reduce((sum,wheel)=>sum.add(wheel.getWorldPosition(new THREE.Vector3())),new THREE.Vector3()).multiplyScalar(.5);
+        };
+        return {forward:axle(true).sub(axle(false)).normalize(),frontSteering:mesh.userData.wheels.filter(wheel=>wheel.userData.front).map(wheel=>wheel.rotation.y)};
+      },
       roadIndex: () => vm.runInContext('roadIndex', context),
       click: id => elements.get(id).click(),
       key: (code, down = true) => window.dispatch(down ? 'keydown' : 'keyup', { code, repeat: false, target: elements.get('world') }),
@@ -445,4 +457,108 @@ test('a late street refresh cannot replace the roads of a newly selected borough
     assert.equal(app.state().player.x,arrival.x);assert.equal(app.state().player.z,arrival.z);
     assert.equal(app.errors.length,0,app.errors[0]?.stack);
   }finally{app.releaseRoads();app.close();}
+});
+
+function cameraRight(app){
+  const right=new THREE.Vector3(1,0,0).applyQuaternion(app.camera().quaternion);
+  right.y=0;return right.normalize();
+}
+
+function orbitWalkingCamera(app,targetYaw){
+  const delta=Math.atan2(Math.sin(targetYaw-app.camera().yaw),Math.cos(targetYaw-app.camera().yaw));
+  const canvas=app.elements.get('world');
+  canvas.dispatch('pointerdown',{clientX:0,clientY:0,pointerId:1});
+  canvas.dispatch('pointermove',{clientX:-delta/.005,clientY:0,pointerId:1});
+  canvas.dispatch('pointerup',{pointerId:1});
+  app.frames(75);
+}
+
+test('walking A/D and arrow keys follow the visible camera right axis after orbiting',async()=>{
+  const app=await bootHarness();
+  try{
+    app.click('start-button');app.click('view-button');app.frames(2);
+    await app.until(()=>app.state().stream.loading===0);
+    const sim=app.simulation(),spawn={...sim.player};
+    const clear=sim.city.roads.flatMap(road=>road.points.slice(1).map((point,i)=>({x:(point[0]+road.points[i][0])/2,z:(point[1]+road.points[i][1])/2})))
+      .find(point=>Math.hypot(point.x-spawn.x,point.z-spawn.z)<250&&!sim.isBlocked(point.x,point.z,4)
+        &&sim.cars.every(car=>Math.hypot(car.x-point.x,car.z-point.z)>9));
+    assert.ok(clear,'an actual nearby street must have room for a short lateral walking test');
+    Object.assign(sim.player,clear,{velocityX:0,velocityZ:0,speed:0});
+    for(const heading of [.37,1.89]){
+      orbitWalkingCamera(app,heading);
+      for(const [key,sign] of [['KeyD',1],['ArrowRight',1],['KeyA',-1],['ArrowLeft',-1]]){
+        Object.assign(sim.player,{velocityX:0,velocityZ:0,speed:0});
+        const before={...sim.player},right=cameraRight(app);
+        app.key(key);app.frames(6);app.key(key,false);
+        const delta=new THREE.Vector3(sim.player.x-before.x,0,sim.player.z-before.z);
+        assert.ok(delta.dot(right)*sign>.025,`${key} must move toward its visible screen side at camera yaw ${heading}`);
+      }
+    }
+    Object.assign(sim.player,{velocityX:0,velocityZ:0,speed:0});
+    app.key('KeyV');app.key('KeyV',false);app.frames(75);
+    assert.equal(app.state().aerialView,true);
+    for(const [key,axis] of [['KeyD',new THREE.Vector3(1,0,0)],['KeyW',new THREE.Vector3(0,0,-1)]]){
+      Object.assign(sim.player,{velocityX:0,velocityZ:0,speed:0});
+      const before={...sim.player},direction=axis.applyQuaternion(app.camera().quaternion);
+      direction.y=0;direction.normalize();
+      app.key(key);app.frames(6);app.key(key,false);
+      const delta=new THREE.Vector3(sim.player.x-before.x,0,sim.player.z-before.z);
+      assert.ok(delta.length()>.025,`${key} must advance the walking simulation in aerial view`);
+      assert.ok(delta.normalize().dot(direction)>.98,
+        `${key} follows the aerial camera basis instead of the earlier chase-camera yaw`);
+    }
+    assert.equal(app.errors.length,0,app.errors[0]?.stack);
+  }finally{app.close();}
+});
+
+test('entering a cab snaps behind its visible nose and W drives toward that nose',async()=>{
+  const app=await bootHarness();
+  try{
+    app.click('start-button');app.click('view-button');app.frames(2);
+    await app.until(()=>app.state().stream.loading===0);
+    const sim=app.simulation(),cab=sim.getNearbyCar();
+    assert.ok(cab,'the real spawn must place a cab within entering distance');
+    orbitWalkingCamera(app,cab.angle+Math.PI);
+    const nose=new THREE.Vector3(Math.sin(cab.angle),0,Math.cos(cab.angle));
+    assert.ok(app.camera().position.clone().sub(new THREE.Vector3(cab.x,0,cab.z)).dot(nose)>.3,
+      'set up the walking camera in front of the cab before entry');
+    app.key('KeyE');app.key('KeyE',false);
+    assert.equal(sim.player.mode,'drive');
+    assert.ok(app.camera().position.clone().sub(new THREE.Vector3(cab.x,0,cab.z)).dot(nose)<-3,
+      'entry must place the camera behind the cab immediately, before another frame');
+    const visual=app.vehicleVisual(),before={x:cab.x,z:cab.z};
+    assert.ok(visual.forward.dot(nose)>.99,'front and rear wheel positions establish the rendered vehicle nose');
+    app.key('KeyW');app.frames(18);app.key('KeyW',false);
+    const delta=new THREE.Vector3(cab.x-before.x,0,cab.z-before.z);
+    assert.ok(cab.speed>1);
+    assert.ok(delta.dot(visual.forward)>.15,'forward throttle moves the car along its actual rendered nose');
+    assert.equal(app.errors.length,0,app.errors[0]?.stack);
+  }finally{app.close();}
+});
+
+test('A/D steering turns the front wheels correctly in forward and reverse driving',async()=>{
+  const app=await bootHarness();
+  try{
+    app.click('start-button');app.click('view-button');app.frames(2);
+    await app.until(()=>app.state().stream.loading===0);
+    app.key('KeyE');app.key('KeyE',false);app.frames();
+    const sim=app.simulation(),car=sim.cars.find(car=>car.id===sim.player.vehicleId);
+    assert.ok(car);
+    const start={x:car.x,z:car.z,angle:car.angle};
+    for(const speed of [5,-5])for(const [key,side] of [['KeyD',1],['KeyA',-1]]){
+      Object.assign(car,start,{speed,_steering:0});
+      Object.assign(sim.player,start,{speed});
+      const forward=new THREE.Vector3(Math.sin(start.angle),0,Math.cos(start.angle));
+      // A camera behind the +Z nose has world-right = forward cross up.
+      const right=forward.clone().cross(new THREE.Vector3(0,1,0)).normalize();
+      app.key(key);app.frames(8);app.key(key,false);
+      const moved=new THREE.Vector3(car.x-start.x,0,car.z-start.z),visual=app.vehicleVisual();
+      assert.ok(moved.dot(right)*side>.005,`${key} sends the ${speed>0?'front':'rear'} trajectory toward the requested side`);
+      assert.ok(visual.forward.dot(right)*side*Math.sign(speed)>.01,
+        'reversing changes nose yaw while preserving the physical steering direction');
+      assert.ok(visual.frontSteering.every(angle=>angle*side<-.01),'visible front wheel yaw matches requested steering');
+      assert.ok(moved.dot(forward)*Math.sign(speed)>.2,'each scenario actually moves in its selected gear');
+    }
+    assert.equal(app.errors.length,0,app.errors[0]?.stack);
+  }finally{app.close();}
 });

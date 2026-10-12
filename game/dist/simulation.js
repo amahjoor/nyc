@@ -5,6 +5,8 @@ const FIXED_STEP = 1 / 120;
 const PLAYER_RADIUS = 0.4;
 const CAR_RADIUS = 0.92;
 const CAR_HALF_AXLE = 1.12;
+const WHEELBASE = 2.65;
+const MAX_STEERING = 0.58;
 const GRID_SIZE = 24;
 
 const clamp = (value, low, high) => Math.min(high, Math.max(low, value));
@@ -377,12 +379,14 @@ export class Simulation {
   }
 
   _lanePoint(edge, fraction) {
-    return { x: edge.from.x + (edge.to.x - edge.from.x) * fraction + Math.cos(edge.angle) * edge.lane, z: edge.from.z + (edge.to.z - edge.from.z) * fraction - Math.sin(edge.angle) * edge.lane };
+    // Heading zero faces +Z; the driver's right is -X, not +X. Both road
+    // directions therefore occupy their own right-hand lane in NYC traffic.
+    return { x: edge.from.x + (edge.to.x - edge.from.x) * fraction - Math.cos(edge.angle) * edge.lane, z: edge.from.z + (edge.to.z - edge.from.z) * fraction + Math.sin(edge.angle) * edge.lane };
   }
 
   _makeCar(id, type, point, angle, edge = null) {
     const palette = ['#172e35', '#d8d0be', '#a64438', '#427374', '#d6dce0', '#33413e'];
-    return { id, type, x: point.x, z: point.z, angle, speed: 0, color: type === 'taxi' ? '#f2b91c' : type === 'police' ? '#f1f2e9' : palette[Math.floor(this._random() * palette.length)], parked: !edge, controlled: false, radius: CAR_RADIUS, siren: false, _edge: edge, _route: [], _stuckTime: 0, _cruise: 6 + this._random() * 3, _wait: 0 };
+    return { id, type, x: point.x, z: point.z, angle, speed: 0, color: type === 'taxi' ? '#f2b91c' : type === 'police' ? '#f1f2e9' : palette[Math.floor(this._random() * palette.length)], parked: !edge, controlled: false, radius: CAR_RADIUS, siren: false, _edge: edge, _route: [], _stuckTime: 0, _cruise: 6 + this._random() * 3, _wait: 0, _steering: 0, _shiftHold: 0 };
   }
 
   _seedCars() {
@@ -455,7 +459,7 @@ export class Simulation {
       car.parked = true;
       car._route = [];
       Object.assign(player, { mode: 'drive', vehicleId: car.id, x: car.x, z: car.z, angle: car.angle, speed: car.speed, velocityX: 0, velocityZ: 0 });
-      this._say('W / S to accelerate and reverse. A / D to steer. Space to brake.');
+      this._say('W accelerate. S brake / reverse. A / D steer. Space brake.');
       return true;
     }
     const car = this.cars.find(item => item.id === player.vehicleId);
@@ -509,7 +513,7 @@ export class Simulation {
     if (taxi) {
       const angle = this.city.spawn.angle || 0;
       const recovered = this._resolvePosition(this.city.spawn.x + Math.sin(angle) * 3.8, this.city.spawn.z + Math.cos(angle) * 3.8, CAR_RADIUS, angle);
-      Object.assign(taxi, { x: recovered.x, z: recovered.z, angle, speed: 0, parked: true, controlled: false });
+      Object.assign(taxi, { x: recovered.x, z: recovered.z, angle, speed: 0, parked: true, controlled: false, _steering: 0, _shiftHold: 0 });
     }
     const point = this._findSafePoint(this.city.spawn.x, this.city.spawn.z, PLAYER_RADIUS);
     Object.assign(this.player, { ...point, angle: this.city.spawn.angle || 0, speed: 0, mode: 'walk', vehicleId: null, velocityX: 0, velocityZ: 0 });
@@ -589,18 +593,31 @@ export class Simulation {
     const car = this.cars.find(item => item.id === this.player.vehicleId);
     if (!car) { this.reset(); return; }
     const speedBefore = car.speed;
-    let acceleration = input.forward * (input.forward < 0 ? 8 : 11.5);
-    if (input.forward !== 0 && Math.sign(car.speed) !== Math.sign(input.forward) && Math.abs(car.speed) > 0.15) acceleration = input.forward * 19;
-    car.speed += acceleration * dt;
-    // Exponential drag and steering interpolation preserve the same response
-    // at 30/60/144 Hz. Braking removes a fixed speed per second without reversal.
-    car.speed *= Math.exp(-(input.forward ? 0.25 : 0.63) * dt);
-    if (input.brake) car.speed = Math.sign(car.speed) * Math.max(0, Math.abs(car.speed) - 25 * dt);
+    car._shiftHold = Math.max(0, finite(car._shiftHold) - dt);
+    if (input.brake) {
+      // Brake wins even while an accelerator/trigger is held. Never add engine
+      // force first, which would make braking weak or let a parked car creep.
+      car.speed = Math.sign(car.speed) * Math.max(0, Math.abs(car.speed) - 25 * dt);
+      car._shiftHold = 0;
+    } else if (car.speed * input.forward < 0) {
+      car.speed = Math.sign(car.speed) * Math.max(0, Math.abs(car.speed) - 22 * Math.abs(input.forward) * dt);
+      // Changing direction first stops the car, then briefly holds neutral.
+      // A fixed-step hold prevents one frame from braking straight into reverse.
+      if (Math.abs(car.speed) < 0.015) { car.speed = 0; car._shiftHold = 0.12; }
+    } else if (!car._shiftHold) {
+      car.speed += input.forward * (input.forward < 0 ? 8 : 11.5) * dt;
+      car.speed *= Math.exp(-(input.forward ? 0.25 : 0.63) * dt);
+    }
     car.speed = clamp(car.speed, -9, 30);
     if (Math.abs(car.speed) < 0.015) car.speed = 0;
-    const steeringLimit = 0.59 / (1 + Math.abs(car.speed) / 17);
-    car._steering = finite(car._steering) + (input.turn * steeringLimit - finite(car._steering)) * (1 - Math.exp(-10 * dt));
-    car.angle += car.speed / 2.65 * Math.tan(car._steering) * dt;
+    // Limit lateral acceleration to keep full-key steering controllable at
+    // speed while retaining a tight parking turn. _steering is physical wheel
+    // yaw: D/right is negative around +Y because the vehicle faces local +Z.
+    const steeringLimit = Math.min(MAX_STEERING, Math.atan(WHEELBASE * 12 / Math.max(1, car.speed * car.speed)));
+    const steeringTarget = -input.turn * steeringLimit;
+    const steeringRate = input.turn ? 10 : 16;
+    car._steering = clamp(finite(car._steering) + (steeringTarget - finite(car._steering)) * (1 - Math.exp(-steeringRate * dt)), -steeringLimit, steeringLimit);
+    car.angle += car.speed / WHEELBASE * Math.tan(car._steering) * dt;
     car.angle %= TAU;
     const next = this._resolvePosition(car.x + Math.sin(car.angle) * car.speed * dt, car.z + Math.cos(car.angle) * car.speed * dt, CAR_RADIUS, car.angle, car);
     if (next.hit) {
@@ -680,7 +697,7 @@ export class Simulation {
       const edge = entrances[Math.floor(this._random() * entrances.length)];
       const point = this._lanePoint(edge, clamp(9 / edge.length, 0.15, 0.75));
       if (distance(point, this.player) < 120 || this._carContact(point.x, point.z, edge.angle) || this._nearCar(point.x, point.z, 6, car.id)) continue;
-      Object.assign(car, { x: point.x, z: point.z, angle: edge.angle, speed: car._cruise * 0.6, _edge: edge, _route: [], _stuckTime: 0 });
+      Object.assign(car, { x: point.x, z: point.z, angle: edge.angle, speed: car._cruise * 0.6, _edge: edge, _route: [], _stuckTime: 0, _steering: 0, _shiftHold: 0 });
       return true;
     }
     return false;

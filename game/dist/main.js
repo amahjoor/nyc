@@ -1,5 +1,5 @@
 import * as THREE from './vendor/three.module.min.js';
-import { createCar, createPerson } from './world.js';
+import { createCar, createPerson, updateCarVisuals } from './world.js';
 import { Simulation } from './simulation.js';
 import { Input } from './input.js';
 import { HUD } from './hud.js';
@@ -21,7 +21,7 @@ const carModels = new Map(), pedestrians=[];
 const audio = new CityAudio();
 const canvas=$('world');
 const input=new Input(canvas, action);
-const cameraTarget=new THREE.Vector3(), desiredCamera=new THREE.Vector3();
+const cameraTarget=new THREE.Vector3(), desiredCamera=new THREE.Vector3(), cameraForward=new THREE.Vector3();
 
 function announce(text) { if(sim){sim.notice=text;sim.noticeTime=4;} }
 function action(name) {
@@ -29,7 +29,19 @@ function action(name) {
   if(name==='pause') { if(started)togglePause();return; }
   if(name==='view') { setView(cityView?'street':aerialView?'city':'aerial');return; }
   if(!started||paused||traveling||!bootReady||cityView)return;
-  if(name==='interact')sim.interact();
+  if(name==='interact'){
+    const changed=sim.interact();
+    if(changed&&sim.player.mode==='drive'){
+      // A walking camera can face the cab's nose. Start behind the newly
+      // entered vehicle so its forward gear immediately reads as forward.
+      yaw=sim.player.angle;pitch=.38;lookIdle=2;input.lookDelta=0;input.lookVertical=0;
+      if(!aerialView){
+        const distance=farCamera?14:9.3;
+        camera.position.set(sim.player.x-Math.sin(yaw)*distance,1.55+Math.sin(pitch)*distance,sim.player.z-Math.cos(yaw)*distance);
+        camera.lookAt(sim.player.x,1.1,sim.player.z);
+      }
+    }
+  }
   if(name==='job')sim.startMission();
   if(name==='recover'){sim.reset();yaw=sim.player.angle;announce('Recovered to a nearby street. Your next ride is waiting.');}
   if(name==='map')hud.toggleMap();
@@ -160,11 +172,7 @@ function syncScene(dt,controls) {
     let mesh=carModels.get(car.id);
     if(!mesh){mesh=createCar({type:car.type,color:car.color});carModels.set(car.id,mesh);scene.add(mesh);}
     mesh.visible=Math.hypot(car.x-p.x,car.z-p.z)<230;
-    mesh.position.set(car.x,.025,car.z);mesh.rotation.y=car.angle;
-    if(car.id===p.vehicleId){
-      mesh.rotation.z=THREE.MathUtils.damp(mesh.rotation.z,-controls.turn*Math.min(Math.abs(car.speed)*.0019,.045),7,dt);
-    }else mesh.rotation.z=0;
-    for(const wheel of mesh.userData.wheels||[])if(wheel?.rotation)wheel.rotation.x-=car.speed*dt/.35;
+    updateCarVisuals(mesh,car,dt);
     if(mesh.userData.update)mesh.userData.update(elapsed,car,sim.heat);
     // Scene factories may expose lamp meshes for a lightweight police flash.
     if(car.type==='police')for(const [i,light] of (mesh.userData.lights||[]).entries()){
@@ -204,7 +212,7 @@ function updateCamera(dt) {
   const look=input.lookDelta,vertical=input.lookVertical;input.lookDelta=0;input.lookVertical=0;
   yaw+=look;pitch=clamp(pitch+vertical,.17,.85);lookIdle=look||vertical?0:lookIdle+dt;
   if(!started){yaw=p.angle+Math.sin(elapsed*.12)*.13;pitch=.48;}
-  else if(driving&&Math.abs(p.speed)>1&&lookIdle>1.6)yaw+=angleDifference(p.angle,yaw)*(1-Math.exp(-dt*2));
+  else if(driving&&Math.abs(p.speed)>1&&lookIdle>1.1)yaw+=angleDifference(p.angle,yaw)*(1-Math.exp(-dt*5));
   const distance=!started?18:driving?(farCamera?14:9.3):(farCamera?10:6.5);
   let safeDistance=distance;
   // Pull the chase camera forward before its sightline crosses a facade.
@@ -236,7 +244,10 @@ function frame(now) {
   if(started){
     // Keep polling controller button edges while paused so Start can resume.
     // An action inside sample() may change paused during this same frame.
-    controls=input.sample(yaw,dt);
+    // Walking follows the view currently on screen, including the aerial view
+    // and camera smoothing, rather than an intended chase-camera angle.
+    camera.getWorldDirection(cameraForward);
+    controls=input.sample(Math.atan2(cameraForward.x,cameraForward.z),dt);
     if(!paused&&!traveling&&!cityView&&bootReady){sim.step(controls,dt);elapsed+=dt;}
   }else elapsed+=dt;
   syncScene(paused||traveling||cityView?0:dt,controls);updateCamera(dt);
