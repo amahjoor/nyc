@@ -1,4 +1,5 @@
 import * as THREE from './vendor/three.module.min.js';
+import { mercatorCoefficients, atlasProjectionGLSL } from './imagery-projection.js';
 import { cellsAround } from './road-stream.js';
 
 // Source polygons supply plan positions, while the measured terrain supplies
@@ -133,7 +134,7 @@ export function createStreetDetail(index, { scene, orthophoto, heightAt = null, 
     Object.assign(shader.uniforms, uniforms);
     shader.vertexShader = 'varying vec2 vStreetXZ;\n' + shader.vertexShader;
     shader.vertexShader = shader.vertexShader.replace('#include <begin_vertex>', '#include <begin_vertex>\nvStreetXZ = position.xz;');
-    shader.fragmentShader = `varying vec2 vStreetXZ; uniform sampler2D streetLocal;
+    shader.fragmentShader = `${atlasProjectionGLSL}\n varying vec2 vStreetXZ; uniform sampler2D streetLocal;
       uniform vec4 streetLocalBounds; uniform vec4 streetMercator; uniform bool streetUseLocal;\n` + shader.fragmentShader;
     shader.fragmentShader = shader.fragmentShader.replace('#include <color_fragment>', `#include <color_fragment>
       // The underlying imagery planes already provide a per-tile fallback.
@@ -141,9 +142,8 @@ export function createStreetDetail(index, { scene, orthophoto, heightAt = null, 
       // when filtered atlas alpha includes a missing cell or the atlas border.
       if (!streetUseLocal) discard;
       if (streetUseLocal) {
-        float latitude = streetMercator.z - vStreetXZ.y / streetMercator.w;
         vec2 localUV = vec2((vStreetXZ.x - streetLocalBounds.x) / (streetLocalBounds.y - streetLocalBounds.x),
-          (log(tan(0.7853981633974483 + latitude * 0.5)) - streetMercator.y) / (streetMercator.x - streetMercator.y));
+          atlasNorthUV(vStreetXZ.y, streetLocalBounds, streetMercator));
         if (all(greaterThanEqual(localUV, vec2(0.0))) && all(lessThanEqual(localUV, vec2(1.0)))) {
           vec4 sourcePixel = texture2D(streetLocal, localUV);
           if (sourcePixel.a > 0.99) diffuseColor.rgb = sourcePixel.rgb;
@@ -226,12 +226,13 @@ export function createStreetDetail(index, { scene, orthophoto, heightAt = null, 
       pump();
     },
     setLocalOrthophoto({ texture, bounds, mercator } = {}) {
-      const valid = Boolean(texture && bounds && mercator && bounds.maxX > bounds.minX && mercator.north > mercator.south && mercator.radius > 0);
+      const coefficients = mercatorCoefficients(bounds, mercator);
+      const valid = Boolean(texture && coefficients && bounds.maxX > bounds.minX);
       uniforms.streetUseLocal.value = valid;
       if (!valid) return;
       uniforms.streetLocal.value = texture;
       uniforms.streetLocalBounds.value.set(bounds.minX, bounds.maxX, bounds.minZ, bounds.maxZ);
-      uniforms.streetMercator.value.set(mercator.north, mercator.south, mercator.originLat, mercator.radius);
+      uniforms.streetMercator.value.set(...coefficients);
     },
     setTerrainSampler(sampler, revision = terrainRevision + 1) {
       if (disposed || (heightAt === sampler && terrainRevision === revision)) return;

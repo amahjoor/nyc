@@ -1,4 +1,5 @@
 import * as THREE from './vendor/three.module.min.js';
+import { mercatorCoefficients, atlasProjectionGLSL } from './imagery-projection.js';
 
 const EARTH_RADIUS = 6371008.8;
 const DEG = Math.PI / 180;
@@ -299,7 +300,7 @@ class CityStream {
       Object.assign(shader.uniforms, this.orthoUniforms);
       shader.vertexShader = 'varying vec2 vCityXZ; varying float vCityRoof;\n' + shader.vertexShader;
       shader.vertexShader = shader.vertexShader.replace('#include <begin_vertex>', '#include <begin_vertex>\nvCityXZ = position.xz; vCityRoof = abs(normal.y);');
-      shader.fragmentShader = `uniform sampler2D cityOrtho; uniform vec4 cityOrthoBounds; uniform bool cityUseOrtho;
+      shader.fragmentShader = `${atlasProjectionGLSL}\n uniform sampler2D cityOrtho; uniform vec4 cityOrthoBounds; uniform bool cityUseOrtho;
         uniform vec4 cityMercator; uniform bool cityUseMercator;
         uniform sampler2D cityLocalOrtho; uniform vec4 cityLocalOrthoBounds; uniform bool cityUseLocalOrtho;
         uniform vec4 cityLocalMercator; uniform bool cityUseLocalMercator;
@@ -307,8 +308,7 @@ class CityStream {
         vec2 cityAtlasUV(vec4 bounds, vec4 mercator, bool useMercator) {
           vec2 uv = vec2((vCityXZ.x-bounds.x)/(bounds.y-bounds.x), (bounds.w-vCityXZ.y)/(bounds.w-bounds.z));
           if (useMercator) {
-            float latitude = mercator.z - vCityXZ.y/mercator.w;
-            uv.y = (log(tan(0.7853981633974483+latitude*0.5))-mercator.y)/(mercator.x-mercator.y);
+            uv.y = atlasNorthUV(vCityXZ.y, bounds, mercator);
           }
           return uv;
         }\n` + shader.fragmentShader;
@@ -355,8 +355,9 @@ class CityStream {
     this.orthoUniforms.cityOrtho.value = texture;
     this.orthoUniforms.cityOrthoBounds.value.set(bounds.minX, bounds.maxX, bounds.minZ, bounds.maxZ);
     this.orthoUniforms.cityUseOrtho.value = true;
-    this.orthoUniforms.cityUseMercator.value = Boolean(mercator);
-    if (mercator) this.orthoUniforms.cityMercator.value.set(mercator.north, mercator.south, mercator.originLat, mercator.radius);
+    const coefficients = mercatorCoefficients(bounds, mercator);
+    this.orthoUniforms.cityUseMercator.value = Boolean(coefficients);
+    if (coefficients) this.orthoUniforms.cityMercator.value.set(...coefficients);
   }
 
   setLocalOrthophoto({ texture, bounds, mercator } = {}) {
@@ -370,8 +371,9 @@ class CityStream {
     // on every tile crossing would stall driving and is unnecessary.
     this.orthoUniforms.cityLocalOrtho.value = texture;
     this.orthoUniforms.cityLocalOrthoBounds.value.set(bounds.minX, bounds.maxX, bounds.minZ, bounds.maxZ);
-    this.orthoUniforms.cityUseLocalMercator.value = Boolean(mercator);
-    if (mercator) this.orthoUniforms.cityLocalMercator.value.set(mercator.north, mercator.south, mercator.originLat, mercator.radius);
+    const coefficients = mercatorCoefficients(bounds, mercator);
+    this.orthoUniforms.cityUseLocalMercator.value = Boolean(coefficients);
+    if (coefficients) this.orthoUniforms.cityLocalMercator.value.set(...coefficients);
   }
 
   nearby(point, radius) {

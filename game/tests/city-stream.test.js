@@ -1,3 +1,4 @@
+import { mercatorCoefficients } from '../dist/imagery-projection.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
@@ -198,13 +199,13 @@ test('an attempt failing near its deadline cannot abort the next attempt during 
   stream.dispose();
 });
 
-test('rooftop atlas stores exact Mercator latitude parameters for full-city imagery',()=>{
+test('rooftop atlas binds stable relative Mercator coefficients for full-city imagery',()=>{
   const stream=createCityStream(tinyIndex());
   const mercator={north:.81,south:.77,originLat:index.origin.lat*Math.PI/180,radius:6371008.8};
   const texture=new THREE.Texture();stream.setOrthophoto({texture,bounds:{minX:-30000,maxX:30000,minZ:-30000,maxZ:30000},mercator});
   assert.equal(stream.orthoUniforms.cityOrtho.value,texture);
   assert.equal(stream.orthoUniforms.cityUseMercator.value,true);
-  assert.deepEqual(stream.orthoUniforms.cityMercator.value.toArray(),[mercator.north,mercator.south,mercator.originLat,mercator.radius]);
+  assert.deepEqual(stream.orthoUniforms.cityMercator.value.toArray(),mercatorCoefficients({minZ:-30000,maxZ:30000},mercator));
   stream.dispose();texture.dispose();
 });
 

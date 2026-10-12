@@ -1,3 +1,4 @@
+import { mercatorCoefficients } from '../dist/imagery-projection.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import * as THREE from '../dist/vendor/three.module.min.js';
@@ -25,14 +26,14 @@ test('moving local imagery updates existing roof uniforms without a new shader o
   assert.equal(shader.uniforms.cityUseLocalOrtho.value, true);
   assert.equal(shader.uniforms.cityLocalOrtho.value, local.texture);
   assert.deepEqual(shader.uniforms.cityLocalOrthoBounds.value.toArray(), [-250, 250, -250, 250]);
-  assert.deepEqual(shader.uniforms.cityLocalMercator.value.toArray(), [.782, .781, .7108, 6371008.8]);
+  assert.deepEqual(shader.uniforms.cityLocalMercator.value.toArray(), mercatorCoefficients(local.bounds,local.mercator));
   const boundsUniform = shader.uniforms.cityLocalOrthoBounds.value;
   local.bounds = { minX: 800, maxX: 1300, minZ: -500, maxZ: 0 };
   local.mercator = { ...local.mercator, north: .783, south: .782 };
   stream.setLocalOrthophoto(local);
   assert.equal(shader.uniforms.cityLocalOrthoBounds.value, boundsUniform);
   assert.deepEqual(boundsUniform.toArray(), [800, 1300, -500, 0]);
-  assert.deepEqual(shader.uniforms.cityLocalMercator.value.toArray(), [.783, .782, .7108, 6371008.8]);
+  assert.deepEqual(shader.uniforms.cityLocalMercator.value.toArray(), mercatorCoefficients(local.bounds,local.mercator));
   assert.equal(shader.uniforms.cityOrtho.value, coarse.texture, 'local streaming keeps its coarse fallback');
   assert.equal(stream.material.version, version, 'tile crossings must not trigger program recompilation');
   stream.dispose();local.texture.dispose();coarse.texture.dispose();

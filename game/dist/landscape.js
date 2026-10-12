@@ -1,4 +1,5 @@
 import * as THREE from './vendor/three.module.min.js';
+import { mercatorCoefficients, atlasProjectionGLSL } from './imagery-projection.js';
 
 const finite = Number.isFinite;
 const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
@@ -179,14 +180,14 @@ function createTerrainMaterial() {
   material.onBeforeCompile = shader => {
     Object.assign(shader.uniforms, uniforms);
     shader.vertexShader = 'varying vec2 vLandscapeXZ;\n' + shader.vertexShader.replace('#include <begin_vertex>', '#include <begin_vertex>\nvLandscapeXZ = position.xz;');
-    shader.fragmentShader = `varying vec2 vLandscapeXZ;
+    shader.fragmentShader = `${atlasProjectionGLSL}\n varying vec2 vLandscapeXZ;
       uniform sampler2D landscapeOrtho; uniform sampler2D landscapeLocal;
       uniform bool landscapeUseOrtho; uniform bool landscapeUseLocal; uniform bool landscapeUseMercator; uniform bool landscapeUseLocalMercator;
       uniform vec4 landscapeBounds; uniform vec4 landscapeLocalBounds; uniform vec4 landscapeMercator; uniform vec4 landscapeLocalMercator;
       uniform int landscapeCoverageCount; uniform vec4 landscapeCoverage[8];
       vec2 landscapeUV(vec4 b, vec4 m, bool mercator) {
         vec2 uv = vec2((vLandscapeXZ.x-b.x)/(b.y-b.x), (b.w-vLandscapeXZ.y)/(b.w-b.z));
-        if (mercator) { float latitude = m.z-vLandscapeXZ.y/m.w; uv.y = (log(tan(0.7853981633974483+latitude*0.5))-m.y)/(m.x-m.y); }
+        if (mercator) uv.y = atlasNorthUV(vLandscapeXZ.y,b,m);
         return uv;
       }
       bool landscapeInside(vec2 uv) { return all(greaterThanEqual(uv,vec2(0.0))) && all(lessThanEqual(uv,vec2(1.0))); }
@@ -210,9 +211,9 @@ function bindAtlas(material, atlas, local = false) {
   u[local ? 'landscapeUseLocal' : 'landscapeUseOrtho'].value = valid;if (!valid) return;
   u[local ? 'landscapeLocal' : 'landscapeOrtho'].value = atlas.texture;
   u[`${prefix}Bounds`].value.set(atlas.bounds.minX, atlas.bounds.maxX, atlas.bounds.minZ, atlas.bounds.maxZ);
-  const m = atlas.mercator, mercator = Boolean(m && [m.north, m.south, m.originLat, m.radius].every(finite) && m.north > m.south && m.radius > 0);
+  const coefficients = mercatorCoefficients(atlas.bounds, atlas.mercator), mercator = Boolean(coefficients);
   u[local ? 'landscapeUseLocalMercator' : 'landscapeUseMercator'].value = mercator;
-  if (mercator) u[`${prefix}Mercator`].value.set(m.north, m.south, m.originLat, m.radius);
+  if (mercator) u[`${prefix}Mercator`].value.set(...coefficients);
 }
 
 function clipWaterCoverage(material) {
