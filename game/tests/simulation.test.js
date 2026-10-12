@@ -114,12 +114,17 @@ test('high-speed steering stays controlled and released steering recenters smoot
   assert.ok(highCar._steering < 0 && highCar._steering > -0.01, 'steering turns in progressively');
   advance(high, 1, { forward: 1, turn: 1 });advance(low, 1, { forward: 0.1, turn: 1 });
   assert.ok(Math.abs(high.player.angle) < 0.5, 'full steering at top speed cannot spin the car in one second');
-  assert.ok(Math.abs(low.player.angle) > Math.abs(high.player.angle) * 2, 'slow parking turns retain a useful steering range');
+  // Parking needs greater wheel lock, not a fixed yaw ratio: the faster car
+  // travels much farther, and yaw now builds through a damped response.
+  assert.ok(Math.abs(lowCar._steering) > Math.abs(highCar._steering) * 2, 'slow parking retains greater wheel lock');
+  assert.ok(Math.abs(low.player.angle) > 0.45, 'parking steering still produces a useful maneuver');
   advance(high, 0.5, { forward: 1 });
   assert.ok(Math.abs(highCar._steering) < 0.0001);
   const settledAngle = high.player.angle;
   advance(high, 0.5, { forward: 1 });
-  assert.ok(Math.abs(high.player.angle - settledAngle) < 0.001, 'released steering does not leave a persistent curve');
+  // The wheels recenter before the body finishes settling. Permit the small
+  // physical yaw tail while excluding a persistent curve after release.
+  assert.ok(Math.abs(high.player.angle - settledAngle) < 0.01, 'released steering settles without a persistent curve');
 });
 
 test('traffic lanes lie to each driver’s right on roads in every cardinal direction', () => {
@@ -158,6 +163,23 @@ test('high speed and a long frame cannot tunnel through a thin building', () => 
   assert.equal(sim._carContact(car.x, car.z, car.angle), null);
   assert.ok(sim.health < 100);
   assert.ok(sim.heat > 0);
+});
+
+test('a sideways impact with a parked car cancels closing velocity and rotation', () => {
+  const sim = new Simulation(city());sim.interact();
+  const car = sim.cars.find(item => item.controlled);
+  car.speed = 3;sim.step({}, 1 / 120);
+  Object.assign(car, { x: 0, z: 0, velocityX: 18 });
+  const parked = sim._makeCar('parked-test', 'sedan', { x: 3, z: 0 }, 0);
+  sim.cars.push(parked);
+  sim.step({ handbrake: true }, .25);
+  assert.ok(car.x < 1.161, 'the moving car stays outside the parked vehicle');
+  assert.equal(sim._nearCar(car.x, car.z, .92, car.id), null);
+  assert.equal(car.velocityX, 0, 'contact removes motion into the other vehicle');
+  assert.equal(car.yawRate, 0);
+  assert.ok(sim.health < 100 && sim.heat > 0, 'sideways impact energy still counts');
+  const stoppedX = car.x;advance(sim, .5);
+  assert.equal(car.x, stoppedX, 'damped motion cannot keep pushing into the parked car');
 });
 
 test('walking slides along a wall and cannot cross it', () => {

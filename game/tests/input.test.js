@@ -78,12 +78,61 @@ test('controller triggers preserve forward and reverse while horizontal stick st
   const {input,pad}=movementInput(t);
   pad.axes[0]=.6;pad.buttons[7].value=.8;
   let controls=input.sample(0,1/60);
-  assert.equal(controls.forward,.8);assert.equal(controls.turn,.6);
+  assert.equal(controls.forward,.8);assert.ok(controls.turn>0&&controls.turn<.6);
   pad.buttons[7].value=0;pad.buttons[6].value=.7;
   controls=input.sample(0,1/60);
-  assert.equal(controls.forward,-.7);assert.equal(controls.turn,.6);
+  assert.equal(controls.forward,-.7);assert.ok(controls.turn>0&&controls.turn<.6);
   pad.buttons[2].pressed=true;
-  assert.equal(input.sample(0,1/60).brake,true);
+  controls=input.sample(0,1/60);
+  assert.equal(controls.handbrake,true);assert.equal(controls.brake,false);
+});
+
+test('analog steering is continuous at the deadzone, symmetric and reaches full lock',t=>{
+  const {input,pad}=movementInput(t);
+  for(const direction of [-1,1]){
+    pad.axes[0]=direction*.159;
+    assert.equal(Math.abs(input.sample(0,1/60).turn),0);
+    pad.axes[0]=direction*.161;
+    const edge=input.sample(0,1/60).turn;
+    assert.equal(Math.sign(edge),direction);
+    assert.ok(Math.abs(edge)<.002,'crossing the deadzone must allow a tiny steering correction');
+    let previous=0;
+    for(const amount of [.2,.3,.5,.75,1]){
+      pad.axes[0]=direction*amount;
+      const value=input.sample(0,1/60).turn;
+      assert.equal(Math.sign(value),direction);
+      assert.ok(Math.abs(value)>previous);
+      previous=Math.abs(value);
+    }
+    assert.equal(previous,1);
+  }
+  for(const invalid of [NaN,Infinity,undefined]){
+    pad.axes[0]=invalid;
+    assert.equal(input.sample(0,1/60).turn,0);
+  }
+});
+
+test('opposing triggers remain neutral despite a forward left stick',t=>{
+  const {input,pad}=movementInput(t);
+  pad.axes[1]=-1;pad.buttons[7].value=.8;pad.buttons[6].value=.8;
+  const controls=input.sample(0,1/60);
+  assert.equal(controls.forward,0);
+  assert.equal(controls.moveZ,1,'walking keeps its camera-relative stick input');
+});
+
+test('Space, touch and controller X engage the handbrake separately from service braking',t=>{
+  const {input,pad}=movementInput(t);
+  for(const source of ['keyboard','touch','controller']){
+    input.clear();pad.buttons[2].pressed=false;
+    if(source==='keyboard')input.keys.add('Space');
+    if(source==='touch')input.touch.add('brake');
+    if(source==='controller')pad.buttons[2].pressed=true;
+    input.keys.add('KeyW');
+    const controls=input.sample(0,1/60);
+    assert.equal(controls.handbrake,true,source);
+    assert.equal(controls.brake,false,source);
+    assert.equal(controls.forward,1,source);
+  }
 });
 
 test('pointer camera look is enabled by default and stops when the drag ends',t=>{
@@ -149,7 +198,7 @@ test('typing an address does not trigger actions, movement, or browser-key suppr
   assert.equal(input.keys.size,0);
   assert.equal(prevented,0,'arrows, spaces and Escape remain available to the address field');
   const controls=input.sample(0,1/60);
-  assert.equal(controls.forward,0);assert.equal(controls.turn,0);assert.equal(controls.brake,false);
+  assert.equal(controls.forward,0);assert.equal(controls.turn,0);assert.equal(controls.brake,false);assert.equal(controls.handbrake,false);
   input.keys.add('KeyW');
   target.emit('keyup',{code:'KeyW',target:{tagName:'INPUT'}});
   assert.equal(input.keys.has('KeyW'),false,'releasing a movement key after focusing search cannot leave it stuck');

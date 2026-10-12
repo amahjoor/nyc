@@ -6,6 +6,7 @@ import vm from 'node:vm';
 import * as THREE from '../dist/vendor/three.module.min.js';
 import { createCar, createPerson, updateCarVisuals } from '../dist/world.js';
 import { Simulation } from '../dist/simulation.js';
+import { resetVehicleDynamics } from '../dist/vehicle-dynamics.js';
 import { Input } from '../dist/input.js';
 import { HUD } from '../dist/hud.js';
 import { CityAudio } from '../dist/audio.js';
@@ -757,6 +758,160 @@ test('entering a cab snaps behind its visible nose and W drives toward that nose
   }finally{app.close();}
 });
 
+async function prepareChaseReplay(app){
+  app.click('start-button');app.click('view-button');app.frames(2);
+  await app.until(()=>app.state().stream.loading===0);
+  app.key('KeyE');app.key('KeyE',false);app.frames();
+  const sim=app.simulation(),car=sim.cars.find(candidate=>candidate.id===sim.player.vehicleId);
+  assert.ok(car);
+  const clear=sim.city.roads.flatMap(road=>road.points).map(([x,z])=>({x,z}))
+    .find(point=>Math.hypot(point.x-car.x,point.z-car.z)<300&&!sim.isBlocked(point.x,point.z,11));
+  assert.ok(clear,'the camera benchmark needs an actually unobstructed source location');
+  // Replay known telemetry while simulation is paused. This isolates camera
+  // response from driving tuning while retaining the production source map,
+  // camera collision checks, rendered vehicle, and pointer input bindings.
+  app.key('Escape');app.key('Escape',false);
+  const pose=(angle,speed,travelAngle=angle)=>{
+    const state={...clear,angle,speed,velocityX:Math.sin(travelAngle)*speed,velocityZ:Math.cos(travelAngle)*speed};
+    Object.assign(car,state);Object.assign(sim.player,state);
+  };
+  return {car,pose};
+}
+
+function chasePose(app){
+  const camera=app.camera(),player=app.state().player;
+  const direction=new THREE.Vector3(0,0,-1).applyQuaternion(camera.quaternion);
+  assert.ok(direction.y<0);
+  const target=camera.position.clone().addScaledVector(direction,(1.1-camera.position.y)/direction.y);
+  const lookAhead=target.sub(new THREE.Vector3(player.x,1.1,player.z));
+  const behind=camera.position.clone().sub(new THREE.Vector3(player.x,camera.position.y,player.z)).normalize();
+  const lag=Math.abs(Math.atan2(Math.sin(player.angle-Math.atan2(-behind.x,-behind.z)),Math.cos(player.angle-Math.atan2(-behind.x,-behind.z))));
+  return {camera,lookAhead,behind,lag};
+}
+
+test('chase camera tracks sustained turns promptly and previews forward travel without flipping in reverse',async()=>{
+  const app=await bootHarness();
+  try{
+    const {car,pose}=await prepareChaseReplay(app);
+    let angle=car.angle;
+    pose(angle,18);app.frames(120);
+    for(const side of [-1,1]){
+      let maximumLag=0;
+      for(let frame=0;frame<120;frame++){
+        angle+=side*.9/60;pose(angle,18);app.frames();
+        const view=chasePose(app);
+        if(frame>30)maximumLag=Math.max(maximumLag,view.lag);
+        assert.ok(view.lookAhead.length()<=3.00001,'view target stays within three meters of the car');
+      }
+      assert.ok(maximumLag<.23,`sustained turn must remain readable behind the nose; lag=${maximumLag}`);
+    }
+    pose(angle,40,angle+.3);app.frames(150);
+    const preview=chasePose(app).lookAhead;
+    assert.ok(preview.length()>2.99&&preview.length()<=3.00001);
+    assert.ok(preview.clone().normalize().dot(new THREE.Vector3(Math.sin(angle+.3),0,Math.cos(angle+.3)))>.999,
+      'look-ahead follows actual forward travel during a slide');
+    pose(angle,-7);app.frames(120);
+    const reverse=chasePose(app);
+    assert.ok(reverse.behind.dot(new THREE.Vector3(Math.sin(angle),0,Math.cos(angle)))<-.99,'reverse keeps the camera behind the nose');
+    assert.ok(reverse.lookAhead.length()<.001,'reverse fades the forward preview instead of aiming across the car');
+    pose(angle,0);app.frames(120);
+    const stopped=app.camera();app.frames(60);
+    assert.ok(app.camera().position.distanceTo(stopped.position)<.001);
+    assert.ok(app.camera().quaternion.angleTo(stopped.quaternion)<.001,'stopped camera settles without oscillation');
+    assert.equal(app.errors.length,0);
+  }finally{app.close();}
+});
+
+test('manual driving orbit owns the view before chase assistance returns gradually',async()=>{
+  const app=await bootHarness();
+  try{
+    const {car,pose}=await prepareChaseReplay(app);
+    pose(car.angle,12);app.frames(120);
+    const canvas=app.elements.get('world');
+    canvas.dispatch('pointerdown',{clientX:0,clientY:0,pointerId:4});
+    canvas.dispatch('pointermove',{clientX:-.9/.005,clientY:0,pointerId:4});
+    canvas.dispatch('pointerup',{pointerId:4});app.frames();
+    const manualYaw=app.camera().yaw;
+    app.frames(60);
+    assert.ok(Math.abs(app.camera().yaw-manualYaw)<1e-9,'automatic tracking respects the manual-orbit hold');
+    app.frames(8);
+    const firstReturn=Math.abs(app.camera().yaw-manualYaw);
+    assert.ok(firstReturn>0&&firstReturn<.025,'tracking eases in after the hold instead of snapping back');
+    app.frames(120);
+    assert.ok(chasePose(app).lag<.01,'normal chase view recovers after manual orbit');
+    assert.equal(app.errors.length,0);
+  }finally{app.close();}
+});
+
+test('driving look-ahead stays in front of actual surveyed walls',async()=>{
+  const app=await bootHarness();
+  try{
+    const {car}=await prepareChaseReplay(app),sim=app.simulation();
+    let wall;
+    for(const building of sim.city.buildings){
+      const ring=building.polygon;
+      for(let i=0;i<ring.length&&!wall;i++){
+        const a=ring[i],b=ring[(i+1)%ring.length],dx=b[0]-a[0],dz=b[1]-a[1],length=Math.hypot(dx,dz);
+        if(length<10)continue;
+        const middle={x:(a[0]+b[0])/2,z:(a[1]+b[1])/2};
+        if(Math.hypot(middle.x-car.x,middle.z-car.z)>200)continue;
+        for(const side of [-1,1]){
+          const nx=-dz/length*side,nz=dx/length*side;
+          const outside={x:middle.x+nx*2.5,z:middle.z+nz*2.5};
+          if(!sim.isBlocked(outside.x,outside.z,.2)&&sim.isBlocked(middle.x-nx*.4,middle.z-nz*.4,.1)){
+            wall={...outside,angle:Math.atan2(-nx,-nz)};break;
+          }
+        }
+      }
+      if(wall)break;
+    }
+    assert.ok(wall,'use a real source facade with open space in front');
+    const pose={...wall,speed:40,velocityX:Math.sin(wall.angle)*40,velocityZ:Math.cos(wall.angle)*40};
+    Object.assign(car,pose);Object.assign(sim.player,pose);app.frames(150);
+    const preview=chasePose(app).lookAhead;
+    assert.ok(preview.length()<2.5,'wall truncates an otherwise three-meter preview');
+    assert.equal(sim.isBlocked(car.x+preview.x,car.z+preview.z,.15),false,'the final smoothed target remains outside the facade');
+  }finally{app.close();}
+});
+
+test('keyboard, controller and touch handbrakes reach driving without replacing throttle or service braking',async()=>{
+  const app=await bootHarness();
+  try{
+    app.click('start-button');app.click('view-button');app.frames(2);
+    await app.until(()=>app.state().stream.loading===0);
+    app.key('KeyE');app.key('KeyE',false);app.frames();
+    const sim=app.simulation(),car=sim.cars.find(candidate=>candidate.id===sim.player.vehicleId);
+    assert.ok(car);
+    const samples=[],step=sim.step.bind(sim);
+    sim.step=(controls,dt)=>{samples.push({...controls});return step(controls,dt);};
+    app.key('KeyW');app.frames(30);app.key('KeyD');app.key('Space');app.frames(8);
+    assert.equal(samples.at(-1).handbrake,true);
+    assert.equal(samples.at(-1).brake,false);
+    assert.equal(samples.at(-1).forward,1);
+    assert.equal(samples.at(-1).turn,1);
+    assert.ok(car.speed>0,'a short handbrake tap is not an instantaneous stop');
+    assert.ok(app.vehicleVisual().frontSteering.every(angle=>angle<0),'handbraking preserves right-wheel steering direction');
+    app.key('Space',false);app.frames();assert.equal(samples.at(-1).handbrake,false);
+    app.key('KeyW',false);app.key('KeyD',false);
+    const pad={axes:[.6,0,0,0],buttons:Array.from({length:12},()=>({pressed:false,value:0}))};
+    pad.buttons[7].value=.8;pad.buttons[2].pressed=true;app.pads.push(pad);app.frames();
+    assert.equal(samples.at(-1).handbrake,true);
+    assert.equal(samples.at(-1).forward,.8);
+    assert.ok(samples.at(-1).turn>0);
+    pad.buttons[2].pressed=false;pad.buttons[7].value=0;pad.buttons[6].value=.7;app.frames();
+    assert.equal(samples.at(-1).handbrake,false);
+    assert.equal(samples.at(-1).forward,-.7,'left trigger retains brake/reverse intent');
+    app.pads.length=0;
+    const brake=app.document.querySelectorAll('[data-control]').find(button=>button.dataset.control==='brake');
+    brake.dispatch('pointerdown',{pointerId:9});app.frames();assert.equal(samples.at(-1).handbrake,true);
+    brake.dispatch('pointerup',{pointerId:9});app.frames();assert.equal(samples.at(-1).handbrake,false);
+    app.key('KeyS');app.frames();app.key('KeyS',false);
+    assert.equal(samples.at(-1).forward,-1);
+    assert.equal(samples.at(-1).handbrake,false,'reverse key stays separate from handbrake');
+    assert.equal(app.errors.length,0);
+  }finally{app.close();}
+});
+
 test('A/D steering turns the front wheels correctly in forward and reverse driving',async()=>{
   const app=await bootHarness();
   try{
@@ -767,12 +922,14 @@ test('A/D steering turns the front wheels correctly in forward and reverse drivi
     assert.ok(car);
     const start={x:car.x,z:car.z,angle:car.angle};
     for(const speed of [5,-5])for(const [key,side] of [['KeyD',1],['KeyA',-1]]){
-      Object.assign(car,start,{speed,_steering:0});
+      Object.assign(car,start);resetVehicleDynamics(car,speed);
       Object.assign(sim.player,start,{speed});
       const forward=new THREE.Vector3(Math.sin(start.angle),0,Math.cos(start.angle));
       // A camera behind the +Z nose has world-right = forward cross up.
       const right=forward.clone().cross(new THREE.Vector3(0,1,0)).normalize();
-      app.key(key);app.frames(8);app.key(key,false);
+      // Give yaw and tire grip time to respond before checking the path's
+      // sign; the new inertial handling no longer rotates velocity instantly.
+      app.key(key);app.frames(16);app.key(key,false);
       const moved=new THREE.Vector3(car.x-start.x,0,car.z-start.z),visual=app.vehicleVisual();
       assert.ok(moved.dot(right)*side>.005,`${key} sends the ${speed>0?'front':'rear'} trajectory toward the requested side`);
       assert.ok(visual.forward.dot(right)*side*Math.sign(speed)>.01,

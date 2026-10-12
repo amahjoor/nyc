@@ -363,14 +363,17 @@ export function createCar({ type = 'sedan', color: tint = 0xbcc5bd } = {}) {
   if (police) {
     batch.box(carPaint, 0, 1.73, -0.2, 1.18, 0.09, 0.27, 0x313a3d);
   }
-  batch.finish(group);
+  // Suspension tilts the body independently so all four tire contacts stay
+  // on the flat driving surface while cornering, accelerating or braking.
+  const chassis = new THREE.Group();
+  batch.finish(chassis);group.add(chassis);group.userData.chassis = chassis;
   group.userData.lights = [];
   if (police) {
     for (const [x, tone] of [[-0.38, 0x3379fa], [0.38, 0xfa493d]]) {
       // Each light owns its material so one police car can flash independently.
       const material = new THREE.MeshStandardMaterial({ color: tone, emissive: tone, emissiveIntensity: 1.5, roughness: 0.22 });
       const light = new THREE.Mesh(new THREE.BoxGeometry(0.42, 0.15, 0.24), material);
-      light.position.set(x, 1.83, -0.2); group.add(light); group.userData.lights.push(light);
+      light.position.set(x, 1.83, -0.2); chassis.add(light); group.userData.lights.push(light);
     }
   }
   group.userData.wheels = [];
@@ -395,9 +398,16 @@ export function updateCarVisuals(mesh, car, dt) {
   const seconds = Math.max(0, dt);
   mesh.position.set(car.x, 0.025, car.z);
   mesh.rotation.y = car.angle;
-  // Centrifugal lean follows physical wheel angle, including while reversing.
-  const bank = THREE.MathUtils.clamp(steering * speed * speed * 0.00075, -0.055, 0.055);
-  mesh.rotation.z = THREE.MathUtils.damp(mesh.rotation.z, bank, 7, seconds);
+  // Positive lateral acceleration points along local +X. The body leans
+  // outward, even when countersteering against a slide. Route-following NPCs
+  // have no tire dynamics, so retain their wheel-angle approximation.
+  const lateral = Number.isFinite(car.lateralAcceleration) ? car.lateralAcceleration : steering * speed * speed / 6;
+  const longitudinal = Number.isFinite(car.longitudinalAcceleration) ? car.longitudinalAcceleration : 0;
+  const chassis = mesh.userData.chassis;
+  if (chassis) {
+    chassis.rotation.z = THREE.MathUtils.damp(chassis.rotation.z, THREE.MathUtils.clamp(lateral * .0045, -.055, .055), 7, seconds);
+    chassis.rotation.x = THREE.MathUtils.damp(chassis.rotation.x, THREE.MathUtils.clamp(-longitudinal * .002, -.035, .035), 8, seconds);
+  }
   for (const wheel of mesh.userData.wheels || []) {
     wheel.rotation.y = wheel.userData.front ? steering : 0;
     const roll = wheel.userData.roll;

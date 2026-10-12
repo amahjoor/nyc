@@ -27,7 +27,7 @@ On the street, press **E** to enter the nearby yellow taxi, then **N** to take a
 | Accelerate / brake then reverse | W / S | Right / left trigger |
 | Enter / exit car | E | A |
 | Sprint on foot | Shift | Left stick click |
-| Brake | Space | X |
+| Handbrake / slide | Space | X |
 | Delivery job | N | Y |
 | Look around | Drag mouse | Right stick |
 | Expand map | M | View / Back |
@@ -36,10 +36,14 @@ On the street, press **E** to enter the nearby yellow taxi, then **N** to take a
 | Street / aerial / city view | V | Right bumper |
 | City orbit / zoom | Drag / scroll in city view | |
 | Travel to a mapped street | Double-click in city view | |
-
-Walking follows the direction of the current camera. While driving, A/D turn the front wheels left/right; reverse uses the same steering wheel direction. S slows forward motion to a stop before backing up, and Space overrides the accelerator to brake. Steering eases toward center when released and becomes gentler at higher speeds. Entering a car places the chase camera behind its front-facing direction.
 | Horn | H | |
 | Recover to starting street | R | |
+
+Walking follows the direction of the current camera. While driving, A/D turn the front wheels left/right; reverse uses the same steering wheel direction. S slows forward motion to a stop before backing up. Tap Space while steering to use the handbrake, then release it to regain grip. Steering builds progressively and becomes gentler at higher speeds; releasing the accelerator lets the car coast.
+
+The driving model keeps world velocity separate from the body heading, with bounded tire grip and yaw inertia. This allows recoverable slides and smooth countersteering. It uses a 120 Hz fixed physics step, including collision response. Controller steering remaps the deadzone continuously for small corrections. The chase camera looks ahead during forward driving and returns gently after a manual orbit; it stays behind the car's nose in reverse.
+
+The handling is an original arcade model inspired by the feel of GTA, not a reproduction of Rockstar's proprietary physics. Tire-slip and low-speed stability concepts are informed by [NVIDIA's PhysX vehicle documentation](https://nvidia-omniverse.github.io/PhysX/physx/5.6.1/docs/Vehicles.html). This game does not run PhysX. Handling regressions cover corner entry, countersteering, handbrake recovery, reverse, frame-rate independence and collision safety.
 
 ## City coverage and loading
 

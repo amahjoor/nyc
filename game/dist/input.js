@@ -58,15 +58,21 @@ export class Input {
     let forward = Number(has('KeyW','ArrowUp') || this.touch.has('forward')) - Number(has('KeyS','ArrowDown') || this.touch.has('back'));
     let turn = Number(has('KeyD','ArrowRight') || this.touch.has('right')) - Number(has('KeyA','ArrowLeft') || this.touch.has('left'));
     let walkForward = forward;
-    let brake = has('Space') || this.touch.has('brake');
+    let handbrake = has('Space') || this.touch.has('brake');
     let run = has('ShiftLeft','ShiftRight');
     const pad = Array.from(navigator.getGamepads?.() || []).find(Boolean);
     if (pad) {
-      const dead = n => Math.abs(n || 0) > .16 ? n : 0;
+      // Remap the usable stick range continuously. Returning the raw axis
+      // after the deadzone used to jump straight from zero to 16% steering.
+      const dead = n => Number.isFinite(n) ? Math.sign(n) * Math.max(0, Math.min(1, (Math.abs(n) - .16) / .84)) : 0;
+      const trigger = button => Number.isFinite(button?.value) ? Math.max(0, Math.min(1, button.value)) : 0;
       turn = dead(pad.axes[0]) || turn;
       walkForward = -dead(pad.axes[1]) || walkForward;
-      forward = (pad.buttons[7]?.value || 0) - (pad.buttons[6]?.value || 0) || walkForward;
-      brake ||= Boolean(pad.buttons[2]?.pressed);
+      const accelerator = trigger(pad.buttons[7]), reverse = trigger(pad.buttons[6]);
+      // Equal trigger pressure means neutral; it must not fall through to
+      // accidental left-stick acceleration while the player is steering.
+      forward = accelerator || reverse ? accelerator - reverse : walkForward;
+      handbrake ||= Boolean(pad.buttons[2]?.pressed);
       run ||= Boolean(pad.buttons[10]?.pressed);
       this.lookDelta -= dead(pad.axes[2]) * dt * 2;
       this.lookVertical += dead(pad.axes[3]) * dt;
@@ -79,7 +85,7 @@ export class Input {
       }
     } else this.padButtons = [];
     return {
-      forward, turn, brake, run,
+      forward, turn, brake: false, handbrake, run,
       // The chase camera looks toward +Z at yaw zero. Its screen-right basis
       // is forward cross up = (-cos(yaw), 0, sin(yaw)), not world +X.
       moveX: Math.sin(cameraYaw) * walkForward - Math.cos(cameraYaw) * turn,

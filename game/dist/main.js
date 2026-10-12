@@ -25,6 +25,7 @@ const canvas=$('world');
 const input=new Input(canvas, action);
 const cameraTarget=new THREE.Vector3(), desiredCamera=new THREE.Vector3(), cameraForward=new THREE.Vector3();
 const aerialTarget=new THREE.Vector3(), aerialOffset=new THREE.Vector3(-95,240,180);
+const chaseLookAhead=new THREE.Vector3(), desiredLookAhead=new THREE.Vector3();
 
 function announce(text) { if(sim){sim.notice=text;sim.noticeTime=4;} }
 function action(name) {
@@ -37,7 +38,7 @@ function action(name) {
     if(changed&&sim.player.mode==='drive'){
       // A walking camera can face the cab's nose. Start behind the newly
       // entered vehicle so its forward gear immediately reads as forward.
-      yaw=sim.player.angle;pitch=.38;lookIdle=2;input.lookDelta=0;input.lookVertical=0;
+      yaw=sim.player.angle;pitch=.38;lookIdle=2;input.lookDelta=0;input.lookVertical=0;chaseLookAhead.set(0,0,0);
       if(!aerialView){
         const distance=farCamera?14:9.3;
         camera.position.set(sim.player.x-Math.sin(yaw)*distance,1.55+Math.sin(pitch)*distance,sim.player.z-Math.cos(yaw)*distance);
@@ -46,7 +47,7 @@ function action(name) {
     }
   }
   if(name==='job')sim.startMission();
-  if(name==='recover'){sim.reset();yaw=sim.player.angle;aerialTracking=false;announce('Recovered to a nearby street. Your next ride is waiting.');}
+  if(name==='recover'){sim.reset();yaw=sim.player.angle;aerialTracking=false;chaseLookAhead.set(0,0,0);announce('Recovered to a nearby street. Your next ride is waiting.');}
   if(name==='map')hud.toggleMap();
   if(name==='camera'){farCamera=!farCamera;announce(farCamera?'Camera: wide chase':'Camera: close chase');}
   if(name==='horn')audio.horn();
@@ -227,8 +228,34 @@ function updateCamera(dt) {
   }
   const look=input.lookDelta,vertical=input.lookVertical;input.lookDelta=0;input.lookVertical=0;
   yaw+=look;pitch=clamp(pitch+vertical,.17,.85);lookIdle=look||vertical?0:lookIdle+dt;
-  if(!started){yaw=p.angle+Math.sin(elapsed*.12)*.13;pitch=.48;}
-  else if(driving&&Math.abs(p.speed)>1&&lookIdle>1.1)yaw+=angleDifference(p.angle,yaw)*(1-Math.exp(-dt*5));
+  // A manual orbit owns the view for 1.1 seconds. Ease assistance back in so
+  // releasing the mouse does not abruptly pull the camera behind the car.
+  const chaseAssist=clamp((lookIdle-1.1)/.65,0,1), speed=Math.abs(p.speed);
+  if(driving&&speed>.25){
+    const headingRate=7+4*clamp(speed/22,0,1);
+    yaw+=angleDifference(p.angle,yaw)*(1-Math.exp(-dt*headingRate*chaseAssist));
+  }
+  if(driving){
+    const car=sim.cars.find(candidate=>candidate.id===p.vehicleId);
+    desiredLookAhead.set(Math.sin(p.angle),0,Math.cos(p.angle));
+    const vx=car?.velocityX,vz=car?.velocityZ,velocity=Math.hypot(vx,vz);
+    // Preview the actual forward path during a slide, but keep reverse views
+    // behind the vehicle's nose rather than flipping toward reverse velocity.
+    if(p.speed>0&&Number.isFinite(velocity)&&velocity>.5&&vx*desiredLookAhead.x+vz*desiredLookAhead.z>0){
+      desiredLookAhead.set(vx/velocity,0,vz/velocity);
+    }
+    desiredLookAhead.multiplyScalar(clamp((p.speed-1)*.13,0,3)*chaseAssist);
+    chaseLookAhead.lerp(desiredLookAhead,1-Math.exp(-dt*6));
+    // Clip the smoothed target too: its path can cross a facade while the
+    // car rounds a corner, even when the chase eye itself remains clear.
+    const previewLength=chaseLookAhead.length();
+    for(let d=.25;d<previewLength+.25;d+=.25){
+      const probe=Math.min(d,previewLength);
+      if(previewLength&&sim.isBlocked(p.x+chaseLookAhead.x*probe/previewLength,p.z+chaseLookAhead.z*probe/previewLength,.15)){
+        chaseLookAhead.multiplyScalar(Math.max(0,probe-.25)/previewLength);break;
+      }
+    }
+  }else chaseLookAhead.set(0,0,0);
   const distance=!started?18:driving?(farCamera?14:9.3):(farCamera?10:6.5);
   let safeDistance=distance;
   // Pull the chase camera forward before its sightline crosses a facade.
@@ -238,7 +265,7 @@ function updateCamera(dt) {
   }
   const height=1.55+Math.sin(pitch)*safeDistance;
   desiredCamera.set(p.x-Math.sin(yaw)*safeDistance,height,p.z-Math.cos(yaw)*safeDistance);
-  camera.position.lerp(desiredCamera,1-Math.exp(-dt*(safeDistance<3?22:8)));
+  camera.position.lerp(desiredCamera,1-Math.exp(-dt*(safeDistance<3?22:driving?13:8)));
   // A smoothed camera can cut across a corner even when its destination is safe.
   // Clamp inward immediately, then ease back out once the sightline clears.
   const dx=camera.position.x-p.x,dz=camera.position.z-p.z,actualDistance=Math.hypot(dx,dz);
@@ -248,7 +275,9 @@ function updateCamera(dt) {
       camera.position.x=p.x+dx*ratio;camera.position.z=p.z+dz*ratio;break;
     }
   }
-  cameraTarget.set(p.x,driving?1.1:1.45,p.z);camera.lookAt(cameraTarget);
+  cameraTarget.set(p.x,driving?1.1:1.45,p.z);
+  if(driving)cameraTarget.add(chaseLookAhead);
+  camera.lookAt(cameraTarget);
   const targetFov=driving?60+Math.min(9,Math.abs(p.speed)*.24):57;
   camera.fov=THREE.MathUtils.damp(camera.fov,targetFov,4,dt);camera.updateProjectionMatrix();
 }
@@ -283,6 +312,7 @@ function frame(now) {
 
 function setView(mode){
   if(mode!=='aerial'||!aerialView)aerialTracking=false;
+  chaseLookAhead.set(0,0,0);
   if(mode==='city'&&!cityView){cityFocus=null;cityZoom=1;}
   cityView=mode==='city';aerialView=mode==='aerial';input.clear();
   $('view-button').textContent=cityView?'STREET CAMERA':aerialView?'CITY OVERVIEW':'AERIAL VIEW';

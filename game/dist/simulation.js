@@ -1,3 +1,5 @@
+import { resetVehicleDynamics, stepVehicleDynamics, stopVehicleRotation, vehicleTravelSpeed } from './vehicle-dynamics.js';
+
 // Simulation units are metres and seconds. A heading of zero points along +Z.
 // This module deliberately has no renderer or browser dependencies.
 const TAU = Math.PI * 2;
@@ -5,8 +7,6 @@ const FIXED_STEP = 1 / 120;
 const PLAYER_RADIUS = 0.4;
 const CAR_RADIUS = 0.92;
 const CAR_HALF_AXLE = 1.12;
-const WHEELBASE = 2.65;
-const MAX_STEERING = 0.58;
 const GRID_SIZE = 24;
 
 const clamp = (value, low, high) => Math.min(high, Math.max(low, value));
@@ -14,6 +14,7 @@ const distance = (a, b) => Math.hypot(a.x - b.x, a.z - b.z);
 const turnDelta = (from, to) => ((to - from + Math.PI) % TAU + TAU) % TAU - Math.PI;
 const emptyMission = () => ({ phase: 'idle', target: null, timeLeft: 0, totalTime: 0, reward: 0 });
 const finite = (value, fallback = 0) => Number.isFinite(value) ? value : fallback;
+const playerTravelSpeed = player => player.mode === 'drive' ? Math.hypot(player.velocityX, player.velocityZ) : Math.abs(player.speed);
 
 function buildingGrid(buildings) {
   const grid = new Map();
@@ -241,7 +242,7 @@ export class Simulation {
       if (!car._edge && this._recycleTraffic(car)) car._streamParked = false;
       else car._streamParked = !car._edge;
       car.parked = car._streamParked;
-      if (car.parked) car.speed = 0;
+      if (car.parked) resetVehicleDynamics(car);
     }
     this._policeRouteTimer = 0;
   }
@@ -386,7 +387,9 @@ export class Simulation {
 
   _makeCar(id, type, point, angle, edge = null) {
     const palette = ['#172e35', '#d8d0be', '#a64438', '#427374', '#d6dce0', '#33413e'];
-    return { id, type, x: point.x, z: point.z, angle, speed: 0, color: type === 'taxi' ? '#f2b91c' : type === 'police' ? '#f1f2e9' : palette[Math.floor(this._random() * palette.length)], parked: !edge, controlled: false, radius: CAR_RADIUS, siren: false, _edge: edge, _route: [], _stuckTime: 0, _cruise: 6 + this._random() * 3, _wait: 0, _steering: 0, _shiftHold: 0 };
+    const car = { id, type, x: point.x, z: point.z, angle, speed: 0, color: type === 'taxi' ? '#f2b91c' : type === 'police' ? '#f1f2e9' : palette[Math.floor(this._random() * palette.length)], parked: !edge, controlled: false, radius: CAR_RADIUS, siren: false, _edge: edge, _route: [], _stuckTime: 0, _cruise: 6 + this._random() * 3, _wait: 0, _steering: 0, _shiftHold: 0 };
+    resetVehicleDynamics(car);
+    return car;
   }
 
   _seedCars() {
@@ -414,7 +417,7 @@ export class Simulation {
         const point = this._lanePoint(edge, 0.15 + this._random() * 0.7);
         if (distance(point, spawn) < (police ? 50 : 16) || this._carContact(point.x, point.z, edge.angle) || this._nearCar(point.x, point.z, 5)) continue;
         const car = this._makeCar(`${police ? 'police' : 'traffic'}-${i}`, police ? 'police' : i % 4 === 0 ? 'taxi' : 'sedan', point, edge.angle, edge);
-        car.speed = car._cruise * 0.65;
+        resetVehicleDynamics(car, car._cruise * 0.65);
         this.cars.push(car);
         break;
       }
@@ -454,24 +457,25 @@ export class Simulation {
     if (player.mode === 'walk') {
       const car = this.getNearbyCar();
       if (!car) { this._say('Move closer to a taxi or parked car.'); return false; }
-      if (Math.abs(car.speed) > 4) { this._say('Wait for the car to slow down.'); return false; }
+      if (vehicleTravelSpeed(car) > 4) { this._say('Wait for the car to slow down.'); return false; }
       car.controlled = true;
       car.parked = true;
       car._route = [];
-      Object.assign(player, { mode: 'drive', vehicleId: car.id, x: car.x, z: car.z, angle: car.angle, speed: car.speed, velocityX: 0, velocityZ: 0 });
-      this._say('W accelerate. S brake / reverse. A / D steer. Space brake.');
+      resetVehicleDynamics(car, car.speed);
+      Object.assign(player, { mode: 'drive', vehicleId: car.id, x: car.x, z: car.z, angle: car.angle, speed: car.speed, velocityX: car.velocityX, velocityZ: car.velocityZ });
+      this._say('W accelerate. S brake / reverse. A / D steer. Space handbrake.');
       return true;
     }
     const car = this.cars.find(item => item.id === player.vehicleId);
     if (!car) { this.reset(); return false; }
-    if (Math.abs(car.speed) > 4) { this._say('Slow down before getting out.'); return false; }
+    if (vehicleTravelSpeed(car) > 4) { this._say('Slow down before getting out.'); return false; }
     for (const [side, front] of [[-2.2, 0], [2.2, 0], [-2.5, -1.8], [2.5, -1.8], [0, -3.2], [0, 3.2]]) {
       const x = car.x + Math.cos(car.angle) * side + Math.sin(car.angle) * front;
       const z = car.z - Math.sin(car.angle) * side + Math.cos(car.angle) * front;
       if (this.isBlocked(x, z, PLAYER_RADIUS) || this._nearCar(x, z, PLAYER_RADIUS, car.id)) continue;
       car.controlled = false;
       car.parked = true;
-      car.speed = 0;
+      resetVehicleDynamics(car);
       Object.assign(player, { x, z, mode: 'walk', vehicleId: null, speed: 0, velocityX: 0, velocityZ: 0 });
       this._say('On foot. Hold Shift to run. E to get back in.');
       return true;
@@ -508,12 +512,13 @@ export class Simulation {
       }
     }
     const car = this.cars.find(item => item.id === this.player.vehicleId);
-    if (car) { car.controlled = false; car.parked = true; car.speed = 0; }
+    if (car) { car.controlled = false; car.parked = true; resetVehicleDynamics(car); }
     const taxi = this.cars.find(item => item.id === 'player-taxi');
     if (taxi) {
       const angle = this.city.spawn.angle || 0;
       const recovered = this._resolvePosition(this.city.spawn.x + Math.sin(angle) * 3.8, this.city.spawn.z + Math.cos(angle) * 3.8, CAR_RADIUS, angle);
-      Object.assign(taxi, { x: recovered.x, z: recovered.z, angle, speed: 0, parked: true, controlled: false, _steering: 0, _shiftHold: 0 });
+      Object.assign(taxi, { x: recovered.x, z: recovered.z, angle, speed: 0, parked: true, controlled: false });
+      resetVehicleDynamics(taxi);
     }
     const point = this._findSafePoint(this.city.spawn.x, this.city.spawn.z, PLAYER_RADIUS);
     Object.assign(this.player, { ...point, angle: this.city.spawn.angle || 0, speed: 0, mode: 'walk', vehicleId: null, velocityX: 0, velocityZ: 0 });
@@ -530,7 +535,7 @@ export class Simulation {
     // A fixed accumulator makes handling independent of display refresh rate.
     // Capping a background-tab pause avoids simulating a long unattended chase.
     this._accumulator += clamp(finite(dt), 0, 0.25);
-    const normalized = { forward: clamp(finite(input.forward), -1, 1), turn: clamp(finite(input.turn), -1, 1), moveX: clamp(finite(input.moveX), -1, 1), moveZ: clamp(finite(input.moveZ), -1, 1), brake: Boolean(input.brake), run: Boolean(input.run) };
+    const normalized = { forward: clamp(finite(input.forward), -1, 1), turn: clamp(finite(input.turn), -1, 1), moveX: clamp(finite(input.moveX), -1, 1), moveZ: clamp(finite(input.moveZ), -1, 1), brake: Boolean(input.brake), handbrake: Boolean(input.handbrake), run: Boolean(input.run) };
     while (this._accumulator + 1e-10 >= FIXED_STEP) {
       this._tick(normalized, FIXED_STEP);
       this._accumulator -= FIXED_STEP;
@@ -592,62 +597,61 @@ export class Simulation {
   _drive(input, dt) {
     const car = this.cars.find(item => item.id === this.player.vehicleId);
     if (!car) { this.reset(); return; }
-    const speedBefore = car.speed;
-    car._shiftHold = Math.max(0, finite(car._shiftHold) - dt);
-    if (input.brake) {
-      // Brake wins even while an accelerator/trigger is held. Never add engine
-      // force first, which would make braking weak or let a parked car creep.
-      car.speed = Math.sign(car.speed) * Math.max(0, Math.abs(car.speed) - 25 * dt);
-      car._shiftHold = 0;
-    } else if (car.speed * input.forward < 0) {
-      car.speed = Math.sign(car.speed) * Math.max(0, Math.abs(car.speed) - 22 * Math.abs(input.forward) * dt);
-      // Changing direction first stops the car, then briefly holds neutral.
-      // A fixed-step hold prevents one frame from braking straight into reverse.
-      if (Math.abs(car.speed) < 0.015) { car.speed = 0; car._shiftHold = 0.12; }
-    } else if (!car._shiftHold) {
-      car.speed += input.forward * (input.forward < 0 ? 8 : 11.5) * dt;
-      car.speed *= Math.exp(-(input.forward ? 0.25 : 0.63) * dt);
-    }
-    car.speed = clamp(car.speed, -9, 30);
-    if (Math.abs(car.speed) < 0.015) car.speed = 0;
-    // Limit lateral acceleration to keep full-key steering controllable at
-    // speed while retaining a tight parking turn. _steering is physical wheel
-    // yaw: D/right is negative around +Y because the vehicle faces local +Z.
-    const steeringLimit = Math.min(MAX_STEERING, Math.atan(WHEELBASE * 12 / Math.max(1, car.speed * car.speed)));
-    const steeringTarget = -input.turn * steeringLimit;
-    const steeringRate = input.turn ? 10 : 16;
-    car._steering = clamp(finite(car._steering) + (steeringTarget - finite(car._steering)) * (1 - Math.exp(-steeringRate * dt)), -steeringLimit, steeringLimit);
-    car.angle += car.speed / WHEELBASE * Math.tan(car._steering) * dt;
-    car.angle %= TAU;
-    const next = this._resolvePosition(car.x + Math.sin(car.angle) * car.speed * dt, car.z + Math.cos(car.angle) * car.speed * dt, CAR_RADIUS, car.angle, car);
+    const previousAngle = car.angle;
+    stepVehicleDynamics(car, input, dt);
+    const next = this._resolvePosition(car.x + car.velocityX * dt, car.z + car.velocityZ * dt, CAR_RADIUS, car.angle, car);
     if (next.hit) {
-      const approach = -(Math.sin(car.angle) * next.hit.nx + Math.cos(car.angle) * next.hit.nz) * car.speed;
+      const approach = -(car.velocityX * next.hit.nx + car.velocityZ * next.hit.nz);
+      const loadingBoundary = next.hit.kind === 'boundary' || next.hit.kind === 'loading';
       if (approach > 0.3) {
-        // Neither a geographic limit nor pending geometry is a crashable wall.
-        if (next.hit.kind !== 'boundary' && next.hit.kind !== 'loading') this._impact(Math.abs(speedBefore), 'building');
+        // Lateral impacts count too. Loading and geographic limits never cause
+        // damage or heat, and must not store motion that launches after loading.
+        if (!loadingBoundary) this._impact(approach, 'building');
         else if (this.elapsed - this._lastBoundaryNotice > 6) {
           this._lastBoundaryNotice = this.elapsed;
           this._say(next.hit.kind === 'loading' ? 'Loading the next streets. Please wait.' : 'New York City map edge.', 4);
         }
-        car.speed *= Math.max(0, 1 - Math.abs(approach) / Math.max(0.1, Math.abs(car.speed)));
       }
+      const inward = Math.max(0, approach);
+      // Missing coverage rejects the entire pose. Rolling back only position
+      // could leave the rotated front or rear capsule inside an unloaded tile.
+      if (next.hit.kind === 'loading') car.angle = previousAngle;
+      stopVehicleRotation(car,
+        loadingBoundary ? 0 : car.velocityX + next.hit.nx * inward,
+        loadingBoundary ? 0 : car.velocityZ + next.hit.nz * inward);
     }
     car.x = next.x;
     car.z = next.z;
     for (const offset of [-CAR_HALF_AXLE, CAR_HALF_AXLE]) {
       const collision = this._nearCar(car.x + Math.sin(car.angle) * offset, car.z + Math.cos(car.angle) * offset, CAR_RADIUS, car.id);
       if (!collision) continue;
-      const relativeSpeed = Math.abs(car.speed - collision.car.speed * Math.cos(turnDelta(car.angle, collision.car.angle)));
+      const otherX = Math.sin(collision.car.angle) * collision.car.speed;
+      const otherZ = Math.cos(collision.car.angle) * collision.car.speed;
+      const relativeSpeed = Math.hypot(car.velocityX - otherX, car.velocityZ - otherZ);
       const corrected = this._resolvePosition(car.x + collision.nx * (collision.depth + 0.01), car.z + collision.nz * (collision.depth + 0.01), CAR_RADIUS, car.angle, car);
       car.x = corrected.x;
       car.z = corrected.z;
       this._impact(relativeSpeed, collision.car.type === 'police' ? 'police' : 'vehicle');
-      car.speed *= 0.4;
-      collision.car.speed *= 0.55;
+      let velocityX = car.velocityX * 0.4, velocityZ = car.velocityZ * 0.4;
+      const closing = Math.min(0, (velocityX - otherX * .55) * collision.nx + (velocityZ - otherZ * .55) * collision.nz);
+      velocityX -= collision.nx * closing;
+      velocityZ -= collision.nz * closing;
+      if (corrected.hit) {
+        // A vehicle can push us against a wall or a streaming limit. Keep the
+        // corrected position and velocity consistent within this same tick.
+        if (corrected.hit.kind === 'loading' || corrected.hit.kind === 'boundary') {
+          velocityX = 0; velocityZ = 0;
+        } else {
+          const inward = Math.min(0, velocityX * corrected.hit.nx + velocityZ * corrected.hit.nz);
+          velocityX -= corrected.hit.nx * inward; velocityZ -= corrected.hit.nz * inward;
+        }
+      }
+      stopVehicleRotation(car, velocityX, velocityZ);
+      resetVehicleDynamics(collision.car, collision.car.speed * 0.55);
       collision.car._wait = 0.7;
       break;
     }
-    Object.assign(this.player, { x: car.x, z: car.z, angle: car.angle, speed: car.speed });
+    Object.assign(this.player, { x: car.x, z: car.z, angle: car.angle, speed: car.speed, velocityX: car.velocityX, velocityZ: car.velocityZ });
   }
 
   _impact(speed, kind) {
@@ -698,6 +702,7 @@ export class Simulation {
       const point = this._lanePoint(edge, clamp(9 / edge.length, 0.15, 0.75));
       if (distance(point, this.player) < 120 || this._carContact(point.x, point.z, edge.angle) || this._nearCar(point.x, point.z, 6, car.id)) continue;
       Object.assign(car, { x: point.x, z: point.z, angle: edge.angle, speed: car._cruise * 0.6, _edge: edge, _route: [], _stuckTime: 0, _steering: 0, _shiftHold: 0 });
+      resetVehicleDynamics(car, car.speed);
       return true;
     }
     return false;
@@ -815,7 +820,7 @@ export class Simulation {
       this.heat = Math.max(0, this.heat - dt * 0.14);
       if (this.heat === 0) this._say('You lost the police. Heat cleared.');
     }
-    if (visiblePatrol && distance(visiblePatrol, this.player) < 8 && Math.abs(this.player.speed) < 1.2) this._bustedTime += dt;
+    if (visiblePatrol && distance(visiblePatrol, this.player) < 8 && playerTravelSpeed(this.player) < 1.2) this._bustedTime += dt;
     else this._bustedTime = Math.max(0, this._bustedTime - dt * 2);
     if (this._bustedTime > 5) {
       const fine = Math.min(this.cash, Math.round(50 + this.heat * 50));
@@ -833,7 +838,7 @@ export class Simulation {
       this._say('Delivery timed out. Press N to try another job.', 6);
       return;
     }
-    if (distance(this.player, this.mission.target) < 10 && Math.abs(this.player.speed) < 3) {
+    if (distance(this.player, this.mission.target) < 10 && playerTravelSpeed(this.player) < 3) {
       const bonus = Math.round(this.mission.timeLeft / this.mission.totalTime * 50 / 5) * 5;
       const payout = this.mission.reward + bonus;
       this.cash += payout;

@@ -210,10 +210,29 @@ test('front steering pivots remain independent from wheel roll and reverse speed
     const axleAfter = new THREE.Vector3(1, 0, 0).applyQuaternion(wheel.userData.roll.quaternion).applyQuaternion(wheel.quaternion);
     assert.ok(axleBefore.distanceTo(axleAfter) < 1e-10, 'spinning the wheel must not wobble the steered axle');
   }
-  assert.ok(car.rotation.z < 0, 'right steering leans the body outward toward local +X');
+  assert.ok(car.userData.chassis.rotation.z < 0, 'right steering leans the body outward toward local +X');
   updateCarVisuals(car, { x: 0, z: 0, angle: 0, speed: -7, _steering: steering }, 1 / 60);
   assert.ok(car.userData.wheels.filter(wheel => wheel.userData.front).every(wheel => wheel.rotation.y === steering), 'reversing changes roll direction, not wheel steering orientation');
-  assert.ok(car.rotation.z < 0, 'reverse cornering retains the physical outward bank');
+  assert.ok(car.userData.chassis.rotation.z < 0, 'reverse cornering retains the physical outward bank');
+});
+
+test('body suspension follows actual acceleration while tire contacts stay grounded', () => {
+  const car = createCar(), chassis = car.userData.chassis;
+  const state = { x: 0, z: 0, angle: .7, speed: 14, _steering: -.3, lateralAcceleration: 8, longitudinalAcceleration: -10 };
+  updateCarVisuals(car, state, .2);
+  assert.ok(chassis.rotation.z > 0, 'countersteering does not flip the lean before lateral force changes');
+  assert.ok(chassis.rotation.x > 0, 'braking dips the nose');
+  assert.equal(car.rotation.x, 0);assert.equal(car.rotation.z, 0);
+  car.updateMatrixWorld(true);
+  for(const wheel of car.userData.wheels){
+    const hub = wheel.getWorldPosition(new THREE.Vector3());
+    assert.ok(Math.abs(hub.y - wheel.userData.radius - .035) < 1e-9, 'body roll cannot lift a wheel');
+  }
+  const before = chassis.rotation.clone();
+  updateCarVisuals(car, { ...state, lateralAcceleration: -8, longitudinalAcceleration: 10 }, 0);
+  assert.ok(chassis.rotation.equals(before), 'pausing holds the suspension pose');
+  for(let i=0;i<120;i++)updateCarVisuals(car,{ ...state, speed:0, _steering:0, lateralAcceleration:0, longitudinalAcceleration:0 },1/60);
+  assert.ok(Math.abs(chassis.rotation.x)<1e-6&&Math.abs(chassis.rotation.z)<1e-6, 'suspension settles at rest');
 });
 
 test('walking avatars expose separate limb pivots and human-scale ground contact', () => {
