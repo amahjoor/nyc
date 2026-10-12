@@ -223,7 +223,7 @@ async function bootHarness({ stored = null, unavailableStorage = false, fetchOK 
       waitingRoads:()=>roadWaiters.length,
       state: () => window.nycGame.getState(),
       simulation: () => vm.runInContext('sim', context),
-      camera: () => vm.runInContext('({position:camera.position.clone(),quaternion:camera.quaternion.clone(),yaw})',context),
+      camera: () => vm.runInContext('({position:camera.position.clone(),quaternion:camera.quaternion.clone(),yaw,near:camera.near,far:camera.far,fov:camera.fov})',context),
       vehicleVisual() {
         const simulation=vm.runInContext('sim',context),mesh=vm.runInContext('carModels',context).get(simulation.player.vehicleId);
         assert.ok(mesh,'the controlled vehicle must have a production scene model');
@@ -472,6 +472,81 @@ function orbitWalkingCamera(app,targetYaw){
   canvas.dispatch('pointerup',{pointerId:1});
   app.frames(75);
 }
+
+function aerialPose(app){
+  const camera=app.camera(),direction=new THREE.Vector3(0,0,-1).applyQuaternion(camera.quaternion);
+  assert.ok(direction.y<-.1,'the aerial camera must look down toward the city');
+  // Recover the viewed ground point geometrically, without depending on the
+  // name or implementation of the camera's internal tracking state.
+  const focus=camera.position.clone().addScaledVector(direction,-camera.position.y/direction.y);
+  return {...camera,focus,distance:camera.position.distanceTo(focus)};
+}
+
+test('aerial movement and stopping translate a fixed view with sufficient ground depth precision',async()=>{
+  const app=await bootHarness();
+  try{
+    app.click('start-button');app.click('view-button');app.frames(2);
+    await app.until(()=>app.state().stream.loading===0);
+    const sim=app.simulation(),spawn={...sim.player};
+    const clear=sim.city.roads.flatMap(road=>road.points.slice(1).map((point,i)=>({x:(point[0]+road.points[i][0])/2,z:(point[1]+road.points[i][1])/2})))
+      .find(point=>Math.hypot(point.x-spawn.x,point.z-spawn.z)<250&&!sim.isBlocked(point.x,point.z,4)
+        &&sim.cars.every(car=>Math.hypot(car.x-point.x,car.z-point.z)>9));
+    assert.ok(clear);
+    Object.assign(sim.player,clear,{velocityX:0,velocityZ:0,speed:0});
+    app.key('KeyV');app.key('KeyV',false);app.frames();
+    const baseline=aerialPose(app),before={...sim.player};
+    assert.ok(baseline.focus.distanceTo(new THREE.Vector3(sim.player.x,0,sim.player.z))<1e-6,
+      'entering aerial view starts at the current player rather than easing from the prior camera position');
+    assert.equal(baseline.position.y,240);
+    const depthQuantum=baseline.distance**2*(baseline.far-baseline.near)/(baseline.far*baseline.near*(2**24-1));
+    assert.ok(depthQuantum<.025/4,'24-bit depth precision must distinguish the 2.5cm aerial layer separation');
+    app.key('KeyD');
+    for(let frame=0;frame<48;frame++){
+      if(frame===18)app.key('KeyD',false);
+      app.frames();
+      const pose=aerialPose(app);
+      assert.ok(pose.quaternion.angleTo(baseline.quaternion)<1e-7,'following movement and deceleration must not rotate the whole city');
+      assert.ok(Math.abs(pose.distance-baseline.distance)<1e-7,'camera and look target must translate together');
+      assert.equal(pose.position.y,baseline.position.y);
+      assert.equal(pose.fov,baseline.fov);
+    }
+    assert.ok(Math.hypot(sim.player.x-before.x,sim.player.z-before.z)>.4,'the fixed-view assertions must exercise actual player movement');
+    assert.ok(aerialPose(app).position.distanceTo(baseline.position)>.25,'the camera still follows the moving player');
+    assert.equal(app.errors.length,0,app.errors[0]?.stack);
+  }finally{app.close();}
+});
+
+test('aerial entry, recovery and large location changes reset tracking without camera travel across the map',async()=>{
+  const app=await bootHarness();
+  try{
+    app.click('start-button');app.click('view-button');app.frames(2);
+    await app.until(()=>app.state().stream.loading===0);
+    const sim=app.simulation();
+    app.key('KeyV');app.key('KeyV',false);app.frames();
+    const fixed=aerialPose(app);
+    // A location discontinuity must not animate the camera through hundreds
+    // of meters of intervening buildings while looking at a distant player.
+    Object.assign(sim.player,{x:sim.player.x+300,z:sim.player.z+100,velocityX:0,velocityZ:0,speed:0});
+    app.frames();
+    let pose=aerialPose(app);
+    assert.ok(pose.focus.distanceTo(new THREE.Vector3(sim.player.x,0,sim.player.z))<1e-6,'large location change resets the aerial focus');
+    assert.ok(pose.quaternion.angleTo(fixed.quaternion)<1e-7);
+    app.key('KeyR');app.key('KeyR',false);app.frames();
+    pose=aerialPose(app);
+    assert.ok(pose.focus.distanceTo(new THREE.Vector3(sim.player.x,0,sim.player.z))<1e-6,'recovery resets the aerial focus');
+    app.click('view-button');assert.equal(app.state().cityView,true);app.frames(8);
+    app.click('view-button');assert.equal(app.state().cityView,false);app.frames(8);
+    assert.equal(app.state().aerialView,false);
+    assert.ok(app.camera().near<1,'street view restores its close clipping range');
+    app.key('KeyV');app.key('KeyV',false);app.frames();
+    pose=aerialPose(app);
+    assert.ok(pose.focus.distanceTo(new THREE.Vector3(sim.player.x,0,sim.player.z))<1e-6,'returning from city and street views starts at the current player');
+    assert.ok(pose.quaternion.angleTo(fixed.quaternion)<1e-7);
+    assert.ok(Math.abs(pose.distance-fixed.distance)<1e-7);
+    assert.ok(pose.near>=3);
+    assert.equal(app.errors.length,0,app.errors[0]?.stack);
+  }finally{app.close();}
+});
 
 test('walking A/D and arrow keys follow the visible camera right axis after orbiting',async()=>{
   const app=await bootHarness();

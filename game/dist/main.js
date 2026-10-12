@@ -13,7 +13,7 @@ const clamp = (n,a,b) => Math.max(a,Math.min(b,n));
 const angleDifference = (a,b) => Math.atan2(Math.sin(a-b),Math.cos(a-b));
 const SAVE_KEY = 'nyc-after-hours-v1';
 let sim, city, renderer, scene, camera, world, hud, avatar, marker, markerDiamond, enterHint;
-let started=false, paused=false, highQuality=false, farCamera=false, aerialView=false, savedEarnings='';
+let started=false, paused=false, highQuality=false, farCamera=false, aerialView=false, aerialTracking=false, savedEarnings='';
 let cityIndex, roadIndex, roadStream, ground, sun, localFog, bootReady=false, traveling=false, pausedBeforeSources=false;
 let cityView=false, cityZoom=1, cityOrbit=0, roadCell='', roadEpoch=0, roadBusy=false, buildings=[], boroughs=[];
 let yaw=0, pitch=.38, lookIdle=0, elapsed=0, lastFrame=0, hudTime=0, qualityTimer=0, slowFrames=0;
@@ -22,6 +22,7 @@ const audio = new CityAudio();
 const canvas=$('world');
 const input=new Input(canvas, action);
 const cameraTarget=new THREE.Vector3(), desiredCamera=new THREE.Vector3(), cameraForward=new THREE.Vector3();
+const aerialTarget=new THREE.Vector3(), aerialOffset=new THREE.Vector3(-95,240,180);
 
 function announce(text) { if(sim){sim.notice=text;sim.noticeTime=4;} }
 function action(name) {
@@ -43,7 +44,7 @@ function action(name) {
     }
   }
   if(name==='job')sim.startMission();
-  if(name==='recover'){sim.reset();yaw=sim.player.angle;announce('Recovered to a nearby street. Your next ride is waiting.');}
+  if(name==='recover'){sim.reset();yaw=sim.player.angle;aerialTracking=false;announce('Recovered to a nearby street. Your next ride is waiting.');}
   if(name==='map')hud.toggleMap();
   if(name==='camera'){farCamera=!farCamera;announce(farCamera?'Camera: wide chase':'Camera: close chase');}
   if(name==='horn')audio.horn();
@@ -204,10 +205,17 @@ function updateCamera(dt) {
   camera.near=.15;camera.far=6500;scene.fog=localFog;
   if(aerialView){
     input.lookDelta=0;input.lookVertical=0;
-    // The overview looks across the same surveyed buildings used at street level.
-    desiredCamera.set(p.x-95,240,p.z+180);
-    camera.position.lerp(desiredCamera,1-Math.exp(-dt*4));
-    camera.lookAt(p.x,0,p.z);camera.fov=52;camera.updateProjectionMatrix();return;
+    cameraTarget.set(p.x,0,p.z);
+    // Move the eye and its target together. Smoothing only the eye while
+    // aiming at the player makes the whole city appear to tilt during travel.
+    // Entering this view or teleporting starts a fresh local tracking target.
+    if(!aerialTracking||aerialTarget.distanceToSquared(cameraTarget)>200*200){
+      aerialTarget.copy(cameraTarget);aerialTracking=true;
+    }else aerialTarget.lerp(cameraTarget,1-Math.exp(-dt*4));
+    camera.position.copy(aerialTarget).add(aerialOffset);
+    // At this altitude a street-level near plane wastes depth precision and
+    // makes closely spaced ground surfaces flicker.
+    camera.near=5;camera.lookAt(aerialTarget);camera.fov=52;camera.updateProjectionMatrix();return;
   }
   const look=input.lookDelta,vertical=input.lookVertical;input.lookDelta=0;input.lookVertical=0;
   yaw+=look;pitch=clamp(pitch+vertical,.17,.85);lookIdle=look||vertical?0:lookIdle+dt;
@@ -262,6 +270,7 @@ function frame(now) {
 }
 
 function setView(mode){
+  if(mode!=='aerial'||!aerialView)aerialTracking=false;
   cityView=mode==='city';aerialView=mode==='aerial';input.clear();
   $('view-button').textContent=cityView?'STREET CAMERA':aerialView?'CITY OVERVIEW':'AERIAL VIEW';
   $('city-button').textContent=cityView?'RETURN TO STREET':'ALL FIVE BOROUGHS';

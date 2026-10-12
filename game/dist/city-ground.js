@@ -57,7 +57,10 @@ export function createCityGround({ scene, origin = CITY_ORIGIN, onStatus = () =>
     uvs.push(u,v-1/rows,u+1/columns,v-1/rows,u+1/columns,v,u,v);indices.push(i,i+1,i+2,i,i+2,i+3);
   }
   const atlas = new THREE.BufferGeometry();atlas.setAttribute('position',new THREE.Float32BufferAttribute(positions,3));atlas.setAttribute('uv',new THREE.Float32BufferAttribute(uvs,2));atlas.setIndex(indices);
-  group.add(new THREE.Mesh(atlas,new THREE.MeshBasicMaterial({ map: texture, side: THREE.DoubleSide })));
+  // At aerial distances these nearly coplanar layers can occupy the same depth
+  // value. Paint imagery in order without writing depth, before normal objects.
+  const overviewMesh = new THREE.Mesh(atlas,new THREE.MeshBasicMaterial({ map: texture, side: THREE.DoubleSide, depthWrite: false }));
+  overviewMesh.renderOrder = -20;group.add(overviewMesh);
   const cache = new Map(), queue = [], desired = new Set(), requests = new Set();
   let disposed = false, generation = 0, coarseLoaded = 0, failures = 0, currentCell = '', overview = false;
   const status = () => ({ loading: requests.size + queue.length,
@@ -120,7 +123,8 @@ export function createCityGround({ scene, origin = CITY_ORIGIN, onStatus = () =>
       // an older request must not attach a mesh to its replacement cache entry.
       if (cache.get(tileKey) !== entry) return;
       const map = new THREE.Texture(image);map.colorSpace = THREE.SRGBColorSpace;map.anisotropy = 4;map.needsUpdate = true;
-      entry.mesh = plane(tileBounds(column, row, 18, origin), -.035, new THREE.MeshBasicMaterial({ map, side: THREE.DoubleSide }));
+      entry.mesh = plane(tileBounds(column, row, 18, origin), -.035, new THREE.MeshBasicMaterial({ map, side: THREE.DoubleSide, depthWrite: false }));
+      entry.mesh.renderOrder = -10;
       entry.mesh.visible = desired.has(tileKey);group.add(entry.mesh);
     } });
   }

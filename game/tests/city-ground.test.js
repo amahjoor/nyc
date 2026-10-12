@@ -122,6 +122,22 @@ test('local imagery has exactly 81 visible tiles and bounded LRU resources acros
   assert.equal(f.ground.group.children[0].visible, true, 'coarse city coverage remains visible');
 });
 
+test('imagery layers paint before ordinary geometry without competing for depth', t => {
+  const f = fixture(t);f.ground.update({ x: 0, z: 0 });f.drain();
+  const coarse = f.ground.group.children[0], detail = f.ground.group.children.slice(1);
+  const building = new THREE.Mesh(new THREE.BoxGeometry(10, 20, 10), new THREE.MeshStandardMaterial());
+  t.after(() => { building.geometry.dispose();building.material.dispose(); });
+  assert.ok(detail.length > 0, 'exercise loaded sharp imagery as well as the coarse atlas');
+  for (const mesh of [coarse, ...detail]) {
+    assert.equal(mesh.material.transparent, false, 'imagery stays in the opaque render queue');
+    assert.equal(mesh.material.depthWrite, false, 'nearly coplanar imagery cannot hide the other layer through depth rounding');
+    assert.equal(mesh.material.depthTest, true, 'existing foreground depth remains respected');
+    assert.ok(mesh.renderOrder < building.renderOrder, 'ordinary building meshes render after all imagery');
+  }
+  for (const mesh of detail) assert.ok(coarse.renderOrder < mesh.renderOrder, 'sharp tiles always paint over coarse coverage');
+  assert.equal(building.material.depthWrite, true, 'ordinary scene geometry still writes its own occlusion depth');
+});
+
 test('rapid travel bounds queued entries even before any network response completes', t => {
   const f = fixture(t), coarseCount = overviewTiles().length;
   for (let visit = 0; visit < 30; visit++) {
