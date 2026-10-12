@@ -3,7 +3,9 @@
 
 The model proposes masks, never object identities or heights. Mapped feature
 types supply those identities; overlap tests can reject a proposal, and accepted
-water is clipped to the surveyed footprint before the renderer may consume it.
+masks are clipped to the surveyed footprint before the renderer may consume them.
+Road and parking masks describe image appearance only; they never supply height
+or collision boundaries, and must not be treated as vehicle/shadow removal.
 Install requirements-reconstruction-ai.txt in an isolated Python 3.13 environment, then run:
   python scripts/reconstruct-imagery.py --reference dist/reconstruction/reference.geojson
 Use --model-directory to reuse a local download of the pinned model revision.
@@ -23,6 +25,7 @@ ROOT = Path(__file__).resolve().parents[1]
 MODEL = "facebook/sam-vit-base"
 REVISION = "70c1a07f894ebb5b307fd9eaaee97b9dfc16068f"
 WEIGHTS_SHA256 = "892c410e496344e527255ccdcb2cb7244a609acb5389c7c4fdba1288f861c579"
+SUPPORTED_CLASSES = ("water", "canopy", "roadbed", "parking")
 DEFAULT_BBOX = [-73.9763, 40.7648, -73.9731, 40.7679]
 SPEC = importlib.util.spec_from_file_location("reconstruction_ortho", ROOT / "scripts/import-ortho.py")
 ortho = importlib.util.module_from_spec(SPEC)
@@ -50,7 +53,7 @@ def agreement(intersection, proposed, reference):
 def approve(metrics, predicted_iou, pixel_count, kind):
     # SAM's predicted IoU is its estimate of mask quality, not the probability
     # that an aerial patch is water/tree. Type must come from a mapped source.
-    if kind not in ("water", "canopy"):
+    if kind not in SUPPORTED_CLASSES:
         return False, "Unsupported source class"
     if not all(math.isfinite(float(value)) and 0 <= float(value) <= 1
                for value in [predicted_iou, *metrics.values()]):
@@ -64,7 +67,7 @@ def approve(metrics, predicted_iou, pixel_count, kind):
     return True, "Passed model-quality and mapped-source overlap thresholds"
 
 
-def acquire_image(bbox, zoom, output):
+def acquire_image(bbox, zoom, output, asset_url="./reconstruction"):
     from PIL import Image
     tiles = ortho.coverage(zoom, margin=0, bbox=bbox)
     if len(tiles) > 81:
@@ -85,7 +88,7 @@ def acquire_image(bbox, zoom, output):
                 raise ValueError("Unexpected source tile dimensions")
             image.paste(part, ((tile["column"] - grid["minColumn"]) * 256,
                               (tile["row"] - grid["minRow"]) * 256))
-        tile["url"] = "./reconstruction/tiles/" + path.name
+        tile["url"] = asset_url + "/tiles/" + path.name
     image.save(output / "aerial.png")
     return image, grid, tiles
 
@@ -129,7 +132,7 @@ def mask_geometry(mask, grid, reference_geometry, local=False):
     return mapping(geometry)
 
 
-def prompts_for_mask(mask):
+def prompts_for_mask(mask, grid_size=1):
     import numpy as np
     from scipy.ndimage import distance_transform_edt
     ys, xs = np.where(mask)
@@ -149,21 +152,128 @@ def prompts_for_mask(mask):
         ny, nx = np.unravel_index(outside_distance.argmax(), outside_distance.shape)
         points.append([int(nx), int(ny)])
         labels.append(0)
-    return {"point": points[0], "points": points, "labels": labels, "box": bounds}
+    if grid_size > 1:
+        # Long pavement polygons have several branches. Spatially distributed
+        # source prompts prevent one wide branch from standing in for the whole
+        # feature, without changing the independent mask-quality/overlap gates.
+        # These prompts still make overlap a consistency check, not a benchmark.
+        points, labels = [], []
+        # A negative point far into grass cannot separate connected pavement
+        # classes. Use a narrow, source-exterior band for distributed negatives;
+        # its fixed pixel distances are recorded in the report, not tuned per
+        # candidate. Roadbeds and adjacent sidewalks can share identical color.
+        exterior_distance = distance_transform_edt(~mask)
+        negative_band = background & (exterior_distance >= 4) & (exterior_distance <= 16)
+        negative_distances = distance_transform_edt(negative_band)
+        xcuts = np.linspace(bounds[0], bounds[2] + 1, grid_size + 1, dtype=int)
+        ycuts = np.linspace(bounds[1], bounds[3] + 1, grid_size + 1, dtype=int)
+        for label, distances in ((1, distance), (0, negative_distances)):
+            for top, bottom in zip(ycuts[:-1], ycuts[1:]):
+                for left, right in zip(xcuts[:-1], xcuts[1:]):
+                    cell = distances[top:bottom, left:right]
+                    if not cell.size or cell.max() < 1:
+                        continue
+                    cy, cx = np.unravel_index(cell.argmax(), cell.shape)
+                    point = [int(cx + left), int(cy + top)]
+                    if point not in points:
+                        points.append(point); labels.append(label)
+    return {"point": points[0], "points": points, "labels": labels, "box": bounds, "gridSize": grid_size}
 
 
-def run(reference_path, output_path, bbox, zoom=19, model_directory=None, device="auto"):
+def output_directory(output_path, assets_directory=None):
+    """Separate report bundles so a new region can never overwrite the Pond run."""
+    directory = assets_directory or ("reconstruction" if output_path.name == "reconstruction-review.json"
+                                     else output_path.stem.removesuffix("-review"))
+    if Path(directory).name != directory or directory in ("", ".", ".."):
+        raise ValueError("Assets directory must be a single folder name")
+    return output_path.parent / directory, "./" + directory
+
+
+def validate_references(references, kinds=None):
+    if references.get("type") != "FeatureCollection" or not isinstance(references.get("features"), list):
+        raise ValueError("Reference must be a GeoJSON FeatureCollection")
+    records = references["features"]
+    if kinds:
+        unknown = set(kinds) - set(SUPPORTED_CLASSES)
+        if unknown:
+            raise ValueError("Unsupported requested source class")
+        records = [feature for feature in records if feature.get("properties", {}).get("kind") in kinds]
+    seen = set()
+    for feature in records:
+        properties = feature.get("properties", {})
+        identity = properties.get("sourceFeatureId") or properties.get("sourceId")
+        if properties.get("kind") not in SUPPORTED_CLASSES or not identity or identity in seen:
+            raise ValueError("Every reference needs a supported class and unique mapped source identity")
+        if not properties.get("sourceUrl"):
+            raise ValueError("Every reference needs source provenance")
+        seen.add(identity)
+    if not records:
+        raise ValueError("No references match the requested source classes")
+    return records
+
+
+def reference_from_street_tiles(index_path, bbox, kinds=("roadbed", "parking")):
+    """Select all mapped pavement in a region from the same tiles as the game."""
+    from shapely.geometry import Polygon, box, mapping
+    index_bytes = index_path.read_bytes()
+    index = json.loads(index_bytes)
+    if index.get("origin") != ortho.ORIGIN:
+        raise ValueError("Street index origin does not match imagery coordinates")
+    if set(kinds) - {"roadbed", "parking"}:
+        raise ValueError("Street tile references support roadbed and parking only")
+    west, south, east, north = bbox
+    boundary = box(west, south, east, north)
+    min_x, min_z = ortho.project(west, north)
+    max_x, max_z = ortho.project(east, south)
+    layers = {layer["kind"]: layer for layer in index["source"]["layers"]}
+    features, seen = [], set()
+    def geographic(point):
+        x, z = point
+        return [ortho.ORIGIN["lon"] + math.degrees(x / (ortho.EARTH_RADIUS * math.cos(math.radians(ortho.ORIGIN["lat"])))),
+                ortho.ORIGIN["lat"] - math.degrees(z / ortho.EARTH_RADIUS)]
+    for cell in index["cells"].values():
+        bounds = cell["bounds"]
+        if bounds["maxX"] < min_x or bounds["minX"] > max_x or bounds["maxZ"] < min_z or bounds["minZ"] > max_z:
+            continue
+        tile_path = (index_path.parent / cell["url"]).resolve()
+        if not tile_path.is_relative_to(index_path.parent.resolve()):
+            raise ValueError("Street tile path escapes the source bundle")
+        for feature in json.loads(tile_path.read_text()).get("surfaces", []):
+            if feature["kind"] not in kinds or feature["id"] in seen:
+                continue
+            seen.add(feature["id"])
+            shape = Polygon([geographic(p) for p in feature["polygon"]],
+                            [[geographic(p) for p in ring] for ring in feature.get("holes", [])])
+            clipped = shape.intersection(boundary)
+            if clipped.is_empty or clipped.area == 0:
+                continue
+            features.append({"type": "Feature", "properties": {
+                "kind": feature["kind"], "sourceId": feature["sourceId"], "sourceFeatureId": feature["id"],
+                "sourceUrl": layers[feature["kind"]]["url"], "sourceYear": index["source"]["surveyYear"],
+                "sourceRowId": feature["sourceRowId"], "sourceSubcode": feature["subCode"],
+                "clippedToReviewBounds": True}, "geometry": mapping(clipped)})
+    result = {"type": "FeatureCollection", "bbox": bbox,
+              "sourceIndexSha256": hashlib.sha256(index_bytes).hexdigest(),
+              "sourcePolicy": "All selected mapped pavement classes in review bounds, deduplicated by source feature identity and clipped to review bounds; millimeter-precision game source geometry.",
+              "features": sorted(features, key=lambda feature: feature["properties"]["sourceFeatureId"])}
+    validate_references(result, kinds)
+    return result
+
+
+def run(reference_path, output_path, bbox, zoom=19, model_directory=None, device="auto",
+        assets_directory=None, title=None, kinds=None, prompt_grid=1):
     import numpy as np
     import torch
     import transformers
     from PIL import Image
     from transformers import SamModel, SamProcessor
     started = time.monotonic()
-    output = output_path.parent / "reconstruction"
+    output, asset_url = output_directory(output_path, assets_directory)
     output.mkdir(parents=True, exist_ok=True)
     reference_bytes = reference_path.read_bytes()
     references = json.loads(reference_bytes)
-    image, grid, tiles = acquire_image(bbox, zoom, output)
+    features = validate_references(references, kinds)
+    image, grid, tiles = acquire_image(bbox, zoom, output, asset_url)
     if device == "auto":
         device = "mps" if torch.backends.mps.is_available() else "cuda" if torch.cuda.is_available() else "cpu"
     model_source = str(model_directory) if model_directory else MODEL
@@ -182,11 +292,11 @@ def run(reference_path, output_path, bbox, zoom=19, model_directory=None, device
         embedding = model.get_image_embeddings(image_inputs["pixel_values"])
     records = []
     overlay = image.convert("RGBA")
-    for index, feature in enumerate(references["features"]):
+    for index, feature in enumerate(features):
         properties = feature.get("properties", {})
         kind = properties.get("kind")
         reference = polygons_to_mask(feature["geometry"], image.size, grid)
-        prompts = prompts_for_mask(reference)
+        prompts = prompts_for_mask(reference, prompt_grid)
         if not prompts:
             continue
         inputs = processor(image, input_points=[prompts["points"]], input_labels=[prompts["labels"]],
@@ -215,14 +325,16 @@ def run(reference_path, output_path, bbox, zoom=19, model_directory=None, device
         color[proposed] = [37, 195, 231, 90] if accepted else [240, 75, 55, 90]
         overlay = Image.alpha_composite(overlay, Image.fromarray(color))
         record = {"id": key, "kind": kind, "sourceId": properties.get("sourceId"),
+                  "sourceFeatureId": properties.get("sourceFeatureId", properties.get("sourceId")),
                   "sourceUrl": properties.get("sourceUrl"), "sourceYear": properties.get("sourceYear"),
+                  "use": "appearance-only; source geometry and measured elevation remain authoritative",
                   "prompt": prompts, "predictedIou": float(scores[chosen]),
                   "sourceAgreement": metrics, "candidatePixels": int(proposed.sum()),
                   "referencePixels": int(reference.sum()), "approvedPixels": int(approved.sum()),
                   "accepted": accepted, "reason": reason,
-                  "candidateMask": f"./reconstruction/{key}-candidate.png",
-                  "referenceMask": f"./reconstruction/{key}-reference.png",
-                  "approvedMask": f"./reconstruction/{key}-approved.png",
+                  "candidateMask": f"{asset_url}/{key}-candidate.png",
+                  "referenceMask": f"{asset_url}/{key}-reference.png",
+                  "approvedMask": f"{asset_url}/{key}-approved.png",
                   "geometry": mask_geometry(approved, grid, feature["geometry"]) if accepted else None,
                   "localGeometry": mask_geometry(approved, grid, feature["geometry"], local=True) if accepted else None}
         records.append(record)
@@ -230,30 +342,34 @@ def run(reference_path, output_path, bbox, zoom=19, model_directory=None, device
     overlay.convert("RGB").save(output / "review-overlay.jpg", quality=92)
     west, north = pixel_to_lonlat(0, 0, grid)
     east, south = pixel_to_lonlat(image.width, image.height, grid)
-    result = {"version": 1, "title": "Central Park Pond imagery reconstruction review", "status": "inference-complete",
+    result = {"version": 1, "title": title or "NYC imagery reconstruction review", "status": "inference-complete",
               "method": "Source-prompted SAM segmentation; candidate identity from mapped source; accepted masks clipped to source footprint",
-              "promptPolicy": "One deepest-interior positive point, one deepest mapped background negative point inside the bounding box when available; highest model-scored candidate selected before source-overlap evaluation",
+              "promptPolicy": ("One deepest-interior positive point and one mapped-background negative point inside the bounding box when available"
+                               if prompt_grid == 1 else f"Deepest mapped interior point and negative point 4–16 pixels outside source in each cell of a {prompt_grid}x{prompt_grid} bounding-box grid")
+                              + "; highest model-scored candidate selected before source-overlap evaluation",
+              "promptGrid": prompt_grid,
               "model": {"id": MODEL, "revision": REVISION, "license": "Apache-2.0",
                         "url": "https://huggingface.co/" + MODEL, "device": device,
                         "torch": torch.__version__, "transformers": transformers.__version__,
                         "weightsSha256": WEIGHTS_SHA256,
                         "weightsBundled": False},
-              "reference": {"url": "./reconstruction/" + reference_path.name,
+              "reference": {"url": asset_url + "/" + reference_path.name,
                             "sha256": hashlib.sha256(reference_bytes).hexdigest()},
               "imagery": {"source": ortho.SOURCE, "year": 2024, "license": "CC BY 4.0",
                           "captureDates": "2024-03-14 to 2024-03-24",
                           "bbox": [west, south, east, north], "requestedBbox": bbox,
                           "grid": grid, "width": image.width, "height": image.height,
-                          "url": "./reconstruction/aerial.png", "tiles": tiles},
+                          "url": asset_url + "/aerial.png", "tiles": tiles},
               "thresholds": {"predictedIou": 0.75, "sourceIou": 0.65, "sourcePrecision": 0.85,
                              "sourceRecall": 0.70, "minimumPixels": 64},
               "coordinates": "+X east, +Z south in meters relative to origin; GeoJSON uses WGS84 longitude, latitude",
               "origin": ortho.ORIGIN, "features": records,
               "summary": {"candidates": len(records), "accepted": sum(r["accepted"] for r in records),
                           "rejected": sum(not r["accepted"] for r in records)},
-              "overlay": "./reconstruction/review-overlay.jpg",
+              "overlay": asset_url + "/review-overlay.jpg",
               "limitations": ["Pilot only; not a reconstruction of all NYC.",
-                              "SAM produces 2D masks, not terrain, height, species, facades or 3D geometry.",
+                              "SAM produces 2D masks, not terrain, bridge decks, height, species, facades or 3D geometry.",
+                              "Road and parking masks do not identify or remove photographed vehicles and shadows. These may remain within accepted pavement masks.",
                               "Predicted IoU is not a calibrated probability of object identity.",
                               "Mapped-source agreement is a consistency check, not independent ground-truth accuracy: the source also supplies point/box prompts.",
                               "Sources and imagery have different capture dates; shadow and leaf-off vegetation can disagree.",
@@ -267,14 +383,28 @@ def run(reference_path, output_path, bbox, zoom=19, model_directory=None, device
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--reference", type=Path, required=True)
+    inputs = parser.add_mutually_exclusive_group(required=True)
+    inputs.add_argument("--reference", type=Path)
+    inputs.add_argument("--street-index", type=Path, help="Build a georeferenced pavement reference from bundled game source tiles")
     parser.add_argument("--output", type=Path, default=ROOT / "dist/reconstruction-review.json")
     parser.add_argument("--bbox", type=float, nargs=4, default=DEFAULT_BBOX)
     parser.add_argument("--zoom", type=int, default=19)
     parser.add_argument("--model-directory", type=Path)
+    parser.add_argument("--assets-directory", help="Single sibling folder name; defaults from output report name")
+    parser.add_argument("--title", help="Human-readable region and review title")
+    parser.add_argument("--prompt-grid", type=int, choices=(1, 2, 3), default=1, help="Source prompt grid; 1 retains the original single-interior-point method")
+    parser.add_argument("--classes", nargs="+", choices=SUPPORTED_CLASSES, help="Mapped source classes to process")
     parser.add_argument("--device", choices=("auto", "cpu", "mps", "cuda"), default="auto")
     args = parser.parse_args()
-    result = run(args.reference, args.output, args.bbox, args.zoom, args.model_directory, args.device)
+    if args.street_index:
+        output, _ = output_directory(args.output, args.assets_directory)
+        output.mkdir(parents=True, exist_ok=True)
+        args.reference = output / "reference.geojson"
+        args.classes = args.classes or ["roadbed", "parking"]
+        args.reference.write_text(json.dumps(reference_from_street_tiles(args.street_index, args.bbox, args.classes),
+                                             separators=(",", ":")) + "\n")
+    result = run(args.reference, args.output, args.bbox, args.zoom, args.model_directory, args.device,
+                 args.assets_directory, args.title, args.classes, args.prompt_grid)
     print(json.dumps(result["summary"]))
 
 

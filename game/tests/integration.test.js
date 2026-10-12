@@ -487,7 +487,8 @@ test('street view loads measured SoHo surfaces and shares source imagery with ro
     const {scene,localOrthophoto,roofUniforms}=app.renderState();
     const group=scene.getObjectByName('NYC mapped street surfaces');
     assert.ok(group?.visible);
-    assert.equal(group.children.length,1,'measured street polygons share a single render batch');
+    assert.equal(group.children.filter(child=>child.isMesh).length,1,'measured ground polygons share a single render batch');
+    assert.ok(group.getObjectByName('NYC measured transport decks'),'source bridge decks have a separate height batch');
     const mesh=group.children[0], positions=mesh.geometry.attributes.position;
     assert.ok(app.state().streetDetail.surfaces>100,'bundled official polygons reach the production scene');
     assert.ok(positions.count>1000&&mesh.geometry.index.count>1000);
@@ -1179,6 +1180,24 @@ test('Prospect Lake arrival retains real building collisions while slower park d
   }finally{app.releaseLandscape();await app.until(()=>!app.state().traveling);app.close();}
 });
 
+test('shadow preference persists and survives quality changes and camera switches',async()=>{
+  const app=await bootHarness({displayStored:JSON.stringify({version:1,shadows:false})});
+  try{
+    app.click('start-button');app.click('view-button');app.frames();
+    assert.equal(app.state().shadows.enabled,false);assert.equal(app.state().shadows.active,false);
+    assert.equal(app.elements.get('shadows-button').textContent,'SHADOWS: OFF');
+    app.click('quality-button');app.frames();assert.equal(app.state().shadows.active,false);
+    app.click('shadows-button');app.frames();
+    assert.equal(app.state().shadows.active,true);
+    assert.equal(app.elements.get('shadows-button').getAttribute('aria-pressed'),'true');
+    assert.deepEqual(JSON.parse(app.storage.get('nyc-after-hours-display-v1')),{version:1,shadows:true});
+    app.click('city-button');app.frames();assert.equal(app.state().shadows.active,false);
+    app.click('city-button');app.frames();assert.equal(app.state().shadows.active,true);
+    app.click('shadows-button');app.frames();assert.equal(app.state().shadows.active,false);
+    assert.equal(JSON.parse(app.storage.get('nyc-after-hours-display-v1')).shadows,false);
+  }finally{app.close();}
+});
+
 test('Central Park Pond arrival accepts the actual surveyed building with a raised ground cap',async()=>{
   const resources=[3136,3144,3164,3166,3216,3220,3222,3907];
   const app=await bootHarness({extraGeometry:resources.map(resource=>({resource,name:`central-park-${resource}`})),measuredLandscape:true});
@@ -1198,20 +1217,30 @@ test('Central Park Pond arrival accepts the actual surveyed building with a rais
   }finally{app.close();}
 });
 
-test('shadow preference persists and survives quality changes and camera switches',async()=>{
-  const app=await bootHarness({displayStored:JSON.stringify({version:1,shadows:false})});
+test('road and bridge destinations use source-backed arrival points and disclose the actual AI review', async () => {
+  const app=await bootHarness();
   try{
-    app.click('start-button');app.click('view-button');app.frames();
-    assert.equal(app.state().shadows.enabled,false);assert.equal(app.state().shadows.active,false);
-    assert.equal(app.elements.get('shadows-button').textContent,'SHADOWS: OFF');
-    app.click('quality-button');app.frames();assert.equal(app.state().shadows.active,false);
-    app.click('shadows-button');app.frames();
-    assert.equal(app.state().shadows.active,true);
-    assert.equal(app.elements.get('shadows-button').getAttribute('aria-pressed'),'true');
-    assert.deepEqual(JSON.parse(app.storage.get('nyc-after-hours-display-v1')),{version:1,shadows:true});
-    app.click('city-button');app.frames();assert.equal(app.state().shadows.active,false);
-    app.click('city-button');app.frames();assert.equal(app.state().shadows.active,true);
-    app.click('shadows-button');app.frames();assert.equal(app.state().shadows.active,false);
-    assert.equal(JSON.parse(app.storage.get('nyc-after-hours-display-v1')).shadows,false);
+    const source=JSON.parse(readFileSync(new URL('../dist/street-detail-index.json',import.meta.url),'utf8'));
+    const destinations=source.coverageRegions.filter(region=>region.view);
+    assert.equal(app.elements.get('transport-travel-button').disabled,false);
+    assert.match(app.elements.get('transport-select').innerHTML,/Brooklyn Bridge/);
+    assert.match(app.elements.get('transport-select').innerHTML,/Meadow Lake roads/);
+    assert.equal(app.state().roadReconstruction.summary.candidates,34);
+    assert.equal(app.state().roadReconstruction.summary.accepted,0);
+    assert.match(app.elements.get('road-reconstruction-status').textContent,/0 of 34/);
+    app.click('start-button');
+    for(let i=0;i<destinations.length;i++){
+      app.elements.get('transport-select').value=String(i);app.click('transport-travel-button');
+      assert.equal(app.state().traveling,true);
+      assert.equal(app.elements.get('transport-travel-button').disabled,true);
+      await app.until(()=>!app.state().traveling);
+      const target=destinations[i].view, player=app.state().player;
+      assert.equal(app.state().cityView,false,app.elements.get('travel-note').textContent);
+      assert.ok(Math.hypot(player.x-target.x,player.z-target.z)<100);
+      await app.until(()=>{app.frames();return app.state().streetDetail.loading===0&&app.state().streetDetail.surfaces>0;});
+      assert.equal(app.state().streetDetail.covered,true);
+      assert.equal(app.elements.get('transport-travel-button').disabled,false);
+    }
+    assert.equal(app.errors.length,0);
   }finally{app.close();}
 });

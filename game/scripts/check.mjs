@@ -36,13 +36,46 @@ for(const [key,cell] of Object.entries(roads.cells)){
 }
 const detail=JSON.parse(await readFile(resolve(root,'dist/street-detail-index.json'),'utf8'));
 let detailBytes=0;
+const detailFeatures=new Map();
+if(detail.coverageRegions.length!==7||new Set(detail.coverageRegions.map(region=>region.borough)).size!==5)throw new Error('Missing street-detail sample coverage');
+if(JSON.stringify(detail.origin)!==JSON.stringify(index.origin))throw new Error('Street-detail origin does not match buildings');
 for(const [key,cell] of Object.entries(detail.cells)){
   if(!/^\.\/street-detail\/-?\d+_-?\d+\.json$/.test(cell.url))throw new Error(`Invalid detail cell path: ${key}`);
   const file=await stat(resolve(root,'dist',cell.url));
   if(file.size!==cell.bytes)throw new Error(`Incomplete street detail cell: ${key}`);
   detailBytes+=file.size;
+  const tile=JSON.parse(await readFile(resolve(root,'dist',cell.url),'utf8'));
+  const features=[...tile.surfaces,...tile.curbs,...tile.structures];
+  if(features.length!==cell.count||new Set(features.map(feature=>feature.id)).size!==features.length)throw new Error(`Street detail count or identities disagree: ${key}`);
+  for(const feature of features){
+    const rings=feature.kind==='curb'?[feature.points]:[feature.polygon,...feature.holes];
+    if(!feature.sourceRowId||!['curb','roadbed','sidewalk','parking','transport'].includes(feature.kind)
+      ||rings.some(ring=>ring.length<2||ring.some(point=>point.length!==2||!point.every(Number.isFinite))))throw new Error(`Invalid surveyed street geometry: ${feature.id}`);
+    if(feature.kind==='transport'){
+      if(!['surveyed','unavailable'].includes(feature.elevationStatus))throw new Error(`Missing transport elevation status: ${feature.id}`);
+      if(feature.elevationStatus==='surveyed'){
+        const heights=[feature.elevations.polygon,...feature.elevations.holes];
+        const raw=[feature.sourceElevations.polygon,...feature.sourceElevations.holes];
+        if(feature.elevationUnits!=='meters'||feature.verticalDatum!=='NAVD88'||feature.sourceElevationUnits!=='US survey feet'
+          ||heights.length!==rings.length||raw.length!==rings.length
+          ||heights.some((values,i)=>values.length!==rings[i].length||raw[i].length!==values.length
+            ||values.some((value,j)=>!Number.isFinite(value)||!Number.isFinite(raw[i][j])||raw[i][j]===0||Math.abs(raw[i][j]*1200/3937-value)>0.000006)))throw new Error(`Invalid surveyed deck heights: ${feature.id}`);
+      }else if(feature.elevations)throw new Error(`Unverified transport heights were exported: ${feature.id}`);
+    }
+    const serialized=JSON.stringify(feature);
+    if(detailFeatures.has(feature.id)&&detailFeatures.get(feature.id)!==serialized)throw new Error(`Repeated source geometry disagrees: ${feature.id}`);
+    detailFeatures.set(feature.id,serialized);
+  }
 }
-if(detailBytes!==detail.stats.bytes)throw new Error('Street detail manifest byte count does not match its assets');
+if(detailBytes!==detail.stats.bytes||detailFeatures.size!==detail.stats.features||Object.keys(detail.cells).length!==detail.stats.cells)throw new Error('Street detail manifest counts do not match its assets');
+const detailCounts={};let measuredStructures=0,missingStructures=0;
+for(const value of detailFeatures.values()){
+  const feature=JSON.parse(value);detailCounts[feature.kind]=(detailCounts[feature.kind]||0)+1;
+  measuredStructures+=feature.elevationStatus==='surveyed';missingStructures+=feature.elevationStatus==='unavailable';
+}
+for(const [kind,count] of Object.entries(detail.stats.byKind))if(detailCounts[kind]!==count)throw new Error(`Street detail source count mismatch: ${kind}`);
+if(measuredStructures!==detail.stats.surveyedStructures||missingStructures!==detail.stats.structuresWithoutVerifiedElevation)throw new Error('Transport elevation status counts disagree');
+for(const layer of detail.source.layers)if(!/^[a-f0-9]{64}$/.test(layer.sha256)||!detail.coverageRegions.some(region=>region.id===layer.regionId))throw new Error('Invalid street source provenance');
 const landscape=JSON.parse(await readFile(resolve(root,'dist/landscape-index.json'),'utf8'));
 if(landscape.regions.length<5||new Set(landscape.regions.map(region=>region.borough)).size!==5)throw new Error('Missing detailed landscape borough coverage');
 if(JSON.stringify(landscape.origin)!==JSON.stringify(index.origin))throw new Error('Landscape coordinate origin does not match buildings');
@@ -61,18 +94,27 @@ for(const path of landscapePaths){
   }
 }
 if(landscapeBytes!==landscape.stats.bytes)throw new Error('Landscape manifest byte count does not match its assets');
-const review=JSON.parse(await readFile(resolve(root,'dist/reconstruction-review.json'),'utf8'));
-// Check the reference and original tile hashes; require every exported mask and
-// comparison image so packaging cannot omit the evidence behind this review.
-for(const asset of [review.reference,...review.imagery.tiles]){
-  if(!/^\.\/reconstruction\/[a-zA-Z0-9./-]+$/.test(asset.url)||asset.url.includes('..'))throw new Error('Invalid review asset path');
-  const bytes=await readFile(resolve(root,'dist',asset.url));
-  if(createHash('sha256').update(bytes).digest('hex')!==asset.sha256)throw new Error(`Reconstruction asset checksum mismatch: ${asset.url}`);
+// Both reviews retain evidence for accepted and rejected candidates. A rejected
+// model result must stay rejected in the package, including its empty geometry.
+for(const [reportPath,assetFolder] of [['reconstruction-review.json','reconstruction'],['road-reconstruction-review.json','road-reconstruction']]){
+  const review=JSON.parse(await readFile(resolve(root,'dist',reportPath),'utf8'));
+  const validAsset=path=>typeof path==='string'&&path.startsWith(`./${assetFolder}/`)&&/^[a-zA-Z0-9./-]+$/.test(path)&&!path.includes('..');
+  for(const asset of [review.reference,...review.imagery.tiles]){
+    if(!validAsset(asset.url))throw new Error(`Invalid review asset path: ${reportPath}`);
+    const bytes=await readFile(resolve(root,'dist',asset.url));
+    if(createHash('sha256').update(bytes).digest('hex')!==asset.sha256)throw new Error(`Reconstruction asset checksum mismatch: ${asset.url}`);
+  }
+  for(const path of [review.imagery.url,review.overlay,...review.features.flatMap(feature=>[feature.candidateMask,feature.referenceMask,feature.approvedMask])]){
+    if(!validAsset(path))throw new Error('Invalid review image path');
+    await stat(resolve(root,'dist',path));
+  }
+  if(review.features.filter(feature=>feature.accepted).length!==review.summary.accepted
+    ||review.features.length!==review.summary.candidates
+    ||review.summary.accepted+review.summary.rejected!==review.summary.candidates)throw new Error(`Reconstruction review counts disagree: ${reportPath}`);
+  for(const feature of review.features){
+    if(!feature.accepted&&(feature.approvedPixels!==0||feature.geometry!==null||feature.localGeometry!==null))throw new Error(`Rejected AI geometry leaked into exported world: ${feature.id}`);
+    if(assetFolder==='road-reconstruction'&&!detailFeatures.has(feature.sourceFeatureId))throw new Error(`Road review lacks a bundled source feature: ${feature.sourceFeatureId}`);
+  }
 }
-for(const path of [review.imagery.url,review.overlay,...review.features.flatMap(feature=>[feature.candidateMask,feature.referenceMask,feature.approvedMask])]){
-  if(!/^\.\/reconstruction\/[a-zA-Z0-9./-]+$/.test(path)||path.includes('..'))throw new Error('Invalid review image path');
-  await stat(resolve(root,'dist',path));
-}
-if(review.features.filter(feature=>feature.accepted).length!==review.summary.accepted)throw new Error('Reconstruction review counts disagree');
 await stat(resolve(root,'dist/reconstruction.html'));
 console.log(`Source checks passed: ${index.nodes.length} geometry nodes, ${Object.keys(roads.cells).length} road cells, ${Object.keys(detail.cells).length} street detail cells, ${landscape.regions.length} measured landscape regions, verified AI review assets and all five boroughs.`);

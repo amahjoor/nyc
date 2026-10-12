@@ -1,6 +1,7 @@
 import * as THREE from './vendor/three.module.min.js';
 import { mercatorCoefficients, atlasProjectionGLSL } from './imagery-projection.js';
 import { cellsAround } from './road-stream.js';
+import { TransportSurfaces } from './transport-surfaces.js';
 
 // Source polygons supply plan positions, while the measured terrain supplies
 // elevation. There is still no invented curb step or pavement material.
@@ -121,7 +122,7 @@ export function buildStreetGeometry(surfaces, orthophoto, memo = new Map(), heig
   return geometry;
 }
 
-export function createStreetDetail(index, { scene, orthophoto, heightAt = null, fetcher = globalThis.fetch.bind(globalThis), onStatus = () => {}, now = () => Date.now() } = {}) {
+export function createStreetDetail(index, { scene, orthophoto, heightAt = null, fetcher = globalThis.fetch.bind(globalThis), onStatus = () => {}, onChange = () => {}, now = () => Date.now() } = {}) {
   const group = new THREE.Group();group.name = 'NYC mapped street surfaces';scene.add(group);
   const material = new THREE.MeshStandardMaterial({ map: orthophoto.texture, color: 0xffffff, roughness: 1, metalness: 0,
     // Old building bottom caps can overlap newer mapped sidewalks at y=0.
@@ -129,41 +130,68 @@ export function createStreetDetail(index, { scene, orthophoto, heightAt = null, 
     polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -1 });
   material.name = 'Official aerial imagery on mapped street surfaces';
   const uniforms = { streetLocal: { value: orthophoto.texture }, streetLocalBounds: { value: new THREE.Vector4() },
-    streetMercator: { value: new THREE.Vector4() }, streetUseLocal: { value: false } };
+    streetMercator: { value: new THREE.Vector4() }, streetUseLocal: { value: false },
+    streetBase: { value: orthophoto.texture }, streetBaseBounds: { value: new THREE.Vector4(
+      orthophoto.bounds.minX, orthophoto.bounds.maxX, orthophoto.bounds.minZ, orthophoto.bounds.maxZ) },
+    streetBaseMercator: { value: new THREE.Vector4(...(mercatorCoefficients(orthophoto.bounds, orthophoto.mercator) || [0,0,0,0])) },
+    streetBaseIsMercator: { value: Boolean(mercatorCoefficients(orthophoto.bounds, orthophoto.mercator)) } };
   material.onBeforeCompile = shader => {
-    Object.assign(shader.uniforms, uniforms);
+    Object.assign(shader.uniforms, uniforms, { streetElevated: { value: false } });
     shader.vertexShader = 'varying vec2 vStreetXZ;\n' + shader.vertexShader;
     shader.vertexShader = shader.vertexShader.replace('#include <begin_vertex>', '#include <begin_vertex>\nvStreetXZ = position.xz;');
     shader.fragmentShader = `${atlasProjectionGLSL}\n varying vec2 vStreetXZ; uniform sampler2D streetLocal;
-      uniform vec4 streetLocalBounds; uniform vec4 streetMercator; uniform bool streetUseLocal;\n` + shader.fragmentShader;
+      uniform vec4 streetLocalBounds; uniform vec4 streetMercator; uniform bool streetUseLocal;
+      uniform sampler2D streetBase; uniform vec4 streetBaseBounds; uniform vec4 streetBaseMercator;
+      uniform bool streetBaseIsMercator; uniform bool streetElevated;\n` + shader.fragmentShader;
     shader.fragmentShader = shader.fragmentShader.replace('#include <color_fragment>', `#include <color_fragment>
       // The underlying imagery planes already provide a per-tile fallback.
       // Never paint a coarse street triangle over a sharper loaded ground tile
       // when filtered atlas alpha includes a missing cell or the atlas border.
-      if (!streetUseLocal) discard;
+      // Elevated decks need their own coarse fallback: the terrain photo is
+      // below them. Keep the real deck visible while sharper imagery loads.
+      if (streetElevated) {
+        vec2 baseUV = vec2((vStreetXZ.x-streetBaseBounds.x)/(streetBaseBounds.y-streetBaseBounds.x),
+          (streetBaseBounds.w-vStreetXZ.y)/(streetBaseBounds.w-streetBaseBounds.z));
+        if (streetBaseIsMercator) baseUV.y = atlasNorthUV(vStreetXZ.y, streetBaseBounds, streetBaseMercator);
+        diffuseColor.rgb = texture2D(streetBase, clamp(baseUV, 0.0, 1.0)).rgb;
+      }
+      if (!streetUseLocal && !streetElevated) discard;
       if (streetUseLocal) {
         vec2 localUV = vec2((vStreetXZ.x - streetLocalBounds.x) / (streetLocalBounds.y - streetLocalBounds.x),
           atlasNorthUV(vStreetXZ.y, streetLocalBounds, streetMercator));
         if (all(greaterThanEqual(localUV, vec2(0.0))) && all(lessThanEqual(localUV, vec2(1.0)))) {
           vec4 sourcePixel = texture2D(streetLocal, localUV);
           if (sourcePixel.a > 0.99) diffuseColor.rgb = sourcePixel.rgb;
-          else discard;
-        } else discard;
+          else if (!streetElevated) discard;
+        } else if (!streetElevated) discard;
       }`);
   };
   const mesh = new THREE.Mesh(new THREE.BufferGeometry(), material);mesh.receiveShadow = true;group.add(mesh);
+  const deckMaterial = material.clone();deckMaterial.side = THREE.DoubleSide;
+  deckMaterial.name = 'Official aerial imagery on measured transport decks';
+  deckMaterial.onBeforeCompile = shader => {
+    material.onBeforeCompile(shader);shader.uniforms.streetElevated.value = true;
+  };
+  const transport = new TransportSurfaces({ material: deckMaterial });group.add(transport.group);
   const cache = new Map(), pending = new Map(), errors = new Map(), triangulations = new Map();
-  let wanted = new Map(), serial = 0, disposed = false, dirty = false, selection = '', covered = false;
+  let wanted = new Map(), serial = 0, disposed = false, dirty = false, selection = '', covered = false, overviewMode = false;
   let terrainRevision = 0;
   const status = () => ({ cachedCells: cache.size, loading: pending.size,
     activeCells: [...wanted.keys()].filter(key => cache.has(key)).length,
-    surfaces: mesh.geometry.userData.sourceIds?.length || 0,
+    surfaces: mesh.geometry.userData.sourceIds?.length || 0, transport: transport.getStatus(),
     failures: [...errors.keys()].filter(key => wanted.has(key)).length, triangulatedSurfaces: triangulations.size, covered });
   const report = () => { if (!disposed) onStatus(status()); };
   function rebuild() {
-    const surfaces = [];
-    for (const key of wanted.keys()) if (cache.has(key)) surfaces.push(...cache.get(key).data.surfaces);
-    const previous = mesh.geometry;mesh.geometry = buildStreetGeometry(surfaces, orthophoto, triangulations, heightAt, terrainRevision);previous.dispose();dirty = false;
+    const surfaces = [], structures = [];
+    for (const key of wanted.keys()) if (cache.has(key)) {
+      const { data } = cache.get(key);surfaces.push(...data.surfaces);structures.push(...(data.structures || []));
+    }
+    const previous = mesh.geometry;mesh.geometry = buildStreetGeometry(surfaces, orthophoto, triangulations, heightAt, terrainRevision);previous.dispose();
+    // Opening the city map hides local rendering, but an actor may still be
+    // supported by a deck. Retain those collision surfaces until local play
+    // chooses its next cells, or returning from the map would drop the actor.
+    if (!overviewMode) transport.setFeatures(structures);
+    dirty = false;onChange();report();
   }
   function pump() {
     if (disposed) return;
@@ -206,10 +234,11 @@ export function createStreetDetail(index, { scene, orthophoto, heightAt = null, 
     group,
     update(focus, { overview = false } = {}) {
       if (disposed) return;
-      const b = index.coverageBounds;
-      covered = Boolean(b && focus.x >= b.minX && focus.x <= b.maxX && focus.z >= b.minZ && focus.z <= b.maxZ);
+      // Disjoint surveyed areas do not imply coverage in the gaps between them.
+      const regions = index.coverageRegions || [{ bounds: index.coverageBounds }];
+      covered = regions.some(({bounds:b}) => b && focus.x >= b.minX && focus.x <= b.maxX && focus.z >= b.minZ && focus.z <= b.maxZ);
       const key = `${Math.floor(focus.x / index.cellSize)},${Math.floor(focus.z / index.cellSize)},${overview}`;
-      group.visible = !overview;
+      group.visible = !overview;overviewMode = overview;
       if (key !== selection) {
         selection = key;
         const next = new Map((overview ? [] : cellsAround(index, focus, 600)).map(cell => [cell.key, cell]));
@@ -238,13 +267,14 @@ export function createStreetDetail(index, { scene, orthophoto, heightAt = null, 
       if (disposed || (heightAt === sampler && terrainRevision === revision)) return;
       heightAt = typeof sampler === 'function' ? sampler : null;terrainRevision = revision;dirty = true;
     },
+    sampleSurface: (x, z, options) => transport.sampleSurface(x, z, options),
     getStatus: status,
     dispose() {
       if (disposed) return;
       disposed = true;
       for (const controller of pending.values()) controller.abort();
       pending.clear();cache.clear();wanted.clear();errors.clear();triangulations.clear();
-      mesh.geometry.dispose();material.dispose();scene.remove(group);
+      transport.dispose();deckMaterial.dispose();mesh.geometry.dispose();material.dispose();scene.remove(group);
     },
   };
 }

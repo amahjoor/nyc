@@ -21,7 +21,7 @@ let started=false, paused=false, highQuality=false, farCamera=false, aerialView=
 let shadowsEnabled=true;
 let cityIndex, roadIndex, roadStream, ground, streetDetail, sun, localFog, bootReady=false, traveling=false, pausedBeforeSources=false;
 let cityView=false, cityZoom=1, cityOrbit=0, cityFocus=null, roadCell='', roadEpoch=0, roadBusy=false, buildings=[], boroughs=[];
-let landscape=null, landscapeRevision=0, landscapeDirty=false, landscapeManifest=null, reconstructionReview=null;
+let landscape=null, landscapeRevision=0, landscapeDirty=false, landscapeManifest=null, reconstructionReview=null, roadReconstructionReview=null, streetManifest=null;
 const terrainHeight=(x,z)=>landscape?.sampleHeight(x,z)??0;
 let yaw=0, pitch=.38, lookIdle=0, elapsed=0, lastFrame=0, hudTime=0, qualityTimer=0, slowFrames=0;
 const carModels = new Map(), pedestrians=[];
@@ -93,6 +93,10 @@ $('travel-button').addEventListener('click',()=>travel(roadIndex?.places[Number(
 $('landscape-travel-button').addEventListener('click',()=>{
   const region=landscapeManifest?.regions[Number($('landscape-select').value)];
   if(region)travel({...region.view,name:region.name});
+});
+$('transport-travel-button').addEventListener('click',()=>{
+  const region=streetManifest?.coverageRegions.filter(region=>region.view)[Number($('transport-select').value)];
+  if(region)travel({...region.view,name:region.exploreName||region.name});
 });
 canvas.addEventListener('wheel',event=>{if(cityView){event.preventDefault();cityZoom=clamp(cityZoom*Math.exp(event.deltaY*.001),.07,1.8);}},{passive:false});
 $('sources-button').addEventListener('click',()=>{pausedBeforeSources=paused;if(started)paused=true;input.clear();$('sources-dialog').showModal();});
@@ -406,7 +410,7 @@ async function refreshRoads(){
 }
 async function travel(place){
   if(!place||traveling||!bootReady)return;
-  traveling=true;roadEpoch++;input.clear();$('travel-button').disabled=true;$('landscape-travel-button').disabled=true;
+  traveling=true;roadEpoch++;input.clear();$('travel-button').disabled=true;$('landscape-travel-button').disabled=true;$('transport-travel-button').disabled=true;
   navigation?.setTraveling(true);
   $('travel-note').textContent='Loading surveyed buildings and streets…';
   const previous={roads:sim.city.roads,buildings:sim.city.buildings,missionPoints:sim.city.missionPoints};
@@ -428,14 +432,14 @@ async function travel(place){
     // Restore navigation data without replacing that newer collision snapshot.
     sim.setActiveCity({...previous,buildings});$('travel-note').textContent=error.message;announce(error.message);
   }
-  finally{traveling=false;$('travel-button').disabled=false;$('landscape-travel-button').disabled=!landscapeManifest;navigation?.setTraveling(false);}
+  finally{traveling=false;$('travel-button').disabled=false;$('landscape-travel-button').disabled=!landscapeManifest;$('transport-travel-button').disabled=!streetManifest;navigation?.setTraveling(false);}
 }
 
 async function boot() {
   const loadData=async file=>{const response=await fetch('./'+file,{signal:AbortSignal.timeout(20000)});if(!response.ok)throw new Error('The city data could not load. Reload to try again.');return response.json();};
   const [seed,index,streets,land]=await Promise.all(['city.json','city-index.json','road-index.json','boroughs.json'].map(loadData));
   cityIndex=index;roadIndex=streets;boroughs=land.boroughs;roadStream=createRoadStream(roadIndex);
-  city={...seed,bounds:roadIndex.bounds,buildings:[],roads:[],boroughs,missionPoints:[],sampleSurface:(x,z)=>landscape?.sampleSurface(x,z),landscapeContact:(x,z,radius)=>landscape?.contactAt(x,z,radius)};
+  city={...seed,bounds:roadIndex.bounds,buildings:[],roads:[],boroughs,missionPoints:[],sampleSurface:(x,z,options)=>streetDetail?.sampleSurface(x,z,options)??landscape?.sampleSurface(x,z),landscapeContact:(x,z,radius)=>landscape?.contactAt(x,z,radius)};
   $('load-text').textContent='CONNECTING TO NEW YORK…';
   renderer=new THREE.WebGLRenderer({canvas,antialias:true,powerPreference:'high-performance'});
   renderer.outputColorSpace=THREE.SRGBColorSpace;renderer.toneMapping=THREE.ACESFilmicToneMapping;renderer.toneMappingExposure=1.15;
@@ -467,7 +471,11 @@ async function boot() {
   // Do not await optional detail. Even a stalled download must leave city
   // startup and travel independent of this neighborhood enrichment layer.
   loadData('street-detail-index.json').then(surfaces=>{
-    streetDetail=createStreetDetail(surfaces,{scene,orthophoto:ground.orthophoto,heightAt:terrainHeight,onStatus:status=>{
+    streetManifest=surfaces;
+    $('transport-select').innerHTML=surfaces.coverageRegions.filter(region=>region.view)
+      .map((region,i)=>'<option value="'+i+'">'+(region.exploreName||region.name)+'</option>').join('');
+    $('transport-travel-button').disabled=!bootReady||traveling;
+    streetDetail=createStreetDetail(surfaces,{scene,orthophoto:ground.orthophoto,heightAt:terrainHeight,onChange:()=>sim?.updateGrounding(),onStatus:status=>{
       $('street-detail-status').textContent=status.covered&&status.failures>0
         ?'Some mapped street surfaces are unavailable here. Aerial imagery remains available; street surfaces will retry.' :'';
     }});
@@ -475,17 +483,22 @@ async function boot() {
   }).catch(()=>{
     $('street-detail-status').textContent='Mapped street data is unavailable. Aerial imagery and city travel remain available.';
   });
+  loadData('road-reconstruction-review.json').then(report=>{
+    roadReconstructionReview=report;
+    $('road-reconstruction-status').textContent=report.summary.accepted+' of '+report.summary.candidates+
+      ' road and parking masks passed source checks. Rejected masks create no game geometry.';
+  }).catch(()=>{$('road-reconstruction-status').textContent='Road image review unavailable. Surveyed surfaces remain active.';});
   avatar=createPerson(0xd7774e);scene.add(avatar);marker=createMissionMarker();enterHint=createEnterHint();
   hud=new HUD(city);applyQuality();
   const b=city.bounds;camera.position.set((b.minX+b.maxX)/2-14000,44000,(b.minZ+b.maxZ)/2+32000);
   navigation=createCityNavigation({canvas,camera,input,bounds:city.bounds,heightAt:terrainHeight,onTravel:travel,onAddressSelected:focusCityAddress});
   $('place-select').innerHTML=roadIndex.places.map((place,i)=>'<option value="'+i+'">'+place.name+' · '+place.borough+'</option>').join('');
-  window.nycGame={getState:()=>({player:{...sim.player},heat:sim.heat,health:sim.health,mission:{...sim.mission},cash:sim.cash,deliveries:sim.deliveries,cars:sim.cars.length,buildings:buildings.length,totalBuildings:cityIndex.stats.buildingFeatures,stream:world.getStatus(),ground:ground.getStatus(),streetDetail:streetDetail?.getStatus()||null,landscape:landscape?.getStatus()||null,reconstruction:reconstructionReview?{model:reconstructionReview.model,summary:reconstructionReview.summary}:null,navigation:navigation.getState(),cityView,aerialView,traveling,bootReady,shadows:{enabled:shadowsEnabled,active:renderer.shadowMap.enabled},drawCalls:renderer.info.render.calls,triangles:renderer.info.render.triangles,started,paused})};
+  window.nycGame={getState:()=>({player:{...sim.player},heat:sim.heat,health:sim.health,mission:{...sim.mission},cash:sim.cash,deliveries:sim.deliveries,cars:sim.cars.length,buildings:buildings.length,totalBuildings:cityIndex.stats.buildingFeatures,stream:world.getStatus(),ground:ground.getStatus(),streetDetail:streetDetail?.getStatus()||null,landscape:landscape?.getStatus()||null,reconstruction:reconstructionReview?{model:reconstructionReview.model,summary:reconstructionReview.summary}:null,roadReconstruction:roadReconstructionReview?{model:roadReconstructionReview.model,summary:roadReconstructionReview.summary}:null,navigation:navigation.getState(),cityView,aerialView,traveling,bootReady,shadows:{enabled:shadowsEnabled,active:renderer.shadowMap.enabled},drawCalls:renderer.info.render.calls,triangles:renderer.info.render.triangles,started,paused})};
   requestAnimationFrame(frame);
   const [roads]=await Promise.all([roadStream.loadAround(seed.spawn),world.prepareAt(seed.spawn,300),landscapeReady]);
   sim.setActiveCity({roads,buildings,isReadyAt:(x,z,radius)=>world.isReadyAt(x,z,radius),missionPoints:localDestinations(roads,seed.spawn)},{spawn:seed.spawn});city=sim.city;yaw=sim.player.angle;
   populatePedestrians();bootReady=true;
-  $('start-button').disabled=false;$('travel-button').disabled=false;$('landscape-travel-button').disabled=!landscapeManifest;$('load-text').textContent='EXPLORE NEW YORK';
+  $('start-button').disabled=false;$('travel-button').disabled=false;$('landscape-travel-button').disabled=!landscapeManifest;$('transport-travel-button').disabled=!streetManifest;$('load-text').textContent='EXPLORE NEW YORK';
 }
 restoreDisplaySettings();
 boot().catch(error=>{

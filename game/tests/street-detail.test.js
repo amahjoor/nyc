@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import * as THREE from '../dist/vendor/three.module.min.js';
+import { Simulation } from '../dist/simulation.js';
 import { buildStreetGeometry, createStreetDetail } from '../dist/street-detail.js';
 
 const orthophoto = { texture: new THREE.Texture(), bounds: { minX: -100, maxX: 100, minZ: -100, maxZ: 100 } };
@@ -162,8 +163,8 @@ test('missing local atlas pixels expose underlying image tiles instead of overwr
   detail.setLocalOrthophoto({ texture, bounds: orthophoto.bounds, mercator });
   assert.equal(shader.uniforms.streetLocal.value, texture);assert.equal(shader.uniforms.streetUseLocal.value, true);
   assert.match(shader.fragmentShader, /sourcePixel.a > 0.99/);
-  assert.match(shader.fragmentShader, /if \(!streetUseLocal\) discard;/);
-  assert.match(shader.fragmentShader, /else discard;/);
+  assert.match(shader.fragmentShader, /if \(!streetUseLocal && !streetElevated\) discard;/);
+  assert.match(shader.fragmentShader, /else if \(!streetElevated\) discard;/);
   assert.match(shader.fragmentShader, /greaterThanEqual/);
   detail.setLocalOrthophoto();assert.equal(shader.uniforms.streetUseLocal.value, false);
   assert.equal(detail.group.children[0].material, material);detail.dispose();
@@ -221,4 +222,64 @@ test('terrain revisions refresh cached street elevations without refetching or s
   assert.equal(detail.group.children[0].geometry,next,'an unchanged revision does not rebuild GPU geometry');
   detail.setTerrainSampler(()=>NaN,2);detail.update(focus);
   assert.equal(detail.group.children[0].geometry.attributes.position.getY(0),0,'missing elevation remains a finite flat fallback');
+});
+
+const deck = { id:'bridge:measured',sourceId:'NYC transport survey:1',kind:'transport',subtype:'bridge',
+  polygon:[[0,0],[10,0],[10,10],[0,10]],holes:[],elevations:{polygon:[8,8,9,9],holes:[]},
+  elevationUnits:'meters',verticalDatum:'NAVD88',elevationStatus:'surveyed' };
+
+test('streamed bridge levels use the same imagery and retain a fallback while local photos load', async t => {
+  const detail=createStreetDetail(index,{scene:new THREE.Scene(),orthophoto,
+    fetcher:async()=>({ok:true,json:async()=>({surfaces:[square],structures:[deck]})})});
+  t.after(()=>detail.dispose());
+  const focus={x:5,z:5};detail.update(focus);await tick();detail.update(focus);
+  assert.equal(detail.getStatus().transport.surfaces,1,'duplicate tile deck appears once');
+  assert.equal(detail.sampleSurface(5,5,{referenceHeight:8,mode:'drive'}).elevation,8.5);
+  assert.equal(detail.sampleSurface(5,5,{referenceHeight:0,mode:'drive'}),null,'lower road stays below');
+  assert.equal(detail.sampleSurface(5,5),null,'unhinted terrain queries do not choose an overhead deck');
+  const transportGroup=detail.group.children.find(group=>group.name==='NYC measured transport decks');
+  const bridgeMesh=transportGroup.children[0];
+  assert.equal(bridgeMesh.geometry.attributes.position.getY(0),8);
+  const shaders=[detail.group.children[0],bridgeMesh].map(mesh=>{
+    const shader={uniforms:{},vertexShader:'#include <begin_vertex>',fragmentShader:'#include <color_fragment>'};
+    mesh.material.onBeforeCompile(shader);return shader;
+  });
+  assert.equal(shaders[0].uniforms.streetElevated.value,false);
+  assert.equal(shaders[1].uniforms.streetElevated.value,true);
+  assert.equal(shaders[1].uniforms.streetBase.value,orthophoto.texture);
+  assert.match(shaders[1].fragmentShader,/texture2D\(streetBase/);
+  const texture=new THREE.Texture();detail.setLocalOrthophoto({texture,bounds:orthophoto.bounds,
+    mercator:{north:1,south:0,originLat:.7,radius:6371008.8}});
+  assert.equal(shaders[1].uniforms.streetLocal.value,texture);
+  assert.equal(shaders[0].uniforms.streetLocal.value,texture);
+  detail.update({x:10000,z:10000});
+  assert.equal(detail.getStatus().transport.surfaces,0);
+  assert.equal(detail.sampleSurface(5,5,{referenceHeight:8}),null,'travel releases obsolete deck collisions');
+});
+
+test('mapped coverage includes distant sample regions without claiming the gaps', () => {
+  const detail=createStreetDetail({...index,coverageRegions:[{bounds:index.coverageBounds},
+    {bounds:{minX:10000,maxX:11000,minZ:10000,maxZ:11000}}]},
+    {scene:new THREE.Scene(),orthophoto,fetcher:async()=>response([])});
+  detail.update({x:10500,z:10500});assert.equal(detail.getStatus().covered,true);
+  detail.update({x:5000,z:5000});assert.equal(detail.getStatus().covered,false);
+  detail.dispose();
+});
+
+
+test('opening the city map preserves an actor supported by a streamed bridge deck', async t => {
+  let sim;
+  const detail=createStreetDetail(index,{scene:new THREE.Scene(),orthophoto,
+    onChange:()=>sim?.updateGrounding(),
+    fetcher:async()=>({ok:true,json:async()=>({surfaces:[],structures:[deck]})})});
+  t.after(()=>detail.dispose());
+  const focus={x:5,z:5};detail.update(focus);await tick();detail.update(focus);
+  sim=new Simulation({bounds:{minX:-100,maxX:100,minZ:-100,maxZ:100},spawn:focus,roads:[],buildings:[],
+    sampleSurface:(x,z,options)=>detail.sampleSurface(x,z,options)||{elevation:0}});
+  sim.cars=[];Object.assign(sim.player,{...focus,y:8.5});sim.updateGrounding();
+  detail.update(focus,{overview:true});
+  assert.equal(detail.group.visible,false);
+  assert.equal(sim.player.y,8.5,'hiding the city must not change its support level');
+  detail.update(focus);sim.updateGrounding();
+  assert.equal(sim.player.y,8.5,'returning to street view keeps the actor on the deck');
 });
