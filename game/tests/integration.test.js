@@ -133,12 +133,19 @@ function makeDocument() {
   return { document, elements };
 }
 
-async function bootHarness({ stored = null, unavailableStorage = false, fetchOK = true, geometryOK = true, imageryOK = true, streetFailure = null, landscapeFailure = false, terrainElevation = 0, coarsePointer = false, holdRoads = () => false, geocodeFetch = null } = {}) {
+async function bootHarness({ stored = null, unavailableStorage = false, fetchOK = true, geometryOK = true, imageryOK = true, streetFailure = null, landscapeFailure = false, terrainElevation = 0, coarsePointer = false, holdRoads = () => false, holdLandscape = () => false, measuredLandscape = false, extraGeometry = [], geocodeFetch = null } = {}) {
   const { document, elements } = makeDocument();
   const window = new EventTarget();
   const pads = [];
   const storage = new Map(stored === null ? [] : [['nyc-after-hours-v1', stored]]);
-  const frames = [], errors = [], requests = [], imageRequests = [], roadWaiters = [];
+  const frames = [], errors = [], requests = [], imageRequests = [], roadWaiters = [], landscapeWaiters = [];
+  const geometryBuffers=new Map(fixtureBuffers),extraNodes=[];
+  for(const resource of extraGeometry){
+    const bytes=gunzipSync(readFileSync(new URL(`./fixtures/i3s-prospect-${resource}.bin.gz`,import.meta.url)));
+    geometryBuffers.set(resource,bytes.buffer.slice(bytes.byteOffset,bytes.byteOffset+bytes.byteLength));
+    extraNodes.push({...index.nodes.find(node=>node.resource===resource),parent:-1});
+  }
+  const geometryIndex={...fixtureIndex,roots:[...fixtureIndex.roots,...extraNodes.map(node=>node.id)],nodes:[...fixtureIndex.nodes,...extraNodes]};
   const rendererInstances = [];
   let timestamp = 1000;
   class RendererStub {
@@ -197,18 +204,23 @@ async function bootHarness({ stored = null, unavailableStorage = false, fetchOK 
     if(url.startsWith(index.source.service)) {
       if(!geometryOK)return {ok:false,status:503};
       const resource=Number(url.match(/\/nodes\/(\d+)\/geometries\/0$/)?.[1]);
-      assert.ok(fixtureBuffers.has(resource),`unexpected external geometry request: ${url}`);
-      return {ok:true,arrayBuffer:async()=>fixtureBuffers.get(resource).slice(0)};
+      assert.ok(geometryBuffers.has(resource),`unexpected external geometry request: ${url}`);
+      return {ok:true,arrayBuffer:async()=>geometryBuffers.get(resource).slice(0)};
     }
     assert.ok(!/^https?:/.test(url),`integration test attempted an external request: ${url}`);
     let data=JSON.parse(readFileSync(new URL(`../dist/${url.replace(/^\.\//,'')}`,import.meta.url),'utf8'));
     // Geometry/source tests verify the complete DEMs. This application's offline
     // fixture keeps their real bounds with a known elevation to expose flat-Y
     // integration bugs without allocating every citywide grid in every UI test.
-    if(url.startsWith('./landscape/'))data=data.heights
+    if(url.startsWith('./landscape/')&&measuredLandscape){
+      // Keep actual terrain and mapped water for destination safety. Crown
+      // rendering has its own tests and is unrelated to collision readiness.
+      if(data.canopies)data={...data,canopies:[]};
+    }else if(url.startsWith('./landscape/'))data=data.heights
       ?{...data,width:2,height:2,heights:Array(4).fill(terrainElevation)}
       :{...data,water:[],canopies:[]};
     if(Array.isArray(data.roads)&&holdRoads(url))await new Promise(resolve=>roadWaiters.push(resolve));
+    if(holdLandscape(url))await new Promise(resolve=>landscapeWaiters.push(resolve));
     return {ok:true,json:async()=>structuredClone(data)};
   };
   const globals = { document, window, navigator, Image: ImageStub, fetch:fetcher };
@@ -220,7 +232,7 @@ async function bootHarness({ stored = null, unavailableStorage = false, fetchOK 
     createCar, createPerson, updateCarVisuals, Simulation, Input, HUD, CityAudio,
     createCityStream:(fullIndex,options)=>{
       assert.equal(fullIndex.stats.buildingFeatures,index.stats.buildingFeatures);
-      return createCityStream(fixtureIndex,options);
+      return createCityStream(geometryIndex,options);
     },
     createCityGround, worldToGeographic, createRoadStream, nearestStreet, localDestinations, createCityNavigation,
     createStreetDetail:(manifest,options)=>createStreetDetail(manifest,{...options,now:()=>timestamp}),
@@ -259,6 +271,8 @@ async function bootHarness({ stored = null, unavailableStorage = false, fetchOK 
       advanceTime:milliseconds=>{timestamp+=milliseconds;},
       releaseRoads:()=>roadWaiters.splice(0).forEach(resolve=>resolve()),
       waitingRoads:()=>roadWaiters.length,
+      releaseLandscape:()=>landscapeWaiters.splice(0).forEach(resolve=>resolve()),
+      waitingLandscape:()=>landscapeWaiters.length,
       state: () => window.nycGame.getState(),
       simulation: () => vm.runInContext('sim', context),
       camera: () => vm.runInContext('({position:camera.position.clone(),quaternion:camera.quaternion.clone(),yaw,near:camera.near,far:camera.far,fov:camera.fov})',context),
@@ -1126,4 +1140,38 @@ test('landscape source failure leaves existing city exploration available',async
     assert.equal(app.state().player.y,0);
     assert.equal(app.errors.length,0,app.errors[0]?.stack);
   }finally{app.close();}
+});
+
+test('Prospect Lake arrival retains real building collisions while slower park data loads',async()=>{
+  const app=await bootHarness({extraGeometry:[91,3464,3465],measuredLandscape:true,
+    holdLandscape:url=>url==='./landscape/prospect-lake-terrain.json'});
+  try{
+    const manifest=JSON.parse(readFileSync(new URL('../dist/landscape-index.json',import.meta.url)));
+    const region=manifest.regions.find(region=>region.id==='prospect-lake');
+    app.click('start-button');
+    app.elements.get('landscape-select').value=String(manifest.regions.indexOf(region));
+    const before={...app.state().player};
+    app.click('landscape-travel-button');
+    await app.until(()=>app.waitingLandscape()>0&&app.state().stream.loading===0);
+    assert.equal(app.state().traveling,true);
+    const roads=app.simulation().city.roads;
+    assert.ok(roads.length,'the origin remains playable until the complete destination is ready');
+    // Production streaming selects at 350 ms intervals. Allow an actual frame
+    // at the old location after building preload has resolved but before the
+    // measured terrain response resolves, reproducing the reported race.
+    await new Promise(resolve=>setTimeout(resolve,360));
+    app.frames(3);
+    assert.deepEqual({...app.state().player},before,'loading must not move the player early');
+    app.releaseLandscape();
+    await app.until(()=>!app.state().traveling);
+    assert.equal(app.state().cityView,false,app.elements.get('travel-note').textContent);
+    const {player}=app.state(),b=region.bounds;
+    assert.ok(player.x>b.minX&&player.x<b.maxX&&player.z>b.minZ&&player.z<b.maxZ);
+    assert.ok(player.y>18&&player.y<30,'arrival uses actual Prospect terrain');
+    assert.equal(app.simulation().isBlocked(player.x,player.z,.35),false);
+    assert.ok(app.simulation().getNearbyCar(),'arrival has room for the starter cab');
+    assert.ok(app.simulation().interact(),'the cab is usable after arrival');
+    app.frames(3);
+    assert.equal(app.errors.length,0,app.errors[0]?.stack);
+  }finally{app.releaseLandscape();await app.until(()=>!app.state().traveling);app.close();}
 });

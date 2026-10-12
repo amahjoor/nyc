@@ -311,7 +311,11 @@ function frame(now) {
     sim.updateGrounding();
   }
   syncScene(paused||traveling||cityView?0:dt,controls);updateCamera(dt);navigation?.updatePin();
-  world.update(sim.player,camera,{overview:cityView||!started});ground.update(sim.player,{overview:cityView||!started});
+  // prepareAt owns the destination's collision data until arrival. Reselecting
+  // around the old player while terrain is still loading would discard it.
+  // Continue rendering and downloads; resume selection after arrival/rollback.
+  if(!traveling)world.update(sim.player,camera,{overview:cityView||!started});
+  ground.update(sim.player,{overview:cityView||!started});
   world.setLocalOrthophoto(ground.localOrthophoto);
   landscape?.setLocalOrthophoto(ground.localOrthophoto);
   landscape?.update(sim.player,{overview:cityView||!started});
