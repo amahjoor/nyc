@@ -83,6 +83,43 @@ export function groundRings(triangles) {
   return result;
 }
 
+function connectedBaseTriangles(positions, startFace, endFace) {
+  const candidates = [], neighbors = new Map(), queue = [];
+  // Survey bottoms are not always a single elevation. Follow their original
+  // shallow triangles from the lowest vertices, excluding vertical walls and
+  // disconnected elevated undersides. Winding alone cannot identify a base:
+  // actual source meshes contain both upward and downward bottom triangles.
+  const key = point => point.map(value => Math.round(value * 200)).join(',');
+  for (let face = startFace; face <= endFace; face++) {
+    const points = [0, 1, 2].map(k => {
+      const offset = (face * 3 + k) * 3;
+      return [positions[offset], positions[offset + 1], positions[offset + 2]];
+    });
+    const [a, b, c] = points;
+    const ux = b[0] - a[0], uy = b[1] - a[1], uz = b[2] - a[2];
+    const vx = c[0] - a[0], vy = c[1] - a[1], vz = c[2] - a[2];
+    const nx = uy * vz - uz * vy, ny = uz * vx - ux * vz, nz = ux * vy - uy * vx;
+    if (Math.abs(ny) < 0.0002 || ny * ny < .81 * (nx * nx + ny * ny + nz * nz)) continue;
+    const index = candidates.length, keys = points.map(key);
+    candidates.push({ points, keys });
+    for (const vertex of keys) {
+      if (!neighbors.has(vertex)) neighbors.set(vertex, []);
+      neighbors.get(vertex).push(index);
+    }
+    if (Math.min(a[1], b[1], c[1]) <= .025) queue.push(index);
+  }
+  const visited = new Set(), triangles = [];
+  for (let cursor = 0; cursor < queue.length; cursor++) {
+    const index = queue[cursor];
+    if (visited.has(index)) continue;
+    visited.add(index);
+    const { points, keys } = candidates[index];
+    triangles.push(points.map(point => [point[0], point[2]]));
+    for (const vertex of keys) for (const neighbor of neighbors.get(vertex)) if (!visited.has(neighbor)) queue.push(neighbor);
+  }
+  return triangles;
+}
+
 /** Decode the public I3S geometry buffer 0 without proprietary codecs or keys. */
 export function decodeI3S(buffer, node, origin, { collisions = true } = {}) {
   const view = new DataView(buffer);
@@ -125,6 +162,9 @@ export function decodeI3S(buffer, node, origin, { collisions = true } = {}) {
       for (let k = 0; k < 3; k++) positions[(vertex + k) * 3 + 1] -= low;
     }
     if (collisions) {
+      // Preserve the usual exact low-plane extraction, but do not discard an
+      // entire city tile when its measured ground has a small slope or step.
+      if (!triangles.length) triangles.push(...connectedBaseTriangles(positions, startFace, endFace));
       if (!triangles.length) throw new Error(`NYC building ${id} has no surveyed ground surface.`);
       // Some source triangle soups have T-junctions. Keeping their original
       // ground triangles as separate colliders preserves the exact occupied
