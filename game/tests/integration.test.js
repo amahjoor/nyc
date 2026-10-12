@@ -161,7 +161,9 @@ async function bootHarness({ stored = null, unavailableStorage = false, fetchOK 
       queueMicrotask(()=>{if(this.url===url)(imageryOK?this.onload:this.onerror)?.();});
     }
   }
-  const fetcher = async url => {
+  const fetcher = async function(url) {
+    // Match native fetch: unqualified calls work, unrelated method receivers fail.
+    if(this!=null&&this!==globalThis)throw new TypeError("Failed to execute 'fetch' on 'Window': Illegal invocation");
     requests.push(url);
     if(!fetchOK)return {ok:false,status:503};
     if(url.startsWith(index.source.service)) {

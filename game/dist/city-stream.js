@@ -143,7 +143,8 @@ export function createCityStream(index, options = {}) {
 }
 
 class CityStream {
-  constructor(index, { scene, onCollisionChange = () => {}, onStatus = () => {}, fetcher = globalThis.fetch,
+  // Binding preserves the browser receiver when load() calls this.fetcher().
+  constructor(index, { scene, onCollisionChange = () => {}, onStatus = () => {}, fetcher = globalThis.fetch.bind(globalThis),
     concurrency = 5, maxCacheBytes = 210 * 1024 * 1024 } = {}) {
     this.index = index; this.nodes = new Map(index.nodes.map(node => [node.id, node]));
     this.leaves = index.nodes.filter(node => !node.children.length && node.resource !== null);

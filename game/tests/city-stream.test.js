@@ -80,6 +80,24 @@ function tinyIndex() {
 }
 const response=()=>({ok:true,arrayBuffer:async()=>fixture.slice(0)});
 
+test('default browser fetch keeps its global receiver while loading surveyed geometry',async t=>{
+  const requests=[];
+  // Native browser fetch rejects a CityStream receiver; arrow mocks hide this.
+  t.mock.method(globalThis,'fetch',function(url,options){
+    if(this!==globalThis)throw new TypeError("Failed to execute 'fetch' on 'Window': Illegal invocation");
+    requests.push({url,options});
+    return Promise.resolve(response());
+  });
+  const stream=createCityStream(tinyIndex());
+  t.after(()=>stream.dispose());
+  await stream.prepareAt({x:500,z:0},10);
+  assert.equal(requests.length,1,'a valid request should not need retries');
+  assert.equal(requests[0].url,`${index.source.service}/nodes/200/geometries/0`);
+  assert.ok(requests[0].options.signal instanceof AbortSignal);
+  assert.equal(stream.isReadyAt(500,0,10),true);
+  assert.ok(stream.cache.get(2).buildings.length>0);
+});
+
 test('coarse parent remains until detailed replacements are complete, without overlap',async()=>{
   const pending=new Map(),scene=new THREE.Scene();let snapshots=[];
   const stream=createCityStream(tinyIndex(),{scene,fetcher:async url=>{
