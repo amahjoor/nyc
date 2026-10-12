@@ -39,12 +39,14 @@ test('right bumper emits camera changes on press edges, including from city over
 
 function movementInput(t){
   const original=new Map(['window','document','navigator'].map(name=>[name,Object.getOwnPropertyDescriptor(globalThis,name)]));
-  const target={addEventListener(){}};
+  const listeners=new Map(),actions=[];
+  const target={captures:[],addEventListener(name,handler){if(!listeners.has(name))listeners.set(name,[]);listeners.get(name).push(handler);},
+    emit(name,event={}){for(const handler of listeners.get(name)||[])handler(event);},setPointerCapture(id){this.captures.push(id);}};
   const pad={axes:[0,0,0,0],buttons:Array.from({length:12},()=>({pressed:false,value:0}))};
   const globals={window:target,document:{querySelectorAll:()=>[]},navigator:{getGamepads:()=>[pad]}};
   for(const [name,value] of Object.entries(globals))Object.defineProperty(globalThis,name,{value,configurable:true});
   t.after(()=>{for(const [name,descriptor] of original){if(descriptor)Object.defineProperty(globalThis,name,descriptor);else delete globalThis[name];}});
-  return {input:new Input(target,()=>{}),pad};
+  return {input:new Input(target,action=>actions.push(action)),pad,target,actions};
 }
 
 test('keyboard, arrows, touch and controller movement follow the actual camera screen axes',t=>{
@@ -82,4 +84,73 @@ test('controller triggers preserve forward and reverse while horizontal stick st
   assert.equal(controls.forward,-.7);assert.equal(controls.turn,.6);
   pad.buttons[2].pressed=true;
   assert.equal(input.sample(0,1/60).brake,true);
+});
+
+test('pointer camera look is enabled by default and stops when the drag ends',t=>{
+  const {input,target}=movementInput(t);
+  assert.equal(input.pointerLookEnabled,true);
+  target.emit('pointerdown',{pointerId:7,clientX:100,clientY:80});
+  target.emit('pointermove',{pointerId:7,clientX:120,clientY:110});
+  assert.equal(input.dragging,true);
+  assert.deepEqual(target.captures,[7]);
+  assert.equal(input.lookDelta,-.1);assert.equal(input.lookVertical,.09);
+  target.emit('pointerup',{pointerId:7});
+  target.emit('pointermove',{pointerId:7,clientX:200,clientY:200});
+  assert.equal(input.dragging,false);
+  assert.equal(input.lookDelta,-.1);assert.equal(input.lookVertical,.09);
+});
+
+test('map selection disables pointer capture and camera rotation until a new enabled drag',t=>{
+  const {input,target}=movementInput(t);
+  input.pointerLookEnabled=false;
+  target.emit('pointerdown',{pointerId:2,clientX:20,clientY:30});
+  target.emit('pointermove',{pointerId:2,clientX:180,clientY:190});
+  assert.equal(input.dragging,false);
+  assert.deepEqual(target.captures,[]);
+  assert.equal(input.lookDelta,0);assert.equal(input.lookVertical,0);
+  input.pointerLookEnabled=true;
+  target.emit('pointermove',{pointerId:2,clientX:200,clientY:210});
+  assert.equal(input.lookDelta,0,'enabling look must not resume an old selection drag');
+  target.emit('pointerdown',{pointerId:3,clientX:200,clientY:210});
+  target.emit('pointermove',{pointerId:3,clientX:190,clientY:230});
+  assert.deepEqual(target.captures,[3]);
+  assert.equal(input.lookDelta,.05);assert.equal(input.lookVertical,.06);
+});
+
+test('disabling pointer look mid-drag clears pending rotation without disabling keyboard or gamepad input',t=>{
+  const {input,target,pad,actions}=movementInput(t);
+  target.emit('pointerdown',{pointerId:1,clientX:0,clientY:0});
+  target.emit('pointermove',{pointerId:1,clientX:50,clientY:20});
+  input.pointerLookEnabled=false;
+  assert.equal(input.dragging,false);
+  assert.equal(input.lookDelta,0);assert.equal(input.lookVertical,0);
+  target.emit('pointermove',{pointerId:1,clientX:100,clientY:60});
+  assert.equal(input.lookDelta,0);assert.equal(input.lookVertical,0);
+  target.emit('keydown',{code:'KeyD',target:{tagName:'CANVAS'},repeat:false});
+  target.emit('keydown',{code:'KeyE',target:{tagName:'CANVAS'},repeat:false});
+  pad.axes[2]=.5;pad.axes[3]=.25;pad.buttons[7].value=.8;pad.buttons[5].pressed=true;
+  const controls=input.sample(0,1/60);
+  assert.equal(controls.turn,1);assert.equal(controls.forward,.8);
+  assert.ok(input.lookDelta<0&&input.lookVertical>0,'controller look remains independent of pointer selection');
+  assert.deepEqual(actions,['interact','view']);
+  target.emit('keyup',{code:'KeyD',target:{tagName:'CANVAS'}});
+  assert.equal(input.sample(0,1/60).turn,0);
+});
+
+test('typing an address does not trigger actions, movement, or browser-key suppression',t=>{
+  const {input,target,actions}=movementInput(t);
+  let prevented=0;
+  for(const tagName of ['INPUT','TEXTAREA','SELECT']){
+    for(const code of ['KeyW','KeyA','KeyS','KeyD','KeyE','KeyN','KeyR','KeyC','KeyV','KeyM','KeyH','Escape','Enter','ArrowDown','Space']){
+      target.emit('keydown',{code,target:{tagName,id:'address-input'},repeat:false,preventDefault(){prevented++;}});
+    }
+  }
+  assert.deepEqual(actions,[]);
+  assert.equal(input.keys.size,0);
+  assert.equal(prevented,0,'arrows, spaces and Escape remain available to the address field');
+  const controls=input.sample(0,1/60);
+  assert.equal(controls.forward,0);assert.equal(controls.turn,0);assert.equal(controls.brake,false);
+  input.keys.add('KeyW');
+  target.emit('keyup',{code:'KeyW',target:{tagName:'INPUT'}});
+  assert.equal(input.keys.has('KeyW'),false,'releasing a movement key after focusing search cannot leave it stuck');
 });

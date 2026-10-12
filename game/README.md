@@ -15,7 +15,11 @@ npm run dev
 
 Open http://localhost:5173 in a desktop browser with WebGL 2 and hardware acceleration. The game also includes touch buttons and standard gamepad controls. Internet access is required while exploring: official NYC geometry and aerial imagery stream directly from public services. The geographic index, road cells and Three.js are bundled. Serving over HTTP is required because browsers restrict ES modules and data fetches from `file://` URLs.
 
-Click **Explore New York** to open the full-city view. Pick a neighborhood and choose **Travel here**, or double-click a street. Drag to orbit and scroll to zoom. **All five boroughs** returns to the city view. On the street, press **E** to enter the nearby yellow taxi, then **N** to take a delivery. Stop inside the orange destination ring before the timer expires. Earnings and completed delivery count save in browser storage on this device. Sound starts muted; enable it with the top-right button.
+Click **Explore New York** to open the full-city view. Enter an NYC address and press **Search**, choose the matching address and borough, then press **Spawn here**. **Pick spawn location** lets you click or drag a pin across the map; press **Done picking** to resume camera orbit. **Clear** removes the selection and cancels a pending search. You can also expand **Or choose a neighborhood** and choose **Travel here**, or double-click a street for quick travel.
+
+Drag to orbit and scroll to zoom. **All five boroughs** returns to the city view. Arrivals snap to a mapped street within 600 metres of the chosen point and wait for streets and building collision data to load. Locations with no nearby mapped street are rejected. Address lookup uses NYC Planning's public GeoSearch service, sends a request only when submitted, and requires an internet connection. Choosing a search result places a pin; it does not move the player until **Spawn here** is pressed.
+
+On the street, press **E** to enter the nearby yellow taxi, then **N** to take a delivery. Stop inside the orange destination ring before the timer expires. Earnings and completed delivery count save in browser storage on this device. Sound starts muted; enable it with the top-right button.
 
 | Action | Keyboard | Controller |
 | --- | --- | --- |
@@ -64,6 +68,7 @@ The full map is available to render and explore, but this is a historical city m
 | --- | --- | --- |
 | Citywide 3D hierarchy | `dist/city-index.json`, `scripts/build-city-index.py` | [NYC OTI 3D Buildings Citywide](https://www.arcgis.com/home/item.html?id=a6961bc4505c44e8a495b53483491cc0), [NYC Open Data terms](https://cityofnewyork.github.io/opendatatsm/publicpolicies.html) |
 | Streets | `dist/road-index.json`, `dist/roads/`, `scripts/import-city-roads.py` | [NYC OTI Citywide Street Centerline](https://data.cityofnewyork.us/City-Government/NYC-Street-Centerline-CSCL-/inkn-q76z) |
+| Address search | `dist/geocoder.js`, requested on submission | [NYC Planning GeoSearch](https://geosearch.planninglabs.nyc/docs/), Property Address Directory |
 | Shorelines | `dist/boroughs.json` | NYC Department of City Planning borough boundaries, shoreline clipped |
 | Aerial images | Public NYC tile service, runtime cache | NYC OTI / NYS, [2024 metadata](https://github.com/CityOfNewYork/nyc-geo-metadata/blob/main/Metadata/Metadata_AerialImagery.md), [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/) |
 | SoHo photo references | `dist/assets/references/`, `dist/facade-profiles.json` | Individual author, license and original URL in the manifest and in-game source panel |

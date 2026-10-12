@@ -7,15 +7,16 @@ import { CityAudio } from './audio.js';
 import { createCityStream } from './city-stream.js';
 import { createCityGround, worldToGeographic } from './city-ground.js';
 import { createRoadStream, nearestStreet, localDestinations } from './road-stream.js';
+import { createCityNavigation } from './city-navigation.js';
 
 const $ = id => document.getElementById(id);
 const clamp = (n,a,b) => Math.max(a,Math.min(b,n));
 const angleDifference = (a,b) => Math.atan2(Math.sin(a-b),Math.cos(a-b));
 const SAVE_KEY = 'nyc-after-hours-v1';
-let sim, city, renderer, scene, camera, world, hud, avatar, marker, markerDiamond, enterHint;
+let sim, city, renderer, scene, camera, world, hud, avatar, marker, markerDiamond, enterHint, navigation;
 let started=false, paused=false, highQuality=false, farCamera=false, aerialView=false, aerialTracking=false, savedEarnings='';
 let cityIndex, roadIndex, roadStream, ground, sun, localFog, bootReady=false, traveling=false, pausedBeforeSources=false;
-let cityView=false, cityZoom=1, cityOrbit=0, roadCell='', roadEpoch=0, roadBusy=false, buildings=[], boroughs=[];
+let cityView=false, cityZoom=1, cityOrbit=0, cityFocus=null, roadCell='', roadEpoch=0, roadBusy=false, buildings=[], boroughs=[];
 let yaw=0, pitch=.38, lookIdle=0, elapsed=0, lastFrame=0, hudTime=0, qualityTimer=0, slowFrames=0;
 const carModels = new Map(), pedestrians=[];
 const audio = new CityAudio();
@@ -77,12 +78,6 @@ $('view-button').addEventListener('click',()=>action('view'));
 $('city-button').addEventListener('click',()=>{if(!started&&bootReady){$('start-button').click();return;}setView(cityView?'street':'city');});
 $('travel-button').addEventListener('click',()=>travel(roadIndex?.places[Number($('place-select').value)]));
 canvas.addEventListener('wheel',event=>{if(cityView){event.preventDefault();cityZoom=clamp(cityZoom*Math.exp(event.deltaY*.001),.07,1.8);}},{passive:false});
-canvas.addEventListener('dblclick',event=>{
-  if(!cityView||traveling||!bootReady)return;
-  const ray=new THREE.Raycaster();ray.setFromCamera(new THREE.Vector2(event.clientX/innerWidth*2-1,1-event.clientY/innerHeight*2),camera);
-  const point=ray.ray.intersectPlane(new THREE.Plane(new THREE.Vector3(0,1,0),0),new THREE.Vector3());
-  if(point)travel({x:point.x,z:point.z,name:'Selected street'});
-});
 $('sources-button').addEventListener('click',()=>{pausedBeforeSources=paused;if(started)paused=true;input.clear();$('sources-dialog').showModal();});
 $('sources-dialog').addEventListener('close',()=>{paused=pausedBeforeSources;input.clear();});
 $('pause-dialog').addEventListener('cancel',e=>{e.preventDefault();togglePause(false);});
@@ -198,7 +193,7 @@ function updateCamera(dt) {
   const p=sim.player,driving=p.mode==='drive';
   if(cityView||!started){
     input.lookVertical=0;cityOrbit+=input.lookDelta;input.lookDelta=0;
-    const b=city.bounds,cx=(b.minX+b.maxX)/2,cz=(b.minZ+b.maxZ)/2,span=Math.max(b.maxX-b.minX,b.maxZ-b.minZ);
+    const b=city.bounds,cx=cityFocus?.x??(b.minX+b.maxX)/2,cz=cityFocus?.z??(b.minZ+b.maxZ)/2,span=Math.max(b.maxX-b.minX,b.maxZ-b.minZ);
     desiredCamera.set(cx+Math.sin(cityOrbit-.3)*span*.65*cityZoom,span*.86*cityZoom,cz+Math.cos(cityOrbit-.3)*span*.65*cityZoom);
     camera.position.lerp(desiredCamera,1-Math.exp(-dt*5));camera.near=10;camera.far=150000;camera.fov=52;camera.lookAt(cx,0,cz);camera.updateProjectionMatrix();scene.fog=null;return;
   }
@@ -258,7 +253,7 @@ function frame(now) {
     controls=input.sample(Math.atan2(cameraForward.x,cameraForward.z),dt);
     if(!paused&&!traveling&&!cityView&&bootReady){sim.step(controls,dt);elapsed+=dt;}
   }else elapsed+=dt;
-  syncScene(paused||traveling||cityView?0:dt,controls);updateCamera(dt);
+  syncScene(paused||traveling||cityView?0:dt,controls);updateCamera(dt);navigation?.updatePin();
   world.update(sim.player,camera,{overview:cityView||!started});ground.update(sim.player,{overview:cityView||!started});
   sun.position.set(sim.player.x-160,210,sim.player.z+90);sun.target.position.set(sim.player.x,0,sim.player.z);
   if(bootReady&&!traveling)refreshRoads();
@@ -271,12 +266,22 @@ function frame(now) {
 
 function setView(mode){
   if(mode!=='aerial'||!aerialView)aerialTracking=false;
+  if(mode==='city'&&!cityView){cityFocus=null;cityZoom=1;}
   cityView=mode==='city';aerialView=mode==='aerial';input.clear();
   $('view-button').textContent=cityView?'STREET CAMERA':aerialView?'CITY OVERVIEW':'AERIAL VIEW';
   $('city-button').textContent=cityView?'RETURN TO STREET':'ALL FIVE BOROUGHS';
   $('city-navigation').hidden=!cityView;
+  navigation?.setVisible(cityView);
   if(started)for(const id of ['hud','mission-panel','wanted'])$(id).hidden=cityView;
   $('touch-controls').hidden=cityView||!started||!matchMedia('(pointer:coarse)').matches;
+}
+function focusCityAddress(place){
+  cityFocus={x:place.x,z:place.z};cityZoom=.18;
+  const b=city.bounds,span=Math.max(b.maxX-b.minX,b.maxZ-b.minZ);
+  // A search may select a different borough while the map is tightly zoomed.
+  // Center both eye and target immediately so the selected pin stays visible.
+  camera.position.set(place.x+Math.sin(cityOrbit-.3)*span*.65*cityZoom,span*.86*cityZoom,place.z+Math.cos(cityOrbit-.3)*span*.65*cityZoom);
+  camera.lookAt(place.x,0,place.z);camera.updateMatrixWorld();
 }
 function updateLocation(){
   const geo=worldToGeographic(sim.player.x,sim.player.z);
@@ -304,6 +309,7 @@ async function refreshRoads(){
 async function travel(place){
   if(!place||traveling||!bootReady)return;
   traveling=true;roadEpoch++;input.clear();$('travel-button').disabled=true;
+  navigation?.setTraveling(true);
   $('travel-note').textContent='Loading surveyed buildings and streets…';
   const previous={roads:sim.city.roads,buildings:sim.city.buildings,missionPoints:sim.city.missionPoints};
   try{
@@ -324,7 +330,7 @@ async function travel(place){
     // Restore navigation data without replacing that newer collision snapshot.
     sim.setActiveCity({...previous,buildings});$('travel-note').textContent=error.message;announce(error.message);
   }
-  finally{traveling=false;$('travel-button').disabled=false;}
+  finally{traveling=false;$('travel-button').disabled=false;navigation?.setTraveling(false);}
 }
 
 async function boot() {
@@ -348,8 +354,9 @@ async function boot() {
   avatar=createPerson(0xd7774e);scene.add(avatar);marker=createMissionMarker();enterHint=createEnterHint();
   hud=new HUD(city);applyQuality();
   const b=city.bounds;camera.position.set((b.minX+b.maxX)/2-14000,44000,(b.minZ+b.maxZ)/2+32000);
+  navigation=createCityNavigation({canvas,camera,input,bounds:city.bounds,onTravel:travel,onAddressSelected:focusCityAddress});
   $('place-select').innerHTML=roadIndex.places.map((place,i)=>'<option value="'+i+'">'+place.name+' · '+place.borough+'</option>').join('');
-  window.nycGame={getState:()=>({player:{...sim.player},heat:sim.heat,health:sim.health,mission:{...sim.mission},cash:sim.cash,deliveries:sim.deliveries,cars:sim.cars.length,buildings:buildings.length,totalBuildings:cityIndex.stats.buildingFeatures,stream:world.getStatus(),ground:ground.getStatus(),cityView,aerialView,traveling,bootReady,drawCalls:renderer.info.render.calls,triangles:renderer.info.render.triangles,started,paused})};
+  window.nycGame={getState:()=>({player:{...sim.player},heat:sim.heat,health:sim.health,mission:{...sim.mission},cash:sim.cash,deliveries:sim.deliveries,cars:sim.cars.length,buildings:buildings.length,totalBuildings:cityIndex.stats.buildingFeatures,stream:world.getStatus(),ground:ground.getStatus(),navigation:navigation.getState(),cityView,aerialView,traveling,bootReady,drawCalls:renderer.info.render.calls,triangles:renderer.info.render.triangles,started,paused})};
   requestAnimationFrame(frame);
   const [roads]=await Promise.all([roadStream.loadAround(seed.spawn),world.prepareAt(seed.spawn,300)]);
   sim.setActiveCity({roads,buildings,isReadyAt:(x,z,radius)=>world.isReadyAt(x,z,radius),missionPoints:localDestinations(roads,seed.spawn)},{spawn:seed.spawn});city=sim.city;yaw=sim.player.angle;

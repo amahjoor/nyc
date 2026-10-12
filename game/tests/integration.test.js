@@ -12,6 +12,7 @@ import { CityAudio } from '../dist/audio.js';
 import { createCityStream } from '../dist/city-stream.js';
 import { createCityGround, worldToGeographic } from '../dist/city-ground.js';
 import { createRoadStream, nearestStreet, localDestinations, cellsAround } from '../dist/road-stream.js';
+import { createCityNavigation } from '../dist/city-navigation.js';
 
 // This is application integration QA, not a browser/GPU rendering test. The
 // actual city geometry, physics, input and HUD run; browser primitives are fake.
@@ -37,9 +38,14 @@ class EventTarget {
     if (!this.listeners.has(name)) this.listeners.set(name, []);
     this.listeners.get(name).push(listener);
   }
+  removeEventListener(name, listener) {
+    this.listeners.set(name,(this.listeners.get(name)||[]).filter(candidate=>candidate!==listener));
+  }
   dispatch(name, detail = {}) {
-    const event = { target: this, preventDefault() { this.defaultPrevented = true; }, ...detail };
+    const event = { target: this, button:0, preventDefault() { this.defaultPrevented = true; },
+      stopPropagation() { this.propagationStopped=true; }, ...detail, currentTarget:this };
     for (const listener of this.listeners.get(name) || []) listener(event);
+    if(event.bubbles&&!event.propagationStopped&&this.parentElement)this.parentElement.dispatch(name,event);
     return event;
   }
 }
@@ -61,6 +67,7 @@ class Element extends EventTarget {
     this.style = {};
     this.attributes = new Map();
     this.dataset = {};
+    this.children = [];
     this.textContent = '';
     this.hidden = /\shidden(?:\s|$)/.test(attributes);
     this.disabled = /\sdisabled(?:\s|$)/.test(attributes);
@@ -81,9 +88,17 @@ class Element extends EventTarget {
   }
   setAttribute(name, value) { this.attributes.set(name, value); }
   getAttribute(name) { return this.attributes.get(name); }
+  removeAttribute(name) { this.attributes.delete(name); }
   getContext(kind) { assert.equal(kind, '2d'); return this.context ||= canvasContext(); }
   setPointerCapture() {}
-  click() { if(!this.disabled)this.dispatch('click'); }
+  releasePointerCapture() {}
+  getBoundingClientRect() { return {left:0,top:0,right:1440,bottom:900,width:1440,height:900}; }
+  append(...nodes) { for(const node of nodes){node.parentElement=this;this.children.push(node);} }
+  appendChild(node) { this.append(node);return node; }
+  replaceChildren(...nodes) { for(const child of this.children)child.parentElement=null;this.children=[];this.append(...nodes); }
+  contains(node) { return node===this||this.children.some(child=>child.contains(node)); }
+  closest(selector) { return selector.toUpperCase()===this.tagName?this:this.parentElement?.closest(selector)||null; }
+  click() { if(!this.disabled)this.dispatch('click',{bubbles:true}); }
   focus() { this.focused = true; }
   showModal() { this.open = true; }
   close() { this.open = false; this.dispatch('close'); }
@@ -115,7 +130,7 @@ function makeDocument() {
   return { document, elements };
 }
 
-async function bootHarness({ stored = null, unavailableStorage = false, fetchOK = true, geometryOK = true, imageryOK = true, coarsePointer = false, holdRoads = () => false } = {}) {
+async function bootHarness({ stored = null, unavailableStorage = false, fetchOK = true, geometryOK = true, imageryOK = true, coarsePointer = false, holdRoads = () => false, geocodeFetch = null } = {}) {
   const { document, elements } = makeDocument();
   const window = new EventTarget();
   const pads = [];
@@ -135,6 +150,7 @@ async function bootHarness({ stored = null, unavailableStorage = false, fetchOK 
     render(scene, camera) {
       assert.ok(scene.isScene && camera.isPerspectiveCamera);
       assert.ok(Number.isFinite(camera.position.x + camera.position.y + camera.position.z));
+      scene.updateMatrixWorld();camera.updateMatrixWorld();
       // Traverse real geometry once to catch invalid source coordinates and
       // broken factory contracts without pretending to compile GPU shaders.
       if (!this.renderCount) {
@@ -161,11 +177,15 @@ async function bootHarness({ stored = null, unavailableStorage = false, fetchOK 
       queueMicrotask(()=>{if(this.url===url)(imageryOK?this.onload:this.onerror)?.();});
     }
   }
-  const fetcher = async function(url) {
+  const fetcher = async function(url,options={}) {
     // Match native fetch: unqualified calls work, unrelated method receivers fail.
     if(this!=null&&this!==globalThis)throw new TypeError("Failed to execute 'fetch' on 'Window': Illegal invocation");
-    requests.push(url);
+    url=String(url);requests.push(url);
     if(!fetchOK)return {ok:false,status:503};
+    if(url.startsWith('https://geosearch.planninglabs.nyc/v2/search')){
+      assert.ok(geocodeFetch,'address requests must have an explicit offline fixture');
+      return geocodeFetch(new URL(url),options);
+    }
     if(url.startsWith(index.source.service)) {
       if(!geometryOK)return {ok:false,status:503};
       const resource=Number(url.match(/\/nodes\/(\d+)\/geometries\/0$/)?.[1]);
@@ -188,7 +208,7 @@ async function bootHarness({ stored = null, unavailableStorage = false, fetchOK 
       assert.equal(fullIndex.stats.buildingFeatures,index.stats.buildingFeatures);
       return createCityStream(fixtureIndex,options);
     },
-    createCityGround, worldToGeographic, createRoadStream, nearestStreet, localDestinations,
+    createCityGround, worldToGeographic, createRoadStream, nearestStreet, localDestinations, createCityNavigation,
     console: { error: error => errors.push(error), warn: () => {}, log: () => {} },
     matchMedia: () => ({ matches: coarsePointer }),
     innerWidth: 1440, innerHeight: 900, devicePixelRatio: 2,
@@ -199,7 +219,7 @@ async function bootHarness({ stored = null, unavailableStorage = false, fetchOK 
     },
   });
   function close() {
-    vm.runInContext('world?.dispose(); ground?.dispose();',context);
+    vm.runInContext('if(typeof navigation!=="undefined")navigation?.dispose?.();world?.dispose();ground?.dispose();',context);
     for (const [key, descriptor] of original) {
       if (descriptor) Object.defineProperty(globalThis, key, descriptor);
       else delete globalThis[key];
@@ -236,6 +256,11 @@ async function bootHarness({ stored = null, unavailableStorage = false, fetchOK 
         return {forward:axle(true).sub(axle(false)).normalize(),frontSteering:mesh.userData.wheels.filter(wheel=>wheel.userData.front).map(wheel=>wheel.rotation.y)};
       },
       roadIndex: () => vm.runInContext('roadIndex', context),
+      screenPoint(x,z) {
+        const camera=vm.runInContext('camera',context).clone();camera.updateMatrixWorld();
+        const point=new THREE.Vector3(x,0,z).project(camera);
+        return {clientX:(point.x+1)*720,clientY:(1-point.y)*450};
+      },
       click: id => elements.get(id).click(),
       key: (code, down = true) => window.dispatch(down ? 'keydown' : 'keyup', { code, repeat: false, target: elements.get('world') }),
       frames(count = 1) {
@@ -634,6 +659,148 @@ test('A/D steering turns the front wheels correctly in forward and reverse drivi
       assert.ok(visual.frontSteering.every(angle=>angle*side<-.01),'visible front wheel yaw matches requested steering');
       assert.ok(moved.dot(forward)*Math.sign(speed)>.2,'each scenario actually moves in its selected gear');
     }
+    assert.equal(app.errors.length,0,app.errors[0]?.stack);
+  }finally{app.close();}
+});
+
+function addressFeature({name='10 RICHMOND TERRACE',lon=-74.076018,lat=40.642348,borough='Staten Island',id='4270085'}={}){
+  return {type:'Feature',geometry:{type:'Point',coordinates:[lon,lat]},properties:{id,gid:`nycpad:venue:${id}`,
+    source:'nycpad',name,borough,region_a:'NY',country_code:'US',label:`${name}, ${borough}, NY, USA`}};
+}
+const addressResponse=features=>({ok:true,json:async()=>({type:'FeatureCollection',features})});
+function submitAddress(app,value){
+  app.elements.get('address-input').value=value;
+  app.elements.get('address-input').dispatch('input');
+  app.elements.get('address-form').dispatch('submit');
+}
+
+test('an address result selects a spawn and waits for real destination data before travel',async()=>{
+  let hold=false;
+  const app=await bootHarness({geocodeFetch:async()=>addressResponse([addressFeature()]),holdRoads:()=>hold});
+  try{
+    app.click('start-button');app.frames(2);
+    const before=app.state().player;
+    app.elements.get('world').dispatch('wheel',{deltaY:-3000});app.frames(120);
+    const navigation=app.elements.get('city-navigation');
+    assert.equal(navigation.classes.has('has-spawn'),false);
+    assert.equal(app.elements.get('spawn-button').disabled,true);
+    submitAddress(app,'10 Richmond Terrace');
+    await app.until(()=>!app.state().navigation.searching);
+    const results=app.elements.get('address-results').children;
+    assert.equal(results.length,1);
+    assert.equal(app.state().navigation.selected,null,'search alone cannot choose or move the player');
+    assert.deepEqual(app.state().player,before);
+    results[0].click();
+    assert.match(app.state().navigation.selected.name,/RICHMOND TERRACE/i);
+    assert.match(app.elements.get('spawn-note').textContent,/Staten Island/,'the selected address keeps its borough for disambiguation');
+    assert.equal(navigation.classes.has('has-spawn'),true);
+    assert.equal(navigation.classes.has('is-picking'),false);
+    assert.equal(app.elements.get('spawn-button').disabled,false);
+    assert.deepEqual(app.state().player,before,'choosing a result only previews the location');
+    app.frames();assert.equal(app.elements.get('spawn-pin').hidden,false);
+    const selected=app.state().navigation.selected,projected=app.screenPoint(selected.x,selected.z);
+    assert.ok(Math.abs(projected.clientX-720)<30&&Math.abs(projected.clientY-450)<30,
+      'choosing an address recenters its pin near the viewport center even after a close zoom');
+    hold=true;app.click('spawn-button');
+    await app.until(()=>app.waitingRoads()>0);
+    assert.equal(app.state().traveling,true);
+    assert.equal(app.elements.get('spawn-button').disabled,true);
+    assert.deepEqual(app.state().player,before,'player remains in the current neighborhood while destination streets load');
+    hold=false;app.releaseRoads();
+    await app.until(()=>!app.state().traveling);
+    const destination=app.roadIndex().places.find(place=>place.borough==='Staten Island');
+    assert.ok(Math.hypot(app.state().player.x-destination.x,app.state().player.z-destination.z)<300);
+    assert.equal(app.state().cityView,false);
+    assert.ok(app.simulation().city.buildings.some(building=>building.polygon.some(([x,z])=>x < -6000 && z > 8500)));
+    assert.equal(app.errors.length,0,app.errors[0]?.stack);
+  }finally{hold=false;app.releaseRoads();app.close();}
+});
+
+test('invalid and outside-NYC address results never enable spawn or relocate the player',async()=>{
+  const app=await bootHarness({geocodeFetch:async()=>addressResponse([
+    addressFeature({name:'OUTSIDE NYC',lon:-118.2437,lat:34.0522}),
+    {...addressFeature(),geometry:{type:'Point',coordinates:[null,40.7]}},
+  ])});
+  try{
+    app.click('start-button');app.frames(2);
+    const before=app.state().player;submitAddress(app,'outside address');
+    await app.until(()=>!app.state().navigation.searching);
+    assert.equal(app.elements.get('address-results').children.length,0);
+    assert.equal(app.state().navigation.selected,null);
+    assert.equal(app.elements.get('spawn-button').disabled,true);
+    assert.ok(app.elements.get('address-status').textContent.length>0);
+    app.click('spawn-button');assert.deepEqual(app.state().player,before);
+    assert.equal(app.errors.length,0,app.errors[0]?.stack);
+  }finally{app.close();}
+});
+
+test('superseded address responses and canceled searches cannot restore stale results or a spawn',async()=>{
+  const pending=[];
+  const app=await bootHarness({geocodeFetch:(url,{signal})=>new Promise(resolve=>pending.push({url,signal,resolve}))});
+  try{
+    app.click('start-button');app.frames(2);
+    submitAddress(app,'350 5th Avenue');await app.until(()=>pending.length===1);
+    submitAddress(app,'10 Richmond Terrace');await app.until(()=>pending.length===2);
+    assert.equal(pending[0].signal.aborted,true,'the replaced address request is canceled');
+    pending[1].resolve(addressResponse([addressFeature()]));
+    await app.until(()=>!app.state().navigation.searching);
+    assert.match(app.elements.get('address-results').children[0].textContent,/RICHMOND/i);
+    pending[0].resolve(addressResponse([addressFeature({name:'350 5TH AVENUE',lon:-73.9857,lat:40.7484,borough:'Manhattan',id:'old'})]));
+    await new Promise(resolve=>setImmediate(resolve));
+    assert.equal(app.elements.get('address-results').children.length,1);
+    assert.match(app.elements.get('address-results').children[0].textContent,/RICHMOND/i);
+    app.elements.get('address-results').children[0].click();
+    assert.ok(app.state().navigation.selected);
+    submitAddress(app,'another address');await app.until(()=>pending.length===3);
+    app.click('clear-spawn-button');
+    assert.equal(pending[2].signal.aborted,true);
+    pending[2].resolve(addressResponse([addressFeature()]));await new Promise(resolve=>setImmediate(resolve));
+    assert.equal(app.state().navigation.selected,null);assert.equal(app.state().navigation.picking,false);
+    assert.equal(app.state().navigation.searching,false);assert.equal(app.elements.get('address-results').children.length,0);
+    assert.equal(app.elements.get('spawn-button').disabled,true);assert.equal(app.elements.get('spawn-pin').hidden,true);
+    submitAddress(app,'address before leaving map');await app.until(()=>pending.length===4);
+    app.click('view-button');assert.equal(app.state().cityView,false);
+    assert.equal(pending[3].signal.aborted,true,'leaving city view cancels the pending address lookup');
+    pending[3].resolve(addressResponse([addressFeature()]));await new Promise(resolve=>setImmediate(resolve));
+    assert.equal(app.state().navigation.selected,null);assert.equal(app.elements.get('address-results').children.length,0);
+    app.click('city-button');assert.equal(app.state().cityView,true);
+    assert.doesNotMatch(app.elements.get('address-status').textContent,/searching/i,
+      'returning to city view cannot retain the canceled search progress message');
+    assert.equal(app.errors.length,0,app.errors[0]?.stack);
+  }finally{for(const request of pending)request.resolve(addressResponse([]));app.close();}
+});
+
+test('explicit map-pick mode selects geographic points without orbiting or immediately spawning',async()=>{
+  const app=await bootHarness();
+  try{
+    app.click('start-button');app.frames(180);
+    await app.until(()=>app.state().stream.loading===0);
+    const canvas=app.elements.get('world'),before=app.state().player;
+    canvas.dispatch('pointerdown',{clientX:650,clientY:450,pointerId:4});
+    canvas.dispatch('pointermove',{clientX:710,clientY:450,pointerId:4});
+    canvas.dispatch('pointerup',{clientX:710,clientY:450,pointerId:4});app.frames(120);
+    assert.equal(app.state().navigation.selected,null,'ordinary orbit dragging cannot select a spawn');
+    app.click('pick-spawn-button');assert.equal(app.state().navigation.picking,true);
+    const navigation=app.elements.get('city-navigation');
+    assert.equal(navigation.classes.has('is-picking'),true);assert.equal(navigation.classes.has('has-spawn'),false);
+    const orientation=app.camera().quaternion;
+    const place=app.roadIndex().places.find(place=>place.borough==='Staten Island');
+    const from=app.screenPoint(place.x,place.z),to=app.screenPoint(place.x+50,place.z+20);
+    canvas.dispatch('pointerdown',{...from,pointerId:5});
+    canvas.dispatch('pointermove',{...to,pointerId:5});
+    canvas.dispatch('pointerup',{...to,pointerId:5});app.frames();
+    const selection=app.state().navigation.selected;
+    assert.ok(selection);assert.ok(Math.hypot(selection.x-place.x-50,selection.z-place.z-20)<1);
+    assert.equal(navigation.classes.has('is-picking'),true);assert.equal(navigation.classes.has('has-spawn'),true);
+    assert.ok(app.camera().quaternion.angleTo(orientation)<1e-5,'dragging the spawn point must not also orbit the map');
+    assert.deepEqual(app.state().player,before);
+    assert.equal(app.elements.get('spawn-button').disabled,false);assert.equal(app.elements.get('spawn-pin').hidden,false);
+    app.click('clear-spawn-button');assert.equal(app.state().navigation.selected,null);assert.equal(app.state().navigation.picking,false);
+    assert.equal(navigation.classes.has('is-picking'),false);assert.equal(navigation.classes.has('has-spawn'),false);
+    assert.equal(app.elements.get('spawn-pin').hidden,true);
+    app.click('pick-spawn-button');assert.equal(app.state().navigation.picking,true);
+    app.click('view-button');assert.equal(app.state().cityView,false);assert.equal(app.state().navigation.picking,false);
+    assert.equal(navigation.classes.has('is-picking'),false);
     assert.equal(app.errors.length,0,app.errors[0]?.stack);
   }finally{app.close();}
 });

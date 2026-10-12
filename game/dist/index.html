@@ -27,7 +27,24 @@
     <div class="intro-bottom"><span class="small-label">1.08M SURVEYED BUILDINGS.<br>ONE CITY TO EXPLORE.</span><span class="build-label">CITYWIDE EDITION &nbsp; / &nbsp; 003</span></div>
     <p id="load-error" class="load-error" role="alert" hidden></p>
   </section>
-  <section id="city-navigation" class="city-navigation" hidden aria-label="Explore New York City"><p class="eyebrow">MANHATTAN / BROOKLYN / QUEENS / BRONX / STATEN ISLAND</p><h2>The entire city.</h2><p>Drag to orbit. Scroll to zoom.<br>Double-click a street to travel there.</p><label for="place-select">CHOOSE A NEIGHBORHOOD</label><select id="place-select" aria-label="Travel destination"></select><button id="travel-button" class="primary-button" disabled>TRAVEL HERE <span>↗</span></button><p id="travel-note" role="status">Choose a neighborhood, or double-click a street in the city view.</p></section>
+  <section id="city-navigation" class="city-navigation" hidden aria-label="Explore New York City">
+    <p class="eyebrow">MANHATTAN / BROOKLYN / QUEENS / BRONX / STATEN ISLAND</p>
+    <h2>Find your street.</h2>
+    <p class="city-view-help">Drag to orbit. Scroll to zoom.<br>Search an address or place your spawn pin.</p>
+    <form id="address-form" role="search" aria-label="Search NYC addresses">
+      <label for="address-input">NEW YORK CITY ADDRESS</label>
+      <div class="address-entry"><input id="address-input" type="search" placeholder="350 Fifth Avenue, Manhattan" minlength="3" maxlength="160" autocomplete="off" required><button id="address-search-button" type="submit">SEARCH</button></div>
+    </form>
+    <p id="address-status" class="address-status" role="status" aria-live="polite"></p>
+    <div id="address-results" class="address-results" aria-label="Matching NYC addresses"></div>
+    <button id="pick-spawn-button" class="secondary-button" aria-pressed="false">PICK SPAWN LOCATION</button>
+    <p id="spawn-note" class="spawn-note" role="status">Search an address or pick a spot on the map. Arrivals use a nearby street.</p>
+    <div class="spawn-actions"><button id="spawn-button" class="primary-button" disabled>SPAWN HERE <span aria-hidden="true">↗</span></button><button id="clear-spawn-button" class="clear-spawn-button" title="Clear selection and cancel search">CLEAR</button></div>
+    <details class="neighborhood-options"><summary>Or choose a neighborhood</summary><label for="place-select">NEIGHBORHOOD</label><select id="place-select" aria-label="Travel destination"></select><button id="travel-button" class="primary-button" disabled>TRAVEL HERE <span aria-hidden="true">↗</span></button></details>
+    <p id="travel-note" role="status">Double-click a street for quick travel.</p>
+    <a class="geosearch-credit" href="https://geosearch.planninglabs.nyc/" target="_blank" rel="noopener noreferrer">Address search: NYC Planning GeoSearch / PAD</a>
+  </section>
+  <div id="spawn-pin" class="spawn-pin" aria-hidden="true" hidden><span>SPAWN</span><i></i></div>
   <div id="stream-status" class="stream-status" role="status">CONNECTING TO NYC…</div>
   <section class="mission-panel" id="mission-panel" hidden aria-label="Current job">
     <div class="panel-kicker"><span class="orange-dot"></span><span id="mission-kicker">THE NIGHT SHIFT</span><span id="mission-number">01</span></div>

@@ -6,6 +6,7 @@ export class Input {
     this.lookDelta = 0;
     this.lookVertical = 0;
     this.dragging = false;
+    this._pointerLookEnabled = true;
     this.padButtons = [];
     this.action = action;
     const actions = {KeyE:'interact',KeyN:'job',KeyR:'recover',KeyC:'camera',KeyV:'view',KeyM:'map',KeyH:'horn',Escape:'pause'};
@@ -18,13 +19,14 @@ export class Input {
     window.addEventListener('keyup', e => this.keys.delete(e.code));
     window.addEventListener('blur', () => this.clear());
     canvas.addEventListener('pointerdown', e => {
+      if (!this.pointerLookEnabled) return;
       this.dragging = true;
       this.pointerX = e.clientX;
       this.pointerY = e.clientY;
       canvas.setPointerCapture(e.pointerId);
     });
     canvas.addEventListener('pointermove', e => {
-      if (!this.dragging) return;
+      if (!this.pointerLookEnabled || !this.dragging) return;
       this.lookDelta -= (e.clientX - this.pointerX) * .005;
       this.lookVertical += (e.clientY - this.pointerY) * .003;
       this.pointerX = e.clientX;
@@ -35,6 +37,19 @@ export class Input {
       const name = button.dataset.control;
       button.addEventListener('pointerdown', e => { e.preventDefault(); button.setPointerCapture(e.pointerId); this.touch.add(name); button.classList.add('pressed'); });
       for (const event of ['pointerup','pointercancel','lostpointercapture']) button.addEventListener(event, () => { this.touch.delete(name); button.classList.remove('pressed'); });
+    }
+  }
+  get pointerLookEnabled() { return this._pointerLookEnabled; }
+  set pointerLookEnabled(enabled) {
+    enabled = Boolean(enabled);
+    if (enabled === this._pointerLookEnabled) return;
+    this._pointerLookEnabled = enabled;
+    if (!enabled) {
+      // Map selection can take ownership mid-drag. Discard queued pointer
+      // movement so returning to the street cannot rotate the camera later.
+      this.dragging = false;
+      this.lookDelta = 0;
+      this.lookVertical = 0;
     }
   }
   clear() { this.keys.clear(); this.touch.clear(); this.dragging = false; }
