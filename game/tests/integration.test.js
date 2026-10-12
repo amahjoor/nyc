@@ -13,6 +13,7 @@ import { createCityStream } from '../dist/city-stream.js';
 import { createCityGround, worldToGeographic } from '../dist/city-ground.js';
 import { createRoadStream, nearestStreet, localDestinations, cellsAround } from '../dist/road-stream.js';
 import { createCityNavigation } from '../dist/city-navigation.js';
+import { createStreetDetail } from '../dist/street-detail.js';
 
 // This is application integration QA, not a browser/GPU rendering test. The
 // actual city geometry, physics, input and HUD run; browser primitives are fake.
@@ -130,12 +131,12 @@ function makeDocument() {
   return { document, elements };
 }
 
-async function bootHarness({ stored = null, unavailableStorage = false, fetchOK = true, geometryOK = true, imageryOK = true, coarsePointer = false, holdRoads = () => false, geocodeFetch = null } = {}) {
+async function bootHarness({ stored = null, unavailableStorage = false, fetchOK = true, geometryOK = true, imageryOK = true, streetFailure = null, coarsePointer = false, holdRoads = () => false, geocodeFetch = null } = {}) {
   const { document, elements } = makeDocument();
   const window = new EventTarget();
   const pads = [];
   const storage = new Map(stored === null ? [] : [['nyc-after-hours-v1', stored]]);
-  const frames = [], errors = [], requests = [], roadWaiters = [];
+  const frames = [], errors = [], requests = [], imageRequests = [], roadWaiters = [];
   const rendererInstances = [];
   let timestamp = 1000;
   class RendererStub {
@@ -174,6 +175,7 @@ async function bootHarness({ stored = null, unavailableStorage = false, fetchOK 
       this.url=url;
       if(!url)return;
       assert.match(url,/^https:\/\/tiles\.arcgis\.com\/.+\/NYC_Orthos_2024\/MapServer\/tile\//);
+      imageRequests.push(url);
       queueMicrotask(()=>{if(this.url===url)(imageryOK?this.onload:this.onerror)?.();});
     }
   }
@@ -182,6 +184,9 @@ async function bootHarness({ stored = null, unavailableStorage = false, fetchOK 
     if(this!=null&&this!==globalThis)throw new TypeError("Failed to execute 'fetch' on 'Window': Illegal invocation");
     url=String(url);requests.push(url);
     if(!fetchOK)return {ok:false,status:503};
+    if(streetFailure==='stalled-index'&&url==='./street-detail-index.json')return new Promise(()=>{});
+    if(streetFailure==='index'&&url==='./street-detail-index.json')return {ok:false,status:503};
+    if(streetFailure==='chunks'&&url.startsWith('./street-detail/'))return {ok:false,status:503};
     if(url.startsWith('https://geosearch.planninglabs.nyc/v2/search')){
       assert.ok(geocodeFetch,'address requests must have an explicit offline fixture');
       return geocodeFetch(new URL(url),options);
@@ -209,6 +214,7 @@ async function bootHarness({ stored = null, unavailableStorage = false, fetchOK 
       return createCityStream(fixtureIndex,options);
     },
     createCityGround, worldToGeographic, createRoadStream, nearestStreet, localDestinations, createCityNavigation,
+    createStreetDetail:(manifest,options)=>createStreetDetail(manifest,{...options,now:()=>timestamp}),
     console: { error: error => errors.push(error), warn: () => {}, log: () => {} },
     matchMedia: () => ({ matches: coarsePointer }),
     innerWidth: 1440, innerHeight: 900, devicePixelRatio: 2,
@@ -219,7 +225,7 @@ async function bootHarness({ stored = null, unavailableStorage = false, fetchOK 
     },
   });
   function close() {
-    vm.runInContext('if(typeof navigation!=="undefined")navigation?.dispose?.();world?.dispose();ground?.dispose();',context);
+    vm.runInContext('if(typeof navigation!=="undefined")navigation?.dispose?.();streetDetail?.dispose();world?.dispose();ground?.dispose();',context);
     for (const [key, descriptor] of original) {
       if (descriptor) Object.defineProperty(globalThis, key, descriptor);
       else delete globalThis[key];
@@ -238,12 +244,15 @@ async function bootHarness({ stored = null, unavailableStorage = false, fetchOK 
     }
     await until(()=>vm.runInContext('bootReady',context)||!elements.get('load-error').hidden,'production boot did not finish');
     return {
-      close, errors, elements, storage, pads, window, document, rendererInstances, requests, until,
+      close, errors, elements, storage, pads, window, document, rendererInstances, requests, imageRequests, until,
+      setStreetFailure:value=>{streetFailure=value;},
+      advanceTime:milliseconds=>{timestamp+=milliseconds;},
       releaseRoads:()=>roadWaiters.splice(0).forEach(resolve=>resolve()),
       waitingRoads:()=>roadWaiters.length,
       state: () => window.nycGame.getState(),
       simulation: () => vm.runInContext('sim', context),
       camera: () => vm.runInContext('({position:camera.position.clone(),quaternion:camera.quaternion.clone(),yaw,near:camera.near,far:camera.far,fov:camera.fov})',context),
+      renderState: () => vm.runInContext('({scene,localOrthophoto:ground.localOrthophoto,roofUniforms:world.orthoUniforms})',context),
       vehicleVisual() {
         const simulation=vm.runInContext('sim',context),mesh=vm.runInContext('carModels',context).get(simulation.player.vehicleId);
         assert.ok(mesh,'the controlled vehicle must have a production scene model');
@@ -431,6 +440,118 @@ test('failed aerial images retain playable surveyed geometry and disclose missin
     assert.equal(app.state().started,true);
     assert.ok(app.state().buildings>=280);
   } finally { app.close(); }
+});
+
+test('street view loads measured SoHo surfaces and shares source imagery with roofs and shadow receivers', async () => {
+  const app = await bootHarness();
+  try {
+    app.frames(2);
+    assert.equal(app.state().streetDetail.surfaces,0);
+    assert.ok(!app.requests.some(url=>url.startsWith('./street-detail/')),'city overview does not download neighborhood surface chunks');
+    assert.equal(app.rendererInstances[0].shadowMap.enabled,false);
+    const roofMaterial=app.renderState().scene.getObjectByName('NYC survey node 4341').material;
+    const overviewMaterialVersion=roofMaterial.version;
+    app.click('start-button');app.click('view-button');app.frames(2);
+    assert.ok(roofMaterial.version>overviewMaterialVersion,'entering local view invalidates the shadow shader variant');
+    const localMaterialVersion=roofMaterial.version;
+    await app.until(()=>app.state().streetDetail.activeCells>0&&app.state().streetDetail.loading===0&&app.state().ground.loading===0);
+    app.frames();
+    assert.equal(roofMaterial.version,localMaterialVersion,'steady local rendering must not recompile materials every frame');
+    const {scene,localOrthophoto,roofUniforms}=app.renderState();
+    const group=scene.getObjectByName('NYC mapped street surfaces');
+    assert.ok(group?.visible);
+    assert.equal(group.children.length,1,'measured street polygons share a single render batch');
+    const mesh=group.children[0], positions=mesh.geometry.attributes.position;
+    assert.ok(app.state().streetDetail.surfaces>100,'bundled official polygons reach the production scene');
+    assert.ok(positions.count>1000&&mesh.geometry.index.count>1000);
+    const sourceIds=new Set(app.requests.filter(url=>url.startsWith('./street-detail/')).flatMap(url=>
+      JSON.parse(readFileSync(new URL(`../dist/${url.slice(2)}`,import.meta.url),'utf8')).surfaces.map(surface=>surface.id)));
+    assert.ok(mesh.geometry.userData.sourceIds.every(id=>sourceIds.has(id)),'every rendered polygon retains an acquired source identity');
+    for(let i=0;i<positions.count;i++)assert.equal(positions.getY(i),0,'2D source records must not introduce guessed curb elevations');
+    assert.ok(mesh.material.isMeshStandardMaterial&&mesh.receiveShadow);
+    assert.equal(mesh.material.roughness,1);
+    assert.equal(app.elements.get('quality-button').textContent,'QUALITY: BALANCED');
+    assert.equal(app.rendererInstances[0].shadowMap.enabled,true,'balanced quality retains nearby shadows');
+    const localGround=scene.getObjectByName('NYC 2024 aerial imagery').children.filter(child=>child.visible&&child.material.isMeshStandardMaterial);
+    assert.ok(localGround.length>0);
+    assert.ok(localGround.every(child=>child.receiveShadow&&child.material.map.colorSpace===THREE.SRGBColorSpace));
+    assert.ok(app.imageRequests.some(url=>url.includes('/tile/19/')),'local appearance uses the actual high-resolution orthophoto service');
+    assert.equal(localOrthophoto.texture.image.width,2304);
+    assert.equal(localOrthophoto.texture.colorSpace,THREE.SRGBColorSpace);
+    assert.equal(roofUniforms.cityUseLocalOrtho.value,true);
+    assert.equal(roofUniforms.cityLocalOrtho.value,localOrthophoto.texture);
+    assert.deepEqual(roofUniforms.cityLocalOrthoBounds.value.toArray(),[
+      localOrthophoto.bounds.minX,localOrthophoto.bounds.maxX,localOrthophoto.bounds.minZ,localOrthophoto.bounds.maxZ,
+    ]);
+    // Inspect the production shader hook's bindings without claiming a GPU
+    // compile. Both street and roof sampling must see the same moving atlas.
+    const shader={uniforms:{},vertexShader:THREE.ShaderLib.standard.vertexShader,fragmentShader:THREE.ShaderLib.standard.fragmentShader};
+    mesh.material.onBeforeCompile(shader);
+    assert.equal(shader.uniforms.streetUseLocal.value,true);
+    assert.equal(shader.uniforms.streetLocal.value,localOrthophoto.texture);
+    assert.deepEqual(shader.uniforms.streetLocalBounds.value.toArray(),roofUniforms.cityLocalOrthoBounds.value.toArray());
+    const destination=app.roadIndex().places.findIndex(place=>place.borough==='Staten Island');
+    app.elements.get('place-select').value=String(destination);app.click('travel-button');
+    await app.until(()=>!app.state().traveling);app.frames(2);
+    assert.equal(app.state().streetDetail.covered,false);
+    assert.equal(app.state().streetDetail.surfaces,0,'SoHo polygons do not follow the player into another borough');
+    assert.equal(app.elements.get('street-detail-status').textContent,'');
+    assert.equal(localOrthophoto.texture,app.renderState().localOrthophoto.texture,'travel moves atlas coverage without replacing its GPU texture');
+    assert.ok(localOrthophoto.bounds.minX<app.state().player.x&&localOrthophoto.bounds.maxX>app.state().player.x);
+    assert.ok(localOrthophoto.bounds.minZ<app.state().player.z&&localOrthophoto.bounds.maxZ>app.state().player.z);
+    const beforeCityMaterialVersion=roofMaterial.version;
+    app.click('city-button');app.frames();
+    assert.equal(group.visible,false);
+    assert.equal(app.rendererInstances[0].shadowMap.enabled,false);
+    assert.ok(roofMaterial.version>beforeCityMaterialVersion,'city overview invalidates the now-disabled shadow variant');
+    const cityMaterialVersion=roofMaterial.version;app.frames();
+    assert.equal(roofMaterial.version,cityMaterialVersion);
+    assert.equal(app.errors.length,0);
+  } finally { app.close(); }
+});
+
+test('failed or stalled optional street data keep the full city playable', async () => {
+  for(const streetFailure of ['index','chunks','stalled-index']){
+    const app=await bootHarness({streetFailure});
+    try{
+      assert.equal(app.state().bootReady,true);
+      assert.equal(app.elements.get('load-error').hidden,true);
+      app.click('start-button');app.click('view-button');app.frames(2);
+      if(streetFailure!=='chunks'){
+        assert.equal(app.state().streetDetail,null);
+        if(streetFailure==='index')assert.match(app.elements.get('street-detail-status').textContent,/Mapped street data is unavailable/);
+        else assert.equal(app.elements.get('street-detail-status').textContent,'','a pending optional request does not manufacture an error');
+      }
+      else{
+        await app.until(()=>app.state().streetDetail.failures>0&&app.state().streetDetail.loading===0);
+        assert.equal(app.state().streetDetail.surfaces,0);
+        assert.match(app.elements.get('street-detail-status').textContent,/mapped street surfaces are unavailable here/);
+      }
+      const before=app.state().player;
+      app.key('KeyW');app.frames(20);app.key('KeyW',false);
+      assert.ok(Math.hypot(app.state().player.x-before.x,app.state().player.z-before.z)>.1,'optional surface failure cannot block walking');
+      const destination=app.roadIndex().places.findIndex(place=>place.borough==='Staten Island');
+      app.elements.get('place-select').value=String(destination);app.click('travel-button');
+      await app.until(()=>!app.state().traveling);app.frames(8);
+      assert.equal(app.elements.get('district-name').textContent,'STATEN ISLAND');
+      assert.equal(app.state().stream.readyAtFocus,true);
+      if(streetFailure==='chunks'){
+        assert.equal(app.elements.get('street-detail-status').textContent,'','leaving mapped coverage clears its failed-chunk warning');
+        const soho=app.roadIndex().places.findIndex(place=>place.name==='SoHo');
+        assert.ok(soho>=0);
+        app.elements.get('place-select').value=String(soho);app.click('travel-button');
+        await app.until(()=>!app.state().traveling);app.frames();
+        await app.until(()=>app.state().streetDetail.failures>0&&app.state().streetDetail.loading===0);
+        assert.match(app.elements.get('street-detail-status').textContent,/unavailable here/);
+        app.setStreetFailure(null);app.advanceTime(5001);app.frames();
+        await app.until(()=>app.state().streetDetail.failures===0&&app.state().streetDetail.loading===0);
+        app.frames();
+        assert.ok(app.state().streetDetail.surfaces>100);
+        assert.equal(app.elements.get('street-detail-status').textContent,'','successful source retries clear the Sources notice');
+      }
+      assert.equal(app.errors.length,0);
+    }finally{app.close();}
+  }
 });
 
 test('borough selector loads actual Staten Island streets and geometry before moving the player',async()=>{

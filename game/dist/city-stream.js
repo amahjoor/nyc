@@ -208,22 +208,42 @@ class CityStream {
     this.material = new THREE.MeshStandardMaterial({ color: 0xbebfb9, roughness: 0.94, side: THREE.DoubleSide });
     this.material.name = 'Official citywide measured surfaces';
     this.orthoUniforms = { cityOrtho: { value: null }, cityOrthoBounds: { value: new THREE.Vector4() }, cityUseOrtho: { value: false },
-      cityMercator: { value: new THREE.Vector4() }, cityUseMercator: { value: false } };
+      cityMercator: { value: new THREE.Vector4() }, cityUseMercator: { value: false },
+      cityLocalOrtho: { value: null }, cityLocalOrthoBounds: { value: new THREE.Vector4() }, cityUseLocalOrtho: { value: false },
+      cityLocalMercator: { value: new THREE.Vector4() }, cityUseLocalMercator: { value: false } };
     this.material.onBeforeCompile = shader => {
       Object.assign(shader.uniforms, this.orthoUniforms);
       shader.vertexShader = 'varying vec2 vCityXZ; varying float vCityRoof;\n' + shader.vertexShader;
       shader.vertexShader = shader.vertexShader.replace('#include <begin_vertex>', '#include <begin_vertex>\nvCityXZ = position.xz; vCityRoof = abs(normal.y);');
-      shader.fragmentShader = 'uniform sampler2D cityOrtho; uniform vec4 cityOrthoBounds; uniform bool cityUseOrtho; uniform vec4 cityMercator; uniform bool cityUseMercator; varying vec2 vCityXZ; varying float vCityRoof;\n' + shader.fragmentShader;
-      shader.fragmentShader = shader.fragmentShader.replace('#include <color_fragment>', `#include <color_fragment>
-        if (cityUseOrtho && vCityRoof > 0.65) {
-          vec2 cityUV = vec2((vCityXZ.x-cityOrthoBounds.x)/(cityOrthoBounds.y-cityOrthoBounds.x),
-            (cityOrthoBounds.w-vCityXZ.y)/(cityOrthoBounds.w-cityOrthoBounds.z));
-          if (cityUseMercator) {
-            float latitude = cityMercator.z - vCityXZ.y/cityMercator.w;
-            cityUV.y = (log(tan(0.7853981633974483+latitude*0.5))-cityMercator.y)/(cityMercator.x-cityMercator.y);
+      shader.fragmentShader = `uniform sampler2D cityOrtho; uniform vec4 cityOrthoBounds; uniform bool cityUseOrtho;
+        uniform vec4 cityMercator; uniform bool cityUseMercator;
+        uniform sampler2D cityLocalOrtho; uniform vec4 cityLocalOrthoBounds; uniform bool cityUseLocalOrtho;
+        uniform vec4 cityLocalMercator; uniform bool cityUseLocalMercator;
+        varying vec2 vCityXZ; varying float vCityRoof;
+        vec2 cityAtlasUV(vec4 bounds, vec4 mercator, bool useMercator) {
+          vec2 uv = vec2((vCityXZ.x-bounds.x)/(bounds.y-bounds.x), (bounds.w-vCityXZ.y)/(bounds.w-bounds.z));
+          if (useMercator) {
+            float latitude = mercator.z - vCityXZ.y/mercator.w;
+            uv.y = (log(tan(0.7853981633974483+latitude*0.5))-mercator.y)/(mercator.x-mercator.y);
           }
-          if (all(greaterThanEqual(cityUV,vec2(0.0))) && all(lessThanEqual(cityUV,vec2(1.0))))
-            diffuseColor.rgb = texture2D(cityOrtho,cityUV).rgb;
+          return uv;
+        }\n` + shader.fragmentShader;
+      shader.fragmentShader = shader.fragmentShader.replace('#include <color_fragment>', `#include <color_fragment>
+        if (vCityRoof > 0.65) {
+          if (cityUseOrtho) {
+            vec2 cityUV = cityAtlasUV(cityOrthoBounds, cityMercator, cityUseMercator);
+            if (all(greaterThanEqual(cityUV,vec2(0.0))) && all(lessThanEqual(cityUV,vec2(1.0))))
+              diffuseColor.rgb = texture2D(cityOrtho,cityUV).rgb;
+          }
+          if (cityUseLocalOrtho) {
+            vec2 cityLocalUV = cityAtlasUV(cityLocalOrthoBounds, cityLocalMercator, cityUseLocalMercator);
+            if (all(greaterThanEqual(cityLocalUV,vec2(0.0))) && all(lessThanEqual(cityLocalUV,vec2(1.0)))) {
+              vec4 cityLocalSample = texture2D(cityLocalOrtho,cityLocalUV);
+              // Transparent atlas cells have no loaded source image. Keep the
+              // coarse roof there, including filtered edges of missing cells.
+              if (cityLocalSample.a > 0.99) diffuseColor.rgb = cityLocalSample.rgb;
+            }
+          }
         }`);
     };
   }
@@ -235,6 +255,21 @@ class CityStream {
     this.orthoUniforms.cityUseOrtho.value = true;
     this.orthoUniforms.cityUseMercator.value = Boolean(mercator);
     if (mercator) this.orthoUniforms.cityMercator.value.set(mercator.north, mercator.south, mercator.originLat, mercator.radius);
+  }
+
+  setLocalOrthophoto({ texture, bounds, mercator } = {}) {
+    const usable = Boolean(texture && bounds && [bounds.minX, bounds.maxX, bounds.minZ, bounds.maxZ].every(Number.isFinite)
+      && bounds.maxX > bounds.minX && bounds.maxZ > bounds.minZ
+      && (!mercator || [mercator.north, mercator.south, mercator.originLat, mercator.radius].every(Number.isFinite)
+        && mercator.north > mercator.south && mercator.radius > 0));
+    this.orthoUniforms.cityUseLocalOrtho.value = usable;
+    if (!usable) return;
+    // Uniforms update in place when the atlas moves. Recompiling the material
+    // on every tile crossing would stall driving and is unnecessary.
+    this.orthoUniforms.cityLocalOrtho.value = texture;
+    this.orthoUniforms.cityLocalOrthoBounds.value.set(bounds.minX, bounds.maxX, bounds.minZ, bounds.maxZ);
+    this.orthoUniforms.cityUseLocalMercator.value = Boolean(mercator);
+    if (mercator) this.orthoUniforms.cityLocalMercator.value.set(mercator.north, mercator.south, mercator.originLat, mercator.radius);
   }
 
   nearby(point, radius) {

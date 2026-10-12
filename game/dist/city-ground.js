@@ -1,6 +1,7 @@
 import * as THREE from './vendor/three.module.min.js';
 
 const R = 6371008.8;
+const LOCAL_ZOOM = 19, LOCAL_RADIUS = 4, LOCAL_GRID = LOCAL_RADIUS * 2 + 1;
 export const AERIAL_SERVICE = 'https://tiles.arcgis.com/tiles/yG5s3afENB5iO9fj/arcgis/rest/services/NYC_Orthos_2024/MapServer';
 export const NYC_BBOX = [-74.26, 40.49, -73.69, 40.92];
 export const CITY_ORIGIN = { lat: 40.7235, lon: -74.0015 };
@@ -61,6 +62,13 @@ export function createCityGround({ scene, origin = CITY_ORIGIN, onStatus = () =>
   // value. Paint imagery in order without writing depth, before normal objects.
   const overviewMesh = new THREE.Mesh(atlas,new THREE.MeshBasicMaterial({ map: texture, side: THREE.DoubleSide, depthWrite: false }));
   overviewMesh.renderOrder = -20;group.add(overviewMesh);
+  const localCanvas = document.createElement('canvas');localCanvas.width = localCanvas.height = LOCAL_GRID * 256;
+  const localContext = localCanvas.getContext('2d');
+  const localTexture = new THREE.CanvasTexture(localCanvas);localTexture.colorSpace = THREE.SRGBColorSpace;localTexture.anisotropy = 4;
+  const localOrthophoto = { texture: localTexture, bounds: { minX: 0, maxX: 0, minZ: 0, maxZ: 0 }, mercator: {
+    north: 0, south: 0, originLat: origin.lat*Math.PI/180, radius: R,
+  } };
+  let localColumn = 0, localRow = 0;
   const cache = new Map(), queue = [], desired = new Set(), requests = new Set();
   let disposed = false, generation = 0, coarseLoaded = 0, failures = 0, currentCell = '', overview = false;
   const status = () => ({ loading: requests.size + queue.length,
@@ -69,6 +77,12 @@ export function createCityGround({ scene, origin = CITY_ORIGIN, onStatus = () =>
   const report = () => { if (!disposed) onStatus(status()); };
   const wanted = job => !job.key || (desired.has(job.key) && cache.get(job.key) === job.entry);
   function pump() {
+    // Reorder only local slots. Coarse coverage keeps its existing queue order,
+    // while both newly queued and retried detail requests follow today's focus.
+    const distance = job => (job.column - localColumn - LOCAL_RADIUS) ** 2 + (job.row - localRow - LOCAL_RADIUS) ** 2;
+    const localJobs = queue.filter(job => job.key).sort((a, b) => distance(a) - distance(b));
+    let localIndex = 0;
+    for (let i = 0; i < queue.length; i++) if (queue[i].key) queue[i] = localJobs[localIndex++];
     while (!disposed && requests.size < 6 && queue.length) {
       const job = queue.shift();
       if (!wanted(job)) continue;
@@ -116,31 +130,61 @@ export function createCityGround({ scene, origin = CITY_ORIGIN, onStatus = () =>
     if (!entry.mesh) return;
     group.remove(entry.mesh);entry.mesh.geometry.dispose();entry.mesh.material.map.dispose();entry.mesh.material.dispose();
   }
+  function paintLocal(column, row, image) {
+    // A surviving request can finish after the atlas moves by one tile. Its
+    // source coordinates, not its old canvas offset, determine where it belongs.
+    if (disposed || !desired.has(`${column},${row}`)) return;
+    const x = column - localColumn, y = row - localRow;
+    if (x < 0 || x >= LOCAL_GRID || y < 0 || y >= LOCAL_GRID) return;
+    localContext.drawImage(image, x * 256, y * 256, 256, 256);localTexture.needsUpdate = true;
+  }
+  function recenterLocal(tile) {
+    localColumn = tile.column - LOCAL_RADIUS;localRow = tile.row - LOCAL_RADIUS;
+    const nw = tileBounds(localColumn, localRow, LOCAL_ZOOM, origin);
+    const se = tileBounds(localColumn + LOCAL_GRID - 1, localRow + LOCAL_GRID - 1, LOCAL_ZOOM, origin);
+    Object.assign(localOrthophoto.bounds, { minX: nw.minX, maxX: se.maxX, minZ: nw.minZ, maxZ: se.maxZ });
+    localOrthophoto.mercator.north = Math.PI * (1 - 2 * localRow / 2 ** LOCAL_ZOOM);
+    localOrthophoto.mercator.south = Math.PI * (1 - 2 * (localRow + LOCAL_GRID) / 2 ** LOCAL_ZOOM);
+    // Transparency is coverage metadata for roof/street sampling. Never fill
+    // missing cells with a guessed color or imagery from the previous location.
+    localContext.clearRect(0, 0, localCanvas.width, localCanvas.height);
+    for (const key of desired) {
+      const entry = cache.get(key);
+      if (entry?.mesh) {
+        const [column, row] = key.split(',').map(Number);
+        paintLocal(column, row, entry.mesh.material.map.image);
+      }
+    }
+    localTexture.needsUpdate = true;
+  }
   function enqueue(column, row, tileKey, entry) {
     entry.failed = false;
-    queue.push({ key: tileKey, entry, column, row, zoom: 18, complete(image) {
+    queue.push({ key: tileKey, entry, column, row, zoom: LOCAL_ZOOM, complete(image) {
       // Ownership matters after a rapid departure and return to the same key:
       // an older request must not attach a mesh to its replacement cache entry.
       if (cache.get(tileKey) !== entry) return;
       const map = new THREE.Texture(image);map.colorSpace = THREE.SRGBColorSpace;map.anisotropy = 4;map.needsUpdate = true;
-      entry.mesh = plane(tileBounds(column, row, 18, origin), -.035, new THREE.MeshBasicMaterial({ map, side: THREE.DoubleSide, depthWrite: false }));
-      entry.mesh.renderOrder = -10;
+      entry.mesh = plane(tileBounds(column, row, LOCAL_ZOOM, origin), -.035,
+        new THREE.MeshStandardMaterial({ map, color: 0xffffff, roughness: 1, side: THREE.DoubleSide, depthWrite: false }));
+      entry.mesh.renderOrder = -10;entry.mesh.receiveShadow = true;
       entry.mesh.visible = desired.has(tileKey);group.add(entry.mesh);
+      paintLocal(column, row, image);
     } });
   }
   return {
+    get localOrthophoto() { return localOrthophoto; },
     group, orthophoto: { texture, bounds, mercator: {
       north: Math.PI*(1-2*first.row/4096), south: Math.PI*(1-2*(last.row+1)/4096),
       originLat: origin.lat*Math.PI/180, radius: R,
     } },
     update(focus, { overview: wide = false } = {}) {
       if (disposed) return;
-      const geo = worldToGeographic(focus.x, focus.z, origin), tile = tileForPoint(geo.lon, geo.lat, 18);
+      const geo = worldToGeographic(focus.x, focus.z, origin), tile = tileForPoint(geo.lon, geo.lat, LOCAL_ZOOM);
       const key = `${tile.column},${tile.row}`;
       const retryDue = [...desired].some(tileKey => cache.get(tileKey)?.failed && cache.get(tileKey).retryAt <= now());
       if (key === currentCell && overview === wide && !retryDue) return;
       currentCell = key;overview = wide;generation++;desired.clear();
-      if (!overview) for (let row = tile.row - 4; row <= tile.row + 4; row++) for (let column = tile.column - 4; column <= tile.column + 4; column++) {
+      if (!overview) for (let row = tile.row - LOCAL_RADIUS; row <= tile.row + LOCAL_RADIUS; row++) for (let column = tile.column - LOCAL_RADIUS; column <= tile.column + LOCAL_RADIUS; column++) {
         const tileKey = `${column},${row}`;desired.add(tileKey);
         if (cache.has(tileKey)) {
           const entry = cache.get(tileKey);entry.last = generation;
@@ -162,6 +206,7 @@ export function createCityGround({ scene, origin = CITY_ORIGIN, onStatus = () =>
         if (desired.has(tileKey)) continue;
         release(entry);cache.delete(tileKey);
       }
+      recenterLocal(tile);
       pump();
     },
     getStatus: status,
@@ -170,7 +215,8 @@ export function createCityGround({ scene, origin = CITY_ORIGIN, onStatus = () =>
       disposed = true;queue.length = 0;desired.clear();
       for (const request of [...requests]) request.cancel();
       for (const entry of cache.values()) release(entry);
-      cache.clear();texture.dispose();group.children[0].geometry.dispose();group.children[0].material.dispose();scene.remove(group);
+      cache.clear();texture.dispose();localTexture.dispose();localCanvas.width = localCanvas.height = 0;
+      group.children[0].geometry.dispose();group.children[0].material.dispose();scene.remove(group);
     },
   };
 }

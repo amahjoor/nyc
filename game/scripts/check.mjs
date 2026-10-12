@@ -33,4 +33,13 @@ for(const [key,cell] of Object.entries(roads.cells)){
   const file=await stat(resolve(root,'dist',cell.url));
   if(file.size!==cell.bytes)throw new Error(`Incomplete road cell: ${key}`);
 }
-console.log(`Source checks passed: ${index.nodes.length} geometry nodes, ${Object.keys(roads.cells).length} road cells, all five boroughs, and bundled source assets.`);
+const detail=JSON.parse(await readFile(resolve(root,'dist/street-detail-index.json'),'utf8'));
+let detailBytes=0;
+for(const [key,cell] of Object.entries(detail.cells)){
+  if(!/^\.\/street-detail\/-?\d+_-?\d+\.json$/.test(cell.url))throw new Error(`Invalid detail cell path: ${key}`);
+  const file=await stat(resolve(root,'dist',cell.url));
+  if(file.size!==cell.bytes)throw new Error(`Incomplete street detail cell: ${key}`);
+  detailBytes+=file.size;
+}
+if(detailBytes!==detail.stats.bytes)throw new Error('Street detail manifest byte count does not match its assets');
+console.log(`Source checks passed: ${index.nodes.length} geometry nodes, ${Object.keys(roads.cells).length} road cells, ${Object.keys(detail.cells).length} street detail cells, all five boroughs, and bundled source assets.`);
