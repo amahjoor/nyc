@@ -120,6 +120,78 @@ function connectedBaseTriangles(positions, startFace, endFace) {
   return triangles;
 }
 
+function wallBackedBaseTriangles(positions, startFace, endFace) {
+  const faces = [], triangles = [];
+  let capHeight = 0;
+  // Some surveyed caps and wall feet disagree by about a meter (for example
+  // feature 492527). A small height allowance alone would also accept a shelf.
+  // Require the entire cap boundary, including courtyard holes, to be backed
+  // by measured vertical walls just above it. Never project a roof or hull.
+  for (let face = startFace; face <= endFace; face++) {
+    const points = [0, 1, 2].map(k => {
+      const offset = (face * 3 + k) * 3;
+      return [positions[offset], positions[offset + 1], positions[offset + 2]];
+    });
+    const [a, b, c] = points;
+    const u = b.map((value, i) => value - a[i]), v = c.map((value, i) => value - a[i]);
+    const nx = u[1] * v[2] - u[2] * v[1], ny = u[2] * v[0] - u[0] * v[2], nz = u[0] * v[1] - u[1] * v[0];
+    const length = Math.hypot(nx, ny, nz);
+    if (length < .0002) continue;
+    const slope = Math.abs(ny) / length, high = Math.max(...points.map(point => point[1]));
+    if (slope >= .9 && high <= 1.25) {
+      triangles.push(points.map(point => [point[0], point[2]]));
+      capHeight = Math.max(capHeight, high);
+    }
+    if (slope <= .01) faces.push(points);
+  }
+  if (!triangles.length) return [];
+  const shapes = groundRings(triangles);
+  if (!shapes?.length) return [];
+  const sections = [], plane = capHeight + .1;
+  for (const face of faces) {
+    const points = [];
+    for (let i = 0; i < 3; i++) {
+      const a = face[i], b = face[(i + 1) % 3];
+      if ((a[1] < plane && b[1] >= plane) || (b[1] < plane && a[1] >= plane)) {
+        const t = (plane - a[1]) / (b[1] - a[1]);
+        points.push([a[0] + (b[0] - a[0]) * t, a[2] + (b[2] - a[2]) * t]);
+      }
+    }
+    if (points.length === 2) sections.push({ points, grounded: face.some(point => point[1] <= .025) });
+  }
+  for (const shape of shapes) {
+    let groundBacked = false;
+    for (const ring of [shape.polygon, ...shape.holes]) {
+      for (let i = 0; i < ring.length; i++) {
+        const a = ring[i], b = ring[(i + 1) % ring.length];
+        const dx = b[0] - a[0], dz = b[1] - a[1], length = Math.hypot(dx, dz), intervals = [];
+        if (length <= .005) continue;
+        for (const { points: [c, d], grounded } of sections) {
+          const distance = point => Math.abs((point[0] - a[0]) * dz - (point[1] - a[1]) * dx) / length;
+          if (distance(c) > .01 || distance(d) > .01) continue;
+          const along = point => ((point[0] - a[0]) * dx + (point[1] - a[1]) * dz) / (length * length);
+          const interval = [along(c), along(d)].sort((x, y) => x - y);
+          if (interval[1] >= 0 && interval[0] <= 1) {
+            intervals.push(interval);
+            if (grounded && Math.min(1, interval[1]) - Math.max(0, interval[0]) > .01 / length) groundBacked = true;
+          }
+        }
+        // Split source wall triangles and T-junctions must cover the whole edge,
+        // not just its corners. Ten millimeters only tolerates coordinate noise.
+        intervals.sort((a, b) => a[0] - b[0]);
+        let covered = 0;
+        for (const [low, high] of intervals) {
+          if (low > covered + .01 / length) break;
+          covered = Math.max(covered, high);
+        }
+        if (covered < 1 - .01 / length) return [];
+      }
+    }
+    if (!groundBacked) return [];
+  }
+  return triangles;
+}
+
 /** Decode the public I3S geometry buffer 0 without proprietary codecs or keys. */
 export function decodeI3S(buffer, node, origin, { collisions = true, heightAt = () => 0 } = {}) {
   const view = new DataView(buffer);
@@ -167,6 +239,7 @@ export function decodeI3S(buffer, node, origin, { collisions = true, heightAt = 
       // Preserve the usual exact low-plane extraction, but do not discard an
       // entire city tile when its measured ground has a small slope or step.
       if (!triangles.length) triangles.push(...connectedBaseTriangles(positions, startFace, endFace));
+      if (!triangles.length) triangles.push(...wallBackedBaseTriangles(positions, startFace, endFace));
       if (!triangles.length) throw new Error(`NYC building ${id} has no surveyed ground surface.`);
       // Some source triangle soups have T-junctions. Keeping their original
       // ground triangles as separate colliders preserves the exact occupied

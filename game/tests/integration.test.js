@@ -140,8 +140,10 @@ async function bootHarness({ stored = null, unavailableStorage = false, fetchOK 
   const storage = new Map(stored === null ? [] : [['nyc-after-hours-v1', stored]]);
   const frames = [], errors = [], requests = [], imageRequests = [], roadWaiters = [], landscapeWaiters = [];
   const geometryBuffers=new Map(fixtureBuffers),extraNodes=[];
-  for(const resource of extraGeometry){
-    const bytes=gunzipSync(readFileSync(new URL(`./fixtures/i3s-prospect-${resource}.bin.gz`,import.meta.url)));
+  for(const fixture of extraGeometry){
+    const resource=typeof fixture==='number'?fixture:fixture.resource;
+    const name=typeof fixture==='number'?`prospect-${resource}`:fixture.name;
+    const bytes=gunzipSync(readFileSync(new URL(`./fixtures/i3s-${name}.bin.gz`,import.meta.url)));
     geometryBuffers.set(resource,bytes.buffer.slice(bytes.byteOffset,bytes.byteOffset+bytes.byteLength));
     extraNodes.push({...index.nodes.find(node=>node.resource===resource),parent:-1});
   }
@@ -1174,4 +1176,23 @@ test('Prospect Lake arrival retains real building collisions while slower park d
     app.frames(3);
     assert.equal(app.errors.length,0,app.errors[0]?.stack);
   }finally{app.releaseLandscape();await app.until(()=>!app.state().traveling);app.close();}
+});
+
+test('Central Park Pond arrival accepts the actual surveyed building with a raised ground cap',async()=>{
+  const resources=[3136,3144,3164,3166,3216,3220,3222,3907];
+  const app=await bootHarness({extraGeometry:resources.map(resource=>({resource,name:`central-park-${resource}`})),measuredLandscape:true});
+  try{
+    const manifest=JSON.parse(readFileSync(new URL('../dist/landscape-index.json',import.meta.url)));
+    const region=manifest.regions.find(region=>region.id==='central-park-south');
+    app.click('start-button');app.elements.get('landscape-select').value=String(manifest.regions.indexOf(region));
+    app.click('landscape-travel-button');await app.until(()=>!app.state().traveling);
+    assert.equal(app.state().cityView,false,app.elements.get('travel-note').textContent);
+    const {player}=app.state(),b=region.bounds;
+    assert.ok(player.x>b.minX&&player.x<b.maxX&&player.z>b.minZ&&player.z<b.maxZ);
+    assert.ok(player.y>10&&player.y<30);
+    assert.equal(app.simulation().isBlocked(player.x,player.z,.35),false);
+    assert.ok(app.requests.some(url=>url.includes('/nodes/3220/geometries/0')),'the failing real survey chunk must participate');
+    assert.ok(app.simulation().getNearbyCar());
+    assert.equal(app.errors.length,0,app.errors[0]?.stack);
+  }finally{app.close();}
 });
