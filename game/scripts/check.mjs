@@ -142,4 +142,41 @@ for(const [reportPath,assetFolder] of [['reconstruction-review.json','reconstruc
   }
 }
 await stat(resolve(root,'dist/reconstruction.html'));
+const pilotIndex=JSON.parse(await readFile(resolve(root,'dist/road-pilot-index.json'),'utf8'));
+const pilot=JSON.parse(await readFile(resolve(root,'dist/road-pilot.json'),'utf8'));
+const appearance=JSON.parse(await readFile(resolve(root,'dist/road-pilot-appearance.json'),'utf8'));
+const localAsset=path=>typeof path==='string'&&/^\.\/[a-zA-Z0-9./-]+$/.test(path)&&!path.includes('..');
+const verifiedAsset=async asset=>{
+  const path=asset.snapshotUrl||asset.url;
+  if(!localAsset(path))throw new Error('Invalid road pilot source path');
+  const bytes=await readFile(resolve(root,'dist',path));
+  if(createHash('sha256').update(bytes).digest('hex')!==asset.sha256)throw new Error(`Road pilot source hash mismatch: ${path}`);
+};
+for(const path of [pilotIndex.manifestUrl,pilotIndex.terrainUrl,pilotIndex.appearanceUrl]){
+  if(!localAsset(path))throw new Error('Invalid road pilot load path');await stat(resolve(root,'dist',path));
+}
+if(pilot.version!==1||pilotIndex.id!==pilot.id||pilot.verticalDatum!=='NAVD88'||pilot.elevationUnits!=='meters'
+  ||JSON.stringify(pilot.origin)!==JSON.stringify(index.origin)||JSON.stringify(appearance.origin)!==JSON.stringify(index.origin)
+  ||JSON.stringify(pilotIndex.bounds)!==JSON.stringify(pilot.terrain.bounds)||JSON.stringify(pilotIndex.spawn)!==JSON.stringify(pilot.spawn)
+  ||pilot.features.length!==pilot.stats.features||pilot.features.some(feature=>!detailFeatures.has(feature.sourceFeatureId)))throw new Error('Road pilot coordinate or source identity mismatch');
+for(const asset of [...Object.values(pilot.sources),pilot.terrain,appearance.imagery,appearance.reference])await verifiedAsset(asset);
+const pilotTerrain=JSON.parse(await readFile(resolve(root,'dist',pilot.terrain.url),'utf8'));
+if(!Array.isArray(pilot.terrain.requiredRegions)||!pilot.terrain.requiredRegions.length)throw new Error('Road pilot background terrain dependencies are missing');
+for(const id of pilot.terrain.requiredRegions){
+  const region=landscape.regions.find(region=>region.id===id);
+  if(!region)throw new Error(`Road pilot background region is missing: ${id}`);
+  if(id==='meadow-lake')await verifiedAsset({url:region.terrainUrl,sha256:pilotTerrain.baselineHashes.meadowLake});
+}
+await verifiedAsset({url:landscape.baseTerrain.url,sha256:pilotTerrain.baselineHashes.base});
+const candidateBytes=await readFile(resolve(root,'dist/road-pilot-vision/paint-candidates.json'));
+if(createHash('sha256').update(candidateBytes).digest('hex')!==appearance.review.candidatesFileSha256
+  ||appearance.review.imageSha256!==appearance.imagery.sha256)throw new Error('Paint review no longer matches its source imagery/candidates');
+if(appearance.markings.length!==appearance.summary.paintAccepted||appearance.surfaces.length!==appearance.summary.surfaceMaterials
+  ||appearance.occluders.filter(mask=>mask.accepted).length!==appearance.summary.vehicleMasksAccepted
+  ||appearance.markings.some(mark=>mark.reviewStatus!=='accepted'||!detailFeatures.has(mark.sourceFeatureId)
+    ||appearance.review.rejectedCandidateIds.includes(mark.evidence.candidateId)))throw new Error('Rejected or unverified imagery evidence leaked into road appearance');
+for(const path of [appearance.review.contactSheet,appearance.review.overlay,...appearance.occluders.map(mask=>mask.mask),
+  './road-pilot-source/survey-review.json','./road-pilot-review.html']){
+  if(!localAsset(path))throw new Error('Invalid road pilot evidence path');await stat(resolve(root,'dist',path));
+}
 console.log(`Source checks passed: ${index.nodes.length} geometry nodes, ${Object.keys(roads.cells).length} road cells, ${navigation.stats.roads} navigation segments, ${Object.keys(detail.cells).length} street detail cells, ${landscape.regions.length} measured landscape regions, verified AI review assets and all five boroughs.`);

@@ -173,6 +173,45 @@ test('preparing a place loads its measured surfaces and exposes source water con
   assert.deepEqual(f.landscape.getStatus().activeRegions, ['a']);assert.equal(f.landscape.getStatus().failures, 0);
 });
 
+test('baked road terrain replaces both overlapping park and city terrain without replacing water', async t => {
+  const f = fixture(t);await f.landscape.prepareAt({ x: 2, z: 2 });
+  const patch = grid({ bounds: bounds(1, 9, 1, 9), heights: [11, 12, 13, 15], sourceId: 'road-survey' });
+  f.landscape.addTerrainOverlay('road', patch);
+  const sampled = f.landscape.sampleSurface(5, 5);
+  close(sampled.elevation, 12.5);assert.equal(sampled.sourceId, 'road-survey');
+  close(f.landscape.sampleHeight(.5, .5), 8, 1e-4);
+  assert.equal(f.landscape.base.material.userData.uniforms.landscapeCoverageCount.value, 2);
+  const park = f.landscape.cache.get('a');
+  assert.equal(park.material.userData.uniforms.landscapeCoverageCount.value, 1);
+  assert.deepEqual(park.material.userData.uniforms.landscapeCoverage.value[0].toArray(), [1, 9, 1, 9]);
+  assert.equal(f.landscape.contactAt(2, 2).kind, 'water', 'fine ground must not erase official water collision');
+  assert.throws(() => f.landscape.addTerrainOverlay('overlap', patch), /overlap/);
+  assert.throws(() => f.landscape.addTerrainOverlay('missing', { ...patch, heights: [11, 12, null, 15] }), /missing/);
+  let disposed = 0;f.landscape.terrainOverlays.get('road').mesh.geometry.addEventListener('dispose', () => disposed++);
+  f.landscape.setLayers({ terrain: false });
+  assert.equal(f.landscape.terrainOverlays.get('road').mesh.visible, false);
+  close(f.landscape.sampleHeight(5, 5), 12.5, 1e-4);
+  f.landscape.setLayers({ terrain: true });f.landscape.removeTerrainOverlay('road');
+  assert.equal(disposed, 1);close(f.landscape.sampleHeight(5, 5), 8);
+  assert.equal(park.material.userData.uniforms.landscapeCoverageCount.value, 0);
+});
+
+test('road patch background remains resident across travel and is released after a failed load', async t => {
+  const f = fixture(t, { maxCache: 2 });
+  const release = await f.landscape.retainTerrainRegion('a');
+  await f.landscape.prepareAt({ x: 105, z: 5 });
+  assert.ok(f.landscape.wanted.has('a'));assert.ok(f.landscape.cache.has('a'));
+  f.landscape.update({ x: 900, z: 900 }, { overview: true });
+  assert.equal(f.landscape.cache.get('a').group.visible, true);
+  close(f.landscape.sampleHeight(2, 2), 8);
+  release();release();assert.equal(f.landscape.retainedTerrainRegions.size, 0);
+  assert.equal(f.landscape.wanted.has('a'), false);
+  await assert.rejects(f.landscape.retainTerrainRegion('missing'), /unavailable/);
+  f.landscape.cache.delete('b');f.files.delete('terrain-b');
+  await assert.rejects(f.landscape.retainTerrainRegion('b'), /404/);
+  assert.equal(f.landscape.retainedTerrainRegions.size, 0);
+});
+
 test('region replacement releases GPU geometry while keeping borrowed imagery alive', async t => {
   const f = fixture(t, { maxCache: 1 });await f.landscape.prepareAt({ x: 2, z: 2 });
   let released = 0, textureDisposals = 0;

@@ -1,0 +1,111 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="color-scheme" content="dark">
+<title>Meadow Lake road pilot | NYC After Hours</title>
+<style>
+*{box-sizing:border-box}body{margin:0;background:#141b1e;color:#eeeae1;font:16px/1.65 system-ui,sans-serif}main{max-width:1240px;margin:auto;padding:35px 32px 75px}a{color:#ffa27a;text-underline-offset:.2em}a:focus-visible,summary:focus-visible{outline:2px solid #ffa27a;outline-offset:5px}header{padding:25px 0 30px}.eyebrow{font-size:11px;letter-spacing:.18em;color:#afbdbe;text-transform:uppercase}h1{font-size:clamp(34px,5.7vw,68px);line-height:1.05;letter-spacing:-.04em;max-width:850px;margin:18px 0 26px}h2{font-size:30px;line-height:1.2;margin:0 0 18px}h3{font-size:20px;line-height:1.3}p{max-width:850px}.lead{font-size:20px;color:#d3d9d6}.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:1px;background:#405056;border:1px solid #405056;margin:30px 0}.stat{background:#202b30;padding:20px}.stat strong{display:block;font-size:32px;font-weight:500;line-height:1.2}.stat span{font-size:13px;color:#b9c6c9}section{border-top:1px solid #405056;padding-top:32px;margin-top:38px}.compare{display:grid;grid-template-columns:1fr 1fr;gap:22px}figure{margin:0}img{display:block;max-width:100%;width:100%;height:auto;background:#202b30}figcaption{font-size:13px;color:#bdc9cc;margin:10px 0 22px}.legend{display:flex;gap:22px;flex-wrap:wrap;font-size:13px;margin:20px 0}.legend b{display:inline-block;width:12px;height:12px;margin-right:7px}.sample{background:#27a964}.exclude{background:#e64650}.paint{background:#00e1ff}.note{padding:20px;border-left:3px solid #ff9366;background:#202b30}.pass{color:#84d9a4}.fail{color:#ffa58c}table{border-collapse:collapse;width:100%;font-size:14px}td,th{padding:12px 13px;text-align:left;vertical-align:top;border-bottom:1px solid #405056}th{color:#b5c6cc;font-size:12px;text-transform:uppercase;letter-spacing:.06em}.scroll{overflow:auto}details{margin:22px 0}summary{cursor:pointer;font-weight:600;padding:12px 0}code,pre{font:13px/1.7 ui-monospace,monospace}code{overflow-wrap:anywhere}pre{padding:20px;background:#0d1316;overflow:auto;white-space:pre}.links{display:flex;gap:14px 22px;flex-wrap:wrap}.small{font-size:13px;color:#bdc9cc}.review-image{max-width:1040px}.license{border-top:1px solid #405056;margin-top:42px;padding-top:20px;font-size:13px;color:#b9c6c9}@media(max-width:700px){main{padding:22px 18px 50px}.stats{grid-template-columns:1fr 1fr}.compare{grid-template-columns:1fr}.lead{font-size:18px}.stat{padding:15px}h2{font-size:26px}}
+</style>
+</head>
+<body><main>
+<a href="./">← Back to NYC After Hours</a>
+<header>
+<p class="eyebrow">Meadow Lake · Queens · source reconstruction pilot</p>
+<h1>Real pavement.<br>Traceable decisions.</h1>
+<p class="lead">A 347 × 463 metre area rebuilt from measured terrain and NYC street geometry, with source-colored pavement and observed paint. AI helps exclude photographed vehicles from color samples.</p>
+<p>This page shows the evidence behind the game assets. The images below are analysis overlays, not screenshots of the reconstructed game.</p>
+<div class="stats" aria-label="Pilot results">
+<div class="stat"><strong>27</strong><span>survey-backed ground patches</span></div>
+<div class="stat"><strong>21</strong><span>source-sampled pavement colors</span></div>
+<div class="stat"><strong>65</strong><span>accepted visible paint fragments</span></div>
+<div class="stat"><strong>13 / 26</strong><span>vehicle masks accepted</span></div>
+</div>
+<nav class="links" aria-label="Evidence sections"><a href="#imagery">Image evidence</a><a href="#geometry">Survey and bridges</a><a href="#paint">Paint decisions</a><a href="#vehicles">Actual model output</a><a href="#reproduce">Reproduce</a></nav>
+</header>
+<section id="imagery">
+<h2>Start with the photograph.</h2>
+<p>The same 2024 NYC aerial tiles used by the game supply pixel evidence. Green pixels contribute to the pavement colors. Red pixels are excluded by accepted vehicle masks. Cyan pixels are reviewed paint candidates retained in the appearance file.</p>
+<div class="legend"><span><b class="sample"></b>Color sample pixels</span><span><b class="exclude"></b>Vehicle exclusions</span><span><b class="paint"></b>Observed paint</span></div>
+<div class="compare">
+<figure><a href="./road-reconstruction/aerial.png"><img src="./road-reconstruction/aerial.png" width="1536" height="2048" alt="Original aerial photograph of Meadow Lake eastern parking lot, park road and expressway"></a><figcaption>Original source, March 2024. NYC OTI / NYS aerial imagery, CC BY 4.0. Open for full resolution.</figcaption></figure>
+<figure><a href="./road-pilot-vision/review-overlay.jpg"><img src="./road-pilot-vision/review-overlay.jpg" width="1536" height="2048" alt="Same photograph with pavement sample pixels green, vehicle exclusions red and accepted paint cyan"></a><figcaption>196,253 source color pixels; 5,131 vehicle exclusion pixels. Uncolored pixels contribute no material sample.</figcaption></figure>
+</div>
+<p>The game uses median source colors with a small amount of fine surface variation. It does not paste this photograph onto reconstructed pavement, so cars and old shadows are not baked into those replacement materials. Photo color is an appearance estimate, not calibrated material reflectance; roughness and fine variation are rendering approximations.</p>
+<p class="links"><a href="./road-pilot-appearance.json">Appearance data and provenance</a><a href="./road-pilot-vision/pavement-samples.png">Color sample mask</a><a href="./road-pilot-vision/vehicle-exclusion.png">Vehicle exclusion mask</a></p>
+</section>
+<section id="geometry">
+<h2>Measured heights build the road.</h2>
+<p>NYC's 2022 roadbed and parking footprints define coverage. A one-metre 2017 LiDAR terrain grid is constrained by 47 selected ground survey elevations from 2022. Source holes and boundaries remain intact; the mesh and driving surface use the same terrain interpolation.</p>
+<div class="scroll"><table><thead><tr><th>Source evidence</th><th>Loaded</th><th>How it is used</th></tr></thead><tbody>
+<tr><td>Elevation points</td><td>115</td><td>47 ground constraints; maximum fit residual 2.23 cm. This measures fit to input points, not independent survey accuracy.</td></tr>
+<tr><td>Terrain</td><td>349 × 465 nodes</td><td>78,837 pavement triangles covering 31,684 m²; outer 20 m blends toward existing measured terrain.</td></tr>
+<tr><td>Pavement edges / curb cuts</td><td>33 / 1</td><td>Retained as surveyed evidence; no curb height is inferred.</td></tr>
+<tr><td>Bridge footprints</td><td>2 deferred</td><td>Kept out of ground resurfacing because the available vertical evidence is incomplete.</td></tr>
+</tbody></table></div>
+<p class="note"><strong>The two bridges are not reconstructed by this pilot.</strong> Their footprint export contains zero Z values. Nine bridge spot elevations do not establish a complete deck, crossfall or connected approaches. Those surfaces retain the existing rendering while the evidence stays available for a later reconstruction pass.</p>
+<p>No new lamps, curb dimensions, bridge supports or unseen infrastructure are invented. Sampled heights remain estimates between measurements, and some terrain near bridge approaches is still steep.</p>
+<p>Overlapping source polygons are partitioned consistently, removing 33.97 m² of duplicate ground coverage. The terrain boundary blend is approximate: the builder's sampled boundary audit records a 4.35 cm maximum discrepancy against its required neighboring terrain, not a guarantee of exact continuity between samples.</p>
+<p class="links"><a href="./road-pilot.json">Survey mesh and source hashes</a><a href="./road-pilot-source/survey-review.json">All survey decisions</a><a href="./road-pilot-source/terrain.json">Final terrain grid</a><a href="./road-pilot-source/raw-dem.json">Unmodified source terrain</a></p>
+</section>
+<section id="paint">
+<h2>Visible paint, checked against its pixels.</h2>
+<p>Classical local-contrast analysis found 95 thin, bright components inside mapped pavement. Source-image inspection rejected 29 bridge seams, vehicle reflections and uncertain edges. One further component overlapped an accepted vehicle exclusion, leaving 65 observed paint fragments. SAM did not classify these as paint.</p>
+<p>The contact sheet records the visual inspection stage. “Visual yes” means the crop passed that check; candidate 5 was subsequently excluded by the vehicle-mask check. Markings are clipped again to supported road triangles at runtime. Faint or hidden lines are left incomplete. No parking-stall markings passed review in this area.</p>
+<figure class="review-image"><a href="./road-pilot-vision/paint-review.jpg"><img loading="lazy" src="./road-pilot-vision/paint-review.jpg" width="1000" height="1400" alt="Contact sheet of all 95 proposed paint fragments with source-image boxes and visual acceptance decisions"></a><figcaption>Orange boxes locate the tested pixels. Decisions are locked to the exact source-image and candidate hashes. This is reviewed evidence, not an independent accuracy benchmark.</figcaption></figure>
+<p class="links"><a href="./road-pilot-vision/paint-candidates.json">All candidate pixels</a><a href="./road-pilot-appearance.json">Accepted vectors and rejected IDs</a></p>
+</section>
+<section id="vehicles">
+<h2>What the AI actually did.</h2>
+<p><strong>Meta SAM ViT-B</strong> ran locally on 26 vehicle boxes selected by inspecting the aerial photograph. The box selection supplies the identity; SAM refines the pixel boundary. The highest model-scored mask is selected before checking its containment.</p>
+<p>A vehicle exclusion passes when predicted mask IoU is at least 0.75, at least 90% of its pixels lie inside the reviewed box, and its area is 20–1,800 image pixels. Thirteen passed and thirteen failed. Accepted masks are expanded by two pixels for conservative sample exclusion. Brightness and contrast trimming removes additional bright objects and dark shadows from color samples, without claiming to detect every vehicle or shadow.</p>
+<figure class="review-image"><a href="./road-pilot-vision/vehicle-review.jpg"><img loading="lazy" src="./road-pilot-vision/vehicle-review.jpg" width="1040" height="1190" alt="Original vehicle crops beside green accepted SAM masks and red rejected SAM masks, with model scores"></a><figcaption>Original crop on the left, actual model output on the right. Green passed; red failed. A high model score alone does not establish acceptance or semantic accuracy.</figcaption></figure>
+<details><summary>Inspect all 26 masks and their gates</summary><div class="scroll"><table><thead><tr><th>Candidate</th><th>Decision</th><th>Model IoU estimate</th><th>Box containment</th><th>Pixels</th><th>Evidence</th></tr></thead><tbody>
+<tr><td>vehicle-00</td><td class="fail">Rejected</td><td>0.959</td><td>80.6%</td><td>268</td><td><a href="./road-pilot-vision/vehicle-00.png">Mask PNG</a></td></tr>
+<tr><td>vehicle-01</td><td class="pass">Accepted</td><td>0.958</td><td>93.3%</td><td>269</td><td><a href="./road-pilot-vision/vehicle-01.png">Mask PNG</a></td></tr>
+<tr><td>vehicle-02</td><td class="pass">Accepted</td><td>0.946</td><td>90.1%</td><td>232</td><td><a href="./road-pilot-vision/vehicle-02.png">Mask PNG</a></td></tr>
+<tr><td>vehicle-03</td><td class="pass">Accepted</td><td>0.942</td><td>98.9%</td><td>270</td><td><a href="./road-pilot-vision/vehicle-03.png">Mask PNG</a></td></tr>
+<tr><td>vehicle-04</td><td class="fail">Rejected</td><td>0.934</td><td>73.4%</td><td>353</td><td><a href="./road-pilot-vision/vehicle-04.png">Mask PNG</a></td></tr>
+<tr><td>vehicle-05</td><td class="pass">Accepted</td><td>0.913</td><td>97.7%</td><td>172</td><td><a href="./road-pilot-vision/vehicle-05.png">Mask PNG</a></td></tr>
+<tr><td>vehicle-06</td><td class="pass">Accepted</td><td>0.951</td><td>100.0%</td><td>332</td><td><a href="./road-pilot-vision/vehicle-06.png">Mask PNG</a></td></tr>
+<tr><td>vehicle-07</td><td class="fail">Rejected</td><td>0.926</td><td>71.7%</td><td>460</td><td><a href="./road-pilot-vision/vehicle-07.png">Mask PNG</a></td></tr>
+<tr><td>vehicle-08</td><td class="pass">Accepted</td><td>0.960</td><td>100.0%</td><td>242</td><td><a href="./road-pilot-vision/vehicle-08.png">Mask PNG</a></td></tr>
+<tr><td>vehicle-09</td><td class="fail">Rejected</td><td>0.940</td><td>88.8%</td><td>968</td><td><a href="./road-pilot-vision/vehicle-09.png">Mask PNG</a></td></tr>
+<tr><td>vehicle-10</td><td class="fail">Rejected</td><td>0.940</td><td>69.8%</td><td>480</td><td><a href="./road-pilot-vision/vehicle-10.png">Mask PNG</a></td></tr>
+<tr><td>vehicle-11</td><td class="pass">Accepted</td><td>0.942</td><td>98.5%</td><td>264</td><td><a href="./road-pilot-vision/vehicle-11.png">Mask PNG</a></td></tr>
+<tr><td>vehicle-12</td><td class="pass">Accepted</td><td>0.945</td><td>99.6%</td><td>234</td><td><a href="./road-pilot-vision/vehicle-12.png">Mask PNG</a></td></tr>
+<tr><td>vehicle-13</td><td class="fail">Rejected</td><td>0.831</td><td>66.6%</td><td>335</td><td><a href="./road-pilot-vision/vehicle-13.png">Mask PNG</a></td></tr>
+<tr><td>vehicle-14</td><td class="pass">Accepted</td><td>0.914</td><td>97.4%</td><td>380</td><td><a href="./road-pilot-vision/vehicle-14.png">Mask PNG</a></td></tr>
+<tr><td>vehicle-15</td><td class="fail">Rejected</td><td>0.951</td><td>86.3%</td><td>278</td><td><a href="./road-pilot-vision/vehicle-15.png">Mask PNG</a></td></tr>
+<tr><td>vehicle-16</td><td class="fail">Rejected</td><td>0.960</td><td>86.0%</td><td>258</td><td><a href="./road-pilot-vision/vehicle-16.png">Mask PNG</a></td></tr>
+<tr><td>vehicle-17</td><td class="fail">Rejected</td><td>0.964</td><td>80.6%</td><td>341</td><td><a href="./road-pilot-vision/vehicle-17.png">Mask PNG</a></td></tr>
+<tr><td>vehicle-18</td><td class="fail">Rejected</td><td>0.916</td><td>78.6%</td><td>262</td><td><a href="./road-pilot-vision/vehicle-18.png">Mask PNG</a></td></tr>
+<tr><td>vehicle-19</td><td class="fail">Rejected</td><td>0.742</td><td>55.3%</td><td>226</td><td><a href="./road-pilot-vision/vehicle-19.png">Mask PNG</a></td></tr>
+<tr><td>vehicle-20</td><td class="fail">Rejected</td><td>0.975</td><td>81.2%</td><td>494</td><td><a href="./road-pilot-vision/vehicle-20.png">Mask PNG</a></td></tr>
+<tr><td>vehicle-21</td><td class="pass">Accepted</td><td>0.932</td><td>100.0%</td><td>258</td><td><a href="./road-pilot-vision/vehicle-21.png">Mask PNG</a></td></tr>
+<tr><td>vehicle-22</td><td class="fail">Rejected</td><td>0.946</td><td>79.9%</td><td>513</td><td><a href="./road-pilot-vision/vehicle-22.png">Mask PNG</a></td></tr>
+<tr><td>vehicle-23</td><td class="pass">Accepted</td><td>0.934</td><td>100.0%</td><td>284</td><td><a href="./road-pilot-vision/vehicle-23.png">Mask PNG</a></td></tr>
+<tr><td>vehicle-24</td><td class="pass">Accepted</td><td>0.948</td><td>98.8%</td><td>243</td><td><a href="./road-pilot-vision/vehicle-24.png">Mask PNG</a></td></tr>
+<tr><td>vehicle-25</td><td class="pass">Accepted</td><td>0.949</td><td>94.8%</td><td>251</td><td><a href="./road-pilot-vision/vehicle-25.png">Mask PNG</a></td></tr>
+</tbody></table></div></details>
+<p class="small">Pinned revision: <code>70c1a07f894ebb5b307fd9eaaee97b9dfc16068f</code>. Apache-2.0 model weights; local MPS inference. Weights are not shipped to players.</p>
+<p class="note">The previous whole-road segmentation trial still has <strong>zero accepted masks from 34 candidates</strong>. Its gates and outputs have not changed. This pilot uses smaller, reviewable appearance tasks; it does not relabel those failed road masks as successful reconstruction. <a href="./reconstruction.html#roads">Inspect the earlier trial.</a></p>
+</section>
+<section id="reproduce">
+<h2>A repeatable offline build.</h2>
+<p>Run from a complete repository checkout. Install <code>scripts/requirements-reconstruction-ai.txt</code> in an isolated Python 3.13 environment, and obtain the exact pinned SAM snapshot in an external model directory. The repository's <code>docs/road-pilot.md</code> gives the complete setup, checks and contribution procedure.</p>
+<pre>python scripts/build-road-pilot.py
+python scripts/reconstruct-road-appearance.py --model-directory /path/to/sam-cache
+python -m unittest discover -s tests -p 'test_road_*.py' -v
+npm test
+npm run check</pre>
+<p>Ordinary geometry rebuilds use bundled snapshots. Add <code>--download --cache /tmp/nyc-road-pilot</code> to the geometry command to refresh official sources. AI inference is an offline build step after downloading weights; the running game uses ordinary meshes and data files.</p>
+<p>Changing imagery or candidate extraction invalidates the existing visual review. Recheck the proposed features before updating the image and candidate hashes. Rejected evidence stays in the bundle.</p>
+<p class="links"><a href="./road-pilot-index.json">Runtime asset index</a><a href="./road-pilot.json">Survey manifest</a><a href="./road-pilot-appearance.json">Appearance manifest</a><a href="./road-reconstruction/reference.geojson">Mapped footprints</a></p>
+</section>
+<footer class="license">
+<p>Source dates differ: 2017 LiDAR, 2022 surveyed geometry and 2024 imagery. This is a bounded reconstruction experiment with incomplete markings and bridge geometry. It is not a claim of citywide reconstruction or independently verified centimetre accuracy.</p>
+<p><a href="https://tiles.arcgis.com/tiles/yG5s3afENB5iO9fj/arcgis/rest/services/NYC_Orthos_2024/MapServer">NYC 2024 aerial imagery</a> · <a href="https://creativecommons.org/licenses/by/4.0/">CC BY 4.0</a> · <a href="https://data.cityofnewyork.us/d/i36f-5ih7">NYC roadbed data</a> · <a href="https://elevation.its.ny.gov/arcgis/rest/services/NYC_TopoBathymetric_2017_1_meter/ImageServer">2017 terrain service</a> · <a href="https://huggingface.co/facebook/sam-vit-base">Meta SAM ViT-B</a></p>
+</footer>
+</main></body></html>

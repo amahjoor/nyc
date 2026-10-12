@@ -17,6 +17,7 @@ import { createRoadStream, nearestStreet, localDestinations, cellsAround } from 
 import { createCityNavigation } from '../dist/city-navigation.js';
 import { createStreetDetail } from '../dist/street-detail.js';
 import { Landscape } from '../dist/landscape.js';
+import { RoadPilot } from '../dist/road-pilot.js';
 import { GameMap } from '../dist/game-map.js';
 import { createRoutePlanner } from '../dist/route-planner.js';
 
@@ -136,7 +137,7 @@ function makeDocument() {
   return { document, elements };
 }
 
-async function bootHarness({ stored = null, displayStored = null, unavailableStorage = false, fetchOK = true, geometryOK = true, imageryOK = true, streetFailure = null, landscapeFailure = false, navigationFailure = false, baseWaterFailure = false, terrainElevation = 0, coarsePointer = false, holdRoads = () => false, holdLandscape = () => false, measuredLandscape = false, extraGeometry = [], geocodeFetch = null } = {}) {
+async function bootHarness({ stored = null, displayStored = null, unavailableStorage = false, fetchOK = true, geometryOK = true, imageryOK = true, streetFailure = null, landscapeFailure = false, roadPilotFailure = false, navigationFailure = false, baseWaterFailure = false, terrainElevation = 0, coarsePointer = false, holdRoads = () => false, holdLandscape = () => false, measuredLandscape = false, extraGeometry = [], geocodeFetch = null } = {}) {
   const { document, elements } = makeDocument();
   const window = new EventTarget();
   const pads = [];
@@ -199,6 +200,7 @@ async function bootHarness({ stored = null, displayStored = null, unavailableSto
     if(this!=null&&this!==globalThis)throw new TypeError("Failed to execute 'fetch' on 'Window': Illegal invocation");
     url=String(url);requests.push(url);
     if(!fetchOK)return {ok:false,status:503};
+    if(roadPilotFailure&&url==='./road-pilot.json')return {ok:false,status:503};
     if(navigationFailure&&url==='./navigation-roads.json')return {ok:false,status:503};
     if(baseWaterFailure&&url==='./landscape/nyc-water.json')return {ok:false,status:503};
     if(landscapeFailure&&url==='./landscape-index.json')return {ok:false,status:503};
@@ -244,7 +246,7 @@ async function bootHarness({ stored = null, displayStored = null, unavailableSto
     },
     updateChaseHeight, createCityGround, worldToGeographic, createRoadStream, nearestStreet, localDestinations, createCityNavigation,
     createStreetDetail:(manifest,options)=>createStreetDetail(manifest,{...options,now:()=>timestamp}),
-    Landscape, AbortSignal,
+    Landscape, RoadPilot, AbortSignal,
     console: { error: error => errors.push(error), warn: () => {}, log: () => {} },
     matchMedia: () => ({ matches: coarsePointer }),
     innerWidth: 1440, innerHeight: 900, devicePixelRatio: 2,
@@ -255,7 +257,7 @@ async function bootHarness({ stored = null, displayStored = null, unavailableSto
     },
   });
   function close() {
-    vm.runInContext('if(typeof gameMap!=="undefined")gameMap?.dispose?.();if(typeof navigation!=="undefined")navigation?.dispose?.();landscape?.dispose();streetDetail?.dispose();world?.dispose();ground?.dispose();',context);
+    vm.runInContext('if(typeof gameMap!=="undefined")gameMap?.dispose?.();if(typeof navigation!=="undefined")navigation?.dispose?.();if(typeof roadPilot!=="undefined")roadPilot?.dispose();landscape?.dispose();streetDetail?.dispose();world?.dispose();ground?.dispose();',context);
     for (const [key, descriptor] of original) {
       if (descriptor) Object.defineProperty(globalThis, key, descriptor);
       else delete globalThis[key];
@@ -1222,6 +1224,54 @@ test('Central Park Pond arrival accepts the actual surveyed building with a rais
     assert.ok(app.requests.some(url=>url.includes('/nodes/3220/geometries/0')),'the failing real survey chunk must participate');
     assert.ok(app.simulation().getNearbyCar());
     assert.equal(app.errors.length,0,app.errors[0]?.stack);
+  }finally{app.close();}
+});
+
+test('road pilot loads on demand, arrives on measured pavement and toggles appearance without moving the car', async () => {
+  const app=await bootHarness({measuredLandscape:true});
+  try{
+    assert.equal(app.requests.includes('./road-pilot.json'),false,'ordinary city startup must not allocate pilot geometry');
+    assert.equal(app.elements.get('road-pilot-travel-button').disabled,false);
+    app.click('start-button');app.click('road-pilot-travel-button');
+    assert.equal(app.state().traveling,true);
+    await app.until(()=>!app.state().traveling);
+    assert.equal(app.state().roadPilot.surfaces,27,app.elements.get('travel-note').textContent);
+    assert.equal(app.state().roadPilot.mode,'reconstructed');assert.equal(app.state().cityView,false);
+    const source=JSON.parse(readFileSync(new URL('../dist/road-pilot-index.json',import.meta.url),'utf8'));
+    const sim=app.simulation();
+    assert.ok(Math.hypot(sim.player.x-source.spawn.x,sim.player.z-source.spawn.z)<.01,'exact source arrival is preserved');
+    assert.ok(app.state().landscape.terrainOverlays.includes(source.id));
+    app.frames(2);assert.equal(app.elements.get('road-pilot-controls').hidden,false);
+    const height=sim.player.y,surface=sim.city.sampleSurface(sim.player.x,sim.player.z);
+    assert.ok(surface.roadPilotId,'spawn must use a reconstructed support triangle');
+    app.click('road-pilot-mode-button');app.frames(2);
+    assert.equal(app.state().roadPilot.mode,'aerial');assert.equal(sim.player.y,height);
+    assert.deepEqual(sim.city.sampleSurface(sim.player.x,sim.player.z),surface);
+    app.click('road-pilot-mode-button');
+    const cab=sim.cars.find(car=>car.id==='player-taxi');assert.ok(cab,'a courtesy taxi waits on the actual street');
+    orbitWalkingCamera(app,Math.atan2(cab.x-sim.player.x,cab.z-sim.player.z));
+    app.key('KeyW');for(let i=0;i<180&&!sim.getNearbyCar();i++)app.frames();app.key('KeyW',false);
+    app.key('KeyE');app.key('KeyE',false);assert.equal(sim.player.mode,'drive');
+    const before={x:sim.player.x,z:sim.player.z};
+    app.key('KeyW');app.frames(45);app.key('KeyW',false);
+    assert.ok(Math.hypot(sim.player.x-before.x,sim.player.z-before.z)>1,'throttle drives over reconstructed ground');
+    assert.ok(Number.isFinite(sim.player.y));
+    app.click('city-button');app.frames();assert.equal(app.elements.get('road-pilot-controls').hidden,true);
+    assert.equal(app.errors.length,0,app.errors[0]?.stack);
+  }finally{app.close();}
+});
+
+test('failed road pilot data leaves the original terrain and current player intact', async () => {
+  const app=await bootHarness({roadPilotFailure:true});
+  try{
+    app.click('start-button');const before={...app.state().player};
+    app.click('road-pilot-travel-button');await app.until(()=>!app.state().traveling);
+    assert.equal(app.state().roadPilot.ready,false);assert.match(app.state().roadPilot.error,/could not load/);
+    assert.equal(app.state().player.x,before.x);assert.equal(app.state().player.z,before.z);
+    assert.equal(app.state().landscape.terrainOverlays.length,0);
+    assert.equal(app.elements.get('road-pilot-travel-button').disabled,false,'the user can retry without reloading the city');
+    app.click('view-button');app.frames(2);app.key('KeyW');app.frames(12);app.key('KeyW',false);
+    assert.notEqual(app.state().player.z,before.z,'the original neighborhood remains playable');
   }finally{app.close();}
 });
 

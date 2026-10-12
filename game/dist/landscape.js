@@ -176,7 +176,7 @@ function createTerrainMaterial() {
     landscapeUseLocal: { value: false }, landscapeBounds: { value: new THREE.Vector4() }, landscapeLocalBounds: { value: new THREE.Vector4() },
     landscapeMercator: { value: new THREE.Vector4() }, landscapeLocalMercator: { value: new THREE.Vector4() },
     landscapeUseMercator: { value: false }, landscapeUseLocalMercator: { value: false }, landscapeCoverageCount: { value: 0 },
-    landscapeCoverage: { value: Array.from({ length: 8 }, () => new THREE.Vector4()) } };
+    landscapeCoverage: { value: Array.from({ length: 16 }, () => new THREE.Vector4()) } };
   material.onBeforeCompile = shader => {
     Object.assign(shader.uniforms, uniforms);
     shader.vertexShader = 'varying vec2 vLandscapeXZ;\n' + shader.vertexShader.replace('#include <begin_vertex>', '#include <begin_vertex>\nvLandscapeXZ = position.xz;');
@@ -184,7 +184,7 @@ function createTerrainMaterial() {
       uniform sampler2D landscapeOrtho; uniform sampler2D landscapeLocal;
       uniform bool landscapeUseOrtho; uniform bool landscapeUseLocal; uniform bool landscapeUseMercator; uniform bool landscapeUseLocalMercator;
       uniform vec4 landscapeBounds; uniform vec4 landscapeLocalBounds; uniform vec4 landscapeMercator; uniform vec4 landscapeLocalMercator;
-      uniform int landscapeCoverageCount; uniform vec4 landscapeCoverage[8];
+      uniform int landscapeCoverageCount; uniform vec4 landscapeCoverage[16];
       vec2 landscapeUV(vec4 b, vec4 m, bool mercator) {
         vec2 uv = vec2((vLandscapeXZ.x-b.x)/(b.y-b.x), (b.w-vLandscapeXZ.y)/(b.w-b.z));
         if (mercator) uv.y = atlasNorthUV(vLandscapeXZ.y,b,m);
@@ -193,7 +193,7 @@ function createTerrainMaterial() {
       bool landscapeInside(vec2 uv) { return all(greaterThanEqual(uv,vec2(0.0))) && all(lessThanEqual(uv,vec2(1.0))); }
       ` + shader.fragmentShader;
     shader.fragmentShader = shader.fragmentShader.replace('#include <color_fragment>', `#include <color_fragment>
-      for (int i=0; i<8; i++) {
+      for (int i=0; i<16; i++) {
         if (i>=landscapeCoverageCount) break;
         vec4 b = landscapeCoverage[i];
         if (vLandscapeXZ.x>=b.x && vLandscapeXZ.x<=b.y && vLandscapeXZ.y>=b.z && vLandscapeXZ.y<=b.w) discard;
@@ -292,6 +292,7 @@ export class Landscape {
     this.group = new THREE.Group();this.group.name = 'Measured NYC landscape reconstruction';scene?.add(this.group);
     this.cache = new Map();this.pending = new Map();this.errors = new Map();this.wanted = new Map();this.preparing = new Map();this.serial = 0;this.disposed = false;
     this.layers = { terrain: true, water: true, vegetation: true };this.base = null;this.basePromise = null;this.baseWaterReady = false;this.review = null;this.focus = { x: 0, z: 0 };
+    this.terrainOverlays = new Map();this.retainedTerrainRegions = new Map();
   }
 
   async _json(url, signal) {
@@ -438,8 +439,15 @@ export class Landscape {
   _coverage() {
     if (!this.base) return;
     const u = this.base.material.userData.uniforms, entries = [...this.cache.entries()].filter(([id]) => this.wanted.has(id));
-    u.landscapeCoverageCount.value = this.layers.terrain ? entries.length : 0;
-    entries.forEach(([, entry], i) => { const b = entry.terrain.bounds;u.landscapeCoverage.value[i].set(b.minX, b.maxX, b.minZ, b.maxZ); });
+    const overlays = [...this.terrainOverlays.values()];
+    const cover = (uniforms, replacements) => {
+      uniforms.landscapeCoverageCount.value = this.layers.terrain ? replacements.length : 0;
+      replacements.forEach((entry, i) => { const b = entry.terrain.bounds;uniforms.landscapeCoverage.value[i].set(b.minX, b.maxX, b.minZ, b.maxZ); });
+    };
+    cover(u, [...entries.map(([, entry]) => entry), ...overlays]);
+    // A baked road patch replaces every older terrain LOD, including an
+    // overlapping park. Hiding only the base would leave two competing meshes.
+    for (const entry of this.cache.values()) cover(entry.material.userData.uniforms, overlays);
     for (const mesh of [this.base.water, this.base.reviewedWater]) {
       const coverage = mesh?.material.userData.coverage;if (!coverage) continue;
       // Mask only the refined rectangle, not the entire source lake. A lake
@@ -495,6 +503,10 @@ export class Landscape {
     // Animation continues around the old player while travel awaits its new
     // destination. Keep those awaited regions owned until prepareAt settles.
     const selected = [...this.preparing.values()].map(value => value.region);
+    for (const id of this.retainedTerrainRegions.keys()) {
+      const region = this.index.regions.find(candidate => candidate.id === id);
+      if (region && !selected.some(candidate => candidate.id === id)) selected.push(region);
+    }
     for (const region of nearby) if (!selected.some(candidate => candidate.id === region.id)) selected.push(region);
     selected.length = Math.min(selected.length, this.maxCache);
     this.wanted = new Map(selected.map(region => [region.id, region]));
@@ -507,6 +519,9 @@ export class Landscape {
   }
 
   sampleSurface(x, z) {
+    for (const entry of this.terrainOverlays.values()) {
+      const sample = sampleTerrain(entry.terrain, x, z);if (sample) return sample;
+    }
     let result = this.base ? sampleTerrain(this.base.terrain, x, z) : null;
     for (const [id, entry] of this.cache) {
       if (!this.wanted.has(id)) continue;
@@ -516,6 +531,26 @@ export class Landscape {
   }
 
   sampleHeight(x, z) { return this.sampleSurface(x, z)?.elevation ?? 0; }
+  async retainTerrainRegion(id) {
+    const region = this.index.regions.find(candidate => candidate.id === id);
+    if (!region || this.disposed) throw new Error('Road pilot background terrain is unavailable.');
+    this.retainedTerrainRegions.set(id, (this.retainedTerrainRegions.get(id) || 0) + 1);
+    let released = false;
+    const release = () => {
+      if (released) return;released = true;
+      const count = this.retainedTerrainRegions.get(id) || 0;
+      if (count > 1) this.retainedTerrainRegions.set(id, count - 1);else this.retainedTerrainRegions.delete(id);
+      if (!this.disposed) this.update(this.focus, { overview: this.overview });
+    };
+    try {
+      // A baked patch can meet an older detailed park at its boundary. Keep
+      // that prerequisite resident even after travel or overview changes.
+      const b = region.bounds;
+      await this.prepareAt({ x: (b.minX + b.maxX) / 2, z: (b.minZ + b.maxZ) / 2 });
+      if (!this.cache.has(id)) throw new Error('Road pilot background terrain did not load.');
+      return release;
+    } catch (error) { release();throw error; }
+  }
   async prepareAt(point) {
     const regions = this.index.regions.filter(region => validBounds(region.bounds) && contains(region.bounds, point.x, point.z));
     for (const region of regions) {
@@ -575,14 +610,32 @@ export class Landscape {
     }
     return contact;
   }
-  setOrthophoto(atlas) { this.orthophoto = atlas;for (const entry of [this.base, ...this.cache.values()]) if (entry) bindAtlas(entry.material, atlas); }
-  setLocalOrthophoto(atlas) { this.localOrthophoto = atlas;for (const entry of [this.base, ...this.cache.values()]) if (entry) bindAtlas(entry.material, atlas, true); }
+  addTerrainOverlay(id, data) {
+    if (this.disposed) throw new Error('Landscape is disposed.');
+    if (!id || this.terrainOverlays.has(id) || this.terrainOverlays.size >= 8) throw new Error('Invalid terrain overlay identity.');
+    const terrain = prepareTerrain(data);
+    if (data.heights.some(value => value === null)) throw new Error('Road detail contains missing elevation samples.');
+    for (const entry of this.terrainOverlays.values()) {
+      const a = entry.terrain.bounds, b = terrain.bounds;
+      if (a.minX < b.maxX && a.maxX > b.minX && a.minZ < b.maxZ && a.maxZ > b.minZ) throw new Error('Terrain overlays must not overlap.');
+    }
+    // The offline build already blends the patch boundary to the published
+    // background terrain. Reblending here would desynchronize road triangles.
+    const entry = this._build(terrain, { water: [], canopies: [] }, id);
+    this.terrainOverlays.set(id, entry);this._coverage();this.onChange();return terrain;
+  }
+  removeTerrainOverlay(id) {
+    const entry = this.terrainOverlays.get(id);if (!entry) return;
+    this._release(entry);this.terrainOverlays.delete(id);this._coverage();this.onChange();
+  }
+  setOrthophoto(atlas) { this.orthophoto = atlas;for (const entry of [this.base, ...this.cache.values(), ...this.terrainOverlays.values()]) if (entry) bindAtlas(entry.material, atlas); }
+  setLocalOrthophoto(atlas) { this.localOrthophoto = atlas;for (const entry of [this.base, ...this.cache.values(), ...this.terrainOverlays.values()]) if (entry) bindAtlas(entry.material, atlas, true); }
   setReconstructionReview(report) {
     this.review = report;for (const entry of [this.base, ...this.cache.values()]) if (entry) this._reviewedWater(entry);this._coverage();this._report();
   }
   setLayers(layers) {
     for (const name of Object.keys(this.layers)) if (typeof layers?.[name] === 'boolean') this.layers[name] = layers[name];
-    for (const entry of [this.base, ...this.cache.values()]) if (entry) { this._applyLayers(entry);this._updateVegetation(entry); }this._coverage();
+    for (const entry of [this.base, ...this.cache.values(), ...this.terrainOverlays.values()]) if (entry) { this._applyLayers(entry);this._updateVegetation(entry); }this._coverage();
   }
   getStatus() {
     return { baseReady: Boolean(this.base), baseWaterReady: this.baseWaterReady, cachedRegions: this.cache.size, activeRegions: [...this.cache.keys()].filter(id => this.wanted.has(id)),
@@ -593,12 +646,13 @@ export class Landscape {
       sourceCanopies: [...this.cache.entries()].filter(([id]) => this.wanted.has(id)).reduce((sum, [, entry]) => sum + (entry.canopyFeatures?.length || 0), 0),
       canopyBudgetLimited: [...this.cache.entries()].some(([id, entry]) => this.wanted.has(id) && entry.vegetation?.geometry.userData.truncated),
       reviewedWaterParts: [this.base, ...this.cache.values()].reduce((sum, entry) => sum + (entry?.reviewedWater?.geometry.userData.sourceIds.length || 0), 0),
-      verticalDatum: 'NAVD88', layers: { ...this.layers } };
+      terrainOverlays: [...this.terrainOverlays.keys()], verticalDatum: 'NAVD88', layers: { ...this.layers } };
   }
   dispose() {
     if (this.disposed) return;this.disposed = true;this.baseController?.abort();
     for (const controller of this.pending.values()) controller.abort();this.pending.clear();
     if (this.base) this._release(this.base);for (const entry of this.cache.values()) this._release(entry);
-    this.cache.clear();this.wanted.clear();this.preparing.clear();this.errors.clear();this.scene?.remove(this.group);
+    for (const entry of this.terrainOverlays.values()) this._release(entry);this.terrainOverlays.clear();
+    this.cache.clear();this.wanted.clear();this.preparing.clear();this.retainedTerrainRegions.clear();this.errors.clear();this.scene?.remove(this.group);
   }
 }

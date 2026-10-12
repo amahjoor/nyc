@@ -66,6 +66,21 @@ test('stream batches duplicated cell features, receives sunlight and releases ge
   detail.dispose();assert.ok(disposed);assert.equal(scene.children.length, 0);
 });
 
+test('fine road terrain masks ordinary aerial drapes without discarding elevated decks', t => {
+  const detail = createStreetDetail(index, { scene: new THREE.Scene(), orthophoto, fetcher: async () => response([square]) });
+  t.after(() => detail.dispose());
+  const mesh = detail.group.children[0];
+  const shader = { uniforms: {}, vertexShader: '#include <begin_vertex>', fragmentShader: '#include <color_fragment>' };
+  mesh.material.onBeforeCompile(shader);
+  assert.equal(shader.uniforms.streetGroundReplacement.value, false);
+  detail.setGroundReplacementBounds({ minX: 1, maxX: 9, minZ: 2, maxZ: 8 });
+  assert.equal(shader.uniforms.streetGroundReplacement.value, true);
+  assert.deepEqual(shader.uniforms.streetGroundReplacementBounds.value.toArray(), [1, 9, 2, 8]);
+  assert.match(shader.fragmentShader, /if \(!streetElevated && streetGroundReplacement/);
+  detail.setGroundReplacementBounds(null);
+  assert.equal(shader.uniforms.streetGroundReplacement.value, false);
+});
+
 test('crossing x=0 preserves the GPU batch when wanted cells are unchanged', async t => {
   const triangulate = t.mock.method(THREE.ShapeUtils, 'triangulateShape');
   const detail = createStreetDetail(index, { scene: new THREE.Scene(), orthophoto,

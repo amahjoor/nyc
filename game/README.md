@@ -23,6 +23,8 @@ Press **M** or **MAP** for a street map centered on your neighborhood. Gameplay 
 
 On the street, press **E** to enter the nearby yellow taxi, then **N** to take a delivery. Stop inside the orange destination ring before the timer expires. Earnings and completed delivery count save in browser storage on this device. Sound starts muted; enable it with the top-right button.
 
+Choose **Explore road pilot** in the city view to visit the reconstructed Meadow Lake road and parking loop. Walk to the waiting cab and press **E**. While nearby, **Show aerial / Show reconstruction** compares the original photograph with source-sampled pavement and reviewed paint. Both modes share the same measured driving surface. The patch loads only when visited; the rest of NYC keeps its existing rendering.
+
 | Action | Keyboard | Controller |
 | --- | --- | --- |
 | Walk / steer | WASD or arrows | Left stick |
@@ -84,6 +86,8 @@ node --test tests/route-planner.test.js
 ```
 
 ## Landscape reconstruction
+
+The [Meadow Lake road pilot](docs/road-pilot.md) adds a roughly 350 × 460 m terrain patch, 27 road/parking surfaces and 65 reviewed paint fragments. A roughly one-metre DEM is constrained by 47 vetted survey points and blended into the surrounding terrain at its boundary. Rendering and tire contact use the same triangles. Actual Segment Anything inference excludes reviewed vehicles from pavement color samples; classical image processing and visual review extract visible paint. This is a bounded, supervised reconstruction pipeline. Sparse bridge measurements, hidden structures and unmeasured curb dimensions remain unresolved. [The evidence page](dist/road-pilot-review.html) links source snapshots, accepted and rejected candidates, and limitations. Rebuild commands and model requirements are in the workflow document.
 
 From the city view choose **Explore reconstructed parks**, then **Explore park**. The **Explore roads and bridges** section also offers the Brooklyn Bridge ground-level approach and Meadow Lake’s eastern road and parking area. Detailed regions cover Central Park's Pond, Prospect Lake, Meadow Lake, the Bronx Botanical Garden ponds and Clove Lake. These are bounded sample areas, with coarse measured terrain spanning the whole city. Arrival still snaps to an actual nearby road; walk toward the park or press V for the aerial camera.
 

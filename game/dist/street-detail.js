@@ -134,7 +134,8 @@ export function createStreetDetail(index, { scene, orthophoto, heightAt = null, 
     streetBase: { value: orthophoto.texture }, streetBaseBounds: { value: new THREE.Vector4(
       orthophoto.bounds.minX, orthophoto.bounds.maxX, orthophoto.bounds.minZ, orthophoto.bounds.maxZ) },
     streetBaseMercator: { value: new THREE.Vector4(...(mercatorCoefficients(orthophoto.bounds, orthophoto.mercator) || [0,0,0,0])) },
-    streetBaseIsMercator: { value: Boolean(mercatorCoefficients(orthophoto.bounds, orthophoto.mercator)) } };
+    streetBaseIsMercator: { value: Boolean(mercatorCoefficients(orthophoto.bounds, orthophoto.mercator)) },
+    streetGroundReplacement: { value: false }, streetGroundReplacementBounds: { value: new THREE.Vector4() } };
   material.onBeforeCompile = shader => {
     Object.assign(shader.uniforms, uniforms, { streetElevated: { value: false } });
     shader.vertexShader = 'varying vec2 vStreetXZ;\n' + shader.vertexShader;
@@ -142,8 +143,11 @@ export function createStreetDetail(index, { scene, orthophoto, heightAt = null, 
     shader.fragmentShader = `${atlasProjectionGLSL}\n varying vec2 vStreetXZ; uniform sampler2D streetLocal;
       uniform vec4 streetLocalBounds; uniform vec4 streetMercator; uniform bool streetUseLocal;
       uniform sampler2D streetBase; uniform vec4 streetBaseBounds; uniform vec4 streetBaseMercator;
-      uniform bool streetBaseIsMercator; uniform bool streetElevated;\n` + shader.fragmentShader;
+      uniform bool streetBaseIsMercator; uniform bool streetElevated;
+      uniform bool streetGroundReplacement; uniform vec4 streetGroundReplacementBounds;\n` + shader.fragmentShader;
     shader.fragmentShader = shader.fragmentShader.replace('#include <color_fragment>', `#include <color_fragment>
+      if (!streetElevated && streetGroundReplacement && vStreetXZ.x>=streetGroundReplacementBounds.x && vStreetXZ.x<=streetGroundReplacementBounds.y
+        && vStreetXZ.y>=streetGroundReplacementBounds.z && vStreetXZ.y<=streetGroundReplacementBounds.w) discard;
       // The underlying imagery planes already provide a per-tile fallback.
       // Never paint a coarse street triangle over a sharper loaded ground tile
       // when filtered atlas alpha includes a missing cell or the atlas border.
@@ -266,6 +270,13 @@ export function createStreetDetail(index, { scene, orthophoto, heightAt = null, 
     setTerrainSampler(sampler, revision = terrainRevision + 1) {
       if (disposed || (heightAt === sampler && terrainRevision === revision)) return;
       heightAt = typeof sampler === 'function' ? sampler : null;terrainRevision = revision;dirty = true;
+    },
+    setGroundReplacementBounds(bounds) {
+      // Ordinary street meshes are aerial drapes. The finer terrain replaces
+      // those drapes inside this rectangle, while raised decks stay visible.
+      uniforms.streetGroundReplacement.value = Boolean(bounds && [bounds.minX,bounds.maxX,bounds.minZ,bounds.maxZ].every(Number.isFinite)
+        && bounds.maxX > bounds.minX && bounds.maxZ > bounds.minZ);
+      if (uniforms.streetGroundReplacement.value) uniforms.streetGroundReplacementBounds.value.set(bounds.minX,bounds.maxX,bounds.minZ,bounds.maxZ);
     },
     sampleSurface: (x, z, options) => transport.sampleSurface(x, z, options),
     getStatus: status,

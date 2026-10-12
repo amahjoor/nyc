@@ -9,6 +9,7 @@ import { createCityStream } from './city-stream.js';
 import { createCityGround, worldToGeographic } from './city-ground.js';
 import { createStreetDetail } from './street-detail.js';
 import { Landscape } from './landscape.js';
+import { RoadPilot } from './road-pilot.js';
 import { createRoadStream, nearestStreet, localDestinations } from './road-stream.js';
 import { createCityNavigation } from './city-navigation.js';
 import { GameMap } from './game-map.js';
@@ -26,6 +27,7 @@ let cityIndex, roadIndex, roadStream, ground, streetDetail, sun, localFog, bootR
 let cityView=false, cityZoom=1, cityOrbit=0, cityFocus=null, roadCell='', roadEpoch=0, roadBusy=false, buildings=[], boroughs=[];
 let landscape=null, landscapeRevision=0, landscapeDirty=false, landscapeManifest=null, reconstructionReview=null, roadReconstructionReview=null, streetManifest=null;
 const terrainHeight=(x,z)=>landscape?.sampleHeight(x,z)??0;
+let roadPilot=null, roadPilotIndex=null, roadPilotLoading=null, roadPilotError=null, roadPilotRetryAt=0;
 let chaseHeight=null, chaseEyeOffset=null;
 let gameMap, mapOpen=false, routePlanner=null, plannerReady=null, activeRoute=null, routeDestination=null, routeGuidance=null, routeEpoch=0, rerouteAt=0;
 let yaw=0, pitch=.38, lookIdle=0, elapsed=0, lastFrame=0, hudTime=0, qualityTimer=0, slowFrames=0;
@@ -106,6 +108,14 @@ $('landscape-travel-button').addEventListener('click',()=>{
 $('transport-travel-button').addEventListener('click',()=>{
   const region=streetManifest?.coverageRegions.filter(region=>region.view)[Number($('transport-select').value)];
   if(region)travel({...region.view,name:region.exploreName||region.name});
+});
+$('road-pilot-travel-button').addEventListener('click',()=>{
+  if(roadPilotIndex)travel({...roadPilotIndex.spawn,name:roadPilotIndex.name,exact:true,roadPilot:true});
+});
+$('road-pilot-mode-button').addEventListener('click',()=>{
+  if(!roadPilot)return;
+  roadPilot.setMode(roadPilot.getStatus().mode==='reconstructed'?'aerial':'reconstructed');
+  updateRoadPilotControls();
 });
 canvas.addEventListener('wheel',event=>{if(cityView){event.preventDefault();cityZoom=clamp(cityZoom*Math.exp(event.deltaY*.001),.07,1.8);}},{passive:false});
 $('sources-button').addEventListener('click',()=>{pausedBeforeSources=paused;if(started)paused=true;input.clear();$('sources-dialog').showModal();});
@@ -364,6 +374,9 @@ function frame(now) {
   landscape?.update(sim.player,{overview:cityView||!started});
   streetDetail?.setLocalOrthophoto(ground.localOrthophoto);
   streetDetail?.update(sim.player,{overview:cityView||!started});
+  roadPilot?.setLocalOrthophoto(ground.localOrthophoto);
+  if(started&&!cityView&&roadPilotIndex&&!roadPilot&&!roadPilotLoading&&Date.now()>=roadPilotRetryAt&&nearRoadPilot(sim.player,600))ensureRoadPilot().catch(()=>{});
+  updateRoadPilotControls();
   setLocalShadows(started&&!cityView);
   sun.position.set(sim.player.x-160,(sim.player.y||0)+210,sim.player.z+90);sun.target.position.set(sim.player.x,sim.player.y||0,sim.player.z);
   if(bootReady&&!traveling)refreshRoads();
@@ -431,9 +444,57 @@ async function refreshRoads(){
     sim.setActiveCity({roads,missionPoints:localDestinations(roads,sim.player)});city=sim.city;
   }catch(error){roadCell='';announce(error.message);}finally{roadBusy=false;}
 }
+function nearRoadPilot(point, margin=0){
+  const b=roadPilotIndex?.bounds;
+  return Boolean(b&&point&&point.x>=b.minX-margin&&point.x<=b.maxX+margin&&point.z>=b.minZ-margin&&point.z<=b.maxZ+margin);
+}
+function updateRoadPilotControls(){
+  const active=Boolean(roadPilot&&started&&!cityView&&!mapOpen&&nearRoadPilot(sim.player,30));
+  $('road-pilot-controls').hidden=!active;
+  if(!active)return;
+  const reconstructed=roadPilot.getStatus().mode==='reconstructed';
+  $('road-pilot-mode').textContent=reconstructed?'RECONSTRUCTED PAVEMENT':'SOURCE AERIAL';
+  $('road-pilot-mode-button').textContent=reconstructed?'SHOW AERIAL':'SHOW RECONSTRUCTION';
+  $('road-pilot-mode-button').setAttribute('aria-pressed',String(reconstructed));
+}
+async function ensureRoadPilot(){
+  if(roadPilot)return roadPilot;
+  if(roadPilotLoading)return roadPilotLoading;
+  if(!roadPilotIndex||!landscape?.getStatus().baseReady)throw new Error('Measured terrain is still loading. Try the road pilot again shortly.');
+  roadPilotLoading=(async()=>{
+    let candidate=null;const releaseBackground=[];
+    try{
+      const json=async url=>{const response=await fetch(url,{signal:AbortSignal.timeout(30000)});if(!response.ok)throw new Error('The road pilot could not load. Select Explore road pilot to retry.');return response.json();};
+      const [data,terrain,appearance]=await Promise.all([roadPilotIndex.manifestUrl,roadPilotIndex.terrainUrl,roadPilotIndex.appearanceUrl].map(json));
+      const same=(a,b)=>JSON.stringify(a)===JSON.stringify(b);
+      if(data.id!==roadPilotIndex.id||!same(data.origin,landscapeManifest.origin)||!same(appearance.origin,data.origin)
+        ||!same(terrain.bounds,roadPilotIndex.bounds)||!same(terrain.bounds,data.terrain?.bounds)||terrain.sourceId!==data.terrain?.sourceId
+        ||!terrain.alreadyBlended||!Array.isArray(data.terrain.requiredRegions))throw new Error('Road pilot assets do not describe the same measured location. Reload to retry.');
+      // Build and validate before replacing older ground. A partial request
+      // must never erase the playable baseline or leave half a road loaded.
+      candidate=new RoadPilot({scene,data,appearance,orthophoto:ground.orthophoto});
+      if(!candidate.getStatus().surfaces)throw new Error('The road pilot contains no validated road surfaces.');
+      candidate.setVisible(false);
+      for(const id of data.terrain.requiredRegions)releaseBackground.push(await landscape.retainTerrainRegion(id));
+      landscape.addTerrainOverlay(roadPilotIndex.id,terrain);
+      roadPilot=candidate;roadPilot.setMode('reconstructed');roadPilot.setVisible(true);roadPilotError=null;
+      streetDetail?.setGroundReplacementBounds(terrain.bounds);
+      landscapeDirty=true;
+      const status=roadPilot.getStatus();
+      $('road-pilot-status').textContent=status.surfaces+' surveyed surfaces; '+status.reconstructedSurfaces+' with source-sampled pavement. The comparison changes appearance only; driving geometry stays identical.';
+      return roadPilot;
+    }catch(error){
+      if(candidate&&candidate!==roadPilot)candidate.dispose();
+      if(!roadPilot)for(const release of releaseBackground)release();
+      roadPilotError=error.message;roadPilotRetryAt=Date.now()+15000;
+      $('road-pilot-status').textContent=error.message;throw error;
+    }finally{roadPilotLoading=null;}
+  })();
+  return roadPilotLoading;
+}
 async function travel(place){
   if(!place||traveling||!bootReady)return false;
-  traveling=true;roadEpoch++;input.clear();$('travel-button').disabled=true;$('landscape-travel-button').disabled=true;$('transport-travel-button').disabled=true;
+  traveling=true;roadEpoch++;input.clear();$('travel-button').disabled=true;$('landscape-travel-button').disabled=true;$('transport-travel-button').disabled=true;$('road-pilot-travel-button').disabled=true;
   navigation?.setTraveling(true);
   $('travel-note').textContent='Loading surveyed buildings and streets…';
   if(mapOpen)gameMap.setStatus('Loading measured ground and buildings at the pin…');
@@ -443,7 +504,7 @@ async function travel(place){
     const target=place.exact?place:nearestStreet(roads,place,600);
     if(!target)throw new Error('Choose a point closer to a street. Water and unmapped areas cannot be arrival points.');
     if(place.exact&&!landscape?.getStatus().baseReady)throw new Error('Measured ground is unavailable. Wait for the terrain to load before spawning at this pin.');
-    await Promise.all([world.prepareAt(target,300),landscape?.prepareAt(target)]);
+    await Promise.all([world.prepareAt(target,300),landscape?.prepareAt(target),place.roadPilot?ensureRoadPilot():nearRoadPilot(target)?ensureRoadPilot().catch(()=>null):null]);
     if(place.exact&&!landscape?.getStatus().baseWaterReady)throw new Error('Mapped water data is unavailable. Try again when it has loaded before spawning at this pin.');
     // Data readiness is a prerequisite for changing the player position.
     sim.setActiveCity({roads,buildings,missionPoints:localDestinations(roads,target)},{spawn:{...target,name:place.name,exact:Boolean(place.exact)}});
@@ -460,7 +521,7 @@ async function travel(place){
     sim.setActiveCity({...previous,buildings});$('travel-note').textContent=error.message;announce(error.message);
     if(mapOpen)gameMap.setStatus(error.message);return false;
   }
-  finally{traveling=false;$('travel-button').disabled=false;$('landscape-travel-button').disabled=!landscapeManifest;$('transport-travel-button').disabled=!streetManifest;navigation?.setTraveling(false);}
+  finally{traveling=false;$('travel-button').disabled=false;$('landscape-travel-button').disabled=!landscapeManifest;$('transport-travel-button').disabled=!streetManifest;$('road-pilot-travel-button').disabled=!roadPilotIndex;navigation?.setTraveling(false);}
 }
 
 function clearDirections(){
@@ -499,7 +560,7 @@ async function boot() {
   const loadData=async file=>{const response=await fetch('./'+file,{signal:AbortSignal.timeout(20000)});if(!response.ok)throw new Error('The city data could not load. Reload to try again.');return response.json();};
   const [seed,index,streets,land]=await Promise.all(['city.json','city-index.json','road-index.json','boroughs.json'].map(loadData));
   cityIndex=index;roadIndex=streets;boroughs=land.boroughs;roadStream=createRoadStream(roadIndex);
-  city={...seed,bounds:roadIndex.bounds,buildings:[],roads:[],boroughs,missionPoints:[],sampleSurface:(x,z,options)=>streetDetail?.sampleSurface(x,z,options)??landscape?.sampleSurface(x,z),landscapeContact:(x,z,radius)=>landscape?.contactAt(x,z,radius)};
+  city={...seed,bounds:roadIndex.bounds,buildings:[],roads:[],boroughs,missionPoints:[],sampleSurface:(x,z,options)=>roadPilot?.sampleSurface(x,z,{...options,kind:'bridge'})??streetDetail?.sampleSurface(x,z,options)??roadPilot?.sampleSurface(x,z,{...options,kind:'ground'})??landscape?.sampleSurface(x,z),landscapeContact:(x,z,radius)=>landscape?.contactAt(x,z,radius)};
   $('load-text').textContent='CONNECTING TO NEW YORK…';
   renderer=new THREE.WebGLRenderer({canvas,antialias:true,powerPreference:'high-performance'});
   renderer.outputColorSpace=THREE.SRGBColorSpace;renderer.toneMapping=THREE.ACESFilmicToneMapping;renderer.toneMappingExposure=1.15;
@@ -539,10 +600,15 @@ async function boot() {
       $('street-detail-status').textContent=status.covered&&status.failures>0
         ?'Some mapped street surfaces are unavailable here. Aerial imagery remains available; street surfaces will retry.' :'';
     }});
+    if(roadPilot)streetDetail.setGroundReplacementBounds(roadPilotIndex.bounds);
     $('street-detail-status').textContent='';
   }).catch(()=>{
     $('street-detail-status').textContent='Mapped street data is unavailable. Aerial imagery and city travel remain available.';
   });
+  loadData('road-pilot-index.json').then(index=>{
+    if(index.version!==1||!index.id||!index.bounds||!index.spawn)throw new Error('Invalid road pilot index.');
+    roadPilotIndex=index;$('road-pilot-travel-button').disabled=!bootReady||traveling;
+  }).catch(()=>{$('road-pilot-note').textContent='Road pilot unavailable. Reload to try again.';});
   loadData('road-reconstruction-review.json').then(report=>{
     roadReconstructionReview=report;
     $('road-reconstruction-status').textContent=report.summary.accepted+' of '+report.summary.candidates+
@@ -562,12 +628,12 @@ async function boot() {
   const b=city.bounds;camera.position.set((b.minX+b.maxX)/2-14000,44000,(b.minZ+b.maxZ)/2+32000);
   navigation=createCityNavigation({canvas,camera,input,bounds:city.bounds,heightAt:terrainHeight,onTravel:travel,onAddressSelected:focusCityAddress});
   $('place-select').innerHTML=roadIndex.places.map((place,i)=>'<option value="'+i+'">'+place.name+' · '+place.borough+'</option>').join('');
-  window.nycGame={getState:()=>({player:{...sim.player},heat:sim.heat,health:sim.health,mission:{...sim.mission},cash:sim.cash,deliveries:sim.deliveries,cars:sim.cars.length,buildings:buildings.length,totalBuildings:cityIndex.stats.buildingFeatures,stream:world.getStatus(),ground:ground.getStatus(),streetDetail:streetDetail?.getStatus()||null,landscape:landscape?.getStatus()||null,reconstruction:reconstructionReview?{model:reconstructionReview.model,summary:reconstructionReview.summary}:null,roadReconstruction:roadReconstructionReview?{model:roadReconstructionReview.model,summary:roadReconstructionReview.summary}:null,navigation:navigation.getState(),map:gameMap.getState(),routeGuidance,cityView,aerialView,traveling,bootReady,shadows:{enabled:shadowsEnabled,active:renderer.shadowMap.enabled},drawCalls:renderer.info.render.calls,triangles:renderer.info.render.triangles,started,paused})};
+  window.nycGame={getState:()=>({player:{...sim.player},heat:sim.heat,health:sim.health,mission:{...sim.mission},cash:sim.cash,deliveries:sim.deliveries,cars:sim.cars.length,buildings:buildings.length,totalBuildings:cityIndex.stats.buildingFeatures,stream:world.getStatus(),ground:ground.getStatus(),streetDetail:streetDetail?.getStatus()||null,landscape:landscape?.getStatus()||null,reconstruction:reconstructionReview?{model:reconstructionReview.model,summary:reconstructionReview.summary}:null,roadReconstruction:roadReconstructionReview?{model:roadReconstructionReview.model,summary:roadReconstructionReview.summary}:null,roadPilot:roadPilot?roadPilot.getStatus():{ready:false,loading:Boolean(roadPilotLoading),error:roadPilotError},navigation:navigation.getState(),map:gameMap.getState(),routeGuidance,cityView,aerialView,traveling,bootReady,shadows:{enabled:shadowsEnabled,active:renderer.shadowMap.enabled},drawCalls:renderer.info.render.calls,triangles:renderer.info.render.triangles,started,paused})};
   requestAnimationFrame(frame);
   const [roads]=await Promise.all([roadStream.loadAround(seed.spawn),world.prepareAt(seed.spawn,300),landscapeReady]);
   sim.setActiveCity({roads,buildings,isReadyAt:(x,z,radius)=>world.isReadyAt(x,z,radius),missionPoints:localDestinations(roads,seed.spawn)},{spawn:seed.spawn});city=sim.city;yaw=sim.player.angle;
   populatePedestrians();bootReady=true;
-  $('start-button').disabled=false;$('travel-button').disabled=false;$('landscape-travel-button').disabled=!landscapeManifest;$('transport-travel-button').disabled=!streetManifest;$('load-text').textContent='EXPLORE NEW YORK';
+  $('start-button').disabled=false;$('travel-button').disabled=false;$('landscape-travel-button').disabled=!landscapeManifest;$('transport-travel-button').disabled=!streetManifest;$('road-pilot-travel-button').disabled=!roadPilotIndex;$('load-text').textContent='EXPLORE NEW YORK';
 }
 restoreDisplaySettings();
 boot().catch(error=>{
