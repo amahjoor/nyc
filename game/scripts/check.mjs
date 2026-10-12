@@ -25,15 +25,40 @@ const html=await readFile(resolve(root,'dist/index.html'),'utf8');
 for(const file of ['main.js','style.css'])if(!html.includes(file))throw new Error(`Missing entry: ${file}`);
 const index=JSON.parse(await readFile(resolve(root,'dist/city-index.json'),'utf8'));
 if(index.nodes.length<4000||index.roots.length<50)throw new Error('Citywide geometry index is incomplete');
-const roads=JSON.parse(await readFile(resolve(root,'dist/road-index.json'),'utf8'));
+const roadIndexBytes=await readFile(resolve(root,'dist/road-index.json'));
+const roads=JSON.parse(roadIndexBytes);
 const boroughs=JSON.parse(await readFile(resolve(root,'dist/boroughs.json'),'utf8'));
 if(boroughs.boroughs.length!==5||new Set(roads.places.map(place=>place.borough)).size!==5)throw new Error('Missing borough coverage');
 // Validate deployment paths and byte counts so a partial road import cannot ship.
-for(const [key,cell] of Object.entries(roads.cells)){
+const navigationSourceHash=createHash('sha256');
+for(const [key,cell] of Object.entries(roads.cells).sort(([a],[b])=>a.localeCompare(b,'en'))){
   if(!/^\.\/roads\/-?\d+_-?\d+\.json$/.test(cell.url))throw new Error(`Invalid road cell path: ${key}`);
-  const file=await stat(resolve(root,'dist',cell.url));
-  if(file.size!==cell.bytes)throw new Error(`Incomplete road cell: ${key}`);
+  const bytes=await readFile(resolve(root,'dist',cell.url));
+  if(bytes.length!==cell.bytes)throw new Error(`Incomplete road cell: ${key}`);
+  navigationSourceHash.update(cell.url+'\0').update(bytes);
 }
+// Validate the compact map source without rebuilding its routing graph or
+// repeating the exhaustive coordinate round-trip covered by routing tests.
+const navigationBytes=await readFile(resolve(root,'dist/navigation-roads.json')),navigation=JSON.parse(navigationBytes);
+if(navigation.version!==1||navigation.encoding!=='cscl-centimeter-polyline-v1'||navigationBytes.length>6_000_000
+  ||navigation.stats.roads!==roads.stats.roads||navigation.roads.length!==navigation.stats.roads||navigation.stats.points!==roads.stats.vertices
+  ||JSON.stringify(navigation.origin)!==JSON.stringify(roads.origin)||JSON.stringify(navigation.bounds)!==JSON.stringify(roads.bounds)
+  ||navigation.names.length!==navigation.stats.names||Object.keys(navigation.stats.byBorough).length!==5
+  ||navigation.source.indexSha256!==createHash('sha256').update(roadIndexBytes).digest('hex')
+  ||navigation.source.tilesSha256!==navigationSourceHash.digest('hex'))throw new Error('Navigation dataset does not match its source manifest and tiles');
+const navigationIds=new Set(),navigationKinds={},navigationBoroughs={};
+for(const row of navigation.roads){
+  if(!Array.isArray(row)||row.length!==4||!/^\d+(?::\d+)?$/.test(String(row[0]))||navigationIds.has(String(row[0]))
+    ||!Number.isInteger(row[1])||typeof navigation.names[row[1]]!=='string'||!Number.isInteger(row[2])||row[2]<0
+    ||typeof row[3]!=='string'||!row[3].length||!/^[?-~]+$/.test(row[3]))throw new Error('Invalid compact navigation row');
+  navigationIds.add(String(row[0]));let flags=row[2];const borough=flags%8;flags=Math.floor(flags/8);
+  const toLevel=navigation.levels[flags%16];flags=Math.floor(flags/16);const fromLevel=navigation.levels[flags%16];flags=Math.floor(flags/16);
+  const kind=navigation.kinds[Math.floor(flags/3)];
+  if(borough<1||borough>5||!Number.isFinite(fromLevel)||!Number.isFinite(toLevel)||!['residential','service','motorway','ramp','bridge','tunnel'].includes(kind))throw new Error('Invalid navigation levels or classification');
+  navigationKinds[kind]=(navigationKinds[kind]||0)+1;navigationBoroughs[borough]=(navigationBoroughs[borough]||0)+1;
+}
+for(const [kind,count] of Object.entries(navigation.stats.byKind))if(navigationKinds[kind]!==count)throw new Error('Navigation classification totals disagree');
+for(const [borough,count] of Object.entries(navigation.stats.byBorough))if(navigationBoroughs[borough]!==count)throw new Error('Navigation borough totals disagree');
 const detail=JSON.parse(await readFile(resolve(root,'dist/street-detail-index.json'),'utf8'));
 let detailBytes=0;
 const detailFeatures=new Map();
@@ -117,4 +142,4 @@ for(const [reportPath,assetFolder] of [['reconstruction-review.json','reconstruc
   }
 }
 await stat(resolve(root,'dist/reconstruction.html'));
-console.log(`Source checks passed: ${index.nodes.length} geometry nodes, ${Object.keys(roads.cells).length} road cells, ${Object.keys(detail.cells).length} street detail cells, ${landscape.regions.length} measured landscape regions, verified AI review assets and all five boroughs.`);
+console.log(`Source checks passed: ${index.nodes.length} geometry nodes, ${Object.keys(roads.cells).length} road cells, ${navigation.stats.roads} navigation segments, ${Object.keys(detail.cells).length} street detail cells, ${landscape.regions.length} measured landscape regions, verified AI review assets and all five boroughs.`);

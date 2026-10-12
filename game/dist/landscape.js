@@ -291,7 +291,7 @@ export class Landscape {
     this.orthophoto = orthophoto;this.localOrthophoto = localOrthophoto;
     this.group = new THREE.Group();this.group.name = 'Measured NYC landscape reconstruction';scene?.add(this.group);
     this.cache = new Map();this.pending = new Map();this.errors = new Map();this.wanted = new Map();this.preparing = new Map();this.serial = 0;this.disposed = false;
-    this.layers = { terrain: true, water: true, vegetation: true };this.base = null;this.basePromise = null;this.review = null;this.focus = { x: 0, z: 0 };
+    this.layers = { terrain: true, water: true, vegetation: true };this.base = null;this.basePromise = null;this.baseWaterReady = false;this.review = null;this.focus = { x: 0, z: 0 };
   }
 
   async _json(url, signal) {
@@ -299,23 +299,33 @@ export class Landscape {
   }
 
   loadBase() {
+    if (this.disposed) return Promise.resolve(null);
     if (this.basePromise) return this.basePromise;
+    // A failed hydrography request stays retryable without rebuilding measured
+    // terrain. Only a loaded water list makes an exact ground pin verifiable.
+    if (this.base && (this.baseWaterReady || !this.index.baseFeaturesUrl)) return Promise.resolve(this.base);
     if (!this.index.baseTerrain?.url) return Promise.resolve(null);
     const controller = new AbortController();this.baseController = controller;
     const timer = setTimeout(() => controller.abort(), 20000);
     this.basePromise = (async () => {
       try {
-        const data = await this._json(this.index.baseTerrain.url, controller.signal);
-        if (this.disposed || controller.signal.aborted) return null;
-        this.base = this._build(prepareTerrain(data), { water: [], canopies: [] });this.base.group.visible = true;
-        this.onChange();this._report();
+        if (!this.base) {
+          const data = await this._json(this.index.baseTerrain.url, controller.signal);
+          if (this.disposed || controller.signal.aborted) return null;
+          this.base = this._build(prepareTerrain(data), { water: [], canopies: [] });this.base.group.visible = true;
+          this.onChange();this._report();
+        }
         if (this.index.baseFeaturesUrl) {
-          try { const features = await this._json(this.index.baseFeaturesUrl, controller.signal);if (!this.disposed && !controller.signal.aborted) this._features(this.base, features); }
+          try {
+            const features = await this._json(this.index.baseFeaturesUrl, controller.signal);
+            if (this.disposed || controller.signal.aborted) return null;
+            if (features?.version !== 1 || !Array.isArray(features.water)) throw new Error('Invalid measured NYC water coverage.');
+            this._features(this.base, features);this.baseWaterReady = true;this.errors.delete('base-features');this.onChange();
+          }
           catch (error) { if (!this.disposed) this.errors.set('base-features', { error: error.message, retryAt: Infinity }); }
         }
         this._report();return this.base;
-      } catch (error) { this.basePromise = null;throw error; }
-      finally { clearTimeout(timer); }
+      } finally { clearTimeout(timer);this.basePromise = null; }
     })();
     return this.basePromise;
   }
@@ -575,7 +585,7 @@ export class Landscape {
     for (const entry of [this.base, ...this.cache.values()]) if (entry) { this._applyLayers(entry);this._updateVegetation(entry); }this._coverage();
   }
   getStatus() {
-    return { baseReady: Boolean(this.base), cachedRegions: this.cache.size, activeRegions: [...this.cache.keys()].filter(id => this.wanted.has(id)),
+    return { baseReady: Boolean(this.base), baseWaterReady: this.baseWaterReady, cachedRegions: this.cache.size, activeRegions: [...this.cache.keys()].filter(id => this.wanted.has(id)),
       loading: this.pending.size + [...this.cache.values()].filter(entry => entry.vegetationLoading).length,
       failures: this.errors.size + [...this.cache.values()].filter(entry => entry.vegetationError).length,
       error: [...this.errors.values()].at(-1)?.error || [...this.cache.values()].find(entry => entry.vegetationError)?.vegetationError || null,

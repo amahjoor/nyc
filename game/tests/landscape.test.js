@@ -115,6 +115,55 @@ function fixture(t, overrides = {}) {
   return { landscape, scene, requests, files, texture, localTexture };
 }
 
+test('terrain readiness does not claim water coverage while hydrography is missing or loading', async t => {
+  const f = fixture(t);f.landscape.index.regions = [];f.landscape.index.baseFeaturesUrl = 'base-water';
+  assert.equal(f.landscape.getStatus().baseWaterReady, false);
+  await f.landscape.loadBase();
+  assert.equal(f.landscape.getStatus().baseReady, true);
+  assert.equal(f.landscape.getStatus().baseWaterReady, false);
+  assert.match(f.landscape.getStatus().error, /404/);
+  assert.equal(f.landscape.contactAt(2, 2), null, 'absence of contacts is not proof of dry land before water is loaded');
+  const base = f.landscape.base, groupCount = f.landscape.group.children.length;
+  let resolveWater;let waterRequests = 0;
+  f.landscape.fetcher = url => {
+    assert.equal(url, 'base-water', 'recovery retains the measured DEM');waterRequests++;
+    return new Promise(resolve => { resolveWater = resolve; });
+  };
+  const preparing = f.landscape.prepareAt({ x: 2, z: 2 });
+  const loading = f.landscape.loadBase();
+  assert.equal(waterRequests, 1, 'simultaneous consumers share the recovery request');
+  assert.equal(f.landscape.getStatus().baseWaterReady, false);
+  resolveWater({ ok: true, json: async () => ({ version: 1, water: [water], canopies: [] }) });
+  await Promise.all([preparing, loading]);
+  assert.equal(f.landscape.getStatus().baseWaterReady, true);
+  assert.equal(f.landscape.getStatus().error, null);
+  assert.equal(f.landscape.base, base);assert.equal(f.landscape.group.children.length, groupCount);
+  assert.equal(f.requests.filter(request => request.url === 'base').length, 1);
+  assert.equal(f.landscape.contactAt(2, 2).kind, 'water');
+  await f.landscape.loadBase();assert.equal(waterRequests, 1, 'successful coverage remains cached');
+});
+
+test('malformed water coverage remains retryable and an explicit empty source list is valid', async t => {
+  const f = fixture(t);f.landscape.index.regions = [];f.landscape.index.baseFeaturesUrl = 'base-water';
+  f.files.set('base-water', { version: 1, canopies: [] });
+  await f.landscape.loadBase();
+  assert.equal(f.landscape.getStatus().baseReady, true);assert.equal(f.landscape.getStatus().baseWaterReady, false);
+  assert.match(f.landscape.getStatus().error, /water coverage/);
+  f.files.set('base-water', { version: 1, water: [], canopies: [] });
+  await f.landscape.prepareAt({ x: 2, z: 2 });
+  assert.equal(f.landscape.getStatus().baseWaterReady, true);assert.equal(f.landscape.getStatus().error, null);
+  assert.equal(f.requests.filter(request => request.url === 'base').length, 1);
+});
+
+test('an optional canopy error does not invalidate loaded citywide water coverage', async t => {
+  const f = fixture(t);f.landscape.index.baseFeaturesUrl = 'base-water';
+  f.files.set('base-water', { version: 1, water: [water], canopies: [] });
+  await f.landscape.prepareAt({ x: 2, z: 2 });
+  f.landscape.cache.get('a').vegetationError = 'Optional crowns unavailable';
+  assert.equal(f.landscape.getStatus().failures, 1);assert.equal(f.landscape.getStatus().baseWaterReady, true);
+  assert.equal(f.landscape.contactAt(2, 2).kind, 'water');
+});
+
 test('preparing a place loads its measured surfaces and exposes source water contacts', async t => {
   const f = fixture(t);const sample = await f.landscape.prepareAt({ x: 2, z: 2 });
   close(sample.elevation, 8);assert.equal(sample.sourceId, 'detail-dem');close(f.landscape.sampleHeight(20, 20), 2);
@@ -205,7 +254,7 @@ test('vegetation selection follows the camera region instead of truncating sourc
 });
 
 test('fine measured water replaces its coarser level in both graphics and collision', async t => {
-  const f = fixture(t);f.landscape.index.baseFeaturesUrl = 'base-water';f.files.set('base-water', { water: [{ ...water, elevation: 9 }] });
+  const f = fixture(t);f.landscape.index.baseFeaturesUrl = 'base-water';f.files.set('base-water', { version: 1, water: [{ ...water, elevation: 9 }] });
   await f.landscape.prepareAt({ x: 2, z: 2 });
   assert.equal(f.landscape.base.water.material.userData.coverage.landscapeWaterCoverageCount.value, 1, 'coarse lake plane is masked only under the refined region');
   assert.equal(f.landscape.waterAt(2, 2).elevation, 3);
@@ -215,7 +264,7 @@ test('fine measured water replaces its coarser level in both graphics and collis
 
 test('a clipped detail boundary cannot become an invented shoreline', async t => {
   const f = fixture(t), large = { ...water, polygon: [[0, 0], [20, 0], [20, 20], [0, 20]], holes: [], elevation: null };
-  f.landscape.index.baseFeaturesUrl = 'base-water';f.files.set('base-water', { water: [large] });
+  f.landscape.index.baseFeaturesUrl = 'base-water';f.files.set('base-water', { version: 1, water: [large] });
   f.files.set('features-a', { water: [{ ...water, holes: [] }], canopies: [] });await f.landscape.prepareAt({ x: 9.8, z: 5 });
   assert.equal(f.landscape.base.water.geometry.attributes.position.count, 0, 'an unmeasured water level never generates a guessed plane');
   const contact = f.landscape.contactAt(9.8, 5, .5);

@@ -11,6 +11,8 @@ import { createStreetDetail } from './street-detail.js';
 import { Landscape } from './landscape.js';
 import { createRoadStream, nearestStreet, localDestinations } from './road-stream.js';
 import { createCityNavigation } from './city-navigation.js';
+import { GameMap } from './game-map.js';
+import { createRoutePlanner } from './route-planner.js';
 
 const $ = id => document.getElementById(id);
 const clamp = (n,a,b) => Math.max(a,Math.min(b,n));
@@ -25,6 +27,7 @@ let cityView=false, cityZoom=1, cityOrbit=0, cityFocus=null, roadCell='', roadEp
 let landscape=null, landscapeRevision=0, landscapeDirty=false, landscapeManifest=null, reconstructionReview=null, roadReconstructionReview=null, streetManifest=null;
 const terrainHeight=(x,z)=>landscape?.sampleHeight(x,z)??0;
 let chaseHeight=null, chaseEyeOffset=null;
+let gameMap, mapOpen=false, routePlanner=null, plannerReady=null, activeRoute=null, routeDestination=null, routeGuidance=null, routeEpoch=0, rerouteAt=0;
 let yaw=0, pitch=.38, lookIdle=0, elapsed=0, lastFrame=0, hudTime=0, qualityTimer=0, slowFrames=0;
 const carModels = new Map(), pedestrians=[];
 const audio = new CityAudio();
@@ -37,6 +40,9 @@ const chaseLookAhead=new THREE.Vector3(), desiredLookAhead=new THREE.Vector3();
 function announce(text) { if(sim){sim.notice=text;sim.noticeTime=4;} }
 function action(name) {
   if(!sim)return;
+  if(name==='map') { if(started&&!paused&&!traveling&&bootReady)gameMap?.toggle();return; }
+  if(name==='pause'&&mapOpen) { gameMap.setOpen(false);return; }
+  if(mapOpen)return;
   if(name==='pause') { if(started)togglePause();return; }
   if(name==='view') { setView(cityView?'street':aerialView?'city':'aerial');return; }
   if(!started||paused||traveling||!bootReady||cityView)return;
@@ -55,13 +61,13 @@ function action(name) {
   }
   if(name==='job')sim.startMission();
   if(name==='recover'){chaseHeight=null;chaseEyeOffset=null;sim.reset();yaw=sim.player.angle;aerialTracking=false;chaseLookAhead.set(0,0,0);announce('Recovered to a nearby street. Your next ride is waiting.');}
-  if(name==='map')hud.toggleMap();
   if(name==='camera'){farCamera=!farCamera;announce(farCamera?'Camera: wide chase':'Camera: close chase');}
   if(name==='horn')audio.horn();
 }
 function togglePause(force) {
   if(!started)return;
   paused=force??!paused;
+  if(paused&&mapOpen)gameMap.setOpen(false);
   input.clear();
   if(paused && !$('pause-dialog').open && !$('help-dialog').open && !$('sources-dialog').open)$('pause-dialog').showModal();
   if(!paused&&$('pause-dialog').open)$('pause-dialog').close();
@@ -90,6 +96,7 @@ $('shadows-button').addEventListener('click',()=>{
 $('help-button').addEventListener('click',()=>{if(started){paused=true;input.clear();}$('help-dialog').showModal();});
 $('help-dialog').addEventListener('close',()=>{if(started)paused=false;input.clear();});
 $('view-button').addEventListener('click',()=>action('view'));
+$('open-map-button').addEventListener('click',()=>action('map'));
 $('city-button').addEventListener('click',()=>{if(!started&&bootReady){$('start-button').click();return;}setView(cityView?'street':'city');});
 $('travel-button').addEventListener('click',()=>travel(roadIndex?.places[Number($('place-select').value)]));
 $('landscape-travel-button').addEventListener('click',()=>{
@@ -338,7 +345,7 @@ function frame(now) {
     // and camera smoothing, rather than an intended chase-camera angle.
     camera.getWorldDirection(cameraForward);
     controls=input.sample(Math.atan2(cameraForward.x,cameraForward.z),dt);
-    if(!paused&&!traveling&&!cityView&&bootReady){sim.step(controls,dt);elapsed+=dt;}
+    if(!paused&&!traveling&&!cityView&&!mapOpen&&bootReady){sim.step(controls,dt);elapsed+=dt;}
   }else elapsed+=dt;
   if(landscapeDirty){
     landscapeDirty=false;landscapeRevision++;
@@ -346,7 +353,7 @@ function frame(now) {
     streetDetail?.setTerrainSampler(terrainHeight,landscapeRevision);
     sim.updateGrounding();
   }
-  syncScene(paused||traveling||cityView?0:dt,controls);updateCamera(dt);navigation?.updatePin();
+  syncScene(paused||traveling||cityView||mapOpen?0:dt,controls);if(!mapOpen)updateCamera(dt);navigation?.updatePin();
   // prepareAt owns the destination's collision data until arrival. Reselecting
   // around the old player while terrain is still loading would discard it.
   // Continue rendering and downloads; resume selection after arrival/rollback.
@@ -360,8 +367,12 @@ function frame(now) {
   setLocalShadows(started&&!cityView);
   sun.position.set(sim.player.x-160,(sim.player.y||0)+210,sim.player.z+90);sun.target.position.set(sim.player.x,sim.player.y||0,sim.player.z);
   if(bootReady&&!traveling)refreshRoads();
-  audio.update(sim,elapsed,started&&!paused&&!traveling&&!cityView);
-  hudTime+=dt;if(hudTime>.075){hud.city=sim.city;hud.update(sim);saveProgress();updateLocation();hudTime=0;}
+  audio.update(sim,elapsed,started&&!paused&&!traveling&&!cityView&&!mapOpen);
+  hudTime+=dt;if(hudTime>.075){
+    // Retain nearby streets if the optional citywide route download fails.
+    if(!routePlanner&&gameMap.roads!==sim.city.roads)gameMap.setRoads(sim.city.roads);
+    hud.city=sim.city;hud.update(sim);updateDirections();saveProgress();updateLocation();hudTime=0;
+  }
   renderer.render(scene,camera);
   qualityTimer+=dt;if(dt>.035)slowFrames++;
   if(highQuality&&qualityTimer>5){if(slowFrames>90){highQuality=false;applyQuality();announce('Switched to balanced graphics for smoother streets.');}qualityTimer=0;slowFrames=0;}
@@ -421,30 +432,67 @@ async function refreshRoads(){
   }catch(error){roadCell='';announce(error.message);}finally{roadBusy=false;}
 }
 async function travel(place){
-  if(!place||traveling||!bootReady)return;
+  if(!place||traveling||!bootReady)return false;
   traveling=true;roadEpoch++;input.clear();$('travel-button').disabled=true;$('landscape-travel-button').disabled=true;$('transport-travel-button').disabled=true;
   navigation?.setTraveling(true);
   $('travel-note').textContent='Loading surveyed buildings and streets…';
+  if(mapOpen)gameMap.setStatus('Loading measured ground and buildings at the pin…');
   const previous={roads:sim.city.roads,buildings:sim.city.buildings,missionPoints:sim.city.missionPoints};
   try{
     let roads=await roadStream.loadAround(place,1000);
-    const target=nearestStreet(roads,place,600);
+    const target=place.exact?place:nearestStreet(roads,place,600);
     if(!target)throw new Error('Choose a point closer to a street. Water and unmapped areas cannot be arrival points.');
+    if(place.exact&&!landscape?.getStatus().baseReady)throw new Error('Measured ground is unavailable. Wait for the terrain to load before spawning at this pin.');
     await Promise.all([world.prepareAt(target,300),landscape?.prepareAt(target)]);
+    if(place.exact&&!landscape?.getStatus().baseWaterReady)throw new Error('Mapped water data is unavailable. Try again when it has loaded before spawning at this pin.');
     // Data readiness is a prerequisite for changing the player position.
-    sim.setActiveCity({roads,buildings,missionPoints:localDestinations(roads,target)},{spawn:{...target,name:place.name}});
+    sim.setActiveCity({roads,buildings,missionPoints:localDestinations(roads,target)},{spawn:{...target,name:place.name,exact:Boolean(place.exact)}});
     if(sim.mission.phase==='active'){sim.mission.phase='failed';announce('Travel canceled the active delivery. Your earnings are saved.');}
     city=sim.city;yaw=sim.player.angle;roadCell='';chaseHeight=null;chaseEyeOffset=null;
     for(const ped of pedestrians)scene.remove(ped.mesh);pedestrians.length=0;populatePedestrians();
     camera.position.set(sim.player.x-Math.sin(yaw)*12,(sim.player.y||0)+9,sim.player.z-Math.cos(yaw)*12);
     if(!started)$('start-button').click();
     setView('street');$('travel-note').textContent='Choose a neighborhood, or double-click a street in the city view.';
+    clearDirections();gameMap?.setStatus('Spawned at the selected location.');return true;
   }catch(error){
     // The stream can publish additional colliders while a destination loads.
     // Restore navigation data without replacing that newer collision snapshot.
     sim.setActiveCity({...previous,buildings});$('travel-note').textContent=error.message;announce(error.message);
+    if(mapOpen)gameMap.setStatus(error.message);return false;
   }
   finally{traveling=false;$('travel-button').disabled=false;$('landscape-travel-button').disabled=!landscapeManifest;$('transport-travel-button').disabled=!streetManifest;navigation?.setTraveling(false);}
+}
+
+function clearDirections(){
+  routeEpoch++;activeRoute=null;routeDestination=null;routeGuidance=null;gameMap?.setRoute(null);
+}
+async function requestDirections(pin){
+  const epoch=++routeEpoch;gameMap.setStatus('Finding a route along mapped streets…');
+  try{
+    const planner=await plannerReady;
+    if(epoch!==routeEpoch)return false;
+    if(!planner)throw new Error('Street directions could not load. Reload to try again; pin spawning is still available.');
+    const route=planner.plan(sim.player,pin);
+    if(!route.ok)throw new Error(route.message);
+    activeRoute=route;routeDestination={...pin};routeGuidance=null;rerouteAt=elapsed+2;
+    gameMap.setRoute(route);updateDirections();
+    gameMap.setStatus(route.end.snapDistance>20?'Directions end at the nearest mapped street to the pin.':'Route ready. Close the map to follow the highlighted streets.');
+    return true;
+  }catch(error){
+    if(epoch===routeEpoch){activeRoute=null;routeDestination=null;routeGuidance=null;gameMap.setRoute(null);gameMap.setStatus(error.message);}return false;
+  }
+}
+function updateDirections(){
+  if(!activeRoute||!routePlanner)return;
+  routeGuidance=routePlanner.progress(activeRoute,sim.player,{previousDistance:routeGuidance?.passedDistance||0});
+  // Replan only while playing, with a cooldown. A moved or cleared pin cancels
+  // pending work so an older route cannot replace the current destination.
+  if(routeGuidance?.offRoute&&!mapOpen&&!paused&&!traveling&&!cityView&&elapsed>=rerouteAt){
+    rerouteAt=elapsed+2;
+    const next=routePlanner.plan(sim.player,routeDestination);
+    if(next.ok){activeRoute=next;gameMap.setRoute(next);routeGuidance=routePlanner.progress(next,sim.player);}
+  }
+  gameMap.setGuidance(routeGuidance);
 }
 
 async function boot() {
@@ -502,10 +550,19 @@ async function boot() {
   }).catch(()=>{$('road-reconstruction-status').textContent='Road image review unavailable. Surveyed surfaces remain active.';});
   avatar=createPerson(0xd7774e);scene.add(avatar);marker=createMissionMarker();enterHint=createEnterHint();
   hud=new HUD(city);applyQuality();
+  gameMap=new GameMap({city,onPin:clearDirections,onRoute:requestDirections,
+    onSpawn:pin=>travel({...pin,exact:true}),
+    onOpenChange:open=>{mapOpen=open;input.clear();input.lookDelta=0;input.lookVertical=0;if(!open)canvas.focus();}});
+  hud.attachMap(gameMap);
+  // The compact citywide graph is optional: a failed route download must not
+  // prevent entering the game or using a measured, validated spawn point.
+  plannerReady=loadData('navigation-roads.json').then(data=>{
+    routePlanner=createRoutePlanner(data);gameMap.setRoads(routePlanner.roads);return routePlanner;
+  }).catch(()=>null);
   const b=city.bounds;camera.position.set((b.minX+b.maxX)/2-14000,44000,(b.minZ+b.maxZ)/2+32000);
   navigation=createCityNavigation({canvas,camera,input,bounds:city.bounds,heightAt:terrainHeight,onTravel:travel,onAddressSelected:focusCityAddress});
   $('place-select').innerHTML=roadIndex.places.map((place,i)=>'<option value="'+i+'">'+place.name+' · '+place.borough+'</option>').join('');
-  window.nycGame={getState:()=>({player:{...sim.player},heat:sim.heat,health:sim.health,mission:{...sim.mission},cash:sim.cash,deliveries:sim.deliveries,cars:sim.cars.length,buildings:buildings.length,totalBuildings:cityIndex.stats.buildingFeatures,stream:world.getStatus(),ground:ground.getStatus(),streetDetail:streetDetail?.getStatus()||null,landscape:landscape?.getStatus()||null,reconstruction:reconstructionReview?{model:reconstructionReview.model,summary:reconstructionReview.summary}:null,roadReconstruction:roadReconstructionReview?{model:roadReconstructionReview.model,summary:roadReconstructionReview.summary}:null,navigation:navigation.getState(),cityView,aerialView,traveling,bootReady,shadows:{enabled:shadowsEnabled,active:renderer.shadowMap.enabled},drawCalls:renderer.info.render.calls,triangles:renderer.info.render.triangles,started,paused})};
+  window.nycGame={getState:()=>({player:{...sim.player},heat:sim.heat,health:sim.health,mission:{...sim.mission},cash:sim.cash,deliveries:sim.deliveries,cars:sim.cars.length,buildings:buildings.length,totalBuildings:cityIndex.stats.buildingFeatures,stream:world.getStatus(),ground:ground.getStatus(),streetDetail:streetDetail?.getStatus()||null,landscape:landscape?.getStatus()||null,reconstruction:reconstructionReview?{model:reconstructionReview.model,summary:reconstructionReview.summary}:null,roadReconstruction:roadReconstructionReview?{model:roadReconstructionReview.model,summary:roadReconstructionReview.summary}:null,navigation:navigation.getState(),map:gameMap.getState(),routeGuidance,cityView,aerialView,traveling,bootReady,shadows:{enabled:shadowsEnabled,active:renderer.shadowMap.enabled},drawCalls:renderer.info.render.calls,triangles:renderer.info.render.triangles,started,paused})};
   requestAnimationFrame(frame);
   const [roads]=await Promise.all([roadStream.loadAround(seed.spawn),world.prepareAt(seed.spawn,300),landscapeReady]);
   sim.setActiveCity({roads,buildings,isReadyAt:(x,z,radius)=>world.isReadyAt(x,z,radius),missionPoints:localDestinations(roads,seed.spawn)},{spawn:seed.spawn});city=sim.city;yaw=sim.player.angle;

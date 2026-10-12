@@ -19,6 +19,8 @@ Click **Explore New York** to open the full-city view. Enter an NYC address and 
 
 Drag to orbit and scroll to zoom. **All five boroughs** returns to the city view. Arrivals snap to a mapped street within 600 metres of the chosen point and wait for streets and building collision data to load. Locations with no nearby mapped street are rejected. Address lookup uses NYC Planning's public GeoSearch service, sends a request only when submitted, and requires an internet connection. Choosing a search result places a pin; it does not move the player until **Spawn here** is pressed.
 
+Press **M** or **MAP** for a street map centered on your neighborhood. Gameplay pauses while it is open. Scroll or use **+ / −** to zoom, drag the background to pan, and select **All five boroughs** to fit the whole city. **My location** returns to your position. Click or tap to place a destination pin, then drag the pin to adjust it. **Route here** draws a purple route and shows turn directions; **Spawn here** moves you to the selected valid position after the local city data loads. **Clear pin & route** removes the destination. Press **M**, **Escape** or **Back to game** to close the map. The compact minimap keeps the route and next turn visible while driving. When the map canvas has keyboard focus, arrow keys pan and **+ / −** zoom.
+
 On the street, press **E** to enter the nearby yellow taxi, then **N** to take a delivery. Stop inside the orange destination ring before the timer expires. Earnings and completed delivery count save in browser storage on this device. Sound starts muted; enable it with the top-right button.
 
 | Action | Keyboard | Controller |
@@ -30,7 +32,7 @@ On the street, press **E** to enter the nearby yellow taxi, then **N** to take a
 | Handbrake / slide | Space | X |
 | Delivery job | N | Y |
 | Look around | Drag mouse | Right stick |
-| Expand map | M | View / Back |
+| Open / close street map | M | View / Back |
 | Pause | Escape | Start |
 | Change chase camera | C | |
 | Street / aerial / city view | V | Right bumper |
@@ -70,7 +72,16 @@ python3 -m unittest discover -s tests -p test_street_detail.py
 
 The source manifest records each region's bounded query, source hash, feature counts and transport height metadata. Subsequent runs reuse matching query caches. Omit `--download` to rebuild offline.
 
-The street database covers 112,677 constructed drivable source segments. It is split into 1 km cells. Nearby cells feed the traffic graph and local minimap; distant cells are evicted. Borough shoreline polygons provide the full-city map outline. Preset destinations and double-click arrivals snap to actual streets.
+The street database covers 118,916 constructed road components, including multipart source segments. It is split into 1 km cells. Nearby cells feed the traffic graph and local minimap; distant cells are evicted. Borough shoreline polygons provide the full-city map outline. Preset destinations and double-click arrivals snap to actual streets.
+
+The street map loads `navigation-roads.json` once in the background. Its 5.02 MB compact representation preserves all 118,916 source components and 356,357 vertices at the original centimetre precision, along with names, traffic directions, boroughs and endpoint level codes. `route-planner.js` finds shortest-distance routes with A*. Only matching source endpoints at the same level connect; crossing lines do not create a junction. One-way roads retain their permitted direction, and the 164 tunnel components remain excluded from driving routes.
+
+Route pins snap to a mapped drivable road within 400 metres. Guidance ends at that road point; it does not invent a road from an off-street pin. Unconnected destinations show an unavailable-route message. The graph describes historical mapped connectivity, while detailed bridge approaches and multilevel driving surfaces remain incomplete in the game. The map therefore provides road guidance without guaranteeing every real route is physically reconstructed yet. Source hashes link the compact dataset to all 941 existing road tiles. Rebuild it offline with:
+
+```sh
+node scripts/build-navigation-data.mjs
+node --test tests/route-planner.test.js
+```
 
 ## Landscape reconstruction
 
@@ -129,6 +140,7 @@ The full map is available to render and explore, but this is a historical city m
 | --- | --- | --- |
 | Citywide 3D hierarchy | `dist/city-index.json`, `scripts/build-city-index.py` | [NYC OTI 3D Buildings Citywide](https://www.arcgis.com/home/item.html?id=a6961bc4505c44e8a495b53483491cc0), [NYC Open Data terms](https://cityofnewyork.github.io/opendatatsm/publicpolicies.html) |
 | Streets | `dist/road-index.json`, `dist/roads/`, `scripts/import-city-roads.py` | [NYC OTI Citywide Street Centerline](https://data.cityofnewyork.us/City-Government/NYC-Street-Centerline-CSCL-/inkn-q76z) |
+| Street map and routes | `dist/navigation-roads.json`, `dist/route-planner.js`, `dist/game-map.js`, `scripts/build-navigation-data.mjs` | Losslessly packed existing NYC CSCL road tiles with source hashes; no external routing provider |
 | Surveyed pavement and transport | `dist/street-detail-index.json`, `dist/street-detail/`, `scripts/import-street-detail.py` | NYC OTI 2022 planimetrics: [roadbeds](https://data.cityofnewyork.us/d/i36f-5ih7), [sidewalks](https://data.cityofnewyork.us/d/52n9-sdep), [curbs](https://data.cityofnewyork.us/d/5xvt-8cbk), [parking lots](https://services6.arcgis.com/yG5s3afENB5iO9fj/arcgis/rest/services/Parking_Lot_2022/FeatureServer/13), [transport structures](https://services6.arcgis.com/yG5s3afENB5iO9fj/arcgis/rest/services/Transport_Structure_2022/FeatureServer/25), [capture rules](https://github.com/CityOfNewYork/nyc-planimetrics/blob/main/Capture_Rules.md) |
 | Address search | `dist/geocoder.js`, requested on submission | [NYC Planning GeoSearch](https://geosearch.planninglabs.nyc/docs/), Property Address Directory |
 | Shorelines | `dist/boroughs.json` | NYC Department of City Planning borough boundaries, shoreline clipped |

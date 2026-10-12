@@ -8,7 +8,9 @@ export class HUD {
     this.previous = {};
   }
   text(id, text) { if(this.previous[id] !== text) { $(id).textContent = text; this.previous[id] = text; } }
+  attachMap(gameMap) { this.gameMap = gameMap; }
   toggleMap() {
+    if (this.gameMap) { this.gameMap.toggle();this.expanded = this.gameMap.open;return; }
     this.expanded = !this.expanded;
     $('map-panel').classList.toggle('expanded', this.expanded);
     $('map-button').setAttribute('aria-label', this.expanded ? 'Close expanded map' : 'Expand map');
@@ -52,6 +54,7 @@ export class HUD {
     this.drawMap(sim);
   }
   drawMap(sim) {
+    if (this.gameMap) { this.gameMap.setCity(this.city);this.gameMap.update(sim);return; }
     const c=this.ctx, size=this.map.width, {bounds,roads,buildings}=this.city;
     const span=this.expanded?Math.max(bounds.maxX-bounds.minX,bounds.maxZ-bounds.minZ)*1.1:240;
     const scale=size/span;

@@ -255,6 +255,15 @@ export class Simulation {
 
   _travelSpawn(spawn) {
     if (!Number.isFinite(spawn?.x) || !Number.isFinite(spawn?.z)) throw new Error('Travel requires finite map coordinates.');
+    if (spawn.exact) {
+      if (!this._mappedLand(spawn.x, spawn.z, PLAYER_RADIUS)) throw new Error('Choose dry land inside New York City. This pin is outside the mapped shoreline.');
+      // Pin travel starts on the ground, without a selected deck elevation.
+      // A road corridor crossing water therefore cannot make the water a safe
+      // spawn, even though that corridor remains traversable during driving.
+      if (this._landscapeContact?.(spawn.x, spawn.z, PLAYER_RADIUS)?.kind === 'water') throw new Error('This pin is in water. Choose clear, dry ground.');
+      if (this.isBlocked(spawn.x, spawn.z, PLAYER_RADIUS)) throw new Error('This pin is blocked or has not finished loading. Choose clear ground or try again when the city is ready.');
+      return { x: spawn.x, z: spawn.z, angle: finite(spawn.angle), name: spawn.name, exact: true };
+    }
     const candidates = [];
     for (const edge of this._graph.edges) {
       const point = closestOnSegment(spawn.x, spawn.z, edge.from.x, edge.from.z, edge.to.x, edge.to.z);
@@ -285,13 +294,15 @@ export class Simulation {
     this.cars = [];
     Object.assign(this.player, { x: target.x, z: target.z, y: undefined, transportId: null, angle: target.angle, speed: 0, mode: 'walk', vehicleId: null, velocityX: 0, velocityZ: 0 });
     this._seedCars();
-    const safe = this._findSafePoint(target.x, target.z, PLAYER_RADIUS);
+    const safe = target.exact ? target : this._findSafePoint(target.x, target.z, PLAYER_RADIUS);
     Object.assign(this.player, { x: safe.x, z: safe.z });
     this.updateGrounding();
     this._accumulator = 0;
     this._policeRouteTimer = 0;
     this._bustedTime = 0;
-    this._say(`Arrived${target.name ? ` at ${target.name}` : ''}. Your cab is nearby.`);
+    const arrival = target.exact ? this.cars.some(car => car.id === 'player-taxi')
+      ? 'A cab is waiting on a nearby street.' : 'Explore on foot.' : 'Your cab is nearby.';
+    this._say(`Arrived${target.name ? ` at ${target.name}` : ''}. ${arrival}`);
     return { x: this.player.x, z: this.player.z, angle: this.player.angle };
   }
 
@@ -471,22 +482,56 @@ export class Simulation {
     return car;
   }
 
+  _mappedLand(x, z, radius = 0) {
+    if (!Array.isArray(this.city.boroughs)) return true;
+    return [[0, 0], [radius, 0], [-radius, 0], [0, radius], [0, -radius]].every(([dx, dz]) =>
+      this.city.boroughs.some(borough => borough.polygons?.some(polygon => pointInPolygon(x + dx, z + dz, polygon.outer)
+        && !(polygon.holes || []).some(hole => pointInPolygon(x + dx, z + dz, hole)))));
+  }
+
+  _pinTaxiPlacement(spawn) {
+    const candidates = [];
+    for (const edge of this._graph.edges) {
+      // Exact ground pins do not establish access to a raised bridge, tunnel
+      // floor or pedestrian path. Keep the courtesy cab on a nearby street.
+      if (['tunnel', 'bridge', 'footway', 'pedestrian', 'path', 'steps', 'cycleway'].includes(edge.road.kind)
+        || edge.road.roadwayType === 3 || edge.road.roadwayType === 4) continue;
+      const nearest = closestOnSegment(spawn.x, spawn.z, edge.from.x, edge.from.z, edge.to.x, edge.to.z);
+      if (distance(nearest, spawn) > 120) continue;
+      for (const offset of [0, 8, -8, 20, -20]) {
+        const point = this._lanePoint(edge, clamp(nearest.t + offset / edge.length, .08, .92));
+        const gap = distance(point, spawn);
+        if (gap >= 4 && gap <= 120) candidates.push({ point, angle: edge.angle, gap });
+      }
+    }
+    candidates.sort((a, b) => a.gap - b.gap);
+    return candidates.find(({ point, angle }) => this._mappedLand(point.x, point.z, CAR_RADIUS)
+      && this._landscapeContact?.(point.x, point.z, CAR_RADIUS)?.kind !== 'water'
+      && !this._carContact(point.x, point.z, angle)
+      && !this._nearCar(point.x, point.z, CAR_RADIUS, 'player-taxi', this.groundHeight(point.x, point.z))) || null;
+  }
+
   _seedCars() {
     const spawn = this.city.spawn;
     let taxiPoint = null;
     let taxiAngle = spawn.angle || 0;
-    // Keep the cab close enough for the first interaction, with enough space
-    // between its body and the on-foot spawn that they never begin overlapping.
-    for (const offset of [[0, 3.8], [3.2, 0], [-3.2, 0], [0, -3.8], [4.5, 0], [-4.5, 0]]) {
-      const point = { x: spawn.x + Math.cos(taxiAngle) * offset[0] + Math.sin(taxiAngle) * offset[1], z: spawn.z - Math.sin(taxiAngle) * offset[0] + Math.cos(taxiAngle) * offset[1] };
-      if (!this._carContact(point.x, point.z, taxiAngle)) { taxiPoint = point; break; }
+    if (spawn.exact) {
+      const placement = this._pinTaxiPlacement(spawn);
+      if (placement) { taxiPoint = placement.point;taxiAngle = placement.angle; }
+    } else {
+      // Keep the cab close enough for the first interaction, with enough space
+      // between its body and the on-foot spawn that they never begin overlapping.
+      for (const offset of [[0, 3.8], [3.2, 0], [-3.2, 0], [0, -3.8], [4.5, 0], [-4.5, 0]]) {
+        const point = { x: spawn.x + Math.cos(taxiAngle) * offset[0] + Math.sin(taxiAngle) * offset[1], z: spawn.z - Math.sin(taxiAngle) * offset[0] + Math.cos(taxiAngle) * offset[1] };
+        if (!this._carContact(point.x, point.z, taxiAngle)) { taxiPoint = point; break; }
+      }
+      if (!taxiPoint) {
+        const nearest = this._nearestEdge(spawn.x, spawn.z);
+        if (nearest) { taxiPoint = this._lanePoint(nearest.edge, nearest.t); taxiAngle = nearest.edge.angle; }
+        else taxiPoint = this._findSafePoint(spawn.x + 4, spawn.z, 2.1);
+      }
     }
-    if (!taxiPoint) {
-      const nearest = this._nearestEdge(spawn.x, spawn.z);
-      if (nearest) { taxiPoint = this._lanePoint(nearest.edge, nearest.t); taxiAngle = nearest.edge.angle; }
-      else taxiPoint = this._findSafePoint(spawn.x + 4, spawn.z, 2.1);
-    }
-    this.cars.push(this._makeCar('player-taxi', 'taxi', taxiPoint, taxiAngle));
+    if (taxiPoint) this.cars.push(this._makeCar('player-taxi', 'taxi', taxiPoint, taxiAngle));
     const edges = this._graph.edges.filter(edge => edge.length > 16);
     if (!edges.length) return;
     for (let i = 0; i < 15; i++) {
@@ -602,10 +647,14 @@ export class Simulation {
     if (car) { car.controlled = false; car.parked = true; resetVehicleDynamics(car); }
     const taxi = this.cars.find(item => item.id === 'player-taxi');
     if (taxi) {
-      const angle = this.city.spawn.angle || 0;
-      const recovered = this._resolvePosition(this.city.spawn.x + Math.sin(angle) * 3.8, this.city.spawn.z + Math.cos(angle) * 3.8, CAR_RADIUS, angle);
-      Object.assign(taxi, { x: recovered.x, z: recovered.z, y: undefined, transportId: null, angle, speed: 0, parked: true, controlled: false });
-      resetVehicleDynamics(taxi);
+      const placement = this.city.spawn.exact ? this._pinTaxiPlacement(this.city.spawn) : null;
+      if (this.city.spawn.exact && !placement) this.cars = this.cars.filter(car => car !== taxi);
+      else {
+        const angle = placement?.angle ?? this.city.spawn.angle ?? 0;
+        const recovered = placement?.point || this._resolvePosition(this.city.spawn.x + Math.sin(angle) * 3.8, this.city.spawn.z + Math.cos(angle) * 3.8, CAR_RADIUS, angle);
+        Object.assign(taxi, { x: recovered.x, z: recovered.z, y: undefined, transportId: null, angle, speed: 0, parked: true, controlled: false });
+        resetVehicleDynamics(taxi);
+      }
     }
     const point = this._findSafePoint(this.city.spawn.x, this.city.spawn.z, PLAYER_RADIUS);
     Object.assign(this.player, { ...point, y: undefined, transportId: null, angle: this.city.spawn.angle || 0, speed: 0, mode: 'walk', vehicleId: null, velocityX: 0, velocityZ: 0 });

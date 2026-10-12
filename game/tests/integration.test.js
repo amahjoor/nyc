@@ -17,6 +17,8 @@ import { createRoadStream, nearestStreet, localDestinations, cellsAround } from 
 import { createCityNavigation } from '../dist/city-navigation.js';
 import { createStreetDetail } from '../dist/street-detail.js';
 import { Landscape } from '../dist/landscape.js';
+import { GameMap } from '../dist/game-map.js';
+import { createRoutePlanner } from '../dist/route-planner.js';
 
 // This is application integration QA, not a browser/GPU rendering test. The
 // actual city geometry, physics, input and HUD run; browser primitives are fake.
@@ -47,7 +49,7 @@ class EventTarget {
   }
   dispatch(name, detail = {}) {
     const event = { target: this, button:0, preventDefault() { this.defaultPrevented = true; },
-      stopPropagation() { this.propagationStopped=true; }, ...detail, currentTarget:this };
+      stopPropagation() { this.propagationStopped=true; }, stopImmediatePropagation() { this.propagationStopped=true; }, ...detail, currentTarget:this };
     for (const listener of this.listeners.get(name) || []) listener(event);
     if(event.bubbles&&!event.propagationStopped&&this.parentElement)this.parentElement.dispatch(name,event);
     return event;
@@ -56,7 +58,7 @@ class EventTarget {
 
 function canvasContext() {
   const context = {};
-  for (const method of ['quadraticCurveTo', 'drawImage', 'fillRect', 'strokeRect', 'clearRect', 'beginPath', 'closePath', 'moveTo', 'lineTo', 'roundRect', 'arc', 'fill', 'stroke', 'fillText', 'save', 'restore', 'translate', 'rotate', 'setLineDash']) {
+  for (const method of ['setTransform', 'quadraticCurveTo', 'drawImage', 'fillRect', 'strokeRect', 'clearRect', 'beginPath', 'closePath', 'moveTo', 'lineTo', 'roundRect', 'arc', 'fill', 'stroke', 'fillText', 'save', 'restore', 'translate', 'rotate', 'setLineDash']) {
     context[method] = () => {};
   }
   context.createLinearGradient = () => ({ addColorStop() {} });
@@ -134,7 +136,7 @@ function makeDocument() {
   return { document, elements };
 }
 
-async function bootHarness({ stored = null, displayStored = null, unavailableStorage = false, fetchOK = true, geometryOK = true, imageryOK = true, streetFailure = null, landscapeFailure = false, terrainElevation = 0, coarsePointer = false, holdRoads = () => false, holdLandscape = () => false, measuredLandscape = false, extraGeometry = [], geocodeFetch = null } = {}) {
+async function bootHarness({ stored = null, displayStored = null, unavailableStorage = false, fetchOK = true, geometryOK = true, imageryOK = true, streetFailure = null, landscapeFailure = false, navigationFailure = false, baseWaterFailure = false, terrainElevation = 0, coarsePointer = false, holdRoads = () => false, holdLandscape = () => false, measuredLandscape = false, extraGeometry = [], geocodeFetch = null } = {}) {
   const { document, elements } = makeDocument();
   const window = new EventTarget();
   const pads = [];
@@ -197,6 +199,8 @@ async function bootHarness({ stored = null, displayStored = null, unavailableSto
     if(this!=null&&this!==globalThis)throw new TypeError("Failed to execute 'fetch' on 'Window': Illegal invocation");
     url=String(url);requests.push(url);
     if(!fetchOK)return {ok:false,status:503};
+    if(navigationFailure&&url==='./navigation-roads.json')return {ok:false,status:503};
+    if(baseWaterFailure&&url==='./landscape/nyc-water.json')return {ok:false,status:503};
     if(landscapeFailure&&url==='./landscape-index.json')return {ok:false,status:503};
     if(streetFailure==='stalled-index'&&url==='./street-detail-index.json')return new Promise(()=>{});
     if(streetFailure==='index'&&url==='./street-detail-index.json')return {ok:false,status:503};
@@ -233,7 +237,7 @@ async function bootHarness({ stored = null, displayStored = null, unavailableSto
   const context = vm.createContext({
     ...globals,
     THREE: { ...THREE, WebGLRenderer: RendererStub },
-    createCar, createPerson, updateCarVisuals, Simulation, Input, HUD, CityAudio,
+    createCar, createPerson, updateCarVisuals, Simulation, Input, HUD, CityAudio, GameMap, createRoutePlanner,
     createCityStream:(fullIndex,options)=>{
       assert.equal(fullIndex.stats.buildingFeatures,index.stats.buildingFeatures);
       return createCityStream(geometryIndex,options);
@@ -251,7 +255,7 @@ async function bootHarness({ stored = null, displayStored = null, unavailableSto
     },
   });
   function close() {
-    vm.runInContext('if(typeof navigation!=="undefined")navigation?.dispose?.();landscape?.dispose();streetDetail?.dispose();world?.dispose();ground?.dispose();',context);
+    vm.runInContext('if(typeof gameMap!=="undefined")gameMap?.dispose?.();if(typeof navigation!=="undefined")navigation?.dispose?.();landscape?.dispose();streetDetail?.dispose();world?.dispose();ground?.dispose();',context);
     for (const [key, descriptor] of original) {
       if (descriptor) Object.defineProperty(globalThis, key, descriptor);
       else delete globalThis[key];
@@ -272,6 +276,7 @@ async function bootHarness({ stored = null, displayStored = null, unavailableSto
     return {
       close, errors, elements, storage, pads, window, document, rendererInstances, requests, imageRequests, until,
       setStreetFailure:value=>{streetFailure=value;},
+      setBaseWaterFailure:value=>{baseWaterFailure=value;},
       advanceTime:milliseconds=>{timestamp+=milliseconds;},
       releaseRoads:()=>roadWaiters.splice(0).forEach(resolve=>resolve()),
       waitingRoads:()=>roadWaiters.length,
@@ -279,6 +284,7 @@ async function bootHarness({ stored = null, displayStored = null, unavailableSto
       waitingLandscape:()=>landscapeWaiters.length,
       state: () => window.nycGame.getState(),
       simulation: () => vm.runInContext('sim', context),
+      gameMap: () => vm.runInContext('gameMap', context),
       camera: () => vm.runInContext('({position:camera.position.clone(),quaternion:camera.quaternion.clone(),yaw,near:camera.near,far:camera.far,fov:camera.fov})',context),
       renderState: () => vm.runInContext('({scene,localOrthophoto:ground.localOrthophoto,roofUniforms:world.orthoUniforms})',context),
       vehicleVisual() {
@@ -364,8 +370,9 @@ test('five-borough app boots, walks, enters a cab, delivers, saves and pauses th
     assert.equal(app.elements.get('mission-title').textContent, app.state().mission.target.name);
     assert.equal(app.elements.get('speed-unit').textContent, 'MPH');
     app.click('map-button');
-    assert.ok(app.elements.get('map-panel').classes.has('expanded'));
-    assert.equal(app.elements.get('minimap').width, 1000);
+    assert.equal(app.elements.get('game-map').hidden,false);
+    assert.equal(app.state().map.open,true);
+    app.click('game-map-close');
     app.key('KeyW'); app.frames(20); app.key('KeyW', false);
     assert.ok(app.state().player.speed > 1, 'accelerator reaches the actual controlled car');
 
@@ -1263,5 +1270,119 @@ test('uneven-road camera uses one elevation anchor without pitching at every bum
     }
     assert.ok(Math.max(...pitches)-Math.min(...pitches)<.0001,'vertical bumps must not nod the whole view');
     assert.equal(app.errors.length,0);
+  }finally{app.close();}
+});
+
+function dropGameMapPin(app,point){
+  const view=app.state().map.view,canvas=app.elements.get('game-map-canvas');
+  const clientX=(point.x-view.x)*view.width/view.span+view.width/2;
+  const clientY=(point.z-view.z)*view.width/view.span+view.height/2;
+  canvas.dispatch('pointerdown',{pointerId:5,clientX,clientY});
+  canvas.dispatch('pointerup',{pointerId:5,clientX,clientY});
+}
+
+test('interactive map opens from city view, zooms, pans, and pauses driving without pausing the menu',async()=>{
+  const app=await bootHarness();
+  try{
+    app.click('start-button');app.frames(2);app.key('KeyM');app.key('KeyM',false);
+    assert.equal(app.state().map.open,true);assert.equal(app.elements.get('game-map').hidden,false);
+    assert.equal(app.state().map.view.span,1000);
+    app.click('game-map-city');assert.ok(app.state().map.view.span>40000);
+    app.click('game-map-zoom-in');const zoom=app.state().map.view.span;
+    assert.ok(zoom<70000);app.click('game-map-recenter');assert.equal(app.state().map.view.span,1000);
+    app.click('game-map-close');app.click('view-button');app.key('KeyE');app.key('KeyE',false);
+    app.key('KeyW');app.frames(30);app.key('KeyW',false);assert.equal(app.state().player.mode,'drive');
+    app.click('open-map-button');const before=app.state().player;
+    app.key('KeyW');app.frames(30);app.key('KeyW',false);
+    assert.deepEqual(app.state().player,before);assert.equal(app.state().paused,false);
+    app.key('Escape');app.key('Escape',false);assert.equal(app.state().map.open,false);
+    assert.equal(app.elements.get('pause-dialog').open,false);
+    app.key('KeyW');app.frames(12);app.key('KeyW',false);assert.notEqual(app.state().player.x,before.x);
+    app.key('Escape');app.key('Escape',false);app.key('KeyM');app.key('KeyM',false);
+    assert.equal(app.state().paused,true);assert.equal(app.state().map.open,false,'native pause dialogs own input until resumed');
+    app.click('resume-button');app.click('open-map-button');app.document.hidden=true;app.document.dispatch('visibilitychange');
+    assert.equal(app.state().map.open,false,'losing visibility closes the map before displaying the pause dialog');
+    assert.equal(app.state().paused,true);
+    assert.equal(app.errors.length,0,app.errors[0]?.stack);
+  }finally{app.close();}
+});
+
+test('map pins produce real street routes, live guidance, reroutes and can be cleared',async()=>{
+  const app=await bootHarness();
+  try{
+    app.click('start-button');app.frames(2);app.click('open-map-button');
+    const destination=app.roadIndex().places.find(place=>/times/i.test(place.name));assert.ok(destination);
+    app.click('game-map-city');dropGameMapPin(app,destination);app.click('game-map-route');
+    await app.until(()=>!app.state().map.busy);
+    assert.ok(app.state().map.route?.points.length>20,app.elements.get('game-map-status').textContent);
+    assert.ok(app.state().map.route.distance>3000);
+    assert.equal(app.elements.get('route-guide').hidden,false);assert.match(app.elements.get('route-instruction').textContent,/remaining/);
+    const original=app.state().map.route.points[0];
+    app.click('game-map-close');app.click('view-button');
+    // Move to a known off-route street to exercise production cooldown/replan.
+    const sim=app.simulation(),candidate=sim.city.roads.flatMap(road=>road.points)
+      .find(([x,z])=>Math.hypot(x-original[0],z-original[1])>500&&x<original[0]-150);
+    assert.ok(candidate);Object.assign(sim.player,{x:candidate[0],z:candidate[1]});app.frames(180);
+    const rerouted=app.state().map.route.points[0];assert.ok(Math.hypot(rerouted[0]-original[0],rerouted[1]-original[1])>200);
+    app.click('open-map-button');app.click('game-map-clear');
+    assert.equal(app.state().map.route,null);assert.equal(app.state().map.pin,null);assert.equal(app.elements.get('route-guide').hidden,true);
+    assert.equal(app.errors.length,0,app.errors[0]?.stack);
+  }finally{app.close();}
+});
+
+test('Spawn here waits for destination data, preserves the exact pin and closes the map only on success',async()=>{
+  let hold=false;const app=await bootHarness({holdRoads:url=>hold&&url.startsWith('./roads/')});
+  try{
+    app.click('start-button');app.frames(2);app.click('open-map-button');
+    const destination=app.roadIndex().places.find(place=>place.borough==='Staten Island');assert.ok(destination);
+    // Pick a clear point on that destination's actual centerline after loading
+    // its source extract offline; gameplay must still fetch those cells itself.
+    const stream=createRoadStream(app.roadIndex());const roads=await stream.loadAround(destination,1000);
+    const target=nearestStreet(roads,destination,600);assert.ok(target);
+    app.click('game-map-city');dropGameMapPin(app,target);
+    const selected=app.state().map.pin,before=app.state().player;hold=true;app.click('game-map-spawn');
+    await app.until(()=>app.waitingRoads()>0);
+    assert.equal(app.state().traveling,true);assert.deepEqual(app.state().player,before);assert.equal(app.state().map.open,true);
+    hold=false;app.releaseRoads();await app.until(()=>!app.state().map.busy);
+    assert.equal(app.state().map.open,false,app.elements.get('game-map-status').textContent);
+    assert.equal(app.state().player.x,selected.x);assert.equal(app.state().player.z,selected.z);assert.equal(app.state().player.mode,'walk');
+    assert.equal(app.state().cityView,false);assert.equal(app.errors.length,0,app.errors[0]?.stack);
+  }finally{hold=false;app.releaseRoads();await app.until(()=>!app.state().traveling);app.close();}
+});
+
+test('unavailable routes and invalid water pins show useful errors without losing the player or disabling the map',async()=>{
+  const app=await bootHarness({navigationFailure:true});
+  try{
+    app.click('start-button');app.frames(8);app.click('open-map-button');
+    assert.ok(app.gameMap().roads.length>10,'loaded nearby streets survive a citywide navigation download failure');
+    dropGameMapPin(app,{x:app.state().player.x+30,z:app.state().player.z});app.click('game-map-route');
+    await app.until(()=>!app.state().map.busy);assert.match(app.elements.get('game-map-status').textContent,/directions could not load/);
+    const before=app.state().player;app.click('game-map-city');dropGameMapPin(app,{x:-1500,z:-3500});app.click('game-map-spawn');
+    await app.until(()=>!app.state().map.busy);
+    assert.deepEqual(app.state().player,before);assert.equal(app.state().map.open,true);
+    assert.match(app.elements.get('game-map-status').textContent,/shoreline|water/);
+    assert.equal(app.elements.get('game-map-clear').disabled,false);
+    assert.equal(app.errors.length,0,app.errors[0]?.stack);
+  }finally{app.close();}
+});
+
+
+test('pin spawning requires citywide water data even when measured ground has loaded',async()=>{
+  const app=await bootHarness({baseWaterFailure:true});
+  try{
+    app.click('start-button');app.frames(2);app.click('open-map-button');
+    assert.equal(app.state().landscape.baseReady,true);
+    const before=app.state().player;app.click('game-map-city');dropGameMapPin(app,{x:8554.682909090909,z:-19372.682});
+    app.click('game-map-spawn');await app.until(()=>!app.state().map.busy);
+    assert.equal(app.state().map.open,true);assert.deepEqual(app.state().player,before);
+    assert.match(app.elements.get('game-map-status').textContent,/water.*unavailable|water.*load/i);
+    // A second attempt can recover without restarting the game or rebuilding
+    // terrain. An unavailable safety layer must not become a permanent lockout.
+    app.setBaseWaterFailure(false);app.click('game-map-clear');app.click('game-map-recenter');dropGameMapPin(app,before);
+    const selected=app.state().map.pin;
+    app.click('game-map-spawn');await app.until(()=>!app.state().map.busy);
+    assert.equal(app.state().landscape.baseWaterReady,true);
+    assert.equal(app.state().map.open,false,app.elements.get('game-map-status').textContent);
+    assert.equal(app.state().player.x,selected.x);assert.equal(app.state().player.z,selected.z);
   }finally{app.close();}
 });
