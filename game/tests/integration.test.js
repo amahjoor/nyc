@@ -15,6 +15,7 @@ import { createCityGround, worldToGeographic } from '../dist/city-ground.js';
 import { createRoadStream, nearestStreet, localDestinations, cellsAround } from '../dist/road-stream.js';
 import { createCityNavigation } from '../dist/city-navigation.js';
 import { createStreetDetail } from '../dist/street-detail.js';
+import { Landscape } from '../dist/landscape.js';
 
 // This is application integration QA, not a browser/GPU rendering test. The
 // actual city geometry, physics, input and HUD run; browser primitives are fake.
@@ -132,7 +133,7 @@ function makeDocument() {
   return { document, elements };
 }
 
-async function bootHarness({ stored = null, unavailableStorage = false, fetchOK = true, geometryOK = true, imageryOK = true, streetFailure = null, coarsePointer = false, holdRoads = () => false, geocodeFetch = null } = {}) {
+async function bootHarness({ stored = null, unavailableStorage = false, fetchOK = true, geometryOK = true, imageryOK = true, streetFailure = null, landscapeFailure = false, terrainElevation = 0, coarsePointer = false, holdRoads = () => false, geocodeFetch = null } = {}) {
   const { document, elements } = makeDocument();
   const window = new EventTarget();
   const pads = [];
@@ -185,6 +186,7 @@ async function bootHarness({ stored = null, unavailableStorage = false, fetchOK 
     if(this!=null&&this!==globalThis)throw new TypeError("Failed to execute 'fetch' on 'Window': Illegal invocation");
     url=String(url);requests.push(url);
     if(!fetchOK)return {ok:false,status:503};
+    if(landscapeFailure&&url==='./landscape-index.json')return {ok:false,status:503};
     if(streetFailure==='stalled-index'&&url==='./street-detail-index.json')return new Promise(()=>{});
     if(streetFailure==='index'&&url==='./street-detail-index.json')return {ok:false,status:503};
     if(streetFailure==='chunks'&&url.startsWith('./street-detail/'))return {ok:false,status:503};
@@ -199,7 +201,13 @@ async function bootHarness({ stored = null, unavailableStorage = false, fetchOK 
       return {ok:true,arrayBuffer:async()=>fixtureBuffers.get(resource).slice(0)};
     }
     assert.ok(!/^https?:/.test(url),`integration test attempted an external request: ${url}`);
-    const data=JSON.parse(readFileSync(new URL(`../dist/${url.replace(/^\.\//,'')}`,import.meta.url),'utf8'));
+    let data=JSON.parse(readFileSync(new URL(`../dist/${url.replace(/^\.\//,'')}`,import.meta.url),'utf8'));
+    // Geometry/source tests verify the complete DEMs. This application's offline
+    // fixture keeps their real bounds with a known elevation to expose flat-Y
+    // integration bugs without allocating every citywide grid in every UI test.
+    if(url.startsWith('./landscape/'))data=data.heights
+      ?{...data,width:2,height:2,heights:Array(4).fill(terrainElevation)}
+      :{...data,water:[],canopies:[]};
     if(Array.isArray(data.roads)&&holdRoads(url))await new Promise(resolve=>roadWaiters.push(resolve));
     return {ok:true,json:async()=>structuredClone(data)};
   };
@@ -216,6 +224,7 @@ async function bootHarness({ stored = null, unavailableStorage = false, fetchOK 
     },
     createCityGround, worldToGeographic, createRoadStream, nearestStreet, localDestinations, createCityNavigation,
     createStreetDetail:(manifest,options)=>createStreetDetail(manifest,{...options,now:()=>timestamp}),
+    Landscape, AbortSignal,
     console: { error: error => errors.push(error), warn: () => {}, log: () => {} },
     matchMedia: () => ({ matches: coarsePointer }),
     innerWidth: 1440, innerHeight: 900, devicePixelRatio: 2,
@@ -226,7 +235,7 @@ async function bootHarness({ stored = null, unavailableStorage = false, fetchOK 
     },
   });
   function close() {
-    vm.runInContext('if(typeof navigation!=="undefined")navigation?.dispose?.();streetDetail?.dispose();world?.dispose();ground?.dispose();',context);
+    vm.runInContext('if(typeof navigation!=="undefined")navigation?.dispose?.();landscape?.dispose();streetDetail?.dispose();world?.dispose();ground?.dispose();',context);
     for (const [key, descriptor] of original) {
       if (descriptor) Object.defineProperty(globalThis, key, descriptor);
       else delete globalThis[key];
@@ -1079,6 +1088,42 @@ test('explicit map-pick mode selects geographic points without orbiting or immed
     app.click('pick-spawn-button');assert.equal(app.state().navigation.picking,true);
     app.click('view-button');assert.equal(app.state().cityView,false);assert.equal(app.state().navigation.picking,false);
     assert.equal(navigation.classes.has('is-picking'),false);
+    assert.equal(app.errors.length,0,app.errors[0]?.stack);
+  }finally{app.close();}
+});
+
+
+test('measured landscape boots at elevation and supports park travel through the production UI',async()=>{
+  const app=await bootHarness({terrainElevation:28});
+  try{
+    assert.equal(app.errors.length,0,app.errors[0]?.stack);
+    assert.equal(app.state().landscape.baseReady,true);
+    assert.equal(app.state().player.y,28);
+    app.click('start-button');app.click('view-button');app.frames(90);
+    assert.ok(app.camera().position.y>28,'street camera must remain above measured ground');
+    app.key('KeyV');app.key('KeyV',false);app.frames();
+    assert.equal(app.camera().position.y,268,'aerial eye height is relative to measured ground');
+    app.click('city-button');
+    app.click('landscape-travel-button');
+    await app.until(()=>!app.state().traveling);
+    app.frames(2);
+    assert.equal(app.state().player.y,28);
+    assert.ok(app.state().landscape.cachedRegions>0);
+    assert.equal(app.state().cityView,false);
+    assert.ok(app.state().reconstruction.summary.accepted>0);
+    assert.equal(app.errors.length,0,app.errors[0]?.stack);
+  }finally{app.close();}
+});
+
+test('landscape source failure leaves existing city exploration available',async()=>{
+  const app=await bootHarness({landscapeFailure:true});
+  try{
+    assert.equal(app.state().bootReady,true);
+    assert.equal(app.state().landscape,null);
+    assert.equal(app.elements.get('landscape-travel-button').disabled,true);
+    assert.match(app.elements.get('landscape-status').textContent,/unavailable/);
+    app.click('start-button');app.click('view-button');app.frames();
+    assert.equal(app.state().player.y,0);
     assert.equal(app.errors.length,0,app.errors[0]?.stack);
   }finally{app.close();}
 });

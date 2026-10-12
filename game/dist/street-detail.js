@@ -1,9 +1,58 @@
 import * as THREE from './vendor/three.module.min.js';
 import { cellsAround } from './road-stream.js';
 
-// Source polygons describe plan positions only. Keep them on the existing
-// driving plane, without inventing curb elevations or pavement materials.
-export function buildStreetGeometry(surfaces, orthophoto, memo = new Map()) {
+// Source polygons supply plan positions, while the measured terrain supplies
+// elevation. There is still no invented curb step or pavement material.
+function drapeStreetPart(part, heightAt, revision) {
+  if (part.heightAt === heightAt && part.terrainRevision === revision) return;
+  const coordinates = [...part.baseCoordinates], indices = [], midpoints = new Map(), midpointHeights = new Map();
+  const sample = (x,z) => {const value=heightAt?.(x,z);return Number.isFinite(value)?value:0;};
+  const heights = Array.from({length:coordinates.length/2},(_,i)=>sample(coordinates[i*2],coordinates[i*2+1]));
+  const pending = [];
+  for (let i = 0; i < part.baseIndices.length; i += 3) pending.push([...part.baseIndices.slice(i, i + 3), 0]);
+  const originalCount = coordinates.length / 2;
+  while (pending.length) {
+    const [a, b, c, depth] = pending.pop();
+    let edge = [a, b, c], longest = -1;
+    for (const candidate of [[a,b,c], [b,c,a], [c,a,b]]) {
+      const [u,v] = candidate, length = (coordinates[u*2]-coordinates[v*2])**2 + (coordinates[u*2+1]-coordinates[v*2+1])**2;
+      if (length > longest) { longest = length;edge = candidate; }
+    }
+    let curved = false;
+    if(heightAt && longest > 12*12){
+      for(const [u,v] of [[a,b],[b,c],[c,a]]){
+        const key=u<v?`${u},${v}`:`${v},${u}`;
+        if(!midpointHeights.has(key))midpointHeights.set(key,sample((coordinates[u*2]+coordinates[v*2])/2,(coordinates[u*2+1]+coordinates[v*2+1])/2));
+        curved ||= Math.abs(midpointHeights.get(key)-(heights[u]+heights[v])/2)>.08;
+      }
+      curved ||= Math.abs(sample((coordinates[a*2]+coordinates[b*2]+coordinates[c*2])/3,
+        (coordinates[a*2+1]+coordinates[b*2+1]+coordinates[c*2+1])/3)-(heights[a]+heights[b]+heights[c])/3)>.08;
+    }
+    // Refine only where measured terrain bends away from the source triangle.
+    // Flat ground and constant slopes need no extra vertices. Curved patches
+    // refine toward 12 m edges with a strict per-feature work/vertex limit.
+    if (curved && depth < 12 && coordinates.length/2-originalCount < 2048) {
+      const [u,v,w] = edge, key = u < v ? `${u},${v}` : `${v},${u}`;
+      let midpoint = midpoints.get(key);
+      if (midpoint === undefined) {
+        midpoint = coordinates.length/2;
+        coordinates.push((coordinates[u*2]+coordinates[v*2])/2, (coordinates[u*2+1]+coordinates[v*2+1])/2);
+        heights.push(midpointHeights.get(key));
+        midpoints.set(key, midpoint);
+      }
+      pending.push([u,midpoint,w,depth+1], [midpoint,v,w,depth+1]);
+    } else indices.push(a,b,c);
+  }
+  part.coordinates = new Float64Array(coordinates);part.indices = new Uint32Array(indices);
+  part.positions = new Float32Array(coordinates.length/2*3);part.uvs = new Float32Array(coordinates.length);
+  for (let i = 0; i < coordinates.length; i += 2) {
+    const x = coordinates[i], z = coordinates[i+1];
+    part.positions[i/2*3] = x;part.positions[i/2*3+1] = heights[i/2];part.positions[i/2*3+2] = z;
+  }
+  part.heightAt = heightAt;part.terrainRevision = revision;part.layout = null;
+}
+
+export function buildStreetGeometry(surfaces, orthophoto, memo = new Map(), heightAt = null, terrainRevision = 0) {
   const parts = [], ids = new Set();let vertexCount = 0, indexCount = 0;
   const { bounds, mercator } = orthophoto;
   const layout = [bounds.minX, bounds.maxX, bounds.minZ, bounds.maxZ,
@@ -30,8 +79,11 @@ export function buildStreetGeometry(surfaces, orthophoto, memo = new Map()) {
         const cross = (q.x - p.x) * (r.y - p.y) - (q.y - p.y) * (r.x - p.x);
         part.indices.set([a, cross > 0 ? c : b, cross > 0 ? b : c], i * 3);
       }
+      part.baseCoordinates = part.coordinates;part.baseIndices = part.indices;
+      part.heightAt = null;part.terrainRevision = 0;
       memo.set(surface.id, part);
     }
+    drapeStreetPart(part, heightAt, terrainRevision);
     if (part.layout !== layout) {
       for (let i = 0; i < part.coordinates.length; i += 2) {
         const x = part.coordinates[i], z = part.coordinates[i + 1];
@@ -54,19 +106,21 @@ export function buildStreetGeometry(surfaces, orthophoto, memo = new Map()) {
     for (let i = 0; i < part.indices.length; i++) indices[indexOffset + i] = vertexOffset + part.indices[i];
     vertexOffset += part.positions.length / 3;indexOffset += part.indices.length;
   }
-  // Every surveyed surface is explicitly mapped onto y=0; its upward normal
-  // is exact and does not require recalculating a quarter-million triangles.
+  // Flat callers retain exact upward normals; terrain callers need normals
+  // from the draped mesh so sunlight follows the actual ground slope.
   for (let i = 1; i < normals.length; i += 3) normals[i] = 1;
   const geometry = new THREE.BufferGeometry();
   geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
   geometry.setAttribute('normal', new THREE.BufferAttribute(normals, 3));
   geometry.setAttribute('uv', new THREE.BufferAttribute(uvs, 2));
-  geometry.setIndex(new THREE.BufferAttribute(indices, 1));geometry.computeBoundingSphere();
+  geometry.setIndex(new THREE.BufferAttribute(indices, 1));
+  if (heightAt) geometry.computeVertexNormals();
+  geometry.computeBoundingSphere();
   geometry.userData.sourceIds = [...ids];
   return geometry;
 }
 
-export function createStreetDetail(index, { scene, orthophoto, fetcher = globalThis.fetch.bind(globalThis), onStatus = () => {}, now = () => Date.now() } = {}) {
+export function createStreetDetail(index, { scene, orthophoto, heightAt = null, fetcher = globalThis.fetch.bind(globalThis), onStatus = () => {}, now = () => Date.now() } = {}) {
   const group = new THREE.Group();group.name = 'NYC mapped street surfaces';scene.add(group);
   const material = new THREE.MeshStandardMaterial({ map: orthophoto.texture, color: 0xffffff, roughness: 1, metalness: 0,
     // Old building bottom caps can overlap newer mapped sidewalks at y=0.
@@ -100,6 +154,7 @@ export function createStreetDetail(index, { scene, orthophoto, fetcher = globalT
   const mesh = new THREE.Mesh(new THREE.BufferGeometry(), material);mesh.receiveShadow = true;group.add(mesh);
   const cache = new Map(), pending = new Map(), errors = new Map(), triangulations = new Map();
   let wanted = new Map(), serial = 0, disposed = false, dirty = false, selection = '', covered = false;
+  let terrainRevision = 0;
   const status = () => ({ cachedCells: cache.size, loading: pending.size,
     activeCells: [...wanted.keys()].filter(key => cache.has(key)).length,
     surfaces: mesh.geometry.userData.sourceIds?.length || 0,
@@ -108,7 +163,7 @@ export function createStreetDetail(index, { scene, orthophoto, fetcher = globalT
   function rebuild() {
     const surfaces = [];
     for (const key of wanted.keys()) if (cache.has(key)) surfaces.push(...cache.get(key).data.surfaces);
-    const previous = mesh.geometry;mesh.geometry = buildStreetGeometry(surfaces, orthophoto, triangulations);previous.dispose();dirty = false;
+    const previous = mesh.geometry;mesh.geometry = buildStreetGeometry(surfaces, orthophoto, triangulations, heightAt, terrainRevision);previous.dispose();dirty = false;
   }
   function pump() {
     if (disposed) return;
@@ -177,6 +232,10 @@ export function createStreetDetail(index, { scene, orthophoto, fetcher = globalT
       uniforms.streetLocal.value = texture;
       uniforms.streetLocalBounds.value.set(bounds.minX, bounds.maxX, bounds.minZ, bounds.maxZ);
       uniforms.streetMercator.value.set(mercator.north, mercator.south, mercator.originLat, mercator.radius);
+    },
+    setTerrainSampler(sampler, revision = terrainRevision + 1) {
+      if (disposed || (heightAt === sampler && terrainRevision === revision)) return;
+      heightAt = typeof sampler === 'function' ? sampler : null;terrainRevision = revision;dirty = true;
     },
     getStatus: status,
     dispose() {

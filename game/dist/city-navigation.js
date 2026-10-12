@@ -2,12 +2,43 @@ import * as THREE from './vendor/three.module.min.js';
 import { worldToGeographic } from './city-ground.js';
 import { searchAddresses } from './geocoder.js';
 
+const flatHeight = () => 0;
+const finiteHeight = (heightAt, x, z) => { const height=heightAt(x,z);return Number.isFinite(height)?height:0; };
+
+/** Intersect the map's downward view ray with the sampled elevation surface. */
+export function intersectTerrainRay(ray, heightAt = flatHeight, maxDistance = 200000) {
+  if(ray.direction.y>=-1e-6||!Number.isFinite(maxDistance)||maxDistance<=0)return null;
+  const point=new THREE.Vector3();
+  let distance=Math.max(0,Math.min(maxDistance,-ray.origin.y/ray.direction.y));
+  // Plane projection is just an initial estimate. Re-sample at the resulting
+  // X/Z because moving the hit upward also moves it horizontally on a slope.
+  for(let i=0;i<12;i++){
+    ray.at(distance,point);
+    const height=finiteHeight(heightAt,point.x,point.z), residual=point.y-height;
+    if(Math.abs(residual)<.005)return point.clone();
+    const next=distance-residual/ray.direction.y;
+    if(next<0||next>maxDistance)break;
+    distance=i?next*.8+distance*.2:next;
+  }
+  // Steep or changing slopes can make fixed-point iteration oscillate. A
+  // bounded bracketed solve keeps map picking stable while terrain streams.
+  let low=0, high=maxDistance;
+  const residual=t=>{ray.at(t,point);return point.y-finiteHeight(heightAt,point.x,point.z);};
+  if(residual(low)<0||residual(high)>0)return null;
+  for(let i=0;i<40;i++){
+    const mid=(low+high)/2, value=residual(mid);
+    if(Math.abs(value)<.005)return point.clone();
+    if(value>0)low=mid;else high=mid;
+  }
+  ray.at((low+high)/2,point);return point.clone();
+}
+
 /** Address and map selections share the game's existing street-safe travel path. */
-export function createCityNavigation({ canvas, camera, input, bounds, onTravel, onAddressSelected = () => {} }) {
+export function createCityNavigation({ canvas, camera, input, bounds, onTravel, heightAt = flatHeight, onAddressSelected = () => {} }) {
   const $ = id => document.getElementById(id);
   let visible=false, traveling=false, picking=false, selected=null, dragging=null;
   let searching=false, searchEpoch=0, searchController=null;
-  const ray=new THREE.Raycaster(), plane=new THREE.Plane(new THREE.Vector3(0,1,0),0);
+  const ray=new THREE.Raycaster();
   const pinPoint=new THREE.Vector3();
 
   function controls() {
@@ -54,7 +85,7 @@ export function createCityNavigation({ canvas, camera, input, bounds, onTravel, 
     // the first render after changing view, so a click matches the visible map.
     camera.updateMatrixWorld();
     ray.setFromCamera(new THREE.Vector2((event.clientX-rect.left)/rect.width*2-1,1-(event.clientY-rect.top)/rect.height*2),camera);
-    return ray.ray.intersectPlane(plane,new THREE.Vector3());
+    return intersectTerrainRay(ray.ray,heightAt);
   }
   function pick(event) {
     const point=pointFromPointer(event);
@@ -66,7 +97,7 @@ export function createCityNavigation({ canvas, camera, input, bounds, onTravel, 
     const pin=$('spawn-pin');
     if(!visible||!selected){pin.hidden=true;return;}
     camera.updateMatrixWorld();
-    pinPoint.set(selected.x,0,selected.z).project(camera);
+    pinPoint.set(selected.x,finiteHeight(heightAt,selected.x,selected.z),selected.z).project(camera);
     const rect=canvas.getBoundingClientRect();
     pin.hidden=pinPoint.z<-1||pinPoint.z>1||Math.abs(pinPoint.x)>1||Math.abs(pinPoint.y)>1;
     pin.style.left=(rect.left+(pinPoint.x+1)*rect.width/2)+'px';

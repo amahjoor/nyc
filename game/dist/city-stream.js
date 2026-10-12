@@ -121,7 +121,7 @@ function connectedBaseTriangles(positions, startFace, endFace) {
 }
 
 /** Decode the public I3S geometry buffer 0 without proprietary codecs or keys. */
-export function decodeI3S(buffer, node, origin, { collisions = true } = {}) {
+export function decodeI3S(buffer, node, origin, { collisions = true, heightAt = () => 0 } = {}) {
   const view = new DataView(buffer);
   if (buffer.byteLength < 8) throw new Error('NYC geometry header is truncated.');
   const vertexCount = view.getUint32(0, true), featureCount = view.getUint32(4, true);
@@ -129,7 +129,7 @@ export function decodeI3S(buffer, node, origin, { collisions = true } = {}) {
   const featureOffset = 8 + vertexCount * 36;
   if (buffer.byteLength !== featureOffset + featureCount * 16) throw new Error('NYC geometry payload length does not match its header.');
   const source = new Float32Array(buffer, 8, vertexCount * 3);
-  const positions = new Float32Array(vertexCount * 3), buildings = [];
+  const positions = new Float32Array(vertexCount * 3), buildings = [], anchors = [];
   const bounds = { minX: Infinity, maxX: -Infinity, minZ: Infinity, maxZ: -Infinity };
   const [centerLon, centerLat, centerHeight] = node.center;
   const [centerX, centerZ] = projectCityPoint(centerLon, centerLat, origin);
@@ -148,9 +148,11 @@ export function decodeI3S(buffer, node, origin, { collisions = true } = {}) {
     if (startFace !== expectedFace || endFace < startFace || endFace >= vertexCount / 3) throw new Error('NYC feature triangle ranges are invalid.');
     expectedFace = endFace + 1;
     const id = view.getBigUint64(featureOffset + feature * 8, true).toString();
-    let low = Infinity, high = -Infinity;
+    let low = Infinity, high = -Infinity, minX = Infinity, maxX = -Infinity, minZ = Infinity, maxZ = -Infinity;
     for (let i = startFace * 3; i < (endFace + 1) * 3; i++) {
       const y = source[i * 3 + 2]; low = Math.min(low, y); high = Math.max(high, y);
+      minX = Math.min(minX, positions[i * 3]);maxX = Math.max(maxX, positions[i * 3]);
+      minZ = Math.min(minZ, positions[i * 3 + 2]);maxZ = Math.max(maxZ, positions[i * 3 + 2]);
     }
     const triangles = [];
     for (let face = startFace; face <= endFace; face++) {
@@ -173,9 +175,17 @@ export function decodeI3S(buffer, node, origin, { collisions = true } = {}) {
       shapes.forEach((shape, part) => buildings.push({ id: `nyc:${id}:${part}`, featureId: id,
         ...shape, height: high - low, baseElevation: low + centerHeight, heightEstimated: false, heightSource: 'nyc-oti-2014-survey' }));
     }
+    // I3S heights use EGM96 while the terrain uses NAVD88. Preserve each
+    // measured building's relative shape and anchor its foundation to the DEM
+    // instead of silently combining incompatible absolute vertical datums.
+    const x = (minX + maxX) / 2, z = (minZ + maxZ) / 2, measured = heightAt(x, z);
+    const elevation = Number.isFinite(measured) ? measured : 0;
+    const start = startFace * 3, end = (endFace + 1) * 3;
+    for (let i = start; i < end; i++) positions[i * 3 + 1] += elevation;
+    anchors.push({ start, end, x, z, elevation, featureId: id });
   }
   if (expectedFace !== vertexCount / 3) throw new Error('NYC geometry includes triangles without a building identifier.');
-  return { positions, buildings, bounds, triangles: vertexCount / 3, featureCount };
+  return { positions, buildings, anchors, bounds, triangles: vertexCount / 3, featureCount };
 }
 
 export function createCityStream(index, options = {}) {
@@ -185,7 +195,7 @@ export function createCityStream(index, options = {}) {
 class CityStream {
   // Binding preserves the browser receiver when load() calls this.fetcher().
   constructor(index, { scene, onCollisionChange = () => {}, onStatus = () => {}, fetcher = globalThis.fetch.bind(globalThis),
-    concurrency = 5, maxCacheBytes = 210 * 1024 * 1024 } = {}) {
+    concurrency = 5, maxCacheBytes = 210 * 1024 * 1024, heightAt = () => 0 } = {}) {
     this.index = index; this.nodes = new Map(index.nodes.map(node => [node.id, node]));
     this.leaves = index.nodes.filter(node => !node.children.length && node.resource !== null);
     this.spatial = new Map();
@@ -200,6 +210,7 @@ class CityStream {
     }
     this.scene = scene; this.onCollisionChange = onCollisionChange; this.onStatus = onStatus; this.fetcher = fetcher;
     this.concurrency = concurrency; this.maxCacheBytes = maxCacheBytes;
+    this.heightAt = heightAt;this.terrainRevision = null;
     this.group = new THREE.Group(); this.group.name = 'Streamed official NYC survey'; scene?.add(this.group);
     this.cache = new Map(); this.requests = new Map(); this.queue = []; this.errors = new Map();
     this.active = 0; this.serial = 0; this.disposed = false; this.desired = new Set(); this.protected = new Set();
@@ -246,6 +257,24 @@ class CityStream {
           }
         }`);
     };
+  }
+
+  setTerrainSampler(heightAt, revision) {
+    this.heightAt = heightAt;
+    if (this.terrainRevision === revision) return;
+    this.terrainRevision = revision;
+    for (const record of this.cache.values()) {
+      const positions = record.mesh.geometry.attributes.position;
+      let changed = false;
+      for (const anchor of record.anchors) {
+        const sampled = heightAt(anchor.x, anchor.z), elevation = Number.isFinite(sampled) ? sampled : 0;
+        const delta = elevation - anchor.elevation;
+        if (Math.abs(delta) < .0001) continue;
+        for (let i = anchor.start; i < anchor.end; i++) positions.array[i * 3 + 1] += delta;
+        anchor.elevation = elevation;changed = true;
+      }
+      if (changed) { positions.needsUpdate = true;record.mesh.geometry.computeBoundingSphere(); }
+    }
   }
 
   setOrthophoto({ texture, bounds, mercator }) {
@@ -380,7 +409,7 @@ class CityStream {
         try {
           const response = await this.fetcher(`${this.index.source.service}/nodes/${node.resource}/geometries/0`, { signal: controller.signal });
           if (!response.ok) throw new Error(`NYC geometry service returned ${response.status}.`);
-          data = decodeI3S(await response.arrayBuffer(), node, this.index.origin, { collisions: !node.children.length });
+          data = decodeI3S(await response.arrayBuffer(), node, this.index.origin, { collisions: !node.children.length, heightAt: this.heightAt });
           break;
         } catch (caught) {
           // An old attempt's timer must not abort its replacement controller
@@ -397,7 +426,7 @@ class CityStream {
       const mesh = new THREE.Mesh(geometry, this.material); mesh.name = `NYC survey node ${node.resource}`;
       mesh.castShadow = true; mesh.receiveShadow = true; mesh.visible = false;
       this.group.add(mesh);
-      const record = { node, mesh, buildings: data.buildings, bytes: data.positions.byteLength * 2, used: ++this.serial, triangles: data.triangles };
+      const record = { node, mesh, buildings: data.buildings, anchors: data.anchors, bytes: data.positions.byteLength * 2 + data.anchors.length * 64, used: ++this.serial, triangles: data.triangles };
       this.cache.set(node.id, record); this.errors.delete(node.id);
       if (!node.children.length) this.emitCollisions();
       return record;

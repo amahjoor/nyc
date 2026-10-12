@@ -168,3 +168,57 @@ test('missing local atlas pixels expose underlying image tiles instead of overwr
   detail.setLocalOrthophoto();assert.equal(shader.uniforms.streetUseLocal.value, false);
   assert.equal(detail.group.children[0].material, material);detail.dispose();
 });
+
+test('street surfaces follow measured slopes and retain the exact source footprint and imagery coordinates', () => {
+  const terrain = (x,z) => 12+x*.2+z*.1;
+  const geometry = buildStreetGeometry([square], orthophoto, new Map(), terrain);
+  const position = geometry.attributes.position, uv = geometry.attributes.uv, normal = geometry.attributes.normal;
+  let area = 0;
+  for(let i=0;i<position.count;i++){
+    assert.ok(Math.abs(position.getY(i)-terrain(position.getX(i),position.getZ(i)))<1e-5);
+    assert.ok(Math.abs(uv.getX(i)-(position.getX(i)+100)/200)<1e-7);
+    assert.ok(normal.getY(i)>.9 && normal.getX(i)<0 && normal.getZ(i)<0);
+  }
+  const ids=geometry.index.array;
+  for(let i=0;i<ids.length;i+=3){
+    const [a,b,c]=[ids[i],ids[i+1],ids[i+2]];
+    area+=Math.abs((position.getX(b)-position.getX(a))*(position.getZ(c)-position.getZ(a))-(position.getZ(b)-position.getZ(a))*(position.getX(c)-position.getX(a)))/2;
+  }
+  assert.equal(area,96,'draping does not fill the mapped sidewalk hole');
+  geometry.dispose();
+});
+
+test('large street triangles sample interior hills with bounded tessellation', () => {
+  const surface={id:'large-measured-road',polygon:[[0,0],[80,0],[80,80],[0,80]],holes:[]};
+  const slope=buildStreetGeometry([surface],orthophoto,new Map(),(x,z)=>10+x*.2+z*.1);
+  assert.equal(slope.attributes.position.count,4,'constant slopes need no extra topology');slope.dispose();
+  const hill=(x,z)=>20*Math.max(0,1-Math.hypot(x-40,z-40)/40);
+  const geometry=buildStreetGeometry([surface],orthophoto,new Map(),hill);
+  const position=geometry.attributes.position;
+  assert.ok(position.count>4,'terrain is sampled between the original flat boundary vertices');
+  assert.ok(position.count<=4+2048,'one source feature has a finite added-vertex budget');
+  let peak=0;
+  for(let i=0;i<position.count;i++)peak=Math.max(peak,position.getY(i));
+  assert.ok(peak>19,'the mesh follows the measured interior hill');
+  geometry.dispose();
+});
+
+test('terrain revisions refresh cached street elevations without refetching or source retriangulation', async t => {
+  let elevation=5, requests=0;
+  const heightAt=()=>elevation, triangulate=t.mock.method(THREE.ShapeUtils,'triangulateShape');
+  const detail=createStreetDetail(index,{scene:new THREE.Scene(),orthophoto,heightAt,
+    fetcher:async()=>{requests++;return response([square]);}});
+  t.after(()=>detail.dispose());
+  const focus={x:10,z:10};detail.update(focus);await tick();detail.update(focus);
+  const first=detail.group.children[0].geometry;
+  assert.equal(first.attributes.position.getY(0),5);
+  let disposed=false;first.addEventListener('dispose',()=>{disposed=true;});
+  elevation=31;detail.setTerrainSampler(heightAt,1);detail.update(focus);
+  const next=detail.group.children[0].geometry;
+  assert.ok(disposed);assert.equal(next.attributes.position.getY(0),31);
+  assert.equal(requests,2);assert.equal(triangulate.mock.callCount(),1);
+  detail.setTerrainSampler(heightAt,1);detail.update(focus);
+  assert.equal(detail.group.children[0].geometry,next,'an unchanged revision does not rebuild GPU geometry');
+  detail.setTerrainSampler(()=>NaN,2);detail.update(focus);
+  assert.equal(detail.group.children[0].geometry.attributes.position.getY(0),0,'missing elevation remains a finite flat fallback');
+});

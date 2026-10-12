@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>NYC After Hours · Imagery reconstruction review</title>
+<style>
+  *{box-sizing:border-box}body{margin:0;background:#161d21;color:#ebe9e0;font:16px/1.65 system-ui,sans-serif}main{max-width:1280px;margin:auto;padding:32px}a{color:#f3956b}h1{font-size:clamp(28px,5vw,52px);line-height:1.1;max-width:850px}p{max-width:850px}.eyebrow{letter-spacing:.15em;font-size:11px;color:#a4b6b9}.comparison{display:grid;grid-template-columns:1fr 1fr;gap:20px}figure{margin:0}img{width:100%;height:auto;background:#20292f}figcaption{font-size:13px;color:#c0cdce;margin:8px 0 25px}.legend{display:flex;flex-wrap:wrap;gap:20px;font-size:13px;margin:25px 0}.legend i{display:inline-block;width:12px;height:12px;margin-right:8px}.water{background:#349caf}.rejected{background:#b35e56}.note{color:#b7c4c5;font-size:14px;border-top:1px solid #3a464c;padding-top:18px}@media(max-width:650px){main{padding:20px}.comparison{grid-template-columns:1fr}}
+</style>
+<main>
+  <a href="./">← Back to the city</a>
+  <p class="eyebrow">SOURCE DATA / ACTUAL MODEL OUTPUT</p>
+  <h1>Teaching the world where the water is.</h1>
+  <p>This Central Park Pond review ran Meta's Segment Anything model locally against NYC's original 2024 aerial tiles. Mapped water and tree geometry supplied prompts. Each proposed mask then had to pass overlap checks against its mapped feature.</p>
+  <p><strong>13 candidates. One accepted water mask. Twelve rejected tree masks.</strong> The accepted mask changes the visible water material in the game. Official shorelines still control collisions; the rejected masks create no objects.</p>
+  <div class="legend"><span><i class="water"></i>Accepted visible water</span><span><i class="rejected"></i>Rejected crown proposals</span></div>
+  <div class="comparison">
+    <figure><img src="./reconstruction/aerial.png" alt="Unmodified NYC 2024 aerial image of Central Park Pond and surrounding trees"><figcaption>Original NYC OTI / NYS aerial imagery, March 2024. CC BY 4.0.</figcaption></figure>
+    <figure><img src="./reconstruction/review-overlay.jpg" alt="Same aerial image with accepted water in blue and rejected tree proposals in red"><figcaption>Actual segmentation review. The model omits portions of water hidden by trees and shadows.</figcaption></figure>
+  </div>
+  <p>The accepted water mask had 98.44% precision, 74.34% recall and 73.47% intersection-over-union against the mapped water mask. These measure consistency with that source, not independent real-world accuracy: the same source also supplied the prompts. Accepted geometry is clipped to the mapped footprint.</p>
+  <p class="note">Sources have different dates: 2024 aerial imagery, 2022 mapped water, and crown measurements from 2013–2014 LiDAR published in 2022. SAM supplies 2D masks, not terrain, tree height, species, branches, façades or scanned 3D objects.</p>
+  <p><a href="./reconstruction-review.json">Full metrics, model revision and asset checksums</a> · <a href="https://huggingface.co/facebook/sam-vit-base">Meta SAM ViT-B, Apache 2.0</a> · <a href="https://data.cityofnewyork.us/d/pjs3-c3z5">NYC water data</a> · <a href="https://doi.org/10.6084/m9.figshare.20522895.v2">Qin Ma tree data, CC BY 4.0</a> · <a href="https://creativecommons.org/licenses/by/4.0/">Aerial image license</a></p>
+</main>
+</html>

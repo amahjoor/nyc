@@ -39,3 +39,5 @@
 @media(max-width:700px){.city-navigation.is-picking,.city-navigation.has-spawn{top:auto;bottom:45px;width:calc(100vw - 30px);max-width:340px;padding:12px}.city-navigation:is(.is-picking,.has-spawn)>:not(#pick-spawn-button):not(.spawn-note):not(.spawn-actions):not(#travel-note){display:none}.city-navigation:is(.is-picking,.has-spawn) #pick-spawn-button{margin:0;padding:9px}.city-navigation:is(.is-picking,.has-spawn) .spawn-note{min-height:0;margin:8px 0;font-size:10px}.city-navigation:is(.is-picking,.has-spawn) .primary-button{padding:12px}}
 
 @media(min-width:451px) and (max-width:700px) and (max-height:500px){.city-navigation.is-picking,.city-navigation.has-spawn{left:auto;right:15px;top:104px;bottom:40px;width:220px;max-height:calc(100dvh - 144px)}}
+
+.landscape-destinations{border-top:1px solid var(--line);margin-top:18px;padding-top:2px}.landscape-destinations p{font-size:10px;margin-bottom:0}

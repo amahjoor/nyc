@@ -248,3 +248,14 @@ test('walking avatars expose separate limb pivots and human-scale ground contact
   assert.ok(bounds.min.y >= 0 && bounds.min.y < 0.06);
   assert.ok(bounds.max.y > 1.7 && bounds.max.y < 2);
 });
+
+
+test('car rendering applies terrain support height and slope independently of body suspension', () => {
+  const mesh=createCar();
+  updateCarVisuals(mesh,{x:40,y:25,z:60,angle:.4,pitch:-.12,roll:.08,speed:0,lateralAcceleration:4,longitudinalAcceleration:-5},.2);
+  assert.equal(mesh.position.y,25.025);
+  assert.equal(mesh.rotation.order,'YXZ');
+  assert.equal(mesh.rotation.x,-.12);assert.equal(mesh.rotation.z,.08);
+  assert.ok(mesh.userData.chassis.rotation.x>0);
+  assert.ok(mesh.userData.chassis.rotation.z>0);
+});

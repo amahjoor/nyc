@@ -330,3 +330,38 @@ test('clipped one-way exits recycle offscreen and keep actual SoHo traffic movin
   assert.equal(sim.startMission(), true);
   assert.equal(sim.isBlocked(sim.mission.target.x, sim.mission.target.z, 1), false);
 });
+
+
+test('terrain grounding follows walking, vehicle wheel supports, exits and travel', () => {
+  const elevation=(x,z)=>18+x*.08+z*.12;
+  const sim=new Simulation(city({sampleSurface:(x,z)=>({elevation:elevation(x,z)})}));
+  assert.equal(sim.player.y,elevation(sim.player.x,sim.player.z));
+  advance(sim,.5,{moveZ:1});
+  assert.equal(sim.player.y,elevation(sim.player.x,sim.player.z));
+  sim.reset();assert.ok(sim.interact());
+  advance(sim,2,{forward:1,turn:.2});
+  const car=sim.cars.find(car=>car.controlled),s=Math.sin(car.angle),c=Math.cos(car.angle);
+  assert.ok(Math.abs(car.pitch+Math.atan(.08*s+.12*c))<1e-10);
+  assert.ok(Math.abs(car.roll-Math.atan(.08*c-.12*s))<1e-10);
+  assert.ok(Math.abs(car.y-elevation(car.x-.035*s,car.z-.035*c))<1e-10);
+  assert.equal(sim.player.y,car.y);
+  car.speed=0;sim.player.speed=0;assert.ok(sim.interact());
+  assert.equal(sim.player.y,elevation(sim.player.x,sim.player.z));
+  sim.travelTo({x:100,z:150,angle:0});
+  assert.equal(sim.player.y,elevation(sim.player.x,sim.player.z));
+  sim.setActiveCity({sampleSurface:()=>({elevation:NaN})});
+  assert.equal(sim.player.y,0,'unavailable measurements retain a finite fallback');
+});
+
+test('mapped inland water stops cars without damage and retains mapped crossings', () => {
+  const water=(x,z,r)=>z+r>22?{kind:'water',nx:0,nz:-1,depth:z+r-22}:null;
+  const sim=new Simulation(city({landscapeContact:water}));
+  sim.interact();advance(sim,5,{forward:1});
+  assert.ok(sim.player.z<22);assert.equal(sim.health,100);assert.equal(sim.heat,0);
+  const crossing=new Simulation(city({landscapeContact:water,roads:[{id:'bridge',name:'Mapped crossing',width:12,points:[[0,-100],[0,100]]}]}));
+  assert.equal(crossing.isBlocked(0,40,.5),false);
+  assert.equal(crossing.isBlocked(20,40,.5),true);
+  assert.equal(crossing.isBlocked(20,40,.5,{ignoreWater:true}),false,'camera can look above the water');
+  crossing.setActiveCity({buildings:[{polygon:[[18,38],[22,38],[22,42],[18,42]]}]});
+  assert.equal(crossing.isBlocked(20,40,.5,{ignoreWater:true}),true,'camera still avoids walls beside the pond');
+});

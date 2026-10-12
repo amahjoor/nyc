@@ -173,6 +173,8 @@ export class Simulation {
     this.bounds = city.bounds;
     this.loadedBounds = city.loadedBounds || null;
     this._isReadyAt = typeof city.isReadyAt === 'function' ? city.isReadyAt : null;
+    this._sampleSurface = typeof city.sampleSurface === 'function' ? city.sampleSurface : null;
+    this._landscapeContact = typeof city.landscapeContact === 'function' ? city.landscapeContact : null;
     this._rngState = 0x51f05a;
     this._buildings = buildingGrid(city.buildings);
     this._graph = buildRoadGraph(city.roads || []);
@@ -198,6 +200,7 @@ export class Simulation {
     const safeSpawn = this._findSafePoint(city.spawn.x, city.spawn.z, PLAYER_RADIUS);
     this.player.x = safeSpawn.x;
     this.player.z = safeSpawn.z;
+    this.updateGrounding();
   }
 
   /** Replace loaded map data without resetting a trip, job, or saved progress. */
@@ -213,11 +216,14 @@ export class Simulation {
     this.bounds = this.city.bounds;
     this.loadedBounds = this.city.loadedBounds || null;
     this._isReadyAt = typeof this.city.isReadyAt === 'function' ? this.city.isReadyAt : null;
+    this._sampleSurface = typeof this.city.sampleSurface === 'function' ? this.city.sampleSurface : null;
+    this._landscapeContact = typeof this.city.landscapeContact === 'function' ? this.city.landscapeContact : null;
     this._buildings = buildings;
     const roadsChanged = graph !== this._graph;
     this._graph = graph;
     if (spawn) this.travelTo(spawn);
     else if (roadsChanged) this._rebindTraffic();
+    this.updateGrounding();
     return { player: { x: this.player.x, z: this.player.z }, cars: this.cars.length, loadedBounds: this.loadedBounds };
   }
 
@@ -281,6 +287,7 @@ export class Simulation {
     this._seedCars();
     const safe = this._findSafePoint(target.x, target.z, PLAYER_RADIUS);
     Object.assign(this.player, { x: safe.x, z: safe.z });
+    this.updateGrounding();
     this._accumulator = 0;
     this._policeRouteTimer = 0;
     this._bustedTime = 0;
@@ -293,7 +300,7 @@ export class Simulation {
     return this._rngState / 4294967296;
   }
 
-  _contact(x, z, radius) {
+  _contact(x, z, radius, ignoreWater = false) {
     let contact = null;
     const keep = hit => { if (hit && (!contact || hit.depth > contact.depth)) contact = hit; };
     const bounds = this.bounds;
@@ -309,6 +316,14 @@ export class Simulation {
       if (z + radius > loaded.maxZ) keep({ nx: 0, nz: -1, depth: z + radius - loaded.maxZ, kind: 'loading' });
     }
     if (this._isReadyAt && !this._isReadyAt(x, z, radius)) keep({ nx: 0, nz: 0, depth: radius, kind: 'loading' });
+    const landscape = this._landscapeContact?.(x, z, radius);
+    if (landscape && !(ignoreWater && landscape.kind === 'water')) {
+      // The measured road network can cross a mapped water polygon on a
+      // bridge. Preserve that existing route until a surveyed deck is loaded;
+      // water remains impassable away from a mapped road corridor.
+      const road = landscape.kind === 'water' ? this._nearestEdge(x, z) : null;
+      if (!road || road.distance > Math.max(1, finite(road.edge.road.width, 8) / 2 - radius)) keep(landscape);
+    }
     const checked = new Set();
     for (let gx = Math.floor((x - radius) / GRID_SIZE); gx <= Math.floor((x + radius) / GRID_SIZE); gx++) {
       for (let gz = Math.floor((z - radius) / GRID_SIZE); gz <= Math.floor((z + radius) / GRID_SIZE); gz++) {
@@ -323,8 +338,29 @@ export class Simulation {
   }
 
   /** Static map collision query for cameras and pedestrian placement. */
-  isBlocked(x, z, radius = 0.5) {
-    return Boolean(this._contact(x, z, Math.max(0.01, radius)));
+  isBlocked(x, z, radius = 0.5, { ignoreWater = false } = {}) {
+    // A camera above the surface can look across a pond. Actors still use
+    // shoreline collision; water must not become an infinitely tall wall.
+    return Boolean(this._contact(x, z, Math.max(0.01, radius), ignoreWater));
+  }
+
+  groundHeight(x, z) {
+    return finite(this._sampleSurface?.(x, z)?.elevation);
+  }
+
+  updateGrounding() {
+    // Reuse the same sampled surface as the renderer. Four wheel contact
+    // points establish the support plane while suspension remains visual.
+    for (const car of this.cars) {
+      const sin = Math.sin(car.angle), cos = Math.cos(car.angle);
+      const height = (side, along) => this.groundHeight(car.x + cos * side + sin * along, car.z - sin * side + cos * along);
+      const fl = height(-.90, 1.30), fr = height(.90, 1.30), rl = height(-.90, -1.37), rr = height(.90, -1.37);
+      car.y = (fl + fr + rl + rr) / 4;
+      car.pitch = -Math.atan2((fl + fr - rl - rr) / 2, 2.67);
+      car.roll = Math.atan2((fr + rr - fl - rl) / 2, 1.80);
+    }
+    const vehicle = this.player.mode === 'drive' && this.cars.find(car => car.id === this.player.vehicleId);
+    this.player.y = vehicle ? vehicle.y : this.groundHeight(this.player.x, this.player.z);
   }
 
   _carContact(x, z, angle) {
@@ -463,6 +499,7 @@ export class Simulation {
       car._route = [];
       resetVehicleDynamics(car, car.speed);
       Object.assign(player, { mode: 'drive', vehicleId: car.id, x: car.x, z: car.z, angle: car.angle, speed: car.speed, velocityX: car.velocityX, velocityZ: car.velocityZ });
+      this.updateGrounding();
       this._say('W accelerate. S brake / reverse. A / D steer. Space handbrake.');
       return true;
     }
@@ -477,6 +514,7 @@ export class Simulation {
       car.parked = true;
       resetVehicleDynamics(car);
       Object.assign(player, { x, z, mode: 'walk', vehicleId: null, speed: 0, velocityX: 0, velocityZ: 0 });
+      this.updateGrounding();
       this._say('On foot. Hold Shift to run. E to get back in.');
       return true;
     }
@@ -522,6 +560,7 @@ export class Simulation {
     }
     const point = this._findSafePoint(this.city.spawn.x, this.city.spawn.z, PLAYER_RADIUS);
     Object.assign(this.player, { ...point, angle: this.city.spawn.angle || 0, speed: 0, mode: 'walk', vehicleId: null, velocityX: 0, velocityZ: 0 });
+    this.updateGrounding();
     this.health = 100;
     this.heat = 0;
     this._timeSinceCrime = 100;
@@ -559,6 +598,7 @@ export class Simulation {
       if (refreshRoutes && car.type === 'police' && this.heat > 0.05) this._routePolice(car);
       this._traffic(car, dt);
     }
+    this.updateGrounding();
     this._updateHeat(dt);
     this._updateMission(dt);
     if (this.health <= 0) {
@@ -602,14 +642,14 @@ export class Simulation {
     const next = this._resolvePosition(car.x + car.velocityX * dt, car.z + car.velocityZ * dt, CAR_RADIUS, car.angle, car);
     if (next.hit) {
       const approach = -(car.velocityX * next.hit.nx + car.velocityZ * next.hit.nz);
-      const loadingBoundary = next.hit.kind === 'boundary' || next.hit.kind === 'loading';
+      const loadingBoundary = next.hit.kind === 'boundary' || next.hit.kind === 'loading' || next.hit.kind === 'water';
       if (approach > 0.3) {
         // Lateral impacts count too. Loading and geographic limits never cause
         // damage or heat, and must not store motion that launches after loading.
         if (!loadingBoundary) this._impact(approach, 'building');
         else if (this.elapsed - this._lastBoundaryNotice > 6) {
           this._lastBoundaryNotice = this.elapsed;
-          this._say(next.hit.kind === 'loading' ? 'Loading the next streets. Please wait.' : 'New York City map edge.', 4);
+          this._say(next.hit.kind === 'loading' ? 'Loading the next streets. Please wait.' : next.hit.kind === 'water' ? 'Water ahead. Stay on the mapped shore or road.' : 'New York City map edge.', 4);
         }
       }
       const inward = Math.max(0, approach);
@@ -639,7 +679,7 @@ export class Simulation {
       if (corrected.hit) {
         // A vehicle can push us against a wall or a streaming limit. Keep the
         // corrected position and velocity consistent within this same tick.
-        if (corrected.hit.kind === 'loading' || corrected.hit.kind === 'boundary') {
+        if (corrected.hit.kind === 'loading' || corrected.hit.kind === 'boundary' || corrected.hit.kind === 'water') {
           velocityX = 0; velocityZ = 0;
         } else {
           const inward = Math.min(0, velocityX * corrected.hit.nx + velocityZ * corrected.hit.nz);

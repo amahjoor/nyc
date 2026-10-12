@@ -396,8 +396,10 @@ export function updateCarVisuals(mesh, car, dt) {
   const steering = Number.isFinite(car._steering) ? car._steering : 0;
   const speed = Number.isFinite(car.speed) ? car.speed : 0;
   const seconds = Math.max(0, dt);
-  mesh.position.set(car.x, 0.025, car.z);
-  mesh.rotation.y = car.angle;
+  mesh.position.set(car.x, (Number.isFinite(car.y) ? car.y : 0) + 0.025, car.z);
+  // Ground slope belongs to the whole vehicle; acceleration-induced lean is
+  // applied only to the chassis below, keeping tire contacts on their plane.
+  mesh.rotation.set(car.pitch || 0, car.angle, car.roll || 0, 'YXZ');
   // Positive lateral acceleration points along local +X. The body leans
   // outward, even when countersteering against a slide. Route-following NPCs
   // have no tire dynamics, so retain their wheel-angle approximation.

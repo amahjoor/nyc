@@ -207,3 +207,23 @@ test('rooftop atlas stores exact Mercator latitude parameters for full-city imag
   assert.deepEqual(stream.orthoUniforms.cityMercator.value.toArray(),[mercator.north,mercator.south,mercator.originLat,mercator.radius]);
   stream.dispose();texture.dispose();
 });
+
+
+test('terrain anchors preserve measured relative building shapes and collision footprints', () => {
+  const flat=decodeI3S(fixture,node,index.origin),raised=decodeI3S(fixture,node,index.origin,{heightAt:()=>27.5});
+  assert.deepEqual(raised.buildings,flat.buildings);
+  for(let i=0;i<flat.positions.length;i++)assert.ok(Math.abs(raised.positions[i]-flat.positions[i]-(i%3===1?27.5:0))<.0001);
+  const missing=decodeI3S(fixture,node,index.origin,{heightAt:()=>NaN});
+  assert.deepEqual(missing.positions,flat.positions);
+});
+
+test('cached buildings follow new terrain without accumulated vertical displacement', async t => {
+  const stream=createCityStream(tinyIndex(),{fetcher:async()=>response(),heightAt:()=>10});
+  t.after(()=>stream.dispose());await stream.prepareAt({x:500,z:0},10);
+  const record=stream.cache.get(2),positions=record.mesh.geometry.attributes.position;
+  const initial=positions.array.slice();
+  stream.setTerrainSampler(()=>24,1);
+  for(let i=1;i<initial.length;i+=3)assert.ok(Math.abs(positions.array[i]-initial[i]-14)<.0001);
+  stream.setTerrainSampler(()=>24,2);stream.setTerrainSampler(()=>10,3);
+  for(let i=1;i<initial.length;i+=3)assert.ok(Math.abs(positions.array[i]-initial[i])<.0001);
+});
