@@ -133,11 +133,12 @@ function makeDocument() {
   return { document, elements };
 }
 
-async function bootHarness({ stored = null, unavailableStorage = false, fetchOK = true, geometryOK = true, imageryOK = true, streetFailure = null, landscapeFailure = false, terrainElevation = 0, coarsePointer = false, holdRoads = () => false, holdLandscape = () => false, measuredLandscape = false, extraGeometry = [], geocodeFetch = null } = {}) {
+async function bootHarness({ stored = null, displayStored = null, unavailableStorage = false, fetchOK = true, geometryOK = true, imageryOK = true, streetFailure = null, landscapeFailure = false, terrainElevation = 0, coarsePointer = false, holdRoads = () => false, holdLandscape = () => false, measuredLandscape = false, extraGeometry = [], geocodeFetch = null } = {}) {
   const { document, elements } = makeDocument();
   const window = new EventTarget();
   const pads = [];
   const storage = new Map(stored === null ? [] : [['nyc-after-hours-v1', stored]]);
+  if(displayStored!==null)storage.set('nyc-after-hours-display-v1',displayStored);
   const frames = [], errors = [], requests = [], imageRequests = [], roadWaiters = [], landscapeWaiters = [];
   const geometryBuffers=new Map(fixtureBuffers),extraNodes=[];
   for(const fixture of extraGeometry){
@@ -1194,5 +1195,23 @@ test('Central Park Pond arrival accepts the actual surveyed building with a rais
     assert.ok(app.requests.some(url=>url.includes('/nodes/3220/geometries/0')),'the failing real survey chunk must participate');
     assert.ok(app.simulation().getNearbyCar());
     assert.equal(app.errors.length,0,app.errors[0]?.stack);
+  }finally{app.close();}
+});
+
+test('shadow preference persists and survives quality changes and camera switches',async()=>{
+  const app=await bootHarness({displayStored:JSON.stringify({version:1,shadows:false})});
+  try{
+    app.click('start-button');app.click('view-button');app.frames();
+    assert.equal(app.state().shadows.enabled,false);assert.equal(app.state().shadows.active,false);
+    assert.equal(app.elements.get('shadows-button').textContent,'SHADOWS: OFF');
+    app.click('quality-button');app.frames();assert.equal(app.state().shadows.active,false);
+    app.click('shadows-button');app.frames();
+    assert.equal(app.state().shadows.active,true);
+    assert.equal(app.elements.get('shadows-button').getAttribute('aria-pressed'),'true');
+    assert.deepEqual(JSON.parse(app.storage.get('nyc-after-hours-display-v1')),{version:1,shadows:true});
+    app.click('city-button');app.frames();assert.equal(app.state().shadows.active,false);
+    app.click('city-button');app.frames();assert.equal(app.state().shadows.active,true);
+    app.click('shadows-button');app.frames();assert.equal(app.state().shadows.active,false);
+    assert.equal(JSON.parse(app.storage.get('nyc-after-hours-display-v1')).shadows,false);
   }finally{app.close();}
 });

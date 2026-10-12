@@ -15,8 +15,10 @@ const $ = id => document.getElementById(id);
 const clamp = (n,a,b) => Math.max(a,Math.min(b,n));
 const angleDifference = (a,b) => Math.atan2(Math.sin(a-b),Math.cos(a-b));
 const SAVE_KEY = 'nyc-after-hours-v1';
+const DISPLAY_KEY = 'nyc-after-hours-display-v1';
 let sim, city, renderer, scene, camera, world, hud, avatar, marker, markerDiamond, enterHint, navigation;
 let started=false, paused=false, highQuality=false, farCamera=false, aerialView=false, aerialTracking=false, savedEarnings='';
+let shadowsEnabled=true;
 let cityIndex, roadIndex, roadStream, ground, streetDetail, sun, localFog, bootReady=false, traveling=false, pausedBeforeSources=false;
 let cityView=false, cityZoom=1, cityOrbit=0, cityFocus=null, roadCell='', roadEpoch=0, roadBusy=false, buildings=[], boroughs=[];
 let landscape=null, landscapeRevision=0, landscapeDirty=false, landscapeManifest=null, reconstructionReview=null;
@@ -77,6 +79,12 @@ $('sound-button').addEventListener('click',async()=>{
   $('sound-button').setAttribute('aria-label',enabled?'Turn sound off':'Turn sound on');
 });
 $('quality-button').addEventListener('click',()=>{highQuality=!highQuality;applyQuality();});
+$('shadows-button').addEventListener('click',()=>{
+  shadowsEnabled=!shadowsEnabled;
+  updateShadowButton();
+  if(renderer)setLocalShadows(started&&!cityView);
+  try{localStorage.setItem(DISPLAY_KEY,JSON.stringify({version:1,shadows:shadowsEnabled}));}catch{}
+});
 $('help-button').addEventListener('click',()=>{if(started){paused=true;input.clear();}$('help-dialog').showModal();});
 $('help-dialog').addEventListener('close',()=>{if(started)paused=false;input.clear();});
 $('view-button').addEventListener('click',()=>action('view'));
@@ -113,11 +121,23 @@ function applyQuality() {
   resize();
 }
 function setLocalShadows(enabled) {
+  enabled=Boolean(enabled&&shadowsEnabled);
   if(renderer.shadowMap.enabled===enabled)return;
   renderer.shadowMap.enabled=enabled;
   // Three selects shadow shader variants when materials update. Switching
   // between city and local views must invalidate them once, not every frame.
   scene.traverse(object=>{if(object.material){for(const m of Array.isArray(object.material)?object.material:[object.material])m.needsUpdate=true;}});
+}
+function updateShadowButton(){
+  $('shadows-button').textContent='SHADOWS: '+(shadowsEnabled?'ON':'OFF');
+  $('shadows-button').setAttribute('aria-pressed',String(shadowsEnabled));
+}
+function restoreDisplaySettings(){
+  try{
+    const saved=JSON.parse(localStorage.getItem(DISPLAY_KEY)||'null');
+    if(saved?.version===1&&typeof saved.shadows==='boolean')shadowsEnabled=saved.shadows;
+  }catch{}
+  updateShadowButton();
 }
 function resize() {
   if(!renderer)return;
@@ -460,13 +480,14 @@ async function boot() {
   const b=city.bounds;camera.position.set((b.minX+b.maxX)/2-14000,44000,(b.minZ+b.maxZ)/2+32000);
   navigation=createCityNavigation({canvas,camera,input,bounds:city.bounds,heightAt:terrainHeight,onTravel:travel,onAddressSelected:focusCityAddress});
   $('place-select').innerHTML=roadIndex.places.map((place,i)=>'<option value="'+i+'">'+place.name+' · '+place.borough+'</option>').join('');
-  window.nycGame={getState:()=>({player:{...sim.player},heat:sim.heat,health:sim.health,mission:{...sim.mission},cash:sim.cash,deliveries:sim.deliveries,cars:sim.cars.length,buildings:buildings.length,totalBuildings:cityIndex.stats.buildingFeatures,stream:world.getStatus(),ground:ground.getStatus(),streetDetail:streetDetail?.getStatus()||null,landscape:landscape?.getStatus()||null,reconstruction:reconstructionReview?{model:reconstructionReview.model,summary:reconstructionReview.summary}:null,navigation:navigation.getState(),cityView,aerialView,traveling,bootReady,drawCalls:renderer.info.render.calls,triangles:renderer.info.render.triangles,started,paused})};
+  window.nycGame={getState:()=>({player:{...sim.player},heat:sim.heat,health:sim.health,mission:{...sim.mission},cash:sim.cash,deliveries:sim.deliveries,cars:sim.cars.length,buildings:buildings.length,totalBuildings:cityIndex.stats.buildingFeatures,stream:world.getStatus(),ground:ground.getStatus(),streetDetail:streetDetail?.getStatus()||null,landscape:landscape?.getStatus()||null,reconstruction:reconstructionReview?{model:reconstructionReview.model,summary:reconstructionReview.summary}:null,navigation:navigation.getState(),cityView,aerialView,traveling,bootReady,shadows:{enabled:shadowsEnabled,active:renderer.shadowMap.enabled},drawCalls:renderer.info.render.calls,triangles:renderer.info.render.triangles,started,paused})};
   requestAnimationFrame(frame);
   const [roads]=await Promise.all([roadStream.loadAround(seed.spawn),world.prepareAt(seed.spawn,300),landscapeReady]);
   sim.setActiveCity({roads,buildings,isReadyAt:(x,z,radius)=>world.isReadyAt(x,z,radius),missionPoints:localDestinations(roads,seed.spawn)},{spawn:seed.spawn});city=sim.city;yaw=sim.player.angle;
   populatePedestrians();bootReady=true;
   $('start-button').disabled=false;$('travel-button').disabled=false;$('landscape-travel-button').disabled=!landscapeManifest;$('load-text').textContent='EXPLORE NEW YORK';
 }
+restoreDisplaySettings();
 boot().catch(error=>{
   console.error(error);$('load-text').textContent='UNABLE TO START';$('load-error').hidden=false;
   $('load-error').textContent=error.message.includes('WebGL')?'This game needs WebGL 2. Try a current desktop browser with hardware acceleration enabled.':error.message;
