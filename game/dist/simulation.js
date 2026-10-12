@@ -13,6 +13,27 @@ const turnDelta = (from, to) => ((to - from + Math.PI) % TAU + TAU) % TAU - Math
 const emptyMission = () => ({ phase: 'idle', target: null, timeLeft: 0, totalTime: 0, reward: 0 });
 const finite = (value, fallback = 0) => Number.isFinite(value) ? value : fallback;
 
+function buildingGrid(buildings) {
+  const grid = new Map();
+  for (const building of buildings || []) {
+    if (!building.polygon || building.polygon.length < 3) continue;
+    const xs = building.polygon.map(point => point[0]);
+    const zs = building.polygon.map(point => point[1]);
+    for (let gx = Math.floor(Math.min(...xs) / GRID_SIZE); gx <= Math.floor(Math.max(...xs) / GRID_SIZE); gx++) {
+      for (let gz = Math.floor(Math.min(...zs) / GRID_SIZE); gz <= Math.floor(Math.max(...zs) / GRID_SIZE); gz++) {
+        const key = `${gx},${gz}`;
+        if (!grid.has(key)) grid.set(key, []);
+        grid.get(key).push(building);
+      }
+    }
+  }
+  return grid;
+}
+
+function validBounds(bounds) {
+  return bounds && ['minX', 'maxX', 'minZ', 'maxZ'].every(key => Number.isFinite(bounds[key])) && bounds.minX < bounds.maxX && bounds.minZ < bounds.maxZ;
+}
+
 function closestOnSegment(x, z, ax, az, bx, bz) {
   const dx = bx - ax;
   const dz = bz - az;
@@ -147,20 +168,10 @@ export class Simulation {
   constructor(city) {
     this.city = city;
     this.bounds = city.bounds;
+    this.loadedBounds = city.loadedBounds || null;
+    this._isReadyAt = typeof city.isReadyAt === 'function' ? city.isReadyAt : null;
     this._rngState = 0x51f05a;
-    this._buildings = new Map();
-    for (const building of city.buildings || []) {
-      if (!building.polygon || building.polygon.length < 3) continue;
-      const xs = building.polygon.map(point => point[0]);
-      const zs = building.polygon.map(point => point[1]);
-      for (let gx = Math.floor(Math.min(...xs) / GRID_SIZE); gx <= Math.floor(Math.max(...xs) / GRID_SIZE); gx++) {
-        for (let gz = Math.floor(Math.min(...zs) / GRID_SIZE); gz <= Math.floor(Math.max(...zs) / GRID_SIZE); gz++) {
-          const key = `${gx},${gz}`;
-          if (!this._buildings.has(key)) this._buildings.set(key, []);
-          this._buildings.get(key).push(building);
-        }
-      }
-    }
+    this._buildings = buildingGrid(city.buildings);
     this._graph = buildRoadGraph(city.roads || []);
     this.player = { x: city.spawn.x, z: city.spawn.z, angle: city.spawn.angle || 0, speed: 0, mode: 'walk', vehicleId: null, velocityX: 0, velocityZ: 0 };
     this.cars = [];
@@ -186,6 +197,94 @@ export class Simulation {
     this.player.z = safeSpawn.z;
   }
 
+  /** Replace loaded map data without resetting a trip, job, or saved progress. */
+  setActiveCity(city = {}, { spawn } = {}) {
+    if (city.bounds !== undefined && !validBounds(city.bounds)) throw new Error('Invalid city bounds.');
+    if (city.loadedBounds != null && !validBounds(city.loadedBounds)) throw new Error('Invalid loaded city bounds.');
+    if (spawn && (!Number.isFinite(spawn.x) || !Number.isFinite(spawn.z))) throw new Error('Travel requires finite map coordinates.');
+    // Build replacements first. Traffic edges reference graph objects, so an
+    // old graph must never survive through a car after its roads are unloaded.
+    const graph = city.roads === undefined ? this._graph : buildRoadGraph(city.roads || []);
+    const buildings = city.buildings === undefined ? this._buildings : buildingGrid(city.buildings);
+    this.city = { ...this.city, ...city };
+    this.bounds = this.city.bounds;
+    this.loadedBounds = this.city.loadedBounds || null;
+    this._isReadyAt = typeof this.city.isReadyAt === 'function' ? this.city.isReadyAt : null;
+    this._buildings = buildings;
+    const roadsChanged = graph !== this._graph;
+    this._graph = graph;
+    if (spawn) this.travelTo(spawn);
+    else if (roadsChanged) this._rebindTraffic();
+    return { player: { x: this.player.x, z: this.player.z }, cars: this.cars.length, loadedBounds: this.loadedBounds };
+  }
+
+  _rebindTraffic() {
+    for (const car of this.cars) {
+      const wasTraffic = !car.parked || car._streamParked;
+      car._route = [];
+      car._edge = null;
+      if (car.controlled || !wasTraffic) continue;
+      let nearest = null;
+      for (const edge of this._graph.edges) {
+        // Opposite directions can share their centerline. Match heading as
+        // well as distance so streaming never reverses a legal one-way route.
+        const angle = Math.abs(turnDelta(car.angle, edge.angle));
+        if (angle > Math.PI * 0.6) continue;
+        const point = closestOnSegment(car.x, car.z, edge.from.x, edge.from.z, edge.to.x, edge.to.z);
+        const gap = Math.hypot(car.x - point.x, car.z - point.z);
+        const score = gap + angle * 3;
+        if (gap < Math.max(12, finite(edge.road.width, 10)) && (!nearest || score < nearest.score)) nearest = { edge, score };
+      }
+      car._edge = nearest?.edge || null;
+      if (!car._edge && this._recycleTraffic(car)) car._streamParked = false;
+      else car._streamParked = !car._edge;
+      car.parked = car._streamParked;
+      if (car.parked) car.speed = 0;
+    }
+    this._policeRouteTimer = 0;
+  }
+
+  _travelSpawn(spawn) {
+    if (!Number.isFinite(spawn?.x) || !Number.isFinite(spawn?.z)) throw new Error('Travel requires finite map coordinates.');
+    const candidates = [];
+    for (const edge of this._graph.edges) {
+      const point = closestOnSegment(spawn.x, spawn.z, edge.from.x, edge.from.z, edge.to.x, edge.to.z);
+      if (distance(point, spawn) > 250) continue;
+      for (const offset of [0, 8, -8, 20, -20]) {
+        const lane = this._lanePoint(edge, clamp(point.t + offset / edge.length, 0.08, 0.92));
+        candidates.push({ ...lane, angle: edge.angle, gap: distance(lane, spawn) });
+      }
+    }
+    candidates.sort((a, b) => a.gap - b.gap);
+    // With no road extract (older callers/tests), retain a clear requested
+    // position. Citywide callers preload roads and surveyed collision first.
+    if (!this._graph.edges.length) candidates.push({ x: spawn.x, z: spawn.z, angle: finite(spawn.angle), gap: 0 });
+    for (const candidate of candidates) {
+      if (this.isBlocked(candidate.x, candidate.z, PLAYER_RADIUS)) continue;
+      for (const offset of [3.8, -3.8]) {
+        const taxi = { x: candidate.x + Math.sin(candidate.angle) * offset, z: candidate.z + Math.cos(candidate.angle) * offset };
+        if (!this._carContact(taxi.x, taxi.z, candidate.angle)) return { x: candidate.x, z: candidate.z, angle: candidate.angle, name: spawn.name };
+      }
+    }
+    throw new Error('This destination has no loaded, clear street. Choose a nearby street or wait for the city to load.');
+  }
+
+  /** Call after destination collision/roads are loaded; active jobs survive. */
+  travelTo(spawn) {
+    const target = this._travelSpawn(spawn);
+    this.city = { ...this.city, spawn: target };
+    this.cars = [];
+    Object.assign(this.player, { x: target.x, z: target.z, angle: target.angle, speed: 0, mode: 'walk', vehicleId: null, velocityX: 0, velocityZ: 0 });
+    this._seedCars();
+    const safe = this._findSafePoint(target.x, target.z, PLAYER_RADIUS);
+    Object.assign(this.player, { x: safe.x, z: safe.z });
+    this._accumulator = 0;
+    this._policeRouteTimer = 0;
+    this._bustedTime = 0;
+    this._say(`Arrived${target.name ? ` at ${target.name}` : ''}. Your cab is nearby.`);
+    return { x: this.player.x, z: this.player.z, angle: this.player.angle };
+  }
+
   _random() {
     this._rngState = (Math.imul(this._rngState, 1664525) + 1013904223) >>> 0;
     return this._rngState / 4294967296;
@@ -199,6 +298,14 @@ export class Simulation {
     if (x + radius > bounds.maxX) keep({ nx: -1, nz: 0, depth: x + radius - bounds.maxX, kind: 'boundary' });
     if (z - radius < bounds.minZ) keep({ nx: 0, nz: 1, depth: bounds.minZ - z + radius, kind: 'boundary' });
     if (z + radius > bounds.maxZ) keep({ nx: 0, nz: -1, depth: z + radius - bounds.maxZ, kind: 'boundary' });
+    const loaded = this.loadedBounds;
+    if (loaded) {
+      if (x - radius < loaded.minX) keep({ nx: 1, nz: 0, depth: loaded.minX - x + radius, kind: 'loading' });
+      if (x + radius > loaded.maxX) keep({ nx: -1, nz: 0, depth: x + radius - loaded.maxX, kind: 'loading' });
+      if (z - radius < loaded.minZ) keep({ nx: 0, nz: 1, depth: loaded.minZ - z + radius, kind: 'loading' });
+      if (z + radius > loaded.maxZ) keep({ nx: 0, nz: -1, depth: z + radius - loaded.maxZ, kind: 'loading' });
+    }
+    if (this._isReadyAt && !this._isReadyAt(x, z, radius)) keep({ nx: 0, nz: 0, depth: radius, kind: 'loading' });
     const checked = new Set();
     for (let gx = Math.floor((x - radius) / GRID_SIZE); gx <= Math.floor((x + radius) / GRID_SIZE); gx++) {
       for (let gz = Math.floor((z - radius) / GRID_SIZE); gz <= Math.floor((z + radius) / GRID_SIZE); gz++) {
@@ -240,11 +347,17 @@ export class Simulation {
     return null;
   }
 
-  _resolvePosition(x, z, radius, angle = null) {
+  _resolvePosition(x, z, radius, angle = null, previous = null) {
     let hit = null;
     for (let iteration = 0; iteration < 5; iteration++) {
       const contact = angle === null ? this._contact(x, z, radius) : this._carContact(x, z, angle);
       if (!contact) break;
+      // A missing I3S region has no wall normal. Stop at the last verified
+      // position rather than guessing a push direction through unloaded data.
+      if (contact.kind === 'loading' && previous) {
+        const dx = previous.x - x, dz = previous.z - z, length = Math.hypot(dx, dz) || 1;
+        return { x: previous.x, z: previous.z, hit: { ...contact, nx: dx / length, nz: dz / length } };
+      }
       if (!hit || contact.depth > hit.depth) hit = contact;
       x += contact.nx * (contact.depth + 0.0001);
       z += contact.nz * (contact.depth + 0.0001);
@@ -315,7 +428,7 @@ export class Simulation {
   }
 
   getStreet() {
-    return this._nearestEdge(this.player.x, this.player.z)?.edge.road.name || 'SoHo';
+    return this._nearestEdge(this.player.x, this.player.z)?.edge.road.name || this.city.name || 'New York City';
   }
 
   getNearbyCar() {
@@ -380,6 +493,16 @@ export class Simulation {
   }
 
   reset() {
+    // Recovery must remain in the loaded neighborhood after driving away from
+    // the last arrival point. Teleporting to an unloaded old spawn is unsafe.
+    if ((this.loadedBounds || this._isReadyAt) && this.isBlocked(this.city.spawn.x, this.city.spawn.z, PLAYER_RADIUS)) {
+      try { this.travelTo(this.player); }
+      catch {
+        // Sparse extracts can have no routable edge; the current position was
+        // already checked by movement, whereas the old spawn was not loaded.
+        this.city = { ...this.city, spawn: { x: this.player.x, z: this.player.z, angle: this.player.angle } };
+      }
+    }
     const car = this.cars.find(item => item.id === this.player.vehicleId);
     if (car) { car.controlled = false; car.parked = true; car.speed = 0; }
     const taxi = this.cars.find(item => item.id === 'player-taxi');
@@ -396,7 +519,7 @@ export class Simulation {
     this._impactCooldown = 0;
     this._bustedTime = 0;
     if (this.mission.phase === 'active') this.mission.phase = 'failed';
-    this._say('Back in SoHo. Your earnings and completed deliveries are saved.');
+    this._say('Recovered nearby. Your earnings and completed deliveries are saved.');
   }
 
   step(input = {}, dt = 0) {
@@ -448,10 +571,10 @@ export class Simulation {
     player.velocityX += (desiredX - player.velocityX) * blend;
     player.velocityZ += (desiredZ - player.velocityZ) * blend;
     if (magnitude > 0.02) player.angle += turnDelta(player.angle, Math.atan2(desiredX, desiredZ)) * (1 - Math.exp(-16 * dt));
-    let next = this._resolvePosition(player.x + player.velocityX * dt, player.z + player.velocityZ * dt, PLAYER_RADIUS);
+    let next = this._resolvePosition(player.x + player.velocityX * dt, player.z + player.velocityZ * dt, PLAYER_RADIUS, null, player);
     const carHit = this._nearCar(next.x, next.z, PLAYER_RADIUS);
     if (carHit) {
-      next = this._resolvePosition(next.x + carHit.nx * (carHit.depth + 0.001), next.z + carHit.nz * (carHit.depth + 0.001), PLAYER_RADIUS);
+      next = this._resolvePosition(next.x + carHit.nx * (carHit.depth + 0.001), next.z + carHit.nz * (carHit.depth + 0.001), PLAYER_RADIUS, null, player);
     }
     player.speed = Math.hypot(next.x - player.x, next.z - player.z) / dt;
     if (next.hit) {
@@ -479,16 +602,15 @@ export class Simulation {
     car._steering = finite(car._steering) + (input.turn * steeringLimit - finite(car._steering)) * (1 - Math.exp(-10 * dt));
     car.angle += car.speed / 2.65 * Math.tan(car._steering) * dt;
     car.angle %= TAU;
-    const next = this._resolvePosition(car.x + Math.sin(car.angle) * car.speed * dt, car.z + Math.cos(car.angle) * car.speed * dt, CAR_RADIUS, car.angle);
+    const next = this._resolvePosition(car.x + Math.sin(car.angle) * car.speed * dt, car.z + Math.cos(car.angle) * car.speed * dt, CAR_RADIUS, car.angle, car);
     if (next.hit) {
       const approach = -(Math.sin(car.angle) * next.hit.nx + Math.cos(car.angle) * next.hit.nz) * car.speed;
       if (approach > 0.3) {
-        // The edge of the extract is a gameplay limit, not a crashable object.
-        // Clamp movement there without fining or damaging a curious player.
-        if (next.hit.kind !== 'boundary') this._impact(Math.abs(speedBefore), 'building');
+        // Neither a geographic limit nor pending geometry is a crashable wall.
+        if (next.hit.kind !== 'boundary' && next.hit.kind !== 'loading') this._impact(Math.abs(speedBefore), 'building');
         else if (this.elapsed - this._lastBoundaryNotice > 6) {
           this._lastBoundaryNotice = this.elapsed;
-          this._say('Map edge. Turn back toward SoHo.', 4);
+          this._say(next.hit.kind === 'loading' ? 'Loading the next streets. Please wait.' : 'New York City map edge.', 4);
         }
         car.speed *= Math.max(0, 1 - Math.abs(approach) / Math.max(0.1, Math.abs(car.speed)));
       }
@@ -499,7 +621,7 @@ export class Simulation {
       const collision = this._nearCar(car.x + Math.sin(car.angle) * offset, car.z + Math.cos(car.angle) * offset, CAR_RADIUS, car.id);
       if (!collision) continue;
       const relativeSpeed = Math.abs(car.speed - collision.car.speed * Math.cos(turnDelta(car.angle, collision.car.angle)));
-      const corrected = this._resolvePosition(car.x + collision.nx * (collision.depth + 0.01), car.z + collision.nz * (collision.depth + 0.01), CAR_RADIUS, car.angle);
+      const corrected = this._resolvePosition(car.x + collision.nx * (collision.depth + 0.01), car.z + collision.nz * (collision.depth + 0.01), CAR_RADIUS, car.angle, car);
       car.x = corrected.x;
       car.z = corrected.z;
       this._impact(relativeSpeed, collision.car.type === 'police' ? 'police' : 'vehicle');
@@ -611,7 +733,7 @@ export class Simulation {
     }
     car.speed += (desiredSpeed - car.speed) * (1 - Math.exp(-2.8 * dt));
     const beforeX = car.x, beforeZ = car.z;
-    const resolved = this._resolvePosition(car.x + Math.sin(car.angle) * car.speed * dt, car.z + Math.cos(car.angle) * car.speed * dt, CAR_RADIUS, car.angle);
+    const resolved = this._resolvePosition(car.x + Math.sin(car.angle) * car.speed * dt, car.z + Math.cos(car.angle) * car.speed * dt, CAR_RADIUS, car.angle, car);
     car.x = resolved.x; car.z = resolved.z;
     if (resolved.hit) { car.speed *= 0.9; car._stuckTime += dt; }
     else car._stuckTime = Math.max(0, car._stuckTime - dt);

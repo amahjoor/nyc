@@ -55,7 +55,9 @@ export class Input {
       run ||= Boolean(pad.buttons[10]?.pressed);
       this.lookDelta -= dead(pad.axes[2]) * dt * 2;
       this.lookVertical += dead(pad.axes[3]) * dt;
-      for (const [index, name] of [[0,'interact'],[3,'job'],[9,'pause'],[8,'map']]) {
+      // Right bumper also exits the initial city overview, so a controller
+      // can reach walking/driving without needing a keyboard camera shortcut.
+      for (const [index, name] of [[0,'interact'],[3,'job'],[5,'view'],[9,'pause'],[8,'map']]) {
         const pressed = Boolean(pad.buttons[index]?.pressed);
         if (pressed && !this.padButtons[index]) this.action(name);
         this.padButtons[index] = pressed;

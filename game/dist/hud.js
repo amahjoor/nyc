@@ -57,8 +57,24 @@ export class HUD {
     const scale=size/span;
     const center=this.expanded?{x:(bounds.minX+bounds.maxX)/2,z:(bounds.minZ+bounds.maxZ)/2}:sim.player;
     const xy=(x,z)=>[(x-center.x)*scale+size/2,(z-center.z)*scale+size/2];
-    c.fillStyle='#242c2d'; c.fillRect(0,0,size,size);
+    c.fillStyle=this.expanded?'#263e4a':'#242c2d'; c.fillRect(0,0,size,size);
     c.save();
+    if(this.expanded&&this.city.boroughs){
+      if(!this.boroughMap||this.boroughMap.width!==size){
+        this.boroughMap=document.createElement('canvas');this.boroughMap.width=this.boroughMap.height=size;
+        const map=this.boroughMap.getContext('2d');map.fillStyle='#536460';map.strokeStyle='#84918a';map.lineWidth=1;
+        for(const borough of this.city.boroughs){
+          map.beginPath();
+          for(const polygon of borough.polygons)for(const ring of [polygon.outer,...(polygon.holes||[])]){
+            ring.forEach(([x,z],i)=>{const [px,py]=xy(x,z);i?map.lineTo(px,py):map.moveTo(px,py);});map.closePath();
+          }
+          map.fill('evenodd');map.stroke();
+        }
+        map.fillStyle='#e7e9db';map.font='bold 15px Arial';map.textAlign='center';
+        for(const borough of this.city.boroughs)if(borough.label){const [x,y]=xy(borough.label.x,borough.label.z);map.fillText(borough.name.toUpperCase(),x,y);}
+      }
+      c.drawImage(this.boroughMap,0,0);
+    }
     c.fillStyle='#465151';
     for(const b of buildings) {
       if(!b.polygon.length)continue;

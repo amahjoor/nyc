@@ -1,0 +1,413 @@
+import * as THREE from './vendor/three.module.min.js';
+
+const EARTH_RADIUS = 6371008.8;
+const DEG = Math.PI / 180;
+const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
+
+export function projectCityPoint(lon, lat, origin) {
+  return [EARTH_RADIUS * DEG * (lon - origin.lon) * Math.cos(origin.lat * DEG),
+    -EARTH_RADIUS * DEG * (lat - origin.lat)];
+}
+
+function inRing(point, ring) {
+  let inside = false;
+  for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
+    const a = ring[i], b = ring[j];
+    if ((a[1] > point[1]) !== (b[1] > point[1]) && point[0] < (b[0] - a[0]) * (point[1] - a[1]) / (b[1] - a[1]) + a[0]) inside = !inside;
+  }
+  return inside;
+}
+
+function ringArea(ring) {
+  let area = 0;
+  for (let i = 0; i < ring.length; i++) {
+    const a = ring[i], b = ring[(i + 1) % ring.length]; area += a[0] * b[1] - b[0] * a[1];
+  }
+  return Math.abs(area) / 2;
+}
+
+/** Cancel shared edges of the actual ground triangles; retain holes and islands. */
+export function groundRings(triangles) {
+  const points = new Map(), edges = new Map();
+  // I3S repeats vertices per face. This tolerance joins only sub-centimeter
+  // conversion noise; returned coordinates remain the original measurements.
+  const key = point => `${Math.round(point[0] * 200)},${Math.round(point[1] * 200)}`;
+  for (const triangle of triangles) {
+    for (let i = 0; i < 3; i++) {
+      const a = key(triangle[i]), b = key(triangle[(i + 1) % 3]);
+      if (a === b) continue;
+      points.set(a, triangle[i]); points.set(b, triangle[(i + 1) % 3]);
+      const edge = a < b ? `${a}|${b}` : `${b}|${a}`;
+      if (edges.has(edge)) edges.get(edge).count++;
+      else edges.set(edge, { a, b, count: 1 });
+    }
+  }
+  const boundary = [...edges.values()].filter(edge => edge.count === 1);
+  const neighbors = new Map();
+  boundary.forEach((edge, index) => {
+    for (const point of [edge.a, edge.b]) {
+      if (!neighbors.has(point)) neighbors.set(point, []);
+      neighbors.get(point).push(index);
+    }
+  });
+  const used = new Set(), rings = [];
+  for (let first = 0; first < boundary.length; first++) {
+    if (used.has(first)) continue;
+    const start = boundary[first].a, ring = [points.get(start)];
+    let current = start, next = first, closed = false;
+    while (next !== undefined && !used.has(next)) {
+      used.add(next);
+      const edge = boundary[next]; current = edge.a === current ? edge.b : edge.a;
+      if (current === start) { closed = true; break; }
+      ring.push(points.get(current));
+      next = (neighbors.get(current) || []).find(index => !used.has(index));
+    }
+    if (!closed) return null;
+    if (ring.length >= 3 && ringArea(ring) > 0.0001) rings.push(ring);
+  }
+  rings.sort((a, b) => ringArea(b) - ringArea(a));
+  const classified = [], result = [];
+  for (const ring of rings) {
+    const parents = classified.filter(candidate => inRing(ring[0], candidate.ring));
+    const parent = parents.at(-1), depth = (parent?.depth ?? -1) + 1;
+    const record = { ring, depth, shape: null };
+    if (depth % 2 === 0) {
+      record.shape = { polygon: ring, holes: [] }; result.push(record.shape);
+    } else {
+      const exterior = [...parents].reverse().find(candidate => candidate.shape);
+      if (!exterior) return null;
+      exterior.shape.holes.push(ring);
+    }
+    classified.push(record);
+  }
+  return result;
+}
+
+/** Decode the public I3S geometry buffer 0 without proprietary codecs or keys. */
+export function decodeI3S(buffer, node, origin, { collisions = true } = {}) {
+  const view = new DataView(buffer);
+  if (buffer.byteLength < 8) throw new Error('NYC geometry header is truncated.');
+  const vertexCount = view.getUint32(0, true), featureCount = view.getUint32(4, true);
+  if (vertexCount % 3 || vertexCount > 5_000_000 || featureCount > vertexCount / 3) throw new Error('Invalid NYC geometry counts.');
+  const featureOffset = 8 + vertexCount * 36;
+  if (buffer.byteLength !== featureOffset + featureCount * 16) throw new Error('NYC geometry payload length does not match its header.');
+  const source = new Float32Array(buffer, 8, vertexCount * 3);
+  const positions = new Float32Array(vertexCount * 3), buildings = [];
+  const bounds = { minX: Infinity, maxX: -Infinity, minZ: Infinity, maxZ: -Infinity };
+  const [centerLon, centerLat, centerHeight] = node.center;
+  const [centerX, centerZ] = projectCityPoint(centerLon, centerLat, origin);
+  const scaleX = EARTH_RADIUS * DEG * Math.cos(origin.lat * DEG), scaleZ = -EARTH_RADIUS * DEG;
+  for (let i = 0; i < vertexCount; i++) {
+    const x = centerX + source[i * 3] * scaleX, z = centerZ + source[i * 3 + 1] * scaleZ;
+    if (![x, z, source[i * 3 + 2]].every(Number.isFinite)) throw new Error('NYC geometry contains invalid coordinates.');
+    positions[i * 3] = x; positions[i * 3 + 1] = source[i * 3 + 2]; positions[i * 3 + 2] = z;
+    bounds.minX = Math.min(bounds.minX, x); bounds.maxX = Math.max(bounds.maxX, x);
+    bounds.minZ = Math.min(bounds.minZ, z); bounds.maxZ = Math.max(bounds.maxZ, z);
+  }
+  let expectedFace = 0;
+  for (let feature = 0; feature < featureCount; feature++) {
+    const rangeOffset = featureOffset + featureCount * 8 + feature * 8;
+    const startFace = view.getUint32(rangeOffset, true), endFace = view.getUint32(rangeOffset + 4, true);
+    if (startFace !== expectedFace || endFace < startFace || endFace >= vertexCount / 3) throw new Error('NYC feature triangle ranges are invalid.');
+    expectedFace = endFace + 1;
+    const id = view.getBigUint64(featureOffset + feature * 8, true).toString();
+    let low = Infinity, high = -Infinity;
+    for (let i = startFace * 3; i < (endFace + 1) * 3; i++) {
+      const y = source[i * 3 + 2]; low = Math.min(low, y); high = Math.max(high, y);
+    }
+    const triangles = [];
+    for (let face = startFace; face <= endFace; face++) {
+      const vertex = face * 3;
+      if (collisions && [0, 1, 2].every(k => source[(vertex + k) * 3 + 2] <= low + 0.025)) {
+        const triangle = [0, 1, 2].map(k => [positions[(vertex + k) * 3], positions[(vertex + k) * 3 + 2]]);
+        if (ringArea(triangle) > 0.0001) triangles.push(triangle);
+      }
+      for (let k = 0; k < 3; k++) positions[(vertex + k) * 3 + 1] -= low;
+    }
+    if (collisions) {
+      if (!triangles.length) throw new Error(`NYC building ${id} has no surveyed ground surface.`);
+      // Some source triangle soups have T-junctions. Keeping their original
+      // ground triangles as separate colliders preserves the exact occupied
+      // area without inventing a convex hull or filling a courtyard.
+      const shapes = groundRings(triangles) || triangles.map(polygon => ({ polygon, holes: [] }));
+      shapes.forEach((shape, part) => buildings.push({ id: `nyc:${id}:${part}`, featureId: id,
+        ...shape, height: high - low, baseElevation: low + centerHeight, heightEstimated: false, heightSource: 'nyc-oti-2014-survey' }));
+    }
+  }
+  if (expectedFace !== vertexCount / 3) throw new Error('NYC geometry includes triangles without a building identifier.');
+  return { positions, buildings, bounds, triangles: vertexCount / 3, featureCount };
+}
+
+export function createCityStream(index, options = {}) {
+  return new CityStream(index, options);
+}
+
+class CityStream {
+  constructor(index, { scene, onCollisionChange = () => {}, onStatus = () => {}, fetcher = globalThis.fetch,
+    concurrency = 5, maxCacheBytes = 210 * 1024 * 1024 } = {}) {
+    this.index = index; this.nodes = new Map(index.nodes.map(node => [node.id, node]));
+    this.leaves = index.nodes.filter(node => !node.children.length && node.resource !== null);
+    this.spatial = new Map();
+    for (const node of this.leaves) {
+      for (let x = Math.floor((node.x - node.radius) / 1000); x <= Math.floor((node.x + node.radius) / 1000); x++) {
+        for (let z = Math.floor((node.z - node.radius) / 1000); z <= Math.floor((node.z + node.radius) / 1000); z++) {
+          const key = `${x},${z}`;
+          if (!this.spatial.has(key)) this.spatial.set(key, []);
+          this.spatial.get(key).push(node);
+        }
+      }
+    }
+    this.scene = scene; this.onCollisionChange = onCollisionChange; this.onStatus = onStatus; this.fetcher = fetcher;
+    this.concurrency = concurrency; this.maxCacheBytes = maxCacheBytes;
+    this.group = new THREE.Group(); this.group.name = 'Streamed official NYC survey'; scene?.add(this.group);
+    this.cache = new Map(); this.requests = new Map(); this.queue = []; this.errors = new Map();
+    this.active = 0; this.serial = 0; this.disposed = false; this.desired = new Set(); this.protected = new Set();
+    this.collisionDesired = new Set(); this.preparedCollisions = new Set(); this.collisionRecords = new Map();
+    this.focus = { x: 0, z: 0 }; this.lastSelection = -Infinity; this.lastOverview = null;
+    this.material = new THREE.MeshStandardMaterial({ color: 0xbebfb9, roughness: 0.94, side: THREE.DoubleSide });
+    this.material.name = 'Official citywide measured surfaces';
+    this.orthoUniforms = { cityOrtho: { value: null }, cityOrthoBounds: { value: new THREE.Vector4() }, cityUseOrtho: { value: false },
+      cityMercator: { value: new THREE.Vector4() }, cityUseMercator: { value: false } };
+    this.material.onBeforeCompile = shader => {
+      Object.assign(shader.uniforms, this.orthoUniforms);
+      shader.vertexShader = 'varying vec2 vCityXZ; varying float vCityRoof;\n' + shader.vertexShader;
+      shader.vertexShader = shader.vertexShader.replace('#include <begin_vertex>', '#include <begin_vertex>\nvCityXZ = position.xz; vCityRoof = abs(normal.y);');
+      shader.fragmentShader = 'uniform sampler2D cityOrtho; uniform vec4 cityOrthoBounds; uniform bool cityUseOrtho; uniform vec4 cityMercator; uniform bool cityUseMercator; varying vec2 vCityXZ; varying float vCityRoof;\n' + shader.fragmentShader;
+      shader.fragmentShader = shader.fragmentShader.replace('#include <color_fragment>', `#include <color_fragment>
+        if (cityUseOrtho && vCityRoof > 0.65) {
+          vec2 cityUV = vec2((vCityXZ.x-cityOrthoBounds.x)/(cityOrthoBounds.y-cityOrthoBounds.x),
+            (cityOrthoBounds.w-vCityXZ.y)/(cityOrthoBounds.w-cityOrthoBounds.z));
+          if (cityUseMercator) {
+            float latitude = cityMercator.z - vCityXZ.y/cityMercator.w;
+            cityUV.y = (log(tan(0.7853981633974483+latitude*0.5))-cityMercator.y)/(cityMercator.x-cityMercator.y);
+          }
+          if (all(greaterThanEqual(cityUV,vec2(0.0))) && all(lessThanEqual(cityUV,vec2(1.0))))
+            diffuseColor.rgb = texture2D(cityOrtho,cityUV).rgb;
+        }`);
+    };
+  }
+
+  setOrthophoto({ texture, bounds, mercator }) {
+    if (!texture || !bounds || !(bounds.maxX > bounds.minX) || !(bounds.maxZ > bounds.minZ)) return;
+    this.orthoUniforms.cityOrtho.value = texture;
+    this.orthoUniforms.cityOrthoBounds.value.set(bounds.minX, bounds.maxX, bounds.minZ, bounds.maxZ);
+    this.orthoUniforms.cityUseOrtho.value = true;
+    this.orthoUniforms.cityUseMercator.value = Boolean(mercator);
+    if (mercator) this.orthoUniforms.cityMercator.value.set(mercator.north, mercator.south, mercator.originLat, mercator.radius);
+  }
+
+  nearby(point, radius) {
+    const candidates = new Map();
+    for (let x = Math.floor((point.x - radius) / 1000); x <= Math.floor((point.x + radius) / 1000); x++) {
+      for (let z = Math.floor((point.z - radius) / 1000); z <= Math.floor((point.z + radius) / 1000); z++) {
+        for (const node of this.spatial.get(`${x},${z}`) || []) candidates.set(node.id, node);
+      }
+    }
+    return [...candidates.values()].filter(node => Math.hypot(node.x - point.x, node.z - point.z) <= radius + node.radius);
+  }
+
+  isReadyAt(x, z, radius = 4) {
+    if (this.disposed) return false;
+    // A scenery cache hit alone does not mean the simulation has its walls.
+    // Publish the region first, then allow movement into its cached geometry.
+    return this.nearby({ x, z }, radius).every(node => this.cache.has(node.id) && this.collisionRecords.get(node.id) === this.cache.get(node.id));
+  }
+
+  async prepareAt(point, radius = 80) {
+    if (this.disposed) throw new Error('NYC city stream has been disposed.');
+    const nodes = this.nearby(point, radius);
+    nodes.forEach(node => this.protected.add(node.id));
+    try {
+      await Promise.all(nodes.map(node => this.request(node, -100000)));
+      // Keep both the current neighborhood and the prepared destination until
+      // update() observes the player's actual arrival (or failed-travel rollback).
+      this.preparedCollisions = new Set(nodes.map(node => node.id));
+      this.emitCollisions(); this.showSelection();
+      return { ready: true, loadedChunks: nodes.length };
+    } finally {
+      nodes.forEach(node => this.protected.delete(node.id));
+      this.emitCollisions();
+    }
+  }
+
+  update(focus, camera, { overview = false } = {}) {
+    if (this.disposed) return;
+    this.focus = { x: focus.x, z: focus.z };
+    const now = Date.now();
+    if (now - this.lastSelection < 350 && overview === this.lastOverview) return;
+    this.lastSelection = now; this.lastOverview = overview;
+    const selected = [];
+    const visit = node => {
+      const distance = Math.hypot(node.x - focus.x, node.z - focus.z) - node.radius;
+      if (!overview && distance > 2100) return;
+      if (!overview && node.children.length && distance < 850) {
+        node.children.forEach(id => visit(this.nodes.get(id))); return;
+      }
+      if (node.resource !== null) selected.push(node);
+    };
+    indexRoots(this.index).forEach(id => visit(this.nodes.get(id)));
+    this.desired = new Set(selected.map(node => node.id));
+    const physics = this.nearby(focus, overview ? 140 : 850);
+    this.physicsDesired = new Set(physics.map(node => node.id));
+    // Reuse already cached local walls in overview without requesting distant
+    // scenery as physics. Completed travel preparations hand off here.
+    this.collisionDesired = new Set(this.nearby(focus, 850).map(node => node.id));
+    this.preparedCollisions.clear();
+    for (const node of physics) {
+      const priority = Math.hypot(node.x - focus.x, node.z - focus.z) - node.radius - 10000;
+      this.request(node, priority).catch(() => {});
+    }
+    for (const node of selected) this.request(node, Math.hypot(node.x - focus.x, node.z - focus.z)).catch(() => {});
+    this.queue = this.queue.filter(task => {
+      if (this.desired.has(task.node.id) || this.physicsDesired.has(task.node.id) || this.protected.has(task.node.id)) return true;
+      this.requests.delete(task.node.id); task.reject(new Error('NYC tile selection changed.')); return false;
+    });
+    this.emitCollisions(); this.showSelection(); this.evict(); this.emitStatus(); this.pump();
+  }
+
+  request(node, priority) {
+    const cached = this.cache.get(node.id);
+    if (cached) { cached.used = ++this.serial; return Promise.resolve(cached); }
+    if (this.requests.has(node.id)) {
+      const pending = this.requests.get(node.id);
+      // Travel can require a tile that is already queued as distant scenery.
+      // Promote that same request rather than leaving readiness behind it.
+      if (priority < pending.priority) { pending.priority = priority; this.queue.sort((a, b) => a.priority - b.priority); }
+      return pending.promise;
+    }
+    const error = this.errors.get(node.id);
+    if (error && Date.now() - error.time < 5000) return Promise.reject(error.error);
+    let resolve, reject;
+    const promise = new Promise((yes, no) => { resolve = yes; reject = no; });
+    const task = { node, priority, promise, resolve, reject, controller: new AbortController() };
+    this.requests.set(node.id, task); this.queue.push(task); this.queue.sort((a, b) => a.priority - b.priority);
+    this.pump(); return promise;
+  }
+
+  pump() {
+    while (!this.disposed && this.active < this.concurrency && this.queue.length) {
+      const task = this.queue.shift(); this.active++;
+      this.load(task).then(task.resolve, task.reject).finally(() => {
+        this.active--; this.requests.delete(task.node.id); this.showSelection(); this.evict(); this.emitStatus(); this.pump();
+      });
+    }
+  }
+
+  async load(task) {
+    const { node } = task;
+    try {
+      let data, error;
+      for (let attempt = 0; attempt < 3; attempt++) {
+        if (this.disposed) throw new Error('NYC city stream has been disposed.');
+        const controller = task.controller;
+        const timeout = setTimeout(() => controller.abort(), 20000);
+        try {
+          const response = await this.fetcher(`${this.index.source.service}/nodes/${node.resource}/geometries/0`, { signal: controller.signal });
+          if (!response.ok) throw new Error(`NYC geometry service returned ${response.status}.`);
+          data = decodeI3S(await response.arrayBuffer(), node, this.index.origin, { collisions: !node.children.length });
+          break;
+        } catch (caught) {
+          // An old attempt's timer must not abort its replacement controller
+          // during backoff when a response fails just before the deadline.
+          clearTimeout(timeout);
+          error = caught; if (attempt === 2 || this.disposed) throw caught;
+          task.controller = new AbortController(); await delay(300 * (attempt + 1));
+        } finally { clearTimeout(timeout); }
+      }
+      if (!data) throw error;
+      if (this.disposed) throw new Error('NYC city stream has been disposed.');
+      const geometry = new THREE.BufferGeometry();
+      geometry.setAttribute('position', new THREE.BufferAttribute(data.positions, 3)); geometry.computeVertexNormals(); geometry.computeBoundingSphere();
+      const mesh = new THREE.Mesh(geometry, this.material); mesh.name = `NYC survey node ${node.resource}`;
+      mesh.castShadow = true; mesh.receiveShadow = true; mesh.visible = false;
+      this.group.add(mesh);
+      const record = { node, mesh, buildings: data.buildings, bytes: data.positions.byteLength * 2, used: ++this.serial, triangles: data.triangles };
+      this.cache.set(node.id, record); this.errors.delete(node.id);
+      if (!node.children.length) this.emitCollisions();
+      return record;
+    } catch (error) {
+      if (!this.disposed) this.errors.set(node.id, { error, time: Date.now() });
+      throw error;
+    }
+  }
+
+  showSelection() {
+    if (this.disposed) return;
+    const wanted = new Set(this.desired);
+    for (const id of this.desired) {
+      let parent = this.nodes.get(id).parent;
+      while (parent !== null && parent !== undefined) { wanted.add(parent); parent = this.nodes.get(parent).parent; }
+    }
+    // Resolve each branch as a complete set of children OR its cached ancestor.
+    // A slow/failed child must never leave coarse and detailed surfaces drawing
+    // over each other, and must not remove the branch's existing coverage.
+    const resolve = (node, all = false) => {
+      if (!all && !wanted.has(node.id)) return { ids: [], complete: true };
+      if (this.cache.has(node.id) && (all || this.desired.has(node.id))) return { ids: [node.id], complete: true };
+      if (!node.children.length) return { ids: [], complete: false };
+      const children = node.children.map(id => resolve(this.nodes.get(id), all || this.desired.has(node.id)));
+      const complete = children.every(child => child.complete);
+      if (!complete && this.cache.has(node.id)) return { ids: [node.id], complete: true };
+      return { ids: children.flatMap(child => child.ids), complete };
+    };
+    const visible = new Set(indexRoots(this.index).flatMap(id => resolve(this.nodes.get(id)).ids));
+    for (const [id, record] of this.cache) record.mesh.visible = visible.has(id);
+  }
+
+  emitCollisions() {
+    if (this.disposed) return;
+    const records = new Map();
+    for (const id of new Set([...this.collisionDesired, ...this.protected, ...this.preparedCollisions])) {
+      const record = this.cache.get(id);
+      if (record && !record.node.children.length) records.set(id, record);
+    }
+    if (records.size === this.collisionRecords.size && [...records].every(([id, record]) => this.collisionRecords.get(id) === record)) return;
+    const unique = new Map();
+    for (const record of records.values()) for (const building of record.buildings) unique.set(building.id, building);
+    const previous = this.collisionRecords;
+    this.collisionRecords = records;
+    try {
+      this.onCollisionChange([...unique.values()], { readyAtFocus: this.isReadyAt(this.focus.x, this.focus.z, 40), loadedChunks: this.cache.size, collisionChunks: records.size });
+    } catch (error) {
+      this.collisionRecords = previous;
+      throw error;
+    }
+  }
+
+  evict() {
+    let bytes = [...this.cache.values()].reduce((sum, record) => sum + record.bytes, 0), changed = false;
+    const removable = [...this.cache.values()].filter(record => !record.mesh.visible && !this.desired.has(record.node.id)
+      && !this.physicsDesired?.has(record.node.id) && !this.collisionDesired.has(record.node.id)
+      && !this.protected.has(record.node.id) && !this.preparedCollisions.has(record.node.id)).sort((a, b) => a.used - b.used);
+    for (const record of removable) {
+      if (bytes <= this.maxCacheBytes && this.cache.size <= 140) break;
+      this.cache.delete(record.node.id); this.group.remove(record.mesh); record.mesh.geometry.dispose(); bytes -= record.bytes; changed ||= record.buildings.length > 0;
+    }
+    if (changed) this.emitCollisions();
+  }
+
+  getStatus() {
+    let triangles = 0, visibleChunks = 0, bytes = 0;
+    for (const record of this.cache.values()) {
+      bytes += record.bytes;
+      if (record.mesh.visible) { visibleChunks++; triangles += record.triangles; }
+    }
+    const relevantError = [...this.errors].find(([id]) => this.desired.has(id) || this.physicsDesired?.has(id));
+    const readyAtFocus = this.isReadyAt(this.focus.x, this.focus.z, 40);
+    return { loading: this.active + this.queue.length, loadedChunks: this.cache.size, cachedChunks: this.cache.size,
+      visibleChunks, triangles, cacheBytes: bytes, collisionChunks: this.collisionRecords.size, ready: readyAtFocus, readyAtFocus,
+      error: relevantError ? relevantError[1].error.message : null };
+  }
+
+  emitStatus() { if (!this.disposed) this.onStatus(this.getStatus()); }
+
+  dispose() {
+    this.disposed = true;
+    for (const task of this.requests.values()) { task.controller.abort(); task.reject(new Error('NYC city stream has been disposed.')); }
+    this.queue.length = 0; this.requests.clear();
+    for (const record of this.cache.values()) record.mesh.geometry.dispose();
+    this.cache.clear(); this.collisionRecords.clear(); this.preparedCollisions.clear(); this.material.dispose(); this.scene?.remove(this.group); this.group.clear();
+  }
+}
+
+function indexRoots(index) { return index.roots || index.nodes.find(node => node.id === index.root).children; }

@@ -22,4 +22,15 @@ for(const asset of [...ortho.tiles,...profiles.profiles.flatMap(profile=>profile
 }
 const html=await readFile(resolve(root,'dist/index.html'),'utf8');
 for(const file of ['main.js','style.css'])if(!html.includes(file))throw new Error(`Missing entry: ${file}`);
-console.log(`Source checks passed: ${city.roads.length} roads, ${survey.buildings.length} surveyed buildings, ${ortho.tiles.length} aerial tiles.`);
+const index=JSON.parse(await readFile(resolve(root,'dist/city-index.json'),'utf8'));
+if(index.nodes.length<4000||index.roots.length<50)throw new Error('Citywide geometry index is incomplete');
+const roads=JSON.parse(await readFile(resolve(root,'dist/road-index.json'),'utf8'));
+const boroughs=JSON.parse(await readFile(resolve(root,'dist/boroughs.json'),'utf8'));
+if(boroughs.boroughs.length!==5||new Set(roads.places.map(place=>place.borough)).size!==5)throw new Error('Missing borough coverage');
+// Validate deployment paths and byte counts so a partial road import cannot ship.
+for(const [key,cell] of Object.entries(roads.cells)){
+  if(!/^\.\/roads\/-?\d+_-?\d+\.json$/.test(cell.url))throw new Error(`Invalid road cell path: ${key}`);
+  const file=await stat(resolve(root,'dist',cell.url));
+  if(file.size!==cell.bytes)throw new Error(`Incomplete road cell: ${key}`);
+}
+console.log(`Source checks passed: ${index.nodes.length} geometry nodes, ${Object.keys(roads.cells).length} road cells, all five boroughs, and bundled source assets.`);

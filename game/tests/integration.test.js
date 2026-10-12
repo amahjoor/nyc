@@ -1,22 +1,33 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import { gunzipSync } from 'node:zlib';
 import vm from 'node:vm';
 import * as THREE from '../dist/vendor/three.module.min.js';
-import { createWorld, createCar, createPerson } from '../dist/world.js';
+import { createCar, createPerson } from '../dist/world.js';
 import { Simulation } from '../dist/simulation.js';
 import { Input } from '../dist/input.js';
 import { HUD } from '../dist/hud.js';
 import { CityAudio } from '../dist/audio.js';
-import { applySurvey } from '../dist/survey-city.js';
-import { loadOrthophoto } from '../dist/orthophoto.js';
+import { createCityStream } from '../dist/city-stream.js';
+import { createCityGround, worldToGeographic } from '../dist/city-ground.js';
+import { createRoadStream, nearestStreet, localDestinations, cellsAround } from '../dist/road-stream.js';
 
 // This is application integration QA, not a browser/GPU rendering test. The
 // actual city geometry, physics, input and HUD run; browser primitives are fake.
-const city = JSON.parse(readFileSync(new URL('../dist/city.json', import.meta.url), 'utf8'));
-const survey = JSON.parse(readFileSync(new URL('../dist/survey.json', import.meta.url), 'utf8'));
-const profiles = JSON.parse(readFileSync(new URL('../dist/facade-profiles.json', import.meta.url), 'utf8'));
-const ortho = JSON.parse(readFileSync(new URL('../dist/ortho.json', import.meta.url), 'utf8'));
+const index = JSON.parse(readFileSync(new URL('../dist/city-index.json', import.meta.url), 'utf8'));
+const fixtureResources = new Map([[4341,'soho'],[4,'brooklyn'],[301,'queens'],[2264,'bronx'],[2737,'staten-island']]);
+const fixtureBuffers = new Map([...fixtureResources].map(([resource, name]) => {
+  const bytes = gunzipSync(readFileSync(new URL(`./fixtures/i3s-${name}.bin.gz`, import.meta.url)));
+  return [resource, bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength)];
+}));
+// Keep each borough's real coordinates and geometry. Only the streaming tree is
+// reduced so integration tests remain offline without copying the entire city.
+const fixtureNodes = index.nodes.filter(node => fixtureResources.has(node.resource)).map(node => ({...node, parent:-1}));
+const fixtureIndex = {...index, root:-1, roots:fixtureNodes.map(node=>node.id), nodes:[
+  {...index.nodes.find(node=>node.id===index.root), id:-1, parent:null, children:fixtureNodes.map(node=>node.id)},
+  ...fixtureNodes,
+]};
 const html = readFileSync(new URL('../dist/index.html', import.meta.url), 'utf8');
 const main = readFileSync(new URL('../dist/main.js', import.meta.url), 'utf8');
 
@@ -56,6 +67,7 @@ class Element extends EventTarget {
     this.width = Number(attributes.match(/width="(\d+)"/)?.[1] || 300);
     this.height = Number(attributes.match(/height="(\d+)"/)?.[1] || 150);
     this.open = false;
+    this.value = attributes.match(/value="([^"]*)"/)?.[1] || '0';
     this.classes = new Set();
     this.classList = {
       add: name => this.classes.add(name),
@@ -71,6 +83,7 @@ class Element extends EventTarget {
   getAttribute(name) { return this.attributes.get(name); }
   getContext(kind) { assert.equal(kind, '2d'); return this.context ||= canvasContext(); }
   setPointerCapture() {}
+  click() { if(!this.disabled)this.dispatch('click'); }
   focus() { this.focused = true; }
   showModal() { this.open = true; }
   close() { this.open = false; this.dispatch('close'); }
@@ -102,12 +115,12 @@ function makeDocument() {
   return { document, elements };
 }
 
-async function bootHarness({ stored = null, unavailableStorage = false, fetchOK = true, imageryOK = true } = {}) {
+async function bootHarness({ stored = null, unavailableStorage = false, fetchOK = true, geometryOK = true, imageryOK = true, coarsePointer = false, holdRoads = () => false } = {}) {
   const { document, elements } = makeDocument();
   const window = new EventTarget();
   const pads = [];
   const storage = new Map(stored === null ? [] : [['nyc-after-hours-v1', stored]]);
-  const frames = [], errors = [];
+  const frames = [], errors = [], requests = [], roadWaiters = [];
   const rendererInstances = [];
   let timestamp = 1000;
   class RendererStub {
@@ -122,7 +135,7 @@ async function bootHarness({ stored = null, unavailableStorage = false, fetchOK 
     render(scene, camera) {
       assert.ok(scene.isScene && camera.isPerspectiveCamera);
       assert.ok(Number.isFinite(camera.position.x + camera.position.y + camera.position.z));
-      // Traverse real geometry once to catch invalid procedural coordinates and
+      // Traverse real geometry once to catch invalid source coordinates and
       // broken factory contracts without pretending to compile GPU shaders.
       if (!this.renderCount) {
         let meshes = 0;
@@ -141,26 +154,50 @@ async function bootHarness({ stored = null, unavailableStorage = false, fetchOK 
   }
   const navigator = { getGamepads: () => pads };
   class ImageStub {
-    set src(url) { assert.ok(url.startsWith('./assets/ortho/'));queueMicrotask(()=>imageryOK?this.onload():this.onerror()); }
+    set src(url) {
+      this.url=url;
+      if(!url)return;
+      assert.match(url,/^https:\/\/tiles\.arcgis\.com\/.+\/NYC_Orthos_2024\/MapServer\/tile\//);
+      queueMicrotask(()=>{if(this.url===url)(imageryOK?this.onload:this.onerror)?.();});
+    }
   }
-  const globals = { document, window, navigator, Image: ImageStub };
+  const fetcher = async url => {
+    requests.push(url);
+    if(!fetchOK)return {ok:false,status:503};
+    if(url.startsWith(index.source.service)) {
+      if(!geometryOK)return {ok:false,status:503};
+      const resource=Number(url.match(/\/nodes\/(\d+)\/geometries\/0$/)?.[1]);
+      assert.ok(fixtureBuffers.has(resource),`unexpected external geometry request: ${url}`);
+      return {ok:true,arrayBuffer:async()=>fixtureBuffers.get(resource).slice(0)};
+    }
+    assert.ok(!/^https?:/.test(url),`integration test attempted an external request: ${url}`);
+    const data=JSON.parse(readFileSync(new URL(`../dist/${url.replace(/^\.\//,'')}`,import.meta.url),'utf8'));
+    if(Array.isArray(data.roads)&&holdRoads(url))await new Promise(resolve=>roadWaiters.push(resolve));
+    return {ok:true,json:async()=>structuredClone(data)};
+  };
+  const globals = { document, window, navigator, Image: ImageStub, fetch:fetcher };
   const original = new Map(Object.keys(globals).map(key => [key, Object.getOwnPropertyDescriptor(globalThis, key)]));
   for (const [key, value] of Object.entries(globals)) Object.defineProperty(globalThis, key, { value, configurable: true });
   const context = vm.createContext({
     ...globals,
     THREE: { ...THREE, WebGLRenderer: RendererStub },
-    createWorld, createCar, createPerson, Simulation, Input, HUD, CityAudio, applySurvey, loadOrthophoto,
+    createCar, createPerson, Simulation, Input, HUD, CityAudio,
+    createCityStream:(fullIndex,options)=>{
+      assert.equal(fullIndex.stats.buildingFeatures,index.stats.buildingFeatures);
+      return createCityStream(fixtureIndex,options);
+    },
+    createCityGround, worldToGeographic, createRoadStream, nearestStreet, localDestinations,
     console: { error: error => errors.push(error), warn: () => {}, log: () => {} },
-    matchMedia: () => ({ matches: false }),
+    matchMedia: () => ({ matches: coarsePointer }),
     innerWidth: 1440, innerHeight: 900, devicePixelRatio: 2,
     requestAnimationFrame: callback => frames.push(callback),
-    fetch: async url => ({ ok: fetchOK, json: async () => ({'./city.json':city,'./survey.json':survey,'./facade-profiles.json':profiles,'./ortho.json':ortho})[url] }),
     localStorage: {
       getItem: key => { if (unavailableStorage) throw new Error('Storage disabled'); return storage.get(key) ?? null; },
       setItem: (key, value) => { if (unavailableStorage) throw new Error('Storage disabled'); storage.set(key, value); },
     },
   });
   function close() {
+    vm.runInContext('world?.dispose(); ground?.dispose();',context);
     for (const [key, descriptor] of original) {
       if (descriptor) Object.defineProperty(globalThis, key, descriptor);
       else delete globalThis[key];
@@ -170,12 +207,22 @@ async function bootHarness({ stored = null, unavailableStorage = false, fetchOK 
     // The imported modules above are the production modules. Only main's static
     // imports are replaced by those same bindings to run it without VM flags.
     vm.runInContext(main.replace(/^import .*;\s*$/gm, ''), context, { filename: 'main.js' });
-    await new Promise(resolve => setImmediate(resolve));
+    async function until(predicate,message='application state did not settle') {
+      for(let i=0;i<400;i++) {
+        if(predicate())return;
+        await new Promise(resolve=>setTimeout(resolve,5));
+      }
+      assert.fail(message);
+    }
+    await until(()=>vm.runInContext('bootReady',context)||!elements.get('load-error').hidden,'production boot did not finish');
     return {
-      close, errors, elements, storage, pads, window, document, rendererInstances,
+      close, errors, elements, storage, pads, window, document, rendererInstances, requests, until,
+      releaseRoads:()=>roadWaiters.splice(0).forEach(resolve=>resolve()),
+      waitingRoads:()=>roadWaiters.length,
       state: () => window.nycGame.getState(),
       simulation: () => vm.runInContext('sim', context),
-      click: id => elements.get(id).dispatch('click'),
+      roadIndex: () => vm.runInContext('roadIndex', context),
+      click: id => elements.get(id).click(),
       key: (code, down = true) => window.dispatch(down ? 'keydown' : 'keyup', { code, repeat: false, target: elements.get('world') }),
       frames(count = 1) {
         for (let i = 0; i < count; i++) {
@@ -188,14 +235,15 @@ async function bootHarness({ stored = null, unavailableStorage = false, fetchOK 
   } catch (error) { close(); throw error; }
 }
 
-test('real city boots, walks, enters a cab, delivers, saves and pauses through production UI', async () => {
-  const app = await bootHarness({ stored: JSON.stringify({ version: 1, cash: 225, deliveries: 2 }) });
+test('five-borough app boots, walks, enters a cab, delivers, saves and pauses through production UI', async () => {
+  const app = await bootHarness({ stored: JSON.stringify({ version: 1, cash: 225, deliveries: 2 }), coarsePointer:true });
   try {
     assert.equal(app.errors.length, 0, app.errors[0]?.stack);
     assert.equal(app.elements.get('start-button').disabled, false);
-    assert.equal(app.state().buildings, applySurvey(city,survey).buildings.length);
-    assert.equal(app.state().surveyBuildings, survey.buildings.length);
-    assert.equal(app.state().imageryLoaded, true);
+    assert.ok(app.state().buildings>=280,'actual SoHo I3S ground surfaces reach the simulation');
+    assert.equal(app.state().totalBuildings,1083529);
+    assert.ok(app.state().ground.loaded>0);
+    assert.equal(app.state().bootReady,true);
     assert.equal(app.state().cars, 16);
     assert.equal(app.state().cash, 225);
     app.frames(2);
@@ -203,9 +251,26 @@ test('real city boots, walks, enters a cab, delivers, saves and pauses through p
     assert.equal(app.state().started, true);
     assert.equal(app.elements.get('intro').hidden, true);
     assert.equal(app.elements.get('world').focused, true);
+    assert.equal(app.state().cityView,true,'entering the game first exposes all five boroughs');
+    assert.equal(app.elements.get('touch-controls').hidden,true,'city overview hides driving controls on touch devices');
+    const overviewState=app.state(),overviewNotice=app.simulation().notice,overviewCars=app.simulation().cars;
+    for(const code of ['KeyE','KeyN','KeyR']){
+      app.key(code);app.key(code,false);
+      assert.deepEqual(app.state().player,overviewState.player,`${code} cannot change the player from city overview`);
+      assert.deepEqual(app.state().mission,overviewState.mission,`${code} cannot start or reset a job from city overview`);
+      assert.equal(app.simulation().cars,overviewCars,`${code} cannot replace vehicles from city overview`);
+      assert.equal(app.simulation().notice,overviewNotice,`${code} cannot trigger a gameplay notice from city overview`);
+    }
+    app.frames(2);
+    await app.until(()=>app.state().stream.loading===0);
+    assert.equal(app.state().stream.visibleChunks,5,'all five real borough fixtures reach the city overview');
+    app.click('view-button');assert.equal(app.state().cityView,false);
+    assert.equal(app.elements.get('touch-controls').hidden,false,'street view restores touch controls');
     app.key('KeyV');app.key('KeyV',false);app.frames(2);
     assert.equal(app.state().aerialView,true);
-    app.click('view-button');assert.equal(app.state().aerialView,false);
+    app.click('view-button');assert.equal(app.state().cityView,true);
+    assert.equal(app.elements.get('touch-controls').hidden,true,'returning to city overview hides touch controls again');
+    app.click('city-button');assert.equal(app.state().cityView,false);assert.equal(app.state().aerialView,false);
     app.click('sources-button');assert.equal(app.state().paused,true);
     assert.equal(app.elements.get('sources-dialog').open,true);
     app.elements.get('sources-dialog').close();assert.equal(app.state().paused,false);
@@ -302,14 +367,80 @@ test('a failed city request displays the loading error and keeps play disabled',
   } finally { app.close(); }
 });
 
+test('unavailable survey geometry exhausts bounded retries and leaves play disabled',async()=>{
+  const app=await bootHarness({geometryOK:false});
+  try{
+    assert.equal(app.errors.length,1);
+    assert.equal(app.state().bootReady,false);
+    assert.equal(app.elements.get('start-button').disabled,true);
+    assert.equal(app.elements.get('load-error').hidden,false);
+    assert.match(app.elements.get('load-error').textContent,/NYC geometry service returned 503/);
+    assert.equal(app.requests.filter(url=>url.startsWith(index.source.service)).length,3);
+    app.click('start-button');assert.equal(app.state().started,false);
+  }finally{app.close();}
+});
+
 test('failed aerial images retain playable surveyed geometry and disclose missing imagery', async () => {
   const app = await bootHarness({ imageryOK: false });
   try {
     assert.equal(app.errors.length, 0, app.errors[0]?.stack);
-    assert.equal(app.state().imageryLoaded, false);
-    assert.match(app.elements.get('imagery-status').textContent,/could not load/);
+    assert.equal(app.state().ground.loaded, 0);
+    assert.ok(app.state().ground.failures>0);
+    assert.match(app.elements.get('imagery-status').textContent,/unavailable/);
     assert.equal(app.elements.get('start-button').disabled,false);
-    app.click('start-button');app.frames(2);
+    app.click('start-button');app.click('view-button');app.frames(2);
     assert.equal(app.state().started,true);
+    assert.ok(app.state().buildings>=280);
   } finally { app.close(); }
+});
+
+test('borough selector loads actual Staten Island streets and geometry before moving the player',async()=>{
+  const app=await bootHarness({stored:JSON.stringify({version:1,cash:375,deliveries:4})});
+  try{
+    app.click('start-button');app.frames(2);
+    await app.until(()=>app.state().stream.loading===0);
+    const places=app.roadIndex().places;
+    const destination=places.findIndex(place=>place.borough==='Staten Island');
+    assert.ok(destination>=0);
+    const initial={...app.state().player};
+    app.elements.get('place-select').value=String(destination);
+    app.click('travel-button');
+    assert.equal(app.state().traveling,true);
+    assert.equal(app.elements.get('travel-button').disabled,true);
+    assert.equal(app.state().player.x,initial.x,'asynchronous travel retains the previous position until ready');
+    await app.until(()=>!app.state().traveling);
+    assert.equal(app.state().cityView,false);
+    assert.equal(app.elements.get('travel-button').disabled,false);
+    assert.ok(Math.hypot(app.state().player.x-initial.x,app.state().player.z-initial.z)>9000);
+    assert.ok(Math.hypot(app.state().player.x-places[destination].x,app.state().player.z-places[destination].z)<100);
+    assert.equal(app.state().stream.readyAtFocus,true);
+    assert.equal(app.state().cash,375);assert.equal(app.state().deliveries,4);
+    assert.ok(app.simulation().city.buildings.some(building=>building.polygon.some(([x,z])=>x < -6000 && z > 8500)),
+      'the Staten Island fixture is decoded at its actual location and published to physics');
+    app.frames(6);
+    assert.equal(app.elements.get('district-name').textContent,'STATEN ISLAND');
+    assert.equal(app.errors.length,0,app.errors[0]?.stack);
+  }finally{app.close();}
+});
+
+test('a late street refresh cannot replace the roads of a newly selected borough',async()=>{
+  const held=new Set();
+  const app=await bootHarness({holdRoads:url=>held.has(url)});
+  try{
+    app.click('start-button');app.click('view-button');
+    const queens=fixtureNodes.find(node=>node.resource===301);
+    for(const cell of cellsAround(app.roadIndex(),queens))held.add(cell.url);
+    Object.assign(app.simulation().player,{x:queens.x,z:queens.z});
+    app.frames(2);
+    await app.until(()=>app.waitingRoads()>0,'the old neighborhood street request should remain in flight');
+    const destination=app.roadIndex().places.findIndex(place=>place.borough==='Staten Island');
+    app.elements.get('place-select').value=String(destination);app.click('travel-button');
+    await app.until(()=>!app.state().traveling);
+    const roads=app.simulation().city.roads,arrival={...app.state().player};
+    assert.ok(roads.length>0);
+    app.releaseRoads();await new Promise(resolve=>setImmediate(resolve));
+    assert.equal(app.simulation().city.roads,roads,'road epoch rejects the stale Queens refresh');
+    assert.equal(app.state().player.x,arrival.x);assert.equal(app.state().player.z,arrival.z);
+    assert.equal(app.errors.length,0,app.errors[0]?.stack);
+  }finally{app.releaseRoads();app.close();}
 });
