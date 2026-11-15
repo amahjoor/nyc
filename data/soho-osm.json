@@ -1,0 +1,3215 @@
+{
+  "elements": [
+    {
+      "type": "way",
+      "id": 5669899,
+      "tags": {
+        "alt_name:ko": "6번가",
+        "highway": "pedestrian",
+        "lit": "yes",
+        "name": "Little 6th Avenue",
+        "name:ko": "식스 애비뉴",
+        "official_name": "Avenue of the Americas",
+        "oneway": "no",
+        "sidewalk:both": "separate",
+        "surface": "asphalt"
+      },
+      "geometry": [
+        {
+          "lat": 40.7254965,
+          "lon": -74.004561
+        },
+        {
+          "lat": 40.7249894,
+          "lon": -74.0046405
+        }
+      ]
+    },
+    {
+      "type": "way",
+      "id": 5670193,
+      "tags": {
+        "highway": "residential",
+        "lanes": "1",
+        "lit": "yes",
+        "maxspeed": "25 mph",
+        "name": "Wooster Street",
+        "name:etymology:wikidata": "Q4993246",
+        "name:ko": "우스터 스트리트",
+        "oneway": "yes",
+        "sidewalk:both": "separate",
+        "surface": "sett",
+        "wikidata": "Q19582621",
+        "wikipedia": "en:Wooster Street (Manhattan)"
+      },
+      "geometry": [
+        {
+          "lat": 40.7254278,
+          "lon": -74.0000626
+        },
+        {
+          "lat": 40.725382,
+          "lon": -74.000101
+        },
+        {
+          "lat": 40.7253394,
+          "lon": -74.0001369
+        },
+        {
+          "lat": 40.7242147,
+          "lon": -74.0010859
+        },
+        {
+          "lat": 40.724166,
+          "lon": -74.001127
+        },
+        {
+          "lat": 40.7241223,
+          "lon": -74.001164
+        },
+        {
+          "lat": 40.7230266,
+          "lon": -74.002106
+        },
+        {
+          "lat": 40.7230033,
+          "lon": -74.002126
+        }
+      ]
+    },
+    {
+      "type": "way",
+      "id": 5670462,
+      "tags": {
+        "cycleway": "no",
+        "highway": "residential",
+        "lanes": "1",
+        "maxspeed": "25 mph",
+        "name": "Dominick Street",
+        "name:ko": "도미닉 스트리트",
+        "oneway": "yes",
+        "sidewalk:both": "separate",
+        "surface": "asphalt"
+      },
+      "geometry": [
+        {
+          "lat": 40.725024,
+          "lon": -74.0058223
+        },
+        {
+          "lat": 40.7250181,
+          "lon": -74.0057588
+        },
+        {
+          "lat": 40.7249919,
+          "lon": -74.0054843
+        },
+        {
+          "lat": 40.7249263,
+          "lon": -74.0047814
+        },
+        {
+          "lat": 40.7249205,
+          "lon": -74.004725
+        },
+        {
+          "lat": 40.7249163,
+          "lon": -74.0046817
+        },
+        {
+          "lat": 40.7249102,
+          "lon": -74.0046673
+        },
+        {
+          "lat": 40.7249031,
+          "lon": -74.0046576
+        }
+      ]
+    },
+    {
+      "type": "way",
+      "id": 5670490,
+      "tags": {
+        "cycleway:both": "no",
+        "highway": "residential",
+        "lanes": "1",
+        "maxspeed": "25 mph",
+        "name": "Thompson Street",
+        "name:etymology:wikidata": "Q3568998",
+        "name:ko": "톰슨 스트리트",
+        "oneway": "yes",
+        "sidewalk:both": "separate",
+        "surface": "asphalt",
+        "wikidata": "Q12070954",
+        "wikipedia": "en:Thompson Street (Manhattan)"
+      },
+      "geometry": [
+        {
+          "lat": 40.7227332,
+          "lon": -74.0044383
+        },
+        {
+          "lat": 40.7226731,
+          "lon": -74.0044881
+        },
+        {
+          "lat": 40.7224088,
+          "lon": -74.0047102
+        },
+        {
+          "lat": 40.7220957,
+          "lon": -74.0049885
+        },
+        {
+          "lat": 40.7220744,
+          "lon": -74.0050115
+        },
+        {
+          "lat": 40.7220602,
+          "lon": -74.0050347
+        },
+        {
+          "lat": 40.7220549,
+          "lon": -74.0050648
+        },
+        {
+          "lat": 40.7220597,
+          "lon": -74.0050912
+        },
+        {
+          "lat": 40.7220709,
+          "lon": -74.0051142
+        },
+        {
+          "lat": 40.7221111,
+          "lon": -74.0051791
+        },
+        {
+          "lat": 40.7221512,
+          "lon": -74.005244
+        },
+        {
+          "lat": 40.7222252,
+          "lon": -74.0053623
+        }
+      ]
+    },
+    {
+      "type": "way",
+      "id": 5671291,
+      "tags": {
+        "cycleway:both": "no",
+        "hgv": "local",
+        "highway": "primary",
+        "lanes": "4",
+        "maxspeed": "25 mph",
+        "name": "Watts Street",
+        "name:etymology:wikidata": "Q1702113",
+        "name:ko": "와츠 스트리트",
+        "name:ru": "Уоттс-стрит",
+        "oneway": "yes",
+        "sidewalk:both": "separate",
+        "surface": "asphalt"
+      },
+      "geometry": [
+        {
+          "lat": 40.7234576,
+          "lon": -74.0038418
+        },
+        {
+          "lat": 40.7234706,
+          "lon": -74.0039114
+        },
+        {
+          "lat": 40.7235927,
+          "lon": -74.0045853
+        },
+        {
+          "lat": 40.723605,
+          "lon": -74.0046503
+        },
+        {
+          "lat": 40.7236306,
+          "lon": -74.0047955
+        }
+      ]
+    },
+    {
+      "type": "way",
+      "id": 5672871,
+      "tags": {
+        "highway": "residential",
+        "lanes": "1",
+        "lit": "yes",
+        "maxspeed": "25 mph",
+        "name": "Greene Street",
+        "name:etymology:wikidata": "Q366113",
+        "name:ko": "그린 스트리트",
+        "oneway": "yes",
+        "sidewalk:both": "separate",
+        "surface": "sett",
+        "wikidata": "Q83170568"
+      },
+      "geometry": [
+        {
+          "lat": 40.7226305,
+          "lon": -74.0013671
+        },
+        {
+          "lat": 40.7237491,
+          "lon": -74.0004053
+        },
+        {
+          "lat": 40.723795,
+          "lon": -74.000367
+        },
+        {
+          "lat": 40.7238422,
+          "lon": -74.0003273
+        },
+        {
+          "lat": 40.7249639,
+          "lon": -73.9993822
+        },
+        {
+          "lat": 40.725008,
+          "lon": -73.999345
+        },
+        {
+          "lat": 40.7250542,
+          "lon": -73.999306
+        },
+        {
+          "lat": 40.7260317,
+          "lon": -73.9984801
+        }
+      ]
+    },
+    {
+      "type": "way",
+      "id": 5673210,
+      "tags": {
+        "highway": "residential",
+        "lit": "yes",
+        "maxspeed": "25 mph",
+        "name": "Crosby Street",
+        "name:etymology:wikidata": "Q96242792",
+        "name:ko": "크로즈비 스트리트",
+        "name:ru": "Кросби-стрит",
+        "oneway": "yes",
+        "sidewalk:both": "separate",
+        "surface": "sett"
+      },
+      "geometry": [
+        {
+          "lat": 40.7208883,
+          "lon": -73.9994823
+        },
+        {
+          "lat": 40.721321,
+          "lon": -73.9991158
+        },
+        {
+          "lat": 40.7213571,
+          "lon": -73.9990852
+        },
+        {
+          "lat": 40.7214242,
+          "lon": -73.9990287
+        },
+        {
+          "lat": 40.7214876,
+          "lon": -73.9989747
+        },
+        {
+          "lat": 40.7226221,
+          "lon": -73.9980147
+        },
+        {
+          "lat": 40.7226691,
+          "lon": -73.9979746
+        },
+        {
+          "lat": 40.7227095,
+          "lon": -73.9979407
+        },
+        {
+          "lat": 40.7238276,
+          "lon": -73.9969962
+        },
+        {
+          "lat": 40.7238371,
+          "lon": -73.9969882
+        },
+        {
+          "lat": 40.7238889,
+          "lon": -73.9969461
+        },
+        {
+          "lat": 40.7239244,
+          "lon": -73.996915
+        },
+        {
+          "lat": 40.7246406,
+          "lon": -73.9963189
+        },
+        {
+          "lat": 40.724662,
+          "lon": -73.996301
+        }
+      ]
+    },
+    {
+      "type": "way",
+      "id": 25199870,
+      "tags": {
+        "cycleway": "shared_lane",
+        "highway": "residential",
+        "lanes": "1",
+        "maxspeed": "25 mph",
+        "name": "Thompson Street",
+        "name:etymology:wikidata": "Q3568998",
+        "name:ko": "톰슨 스트리트",
+        "oneway": "yes",
+        "sidewalk:both": "separate",
+        "surface": "asphalt",
+        "wikidata": "Q12070954",
+        "wikipedia": "en:Thompson Street (Manhattan)"
+      },
+      "geometry": [
+        {
+          "lat": 40.7272378,
+          "lon": -74.0006749
+        },
+        {
+          "lat": 40.727172,
+          "lon": -74.0007287
+        },
+        {
+          "lat": 40.7261694,
+          "lon": -74.0015542
+        },
+        {
+          "lat": 40.7261202,
+          "lon": -74.0015958
+        },
+        {
+          "lat": 40.7260796,
+          "lon": -74.0016299
+        },
+        {
+          "lat": 40.7249492,
+          "lon": -74.0025615
+        },
+        {
+          "lat": 40.72488,
+          "lon": -74.002619
+        },
+        {
+          "lat": 40.724829,
+          "lon": -74.0026624
+        },
+        {
+          "lat": 40.7237769,
+          "lon": -74.003565
+        },
+        {
+          "lat": 40.723737,
+          "lon": -74.0036008
+        },
+        {
+          "lat": 40.7236874,
+          "lon": -74.0036454
+        }
+      ]
+    },
+    {
+      "type": "way",
+      "id": 46139036,
+      "tags": {
+        "cycleway:left": "no",
+        "cycleway:right": "shared_lane",
+        "cycleway:right:lane": "pictogram",
+        "hgv": "local",
+        "highway": "secondary",
+        "lane_markings": "no",
+        "lanes": "1",
+        "lit": "yes",
+        "maxspeed": "20 mph",
+        "name": "West Broadway",
+        "name:etymology:wikidata": "Q11260",
+        "name:ko": "웨스트 브로드웨이",
+        "name:ru": "Вест-Бродвей",
+        "oneway": "yes",
+        "sidewalk:both": "separate",
+        "surface": "asphalt",
+        "wikidata": "Q7984573",
+        "wikipedia": "en:West Broadway"
+      },
+      "geometry": [
+        {
+          "lat": 40.7206562,
+          "lon": -74.0052237
+        },
+        {
+          "lat": 40.720801,
+          "lon": -74.0051009
+        },
+        {
+          "lat": 40.7212604,
+          "lon": -74.0047083
+        },
+        {
+          "lat": 40.7213666,
+          "lon": -74.0046193
+        }
+      ]
+    },
+    {
+      "type": "way",
+      "id": 46332295,
+      "tags": {
+        "cycleway:both": "shared_lane",
+        "cycleway:both:lane": "pictogram",
+        "highway": "residential",
+        "lanes": "2",
+        "maxspeed": "25 mph",
+        "name": "West Broadway",
+        "name:etymology:wikidata": "Q11260",
+        "name:ko": "웨스트 브로드웨이",
+        "name:ru": "Вест-Бродвей",
+        "oneway": "no",
+        "sidewalk:both": "separate",
+        "surface": "asphalt",
+        "wikidata": "Q7984573",
+        "wikipedia": "en:West Broadway"
+      },
+      "geometry": [
+        {
+          "lat": 40.722384,
+          "lon": -74.003768
+        },
+        {
+          "lat": 40.7224476,
+          "lon": -74.0037208
+        },
+        {
+          "lat": 40.7225078,
+          "lon": -74.003676
+        },
+        {
+          "lat": 40.7229325,
+          "lon": -74.0033212
+        },
+        {
+          "lat": 40.7232077,
+          "lon": -74.0030916
+        },
+        {
+          "lat": 40.7232356,
+          "lon": -74.003066
+        },
+        {
+          "lat": 40.7233168,
+          "lon": -74.0029951
+        },
+        {
+          "lat": 40.7233981,
+          "lon": -74.0029212
+        },
+        {
+          "lat": 40.723435,
+          "lon": -74.0028883
+        },
+        {
+          "lat": 40.7244659,
+          "lon": -74.002015
+        },
+        {
+          "lat": 40.7245065,
+          "lon": -74.0019806
+        },
+        {
+          "lat": 40.7245552,
+          "lon": -74.0019395
+        },
+        {
+          "lat": 40.724617,
+          "lon": -74.0018872
+        },
+        {
+          "lat": 40.7257355,
+          "lon": -74.0009412
+        },
+        {
+          "lat": 40.7257774,
+          "lon": -74.0009057
+        },
+        {
+          "lat": 40.7258267,
+          "lon": -74.000864
+        },
+        {
+          "lat": 40.7268158,
+          "lon": -74.0000275
+        },
+        {
+          "lat": 40.726888,
+          "lon": -73.9999665
+        },
+        {
+          "lat": 40.7270026,
+          "lon": -73.9998695
+        }
+      ]
+    },
+    {
+      "type": "way",
+      "id": 46348767,
+      "tags": {
+        "cycleway:both": "no",
+        "hgv": "local",
+        "highway": "primary",
+        "lanes": "2",
+        "lit": "yes",
+        "maxspeed": "25 mph",
+        "name": "Broome Street",
+        "name:etymology:wikidata": "Q1699423",
+        "name:ko": "브룸 스트리트",
+        "name:ru": "Брум-стрит",
+        "oneway": "yes",
+        "sidewalk:both": "separate",
+        "surface": "asphalt",
+        "width": "13.5",
+        "wikidata": "Q917139",
+        "wikipedia": "en:Broome Street"
+      },
+      "geometry": [
+        {
+          "lat": 40.7210819,
+          "lon": -73.9982238
+        },
+        {
+          "lat": 40.7211144,
+          "lon": -73.9982994
+        },
+        {
+          "lat": 40.7213818,
+          "lon": -73.9989227
+        },
+        {
+          "lat": 40.7213999,
+          "lon": -73.998968
+        },
+        {
+          "lat": 40.7214242,
+          "lon": -73.9990287
+        },
+        {
+          "lat": 40.721451,
+          "lon": -73.9990956
+        },
+        {
+          "lat": 40.721462,
+          "lon": -73.999123
+        },
+        {
+          "lat": 40.7217206,
+          "lon": -73.999721
+        },
+        {
+          "lat": 40.7217413,
+          "lon": -73.9997607
+        },
+        {
+          "lat": 40.7217942,
+          "lon": -73.9998623
+        }
+      ]
+    },
+    {
+      "type": "way",
+      "id": 68668516,
+      "tags": {
+        "hgv": "local",
+        "highway": "primary",
+        "lanes": "2",
+        "lit": "yes",
+        "maxspeed": "25 mph",
+        "name": "Broome Street",
+        "name:etymology:wikidata": "Q1699423",
+        "name:ko": "브룸 스트리트",
+        "name:ru": "Брум-стрит",
+        "oneway": "yes",
+        "sidewalk:both": "separate",
+        "surface": "asphalt",
+        "width": "13.5",
+        "wikidata": "Q917139",
+        "wikipedia": "en:Broome Street"
+      },
+      "geometry": [
+        {
+          "lat": 40.7208346,
+          "lon": -73.9976388
+        },
+        {
+          "lat": 40.7208592,
+          "lon": -73.9976939
+        },
+        {
+          "lat": 40.7208758,
+          "lon": -73.9977313
+        },
+        {
+          "lat": 40.7208865,
+          "lon": -73.9977552
+        },
+        {
+          "lat": 40.7210053,
+          "lon": -73.998043
+        },
+        {
+          "lat": 40.7210286,
+          "lon": -73.9980978
+        },
+        {
+          "lat": 40.7210446,
+          "lon": -73.9981356
+        },
+        {
+          "lat": 40.7210819,
+          "lon": -73.9982238
+        }
+      ]
+    },
+    {
+      "type": "way",
+      "id": 68668546,
+      "tags": {
+        "bicycle": "yes",
+        "cycleway:right": "track",
+        "cycleway:right:oneway": "yes",
+        "hgv": "local",
+        "highway": "primary",
+        "lanes": "1",
+        "lit": "yes",
+        "maxspeed": "25 mph",
+        "name": "Grand Street",
+        "name:ko": "그랜드 스트리트",
+        "name:ru": "Гранд-стрит",
+        "oneway": "yes",
+        "sidewalk:both": "separate",
+        "surface": "asphalt",
+        "wikidata": "Q1264489",
+        "wikipedia": "en:Grand Street (Manhattan)"
+      },
+      "geometry": [
+        {
+          "lat": 40.721995,
+          "lon": -74.002971
+        },
+        {
+          "lat": 40.7219668,
+          "lon": -74.0029128
+        },
+        {
+          "lat": 40.7216536,
+          "lon": -74.0022738
+        },
+        {
+          "lat": 40.7216214,
+          "lon": -74.0022085
+        },
+        {
+          "lat": 40.7215949,
+          "lon": -74.0021546
+        },
+        {
+          "lat": 40.7213678,
+          "lon": -74.0016857
+        }
+      ]
+    },
+    {
+      "type": "way",
+      "id": 256902825,
+      "tags": {
+        "bus:lanes": "|||designated",
+        "cycleway:right": "no",
+        "hgv": "local",
+        "highway": "trunk",
+        "lanes": "4",
+        "lanes:bus": "1",
+        "maxspeed": "25 mph",
+        "name": "Watts Street",
+        "name:etymology:wikidata": "Q1702113",
+        "name:ko": "와츠 스트리트",
+        "name:ru": "Уоттс-стрит",
+        "noref": "yes",
+        "oneway": "yes",
+        "sidewalk:both": "separate",
+        "surface": "asphalt",
+        "turn:lanes": "left|slight_right|slight_right|"
+      },
+      "geometry": [
+        {
+          "lat": 40.7236306,
+          "lon": -74.0047955
+        },
+        {
+          "lat": 40.723643,
+          "lon": -74.0048655
+        },
+        {
+          "lat": 40.7236561,
+          "lon": -74.0049363
+        },
+        {
+          "lat": 40.7236604,
+          "lon": -74.0049899
+        },
+        {
+          "lat": 40.7237553,
+          "lon": -74.0059092
+        },
+        {
+          "lat": 40.7237633,
+          "lon": -74.0059801
+        },
+        {
+          "lat": 40.7237872,
+          "lon": -74.0061125
+        }
+      ]
+    },
+    {
+      "type": "way",
+      "id": 256902826,
+      "tags": {
+        "alt_name:ko": "6번가",
+        "cycleway:right": "track",
+        "cycleway:right:oneway": "yes",
+        "cycleway:right:traffic_mode": "parking",
+        "hgv": "designated",
+        "highway": "primary",
+        "lanes": "3",
+        "maxspeed": "25 mph",
+        "name": "6th Avenue",
+        "name:en": "6th Avenue",
+        "name:ko": "6th 애비뉴",
+        "name:ru": "6-я авеню",
+        "official_name": "Avenue of the Americas",
+        "oneway": "yes",
+        "sidewalk:left": "separate",
+        "sidewalk:right": "no",
+        "surface": "asphalt",
+        "wikidata": "Q109873",
+        "wikipedia": "en:Sixth Avenue"
+      },
+      "geometry": [
+        {
+          "lat": 40.7236306,
+          "lon": -74.0047955
+        },
+        {
+          "lat": 40.7237083,
+          "lon": -74.0047644
+        },
+        {
+          "lat": 40.7237483,
+          "lon": -74.0047478
+        },
+        {
+          "lat": 40.7240959,
+          "lon": -74.0046068
+        },
+        {
+          "lat": 40.7241732,
+          "lon": -74.0045754
+        }
+      ]
+    },
+    {
+      "type": "way",
+      "id": 321993367,
+      "tags": {
+        "bicycle": "yes",
+        "cycleway:left": "no",
+        "cycleway:right": "lane",
+        "hgv": "destination",
+        "highway": "residential",
+        "lanes": "1",
+        "maxspeed": "25 mph",
+        "name": "Prince Street",
+        "name:ko": "프린스 스트리트",
+        "name:ru": "Принс-стрит",
+        "oneway": "yes",
+        "parking:lane:right": "no_parking",
+        "sidewalk:both": "separate",
+        "surface": "asphalt"
+      },
+      "geometry": [
+        {
+          "lat": 40.7257774,
+          "lon": -74.0009057
+        },
+        {
+          "lat": 40.7258159,
+          "lon": -74.0009831
+        },
+        {
+          "lat": 40.7260955,
+          "lon": -74.0015461
+        },
+        {
+          "lat": 40.7261202,
+          "lon": -74.0015958
+        },
+        {
+          "lat": 40.7261508,
+          "lon": -74.0016576
+        },
+        {
+          "lat": 40.7264663,
+          "lon": -74.0022929
+        },
+        {
+          "lat": 40.7264953,
+          "lon": -74.0023512
+        },
+        {
+          "lat": 40.7265259,
+          "lon": -74.0024129
+        },
+        {
+          "lat": 40.7268396,
+          "lon": -74.0030445
+        },
+        {
+          "lat": 40.7268704,
+          "lon": -74.0031066
+        }
+      ]
+    },
+    {
+      "type": "way",
+      "id": 348488662,
+      "tags": {
+        "cycleway:left": "lane",
+        "cycleway:left:buffer": "no",
+        "cycleway:left:oneway": "yes",
+        "cycleway:right": "no",
+        "highway": "residential",
+        "lanes": "1",
+        "maxspeed": "25 mph",
+        "name": "Broome Street",
+        "name:etymology:wikidata": "Q1699423",
+        "name:ko": "브룸 스트리트",
+        "name:ru": "Брум-стрит",
+        "oneway": "yes",
+        "parking:lane:left": "no_parking",
+        "sidewalk:left": "no",
+        "sidewalk:right": "separate",
+        "surface": "asphalt",
+        "wikidata": "Q917139",
+        "wikipedia": "en:Broome Street"
+      },
+      "geometry": [
+        {
+          "lat": 40.7233168,
+          "lon": -74.0029951
+        },
+        {
+          "lat": 40.7233837,
+          "lon": -74.0030603
+        },
+        {
+          "lat": 40.7233966,
+          "lon": -74.003076
+        },
+        {
+          "lat": 40.7236497,
+          "lon": -74.0035716
+        },
+        {
+          "lat": 40.7236874,
+          "lon": -74.0036454
+        }
+      ]
+    },
+    {
+      "type": "way",
+      "id": 348488665,
+      "tags": {
+        "cycleway:left": "lane",
+        "cycleway:left:buffer": "no",
+        "cycleway:left:oneway": "yes",
+        "cycleway:right": "no",
+        "highway": "residential",
+        "lanes": "1",
+        "maxspeed": "25 mph",
+        "name": "Broome Street",
+        "name:etymology:wikidata": "Q1699423",
+        "name:ko": "브룸 스트리트",
+        "name:ru": "Брум-стрит",
+        "oneway": "yes",
+        "sidewalk:both": "separate",
+        "surface": "asphalt",
+        "turn:lanes": "left",
+        "wikidata": "Q917139",
+        "wikipedia": "en:Broome Street"
+      },
+      "geometry": [
+        {
+          "lat": 40.7241732,
+          "lon": -74.0045754
+        },
+        {
+          "lat": 40.724241,
+          "lon": -74.004691
+        },
+        {
+          "lat": 40.7242643,
+          "lon": -74.0047442
+        },
+        {
+          "lat": 40.724289,
+          "lon": -74.0048216
+        },
+        {
+          "lat": 40.7243133,
+          "lon": -74.004957
+        },
+        {
+          "lat": 40.7243977,
+          "lon": -74.0058634
+        },
+        {
+          "lat": 40.7244077,
+          "lon": -74.0059462
+        }
+      ]
+    },
+    {
+      "type": "way",
+      "id": 351540625,
+      "tags": {
+        "cycleway:both": "no",
+        "highway": "residential",
+        "lane_markings": "no",
+        "lit": "yes",
+        "maxspeed": "25 mph",
+        "name": "Mercer Street",
+        "name:etymology:wikidata": "Q3030909",
+        "name:ko": "머서 스트리트",
+        "oneway": "yes",
+        "sidewalk:both": "separate",
+        "surface": "sett",
+        "wikidata": "Q3306319",
+        "wikipedia": "en:Mercer Street (Manhattan)"
+      },
+      "geometry": [
+        {
+          "lat": 40.721252,
+          "lon": -74.001447
+        },
+        {
+          "lat": 40.7212078,
+          "lon": -74.0014845
+        },
+        {
+          "lat": 40.720341,
+          "lon": -74.002221
+        },
+        {
+          "lat": 40.7200038,
+          "lon": -74.0025215
+        },
+        {
+          "lat": 40.7199234,
+          "lon": -74.002596
+        }
+      ]
+    },
+    {
+      "type": "way",
+      "id": 439842836,
+      "tags": {
+        "cycleway": "shared_lane",
+        "hgv": "destination",
+        "highway": "residential",
+        "lane_markings": "no",
+        "lit": "yes",
+        "maxspeed": "25 mph",
+        "name": "Spring Street",
+        "name:ko": "스프링 스트리트",
+        "name:ru": "Спринг-стрит",
+        "oneway": "yes",
+        "sidewalk:both": "separate",
+        "surface": "asphalt",
+        "wikidata": "Q7580682",
+        "wikipedia": "en:Spring Street (Manhattan)"
+      },
+      "geometry": [
+        {
+          "lat": 40.724166,
+          "lon": -74.001127
+        },
+        {
+          "lat": 40.7241423,
+          "lon": -74.0010785
+        },
+        {
+          "lat": 40.7238294,
+          "lon": -74.0004374
+        },
+        {
+          "lat": 40.723795,
+          "lon": -74.000367
+        },
+        {
+          "lat": 40.7237708,
+          "lon": -74.0003176
+        },
+        {
+          "lat": 40.7234565,
+          "lon": -73.9996773
+        },
+        {
+          "lat": 40.723423,
+          "lon": -73.999609
+        },
+        {
+          "lat": 40.7233974,
+          "lon": -73.9995584
+        },
+        {
+          "lat": 40.7230721,
+          "lon": -73.9989134
+        },
+        {
+          "lat": 40.723021,
+          "lon": -73.998812
+        }
+      ]
+    },
+    {
+      "type": "way",
+      "id": 439842837,
+      "tags": {
+        "cycleway:left": "lane",
+        "cycleway:left:oneway": "yes",
+        "cycleway:right": "no",
+        "hgv": "destination",
+        "highway": "residential",
+        "maxspeed": "25 mph",
+        "name": "Spring Street",
+        "name:ko": "스프링 스트리트",
+        "name:ru": "Спринг-стрит",
+        "oneway": "yes",
+        "sidewalk:both": "separate",
+        "surface": "asphalt",
+        "wikidata": "Q7580682",
+        "wikipedia": "en:Spring Street (Manhattan)"
+      },
+      "geometry": [
+        {
+          "lat": 40.725252,
+          "lon": -74.003376
+        },
+        {
+          "lat": 40.7252277,
+          "lon": -74.0033249
+        },
+        {
+          "lat": 40.7249123,
+          "lon": -74.0026845
+        },
+        {
+          "lat": 40.72488,
+          "lon": -74.002619
+        }
+      ]
+    },
+    {
+      "type": "way",
+      "id": 466956278,
+      "tags": {
+        "cycleway:left": "lane",
+        "cycleway:left:oneway": "yes",
+        "cycleway:right": "no",
+        "highway": "residential",
+        "lanes": "1",
+        "maxspeed": "25 mph",
+        "name": "Spring Street",
+        "name:ko": "스프링 스트리트",
+        "name:ru": "Спринг-стрит",
+        "oneway": "yes",
+        "sidewalk:both": "separate",
+        "surface": "asphalt",
+        "wikidata": "Q7580682",
+        "wikipedia": "en:Spring Street (Manhattan)"
+      },
+      "geometry": [
+        {
+          "lat": 40.7256753,
+          "lon": -74.0057082
+        },
+        {
+          "lat": 40.7256694,
+          "lon": -74.0056454
+        },
+        {
+          "lat": 40.7255712,
+          "lon": -74.0046328
+        },
+        {
+          "lat": 40.7255633,
+          "lon": -74.0045513
+        },
+        {
+          "lat": 40.7255267,
+          "lon": -74.0041811
+        },
+        {
+          "lat": 40.725513,
+          "lon": -74.004031
+        }
+      ]
+    },
+    {
+      "type": "way",
+      "id": 496980200,
+      "tags": {
+        "hgv": "designated",
+        "highway": "primary",
+        "lanes": "3",
+        "lit": "yes",
+        "maxspeed": "25 mph",
+        "name": "West Houston Street",
+        "name:etymology:wikidata": "Q651872",
+        "name:ko": "웨스트 휴스턴 스트리트",
+        "name:pronunciation": "ˌwɛst ˈhaʊstən stɹiːt",
+        "name:ru": "Западная Хаустон-стрит",
+        "oneway": "yes",
+        "sidewalk:left": "no",
+        "sidewalk:right": "separate",
+        "surface": "asphalt",
+        "wikidata": "Q658443",
+        "wikipedia": "en:Houston Street"
+      },
+      "geometry": [
+        {
+          "lat": 40.726118,
+          "lon": -73.998407
+        },
+        {
+          "lat": 40.7260861,
+          "lon": -73.9983423
+        },
+        {
+          "lat": 40.7259447,
+          "lon": -73.9980558
+        },
+        {
+          "lat": 40.7257885,
+          "lon": -73.9977399
+        },
+        {
+          "lat": 40.7257539,
+          "lon": -73.9976695
+        },
+        {
+          "lat": 40.725714,
+          "lon": -73.9975887
+        },
+        {
+          "lat": 40.7254675,
+          "lon": -73.9970892
+        },
+        {
+          "lat": 40.7254177,
+          "lon": -73.996936
+        },
+        {
+          "lat": 40.7253844,
+          "lon": -73.9968134
+        }
+      ]
+    },
+    {
+      "type": "way",
+      "id": 496980201,
+      "tags": {
+        "highway": "residential",
+        "lanes": "1",
+        "lit": "yes",
+        "maxspeed": "25 mph",
+        "name": "Mercer Street",
+        "name:etymology:wikidata": "Q3030909",
+        "name:ko": "머서 스트리트",
+        "oneway": "yes",
+        "sidewalk:both": "separate",
+        "surface": "sett",
+        "wikidata": "Q3306319",
+        "wikipedia": "en:Mercer Street (Manhattan)"
+      },
+      "geometry": [
+        {
+          "lat": 40.725655,
+          "lon": -73.9977501
+        },
+        {
+          "lat": 40.7246767,
+          "lon": -73.9985486
+        },
+        {
+          "lat": 40.724632,
+          "lon": -73.998585
+        },
+        {
+          "lat": 40.7245889,
+          "lon": -73.9986215
+        },
+        {
+          "lat": 40.7234714,
+          "lon": -73.9995681
+        },
+        {
+          "lat": 40.723423,
+          "lon": -73.999609
+        },
+        {
+          "lat": 40.7233765,
+          "lon": -73.9996482
+        },
+        {
+          "lat": 40.7222829,
+          "lon": -74.0005878
+        },
+        {
+          "lat": 40.7222582,
+          "lon": -74.0006091
+        }
+      ]
+    },
+    {
+      "type": "way",
+      "id": 497484750,
+      "tags": {
+        "footway": "sidewalk",
+        "highway": "footway",
+        "lit": "yes",
+        "name": "Laight Street",
+        "source": "Bing",
+        "surface": "concrete"
+      },
+      "geometry": [
+        {
+          "lat": 40.7215847,
+          "lon": -74.0052204
+        },
+        {
+          "lat": 40.7215659,
+          "lon": -74.0051823
+        },
+        {
+          "lat": 40.7215091,
+          "lon": -74.0050739
+        },
+        {
+          "lat": 40.721488,
+          "lon": -74.0050417
+        },
+        {
+          "lat": 40.721323,
+          "lon": -74.0048072
+        },
+        {
+          "lat": 40.7213087,
+          "lon": -74.0047851
+        }
+      ]
+    },
+    {
+      "type": "way",
+      "id": 539024459,
+      "tags": {
+        "bicycle": "yes",
+        "cycleway:right": "track",
+        "cycleway:right:oneway": "yes",
+        "hgv": "destination",
+        "highway": "primary",
+        "lanes": "1",
+        "maxspeed": "25 mph",
+        "name": "Grand Street",
+        "name:ko": "그랜드 스트리트",
+        "name:ru": "Гранд-стрит",
+        "oneway": "yes",
+        "sidewalk:both": "separate",
+        "surface": "asphalt",
+        "wikidata": "Q1264489",
+        "wikipedia": "en:Grand Street (Manhattan)"
+      },
+      "geometry": [
+        {
+          "lat": 40.7230294,
+          "lon": -74.0051966
+        },
+        {
+          "lat": 40.7230023,
+          "lon": -74.0050623
+        },
+        {
+          "lat": 40.7229617,
+          "lon": -74.0049216
+        },
+        {
+          "lat": 40.7229508,
+          "lon": -74.0048836
+        },
+        {
+          "lat": 40.722763,
+          "lon": -74.0044968
+        },
+        {
+          "lat": 40.7227332,
+          "lon": -74.0044383
+        },
+        {
+          "lat": 40.7227013,
+          "lon": -74.0043752
+        },
+        {
+          "lat": 40.7224316,
+          "lon": -74.0038568
+        },
+        {
+          "lat": 40.722384,
+          "lon": -74.003768
+        }
+      ]
+    },
+    {
+      "type": "way",
+      "id": 727644278,
+      "tags": {
+        "cycleway": "shared_lane",
+        "highway": "residential",
+        "lit": "yes",
+        "maxspeed": "25 mph",
+        "name": "Thompson Street",
+        "name:etymology:wikidata": "Q3568998",
+        "name:ko": "톰슨 스트리트",
+        "oneway": "yes",
+        "sidewalk:both": "separate",
+        "surface": "asphalt",
+        "wikidata": "Q12070954",
+        "wikipedia": "en:Thompson Street (Manhattan)"
+      },
+      "geometry": [
+        {
+          "lat": 40.7236874,
+          "lon": -74.0036454
+        },
+        {
+          "lat": 40.7236452,
+          "lon": -74.0036832
+        },
+        {
+          "lat": 40.7235725,
+          "lon": -74.0037487
+        },
+        {
+          "lat": 40.7235326,
+          "lon": -74.0037808
+        },
+        {
+          "lat": 40.7234576,
+          "lon": -74.0038418
+        },
+        {
+          "lat": 40.7233921,
+          "lon": -74.0038934
+        },
+        {
+          "lat": 40.7228249,
+          "lon": -74.0043749
+        },
+        {
+          "lat": 40.7227747,
+          "lon": -74.0044039
+        },
+        {
+          "lat": 40.7227332,
+          "lon": -74.0044383
+        }
+      ]
+    },
+    {
+      "type": "way",
+      "id": 727644279,
+      "tags": {
+        "cycleway": "shared_lane",
+        "highway": "residential",
+        "maxspeed": "25 mph",
+        "name": "Broome Street",
+        "name:etymology:wikidata": "Q1699423",
+        "name:ko": "브룸 스트리트",
+        "name:ru": "Брум-стрит",
+        "oneway": "yes",
+        "sidewalk:both": "separate",
+        "surface": "asphalt",
+        "wikidata": "Q917139",
+        "wikipedia": "en:Broome Street"
+      },
+      "geometry": [
+        {
+          "lat": 40.7236874,
+          "lon": -74.0036454
+        },
+        {
+          "lat": 40.7237127,
+          "lon": -74.0036964
+        },
+        {
+          "lat": 40.7240295,
+          "lon": -74.0043294
+        },
+        {
+          "lat": 40.724055,
+          "lon": -74.00438
+        }
+      ]
+    },
+    {
+      "type": "way",
+      "id": 845994219,
+      "tags": {
+        "alt_name:ko": "6번가",
+        "cycleway:right": "track",
+        "cycleway:right:oneway": "yes",
+        "cycleway:right:traffic_mode": "parking",
+        "hgv": "designated",
+        "highway": "primary",
+        "lanes": "3",
+        "maxspeed": "25 mph",
+        "name": "6th Avenue",
+        "name:en": "6th Avenue",
+        "name:ko": "6th 애비뉴",
+        "name:ru": "6-я авеню",
+        "official_name": "Avenue of the Americas",
+        "oneway": "yes",
+        "sidewalk:both": "separate",
+        "surface": "asphalt",
+        "wikidata": "Q109873",
+        "wikipedia": "en:Sixth Avenue"
+      },
+      "geometry": [
+        {
+          "lat": 40.7241732,
+          "lon": -74.0045754
+        },
+        {
+          "lat": 40.7242642,
+          "lon": -74.0045385
+        },
+        {
+          "lat": 40.7244851,
+          "lon": -74.0044488
+        },
+        {
+          "lat": 40.7248704,
+          "lon": -74.0042925
+        },
+        {
+          "lat": 40.7254477,
+          "lon": -74.0040594
+        },
+        {
+          "lat": 40.725513,
+          "lon": -74.004031
+        }
+      ]
+    },
+    {
+      "type": "way",
+      "id": 847998122,
+      "tags": {
+        "cycleway:left": "lane",
+        "cycleway:left:buffer": "no",
+        "cycleway:left:oneway": "yes",
+        "cycleway:right": "no",
+        "hgv": "destination",
+        "highway": "residential",
+        "lanes": "1",
+        "maxspeed": "25 mph",
+        "name": "Spring Street",
+        "name:ko": "스프링 스트리트",
+        "name:ru": "Спринг-стрит",
+        "oneway": "yes",
+        "sidewalk:both": "separate",
+        "surface": "asphalt",
+        "wikidata": "Q7580682",
+        "wikipedia": "en:Spring Street (Manhattan)"
+      },
+      "geometry": [
+        {
+          "lat": 40.7245552,
+          "lon": -74.0019395
+        },
+        {
+          "lat": 40.7245119,
+          "lon": -74.0018494
+        },
+        {
+          "lat": 40.7241978,
+          "lon": -74.0011934
+        },
+        {
+          "lat": 40.724166,
+          "lon": -74.001127
+        }
+      ]
+    },
+    {
+      "type": "way",
+      "id": 944692441,
+      "tags": {
+        "cycleway:left": "track",
+        "cycleway:left:oneway": "yes",
+        "hgv": "designated",
+        "highway": "primary",
+        "lanes": "2",
+        "lit": "yes",
+        "maxspeed": "25 mph",
+        "name": "Lafayette Street",
+        "name:etymology:wikidata": "Q186652",
+        "name:ko": "라피예트 스트리트",
+        "name:ru": "Лафайетт-стрит",
+        "oneway": "yes",
+        "parking:both": "lane",
+        "parking:both:orientation": "parallel",
+        "sidewalk:both": "separate",
+        "surface": "asphalt",
+        "wikidata": "Q1592949",
+        "wikipedia": "en:Lafayette Street"
+      },
+      "geometry": [
+        {
+          "lat": 40.7210819,
+          "lon": -73.9982238
+        },
+        {
+          "lat": 40.7210092,
+          "lon": -73.9982756
+        },
+        {
+          "lat": 40.7201618,
+          "lon": -73.9989885
+        },
+        {
+          "lat": 40.7201191,
+          "lon": -73.9990267
+        },
+        {
+          "lat": 40.7200616,
+          "lon": -73.999079
+        }
+      ]
+    },
+    {
+      "type": "way",
+      "id": 958268977,
+      "tags": {
+        "cycleway:left": "lane",
+        "cycleway:left:buffer": "no",
+        "cycleway:left:oneway": "yes",
+        "cycleway:right": "no",
+        "hgv": "destination",
+        "highway": "residential",
+        "maxspeed": "25 mph",
+        "name": "Spring Street",
+        "name:ko": "스프링 스트리트",
+        "name:ru": "Спринг-стрит",
+        "oneway": "yes",
+        "sidewalk:both": "separate",
+        "surface": "asphalt",
+        "wikidata": "Q7580682",
+        "wikipedia": "en:Spring Street (Manhattan)"
+      },
+      "geometry": [
+        {
+          "lat": 40.72488,
+          "lon": -74.002619
+        },
+        {
+          "lat": 40.7248513,
+          "lon": -74.002559
+        },
+        {
+          "lat": 40.7245949,
+          "lon": -74.0020228
+        },
+        {
+          "lat": 40.7245552,
+          "lon": -74.0019395
+        }
+      ]
+    },
+    {
+      "type": "way",
+      "id": 968737540,
+      "tags": {
+        "hgv": "local",
+        "highway": "secondary",
+        "lanes": "2",
+        "lanes:bus:forward": "1",
+        "lit": "yes",
+        "maxspeed": "25 mph",
+        "name": "Broadway",
+        "name:ar": "برودواي",
+        "name:en": "Broadway",
+        "name:ja": "ブロードウェイ",
+        "name:ko": "브로드웨이",
+        "name:ru": "Бродвей",
+        "name:zh": "百老匯",
+        "name:zh-Hans": "百老汇",
+        "name:zh-Hant": "百老匯",
+        "oneway": "yes",
+        "sidewalk:both": "separate",
+        "surface": "asphalt",
+        "turn:lanes": "left;through|none",
+        "wikidata": "Q11260",
+        "wikipedia": "en:Broadway (Manhattan)"
+      },
+      "geometry": [
+        {
+          "lat": 40.724235,
+          "lon": -73.997785
+        },
+        {
+          "lat": 40.7241989,
+          "lon": -73.9978158
+        },
+        {
+          "lat": 40.7239729,
+          "lon": -73.9980067
+        },
+        {
+          "lat": 40.7230679,
+          "lon": -73.9987723
+        },
+        {
+          "lat": 40.723021,
+          "lon": -73.998812
+        }
+      ]
+    },
+    {
+      "type": "way",
+      "id": 968737541,
+      "tags": {
+        "bicycle": "yes",
+        "cycleway:right": "lane",
+        "hgv": "destination",
+        "highway": "residential",
+        "lit": "yes",
+        "maxspeed": "25 mph",
+        "name": "Prince Street",
+        "name:ar": "شارع الامير",
+        "name:en": "Prince Street",
+        "name:ko": "프린스 스트리트",
+        "name:ru": "Принс-стрит",
+        "oneway": "yes",
+        "parking:lane:right": "no_parking",
+        "sidewalk:both": "separate",
+        "surface": "asphalt"
+      },
+      "geometry": [
+        {
+          "lat": 40.724235,
+          "lon": -73.997785
+        },
+        {
+          "lat": 40.7242872,
+          "lon": -73.99789
+        },
+        {
+          "lat": 40.7246082,
+          "lon": -73.998537
+        },
+        {
+          "lat": 40.724632,
+          "lon": -73.998585
+        },
+        {
+          "lat": 40.7246637,
+          "lon": -73.9986493
+        },
+        {
+          "lat": 40.7249795,
+          "lon": -73.9992874
+        },
+        {
+          "lat": 40.725008,
+          "lon": -73.999345
+        },
+        {
+          "lat": 40.7250406,
+          "lon": -73.9994108
+        },
+        {
+          "lat": 40.7253533,
+          "lon": -74.0000431
+        },
+        {
+          "lat": 40.725382,
+          "lon": -74.000101
+        },
+        {
+          "lat": 40.7254126,
+          "lon": -74.0001636
+        },
+        {
+          "lat": 40.7256397,
+          "lon": -74.0006264
+        },
+        {
+          "lat": 40.7257194,
+          "lon": -74.0007889
+        },
+        {
+          "lat": 40.7257327,
+          "lon": -74.0008172
+        },
+        {
+          "lat": 40.7257774,
+          "lon": -74.0009057
+        }
+      ]
+    },
+    {
+      "type": "way",
+      "id": 968737542,
+      "tags": {
+        "hgv": "local",
+        "highway": "secondary",
+        "lanes": "2",
+        "lanes:bus:forward": "1",
+        "lit": "yes",
+        "maxspeed": "25 mph",
+        "name": "Broadway",
+        "name:ar": "برودواي",
+        "name:en": "Broadway",
+        "name:ja": "ブロードウェイ",
+        "name:ko": "브로드웨이",
+        "name:ru": "Бродвей",
+        "name:zh": "百老匯",
+        "name:zh-Hans": "百老汇",
+        "name:zh-Hant": "百老匯",
+        "oneway": "yes",
+        "sidewalk:both": "separate",
+        "surface": "asphalt",
+        "turn:lanes": "through|none",
+        "wikidata": "Q11260",
+        "wikipedia": "en:Broadway (Manhattan)"
+      },
+      "geometry": [
+        {
+          "lat": 40.723021,
+          "lon": -73.998812
+        },
+        {
+          "lat": 40.7229804,
+          "lon": -73.9988463
+        },
+        {
+          "lat": 40.7227353,
+          "lon": -73.999054
+        },
+        {
+          "lat": 40.7219048,
+          "lon": -73.9997653
+        },
+        {
+          "lat": 40.7218569,
+          "lon": -73.9998074
+        },
+        {
+          "lat": 40.7217942,
+          "lon": -73.9998623
+        }
+      ]
+    },
+    {
+      "type": "way",
+      "id": 968737543,
+      "tags": {
+        "cycleway:both": "no",
+        "hgv": "local",
+        "highway": "primary",
+        "lanes": "2",
+        "lit": "yes",
+        "maxspeed": "25 mph",
+        "name": "Broome Street",
+        "name:etymology:wikidata": "Q1699423",
+        "name:ko": "브룸 스트리트",
+        "name:ru": "Брум-стрит",
+        "oneway": "yes",
+        "sidewalk:both": "separate",
+        "surface": "asphalt",
+        "wikidata": "Q917139",
+        "wikipedia": "en:Broome Street"
+      },
+      "geometry": [
+        {
+          "lat": 40.7217942,
+          "lon": -73.9998623
+        },
+        {
+          "lat": 40.7218415,
+          "lon": -73.9999528
+        },
+        {
+          "lat": 40.721856,
+          "lon": -73.9999806
+        },
+        {
+          "lat": 40.7221395,
+          "lon": -74.0005533
+        },
+        {
+          "lat": 40.7221666,
+          "lon": -74.000608
+        },
+        {
+          "lat": 40.7221954,
+          "lon": -74.0006646
+        },
+        {
+          "lat": 40.7222213,
+          "lon": -74.000718
+        },
+        {
+          "lat": 40.7225152,
+          "lon": -74.0013158
+        },
+        {
+          "lat": 40.7225352,
+          "lon": -74.0013565
+        },
+        {
+          "lat": 40.7225657,
+          "lon": -74.0014195
+        },
+        {
+          "lat": 40.7225945,
+          "lon": -74.0014771
+        },
+        {
+          "lat": 40.7228839,
+          "lon": -74.0020653
+        },
+        {
+          "lat": 40.7229067,
+          "lon": -74.0021116
+        },
+        {
+          "lat": 40.7229396,
+          "lon": -74.0021789
+        },
+        {
+          "lat": 40.7229649,
+          "lon": -74.00223
+        },
+        {
+          "lat": 40.7232627,
+          "lon": -74.0028353
+        },
+        {
+          "lat": 40.7232839,
+          "lon": -74.0028802
+        },
+        {
+          "lat": 40.7232928,
+          "lon": -74.0029023
+        },
+        {
+          "lat": 40.7233034,
+          "lon": -74.0029318
+        },
+        {
+          "lat": 40.723311,
+          "lon": -74.0029612
+        },
+        {
+          "lat": 40.7233168,
+          "lon": -74.0029951
+        }
+      ]
+    },
+    {
+      "type": "way",
+      "id": 968737544,
+      "tags": {
+        "cycleway:both": "no",
+        "hgv": "local",
+        "highway": "secondary",
+        "lanes": "2",
+        "lit": "yes",
+        "maxspeed": "25 mph",
+        "name": "Broadway",
+        "name:ar": "برودواي",
+        "name:en": "Broadway",
+        "name:ja": "ブロードウェイ",
+        "name:ko": "브로드웨이",
+        "name:ru": "Бродвей",
+        "name:zh": "百老匯",
+        "name:zh-Hans": "百老汇",
+        "name:zh-Hant": "百老匯",
+        "oneway": "yes",
+        "sidewalk:both": "separate",
+        "surface": "asphalt",
+        "turn:lanes": "left;through|none",
+        "wikidata": "Q11260",
+        "wikipedia": "en:Broadway (Manhattan)"
+      },
+      "geometry": [
+        {
+          "lat": 40.7217942,
+          "lon": -73.9998623
+        },
+        {
+          "lat": 40.7217278,
+          "lon": -73.9999205
+        },
+        {
+          "lat": 40.7216111,
+          "lon": -74.0000212
+        },
+        {
+          "lat": 40.7209046,
+          "lon": -74.0006132
+        },
+        {
+          "lat": 40.7208456,
+          "lon": -74.0006622
+        }
+      ]
+    },
+    {
+      "type": "way",
+      "id": 1032481034,
+      "tags": {
+        "bicycle": "yes",
+        "cycleway:right": "track",
+        "cycleway:right:oneway": "yes",
+        "hgv": "local",
+        "highway": "primary",
+        "lanes": "1",
+        "lit": "yes",
+        "maxspeed": "25 mph",
+        "name": "Grand Street",
+        "name:ko": "그랜드 스트리트",
+        "name:ru": "Гранд-стрит",
+        "oneway": "yes",
+        "sidewalk:both": "separate",
+        "surface": "asphalt",
+        "wikidata": "Q1264489",
+        "wikipedia": "en:Grand Street (Manhattan)"
+      },
+      "geometry": [
+        {
+          "lat": 40.722384,
+          "lon": -74.003768
+        },
+        {
+          "lat": 40.7223451,
+          "lon": -74.0036883
+        },
+        {
+          "lat": 40.7221111,
+          "lon": -74.0032089
+        }
+      ]
+    },
+    {
+      "type": "way",
+      "id": 1032481035,
+      "tags": {
+        "highway": "residential",
+        "lanes": "1",
+        "lit": "yes",
+        "maxspeed": "25 mph",
+        "name": "Wooster Street",
+        "name:etymology:wikidata": "Q4993246",
+        "name:ko": "우스터 스트리트",
+        "oneway": "yes",
+        "sidewalk:both": "separate",
+        "surface": "sett",
+        "wikidata": "Q19582621",
+        "wikipedia": "en:Wooster Street (Manhattan)"
+      },
+      "geometry": [
+        {
+          "lat": 40.721995,
+          "lon": -74.002971
+        },
+        {
+          "lat": 40.7219521,
+          "lon": -74.0030069
+        },
+        {
+          "lat": 40.7209857,
+          "lon": -74.0038257
+        }
+      ]
+    },
+    {
+      "type": "way",
+      "id": 1032481036,
+      "tags": {
+        "bicycle": "yes",
+        "cycleway:right": "track",
+        "cycleway:right:oneway": "yes",
+        "hgv": "local",
+        "highway": "primary",
+        "lanes": "1",
+        "lit": "yes",
+        "maxspeed": "25 mph",
+        "name": "Grand Street",
+        "name:ko": "그랜드 스트리트",
+        "name:ru": "Гранд-стрит",
+        "oneway": "yes",
+        "sidewalk:both": "separate",
+        "surface": "asphalt",
+        "wikidata": "Q1264489",
+        "wikipedia": "en:Grand Street (Manhattan)"
+      },
+      "geometry": [
+        {
+          "lat": 40.7221111,
+          "lon": -74.0032089
+        },
+        {
+          "lat": 40.7220281,
+          "lon": -74.0030387
+        },
+        {
+          "lat": 40.721995,
+          "lon": -74.002971
+        }
+      ]
+    },
+    {
+      "type": "way",
+      "id": 1032481037,
+      "tags": {
+        "bicycle": "yes",
+        "cycleway:right": "track",
+        "cycleway:right:oneway": "yes",
+        "hgv": "local",
+        "highway": "primary",
+        "lanes": "1",
+        "lit": "yes",
+        "maxspeed": "25 mph",
+        "name": "Grand Street",
+        "name:ko": "그랜드 스트리트",
+        "name:ru": "Гранд-стрит",
+        "oneway": "yes",
+        "sidewalk:both": "separate",
+        "surface": "asphalt",
+        "wikidata": "Q1264489",
+        "wikipedia": "en:Grand Street (Manhattan)"
+      },
+      "geometry": [
+        {
+          "lat": 40.721252,
+          "lon": -74.001447
+        },
+        {
+          "lat": 40.7212238,
+          "lon": -74.0013892
+        },
+        {
+          "lat": 40.7210015,
+          "lon": -74.0009335
+        }
+      ]
+    },
+    {
+      "type": "way",
+      "id": 1032481038,
+      "tags": {
+        "bicycle": "yes",
+        "cycleway:right": "track",
+        "cycleway:right:oneway": "yes",
+        "hgv": "local",
+        "highway": "primary",
+        "lanes": "1",
+        "lit": "yes",
+        "maxspeed": "25 mph",
+        "name": "Grand Street",
+        "name:ko": "그랜드 스트리트",
+        "name:ru": "Гранд-стрит",
+        "oneway": "yes",
+        "sidewalk:both": "separate",
+        "surface": "asphalt",
+        "wikidata": "Q1264489",
+        "wikipedia": "en:Grand Street (Manhattan)"
+      },
+      "geometry": [
+        {
+          "lat": 40.7213678,
+          "lon": -74.0016857
+        },
+        {
+          "lat": 40.7212863,
+          "lon": -74.0015177
+        },
+        {
+          "lat": 40.721252,
+          "lon": -74.001447
+        }
+      ]
+    },
+    {
+      "type": "way",
+      "id": 1032481039,
+      "tags": {
+        "bicycle": "yes",
+        "cycleway:right": "track",
+        "cycleway:right:oneway": "yes",
+        "hgv": "local",
+        "highway": "primary",
+        "lanes": "1",
+        "lit": "yes",
+        "maxspeed": "25 mph",
+        "name": "Grand Street",
+        "name:ko": "그랜드 스트리트",
+        "name:ru": "Гранд-стрит",
+        "oneway": "yes",
+        "sidewalk:both": "separate",
+        "surface": "asphalt",
+        "wikidata": "Q1264489",
+        "wikipedia": "en:Grand Street (Manhattan)"
+      },
+      "geometry": [
+        {
+          "lat": 40.7210015,
+          "lon": -74.0009335
+        },
+        {
+          "lat": 40.7209058,
+          "lon": -74.0007387
+        },
+        {
+          "lat": 40.7208456,
+          "lon": -74.0006622
+        }
+      ]
+    },
+    {
+      "type": "way",
+      "id": 1051858090,
+      "tags": {
+        "cycleway:left": "track",
+        "cycleway:left:oneway": "yes",
+        "hgv": "designated",
+        "highway": "primary",
+        "lanes": "3",
+        "lit": "yes",
+        "maxspeed": "25 mph",
+        "name": "Lafayette Street",
+        "name:etymology:wikidata": "Q186652",
+        "name:ko": "라피예트 스트리트",
+        "name:ru": "Лафайетт-стрит",
+        "oneway": "yes",
+        "sidewalk:both": "separate",
+        "surface": "asphalt",
+        "turn:lanes": "through|right|right",
+        "wikidata": "Q1592949",
+        "wikipedia": "en:Lafayette Street"
+      },
+      "geometry": [
+        {
+          "lat": 40.7215953,
+          "lon": -73.9977932
+        },
+        {
+          "lat": 40.7215305,
+          "lon": -73.9978505
+        },
+        {
+          "lat": 40.7211938,
+          "lon": -73.9981379
+        },
+        {
+          "lat": 40.7211514,
+          "lon": -73.9981735
+        },
+        {
+          "lat": 40.7210819,
+          "lon": -73.9982238
+        }
+      ]
+    },
+    {
+      "type": "way",
+      "id": 1061439211,
+      "tags": {
+        "cycleway:left": "lane",
+        "cycleway:left:buffer": "no",
+        "cycleway:left:oneway": "yes",
+        "cycleway:right": "no",
+        "highway": "residential",
+        "maxspeed": "25 mph",
+        "name": "Broome Street",
+        "name:etymology:wikidata": "Q1699423",
+        "name:ko": "브룸 스트리트",
+        "name:ru": "Брум-стрит",
+        "oneway": "yes",
+        "sidewalk:both": "separate",
+        "surface": "asphalt",
+        "wikidata": "Q917139",
+        "wikipedia": "en:Broome Street"
+      },
+      "geometry": [
+        {
+          "lat": 40.724055,
+          "lon": -74.00438
+        },
+        {
+          "lat": 40.7240976,
+          "lon": -74.0044504
+        },
+        {
+          "lat": 40.7241732,
+          "lon": -74.0045754
+        }
+      ]
+    },
+    {
+      "type": "way",
+      "id": 1117645386,
+      "tags": {
+        "footway": "sidewalk",
+        "highway": "footway",
+        "name": "6th Avenue",
+        "source": "Bing",
+        "surface": "concrete"
+      },
+      "geometry": [
+        {
+          "lat": 40.7240543,
+          "lon": -74.0044736
+        },
+        {
+          "lat": 40.7240349,
+          "lon": -74.0044841
+        }
+      ]
+    },
+    {
+      "type": "way",
+      "id": 1149695048,
+      "tags": {
+        "cycleway:left": "no",
+        "cycleway:right": "shared_lane",
+        "cycleway:right:lane": "pictogram",
+        "hgv": "local",
+        "highway": "secondary",
+        "lanes": "2",
+        "lit": "yes",
+        "maxspeed": "25 mph",
+        "name": "West Broadway",
+        "name:etymology:wikidata": "Q11260",
+        "name:ko": "웨스트 브로드웨이",
+        "name:ru": "Вест-Бродвей",
+        "oneway": "yes",
+        "sidewalk:both": "separate",
+        "surface": "asphalt",
+        "wikidata": "Q7984573",
+        "wikipedia": "en:West Broadway"
+      },
+      "geometry": [
+        {
+          "lat": 40.7213666,
+          "lon": -74.0046193
+        },
+        {
+          "lat": 40.7214634,
+          "lon": -74.0045427
+        },
+        {
+          "lat": 40.7217394,
+          "lon": -74.0043107
+        },
+        {
+          "lat": 40.7223312,
+          "lon": -74.0038131
+        },
+        {
+          "lat": 40.722384,
+          "lon": -74.003768
+        }
+      ]
+    },
+    {
+      "type": "way",
+      "id": 1165434472,
+      "tags": {
+        "cycleway:left": "lane",
+        "cycleway:left:oneway": "yes",
+        "cycleway:right": "no",
+        "hgv": "destination",
+        "highway": "residential",
+        "lanes": "1",
+        "maxspeed": "25 mph",
+        "name": "Spring Street",
+        "name:ko": "스프링 스트리트",
+        "name:ru": "Спринг-стрит",
+        "oneway": "yes",
+        "sidewalk:both": "separate",
+        "surface": "asphalt",
+        "wikidata": "Q7580682",
+        "wikipedia": "en:Spring Street (Manhattan)"
+      },
+      "geometry": [
+        {
+          "lat": 40.725513,
+          "lon": -74.004031
+        },
+        {
+          "lat": 40.7255003,
+          "lon": -74.0038887
+        },
+        {
+          "lat": 40.7252831,
+          "lon": -74.0034415
+        },
+        {
+          "lat": 40.725252,
+          "lon": -74.003376
+        }
+      ]
+    },
+    {
+      "type": "way",
+      "id": 1316839632,
+      "tags": {
+        "highway": "residential",
+        "lanes": "1",
+        "lit": "yes",
+        "maxspeed": "25 mph",
+        "name": "Mercer Street",
+        "name:etymology:wikidata": "Q3030909",
+        "name:ko": "머서 스트리트",
+        "oneway": "yes",
+        "sidewalk:both": "separate",
+        "surface": "sett",
+        "wikidata": "Q3306319",
+        "wikipedia": "en:Mercer Street (Manhattan)"
+      },
+      "geometry": [
+        {
+          "lat": 40.7221269,
+          "lon": -74.0007224
+        },
+        {
+          "lat": 40.7215333,
+          "lon": -74.0012081
+        },
+        {
+          "lat": 40.7214885,
+          "lon": -74.0012461
+        },
+        {
+          "lat": 40.7213053,
+          "lon": -74.001399
+        },
+        {
+          "lat": 40.721252,
+          "lon": -74.001447
+        }
+      ]
+    },
+    {
+      "type": "way",
+      "id": 1316839633,
+      "tags": {
+        "highway": "residential",
+        "lanes": "1",
+        "lit": "yes",
+        "maxspeed": "25 mph",
+        "name": "Mercer Street",
+        "name:etymology:wikidata": "Q3030909",
+        "name:ko": "머서 스트리트",
+        "oneway": "yes",
+        "sidewalk:both": "separate",
+        "surface": "asphalt",
+        "wikidata": "Q3306319",
+        "wikipedia": "en:Mercer Street (Manhattan)"
+      },
+      "geometry": [
+        {
+          "lat": 40.7222582,
+          "lon": -74.0006091
+        },
+        {
+          "lat": 40.7221954,
+          "lon": -74.0006646
+        },
+        {
+          "lat": 40.7221269,
+          "lon": -74.0007224
+        }
+      ]
+    },
+    {
+      "type": "way",
+      "id": 1316839634,
+      "tags": {
+        "highway": "residential",
+        "lanes": "1",
+        "lit": "yes",
+        "maxspeed": "25 mph",
+        "name": "Greene Street",
+        "name:etymology:wikidata": "Q366113",
+        "name:ko": "그린 스트리트",
+        "oneway": "yes",
+        "sidewalk:both": "separate",
+        "surface": "sett",
+        "wikidata": "Q83170568"
+      },
+      "geometry": [
+        {
+          "lat": 40.7205089,
+          "lon": -74.0031616
+        },
+        {
+          "lat": 40.7215747,
+          "lon": -74.0022487
+        },
+        {
+          "lat": 40.7216214,
+          "lon": -74.0022085
+        },
+        {
+          "lat": 40.7216723,
+          "lon": -74.0021646
+        },
+        {
+          "lat": 40.7224722,
+          "lon": -74.0014958
+        },
+        {
+          "lat": 40.7224974,
+          "lon": -74.0014747
+        }
+      ]
+    },
+    {
+      "type": "way",
+      "id": 1316839635,
+      "tags": {
+        "highway": "residential",
+        "lanes": "1",
+        "lit": "yes",
+        "maxspeed": "25 mph",
+        "name": "Greene Street",
+        "name:etymology:wikidata": "Q366113",
+        "name:ko": "그린 스트리트",
+        "oneway": "yes",
+        "sidewalk:both": "separate",
+        "surface": "asphalt",
+        "wikidata": "Q83170568"
+      },
+      "geometry": [
+        {
+          "lat": 40.7224974,
+          "lon": -74.0014747
+        },
+        {
+          "lat": 40.7225657,
+          "lon": -74.0014195
+        },
+        {
+          "lat": 40.7226305,
+          "lon": -74.0013671
+        }
+      ]
+    },
+    {
+      "type": "way",
+      "id": 1316839636,
+      "tags": {
+        "highway": "residential",
+        "lanes": "1",
+        "lit": "yes",
+        "maxspeed": "25 mph",
+        "name": "Wooster Street",
+        "name:etymology:wikidata": "Q4993246",
+        "name:ko": "우스터 스트리트",
+        "oneway": "yes",
+        "sidewalk:both": "separate",
+        "surface": "sett",
+        "wikidata": "Q19582621",
+        "wikipedia": "en:Wooster Street (Manhattan)"
+      },
+      "geometry": [
+        {
+          "lat": 40.7228711,
+          "lon": -74.0022357
+        },
+        {
+          "lat": 40.7220459,
+          "lon": -74.0029273
+        },
+        {
+          "lat": 40.721995,
+          "lon": -74.002971
+        }
+      ]
+    },
+    {
+      "type": "way",
+      "id": 1316839637,
+      "tags": {
+        "cycleway:both": "no",
+        "highway": "residential",
+        "lanes": "1",
+        "lit": "yes",
+        "maxspeed": "25 mph",
+        "name": "Wooster Street",
+        "name:etymology:wikidata": "Q4993246",
+        "name:ko": "우스터 스트리트",
+        "oneway": "yes",
+        "sidewalk:both": "separate",
+        "surface": "asphalt",
+        "wikidata": "Q19582621",
+        "wikipedia": "en:Wooster Street (Manhattan)"
+      },
+      "geometry": [
+        {
+          "lat": 40.7230033,
+          "lon": -74.002126
+        },
+        {
+          "lat": 40.7229396,
+          "lon": -74.0021789
+        },
+        {
+          "lat": 40.7228711,
+          "lon": -74.0022357
+        }
+      ]
+    },
+    {
+      "type": "way",
+      "id": 1324488838,
+      "tags": {
+        "highway": "pedestrian",
+        "name": "Sullivan Street",
+        "name:etymology:wikidata": "Q886420",
+        "sidewalk:left": "no",
+        "sidewalk:right": "separate",
+        "surface": "asphalt",
+        "wikidata": "Q15032064",
+        "wikipedia": "en:Sullivan Street"
+      },
+      "geometry": [
+        {
+          "lat": 40.7236306,
+          "lon": -74.0047955
+        },
+        {
+          "lat": 40.7237001,
+          "lon": -74.0047191
+        },
+        {
+          "lat": 40.7240061,
+          "lon": -74.0044264
+        },
+        {
+          "lat": 40.724055,
+          "lon": -74.00438
+        }
+      ]
+    },
+    {
+      "type": "way",
+      "id": 1346484951,
+      "tags": {
+        "alt_name:ko": "6번가",
+        "cycleway:right": "track",
+        "cycleway:right:oneway": "yes",
+        "cycleway:right:separation": "jersey_barrier",
+        "hgv": "designated",
+        "highway": "trunk",
+        "lanes": "4",
+        "maxspeed": "25 mph",
+        "name": "6th Avenue",
+        "name:en": "6th Avenue",
+        "name:ko": "6th 애비뉴",
+        "name:ru": "6-я авеню",
+        "noref": "yes",
+        "official_name": "Avenue of the Americas",
+        "oneway": "yes",
+        "sidewalk:both": "separate",
+        "surface": "asphalt",
+        "turn:lanes": "left|left||",
+        "wikidata": "Q109873",
+        "wikipedia": "en:Sixth Avenue"
+      },
+      "geometry": [
+        {
+          "lat": 40.7230023,
+          "lon": -74.0050623
+        },
+        {
+          "lat": 40.7230617,
+          "lon": -74.0050402
+        },
+        {
+          "lat": 40.7232923,
+          "lon": -74.0049328
+        },
+        {
+          "lat": 40.7235002,
+          "lon": -74.0048484
+        },
+        {
+          "lat": 40.7235572,
+          "lon": -74.0048252
+        },
+        {
+          "lat": 40.7236306,
+          "lon": -74.0047955
+        }
+      ]
+    },
+    {
+      "type": "way",
+      "id": 1418615326,
+      "tags": {
+        "cycleway:both": "no",
+        "hgv": "local",
+        "highway": "primary",
+        "lanes": "4",
+        "maxspeed": "25 mph",
+        "name": "Watts Street",
+        "name:etymology:wikidata": "Q1702113",
+        "name:ko": "와츠 스트리트",
+        "name:ru": "Уоттс-стрит",
+        "oneway": "yes",
+        "sidewalk:left": "separate",
+        "sidewalk:right": "no",
+        "surface": "asphalt"
+      },
+      "geometry": [
+        {
+          "lat": 40.7233168,
+          "lon": -74.0029951
+        },
+        {
+          "lat": 40.7233216,
+          "lon": -74.0030225
+        },
+        {
+          "lat": 40.7233354,
+          "lon": -74.003102
+        },
+        {
+          "lat": 40.7234347,
+          "lon": -74.0037013
+        }
+      ]
+    },
+    {
+      "type": "way",
+      "id": 1418615327,
+      "tags": {
+        "cycleway:both": "no",
+        "hgv": "local",
+        "highway": "primary",
+        "lanes": "4",
+        "maxspeed": "25 mph",
+        "name": "Watts Street",
+        "name:etymology:wikidata": "Q1702113",
+        "name:ko": "와츠 스트리트",
+        "name:ru": "Уоттс-стрит",
+        "oneway": "yes",
+        "sidewalk:left": "separate",
+        "sidewalk:right": "no",
+        "surface": "asphalt"
+      },
+      "geometry": [
+        {
+          "lat": 40.7234347,
+          "lon": -74.0037013
+        },
+        {
+          "lat": 40.7234448,
+          "lon": -74.0037505
+        },
+        {
+          "lat": 40.7234576,
+          "lon": -74.0038418
+        }
+      ]
+    },
+    {
+      "type": "way",
+      "id": 1476186352,
+      "tags": {
+        "cycleway:left": "lane",
+        "cycleway:left:buffer": "no",
+        "cycleway:left:oneway": "yes",
+        "cycleway:right": "no",
+        "hgv": "destination",
+        "highway": "residential",
+        "lit": "yes",
+        "maxspeed": "25 mph",
+        "name": "Spring Street",
+        "name:ko": "스프링 스트리트",
+        "name:ru": "Спринг-стрит",
+        "oneway": "yes",
+        "parking:lane:left": "no_parking",
+        "sidewalk:both": "separate",
+        "surface": "asphalt",
+        "wikidata": "Q7580682",
+        "wikipedia": "en:Spring Street (Manhattan)"
+      },
+      "geometry": [
+        {
+          "lat": 40.723021,
+          "lon": -73.998812
+        },
+        {
+          "lat": 40.7229818,
+          "lon": -73.9987216
+        },
+        {
+          "lat": 40.7226964,
+          "lon": -73.9980399
+        },
+        {
+          "lat": 40.7226691,
+          "lon": -73.9979746
+        }
+      ]
+    },
+    {
+      "type": "way",
+      "id": 1497599007,
+      "tags": {
+        "bicycle": "yes",
+        "cycleway:both": "no",
+        "hgv": "designated",
+        "highway": "primary",
+        "lanes": "6",
+        "lit": "yes",
+        "maxspeed": "20 mph",
+        "name": "Canal Street",
+        "name:en": "Canal Street",
+        "name:ko": "커낼 스트리트",
+        "name:ru": "Канал-стрит",
+        "name:zh": "堅尼街",
+        "oneway": "no",
+        "sidewalk:both": "separate",
+        "surface": "asphalt",
+        "wikidata": "Q1032558",
+        "wikipedia": "en:Canal Street (Manhattan)"
+      },
+      "geometry": [
+        {
+          "lat": 40.72091,
+          "lon": -74.0039761
+        },
+        {
+          "lat": 40.7213164,
+          "lon": -74.0045469
+        },
+        {
+          "lat": 40.7213666,
+          "lon": -74.0046193
+        }
+      ]
+    },
+    {
+      "type": "way",
+      "id": 1499322022,
+      "tags": {
+        "alt_name:ko": "6번가",
+        "cycleway:right": "track",
+        "cycleway:right:oneway": "yes",
+        "cycleway:right:traffic_mode": "parking",
+        "hgv": "designated",
+        "highway": "primary",
+        "lanes": "3",
+        "maxspeed": "25 mph",
+        "name": "6th Avenue",
+        "name:en": "6th Avenue",
+        "name:ko": "6th 애비뉴",
+        "name:ru": "6-я авеню",
+        "official_name": "Avenue of the Americas",
+        "oneway": "yes",
+        "sidewalk:both": "separate",
+        "surface": "asphalt",
+        "wikidata": "Q109873",
+        "wikipedia": "en:Sixth Avenue"
+      },
+      "geometry": [
+        {
+          "lat": 40.725513,
+          "lon": -74.004031
+        },
+        {
+          "lat": 40.7255932,
+          "lon": -74.0039996
+        },
+        {
+          "lat": 40.7257139,
+          "lon": -74.0039491
+        },
+        {
+          "lat": 40.7261929,
+          "lon": -74.0037533
+        },
+        {
+          "lat": 40.72625,
+          "lon": -74.00373
+        }
+      ]
+    },
+    {
+      "type": "way",
+      "id": 1499798564,
+      "tags": {
+        "cycleway:both": "no",
+        "highway": "residential",
+        "lanes": "1",
+        "maxspeed": "25 mph",
+        "name": "Sullivan Street",
+        "name:etymology:wikidata": "Q886420",
+        "name:ko": "설리번 스트리트",
+        "oneway": "yes",
+        "sidewalk:both": "separate",
+        "surface": "asphalt",
+        "wikidata": "Q15032064",
+        "wikipedia": "en:Sullivan Street"
+      },
+      "geometry": [
+        {
+          "lat": 40.724055,
+          "lon": -74.00438
+        },
+        {
+          "lat": 40.7241143,
+          "lon": -74.0043318
+        },
+        {
+          "lat": 40.724184,
+          "lon": -74.004272
+        },
+        {
+          "lat": 40.7251901,
+          "lon": -74.003428
+        },
+        {
+          "lat": 40.725252,
+          "lon": -74.003376
+        },
+        {
+          "lat": 40.7253122,
+          "lon": -74.0033264
+        },
+        {
+          "lat": 40.7264503,
+          "lon": -74.0023905
+        },
+        {
+          "lat": 40.7264953,
+          "lon": -74.0023512
+        },
+        {
+          "lat": 40.72654,
+          "lon": -74.0023121
+        },
+        {
+          "lat": 40.7275476,
+          "lon": -74.0015004
+        },
+        {
+          "lat": 40.7276175,
+          "lon": -74.0014439
+        },
+        {
+          "lat": 40.7277329,
+          "lon": -74.0013516
+        }
+      ]
+    },
+    {
+      "type": "way",
+      "id": 1523981210,
+      "tags": {
+        "highway": "residential",
+        "lanes": "1",
+        "lit": "yes",
+        "maxspeed": "25 mph",
+        "name": "Wooster Street",
+        "name:etymology:wikidata": "Q4993246",
+        "name:ko": "우스터 스트리트",
+        "oneway": "yes",
+        "sidewalk:both": "separate",
+        "surface": "sett",
+        "wikidata": "Q19582621",
+        "wikipedia": "en:Wooster Street (Manhattan)"
+      },
+      "geometry": [
+        {
+          "lat": 40.7264932,
+          "lon": -73.9991668
+        },
+        {
+          "lat": 40.726421,
+          "lon": -73.9992275
+        },
+        {
+          "lat": 40.7254278,
+          "lon": -74.0000626
+        }
+      ]
+    },
+    {
+      "type": "way",
+      "id": 1526264277,
+      "tags": {
+        "alt_name:ko": "6번가",
+        "highway": "residential",
+        "lanes": "1",
+        "name": "Little 6th Avenue",
+        "name:ko": "식스 애비뉴",
+        "official_name": "Avenue of the Americas",
+        "oneway": "yes",
+        "sidewalk:both": "separate",
+        "surface": "asphalt"
+      },
+      "geometry": [
+        {
+          "lat": 40.7249031,
+          "lon": -74.0046576
+        },
+        {
+          "lat": 40.7248941,
+          "lon": -74.0046524
+        },
+        {
+          "lat": 40.7248835,
+          "lon": -74.004653
+        },
+        {
+          "lat": 40.724853,
+          "lon": -74.0046568
+        },
+        {
+          "lat": 40.724348,
+          "lon": -74.0047317
+        },
+        {
+          "lat": 40.7242643,
+          "lon": -74.0047442
+        }
+      ]
+    },
+    {
+      "type": "way",
+      "id": 1532304562,
+      "tags": {
+        "bicycle": "yes",
+        "cycleway:both": "no",
+        "hgv": "designated",
+        "highway": "primary",
+        "lanes": "6",
+        "lit": "yes",
+        "maxspeed": "20 mph",
+        "name": "Canal Street",
+        "name:en": "Canal Street",
+        "name:ko": "커낼 스트리트",
+        "name:ru": "Канал-стрит",
+        "name:zh": "堅尼街",
+        "oneway": "no",
+        "sidewalk:both": "separate",
+        "surface": "asphalt",
+        "wikidata": "Q1032558",
+        "wikipedia": "en:Canal Street (Manhattan)"
+      },
+      "geometry": [
+        {
+          "lat": 40.7213666,
+          "lon": -74.0046193
+        },
+        {
+          "lat": 40.7214283,
+          "lon": -74.0047134
+        },
+        {
+          "lat": 40.7216847,
+          "lon": -74.0050747
+        }
+      ]
+    },
+    {
+      "type": "way",
+      "id": 1555179152,
+      "tags": {
+        "area": "yes",
+        "highway": "pedestrian",
+        "lit": "yes",
+        "name": "Hudson Square Plaza",
+        "surface": "asphalt"
+      },
+      "geometry": [
+        {
+          "lat": 40.7255288,
+          "lon": -74.0046837
+        },
+        {
+          "lat": 40.7255486,
+          "lon": -74.0046609
+        },
+        {
+          "lat": 40.7255515,
+          "lon": -74.0046527
+        },
+        {
+          "lat": 40.725551,
+          "lon": -74.0046405
+        },
+        {
+          "lat": 40.7255321,
+          "lon": -74.0044482
+        },
+        {
+          "lat": 40.7255275,
+          "lon": -74.0044407
+        },
+        {
+          "lat": 40.7255215,
+          "lon": -74.0044361
+        },
+        {
+          "lat": 40.7255051,
+          "lon": -74.0044335
+        },
+        {
+          "lat": 40.7255098,
+          "lon": -74.0044832
+        },
+        {
+          "lat": 40.7255069,
+          "lon": -74.004499
+        },
+        {
+          "lat": 40.7254922,
+          "lon": -74.0045138
+        },
+        {
+          "lat": 40.7249852,
+          "lon": -74.0045963
+        },
+        {
+          "lat": 40.7248738,
+          "lon": -74.0046129
+        },
+        {
+          "lat": 40.7249188,
+          "lon": -74.004624
+        },
+        {
+          "lat": 40.7249291,
+          "lon": -74.0046298
+        },
+        {
+          "lat": 40.7249387,
+          "lon": -74.0046407
+        },
+        {
+          "lat": 40.724945,
+          "lon": -74.004668
+        },
+        {
+          "lat": 40.7249497,
+          "lon": -74.0047213
+        },
+        {
+          "lat": 40.724955,
+          "lon": -74.0047815
+        },
+        {
+          "lat": 40.7249572,
+          "lon": -74.0047972
+        },
+        {
+          "lat": 40.7249642,
+          "lon": -74.0048054
+        },
+        {
+          "lat": 40.7249775,
+          "lon": -74.0048125
+        },
+        {
+          "lat": 40.7249694,
+          "lon": -74.0047301
+        },
+        {
+          "lat": 40.7249705,
+          "lon": -74.0047187
+        },
+        {
+          "lat": 40.7249715,
+          "lon": -74.0047083
+        },
+        {
+          "lat": 40.7249818,
+          "lon": -74.0046923
+        },
+        {
+          "lat": 40.7249935,
+          "lon": -74.0046841
+        },
+        {
+          "lat": 40.7254864,
+          "lon": -74.0046088
+        },
+        {
+          "lat": 40.7255009,
+          "lon": -74.0046089
+        },
+        {
+          "lat": 40.725518,
+          "lon": -74.0046195
+        },
+        {
+          "lat": 40.7255237,
+          "lon": -74.0046295
+        },
+        {
+          "lat": 40.7255288,
+          "lon": -74.0046837
+        }
+      ]
+    }
+  ],
+  "osm3s": {
+    "timestamp_osm_base": "unknown"
+  },
+  "provenance": {
+    "url": "https://api.openstreetmap.org/api/0.6/map?bbox=-74.005,40.721,-73.998,40.726",
+    "format": "OSM XML",
+    "retrieved_at": "2026-10-09T16:35:55.412019+00:00"
+  }
+}
