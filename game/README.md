@@ -149,6 +149,10 @@ Each place near the player is given a street front: the stretch of its building'
 
 Shop fronts that belong to no registered place stay as they were, anonymous. The registers do not cover clothes shops, banks, laundromats, pharmacies without a beer licence or offices, so most of Fifth Avenue is still unnamed.
 
+## The figures
+
+The crowd is drawn with two modelled figures, a man and a woman, from Quaternius's Universal Base Characters with the walk from his Universal Animation Library (both CC0). `scripts/build-people.mjs` poses each body at 24 frames of the walk and standing still, thins it to about two thousand vertices, and writes where each vertex is at each frame (`dist/people.bin`, 600 KB); the crowd's vertex shader looks positions up from that, so a few hundred people cost one draw. The packs are not in the repository: download the free versions into `game/assets-src/characters/` to run the script again. The free packs have one build of body, and no clothes: shirts, trousers and shoes are colours painted on by which bone moves each part of the skin, so everyone is the same athletic shape in close-fitting clothes. Until the figures have loaded, and for the player and the people who mind shops, the older blocked-out figure is used.
+
 ## Going inside
 
 On foot at the door of an open shop, restaurant, bar, salon, hotel or public building, **E** goes in; **E** again, or walking back out through the door, leaves. No register holds the inside of a shop: `interiors.js` lays the room out. It is as wide as the place's street front (nine metres at most) and as deep as the building behind the door allows (twelve at most), and furnished for the kind of place: a counter by the door, aisles of shelving and coolers across the back for a bodega; tables and a counter for somewhere to eat; a bar down one side; chairs and mirrors for a salon or a barber; a desk and seats for a lobby. Someone minds each one. The room is a closed box: the street cannot be seen from inside, nothing can be bought yet, and upper floors are not modelled.

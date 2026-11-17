@@ -756,6 +756,8 @@ async function boot() {
   placeSource=createPlaceSource({load:url=>loadData(url.replace(/^\.\//,''))});
   loadData('places-index.json').then(index=>placeSource.setIndex(index)).catch(()=>{});
   loadData('fleet.json').then(data=>{fleet=createFleet(data);}).catch(()=>{});
+  // The modelled figures replace the blocked-out ones once they have loaded.
+  Promise.all([loadData('people.json'),fetch('./people.bin').then(response=>{if(!response.ok)throw new Error('people');return response.arrayBuffer();})]).then(([meta,buffer])=>crowd.setFigures(meta,new Int16Array(buffer))).catch(()=>{});
   phone=createPhone({$,places:()=>placeSource.near(sim.player.x,sim.player.z,700),
     state:()=>({x:sim.player.x,z:sim.player.z,hours:gfx.hours,clock:gfx.clock,cash:sim.cash,fares:sim.deliveries,miles:sim.distanceTravelled/1609.344,redLights:sim.redLights||0,car:sim.vehicle?{health:sim.health,mods:sim.vehicle.mods,color:sim.vehicle.color}:null}),
     onGarage:(kind,job,choice)=>{if(sim.garage(kind,job,choice))saveProgress();},onMechanic:()=>sim.callMechanic(),onCab:()=>sim.summonCab(),

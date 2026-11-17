@@ -44,7 +44,7 @@ const CLOTH = {
 const pick = (list, random) => list[Math.floor(random() * list.length) % list.length];
 
 /** Kit an instance may carry or wear, as bits. */
-export const KIT = { backpack: 1, bag: 2, cap: 4, longHair: 8, shortSleeves: 16, shorts: 32 };
+export const KIT = { backpack: 1, bag: 2, cap: 4, longHair: 8, shortSleeves: 16, shorts: 32, woman: 64 };
 
 /**
  * One person: colours, kit, height and pace, for an outfit named in
@@ -180,6 +180,58 @@ export function createPersonMaterial() {
   return material;
 }
 
+/**
+ * The modelled figures (scripts/build-people.mjs): a man and a woman, each a
+ * few thousand triangles, with where every vertex is at every frame of a
+ * walk. `meta` is people.json and `poses` the Int16Array of people.bin.
+ * Both bodies are in the one geometry; each person shows theirs and folds
+ * the other away. Returns { geometry, material, texture }.
+ */
+export function createFigures(meta, poses) {
+  const total = meta.figures.reduce((sum, figure) => sum + figure.vertices, 0), frames = meta.frames;
+  const data = new Float32Array(total * frames * 4), position = [], body = [], vertex = [], index = [];
+  let column = 0, offset = 0;
+  meta.figures.forEach((figure, which) => {
+    for (let f = 0; f < frames; f++) for (let i = 0; i < figure.vertices; i++) {
+      const from = offset + (f * figure.vertices + i) * 3, to = (f * total + column + i) * 4;
+      data[to] = poses[from] / 16000; data[to + 1] = poses[from + 1] / 16000; data[to + 2] = poses[from + 2] / 16000; data[to + 3] = 1;
+    }
+    for (let i = 0; i < figure.vertices; i++) {
+      const standing = ((frames - 1) * total + column + i) * 4;
+      position.push(data[standing], data[standing + 1], data[standing + 2]); body.push(figure.paint[i], 0, which + 1, figure.bare[i]); vertex.push(column + i);
+    }
+    for (const i of figure.faces) index.push(column + i);
+    column += figure.vertices; offset += figure.vertices * frames * 3;
+  });
+  const texture = new THREE.DataTexture(data, total, frames, THREE.RGBAFormat, THREE.FloatType);
+  texture.name = 'Where each vertex of the figures is through a stride'; texture.magFilter = texture.minFilter = THREE.NearestFilter; texture.generateMipmaps = false; texture.needsUpdate = true;
+  const geometry = new THREE.BufferGeometry();
+  geometry.setAttribute('position', new THREE.Float32BufferAttribute(position, 3)); geometry.setAttribute('aBody', new THREE.Float32BufferAttribute(body, 4)); geometry.setAttribute('aVertex', new THREE.Float32BufferAttribute(vertex, 1));
+  geometry.setIndex(index); geometry.computeVertexNormals(); geometry.computeBoundingSphere();
+  // Faceted shading from the surface as it is posed: the stored normals are the standing figure's.
+  const material = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: .86, metalness: 0, flatShading: true });
+  material.name = 'People, modelled';
+  material.onBeforeCompile = shader => {
+    shader.uniforms.uPeoplePose = { value: texture };
+    shader.vertexShader = `attribute vec4 aBody;\nattribute float aVertex;\nattribute vec3 aTop;\nattribute vec3 aBottom;\nattribute vec3 aSkin;\nattribute vec3 aHair;\nattribute vec4 aGait;\nuniform sampler2D uPeoplePose;\nvarying vec3 vPerson;\n${shader.vertexShader}`
+      .replace('#include <begin_vertex>', /* glsl */`#include <begin_vertex>
+	{
+		// aGait: where in its stride this person is, how much it is striding, how fast, and its kit.
+		float nycKit = aGait.w, nycLoop = fract( ( aGait.x + uNycTime * aGait.z ) / 6.2831853 ) * ${meta.walkFrames}.0;
+		int nycColumn = int( aVertex + 0.5 ), nycFrame = int( nycLoop );
+		vec3 nycStep = mix( texelFetch( uPeoplePose, ivec2( nycColumn, nycFrame ), 0 ).xyz, texelFetch( uPeoplePose, ivec2( nycColumn, ( nycFrame + 1 ) % ${meta.walkFrames} ), 0 ).xyz, fract( nycLoop ) );
+		transformed = mix( texelFetch( uPeoplePose, ivec2( nycColumn, ${meta.walkFrames} ), 0 ).xyz, nycStep, clamp( aGait.y, 0.0, 1.0 ) );
+		bool nycBareArm = mod( floor( nycKit / 16.0 ), 2.0 ) > 0.5, nycBareLeg = mod( floor( nycKit / 32.0 ), 2.0 ) > 0.5, nycWoman = mod( floor( nycKit / 64.0 ), 2.0 ) > 0.5;
+		vPerson = aBody.x < 0.5 ? aSkin : aBody.x < 1.5 ? aTop : aBody.x < 2.5 ? aBottom : aBody.x < 3.5 ? aHair : vec3( 0.03, 0.03, 0.032 );
+		if ( ( aBody.w > 0.5 && aBody.w < 1.5 && nycBareArm ) || ( aBody.w > 1.5 && nycBareLeg ) ) vPerson = aSkin;
+		// The body this person is not is folded away inside the one they are.
+		if ( ( aBody.z < 1.5 ) == nycWoman ) transformed = vec3( 0.0, 1.0, 0.0 );
+	}`);
+    shader.fragmentShader = `varying vec3 vPerson;\n${shader.fragmentShader}`.replace('#include <color_fragment>', '#include <color_fragment>\ndiffuseColor.rgb *= vPerson;');
+  };
+  return { geometry, material, texture };
+}
+
 // --- Where they walk ------------------------------------------------------------------
 /** The point `s` metres along a run, and the kerb's outward normal there. */
 export function along(run, s) {
@@ -245,7 +297,7 @@ export function createWalkNetwork(walks, { isRoad = () => true } = {}) {
  * surface a person stands on; `isRoad(x, z)` whether a point is carriageway.
  */
 export function createCrowd({ scene = null, life, heightAt = () => 0, isRoad = () => true, capacity = 240, range = 120, random = seeded(20260712) } = {}) {
-  const geometry = personGeometry(), material = createPersonMaterial();
+  let geometry = personGeometry(), material = createPersonMaterial(), figures = null;
   const mesh = new THREE.InstancedMesh(geometry, material, capacity);
   mesh.name = 'People'; mesh.count = 0; mesh.frustumCulled = false; mesh.castShadow = true; mesh.receiveShadow = true;
   const attribute = (name, size) => { const a = new THREE.InstancedBufferAttribute(new Float32Array(capacity * size), size); a.setUsage(THREE.DynamicDrawUsage); geometry.setAttribute(name, a); return a; };
@@ -433,11 +485,20 @@ export function createCrowd({ scene = null, life, heightAt = () => 0, isRoad = (
           tops.needsUpdate = bottoms.needsUpdate = skins.needsUpdate = hairs.needsUpdate = true;
         }
         // Stride rate follows pace: about two steps a second at a brisk walk.
-        gaits.setXYZW(i, person.phase, moving, look.pace * 4.6, look.kit);
+        // Half are drawn with the woman's figure: which, is fixed by where in their stride they began.
+        gaits.setXYZW(i, person.phase, moving, look.pace * 4.6, look.kit | (Math.floor(person.phase * 997) % 2 ? KIT.woman : 0));
       }
       mesh.count = people.length;
       mesh.instanceMatrix.needsUpdate = true; gaits.needsUpdate = true;
     },
-    dispose() { geometry.dispose(); material.dispose(); mesh.dispose(); mesh.removeFromParent(); people.length = 0; },
+    /** Draw the crowd with the modelled figures in place of the blocked-out ones. */
+    setFigures(meta, poses) {
+      const next = createFigures(meta, poses);
+      for (const name of ['aTop', 'aBottom', 'aSkin', 'aHair', 'aGait']) next.geometry.setAttribute(name, geometry.getAttribute(name));
+      geometry.dispose(); material.dispose(); figures?.texture.dispose();
+      geometry = mesh.geometry = next.geometry; material = mesh.material = next.material; figures = next;
+    },
+    get modelled() { return Boolean(figures); },
+    dispose() { geometry.dispose(); material.dispose(); figures?.texture.dispose(); mesh.dispose(); mesh.removeFromParent(); people.length = 0; },
   };
 }
