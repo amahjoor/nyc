@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import * as THREE from '../dist/vendor/three.module.min.js';
-import { createWorld, createCar, createPerson, updateCarVisuals } from '../dist/world.js';
+import { createWorld, createCar, createParkedCars, carShape, createPerson, updateCarVisuals } from '../dist/world.js';
 
 // Geometry can be validated without a GPU. The canvas stand-in only supports
 // procedural texture painting; these checks do not replace browser visual QA.
@@ -275,4 +275,37 @@ test('visual suspension filters bumps while individual tires retain measured non
   const pose=mesh.position.clone(), rotation=mesh.userData.chassis.rotation.clone();
   updateCarVisuals(mesh,state,0);
   assert.ok(mesh.position.equals(pose)&&mesh.userData.chassis.rotation.equals(rotation));
+});
+
+test('kerbside cars are drawn as a few instanced meshes that change only when the kerb does', () => {
+  const parked = createParkedCars({ capacity: 40 });
+  const meshes = parked.group.children;
+  assert.equal(meshes.length, 8, 'a body and lamps for each of three styles, tyres and wheels');
+  assert.ok(meshes.every(mesh => mesh.isInstancedMesh && mesh.count === 0));
+  const kerb = (id, x, extra = {}) => ({ id, type: 'sedan', color: '#7a1f1f', x, y: 2, z: 5, angle: Math.PI / 2, pitch: 0, roll: 0, wheelHeights: [2, 2, 2, 2], _kerb: true, ...extra });
+  const cars = [kerb('kerb:1', 0), kerb('kerb:2', 6), kerb('kerb:3', 12), { id: 'traffic-1', type: 'sedan', x: 3, y: 2, z: 0, angle: 0 }, kerb('kerb:4', 18, { controlled: true })];
+  assert.equal(parked.update(cars), true);
+  assert.equal(parked.count, 3, 'traffic and the car being driven are not drawn here');
+  const bodies = meshes.filter(mesh => /bodies$/.test(mesh.name)), tyres = meshes.find(mesh => mesh.name === 'Parked car tyres');
+  assert.equal(bodies.reduce((sum, mesh) => sum + mesh.count, 0), 3);
+  assert.equal(tyres.count, 12);
+  assert.equal(parked.update(cars), false, 'an unchanged kerb costs nothing');
+  // Each car is drawn in the body style it would have when driven away, in its own colour.
+  for (const car of cars.slice(0, 3)) assert.equal(createCar({ type: car.type, color: car.color, seed: car.id }).userData.shape, carShape(car.type, car.id));
+  const used = bodies.find(mesh => mesh.count > 0), tint = used.geometry.getAttribute('aPaint'), red = new THREE.Color('#7a1f1f');
+  assert.ok(tint.isInstancedBufferAttribute && Math.abs(tint.getX(0) - red.r) < 1e-6 && Math.abs(tint.getZ(0) - red.b) < 1e-6);
+  assert.ok(used.material.defines.NYC_INSTANCED_PAINT !== undefined && used.castShadow);
+  // The body sits where a driven car's would: on its wheels, nose along its heading.
+  const matrix = new THREE.Matrix4(), at = new THREE.Vector3(), nose = new THREE.Vector3(0, 0, 1);
+  used.getMatrixAt(0, matrix); at.setFromMatrixPosition(matrix); nose.transformDirection(matrix);
+  assert.ok(Math.abs(at.y - 2.025) < 1e-6 && Math.abs(at.z - 5) < 1e-6 && Math.abs(nose.x - 1) < 1e-6);
+  tyres.getMatrixAt(0, matrix); at.setFromMatrixPosition(matrix);
+  assert.ok(Math.abs(at.y - 2.385) < 1e-6, 'tyres stand on the measured road');
+  // Re-seating one car on changed ground, or losing one, redraws.
+  cars[1].y = 2.4; cars[1].wheelHeights = [2.4, 2.4, 2.4, 2.4];
+  assert.equal(parked.update(cars), true);
+  cars[0]._kerb = false;
+  assert.equal(parked.update(cars), true); assert.equal(parked.count, 2); assert.equal(tyres.count, 8);
+  assert.equal(parked.update([]), true); assert.equal(parked.count, 0);
+  parked.dispose();
 });

@@ -7,6 +7,10 @@ const FIXED_STEP = 1 / 120;
 const PLAYER_RADIUS = 0.4;
 const CAR_RADIUS = 0.92;
 const CAR_HALF_AXLE = 1.12;
+// What stands at a New York kerb: mostly black, white and shades of grey.
+const KERB_PAINT = ['#15181b', '#15181b', '#2b2f33', '#5b6166', '#8f969b', '#8f969b', '#c9cdd0', '#e8e9e6', '#e8e9e6', '#1f2f45', '#3a5a7a', '#7a1f1f', '#27402f', '#8a7a5c'];
+// Kerbside cars stand still, so only one in this many is re-seated on the ground each step.
+const KERB_GROUNDING_TURNS = 24;
 const GRID_SIZE = 24;
 
 const clamp = (value, low, high) => Math.min(high, Math.max(low, value));
@@ -362,7 +366,11 @@ export class Simulation {
   updateGrounding() {
     // Reuse the same sampled surface as the renderer. Four wheel contact
     // points establish the support plane while suspension remains visual.
+    const due = this._kerbTurn = ((this._kerbTurn || 0) + 1) % KERB_GROUNDING_TURNS;
+    let kerbside = 0;
     for (const car of this.cars) {
+      // Kerbside cars take turns, so streaming terrain still reaches each one.
+      if (car._kerb && Number.isFinite(car.y) && kerbside++ % KERB_GROUNDING_TURNS !== due) continue;
       const sin = Math.sin(car.angle), cos = Math.cos(car.angle);
       // A new or teleported actor has no previous level. Its first sample is
       // ground-only; carrying an old Y could capture an unrelated overpass.
@@ -562,6 +570,39 @@ export class Simulation {
     return this._nearestEdge(this.player.x, this.player.z)?.edge.road.name || this.city.name || 'New York City';
   }
 
+  /**
+   * Keep kerbside parked cars in step with the parking spaces near the player.
+   * Spaces are { id, x, z, angle }. A space is skipped if anything is in the
+   * way. A parked car the player has driven becomes theirs and is left alone.
+   * The same space always holds the same car, and traffic's random sequence
+   * is not disturbed.
+   * @returns {number} kerbside cars now present
+   */
+  syncParkedCars(spaces = []) {
+    const wanted = new Set(spaces.map(space => space.id));
+    let changed = false, present = 0;
+    this.cars = this.cars.filter(car => {
+      if (!car._kerb) return true;
+      if (car.controlled) { car._kerb = false; return true; }
+      if (wanted.has(car.id)) { present++; return true; }
+      changed = true; return false;
+    });
+    const ids = new Set(this.cars.map(car => car.id)), sequence = this._rngState;
+    for (const space of spaces) {
+      if (ids.has(space.id) || !Number.isFinite(space.x) || !Number.isFinite(space.z) || !Number.isFinite(space.angle)) continue;
+      // Bumper to bumper is fine; overlapping is not.
+      if (distance(space, this.player) < 7 || this._carContact(space.x, space.z, space.angle) || this._nearCar(space.x, space.z, 3.6)) continue;
+      const car = this._makeCar(space.id, 'sedan', space, space.angle);
+      let hash = 0;
+      for (const character of String(space.id)) hash = (hash * 33 + character.charCodeAt(0)) >>> 0;
+      car.color = KERB_PAINT[hash % KERB_PAINT.length];
+      car._kerb = true; this.cars.push(car); ids.add(space.id); present++; changed = true;
+    }
+    this._rngState = sequence;
+    if (changed) this.updateGrounding();
+    return present;
+  }
+
   getNearbyCar() {
     if (this.player.mode === 'drive') return null;
     let nearest = null;
@@ -585,6 +626,7 @@ export class Simulation {
       if (vehicleTravelSpeed(car) > 4) { this._say('Wait for the car to slow down.'); return false; }
       car.controlled = true;
       car.parked = true;
+      car._kerb = false;
       car._route = [];
       resetVehicleDynamics(car, car.speed);
       Object.assign(player, { mode: 'drive', vehicleId: car.id, x: car.x, z: car.z, angle: car.angle, speed: car.speed, velocityX: car.velocityX, velocityZ: car.velocityZ });

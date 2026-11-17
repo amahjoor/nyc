@@ -14,6 +14,9 @@ import { CITY_ORIGIN, worldToGeographic } from './city-ground.js';
 export const ROAD_LIFT = .05;      // Clears the terrain photograph beneath.
 export const KERB_HEIGHT = .15;
 export const SIDEWALK_LIFT = ROAD_LIFT + KERB_HEIGHT;
+// Kerbside parking: one car every PARKING_PITCH metres, its centre PARKING_OFFSET from the kerb.
+const PARKING_PITCH = 5.9, PARKING_END = 3.4, PARKING_OFFSET = 1.28;
+const hash2 = (x, z) => { const v = Math.sin(x * 12.9898 + z * 78.233) * 43758.5453; return v - Math.floor(v); };
 export const STREET_SERVICE = 'https://data.cityofnewyork.us/resource';
 export const DATASETS = {
   roadbed: { id: 'i36f-5ih7', subtypes: { 350000: 'roadbed', 350010: 'intersection', 350020: 'shoulder', 350030: 'driveway' } },
@@ -352,7 +355,7 @@ function paint(writer, heightAt, ax, az, bx, bz, width, color) {
  */
 export async function buildCell(surfaces, roads, { heightAt = () => 0, bounds = null, pause = async () => {}, excluded = null, census = null } = {}) {
   const road = new MeshWriter(), walk = new MeshWriter(3), marks = new MeshWriter(3);
-  const grid = new SurfaceGrid(), lamps = [], entries = [], trees = [], planted = [];
+  const grid = new SurfaceGrid(), lamps = [], entries = [], trees = [], planted = [], kerbs = [], parking = [];
   const sample = (x, z) => { const value = heightAt(x, z); return finite(value) ? value : 0; };
   const owned = surface => {
     if (!bounds) return true;
@@ -425,7 +428,10 @@ export async function buildCell(surfaces, roads, { heightAt = () => 0, bounds = 
     for (const i of draped) walk.push(points[i * 2], heights[i] + lift, points[i * 2 + 1], 0, 1, 0, gx, gz, kind);
     if (!entry.raised) continue;
     for (const ring of rings) {
-      let sinceLamp = 18 + (ring.length * 7.3) % 20;
+      let sinceLamp = 18 + (ring.length * 7.3) % 20, run = null;
+      // The survey puts a vertex every twenty feet, so a kerb is a run of
+      // short edges: it lasts until the kerb ends or turns a corner.
+      const endRun = () => { if (run && run.length >= 2 * PARKING_END) kerbs.push(run); run = null; };
       for (let i = 0; i < ring.length; i++) {
         const a = ring[i], b = ring[(i + 1) % ring.length], dx = b[0] - a[0], dz = b[1] - a[1], length = Math.hypot(dx, dz);
         if (length < .02) continue;
@@ -440,12 +446,16 @@ export async function buildCell(surfaces, roads, { heightAt = () => 0, bounds = 
         walk.push(a[0], ya + foot, a[1], nx, 0, nz, gx, gz, 1); walk.push(a[0], ya + top, a[1], nx, 0, nz, gx, gz, 1); walk.push(b[0], yb + top, b[1], nx, 0, nz, gx, gz, 1);
         // Where the edge meets a carriageway it is a kerb: cap it in stone.
         const kerb = Boolean(grid.find(mx + nx * .45, mz + nz * .45, isRoad));
-        if (!kerb) { sinceLamp += length * .2; continue; }
+        if (!kerb) { endRun(); sinceLamp += length * .2; continue; }
         const ix = -nx * .19, iz = -nz * .19, cap = lift + .004;
         walk.push(a[0], ya + cap, a[1], 0, 1, 0, gx, gz, 2); walk.push(b[0], yb + cap, b[1], 0, 1, 0, gx, gz, 2); walk.push(b[0] + ix, yb + cap, b[1] + iz, 0, 1, 0, gx, gz, 2);
         walk.push(a[0], ya + cap, a[1], 0, 1, 0, gx, gz, 2); walk.push(b[0] + ix, yb + cap, b[1] + iz, 0, 1, 0, gx, gz, 2); walk.push(a[0] + ix, ya + cap, a[1] + iz, 0, 1, 0, gx, gz, 2);
-        // Street trees and lamps belong to the sidewalk's kerb, not to an island's.
+        // Parking, street trees and lamps belong to the sidewalk's kerb, not to an island's.
         if (!entry.street) continue;
+        const ux = dx / length, uz = dz / length;
+        if (run && run.ux * ux + run.uz * uz < .985) endRun();
+        run ||= { points: [a], normals: [], length: 0, ux, uz };
+        run.points.push(b); run.normals.push([nx, nz]); run.length += length; run.ux = ux; run.uz = uz;
         // Without a census, trees are assumed at a typical spacing along the kerb.
         if (!census) for (let s = ((a[0] * 3.7 + a[1] * 1.9) % 11 + 11) % 11; s < length; s += 11) {
           const x = a[0] + dx * s / length, z = a[1] + dz * s / length, chance = ((x * 12.9898 + z * 78.233) % 1 + 1) % 1;
@@ -459,6 +469,7 @@ export async function buildCell(surfaces, roads, { heightAt = () => 0, bounds = 
           lamps.push({ x: x - nx * .55, z: z - nz * .55, y: sample(x, z) + SIDEWALK_LIFT, nx, nz });
         }
       }
+      endRun();
     }
   }
 
@@ -561,6 +572,64 @@ export async function buildCell(surfaces, roads, { heightAt = () => 0, bounds = 
       paint(marks, sample, a[0] + tx * from + ox, a[1] + tz * from + oz, a[0] + tx * to + ox, a[1] + tz * to + oz, .4, WHITE);
     }
   }
+  // --- Kerbside parking ---------------------------------------------------------
+  // A space is offered only where a parked car stays clear of the lane that
+  // traffic drives in: beside wide streets, and on the far side of one-way ones.
+  // The street a kerb belongs to is the nearest centreline of any kind; only
+  // an ordinary street at grade, wide enough to pass a parked car, qualifies.
+  const lines = roads.filter(line => line.kind !== 'tunnel' && Array.isArray(line.points));
+  const parkable = line => line.roadwayType === 1 && line.kind !== 'bridge' && line.fromLevel === 13 && line.toLevel === 13 && line.width >= 7;
+  const lineAt = (x, z) => {
+    let best = null;
+    for (const line of lines) for (let i = 1; i < line.points.length; i++) {
+      const a = line.points[i - 1], b = line.points[i], dx = b[0] - a[0], dz = b[1] - a[1], length2 = dx * dx + dz * dz;
+      if (!length2) continue;
+      const t = Math.max(0, Math.min(1, ((x - a[0]) * dx + (z - a[1]) * dz) / length2)), px = a[0] + dx * t, pz = a[1] + dz * t, gap = Math.hypot(px - x, pz - z);
+      if (gap < 16 && (!best || gap < best.gap)) {
+        const heading = Math.atan2(dx, dz);
+        // The simulation's lane lies toward (-cos, sin) of a car's heading.
+        best = { line, gap, heading, side: (x - px) * -Math.cos(heading) + (z - pz) * Math.sin(heading) };
+      }
+    }
+    return best;
+  };
+  // Outlines can share a kerb, and a kerb can double back on itself: a space
+  // is given up if another already lies within a car's length of it.
+  const taken = new Map(), bucket = (x, z) => `${Math.floor(x / 6)},${Math.floor(z / 6)}`;
+  const crowded = (x, z) => {
+    for (let dx = -6; dx <= 6; dx += 6) for (let dz = -6; dz <= 6; dz += 6) for (const other of taken.get(bucket(x + dx, z + dz)) || []) if (Math.hypot(other.x - x, other.z - z) < 5) return true;
+    return false;
+  };
+  for (const run of kerbs) {
+    await breathe();
+    let edge = 0, passed = 0;
+    for (let s = PARKING_END; s <= run.length - PARKING_END; s += PARKING_PITCH) {
+      let a = run.points[edge], b = run.points[edge + 1], length = Math.hypot(b[0] - a[0], b[1] - a[1]);
+      while (s > passed + length && edge < run.normals.length - 1) { passed += length; edge++; a = run.points[edge]; b = run.points[edge + 1]; length = Math.hypot(b[0] - a[0], b[1] - a[1]); }
+      const tx = (b[0] - a[0]) / length, tz = (b[1] - a[1]) / length, [nx, nz] = run.normals[edge];
+      const x = a[0] + tx * (s - passed) + nx * PARKING_OFFSET, z = a[1] + tz * (s - passed) + nz * PARKING_OFFSET;
+      if (!inCell(x, z) || !carriageway(x, z) || !carriageway(x + nx * 1.6, z + nz * 1.6)) continue;
+      // Corners and crossings are kept clear.
+      if (junction(x + tx * 9, z + tz * 9) || junction(x - tx * 9, z - tz * 9) || junction(x + nx * 7, z + nz * 7)) continue;
+      const near = lineAt(x, z);
+      if (!near || !parkable(near.line)) continue;
+      const lane = Math.max(.65, Math.min(2.5, near.line.width * .19)), oneWay = near.line.oneway, travel = oneWay === '-1' ? -1 : 1;
+      // On a one-way street traffic keeps to one side of the centreline.
+      const beside = !oneWay || Math.sign(near.side) === travel;
+      // Beside the lane a car needs the lane's half width, its own, and room
+      // to pass; across the centreline from it, only to stay out of its reach.
+      if (near.gap < (beside ? lane + 2.45 : Math.max(.95, 2.6 - lane))) continue;
+      // Hydrants, driveways and bus stops keep a few spaces empty for good.
+      if (hash2(x, z) < .1 || crowded(x, z)) continue;
+      // Parked with the flow on a one-way street; otherwise with the kerb on the right.
+      const angle = oneWay ? near.heading + (travel < 0 ? Math.PI : 0) : Math.atan2(-nz, nx);
+      // `fill` orders the spaces: a street that is 70% parked uses those below .7.
+      const space = { id: `kerb:${Math.round(x * 2)}:${Math.round(z * 2)}`, x, z, angle, fill: hash2(z, x) }, key = bucket(x, z);
+      parking.push(space);
+      if (!taken.has(key)) taken.set(key, []);
+      taken.get(key).push(space);
+    }
+  }
   // Trees stand where the census found them, on whatever surface is there.
   for (const tree of census || planted) {
     if (bounds && !(tree.x >= bounds.minX && tree.x < bounds.maxX && tree.z >= bounds.minZ && tree.z < bounds.maxZ)) continue;
@@ -569,7 +638,7 @@ export async function buildCell(surfaces, roads, { heightAt = () => 0, bounds = 
     if (under?.road || (!census && lamps.some(lamp => Math.hypot(lamp.x - tree.x, lamp.z - tree.z) < 3.5))) continue;
     trees.push({ ...tree, y: sample(tree.x, tree.z) + (under?.raised ? SIDEWALK_LIFT : under ? ROAD_LIFT : 0) });
   }
-  return { road, walk, marks, grid, lamps, trees, surfaces: drawn };
+  return { road, walk, marks, grid, lamps, trees, parking, surfaces: drawn };
 }
 
 // --- Materials ------------------------------------------------------------------
@@ -696,7 +765,7 @@ export function createStreetscape({ scene, index = null, origin = CITY_ORIGIN, h
   const materials = { road: asphaltMaterial(), walk: pavementMaterial(), marks: paintMaterial() };
   const cells = new Map();
   let wanted = new Set(), disposed = false, serial = 0, terrainRevision = 0, selection = '', active = 0, replacement = null;
-  let lampList = [], treeList = [], lampsStale = true, treesStale = true;
+  let lampList = [], treeList = [], parkingList = [], lampsStale = true, treesStale = true, parkingStale = true;
   const excluded = surface => replacement && surface.polygon.some(([x, z]) => x >= replacement.minX && x <= replacement.maxX && z >= replacement.minZ && z <= replacement.maxZ);
   // Counts describe the cells in use around the player, not everything cached.
   const status = () => {
@@ -710,7 +779,7 @@ export function createStreetscape({ scene, index = null, origin = CITY_ORIGIN, h
 
   function release(cell) {
     for (const mesh of cell.meshes || []) { group.remove(mesh); mesh.geometry.dispose(); }
-    cell.meshes = null; cell.grid = null; cell.lamps = null; cell.trees = null; cell.ready = false; lampsStale = treesStale = true;
+    cell.meshes = null; cell.grid = null; cell.lamps = null; cell.trees = null; cell.parking = null; cell.ready = false; lampsStale = treesStale = parkingStale = true;
   }
   function install(cell, built) {
     release(cell);
@@ -721,8 +790,8 @@ export function createStreetscape({ scene, index = null, origin = CITY_ORIGIN, h
       mesh.name = `Street ${name} ${cell.key}`; mesh.receiveShadow = true; mesh.castShadow = name === 'walk'; mesh.renderOrder = order;
       group.add(mesh); cell.meshes.push(mesh);
     }
-    cell.grid = built.grid; cell.lamps = built.lamps; cell.trees = built.trees; cell.surfaces = built.surfaces; cell.ready = true; cell.revision = terrainRevision;
-    lampsStale = treesStale = true;
+    cell.grid = built.grid; cell.lamps = built.lamps; cell.trees = built.trees; cell.parking = built.parking; cell.surfaces = built.surfaces; cell.ready = true; cell.revision = terrainRevision;
+    lampsStale = treesStale = parkingStale = true;
   }
   async function load(cell) {
     cell.loading = true; cell.failed = false; active++;
@@ -799,7 +868,7 @@ export function createStreetscape({ scene, index = null, origin = CITY_ORIGIN, h
           for (const mesh of cell.meshes || []) mesh.visible = keep;
           if (!keep && cell.loading) { cell.controller?.abort(); cell.controller = null; cell.loading = false; }
         }
-        lampsStale = treesStale = true;
+        lampsStale = treesStale = parkingStale = true;
         trim(); report();
       }
       if (!overview) pump();
@@ -832,6 +901,14 @@ export function createStreetscape({ scene, index = null, origin = CITY_ORIGIN, h
         for (const key of wanted) { const cell = cells.get(key); if (cell?.lamps) lampList.push(...cell.lamps); }
       }
       return lampList;
+    },
+    /** Kerbside parking spaces ({ id, x, z, angle, fill }) for the cells in use; the same array until they change. */
+    parking() {
+      if (parkingStale) {
+        parkingList = []; parkingStale = false;
+        for (const key of wanted) { const cell = cells.get(key); if (cell?.parking) parkingList.push(...cell.parking); }
+      }
+      return parkingList;
     },
     /** Street trees for the cells in use; the same array until they change. */
     trees() {

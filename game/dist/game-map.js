@@ -294,7 +294,7 @@ export class GameMap {
     const pin = this.pin || (this.sim?.mission?.phase === 'active' ? this.sim.mission.target : null);
     if (pin) { const p = mapWorldToScreen(pin, view), x = mini ? clamp(p.x, 12, view.width - 12) : p.x, y = mini ? clamp(p.y, 12, view.height - 12) : p.y;context.fillStyle = '#ff9369';context.strokeStyle = '#1b2529';context.lineWidth = 3;context.beginPath();context.arc(x, y, mini ? 7 : 9, 0, Math.PI * 2);context.fill();context.stroke(); }
     if (mini) for (const car of this.sim?.cars || []) {
-      if (car.id === this.player.vehicleId || car.x < bounds.minX || car.x > bounds.maxX || car.z < bounds.minZ || car.z > bounds.maxZ) continue;
+      if (car._kerb || car.id === this.player.vehicleId || car.x < bounds.minX || car.x > bounds.maxX || car.z < bounds.minZ || car.z > bounds.maxZ) continue;
       const p = mapWorldToScreen(car, view);context.fillStyle = car.type === 'police' && this.sim.heat > 0 ? '#7dc3eb' : '#eac877';context.fillRect(p.x - 2, p.y - 2, 4, 4);
     }
     const p = mapWorldToScreen(this.player, view);context.translate(p.x, p.y);context.rotate(-(this.player.angle || 0));context.fillStyle = '#f8f2df';context.strokeStyle = '#172127';context.lineWidth = 3;context.beginPath();context.moveTo(0, 12);context.lineTo(-8, -8);context.lineTo(0, -4);context.lineTo(8, -8);context.closePath();context.fill();context.stroke();context.restore();

@@ -5,7 +5,7 @@ import { readFileSync } from 'node:fs';
 import { gunzipSync } from 'node:zlib';
 import vm from 'node:vm';
 import * as THREE from '../dist/vendor/three.module.min.js';
-import { createCar, createPerson, updateCarVisuals, setVehicleLamps } from '../dist/world.js';
+import { createCar, createParkedCars, createPerson, updateCarVisuals, setVehicleLamps } from '../dist/world.js';
 import { Simulation } from '../dist/simulation.js';
 import { resetVehicleDynamics } from '../dist/vehicle-dynamics.js';
 import { Input } from '../dist/input.js';
@@ -245,7 +245,7 @@ async function bootHarness({ stored = null, displayStored = null, unavailableSto
   const context = vm.createContext({
     ...globals,
     THREE: { ...THREE, WebGLRenderer: RendererStub },
-    createCar, createPerson, updateCarVisuals, Simulation, Input, HUD, CityAudio, GameMap, createRoutePlanner,
+    createCar, createParkedCars, createPerson, updateCarVisuals, Simulation, Input, HUD, CityAudio, GameMap, createRoutePlanner,
     createCityStream:(fullIndex,options)=>{
       assert.equal(fullIndex.stats.buildingFeatures,index.stats.buildingFeatures);
       return createCityStream(geometryIndex,options);
@@ -265,7 +265,7 @@ async function bootHarness({ stored = null, displayStored = null, unavailableSto
     },
   });
   function close() {
-    vm.runInContext('if(typeof gameMap!=="undefined")gameMap?.dispose?.();if(typeof navigation!=="undefined")navigation?.dispose?.();if(typeof roadPilot!=="undefined")roadPilot?.dispose();landscape?.dispose();streetDetail?.dispose();streetscape?.dispose();streetLife?.dispose();water?.dispose();world?.dispose();ground?.dispose();gfx?.dispose();',context);
+    vm.runInContext('if(typeof gameMap!=="undefined")gameMap?.dispose?.();if(typeof navigation!=="undefined")navigation?.dispose?.();if(typeof roadPilot!=="undefined")roadPilot?.dispose();landscape?.dispose();streetDetail?.dispose();streetscape?.dispose();streetLife?.dispose();parkedCars?.dispose();water?.dispose();world?.dispose();ground?.dispose();gfx?.dispose();',context);
     for (const [key, descriptor] of original) {
       if (descriptor) Object.defineProperty(globalThis, key, descriptor);
       else delete globalThis[key];
@@ -526,6 +526,13 @@ test('street view builds surveyed SoHo street surfaces and shares source imagery
     for(const child of [...roads,...walks,...paint])assert.ok(child.material.isMeshStandardMaterial&&child.receiveShadow);
     assert.ok(app.state().streetscape.lamps>10,'street lamps stand along surveyed kerbs');
     assert.ok(scene.getObjectByName('Street lamps').count>10);
+    // Cars stand at those kerbs: simulated like any other, drawn together.
+    app.frames(2);
+    const parked=app.state().parkedCars,parkedGroup=scene.getObjectByName('Parked cars');
+    assert.ok(parked>20,`${parked} cars are parked around the SoHo spawn`);
+    assert.equal(parkedGroup.children.filter(child=>/bodies$/.test(child.name)).reduce((sum,child)=>sum+child.count,0),parked);
+    assert.equal(parkedGroup.getObjectByName('Parked car tyres').count,parked*4);
+    assert.equal(scene.children.filter(child=>child.userData?.chassis).length,app.state().cars-parked,'only cars that move have a model of their own');
     assert.equal(app.elements.get('quality-button').textContent,'QUALITY: BALANCED');
     assert.equal(app.rendererInstances[0].shadowMap.enabled,true,'balanced quality retains nearby shadows');
     const localGround=scene.getObjectByName('NYC 2024 aerial imagery').children.filter(child=>child.visible&&child.material.isMeshStandardMaterial);

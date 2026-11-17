@@ -5,6 +5,7 @@ import * as THREE from '../dist/vendor/three.module.min.js';
 import { convertRows, convertFeatures, convertTrees, cellQuery, layerQuery, treeQuery, cellBounds, projectPoint, indexPolygon, insideIndexed, signedArea, buildCell, createStreetSource, createStreetscape,
   ROAD_LIFT, SIDEWALK_LIFT, KERB_HEIGHT, DATASETS, LAYERS, PLANIMETRIC_SERVICE, TREE_DATASET, STREET_SERVICE } from '../dist/streetscape.js';
 import { worldToGeographic } from '../dist/city-ground.js';
+import { Simulation } from '../dist/simulation.js';
 
 const read = path => JSON.parse(readFileSync(new URL(`../dist/${path}`, import.meta.url), 'utf8'));
 const index = read('street-detail-index.json'), roadIndex = read('road-index.json');
@@ -265,8 +266,10 @@ test('islands and plazas are raised and kerbed, lots are asphalt, and none of th
   const island = built.grid.find(35, 0, entry => entry.raised), lot = built.grid.find(-45, 35);
   assert.ok(island && !island.road && lot && !lot.road && !lot.raised && lot.asphalt);
   assert.ok(built.grid.find(35, 0, entry => entry.road), 'the roadbed still runs under the island');
-  // Kerbside life belongs to sidewalks: no lamps are added on or beside the new surfaces.
+  // Kerbside life belongs to sidewalks: no lamps, trees or parked cars are added on or beside the new surfaces.
   assert.deepEqual(built.lamps, plain.lamps);
+  assert.ok(built.parking.length <= plain.parking.length && built.parking.every(space => plain.parking.some(other => other.id === space.id)));
+  assert.ok(!built.parking.some(space => Math.abs(space.z) < 3 && space.x > 18 && space.x < 52), 'nothing parks against the island');
 });
 
 test('the streetscape streams cells around the player and reports what it is standing on', async () => {
@@ -301,4 +304,56 @@ test('the streetscape streams cells around the player and reports what it is sta
   assert.equal(streets.getStatus().surfaces, 0, 'a rectangle handed to another renderer is left empty');
   streets.dispose();
   assert.equal(scene.getObjectByName('Street surfaces'), undefined);
+});
+
+test('kerbside parking is offered only clear of the traffic lane, corners and crossings', async () => {
+  const { surfaces, roads } = crossroads();
+  // Sidewalks on both sides of the one-way street east of the junction.
+  surfaces.push({ id: 'walk-se', kind: 'sidewalk', subtype: 'right-of-way sidewalk', polygon: [[5, 5], [80, 5], [80, 9], [5, 9]], holes: [] });
+  const built = await buildCell(surfaces, roads, { heightAt: () => 0 });
+  assert.ok(built.parking.length >= 6, `${built.parking.length} spaces`);
+  for (const space of built.parking) {
+    assert.match(space.id, /^kerb:-?\d+:-?\d+$/);
+    assert.ok(built.grid.find(space.x, space.z)?.road && !built.grid.find(space.x, space.z).junction, 'a space is on the carriageway');
+    // Traffic on B Street runs east in the lane south of the centreline, so only the north kerb is free.
+    assert.ok(space.z < -3 && space.z > -4.2 && space.x > 14, `space at ${space.x.toFixed(1)}, ${space.z.toFixed(1)}`);
+    assert.ok(Math.abs(Math.sin(space.angle) - 1) < 1e-9, 'cars park facing the way the street runs');
+  }
+  const xs = built.parking.map(space => space.x).sort((a, b) => a - b);
+  for (let i = 1; i < xs.length; i++) assert.ok(xs[i] - xs[i - 1] > 5.6, 'a car\'s length apart');
+  for (const space of built.parking) assert.ok(space.fill >= 0 && space.fill < 1, 'each space has its place in the order of filling');
+  assert.equal(new Set(built.parking.map(space => space.id)).size, built.parking.length);
+  // The two-way street is too narrow to park beside its lanes.
+  assert.ok(!built.parking.some(space => Math.abs(space.x) < 5));
+});
+
+test('in surveyed SoHo the kerbs fill with parked cars and traffic passes them untouched', async () => {
+  const roads = new Map();
+  for (const key of ['0,0', '-1,0', '0,-1', '-1,-1']) for (const road of read(roadIndex.cells[key].url.replace('./', '')).roads) roads.set(road.id, road);
+  const spaces = [];
+  for (const key of ['0,0', '-1,-1', '-1,0', '0,-1']) {
+    const built = await buildCell(read(index.cells[key].url.replace('./', '')).surfaces.filter(surface => surface.kind === 'roadbed' || surface.kind === 'sidewalk'), [...roads.values()], { heightAt: () => 0, bounds: cellBounds(key, 500), census: [] });
+    spaces.push(...built.parking);
+  }
+  assert.ok(spaces.length > 1200, `${spaces.length} spaces around the SoHo crossroads`);
+  // No two spaces overlap, within a cell or across the seams between cells.
+  const cells = new Map();
+  for (const space of spaces) { const key = `${Math.floor(space.x / 8)},${Math.floor(space.z / 8)}`; if (!cells.has(key)) cells.set(key, []); cells.get(key).push(space); }
+  for (const space of spaces) for (let dx = -1; dx <= 1; dx++) for (let dz = -1; dz <= 1; dz++) for (const other of cells.get(`${Math.floor(space.x / 8) + dx},${Math.floor(space.z / 8) + dz}`) || []) {
+    if (other !== space) assert.ok(Math.hypot(other.x - space.x, other.z - space.z) > 3.9, `spaces ${space.id} and ${other.id} overlap`);
+  }
+  const spawn = { x: 60, z: 60, angle: 0 };
+  const local = [...roads.values()].filter(road => road.points.some(point => Math.hypot(point[0] - spawn.x, point[1] - spawn.z) < 420));
+  const city = () => ({ bounds: { minX: -2000, maxX: 2000, minZ: -2000, maxZ: 2000 }, roads: local, buildings: [], spawn, missionPoints: [{ x: 60, z: 200, name: 'Spring Street' }] });
+  const run = parked => {
+    const sim = new Simulation(city());
+    const placed = parked ? sim.syncParkedCars(spaces.filter(space => space.fill < .72 && Math.hypot(space.x - spawn.x, space.z - spawn.z) < 150)) : 0;
+    for (let i = 0; i < 60 * 45; i++) sim.step({}, 1 / 60);
+    const traffic = sim.cars.filter(car => !car._kerb);
+    for (const car of traffic) assert.equal(sim._nearCar(car.x, car.z, .92, car.id), null, `${car.id} is clear of every other car`);
+    return { placed, traffic: traffic.map(car => [car.id, +car.x.toFixed(3), +car.z.toFixed(3)]) };
+  };
+  const empty = run(false), lined = run(true);
+  assert.ok(lined.placed > 60, `${lined.placed} cars parked within 150 m`);
+  assert.deepEqual(lined.traffic, empty.traffic, 'forty-five seconds of traffic is the same with the kerbs full');
 });

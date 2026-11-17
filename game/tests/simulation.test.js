@@ -365,3 +365,71 @@ test('mapped inland water stops cars without damage and retains mapped crossings
   crossing.setActiveCity({buildings:[{polygon:[[18,38],[22,38],[22,42],[18,42]]}]});
   assert.equal(crossing.isBlocked(20,40,.5,{ignoreWater:true}),true,'camera still avoids walls beside the pond');
 });
+
+test('kerbside cars appear in free spaces, leave with them, and stay once driven', () => {
+  const sim = new Simulation(city());
+  const before = sim.cars.length, spaces = [{ id: 'kerb:a', x: 40, z: 31 , angle: Math.PI / 2 }, { id: 'kerb:b', x: 47, z: 31, angle: Math.PI / 2 }, { id: 'kerb:bad', x: NaN, z: 0, angle: 0 }];
+  const placed = sim.syncParkedCars(spaces);
+  assert.ok(placed >= 1 && placed <= 2);
+  const parked = sim.cars.filter(car => car._kerb);
+  assert.equal(parked.length, placed);
+  for (const car of parked) { assert.equal(car.parked, true); assert.equal(car.type, 'sedan'); assert.ok(Number.isFinite(car.y ?? 0)); }
+  assert.equal(sim.syncParkedCars(spaces), placed, 'syncing again changes nothing');
+  assert.equal(sim.cars.length, before + placed);
+  // A space next to the player, or on top of another car, is left empty.
+  assert.equal(sim.syncParkedCars([...spaces, { id: 'kerb:me', x: sim.player.x + 1, z: sim.player.z, angle: 0 }, { id: 'kerb:dup', x: parked[0].x + .5, z: parked[0].z, angle: parked[0].angle }]), placed);
+  // Once driven, a kerbside car is the player's and outlives its space.
+  parked[0].controlled = true;
+  assert.equal(sim.syncParkedCars([]), 0);
+  assert.ok(sim.cars.includes(parked[0]) && !parked[0]._kerb);
+  assert.equal(sim.cars.length, before + 1);
+  parked[0].controlled = false;
+  sim.syncParkedCars([]);
+  assert.ok(sim.cars.includes(parked[0]), 'it is not swept away when the player gets out');
+});
+
+test('kerbside cars keep their identity and leave the traffic sequence alone', () => {
+  const spaces = Array.from({ length: 12 }, (_, i) => ({ id: `kerb:${i}`, x: 60 + i * 6, z: 40, angle: Math.PI / 2 }));
+  const a = new Simulation(city()), b = new Simulation(city());
+  const sequence = a._rngState;
+  assert.equal(a.syncParkedCars(spaces), 12);
+  assert.equal(a._rngState, sequence, 'parking cars draws nothing from the traffic generator');
+  b.syncParkedCars([...spaces].reverse());
+  const paint = sim => Object.fromEntries(sim.cars.filter(car => car._kerb).map(car => [car.id, car.color]));
+  assert.deepEqual(paint(a), paint(b), 'a space holds the same car whatever order it was filled in');
+  assert.ok(new Set(Object.values(paint(a))).size >= 4, 'the kerb is not one colour');
+  // Traffic then behaves exactly as it would on empty kerbs far away.
+  const plain = new Simulation(city());
+  advance(a, 2); advance(plain, 2);
+  const traffic = sim => sim.cars.filter(car => !car._kerb).map(car => [car.id, +car.x.toFixed(6), +car.z.toFixed(6)]);
+  assert.deepEqual(traffic(a), traffic(plain));
+});
+
+test('getting into a kerbside car makes it an ordinary car at once', () => {
+  const sim = new Simulation(city());
+  sim.syncParkedCars([{ id: 'kerb:mine', x: sim.player.x - 3.2, z: sim.player.z - 8, angle: 0 }]);
+  const car = sim.cars.find(item => item.id === 'kerb:mine');
+  assert.ok(car?._kerb);
+  sim.player.x = car.x - 2.2; sim.player.z = car.z;
+  assert.equal(sim.getNearbyCar(), car);
+  assert.equal(sim.interact(), true);
+  assert.equal(sim.player.vehicleId, 'kerb:mine');
+  assert.equal(car._kerb, false, 'so it is drawn and simulated as the player\'s car from this frame');
+});
+
+test('standing kerbside cars are re-seated on the ground a few at a time', () => {
+  let samples = 0;
+  const sim = new Simulation(city({ sampleSurface: (x, z) => { samples++; return { elevation: x * .01 }; } }));
+  const spaces = Array.from({ length: 96 }, (_, i) => ({ id: `kerb:${i}`, x: -300 + (i % 48) * 6, z: i < 48 ? 200 : 230, angle: Math.PI / 2 }));
+  assert.equal(sim.syncParkedCars(spaces), 96);
+  for (const car of sim.cars.filter(item => item._kerb)) assert.ok(Math.abs(car.y - car.x * .01) < .05, 'each is on the ground from the start');
+  const others = sim.cars.length - 96;
+  samples = 0; sim.updateGrounding();
+  // Five samples a car: every other car each time, and one kerbside car in twenty-four.
+  assert.ok(samples <= (others + 96 / 24 + 2) * 5, `${samples} samples for ${sim.cars.length} cars`);
+  // Over a full rotation the ground under every one of them is read again.
+  const seen = new Set(), original = sim._sampleSurface;
+  sim._sampleSurface = (x, z, options) => { for (const car of sim.cars) if (car._kerb && Math.abs(car.x - x) < 1e-9 && Math.abs(car.z - z) < 1e-9) seen.add(car.id); return original(x, z, options); };
+  for (let i = 0; i < 24; i++) sim.updateGrounding();
+  assert.equal(seen.size, 96);
+});

@@ -1,6 +1,6 @@
 import { updateChaseHeight } from './vehicle-presentation.js';
 import * as THREE from './vendor/three.module.min.js';
-import { createCar, createPerson, updateCarVisuals, setVehicleLamps } from './world.js';
+import { createCar, createParkedCars, createPerson, updateCarVisuals, setVehicleLamps } from './world.js';
 import { Simulation } from './simulation.js';
 import { Input } from './input.js';
 import { HUD } from './hud.js';
@@ -30,7 +30,7 @@ let shadowsEnabled=true;
 let cityIndex, roadIndex, roadStream, ground, streetDetail, bootReady=false, traveling=false, pausedBeforeSources=false;
 let viewOverride=null;
 let cityView=false, cityZoom=1, cityOrbit=0, cityFocus=null, roadCell='', roadEpoch=0, roadBusy=false, buildings=[], boroughs=[];
-let streetscape=null, streetLife=null, water=null;
+let streetscape=null, streetLife=null, water=null, parkedCars=null;
 const noStreetFurniture=[];
 let landscape=null, landscapeRevision=0, landscapeDirty=false, landscapeManifest=null, reconstructionReview=null, roadReconstructionReview=null, streetManifest=null;
 const terrainHeight=(x,z)=>landscape?.sampleHeight(x,z)??0;
@@ -213,6 +213,25 @@ function createEnterHint() {
   const sprite=new THREE.Sprite(new THREE.SpriteMaterial({map:texture,transparent:true,depthTest:false}));sprite.scale.set(1.1,1.1,1.1);sprite.visible=false;scene.add(sprite);return sprite;
 }
 
+// Cars parked at the kerb around the player. About seven spaces in ten are
+// taken, always the same ones, so a street looks the same on every visit.
+const PARKED_RANGE=150, PARKED_LIMIT=130, PARKED_SHARE=.72;
+let parkedAt=null, parkedSource=null, parkedCount=0;
+function refreshParkedCars() {
+  const spaces=streetscape?.parking()||noStreetFurniture, p=sim.player;
+  // Travel and recovery reseed the simulation's cars; notice and park again.
+  if(parkedCount&&!sim.cars.some(car=>car._kerb))parkedAt=null;
+  if(spaces===parkedSource&&parkedAt&&Math.hypot(p.x-parkedAt.x,p.z-parkedAt.z)<16)return;
+  parkedSource=spaces;parkedAt={x:p.x,z:p.z};
+  const near=[];
+  for(const space of spaces){
+    if(space.fill>=PARKED_SHARE)continue;
+    const d=Math.hypot(space.x-p.x,space.z-p.z);if(d<PARKED_RANGE)near.push([d,space]);
+  }
+  near.sort((a,b)=>a[0]-b[0]);
+  parkedCount=sim.syncParkedCars(near.slice(0,PARKED_LIMIT).map(entry=>entry[1]));
+}
+
 function populatePedestrians() {
   const colors=[0x738990,0x8b654d,0xb6a280,0x3b4c50,0x824e48,0x5d6952];
   let i=0;
@@ -239,11 +258,14 @@ function animatePerson(mesh,moving,time,speed=1) {
 
 function syncScene(dt,controls) {
   const p=sim.player;
-  const activeCars=new Set(sim.cars.map(car=>car.id));
+  // Kerbside cars are drawn together; every other car has a model of its own.
+  const activeCars=new Set();for(const car of sim.cars)if(!car._kerb)activeCars.add(car.id);
   for(const [id,mesh] of carModels)if(!activeCars.has(id)){scene.remove(mesh);carModels.delete(id);}
+  parkedCars?.update(sim.cars);
   avatar.visible=p.mode==='walk';avatar.position.set(p.x,p.y||0,p.z);avatar.rotation.y=p.angle;
   animatePerson(avatar,Math.abs(p.speed)>.1,elapsed,Math.abs(p.speed)/3);
   for(const car of sim.cars){
+    if(car._kerb)continue;
     let mesh=carModels.get(car.id);
     if(!mesh){mesh=createCar({type:car.type,color:car.color,seed:car.id});carModels.set(car.id,mesh);scene.add(mesh);}
     mesh.visible=Math.hypot(car.x-p.x,car.z-p.z)<230;
@@ -407,6 +429,7 @@ function frame(now) {
     :aerialView&&!overview?aerialTarget:{x:sim.player.x,y:sim.player.y||0,z:sim.player.z};
   gfx.update(dt,{focus:lit,overview:overview&&!viewOverride,paused:paused||mapOpen});
   if(bootReady&&!traveling)refreshRoads();
+  if(bootReady&&started&&!traveling&&!cityView)refreshParkedCars();
   audio.update(sim,elapsed,started&&!paused&&!traveling&&!cityView&&!mapOpen);
   hudTime+=dt;if(hudTime>.075){
     // Retain nearby streets if the optional citywide route download fails.
@@ -611,6 +634,7 @@ async function boot() {
   }).catch(()=>{});
   gfx.passes.push((renderer,scene,camera)=>water.renderMirror(renderer,scene,camera,{enabled:Boolean(viewOverride)||!cityView,scale:highQuality?.75:.5}));
   streetLife=createStreetLife({scene,renderer,getLamps:()=>streetscape?.lamps()||noStreetFurniture,getTrees:()=>streetscape?.trees()||noStreetFurniture});
+  parkedCars=createParkedCars({capacity:PARKED_LIMIT+8});scene.add(parkedCars.group);
   sim=new Simulation(city);restoreProgress();yaw=sim.player.angle;
   world=createCityStream(cityIndex,{scene,onCollisionChange:applyBuildings,onStatus:updateStreaming,heightAt:terrainHeight});
   ground=createCityGround({scene,renderer,onStatus:status=>{if(status.failures)$('imagery-status').textContent='Some aerial tiles are unavailable. NYC imagery will retry as you explore; surveyed geometry loads separately.';}});
@@ -681,7 +705,7 @@ async function boot() {
   const b=city.bounds;camera.position.set((b.minX+b.maxX)/2-14000,44000,(b.minZ+b.maxZ)/2+32000);
   navigation=createCityNavigation({canvas,camera,input,bounds:city.bounds,heightAt:terrainHeight,onTravel:travel,onAddressSelected:focusCityAddress});
   $('place-select').innerHTML=roadIndex.places.map((place,i)=>'<option value="'+i+'">'+place.name+' · '+place.borough+'</option>').join('');
-  window.nycGame={graphics:gfx,get streetscape(){return streetscape;},get streetLife(){return streetLife;},get world(){return world;},heightAt:(x,z)=>terrainHeight(x,z),setView:view=>{viewOverride=view&&Array.isArray(view.position)&&Array.isArray(view.target)?view:null;},getState:()=>({time:gfx.clock,player:{...sim.player},heat:sim.heat,health:sim.health,mission:{...sim.mission},cash:sim.cash,deliveries:sim.deliveries,cars:sim.cars.length,buildings:buildings.length,totalBuildings:cityIndex.stats.buildingFeatures,stream:world.getStatus(),ground:ground.getStatus(),streetDetail:streetDetail?.getStatus()||null,streetscape:streetscape?.getStatus()||null,landscape:landscape?.getStatus()||null,reconstruction:reconstructionReview?{model:reconstructionReview.model,summary:reconstructionReview.summary}:null,roadReconstruction:roadReconstructionReview?{model:roadReconstructionReview.model,summary:roadReconstructionReview.summary}:null,roadPilot:roadPilot?roadPilot.getStatus():{ready:false,loading:Boolean(roadPilotLoading),error:roadPilotError},navigation:navigation.getState(),map:gameMap.getState(),routeGuidance,cityView,aerialView,traveling,bootReady,shadows:{enabled:shadowsEnabled,active:renderer.shadowMap.enabled},drawCalls:renderer.info.render.calls,triangles:renderer.info.render.triangles,started,paused})};
+  window.nycGame={graphics:gfx,get streetscape(){return streetscape;},get streetLife(){return streetLife;},get parkedCars(){return parkedCars;},get world(){return world;},heightAt:(x,z)=>terrainHeight(x,z),setView:view=>{viewOverride=view&&Array.isArray(view.position)&&Array.isArray(view.target)?view:null;},getState:()=>({time:gfx.clock,player:{...sim.player},heat:sim.heat,health:sim.health,mission:{...sim.mission},cash:sim.cash,deliveries:sim.deliveries,cars:sim.cars.length,parkedCars:sim.cars.filter(car=>car._kerb).length,buildings:buildings.length,totalBuildings:cityIndex.stats.buildingFeatures,stream:world.getStatus(),ground:ground.getStatus(),streetDetail:streetDetail?.getStatus()||null,streetscape:streetscape?.getStatus()||null,landscape:landscape?.getStatus()||null,reconstruction:reconstructionReview?{model:reconstructionReview.model,summary:reconstructionReview.summary}:null,roadReconstruction:roadReconstructionReview?{model:roadReconstructionReview.model,summary:roadReconstructionReview.summary}:null,roadPilot:roadPilot?roadPilot.getStatus():{ready:false,loading:Boolean(roadPilotLoading),error:roadPilotError},navigation:navigation.getState(),map:gameMap.getState(),routeGuidance,cityView,aerialView,traveling,bootReady,shadows:{enabled:shadowsEnabled,active:renderer.shadowMap.enabled},drawCalls:renderer.info.render.calls,triangles:renderer.info.render.triangles,started,paused})};
   requestAnimationFrame(frame);
   const [roads]=await Promise.all([roadStream.loadAround(seed.spawn),world.prepareAt(seed.spawn,300),landscapeReady]);
   sim.setActiveCity({roads,buildings,isReadyAt:(x,z,radius)=>world.isReadyAt(x,z,radius),missionPoints:localDestinations(roads,seed.spawn)},{spawn:seed.spawn});city=sim.city;yaw=sim.player.angle;

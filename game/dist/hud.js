@@ -101,7 +101,7 @@ export class HUD {
       if(cx!==tx||cy!==ty){c.beginPath();c.arc(cx,cy,6,0,Math.PI*2);c.fill();}
     }
     for(const car of sim.cars) {
-      if(car.id===sim.player.vehicleId) continue;
+      if(car.id===sim.player.vehicleId||car._kerb) continue;
       const [x,y]=xy(car.x,car.z);c.fillStyle=car.type==='police'&&sim.heat>0?'#7dc3eb':'#eac877';c.fillRect(x-2,y-2,4,4);
     }
     const [px,py]=xy(sim.player.x,sim.player.z);c.translate(px,py);c.rotate(-sim.player.angle);c.fillStyle='#f8f2df';c.strokeStyle='#101918';c.lineWidth=3;c.beginPath();c.moveTo(0,11);c.lineTo(-7,-7);c.lineTo(0,-3);c.lineTo(7,-7);c.closePath();c.fill();c.stroke();
