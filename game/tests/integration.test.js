@@ -35,6 +35,7 @@ import { createFleet } from '../dist/fleet.js';
 import { offersAt } from '../dist/garage.js';
 import { planRoom, buildRoom, roomKind } from '../dist/interiors.js';
 import { createDemographics } from '../dist/demographics.js';
+import { createBuses, createBusStops } from '../dist/bus.js';
 import { menuFor } from '../dist/menu.js';
 import { createSubway, createSubwayEntrances, FARE } from '../dist/subway.js';
 import { indexKerbs, snapToKerb } from '../dist/street-props.js';
@@ -267,7 +268,7 @@ async function bootHarness({ stored = null, displayStored = null, unavailableSto
     },
     updateChaseHeight, createCityGround, worldToGeographic, createRoadStream, nearestStreet, localDestinations, createCityNavigation,
     createStreetDetail:(manifest,options)=>createStreetDetail(manifest,{...options,now:()=>timestamp}),
-    Landscape, RoadPilot, AbortSignal, createGraphics, createStreetLife, createWater, setVehicleLamps, createCityLife, manhattanCore, createStreetSigns, createCrowd, createStreetProps, createPlaceSource, indexFootprints, solveFrontages, createStorefronts, createPhone, describePlace, createFleet, offersAt, planRoom, buildRoom, roomKind, createDemographics, characterAt, menuFor, createSubway, createSubwayEntrances, FARE, indexKerbs, snapToKerb, formatDistance,
+    Landscape, RoadPilot, AbortSignal, createGraphics, createStreetLife, createWater, setVehicleLamps, createCityLife, manhattanCore, createStreetSigns, createCrowd, createStreetProps, createPlaceSource, indexFootprints, solveFrontages, createStorefronts, createPhone, describePlace, createFleet, offersAt, planRoom, buildRoom, roomKind, createDemographics, characterAt, createBuses, createBusStops, menuFor, createSubway, createSubwayEntrances, FARE, indexKerbs, snapToKerb, formatDistance,
     // Bundled survey cells only: these tests stay offline.
     createStreetscape:options=>createStreetscape({...options,live:false,now:()=>timestamp}),
     console: { error: error => errors.push(error), warn: () => {}, log: () => {} },
@@ -280,7 +281,7 @@ async function bootHarness({ stored = null, displayStored = null, unavailableSto
     },
   });
   function close() {
-    vm.runInContext('if(typeof gameMap!=="undefined")gameMap?.dispose?.();if(typeof navigation!=="undefined")navigation?.dispose?.();if(typeof roadPilot!=="undefined")roadPilot?.dispose();landscape?.dispose();streetDetail?.dispose();streetscape?.dispose();streetLife?.dispose();parkedCars?.dispose();distantTraffic?.dispose();signs?.dispose();crowd?.dispose();props?.dispose();storefronts?.dispose();subwayStairs?.dispose();water?.dispose();world?.dispose();ground?.dispose();gfx?.dispose();',context);
+    vm.runInContext('if(typeof gameMap!=="undefined")gameMap?.dispose?.();if(typeof navigation!=="undefined")navigation?.dispose?.();if(typeof roadPilot!=="undefined")roadPilot?.dispose();landscape?.dispose();streetDetail?.dispose();streetscape?.dispose();streetLife?.dispose();parkedCars?.dispose();distantTraffic?.dispose();signs?.dispose();crowd?.dispose();props?.dispose();storefronts?.dispose();subwayStairs?.dispose();busStops?.dispose();water?.dispose();world?.dispose();ground?.dispose();gfx?.dispose();',context);
     for (const [key, descriptor] of original) {
       if (descriptor) Object.defineProperty(globalThis, key, descriptor);
       else delete globalThis[key];
