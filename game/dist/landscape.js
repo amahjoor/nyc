@@ -1,5 +1,7 @@
 import * as THREE from './vendor/three.module.min.js';
 import { mercatorCoefficients, atlasProjectionGLSL } from './imagery-projection.js';
+import { createLeafMaterial } from './foliage.js';
+import { STILL_WATER_GLSL } from './water.js';
 
 const finite = Number.isFinite;
 const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
@@ -77,10 +79,12 @@ function polygonParts(feature) {
   return { rings: [contour, ...holes], vertices: [...contour, ...holes.flat()], triangles };
 }
 
-function geometryFrom(positions, sourceIds, colors = null) {
+function geometryFrom(positions, sourceIds, colors = null, normals = null, crowns = null) {
   const geometry = new THREE.BufferGeometry();geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
   if (colors) geometry.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
-  geometry.computeVertexNormals();geometry.computeBoundingSphere();geometry.userData.sourceIds = sourceIds;return geometry;
+  if (crowns) geometry.setAttribute('aCrown', new THREE.Float32BufferAttribute(crowns, 4));
+  if (normals) geometry.setAttribute('normal', new THREE.Float32BufferAttribute(normals, 3));else geometry.computeVertexNormals();
+  geometry.computeBoundingSphere();geometry.userData.sourceIds = sourceIds;return geometry;
 }
 
 /** Exact source shorelines and islands; the level is a measured DEM statistic. */
@@ -111,7 +115,10 @@ function boundaryDistance(point, rings) {
 
 /** Crown envelopes retain measured footprints. Branches and trunks are unknown. */
 export function buildCanopyGeometry(features, { maxFeatures = 20_000, maxVertices = 1_200_000, focus = null, detailRadius = 120 } = {}) {
-  const positions = [], colors = [], sourceIds = [];let truncated = false, approximateTrunks = 0;
+  // Normals point out from each crown's middle so it shades as one rounded mass;
+  // aCrown carries crown-local coordinates for the leaf shader (w = 0 on stems).
+  const positions = [], colors = [], normals = [], crowns = [], sourceIds = [];let truncated = false, approximateTrunks = 0;
+  const leafGreen = new THREE.Color(.21, .33, .12);
   for (const feature of features) {
     if (sourceIds.length >= maxFeatures) { truncated = true;break; }
     const height = feature.maxHeight ?? feature.height;
@@ -139,10 +146,20 @@ export function buildCanopyGeometry(features, { maxFeatures = 20_000, maxVertice
     // Short segmented vegetation is not verified as an individual tree. Its
     // envelope reaches ground instead of leaving a floating canopy plate.
     const lower = feature.individualTree === false ? .15 : clamp(finite(feature.p10Height) ? feature.p10Height : height * .35, .2, height * .65);
-    const color = new THREE.Color(feature.color || '#626b4a');
-    const add = (point, y) => { positions.push(point.x, feature.baseElevation + y, point.y);colors.push(color.r, color.g, color.b); };
+    const color = new THREE.Color(feature.color || '#626b4a').lerp(leafGreen, .55);
+    const middle = interior || parts.rings[0][0], reach = Math.max(.5, ...parts.rings[0].map(point => point.distanceTo(middle)));
+    const depth = Math.max(.5, (height - lower) * .7), heart = lower + (height - lower) * .3;
+    const add = (point, y) => {
+      positions.push(point.x, feature.baseElevation + y, point.y);colors.push(color.r, color.g, color.b);
+      const lx = (point.x - middle.x) / reach, ly = (y - heart) / depth, lz = (point.y - middle.y) / reach, length = Math.hypot(lx, ly, lz) || 1;
+      normals.push(lx / length, ly / length, lz / length);crowns.push(lx, ly, lz, 1);
+    };
     for (const points of refined) {
-      for (const point of points) add(point, lower + (height - lower) * Math.sqrt(clamp(boundaryDistance(point, parts.rings) / maxDistance, 0, 1)));
+      // A quarter-circle profile: steep at the drip line, flat across the top.
+      for (const point of points) {
+        const inward = clamp(boundaryDistance(point, parts.rings) / maxDistance, 0, 1);
+        add(point, lower + (height - lower) * Math.sqrt(1 - (1 - inward) ** 2));
+      }
     }
     // Close the underside without inventing a trunk position beneath an
     // algorithm-delineated crown. This is an envelope, not an exact tree scan.
@@ -155,7 +172,12 @@ export function buildCanopyGeometry(features, { maxFeatures = 20_000, maxVertice
         && inWater(feature, supplied[0], supplied[1]) ? new THREE.Vector2(...supplied) : interior;
       const radius = Math.min(clamp(Math.sqrt(Math.abs(THREE.ShapeUtils.area(parts.rings[0]))) * .035, .1, .5), boundaryDistance(center, parts.rings) * .35);
       const trunkColor = new THREE.Color('#63584a'), top = lower + (height - lower) * .15;
-      const stem = (x, y, z) => { positions.push(x, feature.baseElevation + y, z);colors.push(trunkColor.r, trunkColor.g, trunkColor.b); };
+      const stem = (x, y, z) => {
+        positions.push(x, feature.baseElevation + y, z);colors.push(trunkColor.r, trunkColor.g, trunkColor.b);
+        const nx = x - center.x, nz = z - center.y, length = Math.hypot(nx, nz);
+        if (length > 1e-6) normals.push(nx / length, 0, nz / length);else normals.push(0, 1, 0);
+        crowns.push(0, 0, 0, 0);
+      };
       for (let side = 0; side < 8; side++) {
         const a = side * Math.PI / 4, b = (side + 1) * Math.PI / 4;
         const ax = center.x + Math.cos(a) * radius, az = center.y + Math.sin(a) * radius, bx = center.x + Math.cos(b) * radius, bz = center.y + Math.sin(b) * radius;
@@ -165,10 +187,65 @@ export function buildCanopyGeometry(features, { maxFeatures = 20_000, maxVertice
     }
     sourceIds.push(feature.id);
   }
-  const geometry = geometryFrom(positions, sourceIds, colors);
+  const geometry = geometryFrom(positions, sourceIds, colors, normals, crowns);
   geometry.userData.approximation = 'Crown envelopes from measured footprints and canopy-top heights. Crown undersides, branch shapes and stem diameters are not measured; individual-tree stems are visual approximations.';
   geometry.userData.approximateTrunks = approximateTrunks;geometry.userData.truncated = truncated;return geometry;
 }
+
+// The aerial photograph is sharp from the air and a smear from the street:
+// a quarter of a metre to the pixel, with its own noon shadows and parked
+// cars baked in. Near the player the ground is therefore drawn, not shown.
+// The photograph, averaged over a few metres, only says what is there:
+// turf, bare earth, or hard ground and how pale it is. The surface itself
+// is drawn at any distance the eye can resolve. Further off, where the
+// photograph is finer than a pixel, hard ground is relit and the rest is
+// shown as shot. Ground at the waterline is always left as photographed.
+const GROUND_FINISH_GLSL = /* glsl */`
+      // Past the shoreline the ground gives way to the water sheet.
+      if (nycLand(vLandscapeXZ) < 0.5) discard;
+      {
+        vec3 photo = diffuseColor.rgb;
+        const vec3 LUMA = vec3(0.3, 0.59, 0.11);
+        float span = length(vViewPosition), dry = smoothstep(0.5, 1.4, vLandscapeY);
+        // From afar: the photograph, with hard ground relit as plain paving.
+        float sharpTone = dot(photo, LUMA);
+        float sharpPlanted = smoothstep(-0.006, 0.03, photo.g - max(photo.r, photo.b));
+        float sharpEarth = smoothstep(0.03, 0.075, photo.r - photo.b) * (1.0 - smoothstep(0.42, 0.62, sharpTone));
+        float grain = texture2D(uNycNoise, vLandscapeXZ * 0.13).g;
+        vec3 relit = vec3(0.2, 0.2, 0.205) * (0.72 + 0.75 * smoothstep(0.03, 0.62, sharpTone)) * (0.9 + 0.2 * grain);
+        relit = mix(photo, mix(relit, photo, 0.22), (1.0 - clamp(sharpPlanted + sharpEarth, 0.0, 1.0)) * dry * (1.0 - smoothstep(900.0, 3200.0, span)));
+        // Close by: what the averaged photograph says the ground is. Only three
+        // things are told apart, so that no wash of photographed colour survives.
+        vec3 kind = landscapeAverage;
+        vec2 w = vLandscapeXZ;
+        float size = max(fwidth(w.x), fwidth(w.y)), close = 1.0 - smoothstep(0.012, 0.07, size);
+        float drift = texture2D(uNycNoise, w * 0.009).r, mottle = texture2D(uNycNoise, w * 0.17).g;
+        float grit = texture2D(uNycNoise, w * 2.3).b, fine = texture2D(uNycNoise, w * 7.7).a;
+        // A ragged edge where grass meets paving, not a gradient.
+        float planted = smoothstep(0.0, 0.014, kind.g - max(kind.r, kind.b) + 0.014 * (mottle - 0.5));
+        // Clay courts, running tracks, brick and rubber play surfaces are plainly red.
+        // Judged over the wider average, so that a red car or awning is not one.
+        float clay = smoothstep(0.045, 0.09, landscapeBroad.r - max(landscapeBroad.g, landscapeBroad.b)) * (1.0 - planted);
+        float hard = 1.0 - planted - clay;
+        // Hard ground is asphalt or concrete, whichever the photograph's broad
+        // tone is nearer, laid in irregular pours with tarred joints between.
+        float tone = dot(landscapeBroad, LUMA);
+        float pale = smoothstep(0.17, 0.25, tone + 0.07 * (drift - 0.5));
+        vec3 paving = mix(vec3(0.082, 0.083, 0.087), vec3(0.245, 0.24, 0.228), pale);
+        vec2 pour = w / 5.3 + (texture2D(uNycNoise, w * 0.013).rg - 0.5) * 2.6, inPour = fract(pour);
+        float joint = min(min(inPour.x, 1.0 - inPour.x), min(inPour.y, 1.0 - inPour.y)) * 5.3;
+        paving *= 0.84 + 0.3 * nycHash12(floor(pour));
+        paving *= 1.0 - mix(0.5, 0.28, pale) * (1.0 - smoothstep(0.02, 0.05 + size, joint)) * (1.0 - smoothstep(0.08, 0.5, size));
+        paving *= (0.86 + 0.28 * mottle) * (1.0 + close * (0.45 * (grit - 0.5) + 0.25 * (fine - 0.5)));
+        // Turf: mown grass, uneven in colour, a little of the photographed hue for worn patches.
+        float clump = texture2D(uNycNoise, w * 0.41).r, field = texture2D(uNycNoise, w * 0.023).b, blade = texture2D(uNycNoise, w * vec2(3.1, 5.3)).g;
+        vec3 turf = mix(vec3(0.058, 0.1, 0.028), vec3(0.13, 0.185, 0.055), 0.4 * field + 0.6 * clump);
+        turf = mix(turf, kind * vec3(0.7, 0.95, 0.5), 0.14) * (1.0 + close * 0.6 * (blade - 0.5));
+        // Red surfaces keep their own colour, evened out.
+        vec3 court = mix(landscapeBroad, vec3(0.3, 0.1, 0.07), 0.45) * (0.9 + 0.2 * mottle) * (1.0 + close * 0.3 * (grit - 0.5));
+        vec3 drawn = mix(photo, paving * hard + turf * planted + court * clay, dry);
+        diffuseColor.rgb = mix(relit, drawn, 1.0 - smoothstep(150.0, 480.0, span));
+      }`;
 
 function createTerrainMaterial() {
   const material = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 1, side: THREE.DoubleSide });
@@ -179,8 +256,8 @@ function createTerrainMaterial() {
     landscapeCoverage: { value: Array.from({ length: 16 }, () => new THREE.Vector4()) } };
   material.onBeforeCompile = shader => {
     Object.assign(shader.uniforms, uniforms);
-    shader.vertexShader = 'varying vec2 vLandscapeXZ;\n' + shader.vertexShader.replace('#include <begin_vertex>', '#include <begin_vertex>\nvLandscapeXZ = position.xz;');
-    shader.fragmentShader = `${atlasProjectionGLSL}\n varying vec2 vLandscapeXZ;
+    shader.vertexShader = 'varying vec2 vLandscapeXZ; varying float vLandscapeY;\n' + shader.vertexShader.replace('#include <begin_vertex>', '#include <begin_vertex>\nvLandscapeXZ = position.xz; vLandscapeY = position.y;');
+    shader.fragmentShader = `${atlasProjectionGLSL}\n varying vec2 vLandscapeXZ; varying float vLandscapeY;
       uniform sampler2D landscapeOrtho; uniform sampler2D landscapeLocal;
       uniform bool landscapeUseOrtho; uniform bool landscapeUseLocal; uniform bool landscapeUseMercator; uniform bool landscapeUseLocalMercator;
       uniform vec4 landscapeBounds; uniform vec4 landscapeLocalBounds; uniform vec4 landscapeMercator; uniform vec4 landscapeLocalMercator;
@@ -199,7 +276,16 @@ function createTerrainMaterial() {
         if (vLandscapeXZ.x>=b.x && vLandscapeXZ.x<=b.y && vLandscapeXZ.y>=b.z && vLandscapeXZ.y<=b.w) discard;
       }
       if (landscapeUseOrtho) { vec2 uv = landscapeUV(landscapeBounds,landscapeMercator,landscapeUseMercator); if (landscapeInside(uv)) diffuseColor.rgb = texture2D(landscapeOrtho,uv).rgb; }
-      if (landscapeUseLocal) { vec2 uv = landscapeUV(landscapeLocalBounds,landscapeLocalMercator,landscapeUseLocalMercator); if (landscapeInside(uv)) { vec4 pixel = texture2D(landscapeLocal,uv); if (pixel.a>0.99) diffuseColor.rgb = pixel.rgb; } }
+      // The photograph averaged over about two metres, and over about eight:
+      // enough to lose the cars, their shadows and the lane paint.
+      vec3 landscapeAverage = diffuseColor.rgb, landscapeBroad = diffuseColor.rgb;
+      if (landscapeUseLocal) { vec2 uv = landscapeUV(landscapeLocalBounds,landscapeLocalMercator,landscapeUseLocalMercator); if (landscapeInside(uv)) { vec4 pixel = texture2D(landscapeLocal,uv); if (pixel.a>0.99) {
+        diffuseColor.rgb = pixel.rgb;
+        vec4 mid = textureLod(landscapeLocal,uv,3.2), wide = textureLod(landscapeLocal,uv,5.2);
+        landscapeAverage = mid.a>0.5 ? mid.rgb/mid.a : pixel.rgb;
+        landscapeBroad = wide.a>0.5 ? wide.rgb/wide.a : landscapeAverage;
+      } } }
+      ${GROUND_FINISH_GLSL}
       `);
   };
   material.userData.uniforms = uniforms;material.name = 'Measured NYC terrain with official aerial imagery';return material;
@@ -226,7 +312,7 @@ function clipWaterCoverage(material) {
     shader.fragmentShader = shader.fragmentShader.replace('#include <color_fragment>', `#include <color_fragment>
       for (int i=0;i<8;i++) { if(i>=landscapeWaterCoverageCount)break; vec4 b=landscapeWaterCoverage[i];
         if(vLandscapeWaterXZ.x>=b.x&&vLandscapeWaterXZ.x<=b.y&&vLandscapeWaterXZ.y>=b.z&&vLandscapeWaterXZ.y<=b.w)discard;
-      }`);
+      }`).replace('#include <emissivemap_fragment>', `#include <emissivemap_fragment>\n${STILL_WATER_GLSL}`);
   };
 }
 
@@ -361,7 +447,7 @@ export class Landscape {
     }
     if (canopies.length) {
       entry.canopyFeatures = canopies;entry.vegetationSelection = null;
-      const material = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 1, side: THREE.DoubleSide });
+      const material = createLeafMaterial({ attribute: true, vertexColors: true, side: THREE.DoubleSide });
       entry.vegetation = new THREE.Mesh(new THREE.BufferGeometry(), material);entry.vegetation.name = 'Measured crown envelopes';entry.vegetation.castShadow = true;
       entry.vegetation.receiveShadow = true;entry.group.add(entry.vegetation);
       this._updateVegetation(entry);
@@ -407,16 +493,18 @@ export class Landscape {
         await new Promise(resolve => setTimeout(resolve, 0));
         if (this.disposed || entry.vegetationGeneration !== generation || !entry.group.parent) return;
         const geometry = buildCanopyGeometry(selected.slice(offset, offset + 96), { focus: center, maxFeatures: 6000 - sourceIds.length, maxVertices: 1_200_000 - count });
-        const p = geometry.attributes.position.array, n = geometry.attributes.normal.array, c = geometry.attributes.color.array;
-        parts.push({ p, n, c });count += p.length / 3;sourceIds.push(...geometry.userData.sourceIds);
+        const p = geometry.attributes.position.array, n = geometry.attributes.normal.array, c = geometry.attributes.color.array, k = geometry.attributes.aCrown.array;
+        parts.push({ p, n, c, k });count += p.length / 3;sourceIds.push(...geometry.userData.sourceIds);
         approximateTrunks += geometry.userData.approximateTrunks;truncated ||= geometry.userData.truncated;geometry.dispose();
         if (truncated) break;
       }
       if (this.disposed || entry.vegetationGeneration !== generation || !entry.group.parent) return;
       const geometry = new THREE.BufferGeometry(), positions = new Float32Array(count * 3), normals = new Float32Array(count * 3), colors = new Float32Array(count * 3);
-      let offset = 0;for (const part of parts) { positions.set(part.p, offset);normals.set(part.n, offset);colors.set(part.c, offset);offset += part.p.length; }
+      const crownLocal = new Float32Array(count * 4);
+      let offset = 0, vertex = 0;
+      for (const part of parts) { positions.set(part.p, offset);normals.set(part.n, offset);colors.set(part.c, offset);crownLocal.set(part.k, vertex * 4);offset += part.p.length;vertex += part.p.length / 3; }
       geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));geometry.setAttribute('normal', new THREE.BufferAttribute(normals, 3));
-      geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));geometry.computeBoundingSphere();
+      geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));geometry.setAttribute('aCrown', new THREE.BufferAttribute(crownLocal, 4));geometry.computeBoundingSphere();
       Object.assign(geometry.userData, { sourceIds, approximateTrunks, truncated,
         approximation: 'Measured crown footprints and canopy-top heights; crown volume, underside and stems approximated.' });
       const previous = entry.vegetation.geometry;entry.vegetation.geometry = geometry;previous.dispose();entry.vegetationLoading = false;this._report();

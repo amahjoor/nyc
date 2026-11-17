@@ -231,6 +231,11 @@ test('coarse imagery survives missing local tiles and region coverage updates wi
   assert.equal(shader.uniforms.landscapeCoverageCount.value, 1);
   assert.deepEqual(shader.uniforms.landscapeCoverage.value[0].toArray(), [0, 10, 0, 10]);
   assert.match(shader.fragmentShader, /pixel.a>0.99/);assert.match(shader.fragmentShader, /landscapeCoverage\[i\]/);
+  // Near the camera the ground is drawn from the photograph's average, never shown as a smear.
+  assert.match(shader.fragmentShader, /textureLod\(landscapeLocal,uv,3\.2\)/);assert.match(shader.fragmentShader, /textureLod\(landscapeLocal,uv,5\.2\)/);
+  for (const name of ['paving', 'turf', 'court', 'relit']) assert.match(shader.fragmentShader, new RegExp(`vec3 ${name} = `), name);
+  assert.match(shader.fragmentShader, /mix\(relit, drawn, 1\.0 - smoothstep\(150\.0, 480\.0, span\)\)/);
+  assert.ok(shader.fragmentShader.indexOf('nycLand(vLandscapeXZ) < 0.5') < shader.fragmentShader.indexOf('vec3 paving = '), 'water is cut away before any ground is drawn');
   const uniform = shader.uniforms.landscapeLocalBounds.value;
   f.landscape.setLocalOrthophoto({ texture: f.localTexture, bounds: bounds(100, 120, -10, 10) });
   assert.equal(shader.uniforms.landscapeLocalBounds.value, uniform);assert.deepEqual(uniform.toArray(), [100, 120, -10, 10]);
