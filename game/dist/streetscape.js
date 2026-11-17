@@ -1,5 +1,6 @@
 import * as THREE from './vendor/three.module.min.js';
 import { CITY_ORIGIN, worldToGeographic } from './city-ground.js';
+import { laneLayout } from './lanes.js';
 
 // Street surfaces from New York's planimetric survey: every roadbed and
 // sidewalk outline in the city, as mapped from the air. The outlines are
@@ -505,15 +506,14 @@ export async function buildCell(surfaces, roads, { heightAt = () => 0, bounds = 
   for (const line of roads) {
     if (line.kind === 'tunnel' || line.kind === 'bridge' || line.roadwayType !== 1 || line.fromLevel !== 13 || line.toLevel !== 13 || !(line.width >= 7.5)) continue;
     await breathe();
-    const twoWay = !line.oneway, width = line.width;
-    // Kerbside parking takes a lane on each side of all but the narrowest streets.
-    const travelled = width - (width >= 9 ? 4.6 : 0), offsets = [];
+    const twoWay = !line.oneway, offsets = [];
+    // Kerbside parking takes a lane on each side of all but the narrowest
+    // streets; the rest is divided as traffic will use it (lanes.js).
+    const { count: lanes, width: laneWidth } = laneLayout(line.width, !twoWay);
     if (twoWay) {
-      const each = Math.max(1, Math.round(travelled / 2 / 3.3)), laneWidth = travelled / 2 / each;
       offsets.push({ at: -.11, color: YELLOW, dash: 0 }, { at: .11, color: YELLOW, dash: 0 });
-      for (let k = 1; k < each; k++) offsets.push({ at: k * laneWidth, color: WHITE, dash: 1 }, { at: -k * laneWidth, color: WHITE, dash: 1 });
+      for (let k = 1; k < lanes; k++) offsets.push({ at: k * laneWidth, color: WHITE, dash: 1 }, { at: -k * laneWidth, color: WHITE, dash: 1 });
     } else {
-      const lanes = Math.max(1, Math.round(travelled / 3.3)), laneWidth = travelled / lanes;
       for (let k = 1; k < lanes; k++) offsets.push({ at: (k - lanes / 2) * laneWidth, color: WHITE, dash: 1 });
     }
     if (!offsets.length) continue;
@@ -619,11 +619,20 @@ export async function buildCell(surfaces, roads, { heightAt = () => 0, bounds = 
       const near = lineAt(x, z);
       if (!near || !parkable(near.line)) continue;
       const lane = Math.max(.65, Math.min(2.5, near.line.width * .19)), oneWay = near.line.oneway, travel = oneWay === '-1' ? -1 : 1;
-      // On a one-way street traffic keeps to one side of the centreline.
-      const beside = !oneWay || Math.sign(near.side) === travel;
-      // Beside the lane a car needs the lane's half width, its own, and room
-      // to pass; across the centreline from it, only to stay out of its reach.
-      if (near.gap < (beside ? lane + 2.45 : Math.max(.95, 2.6 - lane))) continue;
+      const layout = near.line.width >= 7.5 ? laneLayout(near.line.width, Boolean(oneWay)) : null;
+      if (layout?.driven) {
+        // Traffic runs in every painted lane, so the lane beside either kerb
+        // is a moving one. A parked car must stand clear of it by a hand's
+        // width more than traffic looks for on either side of itself (1.95 m
+        // between centres), or it would hold the lane up.
+        if (near.gap < Math.abs(layout.first + (oneWay ? 0 : layout.step * (layout.count - 1))) + 2.1) continue;
+      } else {
+        // Traffic keeps to a single file, on one side of the centreline of a one-way street.
+        const beside = !oneWay || Math.sign(near.side) === travel;
+        // Beside that file a car needs its half width, its own, and room to
+        // pass; across the centreline from it, only to stay out of its reach.
+        if (near.gap < (beside ? lane + 2.45 : Math.max(.95, 2.6 - lane))) continue;
+      }
       // Hydrants, driveways and bus stops keep a few spaces empty for good.
       if (hash2(x, z) < .1 || crowded(x, z)) continue;
       // Parked with the flow on a one-way street; otherwise with the kerb on the right.

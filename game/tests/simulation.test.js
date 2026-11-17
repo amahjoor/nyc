@@ -616,6 +616,7 @@ test('a car left standing in the only lane shuts its block: those behind wait, t
   const sim = new Simulation(crossing());
   // The street has one lane each way. A car is left in the eastbound one, 80 m past the junction.
   const beyond = edgeInto(sim, [0, 0], [400, 0]), into = edgeInto(sim, [-400, 0], [0, 0]);
+  assert.equal(beyond.lanes, 1);
   const first = lone(sim, beyond, 400 - 40);
   const spot = sim._lanePoint(beyond, 80 / 400), left = sim._makeCar('left', 'sedan', spot, beyond.angle);
   sim.cars.push(left);
@@ -642,6 +643,88 @@ test('a car left standing in the only lane shuts its block: those behind wait, t
   advance(sim, 15);
   assert.ok(leader.speed < .2 && follower.speed < .2, 'both stand at the red light');
   assert.ok(!(follower._held > 0) && !(sim.elapsed - side._blockedAt < 60), 'and the block stays open');
+});
+
+test('a wide street carries traffic in every lane: turns are made from the lane on that side, and the files run abreast', () => {
+  const sim = new Simulation(crossing());
+  // The avenue is 18 m wide and runs one way toward -Z; the street is 9 m wide and runs both ways.
+  const avenue = edgeInto(sim, [0, 400], [0, 0]), beyond = edgeInto(sim, [0, 0], [0, -400]), fromEast = edgeInto(sim, [400, 0], [0, 0]), fromWest = edgeInto(sim, [-400, 0], [0, 0]);
+  assert.deepEqual([avenue.lanes, fromEast.lanes], [4, 1]);
+  const near = (actual, expected) => actual.length === expected.length && actual.every((value, i) => Math.abs(value - expected[i]) < .02);
+  // Between its parking lanes the avenue has four lanes of 3.35 m. Heading -Z the driver's right is +X: lane 0 is the right-hand one.
+  const files = [5.025, 1.675, -1.675, -5.025];
+  assert.ok(near([0, 1, 2, 3, 9].map(lane => sim._lanePoint(avenue, .5, lane).x), [...files, -5.025]));
+  assert.ok(near([0, 3].map(lane => sim._lanePoint(fromEast, .5, lane).z), [-1.71, -1.71]), 'a narrow street has the one file');
+  // A two-way street 19 m wide has two lanes each way, the second nearer the kerb.
+  const broad = new Simulation(city({ roads: [street('b', 'HOUSTON ST', [[-300, 0], [300, 0]], 19)], spawn: { x: 0, z: 60, angle: 0 } }));
+  const east = broad._graph.edges.find(edge => edge.to.x > edge.from.x), west = broad._graph.edges.find(edge => edge.to.x < edge.from.x);
+  assert.deepEqual([east.lanes, west.lanes], [2, 2]);
+  assert.ok(near([0, 1].map(lane => broad._lanePoint(east, .5, lane).z), [1.8, 5.4]) && near([0, 1].map(lane => broad._lanePoint(west, .5, lane).z), [-1.8, -5.4]));
+  // A street with no room for parking lanes, a bridge, and a street the data says little about keep to a single file.
+  const single = new Simulation(city({ roads: [street('n', 'GREENE ST', [[-300, 0], [300, 0]], 7.9, 'yes'), { ...street('k', 'BKLYN BRIDGE', [[-300, 80], [300, 80]], 18, 'yes'), kind: 'bridge' }, { id: 'p', name: 'PLAIN', points: [[-300, 160], [300, 160]], width: 18, oneway: 'yes' }], spawn: { x: 0, z: 40, angle: 0 } }));
+  assert.ok(single._graph.edges.length === 3 && single._graph.edges.every(edge => edge.lanes === 1));
+  // At the junction the right-hand lane may turn right (toward +X), the left-hand lane left, and the lanes between neither.
+  const goes = lane => {
+    const seen = new Set();
+    for (let i = 0; i < 300; i++) { const probe = sim._makeCar('chooser', 'sedan', sim._lanePoint(avenue, 1, lane), avenue.angle, avenue); probe._lane = lane; const next = sim._pickNextEdge(probe); seen.add(next.to.x > 1 ? 'right' : next.to.x < -1 ? 'left' : 'on'); }
+    return [...seen].sort().join(' ');
+  };
+  assert.deepEqual([goes(0), goes(1), goes(2), goes(3)], ['on right', 'on', 'on', 'left on']);
+  const patrol = sim._makeCar('patrol', 'police', sim._lanePoint(avenue, 1), avenue.angle, avenue), ways = new Set();
+  for (let i = 0; i < 300; i++) ways.add(sim._pickNextEdge(patrol).to.x);
+  assert.equal(ways.size, 3, 'a patrol goes where it likes');
+  // Going straight on, a car keeps its lane; coming round a corner it takes the near one.
+  assert.deepEqual([0, 1, 2, 3].map(lane => sim._laneOnto(avenue, beyond, lane)), [0, 1, 2, 3]);
+  assert.equal(sim._laneOnto(fromEast, beyond, 0), 0, 'a right turn into the right-hand lane');
+  assert.equal(sim._laneOnto(fromWest, beyond, 0), 3, 'a left turn into the left-hand lane');
+  assert.equal(sim._laneOnto(avenue, edgeInto(sim, [0, 0], [400, 0]), 3), 0, 'and onto a narrow street, into its one lane');
+  assert.equal(broad._laneOnto(east, east, 1), 1);
+  // Four cars abreast neither hold each other up nor drift together, and all four stop at the same line.
+  const plan = sim.junctions[0].plan, line = stopDistance(plan, 0);
+  sim.elapsed = plan.offset + plan.lead[0] + plan.green[0] + 3.5;
+  assert.equal(vehicleAspect(plan, 0, sim.elapsed).aspect, 'red');
+  sim.cars = sim.cars.filter(car => car.id === 'player-taxi');
+  const abreast = [0, 1, 2, 3].map(lane => { const car = sim._makeCar(`file-${lane}`, 'sedan', sim._lanePoint(avenue, 1 - 90 / avenue.length, lane), avenue.angle, avenue); car._lane = lane; car._cruise = 8; car.speed = 8; sim.cars.push(car); return car; });
+  advance(sim, 4);
+  assert.ok(abreast.every(car => car.speed > 6.5), `still at speed side by side: ${abreast.map(car => car.speed.toFixed(1))}`);
+  assert.ok(near(abreast.map(car => car.x), files));
+  advance(sim, 14);
+  assert.ok(abreast.every(car => car.speed < .2), 'all four stand at the red light');
+  const noses = abreast.map(car => car.z - 2.3);
+  assert.ok(noses.every(nose => nose > line - .3 && nose < line + 3.5) && Math.max(...noses) - Math.min(...noses) < .5, `noses ${noses.map(nose => nose.toFixed(1))} at a line ${line.toFixed(1)} m out`);
+  assert.ok(near(abreast.map(car => car.x), files));
+  // On green each goes its own way: the two in the middle straight on, in their lanes.
+  advance(sim, vehicleAspect(plan, 0, sim.elapsed).remaining + 12);
+  for (const lane of [1, 2]) assert.ok(abreast[lane]._edge === beyond && Math.abs(abreast[lane].x - files[lane]) < .3, 'a middle lane carries on in its lane');
+  assert.ok(abreast[0]._edge === beyond ? Math.abs(abreast[0].x - files[0]) < .3 : abreast[0].x > 6, 'the right-hand lane went on or right');
+  assert.ok(abreast[3]._edge === beyond ? Math.abs(abreast[3].x - files[3]) < .3 : abreast[3].x < -6, 'the left-hand lane went on or left');
+});
+
+test('on a street with several lanes, traffic pulls out round a car left standing in one of them', () => {
+  const sim = new Simulation(crossing());
+  const beyond = edgeInto(sim, [0, 0], [0, -400]);
+  // A car is left in the right-hand lane 150 m down the avenue, and another stands a lane over, just short of it.
+  sim.cars = sim.cars.filter(car => car.id === 'player-taxi');
+  const spot = sim._lanePoint(beyond, 150 / 400, 0), left = sim._makeCar('left', 'sedan', spot, beyond.angle);
+  const alongside = sim._makeCar('alongside', 'sedan', sim._lanePoint(beyond, 144 / 400, 1), beyond.angle);
+  const behind = sim._makeCar('behind', 'sedan', sim._lanePoint(beyond, 110 / 400, 0), beyond.angle, beyond); behind._cruise = 8; behind.speed = 8;
+  sim.cars.push(left, alongside, behind);
+  advance(sim, 9);
+  assert.ok(behind.speed < .2 && behind.z > spot.z + 4 && behind.z < spot.z + 9, 'it has stopped behind the standing car');
+  assert.ok((behind._lane || 0) === 0 && behind._held > 2, 'and stays there while the next lane is taken alongside it');
+  // That lane clears.
+  sim.cars.splice(sim.cars.indexOf(alongside), 1);
+  advance(sim, 9);
+  assert.equal(behind._lane, 1, 'with the lane clear it pulls out');
+  assert.ok(behind.z < spot.z - 8 && behind.speed > 4, `and goes by: ${(spot.z - behind.z).toFixed(0)} m past at ${behind.speed.toFixed(1)} m/s`);
+  assert.ok(Math.abs(behind.x - sim._lanePoint(beyond, .5, 1).x) < .4, 'in the next lane');
+  assert.ok(!(sim.elapsed - beyond._blockedAt < 5), 'and the street is open');
+  // With every lane stopped up there is nowhere to go: it waits, and the block is shut after all.
+  const wall = [1, 2, 3].map(lane => sim._makeCar(`left-${lane}`, 'sedan', sim._lanePoint(beyond, 250 / 400, lane), beyond.angle));
+  const row = sim._makeCar('left-0', 'sedan', sim._lanePoint(beyond, 250 / 400, 0), beyond.angle);
+  sim.cars.push(...wall, row);
+  advance(sim, 25);
+  assert.ok(behind.speed < .2 && behind._held > 4 && sim.elapsed - beyond._blockedAt < 1, 'it stands behind the row and the block is shut');
 });
 
 test('the carriageways of a boulevard share one signal plan with the street that crosses them', () => {

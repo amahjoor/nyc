@@ -1,5 +1,6 @@
 import { resetVehicleDynamics, stepVehicleDynamics, stopVehicleRotation, vehicleTravelSpeed } from './vehicle-dynamics.js';
 import { planJunction, junctionArms, vehicleAspect, stopDistance } from './signal-plan.js';
+import { laneLayout } from './lanes.js';
 
 // Simulation units are metres and seconds. A heading of zero points along +Z.
 // This module deliberately has no renderer or browser dependencies.
@@ -27,6 +28,8 @@ const TRAFFIC_JOIN = { ahead: 330, aside: 150 }, TRAFFIC_REACH = 400, TRAFFIC_ST
 const LOOKOUT = .5;
 // How long a car stands behind one that is going nowhere before the block counts as shut, and for how long after.
 const BLOCK_PATIENCE = 4, BLOCK_MEMORY = 6;
+// And how long before it pulls out into the next lane, where there is one.
+const PULL_OUT = 2;
 // Buildings do not move. A car in traffic is tested against them each time it
 // has travelled this far, and at every step while it is touching one.
 const TRAFFIC_CHECK = .25;
@@ -39,6 +42,8 @@ const GRID_SIZE = 24;
 const clamp = (value, low, high) => Math.min(high, Math.max(low, value));
 const distance = (a, b) => Math.hypot(a.x - b.x, a.z - b.z);
 const turnDelta = (from, to) => ((to - from + Math.PI) % TAU + TAU) % TAU - Math.PI;
+// A change of heading smaller than this is the same street carrying on, not a turn.
+const STRAIGHT_ON = .6;
 const emptyMission = () => ({ phase: 'idle', target: null, timeLeft: 0, totalTime: 0, reward: 0 });
 const finite = (value, fallback = 0) => Number.isFinite(value) ? value : fallback;
 const playerTravelSpeed = player => player.mode === 'drive' ? Math.hypot(player.velocityX, player.velocityZ) : Math.abs(player.speed);
@@ -173,11 +178,18 @@ function buildRoadGraph(roads) {
     return nodes[nodeKeys.get(key)];
   };
   const edges = [];
-  const addEdge = (from, to, road) => {
+  const addEdge = (from, to, road, oneWay) => {
     const length = distance(from, to);
     if (from === to || length < 0.4) return;
     const edge = { id: edges.length, from, to, road, length, angle: Math.atan2(to.x - from.x, to.z - from.z) };
     edge.lane = clamp(finite(road.width, 10) * 0.19, 0.65, 2.5);
+    // An ordinary street wide enough for it carries traffic in the lanes it
+    // is painted with (lanes.js); every other keeps to the single file above.
+    const painted = road.roadwayType === 1 && road.kind !== 'bridge' && road.kind !== 'tunnel' && road.fromLevel === 13 && road.toLevel === 13 && road.width >= 7.5;
+    const layout = painted ? laneLayout(road.width, oneWay) : null;
+    edge.lanes = layout?.driven ? layout.count : 1;
+    edge.first = edge.lanes > 1 ? layout.first : edge.lane;
+    edge.step = edge.lanes > 1 ? layout.step : 0;
     edges.push(edge);
     from.edges.push(edge);
   };
@@ -187,8 +199,9 @@ function buildRoadGraph(roads) {
     for (let i = 1; i < cuts.length; i++) {
       const a = nodeAt(segment.ax + (segment.bx - segment.ax) * cuts[i - 1], segment.az + (segment.bz - segment.az) * cuts[i - 1]);
       const b = nodeAt(segment.ax + (segment.bx - segment.ax) * cuts[i], segment.az + (segment.bz - segment.az) * cuts[i]);
-      if (oneWay !== '-1' && oneWay !== -1) addEdge(a, b, segment.road);
-      if (oneWay !== true && oneWay !== 'yes' && oneWay !== '1' && oneWay !== 1) addEdge(b, a, segment.road);
+      const forward = oneWay !== '-1' && oneWay !== -1, backward = oneWay !== true && oneWay !== 'yes' && oneWay !== '1' && oneWay !== 1;
+      if (forward) addEdge(a, b, segment.road, !backward);
+      if (backward) addEdge(b, a, segment.road, !forward);
     }
   }
   return { nodes, edges };
@@ -434,9 +447,9 @@ export class Simulation {
     for (let i = 0; i < 12 && found.length; i++) {
       let pick = this._random() * total, k = 0;
       while (k + 2 < found.length && found[k + 1] < pick) k += 2;
-      const edge = found[k], point = this._lanePoint(edge, clamp(9 / edge.length, 0.15, 0.75));
+      const edge = found[k], lane = car.type === 'police' ? 0 : Math.floor(this._random() * edge.lanes), point = this._lanePoint(edge, clamp(9 / edge.length, 0.15, 0.75), lane);
       if (this._carContact(point.x, point.z, edge.angle) || this._nearCar(point.x, point.z, 6, car.id)) continue;
-      Object.assign(car, { x: point.x, z: point.z, y: undefined, transportId: null, angle: edge.angle, speed: car._cruise * 0.6, _edge: edge, _route: [], _stuckTime: 0, _steering: 0, _shiftHold: 0, _halted: null, _held: 0 });
+      Object.assign(car, { x: point.x, z: point.z, y: undefined, transportId: null, angle: edge.angle, speed: car._cruise * 0.6, _edge: edge, _lane: lane, _route: [], _stuckTime: 0, _steering: 0, _shiftHold: 0, _halted: null, _held: 0 });
       resetVehicleDynamics(car, car.speed);
       // What comes round the corner next need not be what left.
       if (car.type !== 'police') this._styleTraffic(car);
@@ -720,10 +733,23 @@ export class Simulation {
     return this._resolvePosition(x, z, radius);
   }
 
-  _lanePoint(edge, fraction) {
+  _lanePoint(edge, fraction, lane = 0) {
     // Heading zero faces +Z; the driver's right is -X, not +X. Both road
     // directions therefore occupy their own right-hand lane in NYC traffic.
-    return { x: edge.from.x + (edge.to.x - edge.from.x) * fraction - Math.cos(edge.angle) * edge.lane, z: edge.from.z + (edge.to.z - edge.from.z) * fraction + Math.sin(edge.angle) * edge.lane };
+    // A street with several lanes has them where they are painted: lane 0
+    // the right-hand one of a one-way street, or the one beside the centreline.
+    const offset = edge.lanes > 1 ? edge.first + edge.step * Math.min(lane, edge.lanes - 1) : edge.lane;
+    return { x: edge.from.x + (edge.to.x - edge.from.x) * fraction - Math.cos(edge.angle) * offset, z: edge.from.z + (edge.to.z - edge.from.z) * fraction + Math.sin(edge.angle) * offset };
+  }
+
+  /** The lane a car in `lane` of `edge` takes on going into `next`. */
+  _laneOnto(edge, next, lane) {
+    const turn = turnDelta(edge.angle, next.angle), lanes = next.lanes || 1;
+    // Straight on: the same lane, or the nearest there is.
+    if (Math.abs(turn) < STRAIGHT_ON) return Math.min(lane, lanes - 1);
+    // Round a corner: into the near lane, the right-hand one after a right turn.
+    // Lanes count leftward on a one-way street and rightward on a two-way one.
+    return (next.step < 0) === (turn < 0) ? 0 : lanes - 1;
   }
 
   _makeCar(id, type, point, angle, edge = null) {
@@ -1105,6 +1131,14 @@ export class Simulation {
     // Nobody turns into a block that a standing car has shut, if there is another way.
     const open = options.filter(option => !(this.elapsed - option._blockedAt < BLOCK_MEMORY));
     if (open.length) options = open;
+    // Where there are several lanes a turn is made from the lane on that side,
+    // and the lanes between carry on. A patrol goes where it likes.
+    if (edge.lanes > 1 && car.type !== 'police') {
+      const lane = Math.min(car._lane || 0, edge.lanes - 1), last = lane === edge.lanes - 1;
+      const right = edge.step < 0 ? lane === 0 : last, left = edge.step < 0 ? last : lane === 0;
+      const lawful = options.filter(option => { const turn = turnDelta(edge.angle, option.angle); return Math.abs(turn) < STRAIGHT_ON || (turn < 0 ? right : left); });
+      if (lawful.length) options = lawful;
+    }
     let total = 0;
     const weighted = options.map(option => {
       const turn = Math.abs(turnDelta(edge.angle, option.angle));
@@ -1146,8 +1180,8 @@ export class Simulation {
     if (!car._edge) return;
     car.siren = car.type === 'police' && this.heat > 0.05;
     car._wait = Math.max(0, car._wait - dt);
-    let edge = car._edge;
-    let start = this._lanePoint(edge, 0), end = this._lanePoint(edge, 1);
+    let edge = car._edge, lane = car._lane || 0;
+    let start = this._lanePoint(edge, 0, lane), end = this._lanePoint(edge, 1, lane);
     let projection = closestOnSegment(car.x, car.z, start.x, start.z, end.x, end.z);
     if (this._atBoundary(edge.to) && distance(car, end) < 7) {
       if (!this._recycleTraffic(car)) car.speed = Math.max(0, car.speed - 16 * dt);
@@ -1156,8 +1190,9 @@ export class Simulation {
     if ((projection.t > 0.96 && distance(car, end) < 5) || distance(car, end) < 2.8) {
       const next = this._pickNextEdge(car);
       if (next) {
+        lane = car._lane = this._laneOnto(edge, next, lane);
         edge = car._edge = next;
-        start = this._lanePoint(edge, 0); end = this._lanePoint(edge, 1);
+        start = this._lanePoint(edge, 0, lane); end = this._lanePoint(edge, 1, lane);
         projection = closestOnSegment(car.x, car.z, start.x, start.z, end.x, end.z);
       } else {
         // A clipped one-way street can end at the map boundary. Keep its car
@@ -1168,7 +1203,7 @@ export class Simulation {
       }
     }
     const lookAhead = Math.max(3.5, Math.abs(car.speed) * 0.7);
-    const target = this._lanePoint(edge, clamp(projection.t + lookAhead / edge.length, 0, 1));
+    const target = this._lanePoint(edge, clamp(projection.t + lookAhead / edge.length, 0, 1), lane);
     const desiredAngle = Math.atan2(target.x - car.x, target.z - car.z);
     const delta = turnDelta(car.angle, desiredAngle);
     car.angle += clamp(delta, -1.9 * dt, 1.9 * dt);
@@ -1219,6 +1254,23 @@ export class Simulation {
     // the block: others turn off before it.
     const shut = car.speed < .3 && (afoot || (leader && (leader.parked || (leader.controlled && Math.abs(leader.speed) < .5) || leader._held > BLOCK_PATIENCE)));
     car._held = shut ? (car._held || 0) + dt : 0;
+    // Where there is another lane, it pulls out into it as soon as there is a gap.
+    if (car._held > PULL_OUT && edge.lanes > 1 && !car.siren) {
+      const forward = Math.sin(edge.angle), sideways = Math.cos(edge.angle);
+      for (const to of [lane + 1, lane - 1]) {
+        if (to < 0 || to >= edge.lanes) continue;
+        // How far to the driver's right the other lane is, and whether anyone is in it alongside.
+        const shift = edge.step * (to - lane);
+        let clear = true;
+        for (const other of this.cars) {
+          if (other === car) continue;
+          const dx = other.x - car.x, dz = other.z - car.z, ahead = dx * forward + dz * sideways;
+          if (ahead > 10 || ahead < -8 - 1.2 * Math.abs(other.speed)) continue;
+          if (Math.abs(-dx * sideways + dz * forward - shift) < 2.2) { clear = false; break; }
+        }
+        if (clear) { car._lane = to; car._held = 0; break; }
+      }
+    }
     if (car._held > BLOCK_PATIENCE) edge._blockedAt = this.elapsed;
     for (const walker of this._walkers || []) {
       const dx = walker.x - car.x, dz = walker.z - car.z;
@@ -1242,7 +1294,7 @@ export class Simulation {
     if (car._stuckTime > 3 && Math.hypot(car.x - beforeX, car.z - beforeZ) < 0.015) {
       // Rejoin the same legal lane when a tight imported corner traps a patrol.
       // Recovery is constrained to a nearby clear point, never through a block.
-      const rejoin = this._lanePoint(edge, clamp(projection.t + 3 / edge.length, 0.08, 0.92));
+      const rejoin = this._lanePoint(edge, clamp(projection.t + 3 / edge.length, 0.08, 0.92), lane);
       if (distance(car, rejoin) < 5 && !this._unsupportedDeckExit(car, rejoin.x, rejoin.z, 'drive') && !this._carContact(rejoin.x, rejoin.z, edge.angle) && !this._nearCar(rejoin.x, rejoin.z, 3, car.id)) {
         car.x = rejoin.x; car.z = rejoin.z; car.angle = edge.angle;
       }

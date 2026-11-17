@@ -6,6 +6,7 @@ import { convertRows, convertFeatures, convertTrees, cellQuery, layerQuery, tree
   ROAD_LIFT, SIDEWALK_LIFT, KERB_HEIGHT, DATASETS, LAYERS, PLANIMETRIC_SERVICE, TREE_DATASET, STREET_SERVICE } from '../dist/streetscape.js';
 import { worldToGeographic } from '../dist/city-ground.js';
 import { Simulation } from '../dist/simulation.js';
+import { laneLayout } from '../dist/lanes.js';
 
 const read = path => JSON.parse(readFileSync(new URL(`../dist/${path}`, import.meta.url), 'utf8'));
 const index = read('street-detail-index.json'), roadIndex = read('road-index.json');
@@ -325,6 +326,33 @@ test('kerbside parking is offered only clear of the traffic lane, corners and cr
   assert.equal(new Set(built.parking.map(space => space.id)).size, built.parking.length);
   // The two-way street is too narrow to park beside its lanes.
   assert.ok(!built.parking.some(space => Math.abs(space.x) < 5));
+});
+
+test('a street wide enough for several lanes has parked cars at both kerbs, clear of the lane beside them', async () => {
+  // Fourteen metres, one way: traffic runs three abreast between the parking lanes.
+  const surfaces = [
+    { id: 'road', kind: 'roadbed', subtype: 'roadbed', polygon: [[-90, -7], [90, -7], [90, 7], [-90, 7]], holes: [] },
+    { id: 'north', kind: 'sidewalk', subtype: 'right-of-way sidewalk', polygon: [[-90, -11], [90, -11], [90, -7], [-90, -7]], holes: [] },
+    { id: 'south', kind: 'sidewalk', subtype: 'right-of-way sidewalk', polygon: [[-90, 7], [90, 7], [90, 11], [-90, 11]], holes: [] },
+  ];
+  const avenue = { id: 'ave', name: 'BROOME ST', points: [[-90, 0], [90, 0]], width: 14, oneway: 'yes', kind: 'residential', roadwayType: 1, fromLevel: 13, toLevel: 13 };
+  const layout = laneLayout(14, true);
+  assert.ok(layout.driven && layout.count === 3);
+  const built = await buildCell(surfaces, [avenue], { heightAt: () => 0 });
+  const north = built.parking.filter(space => space.z < 0), south = built.parking.filter(space => space.z > 0);
+  assert.ok(north.length >= 12 && south.length >= 12, `${north.length} spaces on one kerb, ${south.length} on the other`);
+  for (const space of built.parking) {
+    assert.ok(Math.abs(Math.abs(space.z) - (7 - 1.28)) < .05, 'a car\'s half width and a little from the kerb');
+    assert.ok(Math.abs(space.z) - layout.first >= 2.1, 'and clear of the file in the lane beside it');
+    assert.ok(Math.abs(Math.sin(space.angle) - 1) < 1e-9, 'facing the way the street runs');
+  }
+  // Carrying traffic both ways it has a single file each way, with room to park beside each.
+  const twoWay = await buildCell(surfaces, [{ ...avenue, oneway: false }], { heightAt: () => 0 });
+  assert.equal(laneLayout(14, false).driven, false);
+  assert.ok(twoWay.parking.filter(space => space.z < 0).length >= 12 && twoWay.parking.filter(space => space.z > 0).length >= 12);
+  // Where the roadway is a metre narrower than the street is said to be, no car is parked in what is a moving lane.
+  const pinched = surfaces.map(surface => surface.id === 'road' ? { ...surface, polygon: [[-90, -6.4], [90, -6.4], [90, 6.4], [-90, 6.4]] } : surface);
+  assert.equal((await buildCell(pinched, [avenue], { heightAt: () => 0 })).parking.length, 0, 'no car is parked where it would stand in a moving lane');
 });
 
 test('in surveyed SoHo the kerbs fill with parked cars and traffic passes them untouched', async () => {
