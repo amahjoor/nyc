@@ -1,6 +1,6 @@
 # NYC game and street reference pipeline
 
-The playable prototype is in [`game/`](game/README.md). Run `cd game && npm run dev`, then open http://localhost:5173 to walk and drive through the SoHo neighborhood. The reference tools below remain available for future scouting passes.
+The playable prototype is in [`game/`](game/README.md). Run `cd game && npm run dev`, then open http://localhost:5173 to walk and drive through all five boroughs, by day or night. The reference tools below remain available for future scouting passes.
 
 Plan a SoHo scouting pass from OpenStreetMap roads, open each viewpoint in Google's official Street View viewer, record observations, and export a notebook for the city build. Python 3.9+; no dependencies, API key, or paid API calls.
 
