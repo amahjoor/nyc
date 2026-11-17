@@ -344,6 +344,9 @@ export class Simulation {
     }
   }
 
+  /** People in the roadway, as { x, z }. Traffic slows and stops for them. */
+  setWalkers(walkers = []) { this._walkers = walkers; }
+
   _rebindTraffic() {
     for (const car of this.cars) {
       const wasTraffic = !car.parked || car._streamParked;
@@ -1065,6 +1068,13 @@ export class Simulation {
       const along = dx * Math.sin(car.angle) + dz * Math.cos(car.angle);
       const across = Math.abs(dx * Math.cos(car.angle) - dz * Math.sin(car.angle));
       if (along > 0 && along < 9 && across < 2.2) desiredSpeed = Math.min(desiredSpeed, Math.max(0, (along - 3.8) * 1.2));
+    }
+    for (const walker of this._walkers || []) {
+      const dx = walker.x - car.x, dz = walker.z - car.z;
+      if (Math.abs(dx) > 14 || Math.abs(dz) > 14) continue;
+      const along = dx * Math.sin(car.angle) + dz * Math.cos(car.angle);
+      const across = Math.abs(dx * Math.cos(car.angle) - dz * Math.sin(car.angle));
+      if (along > 0 && along < 11 && across < 2.4) desiredSpeed = Math.min(desiredSpeed, Math.max(0, (along - 4.2) * 1.2));
     }
     car.speed += (desiredSpeed - car.speed) * (1 - Math.exp(-2.8 * dt));
     const beforeX = car.x, beforeZ = car.z;

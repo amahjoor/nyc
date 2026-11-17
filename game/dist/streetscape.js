@@ -355,7 +355,7 @@ function paint(writer, heightAt, ax, az, bx, bz, width, color) {
  */
 export async function buildCell(surfaces, roads, { heightAt = () => 0, bounds = null, pause = async () => {}, excluded = null, census = null } = {}) {
   const road = new MeshWriter(), walk = new MeshWriter(3), marks = new MeshWriter(3);
-  const grid = new SurfaceGrid(), lamps = [], entries = [], trees = [], planted = [], kerbs = [], parking = [];
+  const grid = new SurfaceGrid(), lamps = [], entries = [], trees = [], planted = [], kerbs = [], parking = [], walks = [];
   const sample = (x, z) => { const value = heightAt(x, z); return finite(value) ? value : 0; };
   const owned = surface => {
     if (!bounds) return true;
@@ -431,7 +431,12 @@ export async function buildCell(surfaces, roads, { heightAt = () => 0, bounds = 
       let sinceLamp = 18 + (ring.length * 7.3) % 20, run = null;
       // The survey puts a vertex every twenty feet, so a kerb is a run of
       // short edges: it lasts until the kerb ends or turns a corner.
-      const endRun = () => { if (run && run.length >= 2 * PARKING_END) kerbs.push(run); run = null; };
+      const endRun = () => {
+        if (run && run.length >= 2 * PARKING_END) kerbs.push(run);
+        // People walk every stretch of kerb, down to the turn of a corner.
+        if (run && run.length >= 2) walks.push(run);
+        run = null;
+      };
       for (let i = 0; i < ring.length; i++) {
         const a = ring[i], b = ring[(i + 1) % ring.length], dx = b[0] - a[0], dz = b[1] - a[1], length = Math.hypot(dx, dz);
         if (length < .02) continue;
@@ -638,7 +643,19 @@ export async function buildCell(surfaces, roads, { heightAt = () => 0, bounds = 
     if (under?.road || (!census && lamps.some(lamp => Math.hypot(lamp.x - tree.x, lamp.z - tree.z) < 3.5))) continue;
     trees.push({ ...tree, y: sample(tree.x, tree.z) + (under?.raised ? SIDEWALK_LIFT : under ? ROAD_LIFT : 0) });
   }
-  return { road, walk, marks, grid, lamps, trees, parking, surfaces: drawn };
+  // --- Where people walk ----------------------------------------------------------
+  // Each stretch of sidewalk kerb, with how far in from the kerb the sidewalk
+  // reaches at its middle and the distance along it to each of its points.
+  for (const run of walks) {
+    run.lengths = [0];
+    for (let i = 1; i < run.points.length; i++) run.lengths.push(run.lengths[i - 1] + Math.hypot(run.points[i][0] - run.points[i - 1][0], run.points[i][1] - run.points[i - 1][1]));
+    const middle = Math.min(run.normals.length - 1, run.points.length >> 1), [mx, mz] = run.points[middle], [nx, nz] = run.normals[Math.max(0, middle - 1)];
+    run.depth = .6;
+    for (const reach of [1, 2, 3.2, 4.5]) { if (!grid.find(mx - nx * reach, mz - nz * reach, isRaised)) break; run.depth = reach; }
+    const first = run.points[0], last = run.points.at(-1);
+    run.id = `walk:${Math.round(first[0] * 2)}:${Math.round(first[1] * 2)}:${Math.round(last[0] * 2)}:${Math.round(last[1] * 2)}`;
+  }
+  return { road, walk, marks, grid, lamps, trees, parking, walks, surfaces: drawn };
 }
 
 // --- Materials ------------------------------------------------------------------
@@ -765,7 +782,7 @@ export function createStreetscape({ scene, index = null, origin = CITY_ORIGIN, h
   const materials = { road: asphaltMaterial(), walk: pavementMaterial(), marks: paintMaterial() };
   const cells = new Map();
   let wanted = new Set(), disposed = false, serial = 0, terrainRevision = 0, selection = '', active = 0, replacement = null;
-  let lampList = [], treeList = [], parkingList = [], lampsStale = true, treesStale = true, parkingStale = true;
+  let lampList = [], treeList = [], parkingList = [], walkList = [], lampsStale = true, treesStale = true, parkingStale = true, walksStale = true;
   const excluded = surface => replacement && surface.polygon.some(([x, z]) => x >= replacement.minX && x <= replacement.maxX && z >= replacement.minZ && z <= replacement.maxZ);
   // Counts describe the cells in use around the player, not everything cached.
   const status = () => {
@@ -779,7 +796,7 @@ export function createStreetscape({ scene, index = null, origin = CITY_ORIGIN, h
 
   function release(cell) {
     for (const mesh of cell.meshes || []) { group.remove(mesh); mesh.geometry.dispose(); }
-    cell.meshes = null; cell.grid = null; cell.lamps = null; cell.trees = null; cell.parking = null; cell.ready = false; lampsStale = treesStale = parkingStale = true;
+    cell.meshes = null; cell.grid = null; cell.lamps = null; cell.trees = null; cell.parking = null; cell.walks = null; cell.ready = false; lampsStale = treesStale = parkingStale = walksStale = true;
   }
   function install(cell, built) {
     release(cell);
@@ -790,8 +807,8 @@ export function createStreetscape({ scene, index = null, origin = CITY_ORIGIN, h
       mesh.name = `Street ${name} ${cell.key}`; mesh.receiveShadow = true; mesh.castShadow = name === 'walk'; mesh.renderOrder = order;
       group.add(mesh); cell.meshes.push(mesh);
     }
-    cell.grid = built.grid; cell.lamps = built.lamps; cell.trees = built.trees; cell.parking = built.parking; cell.surfaces = built.surfaces; cell.ready = true; cell.revision = terrainRevision;
-    lampsStale = treesStale = parkingStale = true;
+    cell.grid = built.grid; cell.lamps = built.lamps; cell.trees = built.trees; cell.parking = built.parking; cell.walks = built.walks; cell.surfaces = built.surfaces; cell.ready = true; cell.revision = terrainRevision;
+    lampsStale = treesStale = parkingStale = walksStale = true;
   }
   async function load(cell) {
     cell.loading = true; cell.failed = false; active++;
@@ -868,7 +885,7 @@ export function createStreetscape({ scene, index = null, origin = CITY_ORIGIN, h
           for (const mesh of cell.meshes || []) mesh.visible = keep;
           if (!keep && cell.loading) { cell.controller?.abort(); cell.controller = null; cell.loading = false; }
         }
-        lampsStale = treesStale = parkingStale = true;
+        lampsStale = treesStale = parkingStale = walksStale = true;
         trim(); report();
       }
       if (!overview) pump();
@@ -903,6 +920,14 @@ export function createStreetscape({ scene, index = null, origin = CITY_ORIGIN, h
       return lampList;
     },
     /** Kerbside parking spaces ({ id, x, z, angle, fill }) for the cells in use; the same array until they change. */
+    /** Stretches of sidewalk kerb to walk along, for the cells in use; the same array until they change. */
+    walks() {
+      if (walksStale) {
+        walkList = []; walksStale = false;
+        for (const key of wanted) { const cell = cells.get(key); if (cell?.walks) walkList.push(...cell.walks); }
+      }
+      return walkList;
+    },
     parking() {
       if (parkingStale) {
         parkingList = []; parkingStale = false;
