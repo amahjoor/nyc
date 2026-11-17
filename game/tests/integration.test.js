@@ -28,6 +28,11 @@ import { createCityLife, manhattanCore } from '../dist/citylife.js';
 import { createStreetSigns } from '../dist/street-signs.js';
 import { createCrowd } from '../dist/crowd.js';
 import { createStreetProps } from '../dist/street-props.js';
+import { createPlaceSource, indexFootprints, solveFrontages } from '../dist/places.js';
+import { createStorefronts } from '../dist/storefronts.js';
+import { createPhone, describePlace } from '../dist/phone.js';
+import { createFleet } from '../dist/fleet.js';
+import { offersAt } from '../dist/garage.js';
 
 // This is application integration QA, not a browser/GPU rendering test. The
 // actual city geometry, physics, input and HUD run; browser primitives are fake.
@@ -256,7 +261,7 @@ async function bootHarness({ stored = null, displayStored = null, unavailableSto
     },
     updateChaseHeight, createCityGround, worldToGeographic, createRoadStream, nearestStreet, localDestinations, createCityNavigation,
     createStreetDetail:(manifest,options)=>createStreetDetail(manifest,{...options,now:()=>timestamp}),
-    Landscape, RoadPilot, AbortSignal, createGraphics, createStreetLife, createWater, setVehicleLamps, createCityLife, manhattanCore, createStreetSigns, createCrowd, createStreetProps,
+    Landscape, RoadPilot, AbortSignal, createGraphics, createStreetLife, createWater, setVehicleLamps, createCityLife, manhattanCore, createStreetSigns, createCrowd, createStreetProps, createPlaceSource, indexFootprints, solveFrontages, createStorefronts, createPhone, describePlace, createFleet, offersAt,
     // Bundled survey cells only: these tests stay offline.
     createStreetscape:options=>createStreetscape({...options,live:false,now:()=>timestamp}),
     console: { error: error => errors.push(error), warn: () => {}, log: () => {} },
@@ -269,7 +274,7 @@ async function bootHarness({ stored = null, displayStored = null, unavailableSto
     },
   });
   function close() {
-    vm.runInContext('if(typeof gameMap!=="undefined")gameMap?.dispose?.();if(typeof navigation!=="undefined")navigation?.dispose?.();if(typeof roadPilot!=="undefined")roadPilot?.dispose();landscape?.dispose();streetDetail?.dispose();streetscape?.dispose();streetLife?.dispose();parkedCars?.dispose();distantTraffic?.dispose();signs?.dispose();crowd?.dispose();props?.dispose();water?.dispose();world?.dispose();ground?.dispose();gfx?.dispose();',context);
+    vm.runInContext('if(typeof gameMap!=="undefined")gameMap?.dispose?.();if(typeof navigation!=="undefined")navigation?.dispose?.();if(typeof roadPilot!=="undefined")roadPilot?.dispose();landscape?.dispose();streetDetail?.dispose();streetscape?.dispose();streetLife?.dispose();parkedCars?.dispose();distantTraffic?.dispose();signs?.dispose();crowd?.dispose();props?.dispose();storefronts?.dispose();water?.dispose();world?.dispose();ground?.dispose();gfx?.dispose();',context);
     for (const [key, descriptor] of original) {
       if (descriptor) Object.defineProperty(globalThis, key, descriptor);
       else delete globalThis[key];

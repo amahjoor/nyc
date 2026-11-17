@@ -9,7 +9,7 @@ export class Input {
     this._pointerLookEnabled = true;
     this.padButtons = [];
     this.action = action;
-    const actions = {KeyE:'interact',KeyN:'job',KeyR:'recover',KeyC:'camera',KeyV:'view',KeyM:'map',KeyH:'horn',KeyT:'time',Escape:'pause'};
+    const actions = {KeyE:'interact',KeyN:'job',KeyR:'recover',KeyC:'camera',KeyV:'view',KeyM:'map',KeyP:'phone',KeyG:'shop',KeyH:'horn',KeyT:'time',Escape:'pause'};
     window.addEventListener('keydown', e => {
       if (['INPUT','TEXTAREA','SELECT'].includes(e.target.tagName)) return;
       if (e.code.startsWith('Arrow') || e.code === 'Space') e.preventDefault();

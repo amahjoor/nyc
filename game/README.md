@@ -27,6 +27,8 @@ Press **M** or **MAP** for a street map centered on your neighborhood. Gameplay 
 
 On the street, press **E** to enter the nearby yellow taxi, then **N** to take a delivery. Stop inside the orange destination ring before the timer expires. Earnings and completed delivery count save in browser storage on this device. Sound starts muted; enable it with the top-right button.
 
+Press **P** or **PHONE** to take out your phone. **Nearby** lists the restaurants, shops, salons, garages and public buildings within about 700 m, nearest first: narrow it by category or type part of a name. Each shows how far it is, whether it is open now and, for a restaurant, its inspection grade; **Directions** sets route guidance to it. **Contacts** has the dispatcher, who gives you the next delivery, and **Wallet** your cash and record. On foot, standing at a shop front shows what it is above the controls. Deliveries go to named places as well as to streets: the drop is at the kerb in front of the door.
+
 Choose **Explore road pilot** in the city view to visit the reconstructed Meadow Lake road and parking loop. Walk to the waiting cab and press **E**. While nearby, **Show aerial / Show reconstruction** compares the original photograph with source-sampled pavement and reviewed paint. Both modes share the same measured driving surface. The patch loads only when visited; the rest of NYC keeps its existing rendering.
 
 | Action | Keyboard | Controller |
@@ -106,8 +108,10 @@ Earlier versions showed only what a source could vouch for, which left bare grey
 | Beyond the city | Coarse land outline and height from public elevation tiles | A plain lit silhouette. No buildings, roads or imagery; New Jersey's skyline is absent |
 | Signals and signs | The 6,787 signals that give pedestrians a head start, and the 734 where all traffic stops for them; street names and one-way directions | Which other junctions have signals or stop signs (from street widths), every cycle length and split, and where each pole stands |
 | People | How many DOT counted an hour on 114 sidewalks, morning and evening | Everyone. Numbers elsewhere, the shape of the day, what people wear and where they walk are a model |
+| Cars | How many passenger cars of each body type are registered in each ZIP code, and of each colour citywide | The eight body shapes, how "suburbans" and greys are split, and how each body drives |
 | Traffic | Each street's width and direction | How much there is by hour and district, the share of it that is cabs, and the lanes it keeps to |
 | Baskets and shelters | The position of each of 20,211 litter baskets and 3,307 bus shelters | Their design; each is moved onto the nearest kerb |
+| Shops and restaurants | What is at each address, its trade name, a restaurant's inspection grade and a food store's floor area, for 74,844 places | Which wall of the building is its front, how wide that is, the sign's colours and second line, and its opening hours |
 
 Cars are lofted from a side profile in `vehicle-model.js` (sedan, SUV and van, with taxi and police liveries), and walkers are simple rounded figures. They are game pieces, not models of particular vehicles or people.
 
@@ -134,6 +138,22 @@ Simulated traffic stops at red lights and stop signs; patrols with their sirens 
 Traffic further than about 50 m from the player is drawn together, as parked cars are, and does not show turning wheels; nearer cars, patrols and the player's own car each have a model with wheels that roll and steer.
 
 **Baskets and shelters.** `street-props.js` stands each litter basket and bus shelter from the city's inventories on the nearest surveyed kerb. One with no kerb within reach is left out.
+
+## Places and shop fronts
+
+`scripts/build-places.mjs` gathers what is at each address from seven public registers and bundles it by the square kilometre under `dist/places/` (74,844 places in 919 cells, 3.3 MB): restaurants with their cuisine and inspection grade, food stores with their floor area, hair and nail salons and barbers, bars and liquor stores, garages, body shops and car dealers, hotels, and schools, libraries, firehouses and other public buildings. `places.js` sorts them into 68 kinds. The same business in two registers (a restaurant and its liquor licence) is kept once.
+
+A sign carries the name the place trades under. Where a register holds only the name of whoever has the licence, the game does not show it: the sign says what kind of place it is ("BARBER SHOP").
+
+Each place near the player is given a street front: the stretch of its building's wall, facing a street, nearest the point the register puts it at. `storefronts.js` then tells the facade shader whose each shop front is, through a map of the ground a metre to the texel, a table of sign colours and an atlas of lettering for the nearest seventy or so. A shop front that belongs to a place takes its name, colours its kind is usually seen in (a yellow or red awning for a bodega, pink for a nail salon), a second line saying what it sells, the health department's grade card in the window of a restaurant, a turning pole beside a barber's door and OPEN in neon in a bar's window. It is lit or shuttered by the hours that kind of place keeps. A building with no shop fronts of its own gets one where a place is registered.
+
+Shop fronts that belong to no registered place stay as they were, anonymous. The registers do not cover clothes shops, banks, laundromats, pharmacies without a beer licence or offices, so most of Fifth Avenue is still unnamed.
+
+## Cars and garages
+
+`scripts/build-fleet.mjs` counts the 1,785,865 passenger cars registered in the five boroughs by ZIP code and body type, and by colour for the city as a whole (`dist/fleet.json`, 11 KB). `fleet.js` turns the counts for the ZIP code the player is in into the mix that parked cars and traffic are drawn from: SoHo's 10012 is seven in ten what the register calls suburbans. There are eight bodies (sedan, sport utility, hatchback, estate, minivan, coupe, pickup, van). The register's "suburban" covers everything with a tailgate, and it has no code for silver; how those are split is the game's. One car in seven in traffic is a van or a pickup at work, whoever lives there.
+
+Each body drives differently (`garage.js`): a coupe pulls harder and tops out at 75 mph, a van at 57. Stop outside an auto repair shop or a body shop from the places register while it is open and press **G** for its counter. A repair shop mends the car and fits an engine, brakes and tyres in three stages each; a body shop mends and resprays. On the phone, the mechanic comes out to the car you are in for $90 on top of the repair, and your own cab can be brought to the nearest street for $60. The cab's parts and paint are saved with your earnings. Prices and handling figures are the game's.
 
 ## Landscape reconstruction
 
@@ -197,6 +217,8 @@ The full map is available to render and explore, but this is a historical city m
 | Street map and routes | `dist/navigation-roads.json`, `dist/route-planner.js`, `dist/game-map.js`, `scripts/build-navigation-data.mjs` | Losslessly packed existing NYC CSCL road tiles with source hashes; no external routing provider |
 | Street surfaces, citywide | `dist/streetscape.js`, requested per 500 m cell | NYC OTI 2022 planimetrics through NYC Open Data: [roadbeds](https://data.cityofnewyork.us/d/i36f-5ih7), [sidewalks](https://data.cityofnewyork.us/d/52n9-sdep). Medians, plazas and parking lots come from the same survey through NYC OTI's map service (`Median_2022`, `Plaza_2022`, `Parking_Lot_2022` at `services6.arcgis.com/yG5s3afENB5iO9fj`) |
 | Signals, sidewalk counts, baskets and shelters | `dist/street-life.json`, `scripts/build-street-life.mjs` | NYC Open Data: [leading pedestrian interval signals](https://data.cityofnewyork.us/d/xc4v-ntf4), [exclusive pedestrian signals](https://data.cityofnewyork.us/d/8kuj-2n3u), [bi-annual pedestrian counts](https://data.cityofnewyork.us/d/cqsj-cfgu), [bus stop shelters](https://data.cityofnewyork.us/d/t4f2-8md7), [DSNY litter baskets](https://data.cityofnewyork.us/d/8znf-7b2c) |
+| Places | `dist/places-index.json`, `dist/places/`, `scripts/build-places.mjs` | NYC Open Data: [restaurant inspections](https://data.cityofnewyork.us/d/43nn-pn8j), [legally operating businesses](https://data.cityofnewyork.us/d/w7w3-xahh), [facilities database](https://data.cityofnewyork.us/d/ji82-xba5). New York State Open Data: [retail food stores](https://data.ny.gov/d/9a8c-vfzj), [appearance enhancement and barber businesses](https://data.ny.gov/d/y3u4-jbgh), [liquor authority licences](https://data.ny.gov/d/9s3h-dpkz), [DMV-licensed facilities](https://data.ny.gov/d/nhjr-rpi2) |
+| Cars | `dist/fleet.json`, `scripts/build-fleet.mjs` | New York State Open Data: [vehicle, snowmobile and boat registrations](https://data.ny.gov/d/w4pv-hbkt); ZIP code positions from the restaurant inspections above |
 | Street trees | `dist/streetscape.js`, requested per cell | [2015 Street Tree Census](https://data.cityofnewyork.us/d/uvpi-gqnh), NYC Parks |
 | Land around the city | `dist/context-land.json`, `dist/assets/context/land.png`, `scripts/build-context-land.mjs` | [Terrain Tiles](https://registry.opendata.aws/terrain-tiles/) (Mapzen; USGS 3DEP, SRTM, ETOPO1 and other public sources), sampled to a 100 m silhouette |
 | Surveyed pavement and transport | `dist/street-detail-index.json`, `dist/street-detail/`, `scripts/import-street-detail.py` | NYC OTI 2022 planimetrics: [roadbeds](https://data.cityofnewyork.us/d/i36f-5ih7), [sidewalks](https://data.cityofnewyork.us/d/52n9-sdep), [curbs](https://data.cityofnewyork.us/d/5xvt-8cbk), [parking lots](https://services6.arcgis.com/yG5s3afENB5iO9fj/arcgis/rest/services/Parking_Lot_2022/FeatureServer/13), [transport structures](https://services6.arcgis.com/yG5s3afENB5iO9fj/arcgis/rest/services/Transport_Structure_2022/FeatureServer/25), [capture rules](https://github.com/CityOfNewYork/nyc-planimetrics/blob/main/Capture_Rules.md) |
@@ -223,12 +245,24 @@ npm test
 python3 -m unittest discover -s tests -p 'test_*.py' -v
 ```
 
-The simulation tests include variable display frame rates, collision tunneling, car entry/exit, mission rewards, police escape, city streaming, safe travel and progress preservation. Rendering tests cover the sun's path and lighting states, the shader chunk extensions, building type selection and wall layout on real survey tiles, street construction from outlines, kerbside parking on the real SoHo outlines (no two spaces overlap, and traffic runs exactly as it does past empty kerbs), shoreline masks, vehicle bodies and street furniture. Street-life tests cover signal timing (a cycle is whole, two streets are never green together, the wave down an avenue moves at 25 mph, the flashing hand lasts long enough to cross), traffic stopping at red lights and stop signs, what running a red costs, traffic gathering round the player without appearing or vanishing in view, the lane layout the paint, the parked cars and the traffic share, turns from the proper lane, pulling out round a standing car, the bundled city lists and the footfall model against the counts it is built on, where signal hardware stands and that its lamps show what the plan says, and a crowd that fills to the modelled density, keeps to the sidewalk and waits for the walk signal. Data tests check all five boroughs, actual I3S fixtures, coordinate projection, courtyards, cache limits, cancellation, retry timing and safe arrival. The complete coarse hierarchy and representative detailed chunks have also been decoded from the live source. The importer tests require the optional dependencies in `scripts/requirements-survey.txt`; install these in a Python virtual environment to include source conversion tests. Plain Python runs artifact checks and skips conversion tests when dependencies are absent. Integration and geometry tests use mocked DOM/canvas/WebGL surfaces; they do not compile a shader or draw a pixel. What the game looks like, and its frame rate, were checked by hand in Chromium on a GeForce GTX 1660 while this renderer was written: 60 frames a second at 1600 × 900 with vertical sync, with occasional longer frames as new districts load.
+The simulation tests include variable display frame rates, collision tunneling, car entry/exit, mission rewards, police escape, city streaming, safe travel and progress preservation. Rendering tests cover the sun's path and lighting states, the shader chunk extensions, building type selection and wall layout on real survey tiles, street construction from outlines, kerbside parking on the real SoHo outlines (no two spaces overlap, and traffic runs exactly as it does past empty kerbs), shoreline masks, vehicle bodies and street furniture. Car tests cover the eight bodies as closed solids, the fleet mix by ZIP code, cars drawn from it in traffic and at the kerb, handling by body, and every garage, mechanic and phone action. Place tests cover the kinds and how the registers' categories fall into them, trade names against licensees' names, merging two registers' entries for one business, every bundled cell, finding a place's street front, and the map, table and lettering the shader reads. Street-life tests cover signal timing (a cycle is whole, two streets are never green together, the wave down an avenue moves at 25 mph, the flashing hand lasts long enough to cross), traffic stopping at red lights and stop signs, what running a red costs, traffic gathering round the player without appearing or vanishing in view, the lane layout the paint, the parked cars and the traffic share, turns from the proper lane, pulling out round a standing car, the bundled city lists and the footfall model against the counts it is built on, where signal hardware stands and that its lamps show what the plan says, and a crowd that fills to the modelled density, keeps to the sidewalk and waits for the walk signal. Data tests check all five boroughs, actual I3S fixtures, coordinate projection, courtyards, cache limits, cancellation, retry timing and safe arrival. The complete coarse hierarchy and representative detailed chunks have also been decoded from the live source. The importer tests require the optional dependencies in `scripts/requirements-survey.txt`; install these in a Python virtual environment to include source conversion tests. Plain Python runs artifact checks and skips conversion tests when dependencies are absent. Integration and geometry tests use mocked DOM/canvas/WebGL surfaces; they do not compile a shader or draw a pixel. What the game looks like, and its frame rate, were checked by hand in Chromium on a GeForce GTX 1660 while this renderer was written: 60 frames a second at 1600 × 900 with vertical sync, with occasional longer frames as new districts load.
 
 Refresh the bundled signal, count, basket and shelter lists from NYC Open Data:
 
 ```sh
 node scripts/build-street-life.mjs
+```
+
+Count the registered cars again (the state's server takes two to three minutes over its twelve million rows):
+
+```sh
+node scripts/build-fleet.mjs
+```
+
+Refresh the places from the city's and the state's registers (about twenty seconds; businesses open and close, so the counts change):
+
+```sh
+node scripts/build-places.mjs
 ```
 
 Rebuild the land silhouette around the city with the standard library only; elevation tiles are cached in the directory given:

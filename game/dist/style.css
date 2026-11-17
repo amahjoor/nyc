@@ -50,3 +50,54 @@
 @media(max-width:600px){.game-map{padding:12px}.game-map-header{margin-bottom:12px;gap:10px}.game-map-header h2{font-size:23px}.game-map-header .eyebrow{font-size:6px;letter-spacing:1.5px}.game-map-header>button{padding:8px;font-size:7px;gap:8px}.game-map-layout{display:flex;flex-direction:column;gap:10px}.game-map-viewport{min-height:220px;flex:1}.game-map-destination{display:grid;grid-template-columns:1fr 1fr;gap:7px 10px;overflow:auto;max-height:230px;flex-shrink:0}.game-map-destination>.eyebrow,.game-map-destination h3,.game-map-help,.game-map-legend{display:none}.game-map-destination #game-map-status,.game-map-directions{grid-column:1/-1;margin:0;font-size:10px}.game-map-destination .primary-button,.game-map-destination .secondary-button{margin:0;padding:13px 10px;font-size:8px}.game-map-destination .game-map-clear{grid-column:1/-1;margin:0;padding:8px}.game-map-position{right:9px;bottom:9px;gap:5px}.game-map-position button{padding:9px;font-size:7px}.game-map-scale{left:9px;bottom:50px;font-size:8px}.route-guide{font-size:9px;max-width:230px;padding:8px 10px}.top-actions #open-map-button{font-size:7px}}
 
 .road-pilot-destination{border-top:1px solid var(--line);margin-top:18px;padding-top:16px}.road-pilot-destination strong{display:block;font-size:16px;line-height:1.4}.road-pilot-destination p{font-size:10px;margin-bottom:0}.road-pilot-destination .eyebrow{color:var(--orange);margin:0 0 10px}.road-pilot-controls{position:fixed;z-index:5;top:130px;left:32px;max-width:260px;padding:13px 15px;background:#151c20ee;border:1px solid #ffffff26;border-left:2px solid var(--orange)}.road-pilot-controls span,.road-pilot-controls strong{display:block;font-size:8px;letter-spacing:1px;line-height:1.6}.road-pilot-controls span{color:#bec8c7;font-size:7px;margin-bottom:4px}.road-pilot-controls button{margin-top:10px;background:transparent;color:var(--paper);border:1px solid #ffffff45;padding:8px 10px;font:9px Arial;letter-spacing:.8px;cursor:pointer}.road-pilot-controls button:hover,.road-pilot-controls button:focus-visible{border-color:var(--orange);color:var(--orange)}@media(max-width:700px){.road-pilot-controls{left:15px;top:112px;max-width:210px;padding:10px}}
+
+/* The phone: a handset at the lower right, above the drive panel. */
+.phone{position:fixed;z-index:7;right:30px;bottom:150px;width:292px;max-height:calc(100dvh - 260px);display:flex;flex-direction:column;background:#101518f2;border:1px solid #ffffff2e;border-radius:22px;padding:14px 12px 12px;box-shadow:0 18px 50px #000a;backdrop-filter:blur(14px)}
+.phone[hidden]{display:none}
+.phone-status{display:flex;justify-content:space-between;align-items:baseline;font-size:9px;letter-spacing:1.2px;color:#c9d2cf;padding:0 6px 10px;border-bottom:1px solid var(--line)}
+.phone-status #phone-title{color:var(--orange);font-weight:800}
+.phone-screen{display:grid;gap:7px;padding:12px 2px 4px;overflow-y:auto;scrollbar-width:thin}
+.phone-screen[hidden]{display:none}
+.phone-apps{grid-template-columns:1fr 1fr}
+.phone-app{display:grid;gap:6px;text-align:left;padding:14px 12px;min-height:84px;background:#1d262b;border:1px solid #ffffff1f;border-radius:12px;align-content:start}
+.phone-app b{font-size:10px;letter-spacing:1.2px}
+.phone-app span{font-size:9px;line-height:1.45;color:#aeb9b7}
+.phone-app:hover,.phone-row:hover,.phone-chips button:hover{border-color:var(--orange)}
+.phone-chips{display:flex;flex-wrap:wrap;gap:5px}
+.phone-chips button{padding:6px 8px;font-size:8px;letter-spacing:.8px;background:#1d262b;border:1px solid #ffffff1f;border-radius:10px}
+.phone-chips button[aria-pressed="true"]{background:var(--orange);border-color:var(--orange);color:var(--ink);font-weight:800}
+.phone input{width:100%;background:#1d262b;color:var(--paper);padding:10px;border:1px solid #ffffff2e;border-radius:10px;font:12px Arial}
+.phone input:focus-visible{outline:2px solid var(--orange);outline-offset:1px}
+.phone-list{display:grid;gap:5px}
+.phone-row{display:grid;gap:4px;text-align:left;padding:10px 11px;background:#1d262b;border:1px solid #ffffff1f;border-radius:10px}
+.phone-row[hidden]{display:none}
+.phone-row b{font-size:11px;letter-spacing:.3px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.phone-row span{font-size:8px;letter-spacing:.8px;color:#aeb9b7}
+.phone-empty{font-size:11px;color:#aeb9b7;margin:8px 4px}
+.phone-pager{display:flex;justify-content:space-between;align-items:center;font-size:9px;color:#aeb9b7}
+.phone-pager button{width:34px;height:28px;background:#1d262b;border:1px solid #ffffff1f;border-radius:9px;font-size:14px}
+.phone-pager button:disabled{opacity:.35;cursor:default}
+.phone-place{gap:8px;padding:16px 6px 6px}
+.phone-place b{font-size:17px;line-height:1.25}
+.phone-place span{font-size:9px;letter-spacing:1px;color:#aeb9b7}
+.phone-place .primary-button{min-width:0;margin-top:14px;padding:15px;border-radius:10px;justify-content:center}
+.phone-wallet b{font-size:30px;letter-spacing:-1px;padding:6px 6px 0}
+.phone-wallet dl{display:grid;grid-template-columns:1fr auto;gap:9px 12px;margin:8px 6px;font-size:11px;color:#c9d2cf}
+.phone-wallet dd{margin:0;font-weight:700;color:var(--paper)}
+.phone-keys{display:flex;gap:6px;justify-content:flex-end;padding-top:10px;border-top:1px solid var(--line);margin-top:8px}
+.phone-keys button{padding:8px 11px;font-size:8px;letter-spacing:1px;background:transparent;border:1px solid var(--line);border-radius:10px}
+.phone-keys button[hidden]{display:none}
+/* The phone is held up in front of the job card. */
+.mission-panel.behind-phone{visibility:hidden}
+/* What the shop front the player is standing at is. */
+.place-hint{display:inline-block;margin:0 auto 12px;padding:8px 12px;background:#161c1ee6;border:1px solid #ffffff30;border-bottom:2px solid var(--orange);font-size:9px;letter-spacing:1.2px}
+.place-hint[hidden]{display:none}
+@media(max-width:700px){.phone{right:10px;left:10px;width:auto;bottom:170px}}
+/* A garage's counter: what it will do, and the paint it keeps. */
+.phone-row:disabled{opacity:.45;cursor:default}
+.phone-paints{display:grid;gap:8px;padding:6px 2px}
+.phone-paints[hidden]{display:none}
+.phone-paints span{font-size:8px;letter-spacing:.8px;color:#aeb9b7}
+.phone-paints div{display:grid;grid-template-columns:repeat(8,1fr);gap:5px}
+.phone-paints button{aspect-ratio:1;border:2px solid #ffffff2e;border-radius:8px}
+.phone-paints button[aria-pressed="true"]{border-color:var(--orange)}
