@@ -26,7 +26,7 @@ import { createStreetLife } from '../dist/streetlife.js';
 import { createWater } from '../dist/water.js';
 import { createCityLife, manhattanCore, characterAt } from '../dist/citylife.js';
 import { createStreetSigns } from '../dist/street-signs.js';
-import { createCrowd } from '../dist/crowd.js';
+import { createCrowd, dress, seeded, KIT } from '../dist/crowd.js';
 import { createStreetProps } from '../dist/street-props.js';
 import { createPlaceSource, indexFootprints, solveFrontages } from '../dist/places.js';
 import { createStorefronts } from '../dist/storefronts.js';
@@ -268,7 +268,7 @@ async function bootHarness({ stored = null, displayStored = null, unavailableSto
     },
     updateChaseHeight, createCityGround, worldToGeographic, createRoadStream, nearestStreet, localDestinations, createCityNavigation,
     createStreetDetail:(manifest,options)=>createStreetDetail(manifest,{...options,now:()=>timestamp}),
-    Landscape, RoadPilot, AbortSignal, createGraphics, createStreetLife, createWater, setVehicleLamps, createCityLife, manhattanCore, createStreetSigns, createCrowd, createStreetProps, createPlaceSource, indexFootprints, solveFrontages, createStorefronts, createPhone, describePlace, createFleet, offersAt, planRoom, buildRoom, roomKind, createDemographics, characterAt, createBuses, createBusStops, menuFor, createSubway, createSubwayEntrances, FARE, indexKerbs, snapToKerb, formatDistance,
+    Landscape, RoadPilot, AbortSignal, createGraphics, createStreetLife, createWater, setVehicleLamps, createCityLife, manhattanCore, createStreetSigns, createCrowd, dress, seeded, KIT, createStreetProps, createPlaceSource, indexFootprints, solveFrontages, createStorefronts, createPhone, describePlace, createFleet, offersAt, planRoom, buildRoom, roomKind, createDemographics, characterAt, createBuses, createBusStops, menuFor, createSubway, createSubwayEntrances, FARE, indexKerbs, snapToKerb, formatDistance,
     // Bundled survey cells only: these tests stay offline.
     createStreetscape:options=>createStreetscape({...options,live:false,now:()=>timestamp}),
     console: { error: error => errors.push(error), warn: () => {}, log: () => {} },

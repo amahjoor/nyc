@@ -20,7 +20,7 @@ import { createStreetLife } from './streetlife.js';
 import { createWater } from './water.js';
 import { createCityLife, manhattanCore, characterAt } from './citylife.js';
 import { createStreetSigns } from './street-signs.js';
-import { createCrowd } from './crowd.js';
+import { createCrowd, dress, seeded, KIT } from './crowd.js';
 import { createStreetProps } from './street-props.js';
 import { createPlaceSource, indexFootprints, solveFrontages } from './places.js';
 import { createStorefronts } from './storefronts.js';
@@ -54,6 +54,9 @@ let placeSource=null, storefronts=null, footprints=indexFootprints([]), fronts=[
 // The phone, and where a delivery can be sent: the streets around, and the places with a street front.
 let phone=null, roadDestinations=[], placeDestinations=[], shopHere=null;
 // The front the player is standing at if it has a room to go into, and the room they are in.
+// The player and shop staff as the crowd's modelled figures, once those have loaded: where in their stride the player is.
+let playerStride=0, strideClock=0;
+const PLAYER_LOOK={top:0xd7774e,bottom:0x1c1d22,skin:0xb98563,hair:0x14110f,kit:0,height:1.76};
 let doorHere=null, roomGroup=null, roomStaff=[], counterHere=false;
 // The subway: its stations, the stair entrances drawn nearby, the one the player is standing at, and the kerbs they line up with.
 // Who lives where (demographics.js): one even range of faces until the survey has loaded.
@@ -141,7 +144,11 @@ function action(name) {
       if(room&&sim.enterRoom(room)){
         const floor=groundHeight(room.x+room.nx*1.5,room.z+room.nz*1.5)+.04;
         roomGroup=buildRoom(room,floor);scene.add(roomGroup);
-        roomStaff=room.staff.map((spot,i)=>{const person=createPerson([0x2f4a5a,0x7a2f2f,0x3f5a3a,0x4a3a5a][i%4]);const x=room.x+room.tx*spot.a-room.nx*spot.b,z=room.z+room.tz*spot.a-room.nz*spot.b;person.position.set(x,floor,z);person.rotation.y=Math.atan2(room.nx,room.nz)+spot.facing*Math.PI/2;roomGroup.add(person);return person;});
+        roomStaff=room.staff.map((spot,i)=>{const person=createPerson([0x2f4a5a,0x7a2f2f,0x3f5a3a,0x4a3a5a][i%4]);const x=room.x+room.tx*spot.a-room.nx*spot.b,z=room.z+room.tz*spot.a-room.nz*spot.b;person.position.set(x,floor,z);person.rotation.y=Math.atan2(room.nx,room.nz)+spot.facing*Math.PI/2;roomGroup.add(person);
+          // The same person each visit: drawn from the place's own number, with the faces of the neighbourhood.
+          const random=seeded((Math.round(room.x*7+room.z*13)^(i*7919))>>>0||1),look=dress('casual',random,demographics.tracts?demographics.tonesAt(x,z,.2):null);
+          look.kit=(look.kit&(KIT.longHair|KIT.shortSleeves))|(random()<.5?KIT.woman:0);
+          person.userData.figure={x,y:floor,z,heading:person.rotation.y,phase:0,stride:0,look};return person;});
         yaw=sim.player.angle;return;
       }
     }
@@ -344,7 +351,16 @@ function syncScene(dt,controls) {
   for(const [id,mesh] of carModels)if(!activeCars.has(id)){scene.remove(mesh);carModels.delete(id);}
   parkedCars?.update(sim.cars);
   distantTraffic?.update(distantCars);
-  avatar.visible=p.mode==='walk';avatar.position.set(p.x,p.y||0,p.z);avatar.rotation.y=p.angle;
+  // Once the modelled figures are in, the player and whoever is serving are drawn as two of them.
+  const modelled=Boolean(crowd?.modelled),pace=Math.abs(p.speed);
+  playerStride+=pace*Math.min(.1,Math.max(0,elapsed-strideClock))*3.3;strideClock=elapsed;
+  if(modelled){
+    const extras=roomStaff.map(person=>person.userData.figure);
+    if(p.mode==='walk')extras.push({x:p.x,y:p.y||0,z:p.z,heading:p.angle,phase:playerStride,stride:Math.min(1,pace/1.2),look:PLAYER_LOOK});
+    crowd.setExtras(extras);
+  }
+  for(const person of roomStaff)person.visible=!modelled;
+  avatar.visible=p.mode==='walk'&&!modelled;avatar.position.set(p.x,p.y||0,p.z);avatar.rotation.y=p.angle;
   animatePerson(avatar,Math.abs(p.speed)>.1,elapsed,Math.abs(p.speed)/3);
   for(const car of sim.cars){
     if(!activeCars.has(car.id))continue;

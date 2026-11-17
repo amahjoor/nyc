@@ -307,6 +307,8 @@ export function createCrowd({ scene = null, life, heightAt = () => 0, isRoad = (
   const tops = attribute('aTop', 3), bottoms = attribute('aBottom', 3), skins = attribute('aSkin', 3), hairs = attribute('aHair', 3), gaits = attribute('aGait', 4);
   scene?.add(mesh);
   const people = [], crossing = [];
+  // Figures that are not of the crowd but are drawn with it: the player, and whoever serves in a shop.
+  let extras = [];
   let network = null, source = null, balanceTimer = 0, filled = false, lastFocus = null;
   const matrix = new THREE.Matrix4(), place = new THREE.Vector3(), turn = new THREE.Quaternion(), size = new THREE.Vector3(), up = new THREE.Vector3(0, 1, 0), colour = new THREE.Color();
 
@@ -491,9 +493,29 @@ export function createCrowd({ scene = null, life, heightAt = () => 0, isRoad = (
         // Half are drawn with the woman's figure: which, is fixed by where in their stride they began.
         gaits.setXYZW(i, person.phase, moving, look.pace * 4.6, look.kit | (Math.floor(person.phase * 997) % 2 ? KIT.woman : 0));
       }
-      mesh.count = people.length;
+      let drawn = people.length;
+      for (const extra of extras) {
+        if (drawn >= capacity) break;
+        const look = extra.look, scale = (look.height || 1.72) / 1.72, i = drawn++;
+        place.set(extra.x, extra.y, extra.z); turn.setFromAxisAngle(up, extra.heading || 0); size.set(scale, scale, scale);
+        matrix.compose(place, turn, size); mesh.setMatrixAt(i, matrix);
+        colour.setHex(look.top); tops.setXYZ(i, colour.r, colour.g, colour.b);
+        colour.setHex(look.bottom); bottoms.setXYZ(i, colour.r, colour.g, colour.b);
+        colour.setHex(look.skin); skins.setXYZ(i, colour.r, colour.g, colour.b);
+        colour.setHex(look.hair); hairs.setXYZ(i, colour.r, colour.g, colour.b);
+        // They keep their own stride: the shader's clock does not move them.
+        gaits.setXYZW(i, extra.phase || 0, extra.stride || 0, 0, look.kit || 0);
+      }
+      if (extras.length) tops.needsUpdate = bottoms.needsUpdate = skins.needsUpdate = hairs.needsUpdate = true;
+      mesh.count = drawn;
       mesh.instanceMatrix.needsUpdate = true; gaits.needsUpdate = true;
     },
+    /**
+     * Draw these with the crowd, after it: each { x, y, z, heading, phase, stride, look }, where `look` is
+     * { top, bottom, skin, hair, kit, height }, `phase` is where in its stride the figure is, in radians,
+     * and `stride` how much it is striding, from 0 standing to 1.
+     */
+    setExtras(list) { extras = list || []; },
     /** Draw the crowd with the modelled figures in place of the blocked-out ones. */
     setFigures(meta, poses) {
       const next = createFigures(meta, poses);

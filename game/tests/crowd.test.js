@@ -223,3 +223,22 @@ test('people leave with the streets they were on, and step back from a passing c
   assert.equal(crowd.count, 0);
   crowd.dispose();
 });
+
+test('the player and shop staff are drawn after the crowd, with their own stride', () => {
+  const crowd = createCrowd({ life: life(.2), capacity: 400, range: 150, random: seeded(3) });
+  const context = { walks: corner(), focus: { x: 0, z: 0 }, hours: 13, time: 0, junctions: [], cars: [] };
+  const look = { top: 0xff0000, bottom: 0x0000ff, skin: 0x00ff00, hair: 0x000000, kit: 64, height: 1.72 };
+  crowd.setExtras([{ x: 7, y: 2, z: -3, heading: Math.PI / 2, phase: 1.5, stride: .5, look }, { x: 9, y: 2, z: -3, look }]);
+  crowd.update(.016, context);
+  const n = crowd.count, mesh = crowd.mesh, matrix = new THREE.Matrix4(), at = new THREE.Vector3();
+  assert.equal(mesh.count, n + 2);
+  mesh.getMatrixAt(n, matrix); at.setFromMatrixPosition(matrix);
+  assert.deepEqual([at.x, at.y, at.z], [7, 2, -3]);
+  const gait = mesh.geometry.getAttribute('aGait'), top = mesh.geometry.getAttribute('aTop');
+  assert.deepEqual([gait.getX(n), gait.getY(n), gait.getZ(n), gait.getW(n)], [1.5, .5, 0, 64], 'the shader clock does not move them');
+  assert.deepEqual([top.getX(n), top.getY(n), top.getZ(n)], [1, 0, 0]);
+  assert.deepEqual([gait.getX(n + 1), gait.getY(n + 1)], [0, 0], 'standing');
+  crowd.setExtras(null); crowd.update(.016, context);
+  assert.equal(mesh.count, crowd.count);
+  crowd.dispose();
+});
