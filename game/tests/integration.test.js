@@ -25,6 +25,7 @@ import { createStreetscape, ROAD_LIFT, SIDEWALK_LIFT } from '../dist/streetscape
 import { createStreetLife } from '../dist/streetlife.js';
 import { createWater } from '../dist/water.js';
 import { createCityLife, manhattanCore } from '../dist/citylife.js';
+import { createStreetSigns } from '../dist/street-signs.js';
 
 // This is application integration QA, not a browser/GPU rendering test. The
 // actual city geometry, physics, input and HUD run; browser primitives are fake.
@@ -64,7 +65,7 @@ class EventTarget {
 
 function canvasContext() {
   const context = {};
-  for (const method of ['setTransform', 'quadraticCurveTo', 'drawImage', 'fillRect', 'strokeRect', 'clearRect', 'beginPath', 'closePath', 'moveTo', 'lineTo', 'roundRect', 'arc', 'fill', 'stroke', 'fillText', 'save', 'restore', 'translate', 'rotate', 'setLineDash']) {
+  for (const method of ['setTransform', 'quadraticCurveTo', 'drawImage', 'fillRect', 'strokeRect', 'clearRect', 'beginPath', 'closePath', 'moveTo', 'lineTo', 'roundRect', 'arc', 'fill', 'stroke', 'fillText', 'save', 'restore', 'translate', 'rotate', 'scale', 'rect', 'setLineDash']) {
     context[method] = () => {};
   }
   context.createLinearGradient = () => ({ addColorStop() {} });
@@ -253,7 +254,7 @@ async function bootHarness({ stored = null, displayStored = null, unavailableSto
     },
     updateChaseHeight, createCityGround, worldToGeographic, createRoadStream, nearestStreet, localDestinations, createCityNavigation,
     createStreetDetail:(manifest,options)=>createStreetDetail(manifest,{...options,now:()=>timestamp}),
-    Landscape, RoadPilot, AbortSignal, createGraphics, createStreetLife, createWater, setVehicleLamps, createCityLife, manhattanCore,
+    Landscape, RoadPilot, AbortSignal, createGraphics, createStreetLife, createWater, setVehicleLamps, createCityLife, manhattanCore, createStreetSigns,
     // Bundled survey cells only: these tests stay offline.
     createStreetscape:options=>createStreetscape({...options,live:false,now:()=>timestamp}),
     console: { error: error => errors.push(error), warn: () => {}, log: () => {} },
@@ -266,7 +267,7 @@ async function bootHarness({ stored = null, displayStored = null, unavailableSto
     },
   });
   function close() {
-    vm.runInContext('if(typeof gameMap!=="undefined")gameMap?.dispose?.();if(typeof navigation!=="undefined")navigation?.dispose?.();if(typeof roadPilot!=="undefined")roadPilot?.dispose();landscape?.dispose();streetDetail?.dispose();streetscape?.dispose();streetLife?.dispose();parkedCars?.dispose();water?.dispose();world?.dispose();ground?.dispose();gfx?.dispose();',context);
+    vm.runInContext('if(typeof gameMap!=="undefined")gameMap?.dispose?.();if(typeof navigation!=="undefined")navigation?.dispose?.();if(typeof roadPilot!=="undefined")roadPilot?.dispose();landscape?.dispose();streetDetail?.dispose();streetscape?.dispose();streetLife?.dispose();parkedCars?.dispose();signs?.dispose();water?.dispose();world?.dispose();ground?.dispose();gfx?.dispose();',context);
     for (const [key, descriptor] of original) {
       if (descriptor) Object.defineProperty(globalThis, key, descriptor);
       else delete globalThis[key];

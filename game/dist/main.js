@@ -19,6 +19,7 @@ import { createStreetscape } from './streetscape.js';
 import { createStreetLife } from './streetlife.js';
 import { createWater } from './water.js';
 import { createCityLife, manhattanCore } from './citylife.js';
+import { createStreetSigns } from './street-signs.js';
 
 const $ = id => document.getElementById(id);
 const clamp = (n,a,b) => Math.max(a,Math.min(b,n));
@@ -31,7 +32,7 @@ let shadowsEnabled=true;
 let cityIndex, roadIndex, roadStream, ground, streetDetail, bootReady=false, traveling=false, pausedBeforeSources=false;
 let viewOverride=null;
 let cityView=false, cityZoom=1, cityOrbit=0, cityFocus=null, roadCell='', roadEpoch=0, roadBusy=false, buildings=[], boroughs=[];
-let streetscape=null, streetLife=null, water=null, parkedCars=null, cityLife=createCityLife(null);
+let streetscape=null, streetLife=null, water=null, parkedCars=null, signs=null, cityLife=createCityLife(null);
 const noStreetFurniture=[];
 let cameraFlashing=false;
 let landscape=null, landscapeRevision=0, landscapeDirty=false, landscapeManifest=null, reconstructionReview=null, roadReconstructionReview=null, streetManifest=null;
@@ -455,6 +456,9 @@ function frame(now) {
   water.update(lit,{overview:cityView&&!viewOverride});
   // Lamps and headlights are gathered before the frame that they light.
   streetLife.update(lit,{lights:gfx.state.lightsOn,cars:sim.cars,overview:overview&&!viewOverride});
+  // Signals show what the simulation's traffic is obeying, on the same clock.
+  signs.group.visible=!cityView||Boolean(viewOverride);
+  if(signs.group.visible)signs.update(sim.junctions,lit,sim.elapsed);
   // A red-light camera's flash: the frame blows out for a tenth of a second.
   const flashed=sim.cameraFlash&&sim.elapsed-sim.cameraFlash.at<.11;
   if(flashed!==cameraFlashing){cameraFlashing=flashed;$('world').style.filter=flashed?'brightness(2.2)':'';}
@@ -655,6 +659,7 @@ async function boot() {
   streetLife=createStreetLife({scene,renderer,getLamps:()=>streetscape?.lamps()||noStreetFurniture,getTrees:()=>streetscape?.trees()||noStreetFurniture});
   parkedCars=createParkedCars({capacity:PARKED_LIMIT+8});scene.add(parkedCars.group);
   sim=new Simulation(city);restoreProgress();yaw=sim.player.angle;
+  signs=createStreetSigns({scene,heightAt:groundHeight,raised:(x,z)=>(streetscape?.offsetAt(x,z)||0)>.1});
   // The city's own lists: sidewalk counts, and the signals that favour people
   // on foot. Without them the model answers alone and nothing is lost but detail.
   const signalHints=(x,z)=>({...cityLife.hintsAt(x,z),core:manhattanCore(x,z)});
@@ -729,7 +734,7 @@ async function boot() {
   const b=city.bounds;camera.position.set((b.minX+b.maxX)/2-14000,44000,(b.minZ+b.maxZ)/2+32000);
   navigation=createCityNavigation({canvas,camera,input,bounds:city.bounds,heightAt:terrainHeight,onTravel:travel,onAddressSelected:focusCityAddress});
   $('place-select').innerHTML=roadIndex.places.map((place,i)=>'<option value="'+i+'">'+place.name+' · '+place.borough+'</option>').join('');
-  window.nycGame={graphics:gfx,get streetscape(){return streetscape;},get streetLife(){return streetLife;},get parkedCars(){return parkedCars;},get world(){return world;},get simulation(){return sim;},get cityLife(){return cityLife;},heightAt:(x,z)=>terrainHeight(x,z),setView:view=>{viewOverride=view&&Array.isArray(view.position)&&Array.isArray(view.target)?view:null;},getState:()=>({time:gfx.clock,player:{...sim.player},heat:sim.heat,health:sim.health,mission:{...sim.mission},cash:sim.cash,deliveries:sim.deliveries,cars:sim.cars.length,parkedCars:sim.cars.filter(car=>car._kerb).length,buildings:buildings.length,totalBuildings:cityIndex.stats.buildingFeatures,stream:world.getStatus(),ground:ground.getStatus(),streetDetail:streetDetail?.getStatus()||null,streetscape:streetscape?.getStatus()||null,landscape:landscape?.getStatus()||null,reconstruction:reconstructionReview?{model:reconstructionReview.model,summary:reconstructionReview.summary}:null,roadReconstruction:roadReconstructionReview?{model:roadReconstructionReview.model,summary:roadReconstructionReview.summary}:null,roadPilot:roadPilot?roadPilot.getStatus():{ready:false,loading:Boolean(roadPilotLoading),error:roadPilotError},navigation:navigation.getState(),map:gameMap.getState(),routeGuidance,cityView,aerialView,traveling,bootReady,shadows:{enabled:shadowsEnabled,active:renderer.shadowMap.enabled},drawCalls:renderer.info.render.calls,triangles:renderer.info.render.triangles,started,paused})};
+  window.nycGame={graphics:gfx,get streetscape(){return streetscape;},get streetLife(){return streetLife;},get parkedCars(){return parkedCars;},get world(){return world;},get simulation(){return sim;},get signs(){return signs;},get cityLife(){return cityLife;},heightAt:(x,z)=>terrainHeight(x,z),setView:view=>{viewOverride=view&&Array.isArray(view.position)&&Array.isArray(view.target)?view:null;},getState:()=>({time:gfx.clock,player:{...sim.player},heat:sim.heat,health:sim.health,mission:{...sim.mission},cash:sim.cash,deliveries:sim.deliveries,cars:sim.cars.length,parkedCars:sim.cars.filter(car=>car._kerb).length,buildings:buildings.length,totalBuildings:cityIndex.stats.buildingFeatures,stream:world.getStatus(),ground:ground.getStatus(),streetDetail:streetDetail?.getStatus()||null,streetscape:streetscape?.getStatus()||null,landscape:landscape?.getStatus()||null,reconstruction:reconstructionReview?{model:reconstructionReview.model,summary:reconstructionReview.summary}:null,roadReconstruction:roadReconstructionReview?{model:roadReconstructionReview.model,summary:roadReconstructionReview.summary}:null,roadPilot:roadPilot?roadPilot.getStatus():{ready:false,loading:Boolean(roadPilotLoading),error:roadPilotError},navigation:navigation.getState(),map:gameMap.getState(),routeGuidance,cityView,aerialView,traveling,bootReady,shadows:{enabled:shadowsEnabled,active:renderer.shadowMap.enabled},drawCalls:renderer.info.render.calls,triangles:renderer.info.render.triangles,started,paused})};
   requestAnimationFrame(frame);
   const [roads]=await Promise.all([roadStream.loadAround(seed.spawn),world.prepareAt(seed.spawn,300),landscapeReady]);
   sim.setActiveCity({roads,buildings,isReadyAt:(x,z,radius)=>world.isReadyAt(x,z,radius),missionPoints:localDestinations(roads,seed.spawn)},{spawn:seed.spawn});city=sim.city;yaw=sim.player.angle;
