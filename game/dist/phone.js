@@ -64,8 +64,8 @@ export function shopRows(kind, car = {}) {
  * miles, redLights }. The rest are what its buttons do.
  */
 export function createPhone({ $, places = () => [], state = () => ({}), onDirections = () => {}, onJob = () => {}, onMap = () => {}, onOpenChange = () => {}, onGarage = () => {}, onMechanic = () => {}, onCab = () => {} } = {}) {
-  const SCREENS = ['home', 'nearby', 'place', 'contacts', 'wallet', 'shop'], TITLES = { home: 'PHONE', nearby: 'NEARBY', place: 'PLACE', contacts: 'CONTACTS', wallet: 'WALLET', shop: 'AUTO SHOP' };
-  let shop = null, counter = [];
+  const SCREENS = ['home', 'nearby', 'place', 'contacts', 'wallet', 'shop', 'list'], TITLES = { home: 'PHONE', nearby: 'NEARBY', place: 'PLACE', contacts: 'CONTACTS', wallet: 'WALLET', shop: 'AUTO SHOP' };
+  let shop = null, counter = [], listing = null, listPage = 0;
   let open = false, screen = 'home', category = 'all', page = 0, rows = [], chosen = null, listed = -Infinity;
   const show = next => { screen = next; render(); };
   function list() {
@@ -116,6 +116,16 @@ export function createPhone({ $, places = () => [], state = () => ({}), onDirect
       $('phone-paints-note').textContent = `RESPRAY · $${RESPRAY_PRICE}`;
       RESPRAYS.forEach(([name, colour], i) => { $(`phone-paint-${i}`).setAttribute('aria-pressed', String(now.car?.color === colour)); $(`phone-paint-${i}`).setAttribute('title', name); });
     }
+    if (screen === 'list' && listing) {
+      $('phone-title').textContent = listing.title;
+      const pages = Math.max(1, Math.ceil(listing.rows.length / ROWS)); listPage = Math.max(0, Math.min(listPage, pages - 1));
+      for (let i = 0; i < ROWS; i++) {
+        const row = listing.rows[listPage * ROWS + i];
+        $(`phone-ride-${i}`).hidden = !row;
+        if (row) { $(`phone-ride-${i}-name`).textContent = row.name; $(`phone-ride-${i}-note`).textContent = row.note; }
+      }
+      $('phone-ride-page').textContent = `${listPage + 1} / ${pages}`; $('phone-ride-prev').disabled = listPage <= 0; $('phone-ride-next').disabled = listPage >= pages - 1;
+    }
     if (screen === 'wallet') {
       $('phone-wallet-cash').textContent = `$${Math.round(now.cash || 0).toLocaleString('en-US')}`;
       $('phone-wallet-fares').textContent = String(now.fares || 0); $('phone-wallet-miles').textContent = (now.miles || 0).toFixed(1); $('phone-wallet-lights').textContent = String(now.redLights || 0);
@@ -136,6 +146,8 @@ export function createPhone({ $, places = () => [], state = () => ({}), onDirect
   for (let i = 0; i < ROWS; i++) click(`phone-row-${i}`, () => { const row = rows[page * ROWS + i]; if (row) { chosen = row.place; show('place'); } });
   click('phone-prev', () => { page = Math.max(0, page - 1); render(); }); click('phone-next', () => { page++; render(); });
   click('phone-directions', () => { if (chosen) { onDirections(chosen); setOpen(false); } });
+  for (let i = 0; i < ROWS; i++) click(`phone-ride-${i}`, () => { const row = listing?.rows[listPage * ROWS + i]; if (row) { const pick = listing.onPick; setOpen(false); pick(row); } });
+  click('phone-ride-prev', () => { listPage--; render(); }); click('phone-ride-next', () => { listPage++; render(); });
   click('phone-contact-dispatch', () => { onJob(); setOpen(false); });
   click('phone-contact-mechanic', () => { onMechanic(); setOpen(false); });
   click('phone-contact-cab', () => { onCab(); setOpen(false); });
@@ -147,6 +159,8 @@ export function createPhone({ $, places = () => [], state = () => ({}), onDirect
     get open() { return open; },
     get screen() { return screen; },
     setOpen, toggle: () => setOpen(!open),
+    /** Show a list to choose from: `rows` of { name, note }; `onPick(row)` is told which. */
+    openList(title, rows, onPick) { listing = { title, rows, onPick }; listPage = 0; setOpen(true); show('list'); },
     /** Stand at a garage's counter: `place` is the auto shop the car is stopped at. */
     openShop(place) { shop = { kind: place.kind, name: placeName(place) }; setOpen(true); show('shop'); },
     /** Keep the clock, the cash and the distances current while the phone is out. `time` is in seconds. */

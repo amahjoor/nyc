@@ -28,6 +28,9 @@ import { createPhone, describePlace } from './phone.js';
 import { createFleet } from './fleet.js';
 import { offersAt } from './garage.js';
 import { planRoom, buildRoom, roomKind } from './interiors.js';
+import { createSubway, createSubwayEntrances, FARE } from './subway.js';
+import { indexKerbs, snapToKerb } from './street-props.js';
+import { formatDistance } from './phone.js';
 
 const $ = id => document.getElementById(id);
 const clamp = (n,a,b) => Math.max(a,Math.min(b,n));
@@ -49,6 +52,8 @@ let placeSource=null, storefronts=null, footprints=indexFootprints([]), fronts=[
 let phone=null, roadDestinations=[], placeDestinations=[], shopHere=null;
 // The front the player is standing at if it has a room to go into, and the room they are in.
 let doorHere=null, roomGroup=null, roomStaff=[];
+// The subway: its stations, the stair entrances drawn nearby, the one the player is standing at, and the kerbs they line up with.
+let subway=null, subwayStairs=null, stairHere=null, kerbIndex=null, kerbsFor=null;
 // Which cars are registered where (fleet.js): the whole city's mix until the counts by ZIP code have loaded.
 let fleet=createFleet(null);
 const destinationsFor=(roads,focus)=>{roadDestinations=localDestinations(roads,focus);return [...roadDestinations,...placeDestinations];};
@@ -94,6 +99,17 @@ function action(name) {
   if(name==='time') { if(gfx){const preset=gfx.nextPreset();updateTimeButton();announce('Time of day: '+preset.label.toLowerCase()+', '+gfx.clock+'.');}return; }
   if(!started||paused||traveling||!bootReady||cityView)return;
   if(name==='interact'){
+    // On foot at the head of a subway stair: down to the trains. A ride is to any station on a line that stops here.
+    if(sim.player.mode==='walk'&&!sim.room&&stairHere&&!sim.getNearbyCar()){
+      const from=stairHere.station,rides=subway.ridesFrom(from).map(ride=>({ride,name:ride.station.name,note:ride.lines.join(' ')+' · '+formatDistance(ride.distance)+' · $'+FARE.toFixed(2)}));
+      phone.openList(from.name+' · '+from.routes,rides,({ride})=>{
+        // No fare, no problem, until someone sees.
+        const jumped=sim.cash<FARE;if(jumped)sim.heat=Math.min(3,sim.heat+.4);else sim.cash-=FARE;
+        const exit=subway.exitOf(ride.station);
+        travel({x:exit.x+2.5,z:exit.z+2.5,name:ride.station.name,exact:true}).then(arrived=>arrived&&announce((jumped?'You jumped the turnstile. ':'')+'The '+ride.lines[0]+' to '+ride.station.name+'.'));
+      });
+      return;
+    }
     // On foot at an open door, with no car to get into: go in.
     if(sim.player.mode==='walk'&&!sim.room&&doorHere&&!sim.getNearbyCar()){
       const room=planRoom(doorHere,(x,z)=>Boolean(footprints.at(x,z)));
@@ -528,7 +544,12 @@ function frame(now) {
       const dx=sim.player.x-front.x,dz=sim.player.z-front.z,out=dx*front.nx+dz*front.nz;
       if(out>-1&&out<reach&&Math.abs(dx*front.tx+dz*front.tz)<front.width/2+(driving?5:1)&&(!facing||out<facing.out))facing={front,out};
     }
-    $('place-hint').hidden=!facing||Boolean(sim.room);
+    // The head of a subway stair within a few steps.
+    stairHere=null;
+    if(started&&!cityView&&!mapOpen&&!driving&&!sim.room&&subwayStairs)for(const entrance of subwayStairs.entrances){if(Math.hypot(entrance.x-sim.player.x,entrance.z-sim.player.z)<4.5){stairHere=entrance;break;}}
+    if(stairHere)facing=null;
+    $('place-hint').hidden=(!facing&&!stairHere)||Boolean(sim.room);
+    if(stairHere)$('place-hint').textContent=stairHere.station.name.toUpperCase()+' · '+stairHere.station.routes+' · E FOR THE SUBWAY';
     shopHere=null;doorHere=null;
     if(!sim.room&&roomGroup){roomGroup.userData.dispose();roomGroup=null;roomStaff=[];}
     if(facing){
@@ -539,6 +560,13 @@ function frame(now) {
     }
   }
   gfx.indoors=Boolean(sim.room);
+  // Subway stairs stand where the MTA lists them, running along the kerb beside them.
+  if(subway&&subwayStairs){
+    const walks=streetscape?.walks()||noStreetFurniture;
+    if(walks!==kerbsFor){kerbsFor=walks;kerbIndex=indexKerbs(walks);}
+    subwayStairs.group.visible=!cityView||Boolean(viewOverride);
+    subwayStairs.update(subway,lit);
+  }
   storefronts?.update(fronts,lit,gfx.hours);
   phone?.update(elapsed);
   // A red-light camera's flash: the frame blows out for a tenth of a second.
@@ -755,6 +783,8 @@ async function boot() {
   storefronts=createStorefronts();
   placeSource=createPlaceSource({load:url=>loadData(url.replace(/^\.\//,''))});
   loadData('places-index.json').then(index=>placeSource.setIndex(index)).catch(()=>{});
+  subwayStairs=createSubwayEntrances({scene,heightAt:groundHeight,facing:(x,z)=>{const kerb=kerbIndex&&snapToKerb(kerbIndex,x,z,12);return kerb?[kerb.tx,kerb.tz]:null;}});
+  loadData('transit.json').then(data=>{subway=createSubway(data);}).catch(()=>{});
   loadData('fleet.json').then(data=>{fleet=createFleet(data);}).catch(()=>{});
   // The modelled figures replace the blocked-out ones once they have loaded.
   Promise.all([loadData('people.json'),fetch('./people.bin').then(response=>{if(!response.ok)throw new Error('people');return response.arrayBuffer();})]).then(([meta,buffer])=>crowd.setFigures(meta,new Int16Array(buffer))).catch(()=>{});
@@ -834,7 +864,7 @@ async function boot() {
   const b=city.bounds;camera.position.set((b.minX+b.maxX)/2-14000,44000,(b.minZ+b.maxZ)/2+32000);
   navigation=createCityNavigation({canvas,camera,input,bounds:city.bounds,heightAt:terrainHeight,onTravel:travel,onAddressSelected:focusCityAddress});
   $('place-select').innerHTML=roadIndex.places.map((place,i)=>'<option value="'+i+'">'+place.name+' · '+place.borough+'</option>').join('');
-  window.nycGame={graphics:gfx,get streetscape(){return streetscape;},get streetLife(){return streetLife;},get parkedCars(){return parkedCars;},get distantTraffic(){return distantTraffic;},get world(){return world;},get simulation(){return sim;},get signs(){return signs;},get crowd(){return crowd;},get props(){return props;},get places(){return placeSource;},get storefronts(){return storefronts;},get fronts(){return fronts;},get phone(){return phone;},get fleet(){return fleet;},get cityLife(){return cityLife;},heightAt:(x,z)=>terrainHeight(x,z),setView:view=>{viewOverride=view&&Array.isArray(view.position)&&Array.isArray(view.target)?view:null;},getState:()=>({time:gfx.clock,player:{...sim.player},heat:sim.heat,health:sim.health,mission:{...sim.mission},cash:sim.cash,deliveries:sim.deliveries,cars:sim.cars.length,parkedCars:sim.cars.filter(car=>car._kerb).length,buildings:buildings.length,totalBuildings:cityIndex.stats.buildingFeatures,stream:world.getStatus(),ground:ground.getStatus(),streetDetail:streetDetail?.getStatus()||null,streetscape:streetscape?.getStatus()||null,landscape:landscape?.getStatus()||null,reconstruction:reconstructionReview?{model:reconstructionReview.model,summary:reconstructionReview.summary}:null,roadReconstruction:roadReconstructionReview?{model:roadReconstructionReview.model,summary:roadReconstructionReview.summary}:null,roadPilot:roadPilot?roadPilot.getStatus():{ready:false,loading:Boolean(roadPilotLoading),error:roadPilotError},navigation:navigation.getState(),map:gameMap.getState(),routeGuidance,cityView,aerialView,traveling,bootReady,shadows:{enabled:shadowsEnabled,active:renderer.shadowMap.enabled},drawCalls:renderer.info.render.calls,triangles:renderer.info.render.triangles,started,paused})};
+  window.nycGame={graphics:gfx,get streetscape(){return streetscape;},get streetLife(){return streetLife;},get parkedCars(){return parkedCars;},get distantTraffic(){return distantTraffic;},get world(){return world;},get simulation(){return sim;},get signs(){return signs;},get crowd(){return crowd;},get props(){return props;},get places(){return placeSource;},get storefronts(){return storefronts;},get fronts(){return fronts;},get phone(){return phone;},get fleet(){return fleet;},get subway(){return subway;},get subwayStairs(){return subwayStairs;},get cityLife(){return cityLife;},heightAt:(x,z)=>terrainHeight(x,z),setView:view=>{viewOverride=view&&Array.isArray(view.position)&&Array.isArray(view.target)?view:null;},getState:()=>({time:gfx.clock,player:{...sim.player},heat:sim.heat,health:sim.health,mission:{...sim.mission},cash:sim.cash,deliveries:sim.deliveries,cars:sim.cars.length,parkedCars:sim.cars.filter(car=>car._kerb).length,buildings:buildings.length,totalBuildings:cityIndex.stats.buildingFeatures,stream:world.getStatus(),ground:ground.getStatus(),streetDetail:streetDetail?.getStatus()||null,streetscape:streetscape?.getStatus()||null,landscape:landscape?.getStatus()||null,reconstruction:reconstructionReview?{model:reconstructionReview.model,summary:reconstructionReview.summary}:null,roadReconstruction:roadReconstructionReview?{model:roadReconstructionReview.model,summary:roadReconstructionReview.summary}:null,roadPilot:roadPilot?roadPilot.getStatus():{ready:false,loading:Boolean(roadPilotLoading),error:roadPilotError},navigation:navigation.getState(),map:gameMap.getState(),routeGuidance,cityView,aerialView,traveling,bootReady,shadows:{enabled:shadowsEnabled,active:renderer.shadowMap.enabled},drawCalls:renderer.info.render.calls,triangles:renderer.info.render.triangles,started,paused})};
   requestAnimationFrame(frame);
   const [roads]=await Promise.all([roadStream.loadAround(seed.spawn),world.prepareAt(seed.spawn,300),landscapeReady]);
   sim.setActiveCity({roads,buildings,isReadyAt:(x,z,radius)=>world.isReadyAt(x,z,radius),missionPoints:destinationsFor(roads,seed.spawn)},{spawn:seed.spawn});city=sim.city;yaw=sim.player.angle;
