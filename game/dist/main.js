@@ -27,6 +27,7 @@ import { createStorefronts } from './storefronts.js';
 import { createPhone, describePlace } from './phone.js';
 import { createFleet } from './fleet.js';
 import { offersAt } from './garage.js';
+import { planRoom, buildRoom, roomKind } from './interiors.js';
 
 const $ = id => document.getElementById(id);
 const clamp = (n,a,b) => Math.max(a,Math.min(b,n));
@@ -46,6 +47,8 @@ let cameraFlashing=false;
 let placeSource=null, storefronts=null, footprints=indexFootprints([]), fronts=[], frontsFor=null, placeTimer=0;
 // The phone, and where a delivery can be sent: the streets around, and the places with a street front.
 let phone=null, roadDestinations=[], placeDestinations=[], shopHere=null;
+// The front the player is standing at if it has a room to go into, and the room they are in.
+let doorHere=null, roomGroup=null, roomStaff=[];
 // Which cars are registered where (fleet.js): the whole city's mix until the counts by ZIP code have loaded.
 let fleet=createFleet(null);
 const destinationsFor=(roads,focus)=>{roadDestinations=localDestinations(roads,focus);return [...roadDestinations,...placeDestinations];};
@@ -91,6 +94,16 @@ function action(name) {
   if(name==='time') { if(gfx){const preset=gfx.nextPreset();updateTimeButton();announce('Time of day: '+preset.label.toLowerCase()+', '+gfx.clock+'.');}return; }
   if(!started||paused||traveling||!bootReady||cityView)return;
   if(name==='interact'){
+    // On foot at an open door, with no car to get into: go in.
+    if(sim.player.mode==='walk'&&!sim.room&&doorHere&&!sim.getNearbyCar()){
+      const room=planRoom(doorHere,(x,z)=>Boolean(footprints.at(x,z)));
+      if(room&&sim.enterRoom(room)){
+        const floor=groundHeight(room.x+room.nx*1.5,room.z+room.nz*1.5)+.04;
+        roomGroup=buildRoom(room,floor);scene.add(roomGroup);
+        roomStaff=room.staff.map((spot,i)=>{const person=createPerson([0x2f4a5a,0x7a2f2f,0x3f5a3a,0x4a3a5a][i%4]);const x=room.x+room.tx*spot.a-room.nx*spot.b,z=room.z+room.tz*spot.a-room.nz*spot.b;person.position.set(x,floor,z);person.rotation.y=Math.atan2(room.nx,room.nz)+spot.facing*Math.PI/2;roomGroup.add(person);return person;});
+        yaw=sim.player.angle;return;
+      }
+    }
     const changed=sim.interact();
     if(changed&&sim.player.mode==='drive'){
       // A walking camera can face the cab's nose. Start behind the newly
@@ -411,6 +424,12 @@ function updateCamera(dt) {
     }
   }
   camera.position.y=Math.max(camera.position.y,terrainHeight(camera.position.x,camera.position.z)+.6);
+  if(sim.room){
+    // Indoors the camera stays in the room, close behind the player.
+    const room=sim.room,back=2.3,cx=p.x-Math.sin(yaw)*back,cz=p.z-Math.cos(yaw)*back;
+    const a=Math.max(-room.width/2+.3,Math.min(room.width/2-.3,(cx-room.x)*room.tx+(cz-room.z)*room.tz)),b=Math.max(.3,Math.min(room.depth-.3,-((cx-room.x)*room.nx+(cz-room.z)*room.nz)));
+    camera.position.set(room.x+room.tx*a-room.nx*b,chaseHeight.height+1.9,room.z+room.tz*a-room.nz*b);camera.near=.08;
+  }
   cameraTarget.set(p.x,chaseHeight.height+(driving?1.1:1.45),p.z);
   if(driving)cameraTarget.add(chaseLookAhead);
   camera.lookAt(cameraTarget);
@@ -509,14 +528,17 @@ function frame(now) {
       const dx=sim.player.x-front.x,dz=sim.player.z-front.z,out=dx*front.nx+dz*front.nz;
       if(out>-1&&out<reach&&Math.abs(dx*front.tx+dz*front.tz)<front.width/2+(driving?5:1)&&(!facing||out<facing.out))facing={front,out};
     }
-    $('place-hint').hidden=!facing;
-    shopHere=null;
+    $('place-hint').hidden=!facing||Boolean(sim.room);
+    shopHere=null;doorHere=null;
+    if(!sim.room&&roomGroup){roomGroup.userData.dispose();roomGroup=null;roomStaff=[];}
     if(facing){
       const about=describePlace(facing.front.place,gfx.hours),open=about.status==='OPEN';
       if(driving&&open&&Math.abs(sim.player.speed)<1)shopHere=facing.front.place;
-      $('place-hint').textContent=[about.name,about.kind===about.name?'':about.kind,about.grade,about.status,driving&&open?(shopHere?'G FOR THE COUNTER':'STOP HERE FOR THE SHOP'):''].filter(Boolean).join(' · ');
+      if(!driving&&open&&facing.out<3.5&&roomKind(facing.front.place))doorHere=facing.front;
+      $('place-hint').textContent=[about.name,about.kind===about.name?'':about.kind,about.grade,about.status,driving&&open?(shopHere?'G FOR THE COUNTER':'STOP HERE FOR THE SHOP'):doorHere?'E TO GO IN':''].filter(Boolean).join(' · ');
     }
   }
+  gfx.indoors=Boolean(sim.room);
   storefronts?.update(fronts,lit,gfx.hours);
   phone?.update(elapsed);
   // A red-light camera's flash: the frame blows out for a tenth of a second.

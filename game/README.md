@@ -149,6 +149,10 @@ Each place near the player is given a street front: the stretch of its building'
 
 Shop fronts that belong to no registered place stay as they were, anonymous. The registers do not cover clothes shops, banks, laundromats, pharmacies without a beer licence or offices, so most of Fifth Avenue is still unnamed.
 
+## Going inside
+
+On foot at the door of an open shop, restaurant, bar, salon, hotel or public building, **E** goes in; **E** again, or walking back out through the door, leaves. No register holds the inside of a shop: `interiors.js` lays the room out. It is as wide as the place's street front (nine metres at most) and as deep as the building behind the door allows (twelve at most), and furnished for the kind of place: a counter by the door, aisles of shelving and coolers across the back for a bodega; tables and a counter for somewhere to eat; a bar down one side; chairs and mirrors for a salon or a barber; a desk and seats for a lobby. Someone minds each one. The room is a closed box: the street cannot be seen from inside, nothing can be bought yet, and upper floors are not modelled.
+
 ## Cars and garages
 
 `scripts/build-fleet.mjs` counts the 1,785,865 passenger cars registered in the five boroughs by ZIP code and body type, and by colour for the city as a whole (`dist/fleet.json`, 11 KB). `fleet.js` turns the counts for the ZIP code the player is in into the mix that parked cars and traffic are drawn from: SoHo's 10012 is seven in ten what the register calls suburbans. There are eight bodies (sedan, sport utility, hatchback, estate, minivan, coupe, pickup, van). The register's "suburban" covers everything with a tailgate, and it has no code for silver; how those are split is the game's. One car in seven in traffic is a van or a pickup at work, whoever lives there.

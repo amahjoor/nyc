@@ -33,6 +33,7 @@ import { createStorefronts } from '../dist/storefronts.js';
 import { createPhone, describePlace } from '../dist/phone.js';
 import { createFleet } from '../dist/fleet.js';
 import { offersAt } from '../dist/garage.js';
+import { planRoom, buildRoom, roomKind } from '../dist/interiors.js';
 
 // This is application integration QA, not a browser/GPU rendering test. The
 // actual city geometry, physics, input and HUD run; browser primitives are fake.
@@ -261,7 +262,7 @@ async function bootHarness({ stored = null, displayStored = null, unavailableSto
     },
     updateChaseHeight, createCityGround, worldToGeographic, createRoadStream, nearestStreet, localDestinations, createCityNavigation,
     createStreetDetail:(manifest,options)=>createStreetDetail(manifest,{...options,now:()=>timestamp}),
-    Landscape, RoadPilot, AbortSignal, createGraphics, createStreetLife, createWater, setVehicleLamps, createCityLife, manhattanCore, createStreetSigns, createCrowd, createStreetProps, createPlaceSource, indexFootprints, solveFrontages, createStorefronts, createPhone, describePlace, createFleet, offersAt,
+    Landscape, RoadPilot, AbortSignal, createGraphics, createStreetLife, createWater, setVehicleLamps, createCityLife, manhattanCore, createStreetSigns, createCrowd, createStreetProps, createPlaceSource, indexFootprints, solveFrontages, createStorefronts, createPhone, describePlace, createFleet, offersAt, planRoom, buildRoom, roomKind,
     // Bundled survey cells only: these tests stay offline.
     createStreetscape:options=>createStreetscape({...options,live:false,now:()=>timestamp}),
     console: { error: error => errors.push(error), warn: () => {}, log: () => {} },

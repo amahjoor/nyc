@@ -2,6 +2,7 @@ import { resetVehicleDynamics, stepVehicleDynamics, stopVehicleRotation, vehicle
 import { planJunction, junctionArms, vehicleAspect, stopDistance } from './signal-plan.js';
 import { laneLayout } from './lanes.js';
 import { drawBody, drawPaint, bodyShape } from './fleet.js';
+import { walkRoom, roomPoint } from './room.js';
 import { handlingFor, repairCost, offersAt, PARTS, RESPRAY_PRICE, RESPRAYS, CALL_OUT, DELIVERY } from './garage.js';
 
 // Simulation units are metres and seconds. A heading of zero points along +Z.
@@ -402,6 +403,24 @@ export class Simulation {
     const fleet = taxi ? null : this._fleet;
     car.shape = fleet ? drawBody(fleet, this._random(), true) : undefined;
     car.color = taxi ? (this._trafficMix.green ? GREEN_CAB : YELLOW_CAB) : fleet ? drawPaint(fleet, this._random()) : TRAFFIC_PAINT[Math.floor(this._random() * TRAFFIC_PAINT.length)];
+  }
+
+  /** Walk in through the door of a room laid out by planRoom(). On foot only. */
+  enterRoom(room) {
+    if (!room || this.player.mode !== 'walk') return false;
+    this.room = { ...room, a: 0, b: 1.1 };
+    const [x, z] = roomPoint(room, 0, 1.1);
+    Object.assign(this.player, { x, z, velocityX: 0, velocityZ: 0, speed: 0, angle: Math.atan2(-room.nx, -room.nz) });
+    this._say(room.name, 3);
+    return true;
+  }
+  /** Back out onto the sidewalk in front of the door. */
+  leaveRoom() {
+    const room = this.room;
+    if (!room) return false;
+    this.room = null;
+    Object.assign(this.player, { x: room.x + room.nx * 1.2, z: room.z + room.nz * 1.2, velocityX: 0, velocityZ: 0, speed: 0, angle: Math.atan2(room.nx, room.nz) });
+    return true;
   }
 
   /** The car the player is driving, if any. */
@@ -966,6 +985,7 @@ export class Simulation {
   interact() {
     const player = this.player;
     if (player.mode === 'walk') {
+      if (this.room) return this.leaveRoom();
       const car = this.getNearbyCar();
       if (!car) { this._say('Move closer to a taxi or parked car.'); return false; }
       if (vehicleTravelSpeed(car) > 4) { this._say('Wait for the car to slow down.'); return false; }
@@ -1111,6 +1131,16 @@ export class Simulation {
     player.velocityX += (desiredX - player.velocityX) * blend;
     player.velocityZ += (desiredZ - player.velocityZ) * blend;
     if (magnitude > 0.02) player.angle += turnDelta(player.angle, Math.atan2(desiredX, desiredZ)) * (1 - Math.exp(-16 * dt));
+    if (this.room) {
+      // Indoors the walls and the furniture are the room's, not the city's.
+      const room = this.room, dx = player.velocityX * dt, dz = player.velocityZ * dt;
+      const moved = walkRoom(room, room.a, room.b, dx * room.tx + dz * room.tz, -(dx * room.nx + dz * room.nz), PLAYER_RADIUS);
+      if (moved.out) { this.leaveRoom(); return; }
+      const [x, z] = roomPoint(room, moved.a, moved.b);
+      player.speed = Math.hypot(x - player.x, z - player.z) / dt;
+      room.a = moved.a; room.b = moved.b; player.x = x; player.z = z;
+      return;
+    }
     let next = this._resolvePosition(player.x + player.velocityX * dt, player.z + player.velocityZ * dt, PLAYER_RADIUS, null, player);
     const carHit = this._nearCar(next.x, next.z, PLAYER_RADIUS, null, player.y);
     if (carHit) {
