@@ -24,6 +24,7 @@ import { createGraphics } from '../dist/gfx.js';
 import { createStreetscape, ROAD_LIFT, SIDEWALK_LIFT } from '../dist/streetscape.js';
 import { createStreetLife } from '../dist/streetlife.js';
 import { createWater } from '../dist/water.js';
+import { createCityLife, manhattanCore } from '../dist/citylife.js';
 
 // This is application integration QA, not a browser/GPU rendering test. The
 // actual city geometry, physics, input and HUD run; browser primitives are fake.
@@ -252,7 +253,7 @@ async function bootHarness({ stored = null, displayStored = null, unavailableSto
     },
     updateChaseHeight, createCityGround, worldToGeographic, createRoadStream, nearestStreet, localDestinations, createCityNavigation,
     createStreetDetail:(manifest,options)=>createStreetDetail(manifest,{...options,now:()=>timestamp}),
-    Landscape, RoadPilot, AbortSignal, createGraphics, createStreetLife, createWater, setVehicleLamps,
+    Landscape, RoadPilot, AbortSignal, createGraphics, createStreetLife, createWater, setVehicleLamps, createCityLife, manhattanCore,
     // Bundled survey cells only: these tests stay offline.
     createStreetscape:options=>createStreetscape({...options,live:false,now:()=>timestamp}),
     console: { error: error => errors.push(error), warn: () => {}, log: () => {} },

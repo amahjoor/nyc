@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { Simulation } from '../dist/simulation.js';
+import { vehicleAspect, stopDistance } from '../dist/signal-plan.js';
 
 function city(overrides = {}) {
   return {
@@ -432,4 +433,122 @@ test('standing kerbside cars are re-seated on the ground a few at a time', () =>
   sim._sampleSurface = (x, z, options) => { for (const car of sim.cars) if (car._kerb && Math.abs(car.x - x) < 1e-9 && Math.abs(car.z - z) < 1e-9) seen.add(car.id); return original(x, z, options); };
   for (let i = 0; i < 24; i++) sim.updateGrounding();
   assert.equal(seen.size, 96);
+});
+
+// A one-way avenue running north (toward -Z), crossed by a two-way street at the origin.
+const street = (id, name, points, width, oneway = false) => ({ id, name, points, width, oneway, kind: 'residential', roadwayType: 1, fromLevel: 13, toLevel: 13 });
+const crossing = (extra = {}) => city({ roads: [street('ave', '7 AVE', [[0, 400], [0, -400]], 18, 'yes'), street('st', 'W 42 ST', [[-400, 0], [400, 0]], 9)], spawn: { x: 150, z: 150, angle: 0 }, ...extra });
+const edgeInto = (sim, from, to) => sim._graph.edges.find(edge => Math.hypot(edge.from.x - from[0], edge.from.z - from[1]) < 1 && Math.hypot(edge.to.x - to[0], edge.to.z - to[1]) < 1);
+function lone(sim, edge, back) {
+  // One car on `edge`, `back` metres before its end, and nothing else on the road.
+  sim.cars = sim.cars.filter(car => car.id === 'player-taxi');
+  const t = 1 - back / edge.length, point = sim._lanePoint(edge, t);
+  const car = sim._makeCar('probe', 'sedan', point, edge.angle, edge);
+  car.speed = car._cruise; sim.cars.push(car);
+  return car;
+}
+
+test('junctions are planned from the streets that meet, and from what the city lists', () => {
+  const sim = new Simulation(crossing());
+  assert.equal(sim.junctions.length, 1);
+  const [junction] = sim.junctions;
+  assert.deepEqual([junction.x, junction.z, junction.plan.control, junction.plan.cycle], [0, 0, 'signal', 90]);
+  assert.deepEqual(junction.plan.widths, [18, 9]);
+  assert.equal(junction.arms.length, 4);
+  assert.deepEqual(junction.arms.map(arm => arm.name).sort(), ['7 AVE', '7 AVE', 'W 42 ST', 'W 42 ST']);
+  // Each edge knows which street it arrives by: the avenue is the main one.
+  assert.equal(edgeInto(sim, [0, 400], [0, 0]).arrives, 0); assert.equal(edgeInto(sim, [400, 0], [0, 0]).arrives, 1);
+  // Two side streets get stop signs; the city's list makes the same corner a signal with a head start.
+  const quiet = [street('a', 'A ST', [[0, 300], [0, -300]], 9), street('b', 'B ST', [[-300, 0], [300, 0]], 9)];
+  assert.equal(new Simulation(city({ roads: quiet })).junctions[0].plan.control, 'allway');
+  const listed = new Simulation(city({ roads: quiet, signalHints: (x, z) => ({ lpi: Math.hypot(x, z) < 30, exclusive: false, core: false }) })).junctions[0].plan;
+  assert.equal(listed.control, 'signal'); assert.deepEqual(listed.lead, [7, 7]);
+  // A plan depends only on place: reloading the streets does not restart the cycle.
+  const again = new Simulation(crossing());
+  again.setActiveCity({ roads: crossing().roads.map(road => ({ ...road })) });
+  assert.deepEqual(again.junctions[0].plan, junction.plan);
+  // A bridge passing over a street is not a junction.
+  const over = new Simulation(city({ roads: [street('a', 'A ST', [[0, 300], [0, -300]], 18), { ...street('b', 'RAMP', [[-300, 0], [300, 0]], 12), kind: 'bridge', fromLevel: 15, toLevel: 15 }] }));
+  assert.equal(over.junctions.length, 0);
+});
+
+test('traffic waits at a red light behind the stop line and goes on green', () => {
+  const sim = new Simulation(crossing()), plan = sim.junctions[0].plan;
+  const edge = edgeInto(sim, [400, 0], [0, 0]), line = stopDistance(plan, 1);
+  // Start the side street's wait just after its green has ended.
+  const greenStart = plan.offset + plan.lead[0] + plan.green[0] + 5 + plan.lead[1];
+  sim.elapsed = greenStart + plan.green[1] + 3.5;
+  assert.equal(vehicleAspect(plan, 1, sim.elapsed).aspect, 'red');
+  const car = lone(sim, edge, 60);
+  const wait = vehicleAspect(plan, 1, sim.elapsed).remaining;
+  advance(sim, wait - 2);
+  assert.ok(car.speed < .2, `stopped: ${car.speed.toFixed(2)} m/s`);
+  const nose = car.x - 2.3;
+  assert.ok(nose > line - .3 && nose < line + 3.5, `nose ${nose.toFixed(1)} m from the junction, line at ${line.toFixed(1)}`);
+  advance(sim, 8);
+  assert.ok(car.speed > 3 && car.x < line - 2, 'green: it has set off and crossed the line');
+  // A patrol answering a call does not wait.
+  sim.elapsed = greenStart + plan.green[1] + 3.5;
+  const patrol = lone(sim, edge, 60); patrol.type = 'police'; sim.heat = 1;
+  advance(sim, 9);
+  assert.ok(patrol._edge !== edge || patrol.x < line - 3, 'the patrol went through on red');
+});
+
+test('at a stop sign traffic comes to a full stop, then goes', () => {
+  const sim = new Simulation(city({ roads: [street('a', 'A ST', [[0, 300], [0, -300]], 9), street('b', 'B ST', [[-300, 0], [300, 0]], 9)], spawn: { x: 150, z: 150, angle: 0 } }));
+  const plan = sim.junctions[0].plan, edge = edgeInto(sim, [300, 0], [0, 0]), line = stopDistance(plan, edge.arrives);
+  assert.equal(vehicleAspect(plan, edge.arrives, 0).aspect, 'stop');
+  const car = lone(sim, edge, 50);
+  let halted = 0, slowest = Infinity, where = null;
+  for (let i = 0; i < 60 * 30 && car._edge === edge; i++) {
+    sim.step({}, 1 / 60);
+    if (car.speed < .3) { halted += 1 / 60; where = car.x; }
+    slowest = Math.min(slowest, car.speed);
+  }
+  assert.ok(halted > .9 && halted < 6, `halted for ${halted.toFixed(1)} s`);
+  assert.ok(where - 2.3 > line - .5 && where - 2.3 < line + 3, `stopped with its nose ${(where - 2.3).toFixed(1)} m out, line at ${line.toFixed(1)}`);
+  assert.ok(car._edge !== edge, 'and then drove on');
+});
+
+test('running a red light is noticed by a camera or a patrol; yellow and green are not', () => {
+  const drive = (setup = () => {}) => {
+    const sim = new Simulation(crossing({ spawn: { x: 60, z: 2, angle: -Math.PI / 2 } }));
+    sim.cars = sim.cars.filter(car => car.id === 'player-taxi');
+    const cab = sim.cars[0]; Object.assign(cab, { x: 60, z: 2.2, angle: -Math.PI / 2 });
+    sim.player.x = 58; sim.player.z = 4; sim.interact();
+    assert.equal(sim.player.mode, 'drive');
+    sim.cash = 80; setup(sim);
+    return sim;
+  };
+  const plan = new Simulation(crossing()).junctions[0].plan;
+  const red = plan.offset + plan.lead[0] + 4, green = plan.offset + plan.lead[0] + plan.green[0] + 5 + plan.lead[1] + 4;
+  const through = sim => { for (let i = 0; i < 60 * 14 && sim.player.x > -25; i++) sim.step({ forward: 1 }, 1 / 60); assert.ok(sim.player.x < -20, 'drove through the junction'); return sim; };
+  // On the side street's red, with a camera at the junction.
+  const caught = through(drive(sim => { sim.elapsed = red; sim.junctions[0].camera = true; }));
+  assert.equal(caught.redLights, 1); assert.equal(caught.cash, 30); assert.match(caught.notice, /camera/i);
+  assert.ok(caught.cameraFlash && caught.cameraFlash.x === 0);
+  // No camera, nobody watching: it is counted and nothing more.
+  const unseen = through(drive(sim => { sim.elapsed = red; sim.junctions[0].camera = false; }));
+  assert.equal(unseen.redLights, 1); assert.equal(unseen.cash, 80); assert.equal(unseen.heat, 0);
+  // A patrol with a view of it gives chase.
+  const seen = through(drive(sim => { sim.elapsed = red; sim.junctions[0].camera = false; sim.cars.push(sim._makeCar('police-9', 'police', { x: 30, z: 30 }, 0)); }));
+  assert.ok(seen.heat >= .5); assert.match(seen.notice, /patrol/i);
+  // On green nothing happens.
+  const legal = through(drive(sim => { sim.elapsed = green; sim.junctions[0].camera = true; }));
+  assert.equal(legal.redLights || 0, 0); assert.equal(legal.cash, 80);
+});
+
+test('the carriageways of a boulevard share one signal plan with the street that crosses them', () => {
+  // Four one-way carriageways 14 m apart, as on the Grand Concourse, crossed by one street.
+  const roads = [street('x', 'E 161 ST', [[-300, 0], [300, 0]], 11)];
+  [-21, -7, 7, 21].forEach((x, i) => roads.push(street(`c${i}`, 'GRAND CONC', i < 2 ? [[x, -300], [x, 300]] : [[x, 300], [x, -300]], 10, 'yes')));
+  const sim = new Simulation(city({ roads, spawn: { x: 150, z: 150, angle: 0 } }));
+  assert.equal(sim.junctions.length, 4);
+  for (const junction of sim.junctions) {
+    assert.equal(junction.plan.control, 'signal'); assert.equal(junction.plan.cycle, 120);
+    const boulevard = junction.arms.findIndex(a => a.name === 'GRAND CONC');
+    assert.equal(junction.plan.groups[boulevard], 0, 'the Concourse is the main street at each of them');
+  }
+  // All four change together, so a car crossing the boulevard is not stopped in the middle of it.
+  for (let t = 0; t < 120; t += 1.5) assert.equal(new Set(sim.junctions.map(junction => vehicleAspect(junction.plan, 1, t).aspect)).size, 1, `at ${t} s`);
 });

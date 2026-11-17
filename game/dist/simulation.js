@@ -1,4 +1,5 @@
 import { resetVehicleDynamics, stepVehicleDynamics, stopVehicleRotation, vehicleTravelSpeed } from './vehicle-dynamics.js';
+import { planJunction, junctionArms, vehicleAspect, stopDistance } from './signal-plan.js';
 
 // Simulation units are metres and seconds. A heading of zero points along +Z.
 // This module deliberately has no renderer or browser dependencies.
@@ -9,6 +10,8 @@ const CAR_RADIUS = 0.92;
 const CAR_HALF_AXLE = 1.12;
 // What stands at a New York kerb: mostly black, white and shades of grey.
 const KERB_PAINT = ['#15181b', '#15181b', '#2b2f33', '#5b6166', '#8f969b', '#8f969b', '#c9cdd0', '#e8e9e6', '#e8e9e6', '#1f2f45', '#3a5a7a', '#7a1f1f', '#27402f', '#8a7a5c'];
+// A red-light camera's fine. About one signalled junction in twelve has a camera here; the city has far fewer.
+const CAMERA_FINE = 50, CAMERA_SHARE = 12;
 // Kerbside cars stand still, so only one in this many is re-seated on the ground each step.
 const KERB_GROUNDING_TURNS = 24;
 const GRID_SIZE = 24;
@@ -182,6 +185,8 @@ export class Simulation {
     this._rngState = 0x51f05a;
     this._buildings = buildingGrid(city.buildings);
     this._graph = buildRoadGraph(city.roads || []);
+    this._signalHints = typeof city.signalHints === 'function' ? city.signalHints : null;
+    this._planJunctions();
     this.player = { x: city.spawn.x, z: city.spawn.z, angle: city.spawn.angle || 0, speed: 0, mode: 'walk', vehicleId: null, velocityX: 0, velocityZ: 0 };
     this.cars = [];
     this.heat = 0;
@@ -225,10 +230,118 @@ export class Simulation {
     this._buildings = buildings;
     const roadsChanged = graph !== this._graph;
     this._graph = graph;
+    if (typeof this.city.signalHints === 'function') this._signalHints = this.city.signalHints;
+    if (roadsChanged || city.signalHints !== undefined) this._planJunctions();
     if (spawn) this.travelTo(spawn);
     else if (roadsChanged) this._rebindTraffic();
     this.updateGrounding();
     return { player: { x: this.player.x, z: this.player.z }, cars: this.cars.length, loadedBounds: this.loadedBounds };
+  }
+
+  /**
+   * Decide how every junction of the loaded streets is controlled. A plan
+   * depends only on where the junction is and what meets there, so a signal
+   * keeps its place in its cycle when streets are streamed out and in again.
+   */
+  _planJunctions() {
+    const touching = new Map();
+    for (const edge of this._graph.edges) for (const node of [edge.from, edge.to]) {
+      let list = touching.get(node);
+      if (!list) touching.set(node, list = []);
+      list.push(edge);
+    }
+    this.junctions = [];
+    this._junctionGrid = new Map();
+    const meeting = new Map(), nearby = new Map();
+    for (const [node, edges] of touching) {
+      node.plan = null;
+      const arms = junctionArms(node, edges);
+      if (arms.length < 3) continue;
+      meeting.set(node, arms);
+      const key = `${Math.floor(node.x / 64)},${Math.floor(node.z / 64)}`;
+      if (!nearby.has(key)) nearby.set(key, []);
+      nearby.get(key).push(node);
+    }
+    // A boulevard's carriageways cross a street at points a few metres apart.
+    // Find, for each such point, the street that has others running beside it.
+    const boulevardAt = (node, arms) => {
+      let found = null;
+      for (const arm of arms) {
+        if (!arm.name) continue;
+        const sin = Math.sin(arm.angle), cos = Math.cos(arm.angle);
+        let beside = 0;
+        for (let gx = Math.floor((node.x - 50) / 64); gx <= Math.floor((node.x + 50) / 64); gx++) for (let gz = Math.floor((node.z - 50) / 64); gz <= Math.floor((node.z + 50) / 64); gz++) {
+          for (const other of nearby.get(`${gx},${gz}`) || []) {
+            if (other === node) continue;
+            const dx = other.x - node.x, dz = other.z - node.z, along = Math.abs(dx * sin + dz * cos), across = Math.abs(dx * cos - dz * sin);
+            if (across < 6 || across > 50 || along > 12) continue;
+            if (meeting.get(other).some(twin => twin.name === arm.name && Math.abs(Math.sin(twin.angle - arm.angle)) < .35)) beside++;
+          }
+        }
+        if (beside && (!found || beside > found.beside)) found = { beside, angle: arm.angle, breadth: arm.width * (1 + Math.min(beside, 3)) };
+      }
+      return found;
+    };
+    for (const [node, arms] of meeting) {
+      // What the city's lists say about this corner, where the game was given them.
+      const listed = this._signalHints ? this._signalHints(node.x, node.z) : null;
+      const plan = planJunction({ x: node.x, z: node.z, arms, hints: listed || {}, core: Boolean(listed?.core), boulevard: boulevardAt(node, arms) });
+      if (!plan) continue;
+      node.plan = plan; node.arms = arms;
+      const id = `${Math.round(node.x)},${Math.round(node.z)}`;
+      let hash = 0;
+      for (const character of id) hash = (hash * 31 + character.charCodeAt(0)) >>> 0;
+      const junction = { id, x: node.x, z: node.z, plan, arms, radius: Math.max(plan.widths[0], plan.widths[1]) / 2 + 1, camera: plan.control === 'signal' && hash % CAMERA_SHARE === 0 };
+      this.junctions.push(junction);
+      const key = `${Math.floor(node.x / 64)},${Math.floor(node.z / 64)}`;
+      if (!this._junctionGrid.has(key)) this._junctionGrid.set(key, []);
+      this._junctionGrid.get(key).push(junction);
+    }
+    // Which of a junction's two streets each edge arrives by.
+    for (const edge of this._graph.edges) {
+      edge.arrives = -1;
+      const plan = edge.to.plan;
+      if (!plan) continue;
+      const back = edge.angle + Math.PI;
+      const index = edge.to.arms.findIndex(arm => Math.abs(turnDelta(arm.angle, back)) < .4);
+      if (index >= 0) edge.arrives = plan.groups[index];
+    }
+    this._insideJunction = null;
+  }
+
+  /** The signalled junction a point lies inside, if any. */
+  _junctionAt(x, z) {
+    for (let gx = Math.floor((x - 20) / 64); gx <= Math.floor((x + 20) / 64); gx++) for (let gz = Math.floor((z - 20) / 64); gz <= Math.floor((z + 20) / 64); gz++) {
+      for (const junction of this._junctionGrid.get(`${gx},${gz}`) || []) if (Math.hypot(junction.x - x, junction.z - z) < junction.radius) return junction;
+    }
+    return null;
+  }
+
+  /**
+   * A driver who enters a junction against a red light is seen by any patrol
+   * with a view of it, and photographed where there is a camera. Yellow is
+   * legal; so, here, is rolling a stop sign.
+   */
+  _watchSignals(car) {
+    const junction = this._junctionAt(car.x, car.z), entered = junction && this._insideJunction !== junction.id;
+    this._insideJunction = junction ? junction.id : null;
+    if (!entered || junction.plan.control !== 'signal' || vehicleTravelSpeed(car) < 2.5) return;
+    // The arm the car came in by is the one it is still standing on.
+    const from = Math.atan2(car.x - junction.x, car.z - junction.z);
+    let index = -1, best = .9;
+    junction.arms.forEach((arm, i) => { const d = Math.abs(turnDelta(arm.angle, from)); if (d < best) { best = d; index = i; } });
+    if (index < 0 || vehicleAspect(junction.plan, junction.plan.groups[index], this.elapsed).aspect !== 'red') return;
+    this.redLights = (this.redLights || 0) + 1;
+    const patrol = this.cars.find(other => other.type === 'police' && distance(other, car) < 85 && this._hasSight(other, this.player));
+    if (patrol) {
+      this.heat = clamp(this.heat + .5, 0, 3); this._timeSinceCrime = 0;
+      this._say('A patrol saw you run that red light.');
+    } else if (junction.camera) {
+      const fine = Math.min(this.cash, CAMERA_FINE);
+      this.cash -= fine;
+      this.cameraFlash = { x: junction.x, z: junction.z, at: this.elapsed };
+      this._say(fine ? `Red-light camera. Fine: $${fine}.` : 'Red-light camera.');
+    }
   }
 
   _rebindTraffic() {
@@ -727,8 +840,11 @@ export class Simulation {
     this._impactCooldown = Math.max(0, this._impactCooldown - dt);
     this._timeSinceCrime += dt;
     const before = { x: this.player.x, z: this.player.z };
-    if (this.player.mode === 'drive') this._drive(input, dt);
-    else this._walk(input, dt);
+    if (this.player.mode === 'drive') {
+      this._drive(input, dt);
+      const vehicle = this.cars.find(car => car.id === this.player.vehicleId);
+      if (vehicle) this._watchSignals(vehicle);
+    } else { this._walk(input, dt); this._insideJunction = null; }
     this.distanceTravelled += distance(before, this.player);
     this._policeRouteTimer -= dt;
     const refreshRoutes = this._policeRouteTimer <= 0;
@@ -881,7 +997,7 @@ export class Simulation {
       const edge = entrances[Math.floor(this._random() * entrances.length)];
       const point = this._lanePoint(edge, clamp(9 / edge.length, 0.15, 0.75));
       if (distance(point, this.player) < 120 || this._carContact(point.x, point.z, edge.angle) || this._nearCar(point.x, point.z, 6, car.id)) continue;
-      Object.assign(car, { x: point.x, z: point.z, y: undefined, transportId: null, angle: edge.angle, speed: car._cruise * 0.6, _edge: edge, _route: [], _stuckTime: 0, _steering: 0, _shiftHold: 0 });
+      Object.assign(car, { x: point.x, z: point.z, y: undefined, transportId: null, angle: edge.angle, speed: car._cruise * 0.6, _edge: edge, _route: [], _stuckTime: 0, _steering: 0, _shiftHold: 0, _halted: null });
       resetVehicleDynamics(car, car.speed);
       return true;
     }
@@ -920,6 +1036,22 @@ export class Simulation {
     car.angle += clamp(delta, -1.9 * dt, 1.9 * dt);
     let desiredSpeed = (car.siren ? 13 + this.heat * 1.8 : car._cruise) / (1 + Math.abs(delta) * 1.8);
     if (car._wait > 0) desiredSpeed = 0;
+    // Signals and stop signs. A patrol answering a call goes through.
+    const plan = edge.to.plan;
+    if (plan && edge.arrives >= 0 && !car.siren) {
+      // From the car's nose to the stop line.
+      const gap = (1 - projection.t) * edge.length - stopDistance(plan, edge.arrives) - 2.3;
+      if (gap > -1.5 && gap < 45) {
+        const { aspect } = vehicleAspect(plan, edge.arrives, this.elapsed);
+        // Yellow: stop if that can be done gently, otherwise clear the junction.
+        if (aspect === 'red' || (aspect === 'yellow' && gap > car.speed * 1.4)) desiredSpeed = Math.min(desiredSpeed, Math.max(0, gap * 1.1));
+        else if (aspect === 'stop' && car._halted !== edge.id) {
+          desiredSpeed = Math.min(desiredSpeed, Math.max(0, gap * 1.1));
+          // A full stop at the line, a look both ways, then on.
+          if (gap < 1 && car.speed < .3) { car._halted = edge.id; car._wait = 1; }
+        }
+      }
+    }
     for (const other of this.cars) {
       if (other === car) continue;
       if (Number.isFinite(car.y) && Number.isFinite(other.y) && Math.abs(car.y - other.y) > 2.5) continue;
