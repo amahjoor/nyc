@@ -34,9 +34,10 @@ let shadowsEnabled=true;
 let cityIndex, roadIndex, roadStream, ground, streetDetail, bootReady=false, traveling=false, pausedBeforeSources=false;
 let viewOverride=null;
 let cityView=false, cityZoom=1, cityOrbit=0, cityFocus=null, roadCell='', roadEpoch=0, roadBusy=false, buildings=[], boroughs=[];
-let streetscape=null, streetLife=null, water=null, parkedCars=null, signs=null, crowd=null, props=null, cityLife=createCityLife(null);
+let streetscape=null, streetLife=null, water=null, parkedCars=null, signs=null, crowd=null, props=null, cityLife=createCityLife(null), lifeTimer=0;
 const noStreetFurniture=[], crowdAhead=new THREE.Vector3();
 let cameraFlashing=false;
+const trafficAhead=new THREE.Vector3();
 let landscape=null, landscapeRevision=0, landscapeDirty=false, landscapeManifest=null, reconstructionReview=null, roadReconstructionReview=null, streetManifest=null;
 // The opening shot: a slow sweep around the Financial District from the harbor.
 const INTRO={x:-420,z:1760,radius:2700,height:150,aim:150,aside:620,bearing:-.82,sweep:.38};
@@ -437,6 +438,11 @@ function frame(now) {
   // Signals show what the simulation's traffic is obeying, on the same clock.
   signs.group.visible=!cityView||Boolean(viewOverride);
   if(signs.group.visible)signs.update(sim.junctions,lit,sim.elapsed);
+  // How much traffic, and whose cabs, follows the hour and the neighbourhood.
+  // It joins the streets where the camera is not looking.
+  lifeTimer-=dt;
+  if(lifeTimer<=0){lifeTimer=2;sim.setTraffic(cityLife.traffic(sim.player.x,sim.player.z,gfx.hours));}
+  camera.getWorldDirection(trafficAhead);sim.setLookout(trafficAhead.x,trafficAhead.z);
   // People on the sidewalks: as many as the place and the hour call for.
   crowd.mesh.visible=started&&(!cityView||Boolean(viewOverride));
   if(crowd.mesh.visible){

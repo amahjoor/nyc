@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { Simulation } from '../dist/simulation.js';
+import { Simulation, YELLOW_CAB, GREEN_CAB } from '../dist/simulation.js';
 import { vehicleAspect, stopDistance } from '../dist/signal-plan.js';
 
 function city(overrides = {}) {
@@ -536,6 +536,112 @@ test('running a red light is noticed by a camera or a patrol; yellow and green a
   // On green nothing happens.
   const legal = through(drive(sim => { sim.elapsed = green; sim.junctions[0].camera = true; }));
   assert.equal(legal.redLights || 0, 0); assert.equal(legal.cash, 80);
+});
+
+test('traffic thins and thickens with the hour, and its cabs are the right colour', () => {
+  const roads = [];
+  for (let i = -3; i <= 3; i++) { roads.push(street(`a${i}`, `A${i}`, [[i * 120, -420], [i * 120, 420]], 9)); roads.push(street(`s${i}`, `S${i}`, [[-420, i * 120], [420, i * 120]], 9)); }
+  const sim = new Simulation(city({ roads, spawn: { x: 5, z: 5, angle: 0 } }));
+  const moving = () => sim.cars.filter(car => car._edge && car.type !== 'police' && !car.controlled);
+  const seeded = moving().length;
+  advance(sim, 20);
+  assert.equal(moving().length, seeded, 'untouched until the hour is given');
+  sim.setTraffic({ level: 1, taxis: .9, green: true });
+  advance(sim, 60);
+  assert.ok(moving().length >= 54 && moving().length <= 62, `${moving().length} cars in the rush`);
+  // Whatever came onto the map since is mostly cabs, and here they are green.
+  const fresh = moving().filter(car => /^traffic-\d{3,}$/.test(car.id));
+  assert.ok(fresh.length >= 8);
+  assert.ok(fresh.filter(car => car.type === 'taxi').length / fresh.length > .6);
+  assert.ok(fresh.filter(car => car.type === 'taxi').every(car => car.color === GREEN_CAB));
+  assert.equal(new Set(sim.cars.map(car => car.id)).size, sim.cars.length, 'every car keeps a distinct identity');
+  sim.setTraffic({ level: .15, taxis: .5, green: false });
+  advance(sim, 120);
+  assert.ok(moving().length <= 20, `${moving().length} cars in the small hours`);
+  assert.ok(sim.cars.some(car => car.id === 'player-taxi' && car.color === YELLOW_CAB), 'the player\'s cab is never retired');
+});
+
+test('traffic is kept within a few blocks of the player, and comes and goes out of sight', () => {
+  // Two kilometres of grid: left alone, a dozen cars would be scattered across all of it.
+  const roads = [];
+  for (let i = -8; i <= 8; i++) { roads.push(street(`a${i}`, `A${i}`, [[i * 120, -1000], [i * 120, 1000]], 9)); roads.push(street(`s${i}`, `S${i}`, [[-1000, i * 120], [1000, i * 120]], 9)); }
+  const sim = new Simulation(city({ bounds: { minX: -1100, maxX: 1100, minZ: -1100, maxZ: 1100 }, roads, spawn: { x: 60, z: 6, angle: 0 } }));
+  const moving = () => sim.cars.filter(car => car._edge && car.type !== 'police' && !car.controlled);
+  const from = car => Math.hypot(car.x - sim.player.x, car.z - sim.player.z);
+  advance(sim, 5);
+  const before = moving().filter(car => from(car) < 230).length;
+  sim.setTraffic({ level: .6, taxis: .3 });
+  // Watch every car that appears, jumps or goes: none may do so nearer than 330 m, where a car is a few pixels
+  // wide, since the player is taken to be looking everywhere until the game says otherwise.
+  const watch = (seconds, input, nearest) => {
+    let last = new Map(sim.cars.map(car => [car.id, { x: car.x, z: car.z, seen: from(car) }])), arrivals = 0, departures = 0;
+    for (let i = 0; i < seconds * 30; i++) {
+      sim.step(input, 1 / 30);
+      const now = new Map();
+      for (const car of sim.cars) {
+        const was = last.get(car.id);
+        if (!car.controlled && (!was || Math.hypot(car.x - was.x, car.z - was.z) > 20)) { arrivals++; assert.ok(from(car) >= nearest(car) - 1, `${car.id} appeared ${from(car).toFixed(0)} m away`); }
+        now.set(car.id, { x: car.x, z: car.z, seen: from(car) });
+      }
+      for (const [id, was] of last) if (!now.has(id)) { departures++; assert.ok(was.seen >= nearest(was) - 1, `${id} vanished ${was.seen.toFixed(0)} m away`); }
+      last = now;
+    }
+    return { arrivals, departures };
+  };
+  const first = watch(90, {}, () => 330);
+  assert.ok(first.arrivals > 25, `${first.arrivals} arrivals`);
+  assert.equal(moving().length, 41, 'as many as the hour calls for');
+  const near = moving().filter(car => from(car) < 230).length, reach = moving().filter(car => from(car) < 460).length;
+  assert.ok(before <= 3 && near >= 12, `${before} cars within 230 m before, ${near} after`);
+  assert.ok(reach >= 38, `${reach} of 41 within a few blocks`);
+  assert.equal(new Set(sim.cars.map(car => car.id)).size, sim.cars.length);
+  // Told where the player is looking, traffic joins much nearer everywhere else.
+  sim.setLookout(0, 2);
+  const ahead = car => (car.z - sim.player.z) > .5 * from(car);
+  const second = watch(90, {}, car => ahead(car) ? 330 : 150);
+  const close = moving().filter(car => from(car) < 230).length;
+  assert.ok(second.arrivals > 10 && close >= 12, `${close} within 230 m, ${second.arrivals} arrivals`);
+  sim.setLookout(0, 0);
+  assert.equal(sim._lookout, null, 'a camera looking straight down looks everywhere');
+  sim.setLookout(0, 2);
+  // Driving off flat out, the traffic keeps up: there is as much in sight five blocks on, and some of it ahead.
+  sim.interact();
+  const third = watch(20, { forward: 1 }, car => ahead(car) ? 330 : 150);
+  const sight = moving().filter(car => from(car) < 400).length;
+  assert.ok(from({ x: 60, z: 6 }) > 400, 'the player has left the neighbourhood');
+  assert.ok(third.arrivals > 10 && sight >= 24 && moving().filter(ahead).length >= 8, `${sight} in sight, ${moving().filter(ahead).length} of ${moving().length} ahead`);
+});
+
+test('a car left standing in the only lane shuts its block: those behind wait, the rest turn off', () => {
+  const sim = new Simulation(crossing());
+  // The street has one lane each way. A car is left in the eastbound one, 80 m past the junction.
+  const beyond = edgeInto(sim, [0, 0], [400, 0]), into = edgeInto(sim, [-400, 0], [0, 0]);
+  const first = lone(sim, beyond, 400 - 40);
+  const spot = sim._lanePoint(beyond, 80 / 400), left = sim._makeCar('left', 'sedan', spot, beyond.angle);
+  sim.cars.push(left);
+  assert.equal(left.parked, true);
+  const choose = () => { const probe = sim._makeCar('chooser', 'sedan', sim._lanePoint(into, 1), into.angle, into); return sim._pickNextEdge(probe); };
+  const straight = () => Array.from({ length: 60 }, choose).filter(edge => edge === beyond).length;
+  assert.ok(straight() > 20, 'most traffic goes straight on while the street is open');
+  advance(sim, 12);
+  assert.ok(first.speed < .1 && first.x < spot.x - 4 && first.x > spot.x - 9, `waiting ${(spot.x - first.x).toFixed(1)} m behind it`);
+  assert.equal(straight(), 0, 'nobody else comes into the block');
+  // A second car already on the block queues behind the first, and keeps the block shut.
+  const second = sim._makeCar('second', 'sedan', sim._lanePoint(beyond, 20 / 400), beyond.angle, beyond); second.speed = 6; sim.cars.push(second);
+  advance(sim, 14);
+  assert.ok(second.speed < .1 && second._held > 4 && straight() === 0);
+  // The car is driven away: the queue moves off and the block opens again.
+  sim.cars.splice(sim.cars.indexOf(left), 1);
+  advance(sim, 10);
+  assert.ok(first.speed > 3 && second.speed > 3, 'the queue has moved off');
+  assert.ok(straight() > 20, 'and the street is open again');
+  // Waiting at a red light shuts nothing.
+  const plan = sim.junctions[0].plan, side = edgeInto(sim, [400, 0], [0, 0]);
+  sim.elapsed = plan.offset + plan.lead[0] + plan.green[0] + 5 + plan.lead[1] + plan.green[1] + 3.5;
+  const leader = lone(sim, side, 60), follower = sim._makeCar('follower', 'sedan', sim._lanePoint(side, 1 - 75 / side.length), side.angle, side); follower.speed = 6; sim.cars.push(follower);
+  advance(sim, 15);
+  assert.ok(leader.speed < .2 && follower.speed < .2, 'both stand at the red light');
+  assert.ok(!(follower._held > 0) && !(sim.elapsed - side._blockedAt < 60), 'and the block stays open');
 });
 
 test('the carriageways of a boulevard share one signal plan with the street that crosses them', () => {

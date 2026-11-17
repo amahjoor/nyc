@@ -319,6 +319,8 @@ const hubMaterial = new THREE.MeshStandardMaterial({ color: 0xa9afb0, metalness:
 const { tyre: wheelTyre, rim: wheelRim } = wheelGeometry();
 const bodies = new Map();
 const SHAPES = ['sedan', 'sedan', 'suv', 'suv', 'van'];
+/** The colour of a boro taxi, as the simulation names it. */
+export const GREEN_CAB = 0x74b541;
 
 /** Lamps brighten after dark; 0 is daylight, 1 is night. Shared by every car. */
 export function setVehicleLamps(night) { carGlow.emissiveIntensity = .55 + 2.6 * Math.max(0, Math.min(1, night)); }
@@ -413,7 +415,8 @@ export function createParkedCars({ capacity = 160 } = {}) {
 export function createCar({ type = 'sedan', color: tint = 0xbcc5bd, seed = '' } = {}) {
   const group = new THREE.Group(); group.name = type;
   const taxi = type === 'taxi', police = type === 'police';
-  if (taxi) tint = 0xf3ba31;
+  // Yellow in the Manhattan core; apple green for the cabs that serve everywhere else.
+  if (taxi) tint = new THREE.Color(tint).getHex() === GREEN_CAB ? GREEN_CAB : 0xf3ba31;
   if (police) tint = 0xe4e9e4;
   const shape = carShape(type, seed);
   const key = `${type}:${shape}:${new THREE.Color(tint).getHexString()}`;

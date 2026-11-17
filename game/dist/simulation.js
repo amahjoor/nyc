@@ -10,10 +10,30 @@ const CAR_RADIUS = 0.92;
 const CAR_HALF_AXLE = 1.12;
 // What stands at a New York kerb: mostly black, white and shades of grey.
 const KERB_PAINT = ['#15181b', '#15181b', '#2b2f33', '#5b6166', '#8f969b', '#8f969b', '#c9cdd0', '#e8e9e6', '#e8e9e6', '#1f2f45', '#3a5a7a', '#7a1f1f', '#27402f', '#8a7a5c'];
+// Yellow cabs, and the apple-green ones that serve everywhere outside the Manhattan core.
+export const YELLOW_CAB = '#f2b91c', GREEN_CAB = '#74b541';
 // A red-light camera's fine. About one signalled junction in twelve has a camera here; the city has far fewer.
 const CAMERA_FINE = 50, CAMERA_SHARE = 12;
+const TRAFFIC_PAINT = ['#172e35', '#d8d0be', '#a64438', '#427374', '#d6dce0', '#33413e'];
+// Moving traffic is kept where it can be seen: within TRAFFIC_REACH of where
+// the player will be TRAFFIC_LEAD seconds from now. Cars are drawn to
+// TRAFFIC_SIGHT. One joins a street heading in, no nearer than
+// TRAFFIC_JOIN.ahead where the player is looking (a car is a few pixels wide
+// there) or TRAFFIC_JOIN.aside where they are not. One that has strayed past
+// TRAFFIC_STRAY is brought back, and one too many is retired, by the same rule.
+export const TRAFFIC_SIGHT = 400;
+const TRAFFIC_JOIN = { ahead: 330, aside: 150 }, TRAFFIC_REACH = 400, TRAFFIC_STRAY = 460, TRAFFIC_LEAD = 8, TRAFFIC_PASS = 70;
+// The player is taken to see this far to either side of where they look: cos 60°.
+const LOOKOUT = .5;
+// How long a car stands behind one that is going nowhere before the block counts as shut, and for how long after.
+const BLOCK_PATIENCE = 4, BLOCK_MEMORY = 6;
+// Buildings do not move. A car in traffic is tested against them each time it
+// has travelled this far, and at every step while it is touching one.
+const TRAFFIC_CHECK = .25;
 // Kerbside cars stand still, so only one in this many is re-seated on the ground each step.
 const KERB_GROUNDING_TURNS = 24;
+// Traffic within this distance of the player is set on the road at every step; the rest, every fourth.
+const TRAFFIC_GROUNDING_TURNS = 4, TRAFFIC_GROUNDED_WITHIN = 60;
 const GRID_SIZE = 24;
 
 const clamp = (value, low, high) => Math.min(high, Math.max(low, value));
@@ -347,6 +367,110 @@ export class Simulation {
   /** People in the roadway, as { x, z }. Traffic slows and stops for them. */
   setWalkers(walkers = []) { this._walkers = walkers; }
 
+  /**
+   * How much traffic there is and what it is made of. `level` runs from
+   * about .15 in the small hours to 1 in the rush; `taxis` is the share of
+   * cars that are cabs; `green` says the cabs here are the green ones.
+   * Until this is called the simulation keeps the traffic it was seeded with.
+   */
+  setTraffic({ level = 1, taxis = .25, green = false } = {}) {
+    this._trafficMix = { taxis: clamp(finite(taxis), 0, 1), green: Boolean(green) };
+    this._trafficTarget = Math.round(10 + 52 * clamp(finite(level), 0, 1.2));
+  }
+
+  _styleTraffic(car) {
+    // A new identity, so that whatever draws the car builds the right model.
+    const taxi = this._random() < this._trafficMix.taxis;
+    car.id = `traffic-${this._trafficSerial = (this._trafficSerial || 100) + 1}`;
+    car.type = taxi ? 'taxi' : 'sedan';
+    car.color = taxi ? (this._trafficMix.green ? GREEN_CAB : YELLOW_CAB) : TRAFFIC_PAINT[Math.floor(this._random() * TRAFFIC_PAINT.length)];
+  }
+
+  /**
+   * Which way the player is looking, as [x, z] on the ground. Traffic joins
+   * nearer by where they are not looking. Until this is given, they are
+   * taken to be looking everywhere.
+   */
+  setLookout(x, z) {
+    const length = Math.hypot(x, z);
+    this._lookout = length > 1e-6 && Number.isFinite(length) ? [x / length, z / length] : null;
+  }
+
+  /** Where the player will be in a few seconds; traffic is gathered about this point. */
+  _trafficFocus() {
+    const player = this.player, vx = finite(player.velocityX), vz = finite(player.velocityZ), speed = Math.hypot(vx, vz);
+    const lead = speed > 1 ? Math.min(TRAFFIC_LEAD, 110 / speed) : 0;
+    return { x: player.x + vx * lead, z: player.z + vz * lead };
+  }
+
+  /** How near the player a car may appear at this point without being seen to. */
+  _joinDistance(point) {
+    const look = this._lookout;
+    if (!look) return TRAFFIC_JOIN.ahead;
+    const dx = point.x - this.player.x, dz = point.z - this.player.z;
+    return dx * look[0] + dz * look[1] > LOOKOUT * Math.hypot(dx, dz) ? TRAFFIC_JOIN.ahead : TRAFFIC_JOIN.aside;
+  }
+
+  /**
+   * Put a car on a street a few blocks from the player, heading in toward
+   * them, where its arrival will not be seen. False if no such place is clear.
+   */
+  _joinTraffic(car) {
+    const focus = this._trafficFocus(), found = [];
+    let total = 0;
+    for (const edge of this._graph.edges) {
+      if (edge.length < 16 || this.elapsed - edge._blockedAt < BLOCK_MEMORY) continue;
+      const point = this._lanePoint(edge, clamp(9 / edge.length, 0.15, 0.75)), reach = distance(point, focus);
+      if (reach > TRAFFIC_REACH || distance(point, this.player) < this._joinDistance(point)) continue;
+      // Inbound: the street leads toward the player, not away.
+      const dx = focus.x - point.x, dz = focus.z - point.z, sin = Math.sin(edge.angle), cos = Math.cos(edge.angle);
+      if (dx * sin + dz * cos <= .35 * reach) continue;
+      // An avenue carries several times what a side street does. And traffic is
+      // wanted most on the streets the player can see down: those that, followed
+      // straight, pass within TRAFFIC_PASS of them.
+      total += clamp(finite(edge.road.width, 10), 6, 30) ** 2 * (Math.abs(dx * cos - dz * sin) < TRAFFIC_PASS ? 8 : 1);
+      found.push(edge, total);
+    }
+    for (let i = 0; i < 12 && found.length; i++) {
+      let pick = this._random() * total, k = 0;
+      while (k + 2 < found.length && found[k + 1] < pick) k += 2;
+      const edge = found[k], point = this._lanePoint(edge, clamp(9 / edge.length, 0.15, 0.75));
+      if (this._carContact(point.x, point.z, edge.angle) || this._nearCar(point.x, point.z, 6, car.id)) continue;
+      Object.assign(car, { x: point.x, z: point.z, y: undefined, transportId: null, angle: edge.angle, speed: car._cruise * 0.6, _edge: edge, _route: [], _stuckTime: 0, _steering: 0, _shiftHold: 0, _halted: null, _held: 0 });
+      resetVehicleDynamics(car, car.speed);
+      // What comes round the corner next need not be what left.
+      if (car.type !== 'police') this._styleTraffic(car);
+      return true;
+    }
+    return false;
+  }
+
+  /**
+   * Keep the traffic the hour calls for around the player: bring in cars that
+   * have strayed out of reach, add one, or retire one, where it will not be
+   * seen to happen.
+   */
+  _balanceTraffic() {
+    if (!this._trafficMix || !this._graph.edges.length) return;
+    const focus = this._trafficFocus(), strays = [];
+    let moving = 0, farthest = null, unseen = 0;
+    for (const car of this.cars) {
+      if (!car._edge || car._kerb || car.controlled || car.siren) continue;
+      // A car may go from wherever one may appear.
+      const seen = distance(car, this.player), hidden = seen >= this._joinDistance(car);
+      if (car.type !== 'police') { moving++; if (hidden && seen > unseen) { farthest = car; unseen = seen; } }
+      if (hidden && distance(car, focus) > TRAFFIC_STRAY) strays.push(car);
+    }
+    if (moving > this._trafficTarget) { if (farthest) this.cars.splice(this.cars.indexOf(farthest), 1); return; }
+    // A few at a time, farthest first: enough to keep up with a car at speed.
+    strays.sort((a, b) => distance(b, focus) - distance(a, focus));
+    for (const car of strays.slice(0, 3)) this._joinTraffic(car);
+    if (moving < this._trafficTarget) {
+      const car = this._makeCar('traffic-new', 'sedan', { x: this.player.x + 1e6, z: this.player.z }, 0, this._graph.edges[0]);
+      if (this._joinTraffic(car)) this.cars.push(car);
+    }
+  }
+
   _rebindTraffic() {
     for (const car of this.cars) {
       const wasTraffic = !car.parked || car._streamParked;
@@ -483,10 +607,13 @@ export class Simulation {
     // Reuse the same sampled surface as the renderer. Four wheel contact
     // points establish the support plane while suspension remains visual.
     const due = this._kerbTurn = ((this._kerbTurn || 0) + 1) % KERB_GROUNDING_TURNS;
-    let kerbside = 0;
+    const turn = this._trafficTurn = ((this._trafficTurn || 0) + 1) % TRAFFIC_GROUNDING_TURNS;
+    let kerbside = 0, traffic = 0;
     for (const car of this.cars) {
       // Kerbside cars take turns, so streaming terrain still reaches each one.
       if (car._kerb && Number.isFinite(car.y) && kerbside++ % KERB_GROUNDING_TURNS !== due) continue;
+      // So does traffic too far from the player for a centimetre to show.
+      if (car._edge && !car.controlled && Number.isFinite(car.y) && traffic++ % TRAFFIC_GROUNDING_TURNS !== turn && distance(car, this.player) > TRAFFIC_GROUNDED_WITHIN) continue;
       const sin = Math.sin(car.angle), cos = Math.cos(car.angle);
       // A new or teleported actor has no previous level. Its first sample is
       // ground-only; carrying an old Y could capture an unrelated overpass.
@@ -600,8 +727,8 @@ export class Simulation {
   }
 
   _makeCar(id, type, point, angle, edge = null) {
-    const palette = ['#172e35', '#d8d0be', '#a64438', '#427374', '#d6dce0', '#33413e'];
-    const car = { id, type, x: point.x, z: point.z, angle, speed: 0, color: type === 'taxi' ? '#f2b91c' : type === 'police' ? '#f1f2e9' : palette[Math.floor(this._random() * palette.length)], parked: !edge, controlled: false, radius: CAR_RADIUS, siren: false, _edge: edge, _route: [], _stuckTime: 0, _cruise: 6 + this._random() * 3, _wait: 0, _steering: 0, _shiftHold: 0 };
+    const palette = TRAFFIC_PAINT;
+    const car = { id, type, x: point.x, z: point.z, angle, speed: 0, color: type === 'taxi' ? YELLOW_CAB : type === 'police' ? '#f1f2e9' : palette[Math.floor(this._random() * palette.length)], parked: !edge, controlled: false, radius: CAR_RADIUS, siren: false, _edge: edge, _route: [], _stuckTime: 0, _cruise: 6 + this._random() * 3, _wait: 0, _steering: 0, _shiftHold: 0 };
     resetVehicleDynamics(car);
     return car;
   }
@@ -849,6 +976,8 @@ export class Simulation {
       if (vehicle) this._watchSignals(vehicle);
     } else { this._walk(input, dt); this._insideJunction = null; }
     this.distanceTravelled += distance(before, this.player);
+    this._trafficTimer = (this._trafficTimer || 0) - dt;
+    if (this._trafficTimer <= 0) { this._trafficTimer = .5; this._balanceTraffic(); }
     this._policeRouteTimer -= dt;
     const refreshRoutes = this._policeRouteTimer <= 0;
     if (refreshRoutes) this._policeRouteTimer = 1.2;
@@ -971,12 +1100,16 @@ export class Simulation {
       if (next.from.id === edge.to.id) return next;
       car._route = [];
     }
-    const options = edge.to.edges.filter(option => option.to.id !== edge.from.id);
+    let options = edge.to.edges.filter(option => option.to.id !== edge.from.id);
     if (!options.length) return edge.to.edges[0] || null;
+    // Nobody turns into a block that a standing car has shut, if there is another way.
+    const open = options.filter(option => !(this.elapsed - option._blockedAt < BLOCK_MEMORY));
+    if (open.length) options = open;
     let total = 0;
     const weighted = options.map(option => {
       const turn = Math.abs(turnDelta(edge.angle, option.angle));
-      const weight = turn < 0.25 ? 3 : 1;
+      // Most traffic goes straight on, and more of it turns onto a wide street than off one.
+      const weight = (turn < 0.25 ? 3 : 1) * clamp(finite(option.road.width, 10) / finite(edge.road.width, 10), .5, 2.5);
       total += weight;
       return { edge: option, weight };
     });
@@ -991,6 +1124,8 @@ export class Simulation {
 
   _recycleTraffic(car) {
     if (distance(car, this.player) < 95) return false;
+    // Once the game has said how much traffic there should be, it is kept near the player.
+    if (this._trafficMix) return this._joinTraffic(car);
     // The OSM extract clips streets at its borders. Let cars leave and enter
     // outside the player's view so finite one-way streets do not fill with
     // permanently stopped traffic. Both locations remain on legal road lanes.
@@ -1055,32 +1190,54 @@ export class Simulation {
         }
       }
     }
+    let leader = null;
+    const sin = Math.sin(car.angle), cos = Math.cos(car.angle), sight = 6 + car.speed * 0.55, reach = sight + 2, level = Number.isFinite(car.y);
     for (const other of this.cars) {
       if (other === car) continue;
-      if (Number.isFinite(car.y) && Number.isFinite(other.y) && Math.abs(car.y - other.y) > 2.5) continue;
       const dx = other.x - car.x, dz = other.z - car.z;
-      const along = dx * Math.sin(car.angle) + dz * Math.cos(car.angle);
-      const across = Math.abs(dx * Math.cos(car.angle) - dz * Math.sin(car.angle));
-      if (along > 0 && along < 6 + car.speed * 0.55 && across < 1.95) desiredSpeed = Math.min(desiredSpeed, Math.max(0, (along - 5) * 1.2));
+      if (dx > reach || dx < -reach || dz > reach || dz < -reach) continue;
+      if (level && Number.isFinite(other.y) && Math.abs(car.y - other.y) > 2.5) continue;
+      const along = dx * sin + dz * cos;
+      const across = Math.abs(dx * cos - dz * sin);
+      if (along > 0 && along < sight && across < 1.95) {
+        const limit = Math.max(0, (along - 5) * 1.2);
+        if (limit < desiredSpeed) { desiredSpeed = limit; leader = other; }
+      }
     }
+    let afoot = false;
     if (this.player.mode === 'walk' && Math.abs(this.player.y - finite(car.y, this.player.y)) <= 2.5) {
       const dx = this.player.x - car.x, dz = this.player.z - car.z;
-      const along = dx * Math.sin(car.angle) + dz * Math.cos(car.angle);
-      const across = Math.abs(dx * Math.cos(car.angle) - dz * Math.sin(car.angle));
-      if (along > 0 && along < 9 && across < 2.2) desiredSpeed = Math.min(desiredSpeed, Math.max(0, (along - 3.8) * 1.2));
+      const along = dx * sin + dz * cos;
+      const across = Math.abs(dx * cos - dz * sin);
+      if (along > 0 && along < 9 && across < 2.2) {
+        const limit = Math.max(0, (along - 3.8) * 1.2);
+        if (limit < desiredSpeed) { desiredSpeed = limit; afoot = true; }
+      }
     }
+    // Standing behind something that is going nowhere (a car left in the lane,
+    // the player on foot, or a car itself standing behind one of those) shuts
+    // the block: others turn off before it.
+    const shut = car.speed < .3 && (afoot || (leader && (leader.parked || (leader.controlled && Math.abs(leader.speed) < .5) || leader._held > BLOCK_PATIENCE)));
+    car._held = shut ? (car._held || 0) + dt : 0;
+    if (car._held > BLOCK_PATIENCE) edge._blockedAt = this.elapsed;
     for (const walker of this._walkers || []) {
       const dx = walker.x - car.x, dz = walker.z - car.z;
       if (Math.abs(dx) > 14 || Math.abs(dz) > 14) continue;
-      const along = dx * Math.sin(car.angle) + dz * Math.cos(car.angle);
-      const across = Math.abs(dx * Math.cos(car.angle) - dz * Math.sin(car.angle));
+      const along = dx * sin + dz * cos;
+      const across = Math.abs(dx * cos - dz * sin);
       if (along > 0 && along < 11 && across < 2.4) desiredSpeed = Math.min(desiredSpeed, Math.max(0, (along - 4.2) * 1.2));
     }
     car.speed += (desiredSpeed - car.speed) * (1 - Math.exp(-2.8 * dt));
     const beforeX = car.x, beforeZ = car.z;
-    const resolved = this._resolvePosition(car.x + Math.sin(car.angle) * car.speed * dt, car.z + Math.cos(car.angle) * car.speed * dt, CAR_RADIUS, car.angle, car);
-    car.x = resolved.x; car.z = resolved.z;
-    if (resolved.hit) { car.speed *= 0.9; car._stuckTime += dt; }
+    let x = car.x + sin * car.speed * dt, z = car.z + cos * car.speed * dt, hit = null;
+    car._unchecked = (car._unchecked || 0) + Math.abs(car.speed) * dt;
+    if (car._touching || car._unchecked >= TRAFFIC_CHECK) {
+      const resolved = this._resolvePosition(x, z, CAR_RADIUS, car.angle, car);
+      x = resolved.x; z = resolved.z; hit = resolved.hit;
+      car._unchecked = 0; car._touching = Boolean(hit);
+    }
+    car.x = x; car.z = z;
+    if (hit) { car.speed *= 0.9; car._stuckTime += dt; }
     else car._stuckTime = Math.max(0, car._stuckTime - dt);
     if (car._stuckTime > 3 && Math.hypot(car.x - beforeX, car.z - beforeZ) < 0.015) {
       // Rejoin the same legal lane when a tight imported corner traps a patrol.
