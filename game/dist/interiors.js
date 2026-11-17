@@ -79,7 +79,7 @@ export function planRoom(front, inside = () => true) {
     add(0, depth - 1.6, Math.min(4, width - 2), .8, 1.1, WOOD); staff.push({ a: 0, b: depth - .9, facing: 2 });
     add(-half + .9, 2.6, .9, 2.0, .45, '#3f4a5a'); add(half - .9, 2.6, .9, 2.0, .45, '#3f4a5a');
   }
-  return { name: placeName(place), kind, x: front.x, z: front.z, tx: front.tx, tz: front.tz, nx: front.nx, nz: front.nz, width, depth, things, staff, wall, floor };
+  return { name: placeName(place), kind, place, x: front.x, z: front.z, tx: front.tx, tz: front.tz, nx: front.nx, nz: front.nz, width, depth, things, staff, wall, floor };
 }
 
 /** Build a room as it stands in the world, its floor at height `y`. Returns a group; dispose() frees it. */

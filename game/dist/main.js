@@ -29,6 +29,7 @@ import { createFleet } from './fleet.js';
 import { offersAt } from './garage.js';
 import { planRoom, buildRoom, roomKind } from './interiors.js';
 import { createDemographics } from './demographics.js';
+import { menuFor } from './menu.js';
 import { createSubway, createSubwayEntrances, FARE } from './subway.js';
 import { indexKerbs, snapToKerb } from './street-props.js';
 import { formatDistance } from './phone.js';
@@ -52,7 +53,7 @@ let placeSource=null, storefronts=null, footprints=indexFootprints([]), fronts=[
 // The phone, and where a delivery can be sent: the streets around, and the places with a street front.
 let phone=null, roadDestinations=[], placeDestinations=[], shopHere=null;
 // The front the player is standing at if it has a room to go into, and the room they are in.
-let doorHere=null, roomGroup=null, roomStaff=[];
+let doorHere=null, roomGroup=null, roomStaff=[], counterHere=false;
 // The subway: its stations, the stair entrances drawn nearby, the one the player is standing at, and the kerbs they line up with.
 // Who lives where (demographics.js): one even range of faces until the survey has loaded.
 let demographics=createDemographics(null);
@@ -94,6 +95,14 @@ function action(name) {
   if(name==='map') { if(started&&!paused&&!traveling&&bootReady){phone?.setOpen(false);gameMap?.toggle();}return; }
   if(name==='pause'&&mapOpen) { gameMap.setOpen(false);return; }
   if(name==='pause'&&phone?.open) { phone.setOpen(false);return; }
+  if(name==='shop'&&sim.room) {
+    // Indoors, at the counter: what the place sells.
+    const menu=menuFor(sim.room.place);
+    if(!menu.length)announce('Nothing is sold over the counter here.');
+    else if(!counterHere)announce('Go up to whoever is serving.');
+    else phone.openList(sim.room.name,menu.map(item=>({item,name:item.name.toUpperCase(),note:'$'+item.price.toFixed(2)})),({item})=>{if(sim.buy(item))saveProgress();});
+    return;
+  }
   if(name==='shop') { if(started&&!paused&&!traveling&&bootReady&&!cityView&&!mapOpen&&shopHere)phone?.openShop(shopHere);return; }
   if(name==='phone') { if(started&&!paused&&!traveling&&bootReady&&!cityView&&!mapOpen)phone?.toggle();return; }
   if(mapOpen)return;
@@ -557,6 +566,9 @@ function frame(now) {
     if(stairHere)$('place-hint').textContent=stairHere.station.name.toUpperCase()+' · '+stairHere.station.routes+' · E FOR THE SUBWAY';
     shopHere=null;doorHere=null;
     if(!sim.room&&roomGroup){roomGroup.userData.dispose();roomGroup=null;roomStaff=[];}
+    // Indoors, within reach of whoever is serving.
+    counterHere=Boolean(sim.room)&&sim.room.staff.some(spot=>Math.hypot(spot.a-sim.room.a,spot.b-sim.room.b)<2.6);
+    if(sim.room){$('place-hint').hidden=!counterHere||!menuFor(sim.room.place).length;$('place-hint').textContent=sim.room.name+' · G TO ORDER';}
     if(facing){
       const about=describePlace(facing.front.place,gfx.hours),open=about.status==='OPEN';
       if(driving&&open&&Math.abs(sim.player.speed)<1)shopHere=facing.front.place;

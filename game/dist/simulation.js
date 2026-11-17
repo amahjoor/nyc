@@ -3,6 +3,7 @@ import { planJunction, junctionArms, vehicleAspect, stopDistance } from './signa
 import { laneLayout } from './lanes.js';
 import { drawBody, drawPaint, bodyShape } from './fleet.js';
 import { walkRoom, roomPoint } from './room.js';
+import { PEP, scratch } from './menu.js';
 import { handlingFor, repairCost, offersAt, PARTS, RESPRAY_PRICE, RESPRAYS, CALL_OUT, DELIVERY } from './garage.js';
 
 // Simulation units are metres and seconds. A heading of zero points along +Z.
@@ -403,6 +404,22 @@ export class Simulation {
     const fleet = taxi ? null : this._fleet;
     car.shape = fleet ? drawBody(fleet, this._random(), true) : undefined;
     car.color = taxi ? (this._trafficMix.green ? GREEN_CAB : YELLOW_CAB) : fleet ? drawPaint(fleet, this._random()) : TRAFFIC_PAINT[Math.floor(this._random() * TRAFFIC_PAINT.length)];
+  }
+
+  /**
+   * Buy something over the counter of the room the player is in: `item` is a
+   * row of menuFor(). Returns whether it was bought.
+   */
+  buy(item) {
+    if (!this.room || !item) return false;
+    if (this.cash < item.price) { this._say(`${item.name} is $${item.price.toFixed(2)}. You have $${Math.floor(this.cash)}.`); return false; }
+    this.cash -= item.price; this.spent = (this.spent || 0) + item.price;
+    if (PEP[item.effect]) { this.pep = Math.max(this.pep || 0, PEP[item.effect]); this._say(`${item.name}. $${item.price.toFixed(2)}.`); }
+    else if (item.effect === 'lottery') { const prize = scratch(this._random()); this.cash += prize; this._say(prize ? `Scratched it: $${prize}.` : 'Scratched it: nothing.'); }
+    else if (item.effect === 'sleep') { this.health = 100; this.heat = 0; this.pep = PEP.meal; this._say('A night in a bed. The police have lost interest.', 6); }
+    else if (item.effect === 'drink') { this.pep = 0; this._say(`${item.name}. $${item.price.toFixed(2)}. Take the subway home.`); }
+    else this._say(`${item.name}. $${item.price.toFixed(2)}.`);
+    return true;
   }
 
   /** Walk in through the door of a room laid out by planRoom(). On foot only. */
@@ -1124,7 +1141,9 @@ export class Simulation {
     const player = this.player;
     const magnitude = Math.hypot(input.moveX, input.moveZ);
     const divisor = Math.max(1, magnitude);
-    const topSpeed = input.run ? 7.3 : 4.25;
+    // Fed or with a coffee inside them, the player walks and runs a little faster.
+    this.pep = Math.max(0, (this.pep || 0) - dt);
+    const topSpeed = (input.run ? 7.3 : 4.25) * (this.pep > 0 ? 1.15 : 1);
     const desiredX = input.moveX / divisor * topSpeed;
     const desiredZ = input.moveZ / divisor * topSpeed;
     const blend = 1 - Math.exp(-13 * dt);
