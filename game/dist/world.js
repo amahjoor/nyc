@@ -334,40 +334,50 @@ export function carShape(type, seed) {
 }
 
 /**
- * Cars standing at the kerb. However many there are, they are drawn as eight
+ * Cars drawn together. However many there are, they are a handful of
  * instanced meshes: a body and lamps for each body style, tyres and wheels.
- * A car leaves this set when the player drives it away.
+ * Each stands as the simulation has it, its wheels on their own patches of
+ * road, but nothing turns: this is for cars at rest, and for cars too far off
+ * for a turning wheel to be seen.
  */
-export function createParkedCars({ capacity = 160 } = {}) {
-  const group = new THREE.Group(); group.name = 'Parked cars';
-  const paint = createCarMaterial({ instancedPaint: true }); paint.name = 'Parked car paint, glass and trim';
-  // Nobody leaves their lights on.
-  const lens = createLampMaterial(); lens.name = 'Parked car lamps'; lens.emissiveIntensity = .02;
+function createCarSet({ name, label, capacity, lit, select }) {
+  const group = new THREE.Group(); group.name = name;
+  const paint = createCarMaterial({ instancedPaint: true }); paint.name = `${label} car paint, glass and trim`;
+  // Traffic shows the lamps every moving car shows. Nobody leaves their lights on at the kerb.
+  const lens = lit ? carGlow : createLampMaterial();
+  if (!lit) { lens.name = `${label} car lamps`; lens.emissiveIntensity = .02; }
   const styles = new Map();
-  for (const shape of new Set(SHAPES)) {
-    const built = buildCar({ type: 'sedan', shape, paint: 0xffffff }), tint = new THREE.InstancedBufferAttribute(new Float32Array(capacity * 3), 3);
+  const style = (key, type, shape, tone) => {
+    const built = buildCar({ type, shape, paint: tone }), tint = new THREE.InstancedBufferAttribute(new Float32Array(capacity * 3), 3);
     built.body.setAttribute('aPaint', tint);
-    const body = new THREE.InstancedMesh(built.body, paint, capacity); body.name = `Parked ${shape} bodies`; body.castShadow = true; body.receiveShadow = true;
-    const lamps = new THREE.InstancedMesh(built.lamps, lens, capacity); lamps.name = `Parked ${shape} lamps`;
-    styles.set(shape, { body, lamps, tint, used: 0 });
-  }
-  const tyres = new THREE.InstancedMesh(wheelTyre, tireMaterial, capacity * 4); tyres.name = 'Parked car tyres'; tyres.castShadow = true;
-  const rims = new THREE.InstancedMesh(wheelRim, hubMaterial, capacity * 4); rims.name = 'Parked car wheels';
-  const meshes = [...[...styles.values()].flatMap(style => [style.body, style.lamps]), tyres, rims];
+    const body = new THREE.InstancedMesh(built.body, paint, capacity); body.name = `${label} ${key} bodies`; body.castShadow = true; body.receiveShadow = true;
+    const lamps = new THREE.InstancedMesh(built.lamps, lens, capacity); lamps.name = `${label} ${key} lamps`;
+    styles.set(key, { body, lamps, tint, used: 0, painted: tone !== 0xffffff });
+  };
+  for (const shape of new Set(SHAPES)) style(shape, 'sedan', shape, 0xffffff);
+  // A cab has a roof light and a band along its doors, so it is built in its own colour.
+  if (lit) { style('cab', 'taxi', 'sedan', 0xf3ba31); style('boro cab', 'taxi', 'sedan', GREEN_CAB); }
+  const tyres = new THREE.InstancedMesh(wheelTyre, tireMaterial, capacity * 4); tyres.name = `${label} car tyres`; tyres.castShadow = true;
+  const rims = new THREE.InstancedMesh(wheelRim, hubMaterial, capacity * 4); rims.name = `${label} car wheels`;
+  const meshes = [...[...styles.values()].flatMap(item => [item.body, item.lamps]), tyres, rims];
   // The cars surround the player, so the set as a whole is always in view.
   for (const mesh of meshes) { mesh.count = 0; mesh.frustumCulled = false; group.add(mesh); }
   const FIELDS = 11, seen = new Float64Array(capacity * FIELDS), pose = new Float64Array(FIELDS);
   const matrix = new THREE.Matrix4(), position = new THREE.Vector3(), quaternion = new THREE.Quaternion(), euler = new THREE.Euler(0, 0, 0, 'YXZ'), one = new THREE.Vector3(1, 1, 1), color = new THREE.Color();
   const ids = [];
   let count = -1;
+  const styleOf = car => {
+    if (lit && car.type === 'taxi') return styles.get(color.set(car.color || '#f3ba31').getHex() === GREEN_CAB ? 'boro cab' : 'cab');
+    return styles.get(carShape(car.type, car.id));
+  };
   return {
     group,
     get count() { return Math.max(0, count); },
-    /** Redraws only when a kerbside car has come, gone or been re-seated on the ground. */
+    /** Redraws only when a car has come, gone, moved or been re-seated on the ground. */
     update(cars = []) {
       let n = 0, changed = false;
       for (const car of cars) {
-        if (!car._kerb || car.controlled || n >= capacity) continue;
+        if (!select(car) || n >= capacity) continue;
         const wheels = car.wheelHeights || [];
         pose[0] = car.x; pose[1] = car.y || 0; pose[2] = car.z; pose[3] = car.angle || 0; pose[4] = car.pitch || 0; pose[5] = car.roll || 0;
         for (let i = 0; i < 4; i++) pose[6 + i] = Number.isFinite(wheels[i]) ? wheels[i] : pose[1];
@@ -378,16 +388,17 @@ export function createParkedCars({ capacity = 160 } = {}) {
       if (n !== count) changed = true;
       if (!changed) return false;
       count = n; ids.length = n;
-      for (const style of styles.values()) style.used = 0;
+      for (const item of styles.values()) item.used = 0;
       let wheel = 0, slot = 0;
       for (const car of cars) {
-        if (!car._kerb || car.controlled || slot >= n) continue;
+        if (!select(car) || slot >= n) continue;
         const o = slot++ * FIELDS, x = seen[o], y = seen[o + 1], z = seen[o + 2], angle = seen[o + 3];
-        const style = styles.get(carShape(car.type, car.id)), i = style.used++;
+        const item = styleOf(car), i = item.used++;
         // The same pose a driven car takes at rest: yaw at the root, tilt on the chassis.
         position.set(x, y + .025, z); euler.set(seen[o + 4], angle, seen[o + 5], 'YXZ'); quaternion.setFromEuler(euler);
-        matrix.compose(position, quaternion, one); style.body.setMatrixAt(i, matrix); style.lamps.setMatrixAt(i, matrix);
-        color.set(car.color || '#8f969b'); style.tint.setXYZ(i, color.r, color.g, color.b);
+        matrix.compose(position, quaternion, one); item.body.setMatrixAt(i, matrix); item.lamps.setMatrixAt(i, matrix);
+        if (item.painted) item.tint.setXYZ(i, 1, 1, 1);
+        else { color.set(car.color || '#8f969b'); item.tint.setXYZ(i, color.r, color.g, color.b); }
         const sin = Math.sin(angle), cos = Math.cos(angle);
         euler.set(0, angle, 0, 'YXZ'); quaternion.setFromEuler(euler);
         let k = 0;
@@ -397,19 +408,35 @@ export function createParkedCars({ capacity = 160 } = {}) {
           matrix.compose(position, quaternion, one); tyres.setMatrixAt(wheel, matrix); rims.setMatrixAt(wheel, matrix); wheel++;
         }
       }
-      for (const style of styles.values()) {
-        style.body.count = style.lamps.count = style.used;
-        style.body.instanceMatrix.needsUpdate = style.lamps.instanceMatrix.needsUpdate = style.tint.needsUpdate = true;
+      for (const item of styles.values()) {
+        item.body.count = item.lamps.count = item.used;
+        // A style nobody is using costs nothing.
+        item.body.visible = item.lamps.visible = item.used > 0;
+        item.body.instanceMatrix.needsUpdate = item.lamps.instanceMatrix.needsUpdate = item.tint.needsUpdate = true;
       }
-      tyres.count = rims.count = wheel; tyres.instanceMatrix.needsUpdate = rims.instanceMatrix.needsUpdate = true;
+      tyres.count = rims.count = wheel; tyres.visible = rims.visible = wheel > 0; tyres.instanceMatrix.needsUpdate = rims.instanceMatrix.needsUpdate = true;
       return true;
     },
     dispose() {
-      for (const style of styles.values()) { style.body.geometry.dispose(); style.lamps.geometry.dispose(); }
+      for (const item of styles.values()) { item.body.geometry.dispose(); item.lamps.geometry.dispose(); }
       for (const mesh of meshes) mesh.dispose();
-      paint.dispose(); lens.dispose(); group.removeFromParent();
+      paint.dispose(); if (!lit) lens.dispose(); group.removeFromParent();
     },
   };
+}
+
+/** Cars standing at the kerb. A car leaves this set when the player drives it away. */
+export function createParkedCars({ capacity = 160 } = {}) {
+  return createCarSet({ name: 'Parked cars', label: 'Parked', capacity, lit: false, select: car => car._kerb && !car.controlled });
+}
+
+/**
+ * Moving traffic beyond a few car lengths, where a model of its own for every
+ * car would cost fifteen draws apiece to show wheels nobody can see turning.
+ * Give update() the cars to draw; those close by keep models of their own.
+ */
+export function createDistantTraffic({ capacity = 96 } = {}) {
+  return createCarSet({ name: 'Distant traffic', label: 'Distant', capacity, lit: true, select: () => true });
 }
 
 export function createCar({ type = 'sedan', color: tint = 0xbcc5bd, seed = '' } = {}) {

@@ -5,8 +5,8 @@ import { readFileSync } from 'node:fs';
 import { gunzipSync } from 'node:zlib';
 import vm from 'node:vm';
 import * as THREE from '../dist/vendor/three.module.min.js';
-import { createCar, createParkedCars, createPerson, updateCarVisuals, setVehicleLamps } from '../dist/world.js';
-import { Simulation } from '../dist/simulation.js';
+import { createCar, createParkedCars, createDistantTraffic, createPerson, updateCarVisuals, setVehicleLamps } from '../dist/world.js';
+import { Simulation, TRAFFIC_SIGHT } from '../dist/simulation.js';
 import { resetVehicleDynamics } from '../dist/vehicle-dynamics.js';
 import { Input } from '../dist/input.js';
 import { HUD } from '../dist/hud.js';
@@ -249,7 +249,7 @@ async function bootHarness({ stored = null, displayStored = null, unavailableSto
   const context = vm.createContext({
     ...globals,
     THREE: { ...THREE, WebGLRenderer: RendererStub },
-    createCar, createParkedCars, createPerson, updateCarVisuals, Simulation, Input, HUD, CityAudio, GameMap, createRoutePlanner,
+    createCar, createParkedCars, createDistantTraffic, createPerson, updateCarVisuals, Simulation, TRAFFIC_SIGHT, Input, HUD, CityAudio, GameMap, createRoutePlanner,
     createCityStream:(fullIndex,options)=>{
       assert.equal(fullIndex.stats.buildingFeatures,index.stats.buildingFeatures);
       return createCityStream(geometryIndex,options);
@@ -269,7 +269,7 @@ async function bootHarness({ stored = null, displayStored = null, unavailableSto
     },
   });
   function close() {
-    vm.runInContext('if(typeof gameMap!=="undefined")gameMap?.dispose?.();if(typeof navigation!=="undefined")navigation?.dispose?.();if(typeof roadPilot!=="undefined")roadPilot?.dispose();landscape?.dispose();streetDetail?.dispose();streetscape?.dispose();streetLife?.dispose();parkedCars?.dispose();signs?.dispose();crowd?.dispose();props?.dispose();water?.dispose();world?.dispose();ground?.dispose();gfx?.dispose();',context);
+    vm.runInContext('if(typeof gameMap!=="undefined")gameMap?.dispose?.();if(typeof navigation!=="undefined")navigation?.dispose?.();if(typeof roadPilot!=="undefined")roadPilot?.dispose();landscape?.dispose();streetDetail?.dispose();streetscape?.dispose();streetLife?.dispose();parkedCars?.dispose();distantTraffic?.dispose();signs?.dispose();crowd?.dispose();props?.dispose();water?.dispose();world?.dispose();ground?.dispose();gfx?.dispose();',context);
     for (const [key, descriptor] of original) {
       if (descriptor) Object.defineProperty(globalThis, key, descriptor);
       else delete globalThis[key];
@@ -540,7 +540,11 @@ test('street view builds surveyed SoHo street surfaces and shares source imagery
     assert.ok(parked>20,`${parked} cars are parked around the SoHo spawn`);
     assert.equal(parkedGroup.children.filter(child=>/bodies$/.test(child.name)).reduce((sum,child)=>sum+child.count,0),parked);
     assert.equal(parkedGroup.getObjectByName('Parked car tyres').count,parked*4);
-    assert.equal(scene.children.filter(child=>child.userData?.chassis).length,app.state().cars-parked,'only cars that move have a model of their own');
+    // Of the cars that move, those close by have a model of their own; the rest are drawn together too, out to where cars are drawn at all.
+    const models=scene.children.filter(child=>child.userData?.chassis).length,distant=scene.getObjectByName('Distant traffic');
+    const together=distant.children.filter(child=>/bodies$/.test(child.name)&&child.visible).reduce((sum,child)=>sum+child.count,0);
+    assert.ok(models>=1&&models+together<=app.state().cars-parked,`${models} models and ${together} drawn together, of ${app.state().cars-parked} that move`);
+    assert.equal(distant.getObjectByName('Distant car tyres').count,together*4);
     assert.equal(app.elements.get('quality-button').textContent,'QUALITY: BALANCED');
     assert.equal(app.rendererInstances[0].shadowMap.enabled,true,'balanced quality retains nearby shadows');
     const localGround=scene.getObjectByName('NYC 2024 aerial imagery').children.filter(child=>child.visible&&child.material.isMeshStandardMaterial);

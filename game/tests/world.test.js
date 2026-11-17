@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import * as THREE from '../dist/vendor/three.module.min.js';
-import { createWorld, createCar, createParkedCars, carShape, createPerson, updateCarVisuals } from '../dist/world.js';
+import { createWorld, createCar, createParkedCars, createDistantTraffic, carShape, createPerson, updateCarVisuals, GREEN_CAB } from '../dist/world.js';
 
 // Geometry can be validated without a GPU. The canvas stand-in only supports
 // procedural texture painting; these checks do not replace browser visual QA.
@@ -308,4 +308,49 @@ test('kerbside cars are drawn as a few instanced meshes that change only when th
   assert.equal(parked.update(cars), true); assert.equal(parked.count, 2); assert.equal(tyres.count, 8);
   assert.equal(parked.update([]), true); assert.equal(parked.count, 0);
   parked.dispose();
+});
+
+test('traffic beyond a few car lengths is drawn together, cabs in their own colours and with their lamps lit', () => {
+  const traffic = createDistantTraffic({ capacity: 8 });
+  const named = name => traffic.group.getObjectByName(name);
+  assert.equal(traffic.group.children.length, 12, 'three body styles and two cabs, each with lamps; tyres and wheels');
+  const cars = [
+    { id: 'traffic-101', type: 'sedan', color: '#a64438', x: 10, y: 2, z: 20, angle: Math.PI / 2, pitch: .02, roll: -.01, wheelHeights: [2, 2.1, 2, 2.1] },
+    { id: 'traffic-102', type: 'taxi', color: '#f2b91c', x: 30, y: 0, z: 0, angle: 0 },
+    { id: 'traffic-103', type: 'taxi', color: '#74b541', x: 40, y: 0, z: 0, angle: 0 },
+  ];
+  assert.equal(traffic.update(cars), true);
+  assert.equal(traffic.count, 3);
+  const sedan = named(`Distant ${carShape('sedan', 'traffic-101')} bodies`), cab = named('Distant cab bodies'), boro = named('Distant boro cab bodies');
+  assert.deepEqual([sedan.count, cab.count, boro.count], [1, 1, 1]);
+  assert.equal(named('Distant car tyres').count, 12);
+  // A style nobody is using is not drawn at all.
+  const idle = traffic.group.children.filter(mesh => /bodies$/.test(mesh.name) && ![sedan, cab, boro].includes(mesh));
+  assert.ok(idle.length === 2 && idle.every(mesh => mesh.count === 0 && !mesh.visible) && [sedan, cab, boro].every(mesh => mesh.visible));
+  // A cab is the model a cab close by has: roof light, door band, its own paint. Only other cars take a colour per car.
+  const near = createCar({ type: 'taxi', color: '#f2b91c', seed: 'traffic-102' }), nearBody = near.getObjectByName('Car body'), nearLamps = near.getObjectByName('Car lamps');
+  assert.equal(cab.geometry.getAttribute('position').count, nearBody.geometry.getAttribute('position').count);
+  assert.ok(cab.geometry.getAttribute('position').count > sedan.geometry.getAttribute('position').count || carShape('sedan', 'traffic-101') !== 'sedan');
+  const paintOf = geometry => { const color = geometry.getAttribute('color'), finish = geometry.getAttribute('aFinish'); for (let i = 0; i < color.count; i++) if (finish.getZ(i) >= .5 && finish.getX(i) >= .2) return [color.getX(i), color.getY(i), color.getZ(i)]; };
+  const yellow = paintOf(cab.geometry), green = paintOf(boro.geometry), built = paintOf(nearBody.geometry), boroGreen = new THREE.Color(GREEN_CAB);
+  assert.deepEqual(yellow, built, 'the yellow of a cab seen close');
+  assert.ok(Math.abs(green[1] - boroGreen.g) < .02 && green[1] > green[0] && green[1] > green[2], 'boro cabs are green');
+  assert.deepEqual([0, 1, 2].map(i => cab.geometry.getAttribute('aPaint').getComponent(0, i)), [1, 1, 1], 'a cab\'s paint is left alone');
+  const red = new THREE.Color('#a64438'), tint = sedan.geometry.getAttribute('aPaint');
+  assert.ok(Math.abs(tint.getX(0) - red.r) < 1e-6 && Math.abs(tint.getY(0) - red.g) < 1e-6);
+  assert.equal(named('Distant cab lamps').material, nearLamps.material, 'the lamps every moving car shows');
+  assert.notEqual(createParkedCars({ capacity: 2 }).group.getObjectByName('Parked sedan lamps').material, nearLamps.material, 'unlike a car left at the kerb');
+  // It stands as the simulation has it: on the road, tilted with it, each tyre on its own patch.
+  const matrix = new THREE.Matrix4(), at = new THREE.Vector3(), nose = new THREE.Vector3(0, 0, 1), top = new THREE.Vector3(0, 1, 0);
+  sedan.getMatrixAt(0, matrix); at.setFromMatrixPosition(matrix); nose.transformDirection(matrix); top.transformDirection(matrix);
+  assert.ok(Math.abs(at.x - 10) < 1e-6 && Math.abs(at.y - 2.025) < 1e-6 && Math.abs(at.z - 20) < 1e-6 && nose.x > .99 && top.y < 1 && top.y > .99);
+  const heights = [0, 1, 2, 3].map(i => { named('Distant car tyres').getMatrixAt(i, matrix); return +at.setFromMatrixPosition(matrix).y.toFixed(3); });
+  assert.deepEqual(heights, [2.385, 2.485, 2.385, 2.485]);
+  // Every frame it moves, it is redrawn; standing at a light, it is not.
+  assert.equal(traffic.update(cars), false);
+  cars[0].x += .1;
+  assert.equal(traffic.update(cars), true);
+  assert.equal(traffic.update(cars.slice(1)), true); assert.equal(traffic.count, 2); assert.equal(sedan.visible, false);
+  traffic.dispose();
+  assert.equal(traffic.group.parent, null);
 });

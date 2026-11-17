@@ -1,7 +1,7 @@
 import { updateChaseHeight } from './vehicle-presentation.js';
 import * as THREE from './vendor/three.module.min.js';
-import { createCar, createParkedCars, createPerson, updateCarVisuals, setVehicleLamps } from './world.js';
-import { Simulation } from './simulation.js';
+import { createCar, createParkedCars, createDistantTraffic, createPerson, updateCarVisuals, setVehicleLamps } from './world.js';
+import { Simulation, TRAFFIC_SIGHT } from './simulation.js';
 import { Input } from './input.js';
 import { HUD } from './hud.js';
 import { CityAudio } from './audio.js';
@@ -34,7 +34,7 @@ let shadowsEnabled=true;
 let cityIndex, roadIndex, roadStream, ground, streetDetail, bootReady=false, traveling=false, pausedBeforeSources=false;
 let viewOverride=null;
 let cityView=false, cityZoom=1, cityOrbit=0, cityFocus=null, roadCell='', roadEpoch=0, roadBusy=false, buildings=[], boroughs=[];
-let streetscape=null, streetLife=null, water=null, parkedCars=null, signs=null, crowd=null, props=null, cityLife=createCityLife(null), lifeTimer=0;
+let streetscape=null, streetLife=null, water=null, parkedCars=null, distantTraffic=null, signs=null, crowd=null, props=null, cityLife=createCityLife(null), lifeTimer=0;
 const noStreetFurniture=[], crowdAhead=new THREE.Vector3();
 let cameraFlashing=false;
 const trafficAhead=new THREE.Vector3();
@@ -53,7 +53,11 @@ let roadPilot=null, roadPilotIndex=null, roadPilotLoading=null, roadPilotError=n
 let chaseHeight=null, chaseEyeOffset=null;
 let gameMap, mapOpen=false, routePlanner=null, plannerReady=null, activeRoute=null, routeDestination=null, routeGuidance=null, routeEpoch=0, rerouteAt=0;
 let yaw=0, pitch=.38, lookIdle=0, elapsed=0, lastFrame=0, hudTime=0, qualityTimer=0, slowFrames=0;
-const carModels = new Map();
+const carModels = new Map(), distantCars=[];
+// Cars are drawn as far as the simulation keeps traffic in sight. Traffic
+// nearer than MODEL_RANGE gets a model of its own and keeps it out to
+// MODEL_KEPT, so that none flickers between the two at the boundary.
+const CAR_SIGHT=TRAFFIC_SIGHT, MODEL_RANGE=42, MODEL_KEPT=52;
 const audio = new CityAudio();
 const canvas=$('world');
 const input=new Input(canvas, action);
@@ -250,17 +254,27 @@ function animatePerson(mesh,moving,time,speed=1) {
 
 function syncScene(dt,controls) {
   const p=sim.player;
-  // Kerbside cars are drawn together; every other car has a model of its own.
-  const activeCars=new Set();for(const car of sim.cars)if(!car._kerb)activeCars.add(car.id);
+  // Kerbside cars are drawn together, and so is traffic more than a few car
+  // lengths off. The player's car, a patrol, a car left standing in the road
+  // and whatever traffic is close by each have a model of their own, with
+  // wheels that turn and steer.
+  const activeCars=new Set();distantCars.length=0;
+  for(const car of sim.cars){
+    if(car._kerb)continue;
+    const away=Math.hypot(car.x-p.x,car.z-p.z);
+    if(car.controlled||car.type==='police'||!car._edge||!distantTraffic||away<(carModels.has(car.id)?MODEL_KEPT:MODEL_RANGE))activeCars.add(car.id);
+    else if(away<CAR_SIGHT)distantCars.push(car);
+  }
   for(const [id,mesh] of carModels)if(!activeCars.has(id)){scene.remove(mesh);carModels.delete(id);}
   parkedCars?.update(sim.cars);
+  distantTraffic?.update(distantCars);
   avatar.visible=p.mode==='walk';avatar.position.set(p.x,p.y||0,p.z);avatar.rotation.y=p.angle;
   animatePerson(avatar,Math.abs(p.speed)>.1,elapsed,Math.abs(p.speed)/3);
   for(const car of sim.cars){
-    if(car._kerb)continue;
+    if(!activeCars.has(car.id))continue;
     let mesh=carModels.get(car.id);
     if(!mesh){mesh=createCar({type:car.type,color:car.color,seed:car.id});carModels.set(car.id,mesh);scene.add(mesh);}
-    mesh.visible=Math.hypot(car.x-p.x,car.z-p.z)<230;
+    mesh.visible=Math.hypot(car.x-p.x,car.z-p.z)<CAR_SIGHT;
     updateCarVisuals(mesh,car,dt);
     if(mesh.userData.update)mesh.userData.update(elapsed,car,sim.heat);
     // Scene factories may expose lamp meshes for a lightweight police flash.
@@ -650,6 +664,7 @@ async function boot() {
   gfx.passes.push((renderer,scene,camera)=>water.renderMirror(renderer,scene,camera,{enabled:Boolean(viewOverride)||!cityView,scale:highQuality?.75:.5}));
   streetLife=createStreetLife({scene,renderer,getLamps:()=>streetscape?.lamps()||noStreetFurniture,getTrees:()=>streetscape?.trees()||noStreetFurniture});
   parkedCars=createParkedCars({capacity:PARKED_LIMIT+8});scene.add(parkedCars.group);
+  distantTraffic=createDistantTraffic();scene.add(distantTraffic.group);
   sim=new Simulation(city);restoreProgress();yaw=sim.player.angle;
   signs=createStreetSigns({scene,heightAt:groundHeight,raised:(x,z)=>(streetscape?.offsetAt(x,z)||0)>.1});
   crowd=createCrowd({scene,heightAt:groundHeight,isRoad:(x,z)=>streetscape?.surfaceAt(x,z)==='road',
@@ -729,7 +744,7 @@ async function boot() {
   const b=city.bounds;camera.position.set((b.minX+b.maxX)/2-14000,44000,(b.minZ+b.maxZ)/2+32000);
   navigation=createCityNavigation({canvas,camera,input,bounds:city.bounds,heightAt:terrainHeight,onTravel:travel,onAddressSelected:focusCityAddress});
   $('place-select').innerHTML=roadIndex.places.map((place,i)=>'<option value="'+i+'">'+place.name+' · '+place.borough+'</option>').join('');
-  window.nycGame={graphics:gfx,get streetscape(){return streetscape;},get streetLife(){return streetLife;},get parkedCars(){return parkedCars;},get world(){return world;},get simulation(){return sim;},get signs(){return signs;},get crowd(){return crowd;},get props(){return props;},get cityLife(){return cityLife;},heightAt:(x,z)=>terrainHeight(x,z),setView:view=>{viewOverride=view&&Array.isArray(view.position)&&Array.isArray(view.target)?view:null;},getState:()=>({time:gfx.clock,player:{...sim.player},heat:sim.heat,health:sim.health,mission:{...sim.mission},cash:sim.cash,deliveries:sim.deliveries,cars:sim.cars.length,parkedCars:sim.cars.filter(car=>car._kerb).length,buildings:buildings.length,totalBuildings:cityIndex.stats.buildingFeatures,stream:world.getStatus(),ground:ground.getStatus(),streetDetail:streetDetail?.getStatus()||null,streetscape:streetscape?.getStatus()||null,landscape:landscape?.getStatus()||null,reconstruction:reconstructionReview?{model:reconstructionReview.model,summary:reconstructionReview.summary}:null,roadReconstruction:roadReconstructionReview?{model:roadReconstructionReview.model,summary:roadReconstructionReview.summary}:null,roadPilot:roadPilot?roadPilot.getStatus():{ready:false,loading:Boolean(roadPilotLoading),error:roadPilotError},navigation:navigation.getState(),map:gameMap.getState(),routeGuidance,cityView,aerialView,traveling,bootReady,shadows:{enabled:shadowsEnabled,active:renderer.shadowMap.enabled},drawCalls:renderer.info.render.calls,triangles:renderer.info.render.triangles,started,paused})};
+  window.nycGame={graphics:gfx,get streetscape(){return streetscape;},get streetLife(){return streetLife;},get parkedCars(){return parkedCars;},get distantTraffic(){return distantTraffic;},get world(){return world;},get simulation(){return sim;},get signs(){return signs;},get crowd(){return crowd;},get props(){return props;},get cityLife(){return cityLife;},heightAt:(x,z)=>terrainHeight(x,z),setView:view=>{viewOverride=view&&Array.isArray(view.position)&&Array.isArray(view.target)?view:null;},getState:()=>({time:gfx.clock,player:{...sim.player},heat:sim.heat,health:sim.health,mission:{...sim.mission},cash:sim.cash,deliveries:sim.deliveries,cars:sim.cars.length,parkedCars:sim.cars.filter(car=>car._kerb).length,buildings:buildings.length,totalBuildings:cityIndex.stats.buildingFeatures,stream:world.getStatus(),ground:ground.getStatus(),streetDetail:streetDetail?.getStatus()||null,streetscape:streetscape?.getStatus()||null,landscape:landscape?.getStatus()||null,reconstruction:reconstructionReview?{model:reconstructionReview.model,summary:reconstructionReview.summary}:null,roadReconstruction:roadReconstructionReview?{model:roadReconstructionReview.model,summary:roadReconstructionReview.summary}:null,roadPilot:roadPilot?roadPilot.getStatus():{ready:false,loading:Boolean(roadPilotLoading),error:roadPilotError},navigation:navigation.getState(),map:gameMap.getState(),routeGuidance,cityView,aerialView,traveling,bootReady,shadows:{enabled:shadowsEnabled,active:renderer.shadowMap.enabled},drawCalls:renderer.info.render.calls,triangles:renderer.info.render.triangles,started,paused})};
   requestAnimationFrame(frame);
   const [roads]=await Promise.all([roadStream.loadAround(seed.spawn),world.prepareAt(seed.spawn,300),landscapeReady]);
   sim.setActiveCity({roads,buildings,isReadyAt:(x,z,radius)=>world.isReadyAt(x,z,radius),missionPoints:localDestinations(roads,seed.spawn)},{spawn:seed.spawn});city=sim.city;yaw=sim.player.angle;
