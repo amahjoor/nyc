@@ -192,7 +192,7 @@ export function createPersonMaterial() {
  */
 export function createFigures(meta, poses) {
   const total = meta.figures.reduce((sum, figure) => sum + figure.vertices, 0), frames = meta.frames;
-  const data = new Float32Array(total * frames * 4), position = [], body = [], vertex = [], index = [];
+  const data = new Float32Array(total * frames * 4), position = [], body = [], vertex = [], index = [], faces = [];
   let column = 0, offset = 0;
   meta.figures.forEach((figure, which) => {
     for (let f = 0; f < frames; f++) for (let i = 0; i < figure.vertices; i++) {
@@ -204,6 +204,7 @@ export function createFigures(meta, poses) {
       position.push(data[standing], data[standing + 1], data[standing + 2]); body.push(figure.paint[i], 0, which + 1, figure.bare[i]); vertex.push(column + i);
     }
     for (const i of figure.faces) index.push(column + i);
+    faces.push(figure.faces.map(i => column + i));
     column += figure.vertices; offset += figure.vertices * frames * 3;
   });
   const texture = new THREE.DataTexture(data, total, frames, THREE.RGBAFormat, THREE.FloatType);
@@ -232,7 +233,9 @@ export function createFigures(meta, poses) {
 	}`);
     shader.fragmentShader = `varying vec3 vPerson;\n${shader.fragmentShader}`.replace('#include <color_fragment>', '#include <color_fragment>\ndiffuseColor.rgb *= vPerson;');
   };
-  return { geometry, material, texture };
+  // Each body on its own, over the same vertices: a person is drawn with one of them, not both.
+  const bodies = faces.map(list => { const one = new THREE.BufferGeometry(); for (const [name, attribute] of Object.entries(geometry.attributes)) one.setAttribute(name, attribute); one.setIndex(list); one.boundingSphere = geometry.boundingSphere.clone(); return one; });
+  return { geometry, bodies, material, texture };
 }
 
 // --- Where they walk ------------------------------------------------------------------
@@ -301,10 +304,19 @@ export function createWalkNetwork(walks, { isRoad = () => true } = {}) {
  */
 export function createCrowd({ scene = null, life, heightAt = () => 0, isRoad = () => true, capacity = 240, range = 120, random = seeded(20260712) } = {}) {
   let geometry = personGeometry(), material = createPersonMaterial(), figures = null;
-  const mesh = new THREE.InstancedMesh(geometry, material, capacity);
-  mesh.name = 'People'; mesh.count = 0; mesh.frustumCulled = false; mesh.castShadow = true; mesh.receiveShadow = true;
-  const attribute = (name, size) => { const a = new THREE.InstancedBufferAttribute(new Float32Array(capacity * size), size); a.setUsage(THREE.DynamicDrawUsage); geometry.setAttribute(name, a); return a; };
-  const tops = attribute('aTop', 3), bottoms = attribute('aBottom', 3), skins = attribute('aSkin', 3), hairs = attribute('aHair', 3), gaits = attribute('aGait', 4);
+  // Two draws: the modelled figures have a man's body and a woman's, and each person is drawn with their own.
+  // Until the figures arrive everyone is in the first.
+  const INSTANCED = [['aTop', 3], ['aBottom', 3], ['aSkin', 3], ['aHair', 3], ['aGait', 4]];
+  const sink = (shape, name) => {
+    const mesh = new THREE.InstancedMesh(shape, material, capacity);
+    mesh.name = name; mesh.count = 0; mesh.frustumCulled = false; mesh.castShadow = true; mesh.receiveShadow = true;
+    const made = {};
+    for (const [attribute, size] of INSTANCED) { const a = new THREE.InstancedBufferAttribute(new Float32Array(capacity * size), size); a.setUsage(THREE.DynamicDrawUsage); shape.setAttribute(attribute, a); made[attribute] = a; }
+    return { mesh, tops: made.aTop, bottoms: made.aBottom, skins: made.aSkin, hairs: made.aHair, gaits: made.aGait, count: 0 };
+  };
+  let other = geometry.clone();
+  const sinks = [sink(geometry, 'People'), sink(other, 'People, the other body')], mesh = sinks[0].mesh;
+  mesh.add(sinks[1].mesh);
   scene?.add(mesh);
   const people = [], crossing = [];
   // Figures that are not of the crowd but are drawn with it: the player, and whoever serves in a shop.
@@ -459,7 +471,7 @@ export function createCrowd({ scene = null, life, heightAt = () => 0, isRoad = (
         }
         filled = true;
       }
-      crossing.length = 0;
+      crossing.length = 0; sinks[0].count = sinks[1].count = 0;
       const driving = player && player.mode === 'drive' && Math.hypot(player.velocityX || 0, player.velocityZ || 0) > 2;
       for (let i = 0; i < people.length; i++) {
         const person = people[i];
@@ -476,39 +488,39 @@ export function createCrowd({ scene = null, life, heightAt = () => 0, isRoad = (
         person.sample -= dt;
         if (person.y === null || person.sample <= 0) { const y = heightAt(person.x, person.z); person.y = person.y === null ? y : person.y + (y - person.y) * .6; person.sample = .22; }
         const look = person.look, moving = person.state === 'wait' ? 0 : 1, grow = Math.min(1, person.age * 3);
+        // Half are drawn with the woman's figure: which, is fixed by where in their stride they began.
+        const woman = Math.floor(person.phase * 997) % 2 === 1, to = sinks[figures && woman ? 1 : 0], at = to.count++, slot = (to === sinks[1] ? capacity : 0) + at;
         place.set(person.x + person.shove[0], person.y, person.z + person.shove[1]);
         turn.setFromAxisAngle(up, person.heading);
         size.set(look.build * look.height / 1.72 * grow, look.height / 1.72 * grow, look.build * look.height / 1.72 * grow);
-        matrix.compose(place, turn, size); mesh.setMatrixAt(i, matrix);
-        if (person.drawn !== i) {
+        matrix.compose(place, turn, size); to.mesh.setMatrixAt(at, matrix);
+        if (person.drawn !== slot) {
           // Colours travel with the person when the list is reshuffled.
-          person.drawn = i;
-          colour.setHex(look.top); tops.setXYZ(i, colour.r, colour.g, colour.b);
-          colour.setHex(look.bottom); bottoms.setXYZ(i, colour.r, colour.g, colour.b);
-          colour.setHex(look.skin); skins.setXYZ(i, colour.r, colour.g, colour.b);
-          colour.setHex(look.hair); hairs.setXYZ(i, colour.r, colour.g, colour.b);
-          tops.needsUpdate = bottoms.needsUpdate = skins.needsUpdate = hairs.needsUpdate = true;
+          person.drawn = slot;
+          colour.setHex(look.top); to.tops.setXYZ(at, colour.r, colour.g, colour.b);
+          colour.setHex(look.bottom); to.bottoms.setXYZ(at, colour.r, colour.g, colour.b);
+          colour.setHex(look.skin); to.skins.setXYZ(at, colour.r, colour.g, colour.b);
+          colour.setHex(look.hair); to.hairs.setXYZ(at, colour.r, colour.g, colour.b);
+          to.tops.needsUpdate = to.bottoms.needsUpdate = to.skins.needsUpdate = to.hairs.needsUpdate = true;
         }
         // Stride rate follows pace: about two steps a second at a brisk walk.
-        // Half are drawn with the woman's figure: which, is fixed by where in their stride they began.
-        gaits.setXYZW(i, person.phase, moving, look.pace * 4.6, look.kit | (Math.floor(person.phase * 997) % 2 ? KIT.woman : 0));
+        to.gaits.setXYZW(at, person.phase, moving, look.pace * 4.6, look.kit | (woman ? KIT.woman : 0));
       }
-      let drawn = people.length;
       for (const extra of extras) {
-        if (drawn >= capacity) break;
-        const look = extra.look, scale = (look.height || 1.72) / 1.72, i = drawn++;
+        const look = extra.look, scale = (look.height || 1.72) / 1.72, to = sinks[figures && (look.kit & KIT.woman) ? 1 : 0];
+        if (to.count >= capacity) continue;
+        const at = to.count++;
         place.set(extra.x, extra.y, extra.z); turn.setFromAxisAngle(up, extra.heading || 0); size.set(scale, scale, scale);
-        matrix.compose(place, turn, size); mesh.setMatrixAt(i, matrix);
-        colour.setHex(look.top); tops.setXYZ(i, colour.r, colour.g, colour.b);
-        colour.setHex(look.bottom); bottoms.setXYZ(i, colour.r, colour.g, colour.b);
-        colour.setHex(look.skin); skins.setXYZ(i, colour.r, colour.g, colour.b);
-        colour.setHex(look.hair); hairs.setXYZ(i, colour.r, colour.g, colour.b);
+        matrix.compose(place, turn, size); to.mesh.setMatrixAt(at, matrix);
+        colour.setHex(look.top); to.tops.setXYZ(at, colour.r, colour.g, colour.b);
+        colour.setHex(look.bottom); to.bottoms.setXYZ(at, colour.r, colour.g, colour.b);
+        colour.setHex(look.skin); to.skins.setXYZ(at, colour.r, colour.g, colour.b);
+        colour.setHex(look.hair); to.hairs.setXYZ(at, colour.r, colour.g, colour.b);
+        to.tops.needsUpdate = to.bottoms.needsUpdate = to.skins.needsUpdate = to.hairs.needsUpdate = true;
         // They keep their own stride: the shader's clock does not move them.
-        gaits.setXYZW(i, extra.phase || 0, extra.stride || 0, 0, look.kit || 0);
+        to.gaits.setXYZW(at, extra.phase || 0, extra.stride || 0, 0, look.kit || 0);
       }
-      if (extras.length) tops.needsUpdate = bottoms.needsUpdate = skins.needsUpdate = hairs.needsUpdate = true;
-      mesh.count = drawn;
-      mesh.instanceMatrix.needsUpdate = true; gaits.needsUpdate = true;
+      for (const to of sinks) { to.mesh.count = to.count; to.mesh.instanceMatrix.needsUpdate = true; to.gaits.needsUpdate = true; }
     },
     /**
      * Draw these with the crowd, after it: each { x, y, z, heading, phase, stride, look }, where `look` is
@@ -519,11 +531,12 @@ export function createCrowd({ scene = null, life, heightAt = () => 0, isRoad = (
     /** Draw the crowd with the modelled figures in place of the blocked-out ones. */
     setFigures(meta, poses) {
       const next = createFigures(meta, poses);
-      for (const name of ['aTop', 'aBottom', 'aSkin', 'aHair', 'aGait']) next.geometry.setAttribute(name, geometry.getAttribute(name));
-      geometry.dispose(); material.dispose(); figures?.texture.dispose();
-      geometry = mesh.geometry = next.geometry; material = mesh.material = next.material; figures = next;
+      sinks.forEach((to, which) => { for (const [name] of INSTANCED) next.bodies[which].setAttribute(name, to.mesh.geometry.getAttribute(name)); });
+      geometry.dispose(); other.dispose(); material.dispose(); figures?.texture.dispose(); figures?.geometry.dispose();
+      geometry = sinks[0].mesh.geometry = next.bodies[0]; other = sinks[1].mesh.geometry = next.bodies[1];
+      material = sinks[0].mesh.material = sinks[1].mesh.material = next.material; figures = next;
     },
     get modelled() { return Boolean(figures); },
-    dispose() { geometry.dispose(); material.dispose(); figures?.texture.dispose(); mesh.dispose(); mesh.removeFromParent(); people.length = 0; },
+    dispose() { geometry.dispose(); other.dispose(); material.dispose(); figures?.texture.dispose(); figures?.geometry.dispose(); for (const to of sinks) to.mesh.dispose(); mesh.removeFromParent(); people.length = 0; },
   };
 }

@@ -39,5 +39,15 @@ test('the crowd takes the modelled figures in place of the blocked-out ones', ()
   crowd.setFigures(meta, poses);
   assert.equal(crowd.modelled, true); assert.equal(crowd.mesh.geometry.getAttribute('aGait'), gait, 'each person keeps their colours and stride');
   assert.equal(crowd.mesh.material.name, 'People, modelled'); assert.equal(KIT.woman, 64);
+  // Each person is drawn with one body, not both: the man's in one draw, the woman's in another.
+  const [men, women] = [crowd.mesh, crowd.mesh.children[0]], faces = meta.figures.map(figure => figure.faces.length);
+  assert.deepEqual([men.geometry.index.count, women.geometry.index.count], faces);
+  assert.equal(men.geometry.getAttribute('position'), women.geometry.getAttribute('position'), 'over the same vertices');
+  assert.notEqual(men.geometry.getAttribute('aGait'), women.geometry.getAttribute('aGait'));
+  const look = { top: 1, bottom: 2, skin: 3, hair: 4, height: 1.72 };
+  crowd.setExtras([{ x: 0, y: 0, z: 0, look: { ...look, kit: 0 } }, { x: 1, y: 0, z: 0, look: { ...look, kit: KIT.woman } }, { x: 2, y: 0, z: 0, look: { ...look, kit: KIT.woman | KIT.longHair } }]);
+  crowd.update(.016, { walks: [], focus: { x: 0, z: 0 }, hours: 12, time: 0, junctions: [], cars: [] });
+  assert.deepEqual([men.count, women.count], [1, 2]);
+  assert.equal(women.geometry.getAttribute('aGait').getW(1), KIT.woman | KIT.longHair);
   crowd.dispose();
 });
