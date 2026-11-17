@@ -125,7 +125,7 @@ export function createStorefronts({ createCanvas = () => document.createElement(
         let free = 1, drawn = false;
         tableData.fill(0); lettered = 0;
         shown.forEach((front, i) => {
-          const sign = signFor(front.place), o = (i + 1) * 16, [br, bg, bb] = linear(sign.background), [lr, lg, lb] = linear(sign.lettering);
+          const sign = signFor(front.place, front.language || null), o = (i + 1) * 16, [br, bg, bb] = linear(sign.background), [lr, lg, lb] = linear(sign.lettering);
           tableData[o] = br; tableData[o + 1] = bg; tableData[o + 2] = bb; tableData[o + 3] = 1;
           tableData[o + 4] = lr; tableData[o + 5] = lg; tableData[o + 6] = lb; tableData[o + 7] = { A: 1, B: 2, C: 3 }[front.place.grade] || 0;
           tableData[o + 12] = front.x; tableData[o + 13] = front.z; tableData[o + 14] = front.width / 2; tableData[o + 15] = TRIM[front.place.kind] || 0;

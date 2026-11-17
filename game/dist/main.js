@@ -18,7 +18,7 @@ import { createGraphics } from './gfx.js';
 import { createStreetscape } from './streetscape.js';
 import { createStreetLife } from './streetlife.js';
 import { createWater } from './water.js';
-import { createCityLife, manhattanCore } from './citylife.js';
+import { createCityLife, manhattanCore, characterAt } from './citylife.js';
 import { createStreetSigns } from './street-signs.js';
 import { createCrowd } from './crowd.js';
 import { createStreetProps } from './street-props.js';
@@ -28,6 +28,7 @@ import { createPhone, describePlace } from './phone.js';
 import { createFleet } from './fleet.js';
 import { offersAt } from './garage.js';
 import { planRoom, buildRoom, roomKind } from './interiors.js';
+import { createDemographics } from './demographics.js';
 import { createSubway, createSubwayEntrances, FARE } from './subway.js';
 import { indexKerbs, snapToKerb } from './street-props.js';
 import { formatDistance } from './phone.js';
@@ -53,6 +54,8 @@ let phone=null, roadDestinations=[], placeDestinations=[], shopHere=null;
 // The front the player is standing at if it has a room to go into, and the room they are in.
 let doorHere=null, roomGroup=null, roomStaff=[];
 // The subway: its stations, the stair entrances drawn nearby, the one the player is standing at, and the kerbs they line up with.
+// Who lives where (demographics.js): one even range of faces until the survey has loaded.
+let demographics=createDemographics(null);
 let subway=null, subwayStairs=null, stairHere=null, kerbIndex=null, kerbsFor=null;
 // Which cars are registered where (fleet.js): the whole city's mix until the counts by ZIP code have loaded.
 let fleet=createFleet(null);
@@ -531,6 +534,8 @@ function frame(now) {
     if(!frontsFor||frontsFor.places!==placeSource.version||frontsFor.footprints!==footprints||frontsFor.walks!==walks||Math.hypot(lit.x-frontsFor.x,lit.z-frontsFor.z)>30){
       frontsFor={places:placeSource.version,footprints,walks,x:lit.x,z:lit.z};
       fronts=solveFrontages(placeSource.near(lit.x,lit.z,250),footprints,(x,z)=>Boolean(streetscape?.surfaceAt(x,z)));
+      // A sign also says what the place is in a language a quarter or more of its neighbours speak at home.
+      if(demographics.tracts)for(const front of fronts){const [language,share]=demographics.languagesAt(front.x,front.z).find(([name])=>name!=='english')||[];front.language=share>=.25?language:null;}
       // A delivery can be sent to any place with a name over its door: the drop is on the sidewalk in front.
       placeDestinations=fronts.filter(front=>front.place.name).map(front=>({name:front.place.name,x:front.x+front.nx*3.2,z:front.z+front.nz*3.2}));
       sim.setActiveCity({missionPoints:[...roadDestinations,...placeDestinations]});city=sim.city;
@@ -774,7 +779,9 @@ async function boot() {
   sim=new Simulation(city);restoreProgress();yaw=sim.player.angle;
   signs=createStreetSigns({scene,heightAt:groundHeight,raised:(x,z)=>(streetscape?.offsetAt(x,z)||0)>.1});
   crowd=createCrowd({scene,heightAt:groundHeight,isRoad:(x,z)=>streetscape?.surfaceAt(x,z)==='road',
-    life:{crowding:(x,z,hours)=>cityLife.crowding(x,z,hours),wardrobe:(x,z,hours)=>cityLife.wardrobe(x,z,hours)}});
+    life:{crowding:(x,z,hours)=>cityLife.crowding(x,z,hours),wardrobe:(x,z,hours)=>cityLife.wardrobe(x,z,hours),
+      // Offices, shops and sights fill a street with people from all over the city; at home, and at night, it is the neighbours.
+      tones:(x,z,hours)=>{if(!demographics.tracts)return null;const c=characterAt(x,z),day=hours>7&&hours<20?1:.35;return demographics.tonesAt(x,z,Math.min(.85,Math.max(c.business,c.visited,c.shopping*.7)*day));}}});
   // The city's own lists: sidewalk counts, and the signals that favour people
   // on foot. Without them the model answers alone and nothing is lost but detail.
   const signalHints=(x,z)=>({...cityLife.hintsAt(x,z),core:manhattanCore(x,z)});
@@ -784,6 +791,7 @@ async function boot() {
   placeSource=createPlaceSource({load:url=>loadData(url.replace(/^\.\//,''))});
   loadData('places-index.json').then(index=>placeSource.setIndex(index)).catch(()=>{});
   subwayStairs=createSubwayEntrances({scene,heightAt:groundHeight,facing:(x,z)=>{const kerb=kerbIndex&&snapToKerb(kerbIndex,x,z,12);return kerb?[kerb.tx,kerb.tz]:null;}});
+  loadData('demographics.json').then(data=>{demographics=createDemographics(data);}).catch(()=>{});
   loadData('transit.json').then(data=>{subway=createSubway(data);}).catch(()=>{});
   loadData('fleet.json').then(data=>{fleet=createFleet(data);}).catch(()=>{});
   // The modelled figures replace the blocked-out ones once they have loaded.
@@ -864,7 +872,7 @@ async function boot() {
   const b=city.bounds;camera.position.set((b.minX+b.maxX)/2-14000,44000,(b.minZ+b.maxZ)/2+32000);
   navigation=createCityNavigation({canvas,camera,input,bounds:city.bounds,heightAt:terrainHeight,onTravel:travel,onAddressSelected:focusCityAddress});
   $('place-select').innerHTML=roadIndex.places.map((place,i)=>'<option value="'+i+'">'+place.name+' · '+place.borough+'</option>').join('');
-  window.nycGame={graphics:gfx,get streetscape(){return streetscape;},get streetLife(){return streetLife;},get parkedCars(){return parkedCars;},get distantTraffic(){return distantTraffic;},get world(){return world;},get simulation(){return sim;},get signs(){return signs;},get crowd(){return crowd;},get props(){return props;},get places(){return placeSource;},get storefronts(){return storefronts;},get fronts(){return fronts;},get phone(){return phone;},get fleet(){return fleet;},get subway(){return subway;},get subwayStairs(){return subwayStairs;},get cityLife(){return cityLife;},heightAt:(x,z)=>terrainHeight(x,z),setView:view=>{viewOverride=view&&Array.isArray(view.position)&&Array.isArray(view.target)?view:null;},getState:()=>({time:gfx.clock,player:{...sim.player},heat:sim.heat,health:sim.health,mission:{...sim.mission},cash:sim.cash,deliveries:sim.deliveries,cars:sim.cars.length,parkedCars:sim.cars.filter(car=>car._kerb).length,buildings:buildings.length,totalBuildings:cityIndex.stats.buildingFeatures,stream:world.getStatus(),ground:ground.getStatus(),streetDetail:streetDetail?.getStatus()||null,streetscape:streetscape?.getStatus()||null,landscape:landscape?.getStatus()||null,reconstruction:reconstructionReview?{model:reconstructionReview.model,summary:reconstructionReview.summary}:null,roadReconstruction:roadReconstructionReview?{model:roadReconstructionReview.model,summary:roadReconstructionReview.summary}:null,roadPilot:roadPilot?roadPilot.getStatus():{ready:false,loading:Boolean(roadPilotLoading),error:roadPilotError},navigation:navigation.getState(),map:gameMap.getState(),routeGuidance,cityView,aerialView,traveling,bootReady,shadows:{enabled:shadowsEnabled,active:renderer.shadowMap.enabled},drawCalls:renderer.info.render.calls,triangles:renderer.info.render.triangles,started,paused})};
+  window.nycGame={graphics:gfx,get streetscape(){return streetscape;},get streetLife(){return streetLife;},get parkedCars(){return parkedCars;},get distantTraffic(){return distantTraffic;},get world(){return world;},get simulation(){return sim;},get signs(){return signs;},get crowd(){return crowd;},get props(){return props;},get places(){return placeSource;},get storefronts(){return storefronts;},get fronts(){return fronts;},get phone(){return phone;},get fleet(){return fleet;},get subway(){return subway;},get demographics(){return demographics;},get subwayStairs(){return subwayStairs;},get cityLife(){return cityLife;},heightAt:(x,z)=>terrainHeight(x,z),setView:view=>{viewOverride=view&&Array.isArray(view.position)&&Array.isArray(view.target)?view:null;},getState:()=>({time:gfx.clock,player:{...sim.player},heat:sim.heat,health:sim.health,mission:{...sim.mission},cash:sim.cash,deliveries:sim.deliveries,cars:sim.cars.length,parkedCars:sim.cars.filter(car=>car._kerb).length,buildings:buildings.length,totalBuildings:cityIndex.stats.buildingFeatures,stream:world.getStatus(),ground:ground.getStatus(),streetDetail:streetDetail?.getStatus()||null,streetscape:streetscape?.getStatus()||null,landscape:landscape?.getStatus()||null,reconstruction:reconstructionReview?{model:reconstructionReview.model,summary:reconstructionReview.summary}:null,roadReconstruction:roadReconstructionReview?{model:roadReconstructionReview.model,summary:roadReconstructionReview.summary}:null,roadPilot:roadPilot?roadPilot.getStatus():{ready:false,loading:Boolean(roadPilotLoading),error:roadPilotError},navigation:navigation.getState(),map:gameMap.getState(),routeGuidance,cityView,aerialView,traveling,bootReady,shadows:{enabled:shadowsEnabled,active:renderer.shadowMap.enabled},drawCalls:renderer.info.render.calls,triangles:renderer.info.render.triangles,started,paused})};
   requestAnimationFrame(frame);
   const [roads]=await Promise.all([roadStream.loadAround(seed.spawn),world.prepareAt(seed.spawn,300),landscapeReady]);
   sim.setActiveCity({roads,buildings,isReadyAt:(x,z,radius)=>world.isReadyAt(x,z,radius),missionPoints:destinationsFor(roads,seed.spawn)},{spawn:seed.spawn});city=sim.city;yaw=sim.player.angle;

@@ -24,7 +24,7 @@ import { createGraphics } from '../dist/gfx.js';
 import { createStreetscape, ROAD_LIFT, SIDEWALK_LIFT } from '../dist/streetscape.js';
 import { createStreetLife } from '../dist/streetlife.js';
 import { createWater } from '../dist/water.js';
-import { createCityLife, manhattanCore } from '../dist/citylife.js';
+import { createCityLife, manhattanCore, characterAt } from '../dist/citylife.js';
 import { createStreetSigns } from '../dist/street-signs.js';
 import { createCrowd } from '../dist/crowd.js';
 import { createStreetProps } from '../dist/street-props.js';
@@ -34,6 +34,7 @@ import { createPhone, describePlace } from '../dist/phone.js';
 import { createFleet } from '../dist/fleet.js';
 import { offersAt } from '../dist/garage.js';
 import { planRoom, buildRoom, roomKind } from '../dist/interiors.js';
+import { createDemographics } from '../dist/demographics.js';
 import { createSubway, createSubwayEntrances, FARE } from '../dist/subway.js';
 import { indexKerbs, snapToKerb } from '../dist/street-props.js';
 import { formatDistance } from '../dist/phone.js';
@@ -265,7 +266,7 @@ async function bootHarness({ stored = null, displayStored = null, unavailableSto
     },
     updateChaseHeight, createCityGround, worldToGeographic, createRoadStream, nearestStreet, localDestinations, createCityNavigation,
     createStreetDetail:(manifest,options)=>createStreetDetail(manifest,{...options,now:()=>timestamp}),
-    Landscape, RoadPilot, AbortSignal, createGraphics, createStreetLife, createWater, setVehicleLamps, createCityLife, manhattanCore, createStreetSigns, createCrowd, createStreetProps, createPlaceSource, indexFootprints, solveFrontages, createStorefronts, createPhone, describePlace, createFleet, offersAt, planRoom, buildRoom, roomKind, createSubway, createSubwayEntrances, FARE, indexKerbs, snapToKerb, formatDistance,
+    Landscape, RoadPilot, AbortSignal, createGraphics, createStreetLife, createWater, setVehicleLamps, createCityLife, manhattanCore, createStreetSigns, createCrowd, createStreetProps, createPlaceSource, indexFootprints, solveFrontages, createStorefronts, createPhone, describePlace, createFleet, offersAt, planRoom, buildRoom, roomKind, createDemographics, characterAt, createSubway, createSubwayEntrances, FARE, indexKerbs, snapToKerb, formatDistance,
     // Bundled survey cells only: these tests stay offline.
     createStreetscape:options=>createStreetscape({...options,live:false,now:()=>timestamp}),
     console: { error: error => errors.push(error), warn: () => {}, log: () => {} },

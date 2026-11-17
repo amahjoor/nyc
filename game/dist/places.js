@@ -373,16 +373,34 @@ const TAGLINES = { bodega: 'DELI  GROCERY  ATM  LOTTO  COLD CUTS', grocery: 'FRE
   parking: 'PARK  24 HOURS', butcher: 'MEAT  POULTRY', fishmarket: 'FRESH FISH', produce: 'FRUITS & VEGETABLES', bakery: 'BREAD  CAKES  PASTRY', icecream: 'ICE CREAM', mediterranean: 'GYRO  FALAFEL  KEBAB', indian: 'CURRY  TANDOORI',
   thai: 'THAI KITCHEN', korean: 'KOREAN BBQ', caribbean: 'JERK  ROTI  PATTIES', latin: 'COMIDA LATINA', sandwiches: 'SANDWICHES  SALADS  SOUPS', variety: 'EVERYTHING MUST GO', gas: 'GAS  DIESEL  MART' };
 
+// What a kind of place is called in the languages most spoken at home in New York after English: the word a sign
+// adds where many of the neighbours speak it. Keyed by the survey's language groups (demographics.js); 'germanic'
+// in this city is mostly Yiddish, 'slavic' mostly Russian, 'french' mostly Haitian Creole and French.
+const WORDS_OF = { food: 0, dining: 0, cafe: 1, bodega: 2, market: 2, beauty: 3, barber: 4, liquor: 5, shop: 6 };
+const LOCAL = {
+  spanish: ['RESTAURANTE', 'CAFÉ', 'ABARROTES', 'SALÓN DE BELLEZA', 'BARBERÍA', 'LICORES', 'TIENDA'],
+  chinese: ['餐館', '咖啡', '雜貨', '美容', '理髮', '酒', '商店'],
+  slavic: ['РЕСТОРАН', 'КАФЕ', 'ПРОДУКТЫ', 'САЛОН КРАСОТЫ', 'ПАРИКМАХЕРСКАЯ', 'ВИНО', 'МАГАЗИН'],
+  korean: ['식당', '카페', '식품', '미용실', '이발소', '주류', '상점'],
+  arabic: ['مطعم', 'مقهى', 'بقالة', 'صالون', 'حلاق', '', 'متجر'],
+  french: ['RESTAURANT', 'CAFÉ', 'ÉPICERIE', 'SALON DE BEAUTÉ', 'COIFFEUR', 'VINS', 'BOUTIQUE'],
+  germanic: ['רעסטאראן', 'קאווע', 'גראסערי', 'סאלאן', 'שערער', '', 'געשעפט'],
+};
+/** The word for a place's kind in a language of the survey's, or '' where there is none. */
+export const localWord = (place, language) => LOCAL[language]?.[WORDS_OF[KIND[place.kind]?.group]] || '';
+
 const hashText = text => { let h = 2166136261; for (let i = 0; i < text.length; i++) { h ^= text.charCodeAt(i); h = Math.imul(h, 16777619); } return (h ^ (h >>> 15)) >>> 0; };
 
 /**
  * What a place's sign looks like: { name, tagline, background, lettering }
  * with colours as '#rrggbb'. The same place always gets the same sign.
  */
-export function signFor(place) {
+export function signFor(place, language = null) {
   const name = placeName(place), schemes = KIND_SCHEMES[place.kind] || SCHEMES[KIND[place.kind]?.group] || SCHEMES.shop;
   const [background, lettering] = schemes[hashText(`${name}|${place.x}|${place.z}`) % schemes.length];
   // A sign does not say the same thing twice: words already in the name are left out of the line under it.
   const said = new Set(name.split(/[^A-Z]+/)), tagline = (TAGLINES[place.kind] || '').split(/ {2,}/).filter(item => item && !item.split(' ').some(word => said.has(word) || said.has(`${word}S`) || said.has(word.replace(/S$/, '')))).join('  ');
-  return { name, tagline, background, lettering };
+  // Where many of the neighbours speak another language at home, the sign says what the place is in it too.
+  const word = language ? localWord(place, language) : '';
+  return { name, tagline: word ? (tagline ? `${word}  ${tagline}` : word) : tagline, background, lettering };
 }

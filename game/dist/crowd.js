@@ -15,6 +15,7 @@
 import * as THREE from './vendor/three.module.min.js';
 import { crossingAspect } from './signal-plan.js';
 import { OUTFITS } from './citylife.js';
+import { drawTone } from './demographics.js';
 
 const TAU = Math.PI * 2;
 const clamp = (value, low, high) => Math.max(low, Math.min(high, value));
@@ -50,9 +51,11 @@ export const KIT = { backpack: 1, bag: 2, cap: 4, longHair: 8, shortSleeves: 16,
  * One person: colours, kit, height and pace, for an outfit named in
  * citylife.js. `random` is a generator of numbers from 0 to 1.
  */
-export function dress(outfit, random = Math.random) {
+export function dress(outfit, random = Math.random, tones = null) {
   const look = { outfit, skin: pick(SKIN, random), hair: pick(HAIR, random), kit: 0, top: 0, bottom: 0,
     height: clamp(1.69 + (random() + random() + random() - 1.5) * .16, 1.5, 1.95), build: .9 + random() * .25, pace: 1.25 + random() * .4 };
+  // Where the mix of people round here is known (demographics.js), skin and hair are drawn from it.
+  if (tones) { look.skin = drawTone(tones.skins, tones.skin, random()); look.hair = drawTone(tones.hairs, tones.hair, random()); }
   const chance = p => random() < p, wear = (...bits) => { for (const bit of bits) look.kit |= bit; };
   if (chance(.42)) wear(KIT.longHair);
   switch (outfit) {
@@ -308,7 +311,7 @@ export function createCrowd({ scene = null, life, heightAt = () => 0, isRoad = (
   const matrix = new THREE.Matrix4(), place = new THREE.Vector3(), turn = new THREE.Quaternion(), size = new THREE.Vector3(), up = new THREE.Vector3(0, 1, 0), colour = new THREE.Color();
 
   function spawn(run, hours, s = random() * run.length) {
-    const at = along(run, s), look = dress(chooseOutfit(life.wardrobe(at.x, at.z, hours), random), random);
+    const at = along(run, s), look = dress(chooseOutfit(life.wardrobe(at.x, at.z, hours), random), random, life.tones?.(at.x, at.z, hours) || null);
     const person = { run, s, way: random() < .5 ? 1 : -1, lane: clamp(.55 + random() * Math.max(.2, run.depth - .9), .5, Math.max(.55, run.depth - .25)), look,
       state: 'walk', hop: null, wait: 0, bold: random() < .6, phase: random() * TAU, y: null, sample: random() * .25, age: 0, shove: [0, 0], x: at.x, z: at.z, heading: 0 };
     people.push(person);
