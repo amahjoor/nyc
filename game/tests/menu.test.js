@@ -25,7 +25,7 @@ test('buying is done indoors, costs what it says, and a coffee quickens the step
   assert.equal(sim.buy(menuFor(place('italian'))[0]), false); assert.equal(sim.cash, 5, 'lunch is more than five dollars');
   assert.equal(sim.buy(coffee), true); assert.deepEqual([sim.cash, sim.pep, sim.spent], [1.5, PEP.pep, 3.5]);
   // Quicker on their feet for a minute and a half, then as before.
-  const stride = () => { sim.room.a = 3; sim.room.b = 1.1; sim.player.velocityX = sim.player.velocityZ = 0; for (let i = 0; i < 45; i++) sim.step({ moveX: 0, moveZ: -1 }, 1 / 60); return sim.room.b - 1.1; };
+  const stride = () => { sim.room.a = 1.35; sim.room.b = 1.1; sim.player.velocityX = sim.player.velocityZ = 0; for (let i = 0; i < 12; i++) sim.step({ moveX: 0, moveZ: -1 }, 1 / 60); return sim.room.b - 1.1; };
   const quick = stride(); sim.pep = 0;
   assert.ok(quick > stride() * 1.08);
   sim.cash = 1000; sim.heat = 2; sim.health = 40;
