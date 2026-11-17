@@ -1,8 +1,11 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import * as THREE from '../dist/vendor/three.module.min.js';
+import { createStreetLife, treeForm, SPECIES, LIGHT_MAP_SPAN } from '../dist/streetlife.js';
+import { createLeafMaterial } from '../dist/foliage.js';
 import { carBody, buildCar, createCarMaterial, createLampMaterial, wheelGeometry, WHEEL, HEADLAMP, TAILLAMP } from '../dist/vehicle-model.js';
 import { createCar, setVehicleLamps } from '../dist/world.js';
+import { shared } from '../dist/gfx-common.js';
 
 /** Signed volume of a triangle soup: positive when faces are wound outward. */
 function volume(geometry) {
@@ -82,4 +85,45 @@ test('finished cars share geometry and materials, vary by identity, and light up
   assert.match(paint.fragmentShader, /roughnessFactor = vFinish\.x; metalnessFactor = vFinish\.y;/); assert.match(paint.fragmentShader, /material\.clearcoat \*= vFinish\.z;/);
   const glow = { fragmentShader: '#include <emissivemap_fragment>' };
   createLampMaterial().onBeforeCompile(glow); assert.match(glow.fragmentShader, /totalEmissiveRadiance \*= vColor\.rgb;/);
+});
+
+test('street trees take their size and colour from species and trunk girth', () => {
+  const sapling = treeForm({ species: 'ginkgo', girth: .08 }), mature = treeForm({ species: 'london planetree', girth: .7 }), unknown = treeForm({ species: 'some new cultivar', girth: .3 });
+  assert.ok(sapling.height >= 4 && sapling.height < mature.height && mature.height <= 21);
+  assert.ok(mature.radius > sapling.radius * 2 && mature.crown < mature.height);
+  assert.deepEqual(unknown.leaf, SPECIES.at(-1)[1], 'an unlisted species gets the default green');
+  assert.ok(treeForm({ species: 'callery pear', girth: .3 }).radius < treeForm({ species: 'pin oak', girth: .3 }).radius, 'a pear is narrower than an oak of the same girth');
+  for (const [, leaf, wide, tall] of SPECIES) assert.ok(leaf[1] > leaf[0] && leaf[1] > leaf[2] && wide > .5 && tall > .5, 'every species is green');
+  const material = createLeafMaterial({ attribute: true, vertexColors: true }), shader = { vertexShader: '#include <begin_vertex>', fragmentShader: '#include <emissivemap_fragment>' };
+  material.onBeforeCompile(shader);
+  assert.equal(material.defines.NYC_CROWN_ATTRIBUTE, 1); assert.match(shader.vertexShader, /attribute vec4 aCrown;/); assert.match(shader.fragmentShader, /discard;/);
+});
+
+test('lamps and trees are instanced where the streetscape puts them', () => {
+  const scene = new THREE.Scene();
+  let lamps = [{ x: 10, y: 3, z: 20, nx: 1, nz: 0 }, { x: -5, y: 3, z: 8, nx: 0, nz: -1 }], trees = [{ x: 4, y: 3.2, z: 4, girth: .3, species: 'pin oak' }];
+  const life = createStreetLife({ scene, getLamps: () => lamps, getTrees: () => trees });
+  life.update({ x: 0, z: 0 }, { lights: 1 });
+  const posts = scene.getObjectByName('Street lamps'), lenses = scene.getObjectByName('Street lamp lenses'), crowns = scene.getObjectByName('Street tree crowns'), boughs = scene.getObjectByName('Street tree boughs');
+  assert.equal(posts.count, 2); assert.equal(lenses.count, 2); assert.equal(life.lampCount, 2);
+  assert.equal(crowns.count, 1); assert.equal(boughs.count, 2); assert.equal(scene.getObjectByName('Street tree trunks').count, 1); assert.equal(life.treeCount, 1);
+  const matrix = new THREE.Matrix4(), position = new THREE.Vector3(), arm = new THREE.Vector3(1, 0, 0);
+  posts.getMatrixAt(0, matrix); position.setFromMatrixPosition(matrix);
+  assert.deepEqual(position.toArray(), [10, 3, 20]);
+  assert.ok(arm.clone().transformDirection(matrix).distanceTo(new THREE.Vector3(1, 0, 0)) < 1e-6, 'the arm reaches toward the road');
+  posts.getMatrixAt(1, matrix);
+  assert.ok(arm.clone().transformDirection(matrix).distanceTo(new THREE.Vector3(0, 0, -1)) < 1e-6);
+  crowns.getMatrixAt(0, matrix); position.setFromMatrixPosition(matrix);
+  const form = treeForm(trees[0]);
+  assert.ok(Math.abs(position.y - (3.2 + form.height - form.crown * .5)) < 1e-6, 'the crown sits on top of the trunk');
+  assert.ok(lenses.material.color.r > 3, 'lenses glow after dark');
+  life.update({ x: 0, z: 0 }, { lights: 0 }); assert.equal(lenses.material.color.r, 0);
+  // The same lists are not re-instanced; new ones are.
+  const version = posts.instanceMatrix.version; life.update({ x: 0, z: 0 }, { lights: 0 }); assert.equal(posts.instanceMatrix.version, version);
+  lamps = []; trees = []; life.update({ x: 0, z: 0 }, { lights: 1 });
+  assert.equal(posts.count, 0); assert.equal(crowns.count, 0);
+  life.update({ x: 0, z: 0 }, { overview: true }); assert.equal(scene.getObjectByName('Street furniture').visible, false);
+  assert.equal(shared.uNycLightRect.value.w, 0, 'without a GPU there is no light map, and no surface reads one');
+  assert.ok(LIGHT_MAP_SPAN > 300);
+  life.dispose(); assert.equal(scene.children.length, 0);
 });

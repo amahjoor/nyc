@@ -22,6 +22,7 @@ import { GameMap } from '../dist/game-map.js';
 import { createRoutePlanner } from '../dist/route-planner.js';
 import { createGraphics } from '../dist/gfx.js';
 import { createStreetscape, ROAD_LIFT, SIDEWALK_LIFT } from '../dist/streetscape.js';
+import { createStreetLife } from '../dist/streetlife.js';
 import { createWater } from '../dist/water.js';
 
 // This is application integration QA, not a browser/GPU rendering test. The
@@ -251,7 +252,7 @@ async function bootHarness({ stored = null, displayStored = null, unavailableSto
     },
     updateChaseHeight, createCityGround, worldToGeographic, createRoadStream, nearestStreet, localDestinations, createCityNavigation,
     createStreetDetail:(manifest,options)=>createStreetDetail(manifest,{...options,now:()=>timestamp}),
-    Landscape, RoadPilot, AbortSignal, createGraphics, createWater, setVehicleLamps,
+    Landscape, RoadPilot, AbortSignal, createGraphics, createStreetLife, createWater, setVehicleLamps,
     // Bundled survey cells only: these tests stay offline.
     createStreetscape:options=>createStreetscape({...options,live:false,now:()=>timestamp}),
     console: { error: error => errors.push(error), warn: () => {}, log: () => {} },
@@ -264,7 +265,7 @@ async function bootHarness({ stored = null, displayStored = null, unavailableSto
     },
   });
   function close() {
-    vm.runInContext('if(typeof gameMap!=="undefined")gameMap?.dispose?.();if(typeof navigation!=="undefined")navigation?.dispose?.();if(typeof roadPilot!=="undefined")roadPilot?.dispose();landscape?.dispose();streetDetail?.dispose();streetscape?.dispose();water?.dispose();world?.dispose();ground?.dispose();gfx?.dispose();',context);
+    vm.runInContext('if(typeof gameMap!=="undefined")gameMap?.dispose?.();if(typeof navigation!=="undefined")navigation?.dispose?.();if(typeof roadPilot!=="undefined")roadPilot?.dispose();landscape?.dispose();streetDetail?.dispose();streetscape?.dispose();streetLife?.dispose();water?.dispose();world?.dispose();ground?.dispose();gfx?.dispose();',context);
     for (const [key, descriptor] of original) {
       if (descriptor) Object.defineProperty(globalThis, key, descriptor);
       else delete globalThis[key];
@@ -523,6 +524,8 @@ test('street view builds surveyed SoHo street surfaces and shares source imagery
       const y=p.getY(i);assert.ok(near(y,ROAD_LIFT)||near(y,SIDEWALK_LIFT)||near(y,SIDEWALK_LIFT+.004)||near(y,-.03),`sidewalks rise one kerb above the roadbed, not ${y}`);
     }}
     for(const child of [...roads,...walks,...paint])assert.ok(child.material.isMeshStandardMaterial&&child.receiveShadow);
+    assert.ok(app.state().streetscape.lamps>10,'street lamps stand along surveyed kerbs');
+    assert.ok(scene.getObjectByName('Street lamps').count>10);
     assert.equal(app.elements.get('quality-button').textContent,'QUALITY: BALANCED');
     assert.equal(app.rendererInstances[0].shadowMap.enabled,true,'balanced quality retains nearby shadows');
     const localGround=scene.getObjectByName('NYC 2024 aerial imagery').children.filter(child=>child.visible&&child.material.isMeshStandardMaterial);
