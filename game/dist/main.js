@@ -15,6 +15,7 @@ import { createCityNavigation } from './city-navigation.js';
 import { GameMap } from './game-map.js';
 import { createRoutePlanner } from './route-planner.js';
 import { createGraphics } from './gfx.js';
+import { createWater } from './water.js';
 
 const $ = id => document.getElementById(id);
 const clamp = (n,a,b) => Math.max(a,Math.min(b,n));
@@ -27,6 +28,7 @@ let shadowsEnabled=true;
 let cityIndex, roadIndex, roadStream, ground, streetDetail, bootReady=false, traveling=false, pausedBeforeSources=false;
 let viewOverride=null;
 let cityView=false, cityZoom=1, cityOrbit=0, cityFocus=null, roadCell='', roadEpoch=0, roadBusy=false, buildings=[], boroughs=[];
+let water=null;
 let landscape=null, landscapeRevision=0, landscapeDirty=false, landscapeManifest=null, reconstructionReview=null, roadReconstructionReview=null, streetManifest=null;
 const terrainHeight=(x,z)=>landscape?.sampleHeight(x,z)??0;
 let roadPilot=null, roadPilotIndex=null, roadPilotLoading=null, roadPilotError=null, roadPilotRetryAt=0;
@@ -400,6 +402,7 @@ function frame(now) {
     if(!routePlanner&&gameMap.roads!==sim.city.roads)gameMap.setRoads(sim.city.roads);
     hud.city=sim.city;hud.update(sim);updateDirections();saveProgress();updateLocation();updateTimeButton();hudTime=0;
   }
+  water.update(lit,{overview:overview&&!viewOverride});
   setVehicleLamps(gfx.state.lightsOn);
   gfx.render();
   qualityTimer+=dt;if(dt>.035)slowFrames++;
@@ -583,6 +586,15 @@ async function boot() {
   camera=new THREE.PerspectiveCamera(52,innerWidth/innerHeight,10,150000);
   // Sky, sun, haze and the screen-space finish share one time of day.
   gfx=createGraphics({renderer,scene,camera});
+  // Rivers, harbor and sea, bounded by the borough shorelines.
+  water=createWater({scene,boroughs,bounds:roadIndex.bounds,panorama:gfx.skyPanorama});
+  // The country around the city, as a silhouette. Optional: without it the city stands in open sea.
+  loadData('context-land.json').then(manifest=>{
+    const image=new Image();
+    image.onload=()=>water.setContext(image,manifest);
+    image.src=manifest.url;
+  }).catch(()=>{});
+  gfx.passes.push((renderer,scene,camera)=>water.renderMirror(renderer,scene,camera,{enabled:Boolean(viewOverride)||!cityView,scale:highQuality?.75:.5}));
   sim=new Simulation(city);restoreProgress();yaw=sim.player.angle;
   world=createCityStream(cityIndex,{scene,onCollisionChange:applyBuildings,onStatus:updateStreaming,heightAt:terrainHeight});
   ground=createCityGround({scene,renderer,onStatus:status=>{if(status.failures)$('imagery-status').textContent='Some aerial tiles are unavailable. NYC imagery will retry as you explore; surveyed geometry loads separately.';}});
@@ -591,6 +603,9 @@ async function boot() {
     landscapeManifest=index;
     landscape=new Landscape({scene,index,orthophoto:ground.orthophoto,onChange:()=>{landscapeDirty=true;},onStatus:updateLandscapeStatus});
     await landscape.loadBase();
+    // Measured terrain and the water sheet now cover everything the flat
+    // photograph did; it stays loaded as the terrain's and the roofs' texture.
+    ground.group.visible=!landscape.getStatus().baseReady;
     sim.updateGrounding();world.setTerrainSampler(terrainHeight,++landscapeRevision);
     const select=$('landscape-select');
     select.innerHTML=index.regions.map((region,i)=>'<option value="'+i+'">'+region.name+'</option>').join('');
@@ -599,7 +614,7 @@ async function boot() {
       reconstructionReview=report;landscape?.setReconstructionReview(report);if(landscape)updateLandscapeStatus(landscape.getStatus());
     }).catch(()=>{$('reconstruction-status').textContent='Image review unavailable. Measured source geometry remains active.';});
   }).catch(()=>{
-    landscape?.dispose();landscape=null;landscapeManifest=null;landscapeDirty=true;
+    landscape?.dispose();landscape=null;landscapeManifest=null;landscapeDirty=true;ground.group.visible=true;
     $('landscape-status').textContent='Measured terrain is unavailable. The aerial map remains playable.';
   });
   // Do not await optional detail. Even a stalled download must leave city
