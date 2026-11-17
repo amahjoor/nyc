@@ -122,7 +122,7 @@ export function buildStreetGeometry(surfaces, orthophoto, memo = new Map(), heig
   return geometry;
 }
 
-export function createStreetDetail(index, { scene, orthophoto, heightAt = null, fetcher = globalThis.fetch.bind(globalThis), onStatus = () => {}, onChange = () => {}, now = () => Date.now() } = {}) {
+export function createStreetDetail(index, { scene, orthophoto, heightAt = null, fetcher = globalThis.fetch.bind(globalThis), onStatus = () => {}, onChange = () => {}, now = () => Date.now(), drape = true } = {}) {
   const group = new THREE.Group();group.name = 'NYC mapped street surfaces';scene.add(group);
   const material = new THREE.MeshStandardMaterial({ map: orthophoto.texture, color: 0xffffff, roughness: 1, metalness: 0,
     // Old building bottom caps can overlap newer mapped sidewalks at y=0.
@@ -170,7 +170,7 @@ export function createStreetDetail(index, { scene, orthophoto, heightAt = null, 
         } else if (!streetElevated) discard;
       }`);
   };
-  const mesh = new THREE.Mesh(new THREE.BufferGeometry(), material);mesh.receiveShadow = true;group.add(mesh);
+  const mesh = new THREE.Mesh(new THREE.BufferGeometry(), material);mesh.receiveShadow = true;mesh.visible = drape;group.add(mesh);
   const deckMaterial = material.clone();deckMaterial.side = THREE.DoubleSide;
   deckMaterial.name = 'Official aerial imagery on measured transport decks';
   deckMaterial.onBeforeCompile = shader => {
@@ -190,7 +190,9 @@ export function createStreetDetail(index, { scene, orthophoto, heightAt = null, 
     for (const key of wanted.keys()) if (cache.has(key)) {
       const { data } = cache.get(key);surfaces.push(...data.surfaces);structures.push(...(data.structures || []));
     }
-    const previous = mesh.geometry;mesh.geometry = buildStreetGeometry(surfaces, orthophoto, triangulations, heightAt, terrainRevision);previous.dispose();
+    // With drape off another renderer owns the street surfaces (streetscape.js);
+    // this module then supplies only the measured bridge decks.
+    const previous = mesh.geometry;mesh.geometry = buildStreetGeometry(drape ? surfaces : [], orthophoto, triangulations, heightAt, terrainRevision);previous.dispose();
     // Opening the city map hides local rendering, but an actor may still be
     // supported by a deck. Retain those collision surfaces until local play
     // chooses its next cells, or returning from the map would drop the actor.

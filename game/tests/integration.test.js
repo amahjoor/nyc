@@ -21,6 +21,7 @@ import { RoadPilot } from '../dist/road-pilot.js';
 import { GameMap } from '../dist/game-map.js';
 import { createRoutePlanner } from '../dist/route-planner.js';
 import { createGraphics } from '../dist/gfx.js';
+import { createStreetscape, ROAD_LIFT, SIDEWALK_LIFT } from '../dist/streetscape.js';
 import { createWater } from '../dist/water.js';
 
 // This is application integration QA, not a browser/GPU rendering test. The
@@ -251,6 +252,8 @@ async function bootHarness({ stored = null, displayStored = null, unavailableSto
     updateChaseHeight, createCityGround, worldToGeographic, createRoadStream, nearestStreet, localDestinations, createCityNavigation,
     createStreetDetail:(manifest,options)=>createStreetDetail(manifest,{...options,now:()=>timestamp}),
     Landscape, RoadPilot, AbortSignal, createGraphics, createWater, setVehicleLamps,
+    // Bundled survey cells only: these tests stay offline.
+    createStreetscape:options=>createStreetscape({...options,live:false,now:()=>timestamp}),
     console: { error: error => errors.push(error), warn: () => {}, log: () => {} },
     matchMedia: () => ({ matches: coarsePointer }),
     innerWidth: 1440, innerHeight: 900, devicePixelRatio: 2,
@@ -261,7 +264,7 @@ async function bootHarness({ stored = null, displayStored = null, unavailableSto
     },
   });
   function close() {
-    vm.runInContext('if(typeof gameMap!=="undefined")gameMap?.dispose?.();if(typeof navigation!=="undefined")navigation?.dispose?.();if(typeof roadPilot!=="undefined")roadPilot?.dispose();landscape?.dispose();streetDetail?.dispose();water?.dispose();world?.dispose();ground?.dispose();gfx?.dispose();',context);
+    vm.runInContext('if(typeof gameMap!=="undefined")gameMap?.dispose?.();if(typeof navigation!=="undefined")navigation?.dispose?.();if(typeof roadPilot!=="undefined")roadPilot?.dispose();landscape?.dispose();streetDetail?.dispose();streetscape?.dispose();water?.dispose();world?.dispose();ground?.dispose();gfx?.dispose();',context);
     for (const [key, descriptor] of original) {
       if (descriptor) Object.defineProperty(globalThis, key, descriptor);
       else delete globalThis[key];
@@ -483,11 +486,11 @@ test('failed aerial images retain playable surveyed geometry and disclose missin
   } finally { app.close(); }
 });
 
-test('street view loads measured SoHo surfaces and shares source imagery with roofs and shadow receivers', async () => {
+test('street view builds surveyed SoHo street surfaces and shares source imagery with roofs and shadow receivers', async () => {
   const app = await bootHarness();
   try {
     app.frames(2);
-    assert.equal(app.state().streetDetail.surfaces,0);
+    assert.equal(app.state().streetscape.surfaces,0);
     assert.ok(!app.requests.some(url=>url.startsWith('./street-detail/')),'city overview does not download neighborhood surface chunks');
     assert.equal(app.rendererInstances[0].shadowMap.enabled,false);
     const roofMaterial=app.renderState().scene.getObjectByName('NYC survey node 4341').material;
@@ -495,23 +498,31 @@ test('street view loads measured SoHo surfaces and shares source imagery with ro
     app.click('start-button');app.click('view-button');app.frames(2);
     assert.ok(roofMaterial.version>overviewMaterialVersion,'entering local view invalidates the shadow shader variant');
     const localMaterialVersion=roofMaterial.version;
-    await app.until(()=>app.state().streetDetail.activeCells>0&&app.state().streetDetail.loading===0&&app.state().ground.loading===0);
+    await app.until(()=>{app.frames();return app.state().streetscape.cells>0&&app.state().streetscape.loading===0&&app.state().streetDetail.loading===0&&app.state().ground.loading===0;});
     app.frames();
     assert.equal(roofMaterial.version,localMaterialVersion,'steady local rendering must not recompile materials every frame');
     const {scene,localOrthophoto,roofUniforms}=app.renderState();
     const group=scene.getObjectByName('NYC mapped street surfaces');
     assert.ok(group?.visible);
-    assert.equal(group.children.filter(child=>child.isMesh).length,1,'measured ground polygons share a single render batch');
     assert.ok(group.getObjectByName('NYC measured transport decks'),'source bridge decks have a separate height batch');
-    const mesh=group.children[0], positions=mesh.geometry.attributes.position;
-    assert.ok(app.state().streetDetail.surfaces>100,'bundled official polygons reach the production scene');
-    assert.ok(positions.count>1000&&mesh.geometry.index.count>1000);
-    const sourceIds=new Set(app.requests.filter(url=>url.startsWith('./street-detail/')).flatMap(url=>
-      JSON.parse(readFileSync(new URL(`../dist/${url.slice(2)}`,import.meta.url),'utf8')).surfaces.map(surface=>surface.id)));
-    assert.ok(mesh.geometry.userData.sourceIds.every(id=>sourceIds.has(id)),'every rendered polygon retains an acquired source identity');
-    for(let i=0;i<positions.count;i++)assert.equal(positions.getY(i),0,'2D source records must not introduce guessed curb elevations');
-    assert.ok(mesh.material.isMeshStandardMaterial&&mesh.receiveShadow);
-    assert.equal(mesh.material.roughness,1);
+    const mesh=group.children[0];
+    assert.equal(mesh.visible,false,'the aerial drape gives way to built street surfaces');
+    assert.equal(mesh.geometry.attributes.position?.count||0,0,'no hidden duplicate of the street polygons is built');
+    // Roadbeds, sidewalks and paint are built from the bundled survey outlines.
+    const streets=scene.getObjectByName('Street surfaces');
+    assert.ok(streets?.visible);
+    assert.ok(app.state().streetscape.surfaces>100,'bundled official outlines reach the production scene');
+    const kindOf=name=>streets.children.filter(child=>child.name.startsWith(`Street ${name} `));
+    const roads=kindOf('road'),walks=kindOf('walk'),paint=kindOf('marks');
+    assert.ok(roads.length>0&&walks.length>0&&paint.length>0,'asphalt, sidewalks and road paint each have a batch');
+    assert.ok(roads.reduce((sum,child)=>sum+child.geometry.attributes.position.count,0)>1000);
+    // The offline terrain is flat at zero, so heights show exactly what was added.
+    const near=(a,b)=>Math.abs(a-b)<1e-6;
+    for(const child of roads){const p=child.geometry.attributes.position;for(let i=0;i<p.count;i++)assert.ok(near(p.getY(i),ROAD_LIFT),'roadbeds lie one fixed lift above measured ground');}
+    for(const child of walks){const p=child.geometry.attributes.position;for(let i=0;i<p.count;i++){
+      const y=p.getY(i);assert.ok(near(y,ROAD_LIFT)||near(y,SIDEWALK_LIFT)||near(y,SIDEWALK_LIFT+.004)||near(y,-.03),`sidewalks rise one kerb above the roadbed, not ${y}`);
+    }}
+    for(const child of [...roads,...walks,...paint])assert.ok(child.material.isMeshStandardMaterial&&child.receiveShadow);
     assert.equal(app.elements.get('quality-button').textContent,'QUALITY: BALANCED');
     assert.equal(app.rendererInstances[0].shadowMap.enabled,true,'balanced quality retains nearby shadows');
     const localGround=scene.getObjectByName('NYC 2024 aerial imagery').children.filter(child=>child.visible&&child.material.isMeshStandardMaterial);
@@ -536,7 +547,8 @@ test('street view loads measured SoHo surfaces and shares source imagery with ro
     app.elements.get('place-select').value=String(destination);app.click('travel-button');
     await app.until(()=>!app.state().traveling);app.frames(2);
     assert.equal(app.state().streetDetail.covered,false);
-    assert.equal(app.state().streetDetail.surfaces,0,'SoHo polygons do not follow the player into another borough');
+    assert.equal(app.state().streetscape.surfaces,0,'SoHo outlines do not follow the player into another borough');
+    assert.ok(streets.children.every(child=>!child.visible),'street batches from the previous neighbourhood are hidden');
     assert.equal(app.elements.get('street-detail-status').textContent,'');
     assert.equal(localOrthophoto.texture,app.renderState().localOrthophoto.texture,'travel moves atlas coverage without replacing its GPU texture');
     assert.ok(localOrthophoto.bounds.minX<app.state().player.x&&localOrthophoto.bounds.maxX>app.state().player.x);
@@ -544,6 +556,7 @@ test('street view loads measured SoHo surfaces and shares source imagery with ro
     const beforeCityMaterialVersion=roofMaterial.version;
     app.click('city-button');app.frames();
     assert.equal(group.visible,false);
+    assert.equal(streets.visible,false);
     assert.equal(app.rendererInstances[0].shadowMap.enabled,false);
     assert.ok(roofMaterial.version>beforeCityMaterialVersion,'city overview invalidates the now-disabled shadow variant');
     const cityMaterialVersion=roofMaterial.version;app.frames();
@@ -566,7 +579,7 @@ test('failed or stalled optional street data keep the full city playable', async
       }
       else{
         await app.until(()=>app.state().streetDetail.failures>0&&app.state().streetDetail.loading===0);
-        assert.equal(app.state().streetDetail.surfaces,0);
+        assert.equal(app.state().streetscape.surfaces,0);
         assert.match(app.elements.get('street-detail-status').textContent,/mapped street surfaces are unavailable here/);
       }
       const before=app.state().player;
@@ -586,9 +599,10 @@ test('failed or stalled optional street data keep the full city playable', async
         await app.until(()=>app.state().streetDetail.failures>0&&app.state().streetDetail.loading===0);
         assert.match(app.elements.get('street-detail-status').textContent,/unavailable here/);
         app.setStreetFailure(null);app.advanceTime(5001);app.frames();
-        await app.until(()=>app.state().streetDetail.failures===0&&app.state().streetDetail.loading===0);
+        await app.until(()=>{app.frames();return app.state().streetDetail.failures===0&&app.state().streetDetail.loading===0
+          &&app.state().streetscape.failures===0&&app.state().streetscape.loading===0&&app.state().streetscape.cells>0;});
         app.frames();
-        assert.ok(app.state().streetDetail.surfaces>100);
+        assert.ok(app.state().streetscape.surfaces>100,'street surfaces return once their source does');
         assert.equal(app.elements.get('street-detail-status').textContent,'','successful source retries clear the Sources notice');
       }
       assert.equal(app.errors.length,0);
@@ -1139,7 +1153,9 @@ test('measured landscape boots at elevation and supports park travel through the
     app.click('landscape-travel-button');
     await app.until(()=>!app.state().traveling);
     app.frames(2);
-    assert.equal(app.state().player.y,28);
+    // Street surfaces add at most a kerb to the measured ground.
+    const lift=app.state().player.y-28;
+    assert.ok(lift>=0&&lift<=SIDEWALK_LIFT+1e-9,`player stands ${lift} m above measured terrain`);
     assert.ok(app.state().landscape.cachedRegions>0);
     assert.equal(app.state().cityView,false);
     assert.ok(app.state().reconstruction.summary.accepted>0);
@@ -1299,7 +1315,7 @@ test('road and bridge destinations use source-backed arrival points and disclose
       const target=destinations[i].view, player=app.state().player;
       assert.equal(app.state().cityView,false,app.elements.get('travel-note').textContent);
       assert.ok(Math.hypot(player.x-target.x,player.z-target.z)<100);
-      await app.until(()=>{app.frames();return app.state().streetDetail.loading===0&&app.state().streetDetail.surfaces>0;});
+      await app.until(()=>{app.frames();return app.state().streetDetail.loading===0&&app.state().streetscape.loading===0&&app.state().streetscape.surfaces>0;});
       assert.equal(app.state().streetDetail.covered,true);
       assert.equal(app.elements.get('transport-travel-button').disabled,false);
     }
