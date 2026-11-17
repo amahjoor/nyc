@@ -251,21 +251,12 @@ const toSegment = (x, z, a, b) => {
 };
 
 /**
- * Give each place its street front: the stretch of its building's wall,
- * facing a street, that lies nearest the point the register puts it at.
- *
- * `footprints` is indexFootprints() of the buildings around; `isStreet(x, z)`
- * says whether a point is roadway or sidewalk. A place whose building is not
- * among them, or has no wall on a street, gets none; so do those beyond what
- * its building's street walls have room for.
- *
- * @returns {{place:object, building:object, x:number, z:number, tx:number, tz:number, nx:number, nz:number, width:number}[]}
- *   (x, z) the middle of the front on the wall line, (tx, tz) along the wall, (nx, nz) out toward the street
+ * Finds the walls of a building that face a street, once per building: each
+ * { a, b, length, tx, tz, nx, nz } with (nx, nz) pointing out over the sidewalk.
  */
-export function solveFrontages(places, footprints, isStreet, { reach = 28 } = {}) {
-  const walls = new Map(), claims = new Map();
-  // The walls of a building that face a street, found once per building.
-  const streetWalls = building => {
+export function wallFinder(footprints, isStreet) {
+  const walls = new Map();
+  return building => {
     if (walls.has(building)) return walls.get(building);
     const list = [], ring = building.polygon;
     for (let i = 0; i < ring.length; i++) {
@@ -281,6 +272,22 @@ export function solveFrontages(places, footprints, isStreet, { reach = 28 } = {}
     walls.set(building, list);
     return list;
   };
+}
+
+/**
+ * Give each place its street front: the stretch of its building's wall,
+ * facing a street, that lies nearest the point the register puts it at.
+ *
+ * `footprints` is indexFootprints() of the buildings around; `isStreet(x, z)`
+ * says whether a point is roadway or sidewalk. A place whose building is not
+ * among them, or has no wall on a street, gets none; so do those beyond what
+ * its building's street walls have room for.
+ *
+ * @returns {{place:object, building:object, x:number, z:number, tx:number, tz:number, nx:number, nz:number, width:number}[]}
+ *   (x, z) the middle of the front on the wall line, (tx, tz) along the wall, (nx, nz) out toward the street
+ */
+export function solveFrontages(places, footprints, isStreet, { reach = 28 } = {}) {
+  const claims = new Map(), streetWalls = wallFinder(footprints, isStreet);
   for (const place of places) {
     if (NO_FRONT.has(place.kind)) continue;
     let building = footprints.at(place.x, place.z), nearest = reach;
