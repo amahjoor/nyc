@@ -57,6 +57,8 @@ export const STYLE_INDEX = Object.fromEntries(STYLES.map((style, index) => [styl
 
 // Flag bits carried per wall in the style attribute's fourth byte.
 export const FLAG = { PALETTE: 3, BLANK: 16, SHOP: 32, ESCAPE: 64, SCREENS: 128 };
+/** Height in texels of a line of sign lettering in the atlas storefronts.js keeps. */
+export const ATLAS_CELL_HEIGHT = 80;
 /** Metres per unit of the height byte. */
 export const HEIGHT_UNIT = 2.2;
 
@@ -270,6 +272,8 @@ export const FACADE_FRAGMENT_PARS = /* glsl */`
 varying vec2 vFacade;
 flat varying vec2 vFacadeWall;
 flat varying vec4 vStyle;
+// Where in the world the fragment is, for looking up whose shop front this is.
+vec3 nycFacadeWorld = vec3( 0.0 );
 ${STYLE_TABLES}
 #define NYC_MAT_BRICK ${MATERIAL.BRICK}
 #define NYC_MAT_STONE ${MATERIAL.STONE}
@@ -537,24 +541,80 @@ NycFacade nycFacade( vec4 facade, vec4 styleIn, vec3 wallNormal, float facing, v
 	}
 
 	// --- Street storey ------------------------------------------------------------
-	if ( ground > 0.0 && above < 0.0 && ! glassWall ) {
-		float height = v / ground;
-		if ( shop && ! blank ) {
+	// Shops come two bays at a time. One whose middle lies on the street front
+	// of a place the city's registers put here is that place's (storefronts.js).
+	float shopShift = floor( seed * 2.0 ), shopIndex = floor( ( bayIndex + shopShift ) * 0.5 );
+	float streetStorey = ground > 0.0 ? ground : storey;
+	vec4 tenantSign = vec4( 0.0 ), tenantInk = vec4( 0.0 ), tenantLabel = vec4( 0.0 ), tenantAt = vec4( 0.0 );
+	float tenant = 0.0, tenantMiddle = 0.0;
+	#ifdef USE_FOG
+	if ( uNycPlaceRect.w > 0.5 && ! blank && v < streetStorey ) {
+		float middleU = clamp( ( 2.0 * shopIndex - shopShift + 1.0 ) * bayWidth, 0.5 * bayWidth, wallLength - 0.5 * bayWidth );
+		vec2 middle = nycFacadeWorld.xz + along.xz * ( middleU - u );
+		vec2 placeAt = ( middle - uNycPlaceRect.xy ) * uNycPlaceRect.z;
+		if ( placeAt.x > 0.0 && placeAt.x < 1.0 && placeAt.y > 0.0 && placeAt.y < 1.0 ) {
+			vec2 row = floor( textureLod( uNycPlaceMap, placeAt, 0.0 ).rg * 255.0 + 0.5 );
+			tenant = row.x + 256.0 * row.y;
+		}
+		if ( tenant > 0.5 ) {
+			int row = int( tenant );
+			tenantSign = texelFetch( uNycPlaceTable, ivec2( 0, row ), 0 ); tenantInk = texelFetch( uNycPlaceTable, ivec2( 1, row ), 0 );
+			tenantLabel = texelFetch( uNycPlaceTable, ivec2( 2, row ), 0 ); tenantAt = texelFetch( uNycPlaceTable, ivec2( 3, row ), 0 );
+			// The shop front nearest the middle of the place's stretch of wall is
+			// its own and carries the name. Others are, only if they lie wholly
+			// within that stretch: a supermarket has several, a nail salon one.
+			float aside = abs( dot( middle - tenantAt.xy, along.xz ) );
+			tenantMiddle = step( aside, bayWidth );
+			if ( aside > bayWidth && aside + bayWidth > tenantAt.z ) tenant = 0.0;
+		}
+	}
+	#endif
+	bool tenanted = tenant > 0.5;
+	if ( ( ground > 0.0 && above < 0.0 && ! glassWall ) || ( tenanted && v < streetStorey ) ) {
+		// A building with no street storey of its own gives a tenant its first floor.
+		float storeyHeight = tenanted ? streetStorey : ground, height = v / storeyHeight;
+		if ( ( shop || tenanted ) && ! blank ) {
 			// Each shop takes two bays: plate glass over a low bulkhead, under a sign band.
-			float shopIndex = floor( ( bayIndex + floor( seed * 2.0 ) ) * 0.5 );
 			float shopSeed = nycHash12( vec2( shopIndex, seed * 173.0 ) );
-			float glazing = nycPulse( cellU, 0.05, 0.9, cellPixel.x ) * nycBox( height, 0.13, 0.74, pixel.y / ground );
-			float signBand = nycBox( height, 0.77, 0.95, pixel.y / ground );
+			float glazing = nycPulse( cellU, 0.05, 0.9, cellPixel.x ) * nycBox( height, 0.13, 0.74, pixel.y / storeyHeight );
+			float signBand = nycBox( height, 0.77, 0.95, pixel.y / storeyHeight );
 			// Awning and sign colours, as varied as the shops.
 			vec3 signColor = 0.5 + 0.5 * cos( 6.2831853 * ( shopSeed * 3.0 + vec3( 0.0, 0.33, 0.67 ) ) );
 			signColor = mix( signColor * signColor * 0.7, vec3( shopSeed > 0.5 ? 0.06 : 0.82 ), step( 0.55, fract( shopSeed * 7.0 ) ) );
-			vec3 base = mix( wall * 0.55, vec3( 0.07, 0.075, 0.08 ), 0.6 );
-			result.albedo = mix( base, signColor, signBand );
-			result.roughness = mix( 0.55, 0.7, signBand );
 			float open = step( fract( shopSeed * 13.0 ), 0.72 );
+			// Across the shop from its left as seen from the street, and up its sign band.
+			float across = 1.0 - fract( ( cellU + shopShift ) * 0.5 ), shopWidth = 2.0 * bayWidth, bandHeight = 0.18 * storeyHeight;
+			float ink = 0.0, card = 0.0, cardInk = 0.0, neon = 0.0, pole = 0.0;
+			if ( tenanted ) {
+				signColor = tenantSign.rgb; open = tenantSign.a;
+				// The lettering keeps its proportions whatever the shape of the band.
+				float fit = ( shopWidth / bandHeight ) / 8.0;
+				vec2 stretch = vec2( max( fit, 1.0 ) * 1.04, max( 1.0 / fit, 1.0 ) * 1.06 );
+				vec2 q = ( vec2( across, ( height - 0.77 ) / 0.18 ) - 0.5 ) * stretch + 0.5;
+				vec2 spread = vec2( pixel.x / shopWidth, pixel.y / bandHeight ) * stretch * tenantLabel.zw;
+				float lettered = step( 0.0, q.x ) * step( q.x, 1.0 ) * step( 0.0, q.y ) * step( q.y, 1.0 ) * step( 0.0001, tenantLabel.z );
+				ink = textureGrad( uNycPlaceAtlas, tenantLabel.xy + clamp( q, 0.0, 1.0 ) * tenantLabel.zw, vec2( spread.x, 0.0 ), vec2( 0.0, spread.y ) ).r * lettered * tenantMiddle * signBand;
+				// In the window: the health department's grade card, and OPEN in neon where there is a bar.
+				vec2 glyph = uNycPlaceGlyphs.zw * vec2( 0.25, 1.0 );
+				vec2 cardAt = vec2( ( across - 0.075 ) / 0.05, ( height - 0.42 ) / ( 0.36 / storeyHeight ) );
+				card = step( 0.5, tenantInk.a ) * tenantMiddle * step( 0.0, cardAt.x ) * step( cardAt.x, 1.0 ) * step( 0.0, cardAt.y ) * step( cardAt.y, 1.0 ) * close;
+				// The letters are ${ATLAS_CELL_HEIGHT} texels high: choose the level that puts about one to the pixel.
+				float glyphLevel = clamp( log2( pixel.y * ${glslFloat(ATLAS_CELL_HEIGHT)} / 0.36 ), 0.0, 6.0 );
+				cardInk = card * textureLod( uNycPlaceAtlas, uNycPlaceGlyphs.xy + vec2( tenantInk.a - 1.0 + mix( 0.2, 0.8, cardAt.x ), mix( 0.05, 0.95, cardAt.y ) ) * glyph, glyphLevel ).r;
+				vec2 neonAt = vec2( ( across - 0.66 ) / 0.24, ( height - 0.5 ) / ( 0.42 / storeyHeight ) );
+				neon = step( 1.5, tenantAt.w ) * step( tenantAt.w, 2.5 ) * tenantMiddle * step( 0.0, neonAt.x ) * step( neonAt.x, 1.0 ) * step( 0.0, neonAt.y ) * step( neonAt.y, 1.0 ) * close
+					* textureLod( uNycPlaceAtlas, uNycPlaceGlyphs.xy + vec2( 3.0 + neonAt.x, neonAt.y ) * glyph, glyphLevel ).r * open;
+				// A barber's pole turns beside the door.
+				float poleAt = ( across - 0.012 ) / 0.03;
+				pole = step( 0.5, tenantAt.w ) * step( tenantAt.w, 1.5 ) * tenantMiddle * step( 0.0, poleAt ) * step( poleAt, 1.0 ) * nycBox( height, 0.3, 0.68, pixel.y / storeyHeight ) * close;
+			}
+			vec3 bandColor = mix( signColor, tenantInk.rgb, ink );
+			vec3 base = mix( wall * 0.55, vec3( 0.07, 0.075, 0.08 ), 0.6 );
+			result.albedo = mix( base, bandColor, signBand );
+			result.roughness = mix( 0.55, 0.7, signBand );
 			// A lit sign, and the canvas of an awning catching street light.
-			result.emissive += signColor * ( signBand * lights * mix( 0.05, 0.42, open ) );
-			vec2 slide = vec2( eyeAlong, eyeUp ) * ( 0.12 * close / eyeOut ) / vec2( bayWidth, ground );
+			result.emissive += bandColor * ( signBand * lights * mix( 0.05, 0.42, open ) * ( 1.0 + 1.6 * ink ) );
+			vec2 slide = vec2( eyeAlong, eyeUp ) * ( 0.12 * close / eyeOut ) / vec2( bayWidth, storeyHeight );
 			vec2 seen = vec2( bayAt, height ) - slide;
 			glass = glazing;
 			// Steel shutters come down over closed shops at night.
@@ -563,9 +623,19 @@ NycFacade nycFacade( vec4 facade, vec4 styleIn, vec3 wallNormal, float facing, v
 			result.albedo = mix( result.albedo, vec3( 0.33, 0.34, 0.35 ) * slats, shutter );
 			result.roughness = mix( result.roughness, 0.5, shutter ); result.metalness = 0.55 * shutter;
 			glass *= 1.0 - shutter;
+			// What hangs in the window is in front of the glass, and gone behind a shutter.
+			card *= 1.0 - shutter; cardInk *= 1.0 - shutter;
+			vec3 gradeColor = tenantInk.a < 1.5 ? vec3( 0.03, 0.12, 0.5 ) : tenantInk.a < 2.5 ? vec3( 0.04, 0.3, 0.07 ) : vec3( 0.6, 0.2, 0.02 );
+			result.albedo = mix( result.albedo, mix( vec3( 0.86 ), gradeColor, cardInk ), card );
+			float stripe = fract( ( height * storeyHeight * 2.2 + across * shopWidth * 6.0 ) - uNycTime * 0.6 );
+			vec3 poleColor = stripe < 0.33 ? vec3( 0.6, 0.03, 0.03 ) : stripe < 0.66 ? vec3( 0.85 ) : vec3( 0.04, 0.1, 0.5 );
+			result.albedo = mix( result.albedo, poleColor, pole );
+			result.emissive += poleColor * ( pole * lights * 0.5 ) + vec3( 1.0, 0.08, 0.06 ) * ( neon * mix( 0.5, 1.6, lights ) );
+			result.albedo = mix( result.albedo, vec3( 0.5, 0.03, 0.03 ), neon );
+			glass *= ( 1.0 - card ) * ( 1.0 - pole );
 			frame = ( 1.0 - nycPulse( cellU * 2.0, 0.02, 0.96, cellPixel.x * 2.0 ) ) * close;
-			pane = vec2( shopIndex, -1.0 ); roomAt = vec2( fract( ( cellU + floor( seed * 2.0 ) ) * 0.5 ), seen.y / 0.78 );
-			roomDepth = 9.0; roomHeight = ground * 0.78;
+			pane = vec2( shopIndex, -1.0 ); roomAt = vec2( fract( ( cellU + shopShift ) * 0.5 ), seen.y / 0.78 );
+			roomDepth = 9.0; roomHeight = storeyHeight * 0.78;
 			litChance = open; litBoost = 1.0; warmth = mix( 0.35, 0.8, fract( shopSeed * 5.0 ) );
 			glassReflect = 0.22; glassRough = 0.06;
 		} else {
@@ -582,7 +652,7 @@ NycFacade nycFacade( vec4 facade, vec4 styleIn, vec3 wallNormal, float facing, v
 			litChance = litShare * 0.6;
 		}
 		// The line where the street storey ends.
-		result.albedo = mix( result.albedo, trimColor * 0.92, nycBox( height, 0.955, 1.0, pixel.y / ground ) );
+		result.albedo = mix( result.albedo, trimColor * 0.92, nycBox( height, 0.955, 1.0, pixel.y / storeyHeight ) );
 	}
 
 	// --- Cornice or coping --------------------------------------------------------
@@ -715,6 +785,9 @@ export const FACADE_FRAGMENT = /* glsl */`
 if ( vFacadeWall.x > 0.004 ) {
 	vec3 nycWallNormal = inverseTransformDirection( vNormal, viewMatrix );
 	vec3 nycToEye = inverseTransformDirection( vViewPosition, viewMatrix );
+	#ifdef USE_FOG
+	nycFacadeWorld = cameraPosition + vNycFogRay;
+	#endif
 	NycFacade nycSurface = nycFacade( vec4( vFacade.x, max( vFacade.y, 0.0 ), vFacadeWall ), vStyle, nycWallNormal, faceDirection, nycToEye );
 	if ( vFacade.y < 0.0 ) {
 		// Below the measured base: poured concrete, down to wherever the ground is.

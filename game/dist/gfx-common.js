@@ -31,6 +31,14 @@ export const shared = {
   uNycLandRect: { value: new THREE.Vector4(0, 0, 0, 0) },
   uNycLandNear: { value: null },
   uNycLandNearRect: { value: new THREE.Vector4(0, 0, 0, 0) },
+  // Whose shop front is where, what its sign looks like and its lettering; see
+  // storefronts.js. Rect: min x, min z, 1 / size, enabled. Glyphs: where in
+  // the lettering the grade letters and OPEN are.
+  uNycPlaceMap: { value: null },
+  uNycPlaceRect: { value: new THREE.Vector4(0, 0, 0, 0) },
+  uNycPlaceTable: { value: null },
+  uNycPlaceAtlas: { value: null },
+  uNycPlaceGlyphs: { value: new THREE.Vector4(0, 0, 0, 0) },
 };
 
 export const CASCADES = 3;
@@ -74,6 +82,11 @@ uniform sampler2D uNycLand;
 uniform vec4 uNycLandRect;
 uniform sampler2D uNycLandNear;
 uniform vec4 uNycLandNearRect;
+uniform sampler2D uNycPlaceMap;
+uniform vec4 uNycPlaceRect;
+uniform sampler2D uNycPlaceTable;
+uniform sampler2D uNycPlaceAtlas;
+uniform vec4 uNycPlaceGlyphs;
 // 1 on dry land, 0 over open water. Everything is land until a shoreline is supplied.
 float nycLand( vec2 xz ) {
 	if ( uNycLandRect.w < 0.5 ) return 1.0;
