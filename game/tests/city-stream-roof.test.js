@@ -64,10 +64,11 @@ test('invalid or unavailable local atlases disable close imagery while preservin
 test('the standard-material shader keeps imagery on roofs and falls back for missing local tiles', () => {
   const stream = createCityStream(index), shader = compileHook(stream);
   // These assert the material hook's integration contract, not GPU compilation.
-  // Unverified facades and surveyed vertex coordinates remain unchanged.
-  assert.equal(shader.vertexShader, 'varying vec2 vCityXZ; varying float vCityRoof;\n'
-    + THREE.ShaderLib.standard.vertexShader.replace('#include <begin_vertex>',
-      '#include <begin_vertex>\nvCityXZ = position.xz; vCityRoof = abs(normal.y);'));
+  // Surveyed vertex coordinates pass through untouched: the hook only adds varyings.
+  assert.ok(shader.vertexShader.includes('varying vec2 vCityXZ; varying float vCityRoof;'));
+  assert.ok(shader.vertexShader.includes('vCityXZ = position.xz; vCityRoof = abs(normal.y);'));
+  assert.equal(shader.vertexShader.match(/#include <begin_vertex>/g).length, 1);
+  assert.ok(!/transformed\s*[+\-*]?=/.test(shader.vertexShader.replace(THREE.ShaderLib.standard.vertexShader, '')), 'no vertex is displaced');
   const colorStart = shader.fragmentShader.indexOf('#include <color_fragment>');
   const alphaStart = shader.fragmentShader.indexOf('#include <alphamap_fragment>');
   const surface = shader.fragmentShader.slice(colorStart, alphaStart);
@@ -81,5 +82,17 @@ test('the standard-material shader keeps imagery on roofs and falls back for mis
   assert.match(shader.fragmentShader, /cityAtlasUV\(cityLocalOrthoBounds, cityLocalMercator, cityUseLocalMercator\)/);
   assert.match(shader.fragmentShader, /#include <lights_physical_fragment>/, 'normal PBR lighting is retained');
   assert.equal(stream.material.name, 'Official citywide measured surfaces');
+  stream.dispose();
+});
+
+test('walls are dressed in the fragment stage, after roof imagery and before lighting', () => {
+  const stream = createCityStream(index), shader = compileHook(stream);
+  assert.match(shader.vertexShader, /attribute vec4 aFacade;[\s\S]*attribute vec4 aStyle;/);
+  assert.match(shader.vertexShader, /flat varying vec2 vFacadeWall;/, 'per-wall constants are not interpolated');
+  const roof = shader.fragmentShader.indexOf('if (vCityRoof > 0.65)'), walls = shader.fragmentShader.indexOf('if ( vFacadeWall.x > 0.004 )');
+  const lighting = shader.fragmentShader.indexOf('#include <lights_physical_fragment>');
+  assert.ok(roof > 0 && walls > roof && lighting > walls);
+  // A roof has zero wall length, so the facade branch never touches it.
+  assert.match(shader.fragmentShader, /NycFacade nycFacade\(/);
   stream.dispose();
 });

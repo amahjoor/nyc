@@ -1,5 +1,6 @@
 import * as THREE from './vendor/three.module.min.js';
 import { mercatorCoefficients, atlasProjectionGLSL } from './imagery-projection.js';
+import { chooseStyle, featureRandom, writeFacade, createFacadeScratch, applyFacadeShader, HEIGHT_UNIT } from './facade.js';
 
 const EARTH_RADIUS = 6371008.8;
 const DEG = Math.PI / 180;
@@ -203,6 +204,9 @@ export function decodeI3S(buffer, node, origin, { collisions = true, heightAt = 
   if (buffer.byteLength !== featureOffset + featureCount * 16) throw new Error('NYC geometry payload length does not match its header.');
   const source = new Float32Array(buffer, 8, vertexCount * 3);
   const positions = new Float32Array(vertexCount * 3), buildings = [], anchors = [];
+  // Facade attributes: packed normals, each wall's bay coordinates, and the building type.
+  const normals = new Int8Array(vertexCount * 4), facade = new Uint16Array(vertexCount * 4), style = new Uint8Array(vertexCount * 4);
+  const features = [];
   const bounds = { minX: Infinity, maxX: -Infinity, minZ: Infinity, maxZ: -Infinity };
   const [centerLon, centerLat, centerHeight] = node.center;
   const [centerX, centerZ] = projectCityPoint(centerLon, centerLat, origin);
@@ -249,18 +253,100 @@ export function decodeI3S(buffer, node, origin, { collisions = true, heightAt = 
       shapes.forEach((shape, part) => buildings.push({ id: `nyc:${id}:${part}`, featureId: id,
         ...shape, height: high - low, baseElevation: low + centerHeight, heightEstimated: false, heightSource: 'nyc-oti-2014-survey' }));
     }
+    features.push({ id, start: startFace * 3, end: (endFace + 1) * 3, x: (minX + maxX) / 2, z: (minZ + maxZ) / 2, height: high - low });
+  }
+  if (expectedFace !== vertexCount / 3) throw new Error('NYC geometry includes triangles without a building identifier.');
+  // A wall built against a neighbouring footprint is a windowless lot-line wall.
+  const neighbours = collisions ? footprintIndex(buildings) : null;
+  for (const { id, start, end, x, z, height } of features) {
+    const [random, random2] = featureRandom(id);
+    // Heights are still relative to each building's own base here.
+    writeFacade(positions, start, end, { normals, facade, style, scratch: facadeScratch,
+      seedByte: Math.floor(random2 * 256), heightByte: Math.min(255, Math.round(height / HEIGHT_UNIT)),
+      choose: area => chooseStyle({ height, area, x, z, random, random2 }),
+      isBlank: neighbours && ((px, pz) => neighbours(px, pz, id)) });
     // I3S heights use EGM96 while the terrain uses NAVD88. Preserve each
     // measured building's relative shape and anchor its foundation to the DEM
     // instead of silently combining incompatible absolute vertical datums.
-    const x = (minX + maxX) / 2, z = (minZ + maxZ) / 2, measured = heightAt(x, z);
-    const elevation = Number.isFinite(measured) ? measured : 0;
-    const start = startFace * 3, end = (endFace + 1) * 3;
+    const measured = heightAt(x, z), elevation = Number.isFinite(measured) ? measured : 0;
     for (let i = start; i < end; i++) positions[i * 3 + 1] += elevation;
     anchors.push({ start, end, x, z, elevation, featureId: id });
   }
-  if (expectedFace !== vertexCount / 3) throw new Error('NYC geometry includes triangles without a building identifier.');
-  return { positions, buildings, anchors, bounds, triangles: vertexCount / 3, featureCount };
+  return { positions, normals, facade, style, buildings, anchors, bounds, triangles: vertexCount / 3, featureCount };
 }
+
+const facadeScratch = createFacadeScratch();
+
+/** Point-in-footprint lookup over a tile's buildings, excluding one feature. */
+function footprintIndex(buildings) {
+  const size = 16, grid = new Map(), boxes = [];
+  for (const building of buildings) {
+    let minX = Infinity, maxX = -Infinity, minZ = Infinity, maxZ = -Infinity;
+    for (const [x, z] of building.polygon) { minX = Math.min(minX, x); maxX = Math.max(maxX, x); minZ = Math.min(minZ, z); maxZ = Math.max(maxZ, z); }
+    const entry = { building, minX, maxX, minZ, maxZ }; boxes.push(entry);
+    for (let gx = Math.floor(minX / size); gx <= Math.floor(maxX / size); gx++) for (let gz = Math.floor(minZ / size); gz <= Math.floor(maxZ / size); gz++) {
+      const key = gx * 73856093 ^ gz * 19349663;
+      if (!grid.has(key)) grid.set(key, []);
+      grid.get(key).push(entry);
+    }
+  }
+  return (x, z, featureId) => {
+    const candidates = grid.get(Math.floor(x / size) * 73856093 ^ Math.floor(z / size) * 19349663);
+    if (!candidates) return false;
+    const point = [x, z];
+    for (const { building, minX, maxX, minZ, maxZ } of candidates) {
+      if (building.featureId === featureId || x < minX || x > maxX || z < minZ || z > maxZ) continue;
+      if (inRing(point, building.polygon) && !building.holes.some(hole => inRing(point, hole))) return true;
+    }
+    return false;
+  };
+}
+
+function releaseArray() { this.array = null; }
+
+/** Lift each decoded building from zero onto the measured ground beneath it. */
+function anchorToTerrain(data, heightAt) {
+  for (const anchor of data.anchors) {
+    const measured = heightAt(anchor.x, anchor.z), elevation = Number.isFinite(measured) ? measured : 0;
+    if (elevation) for (let i = anchor.start; i < anchor.end; i++) data.positions[i * 3 + 1] += elevation;
+    anchor.elevation = elevation;
+  }
+  return data;
+}
+
+/**
+ * A decoder that works in background threads where the browser has them.
+ * Returns null elsewhere (Node, tests), and the stream then decodes inline.
+ */
+export function createTileDecoder({ workers = 2, WorkerClass = globalThis.Worker } = {}) {
+  if (typeof WorkerClass !== 'function' || typeof document === 'undefined') return null;
+  const pool = [], pending = new Map();
+  let next = 0, serial = 0, broken = false;
+  const fail = message => { broken = true; for (const { reject } of pending.values()) reject(new Error(message)); pending.clear(); };
+  try {
+    for (let i = 0; i < workers; i++) {
+      const worker = new WorkerClass(new URL('./city-decode-worker.js', import.meta.url), { type: 'module' });
+      worker.onmessage = ({ data }) => {
+        const task = pending.get(data.id); if (!task) return;
+        pending.delete(data.id);
+        if (data.error) task.reject(new Error(data.error)); else task.resolve(data.result);
+      };
+      worker.onerror = () => fail('The background decoder stopped.');
+      pool.push(worker);
+    }
+  } catch { return null; }
+  return {
+    get available() { return !broken; },
+    decode(buffer, node, origin, collisions) {
+      return new Promise((resolve, reject) => {
+        const id = ++serial; pending.set(id, { resolve, reject });
+        // The download is handed over, not copied.
+        pool[next++ % pool.length].postMessage({ id, buffer, node: { center: node.center }, origin, collisions }, [buffer]);
+      });
+    },
+  };
+}
+let sharedDecoder;
 
 export function createCityStream(index, options = {}) {
   return new CityStream(index, options);
@@ -269,7 +355,9 @@ export function createCityStream(index, options = {}) {
 class CityStream {
   // Binding preserves the browser receiver when load() calls this.fetcher().
   constructor(index, { scene, onCollisionChange = () => {}, onStatus = () => {}, fetcher = globalThis.fetch.bind(globalThis),
-    concurrency = 5, maxCacheBytes = 210 * 1024 * 1024, heightAt = () => 0 } = {}) {
+    concurrency = 5, maxCacheBytes = 210 * 1024 * 1024, heightAt = () => 0, decoder } = {}) {
+    // One pool of background decoders serves every stream on the page.
+    this.decoder = decoder === undefined ? (sharedDecoder === undefined ? (sharedDecoder = createTileDecoder()) : sharedDecoder) : decoder;
     this.index = index; this.nodes = new Map(index.nodes.map(node => [node.id, node]));
     this.leaves = index.nodes.filter(node => !node.children.length && node.resource !== null);
     this.spatial = new Map();
@@ -328,7 +416,15 @@ class CityStream {
               if (cityLocalSample.a > 0.99) diffuseColor.rgb = cityLocalSample.rgb;
             }
           }
+          // The photograph was taken under its own sun: its shadows are deep blue
+          // and would be lit a second time here. Keep what is on the roof, drop
+          // most of the baked light and colour cast.
+          float cityRoofTone = dot(diffuseColor.rgb, vec3(0.3, 0.59, 0.11));
+          vec3 cityRoofFlat = vec3(0.07 + 0.42 * smoothstep(0.02, 0.75, cityRoofTone)) * vec3(1.0, 0.985, 0.95);
+          diffuseColor.rgb = mix(diffuseColor.rgb * 0.78, cityRoofFlat, 0.6);
         }`);
+      // Walls are dressed as New York building types; see facade.js.
+      applyFacadeShader(shader);
     };
   }
 
@@ -484,7 +580,13 @@ class CityStream {
         try {
           const response = await this.fetcher(`${this.index.source.service}/nodes/${node.resource}/geometries/0`, { signal: controller.signal });
           if (!response.ok) throw new Error(`NYC geometry service returned ${response.status}.`);
-          data = decodeI3S(await response.arrayBuffer(), node, this.index.origin, { collisions: !node.children.length, heightAt: this.heightAt });
+          const buffer = await response.arrayBuffer(), collisions = !node.children.length;
+          if (this.decoder?.available) {
+            // The copy stays here in case the background thread fails.
+            let decoded = null;
+            try { decoded = await this.decoder.decode(buffer.slice(0), node, this.index.origin, collisions); } catch (caught) { if (this.decoder.available) throw caught; }
+            data = decoded ? anchorToTerrain(decoded, this.heightAt) : decodeI3S(buffer, node, this.index.origin, { collisions, heightAt: this.heightAt });
+          } else data = decodeI3S(buffer, node, this.index.origin, { collisions, heightAt: this.heightAt });
           break;
         } catch (caught) {
           // An old attempt's timer must not abort its replacement controller
@@ -497,11 +599,19 @@ class CityStream {
       if (!data) throw error;
       if (this.disposed) throw new Error('NYC city stream has been disposed.');
       const geometry = new THREE.BufferGeometry();
-      geometry.setAttribute('position', new THREE.BufferAttribute(data.positions, 3)); geometry.computeVertexNormals(); geometry.computeBoundingSphere();
+      geometry.setAttribute('position', new THREE.BufferAttribute(data.positions, 3));
+      // Flat face normals, packed to a byte per axis.
+      geometry.setAttribute('normal', new THREE.BufferAttribute(data.normals, 4, true));
+      geometry.setAttribute('aFacade', new THREE.BufferAttribute(data.facade, 4));
+      geometry.setAttribute('aStyle', new THREE.BufferAttribute(data.style, 4, true));
+      // Positions stay in memory: foundations are re-anchored when finer
+      // terrain arrives. The facade attributes are only ever read by the GPU.
+      for (const name of ['normal', 'aFacade', 'aStyle']) geometry.attributes[name].onUpload(releaseArray);
+      geometry.computeBoundingSphere();
       const mesh = new THREE.Mesh(geometry, this.material); mesh.name = `NYC survey node ${node.resource}`;
       mesh.castShadow = true; mesh.receiveShadow = true; mesh.visible = false;
       this.group.add(mesh);
-      const record = { node, mesh, buildings: data.buildings, anchors: data.anchors, bytes: data.positions.byteLength * 2 + data.anchors.length * 64, used: ++this.serial, triangles: data.triangles };
+      const record = { node, mesh, buildings: data.buildings, anchors: data.anchors, bytes: data.positions.byteLength + data.normals.byteLength + data.facade.byteLength + data.style.byteLength + data.anchors.length * 64, used: ++this.serial, triangles: data.triangles };
       this.cache.set(node.id, record); this.errors.delete(node.id);
       if (!node.children.length) this.emitCollisions();
       return record;
