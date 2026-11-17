@@ -57,10 +57,12 @@ export function stepVehicleDynamics(car, input, dt) {
   const sin = Math.sin(car.angle), cos = Math.cos(car.angle);
   let along = car.velocityX * sin + car.velocityZ * cos;
   const across = car.velocityX * cos - car.velocityZ * sin;
+  // A car may carry its own figures (garage.js); one that does not is a plain sedan.
+  const tune = car.handling, power = tune?.power ?? 1, top = tune?.top ?? 1, brakes = tune?.brakes ?? 1, grip = tune?.grip ?? 1;
   car._shiftHold = Math.max(0, car._shiftHold - dt);
   if (input.brake || input.handbrake) {
     // Both brakes override throttle. Only the handbrake releases lateral grip.
-    along = towardZero(along, (input.brake ? 25 : 6.5) * dt);
+    along = towardZero(along, (input.brake ? 25 * brakes : 6.5) * dt);
     car._shiftHold = 0;
   } else if (along * input.forward < 0) {
     along = towardZero(along, 22 * Math.abs(input.forward) * dt);
@@ -68,12 +70,12 @@ export function stepVehicleDynamics(car, input, dt) {
   } else if (car._shiftHold) {
     along = 0;
   } else {
-    along += input.forward * (input.forward < 0 ? 8 : 11.5) * dt;
+    along += input.forward * (input.forward < 0 ? 8 : 11.5 * power) * dt;
     // Rolling resistance plus mild speed-dependent drag allows the driver to
     // coast into a corner without the old abrupt off-throttle speed loss.
     along = towardZero(along, (.55 + .015 * Math.abs(along) + .002 * along * along) * dt);
   }
-  along = clamp(along, -9, 30);
+  along = clamp(along, -9, 30 * top);
   if (Math.abs(along) < .015) along = 0;
   car.velocityX = sin * along + cos * across;
   car.velocityZ = cos * along - sin * across;
@@ -96,7 +98,7 @@ export function stepVehicleDynamics(car, input, dt) {
   const lateral = car.velocityX * nextCos - car.velocityZ * nextSin;
   const lowSpeed = 1 - smoothstep((speed - 1.5) / 3.5);
   const gripResponse = 14 + (2 - 14) * slide;
-  const gripAcceleration = 12.5 + (3.8 - 12.5) * slide;
+  const gripAcceleration = (12.5 + (3.8 - 12.5) * slide) * grip;
   const tireCorrection = clamp(-lateral * blend(gripResponse, dt), -gripAcceleration * dt, gripAcceleration * dt);
   // Near a standstill, blend into the stable bicycle constraint. At road speed
   // the bounded grip correction preserves actual sideways momentum instead.

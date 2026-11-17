@@ -280,7 +280,7 @@ test('visual suspension filters bumps while individual tires retain measured non
 test('kerbside cars are drawn as a few instanced meshes that change only when the kerb does', () => {
   const parked = createParkedCars({ capacity: 40 });
   const meshes = parked.group.children;
-  assert.equal(meshes.length, 8, 'a body and lamps for each of three styles, tyres and wheels');
+  assert.equal(meshes.length, 18, 'a body and lamps for each of eight styles, tyres and wheels');
   assert.ok(meshes.every(mesh => mesh.isInstancedMesh && mesh.count === 0));
   const kerb = (id, x, extra = {}) => ({ id, type: 'sedan', color: '#7a1f1f', x, y: 2, z: 5, angle: Math.PI / 2, pitch: 0, roll: 0, wheelHeights: [2, 2, 2, 2], _kerb: true, ...extra });
   const cars = [kerb('kerb:1', 0), kerb('kerb:2', 6), kerb('kerb:3', 12), { id: 'traffic-1', type: 'sedan', x: 3, y: 2, z: 0, angle: 0 }, kerb('kerb:4', 18, { controlled: true })];
@@ -313,7 +313,7 @@ test('kerbside cars are drawn as a few instanced meshes that change only when th
 test('traffic beyond a few car lengths is drawn together, cabs in their own colours and with their lamps lit', () => {
   const traffic = createDistantTraffic({ capacity: 8 });
   const named = name => traffic.group.getObjectByName(name);
-  assert.equal(traffic.group.children.length, 12, 'three body styles and two cabs, each with lamps; tyres and wheels');
+  assert.equal(traffic.group.children.length, 22, 'eight body styles and two cabs, each with lamps; tyres and wheels');
   const cars = [
     { id: 'traffic-101', type: 'sedan', color: '#a64438', x: 10, y: 2, z: 20, angle: Math.PI / 2, pitch: .02, roll: -.01, wheelHeights: [2, 2.1, 2, 2.1] },
     { id: 'traffic-102', type: 'taxi', color: '#f2b91c', x: 30, y: 0, z: 0, angle: 0 },
@@ -326,7 +326,7 @@ test('traffic beyond a few car lengths is drawn together, cabs in their own colo
   assert.equal(named('Distant car tyres').count, 12);
   // A style nobody is using is not drawn at all.
   const idle = traffic.group.children.filter(mesh => /bodies$/.test(mesh.name) && ![sedan, cab, boro].includes(mesh));
-  assert.ok(idle.length === 2 && idle.every(mesh => mesh.count === 0 && !mesh.visible) && [sedan, cab, boro].every(mesh => mesh.visible));
+  assert.ok(idle.length === 7 && idle.every(mesh => mesh.count === 0 && !mesh.visible) && [sedan, cab, boro].every(mesh => mesh.visible));
   // A cab is the model a cab close by has: roof light, door band, its own paint. Only other cars take a colour per car.
   const near = createCar({ type: 'taxi', color: '#f2b91c', seed: 'traffic-102' }), nearBody = near.getObjectByName('Car body'), nearLamps = near.getObjectByName('Car lamps');
   assert.equal(cab.geometry.getAttribute('position').count, nearBody.geometry.getAttribute('position').count);
@@ -346,6 +346,13 @@ test('traffic beyond a few car lengths is drawn together, cabs in their own colo
   assert.ok(Math.abs(at.x - 10) < 1e-6 && Math.abs(at.y - 2.025) < 1e-6 && Math.abs(at.z - 20) < 1e-6 && nose.x > .99 && top.y < 1 && top.y > .99);
   const heights = [0, 1, 2, 3].map(i => { named('Distant car tyres').getMatrixAt(i, matrix); return +at.setFromMatrixPosition(matrix).y.toFixed(3); });
   assert.deepEqual(heights, [2.385, 2.485, 2.385, 2.485]);
+  // A car the simulation has given a body keeps it, near or far.
+  const pickup = { id: 'traffic-104', type: 'sedan', shape: 'pickup', color: '#15181b', x: 50, y: 0, z: 0, angle: 0 };
+  assert.deepEqual([carShape('sedan', 'traffic-104', 'pickup'), carShape('taxi', 'traffic-104', 'pickup'), carShape('sedan', 'traffic-104', 'hovercraft')], ['pickup', 'sedan', carShape('sedan', 'traffic-104')]);
+  assert.equal(createCar({ type: 'sedan', color: '#15181b', seed: pickup.id, shape: 'pickup' }).userData.shape, 'pickup');
+  traffic.update([...cars, pickup]);
+  assert.equal(named('Distant pickup bodies').count, 1); assert.equal(named('Distant pickup bodies').visible, true);
+  traffic.update(cars);
   // Every frame it moves, it is redrawn; standing at a light, it is not.
   assert.equal(traffic.update(cars), false);
   cars[0].x += .1;

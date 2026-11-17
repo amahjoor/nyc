@@ -1,5 +1,6 @@
 import { updateRide } from './vehicle-presentation.js';
-import { buildCar, createCarMaterial, createLampMaterial, wheelGeometry, WHEEL } from './vehicle-model.js';
+import { bodyShape } from './fleet.js';
+import { buildCar, createCarMaterial, createLampMaterial, wheelGeometry, WHEEL, BODY_SHAPES } from './vehicle-model.js';
 import * as THREE from './vendor/three.module.min.js';
 
 // The city mesh comes from NYC's measured 2014 CityGML survey. Only the
@@ -318,20 +319,14 @@ const tireMaterial = new THREE.MeshStandardMaterial({ color: 0x17191a, roughness
 const hubMaterial = new THREE.MeshStandardMaterial({ color: 0xa9afb0, metalness: .85, roughness: .32 });
 const { tyre: wheelTyre, rim: wheelRim } = wheelGeometry();
 const bodies = new Map();
-const SHAPES = ['sedan', 'sedan', 'suv', 'suv', 'van'];
 /** The colour of a boro taxi, as the simulation names it. */
 export const GREEN_CAB = 0x74b541;
 
 /** Lamps brighten after dark; 0 is daylight, 1 is night. Shared by every car. */
 export function setVehicleLamps(night) { carGlow.emissiveIntensity = .55 + 2.6 * Math.max(0, Math.min(1, night)); }
 
-/** Traffic varies in body style; a car keeps the one its identity picks, however it is drawn. */
-export function carShape(type, seed) {
-  if (type === 'taxi' || type === 'police') return 'sedan';
-  let hash = 0;
-  for (const character of String(seed)) hash = (hash * 31 + character.charCodeAt(0)) >>> 0;
-  return SHAPES[hash % SHAPES.length];
-}
+/** The body a car has (fleet.js): however it is drawn, it is the same one. */
+export const carShape = bodyShape;
 
 /**
  * Cars drawn together. However many there are, they are a handful of
@@ -354,7 +349,7 @@ function createCarSet({ name, label, capacity, lit, select }) {
     const lamps = new THREE.InstancedMesh(built.lamps, lens, capacity); lamps.name = `${label} ${key} lamps`;
     styles.set(key, { body, lamps, tint, used: 0, painted: tone !== 0xffffff });
   };
-  for (const shape of new Set(SHAPES)) style(shape, 'sedan', shape, 0xffffff);
+  for (const shape of BODY_SHAPES) style(shape, 'sedan', shape, 0xffffff);
   // A cab has a roof light and a band along its doors, so it is built in its own colour.
   if (lit) { style('cab', 'taxi', 'sedan', 0xf3ba31); style('boro cab', 'taxi', 'sedan', GREEN_CAB); }
   const tyres = new THREE.InstancedMesh(wheelTyre, tireMaterial, capacity * 4); tyres.name = `${label} car tyres`; tyres.castShadow = true;
@@ -368,7 +363,7 @@ function createCarSet({ name, label, capacity, lit, select }) {
   let count = -1;
   const styleOf = car => {
     if (lit && car.type === 'taxi') return styles.get(color.set(car.color || '#f3ba31').getHex() === GREEN_CAB ? 'boro cab' : 'cab');
-    return styles.get(carShape(car.type, car.id));
+    return styles.get(carShape(car.type, car.id, car.shape));
   };
   return {
     group,
@@ -439,13 +434,13 @@ export function createDistantTraffic({ capacity = 96 } = {}) {
   return createCarSet({ name: 'Distant traffic', label: 'Distant', capacity, lit: true, select: () => true });
 }
 
-export function createCar({ type = 'sedan', color: tint = 0xbcc5bd, seed = '' } = {}) {
+export function createCar({ type = 'sedan', color: tint = 0xbcc5bd, seed = '', shape: given = null } = {}) {
   const group = new THREE.Group(); group.name = type;
   const taxi = type === 'taxi', police = type === 'police';
   // Yellow in the Manhattan core; apple green for the cabs that serve everywhere else.
   if (taxi) tint = new THREE.Color(tint).getHex() === GREEN_CAB ? GREEN_CAB : 0xf3ba31;
   if (police) tint = 0xe4e9e4;
-  const shape = carShape(type, seed);
+  const shape = carShape(type, seed, given);
   const key = `${type}:${shape}:${new THREE.Color(tint).getHexString()}`;
   // Identical cars share one set of geometry.
   if (!bodies.has(key)) bodies.set(key, buildCar({ type, shape, paint: tint }));

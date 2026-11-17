@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import * as THREE from '../dist/vendor/three.module.min.js';
 import { createStreetLife, treeForm, SPECIES, LIGHT_MAP_SPAN } from '../dist/streetlife.js';
 import { createLeafMaterial } from '../dist/foliage.js';
-import { carBody, buildCar, createCarMaterial, createLampMaterial, wheelGeometry, WHEEL, HEADLAMP, TAILLAMP } from '../dist/vehicle-model.js';
+import { carBody, buildCar, createCarMaterial, createLampMaterial, wheelGeometry, WHEEL, HEADLAMP, TAILLAMP, BODY_SHAPES } from '../dist/vehicle-model.js';
 import { createCar, setVehicleLamps } from '../dist/world.js';
 import { shared } from '../dist/gfx-common.js';
 
@@ -16,7 +16,8 @@ function volume(geometry) {
 }
 
 test('car bodies are closed, outward-facing and sized like cars', () => {
-  for (const shape of ['sedan', 'suv', 'van']) {
+  assert.deepEqual(BODY_SHAPES, ['sedan', 'suv', 'van', 'hatch', 'coupe', 'wagon', 'minivan', 'pickup']);
+  for (const shape of BODY_SHAPES) {
     const body = carBody(shape, [.5, .5, .5]), count = body.position.length / 3;
     assert.equal(body.normal.length, count * 3); assert.equal(body.color.length, count * 3); assert.equal(body.finish.length, count * 3);
     const geometry = new THREE.BufferGeometry(); geometry.setAttribute('position', new THREE.Float32BufferAttribute(body.position, 3)); geometry.computeBoundingBox();

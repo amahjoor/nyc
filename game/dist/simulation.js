@@ -1,6 +1,8 @@
 import { resetVehicleDynamics, stepVehicleDynamics, stopVehicleRotation, vehicleTravelSpeed } from './vehicle-dynamics.js';
 import { planJunction, junctionArms, vehicleAspect, stopDistance } from './signal-plan.js';
 import { laneLayout } from './lanes.js';
+import { drawBody, drawPaint, bodyShape } from './fleet.js';
+import { handlingFor, repairCost, offersAt, PARTS, RESPRAY_PRICE, RESPRAYS, CALL_OUT, DELIVERY } from './garage.js';
 
 // Simulation units are metres and seconds. A heading of zero points along +Z.
 // This module deliberately has no renderer or browser dependencies.
@@ -396,8 +398,80 @@ export class Simulation {
     const taxi = this._random() < this._trafficMix.taxis;
     car.id = `traffic-${this._trafficSerial = (this._trafficSerial || 100) + 1}`;
     car.type = taxi ? 'taxi' : 'sedan';
-    car.color = taxi ? (this._trafficMix.green ? GREEN_CAB : YELLOW_CAB) : TRAFFIC_PAINT[Math.floor(this._random() * TRAFFIC_PAINT.length)];
+    // A cab is a cab. Any other car is one of those registered round here, or a van or a pickup at work.
+    const fleet = taxi ? null : this._fleet;
+    car.shape = fleet ? drawBody(fleet, this._random(), true) : undefined;
+    car.color = taxi ? (this._trafficMix.green ? GREEN_CAB : YELLOW_CAB) : fleet ? drawPaint(fleet, this._random()) : TRAFFIC_PAINT[Math.floor(this._random() * TRAFFIC_PAINT.length)];
   }
+
+  /** The car the player is driving, if any. */
+  get vehicle() { return this.player.mode === 'drive' ? this.cars.find(car => car.id === this.player.vehicleId) || null : null; }
+
+  /**
+   * Have a garage of `kind` (places.js) do `job` to the car being driven:
+   * 'repair', 'respray' (with `choice` a colour it keeps) or a part to fit.
+   * Returns whether it was done; says why not.
+   */
+  garage(kind, job, choice = null) {
+    const car = this.vehicle, offers = offersAt(kind);
+    if (!car || !offers) { this._say('Drive a car into an auto shop first.'); return false; }
+    if (vehicleTravelSpeed(car) > 1) { this._say('Stop the car first.'); return false; }
+    const pay = (price, done) => { if (this.cash < price) { this._say(`That is $${price}. You have $${Math.floor(this.cash)}.`); return false; } this.cash -= price; this._say(done); return true; };
+    if (job === 'repair' && offers.repair) {
+      const price = repairCost(this.health);
+      if (!price) { this._say('Nothing needs mending.'); return false; }
+      if (!pay(price, `Mended. $${price}.`)) return false;
+      this.health = 100; return true;
+    }
+    if (job === 'respray' && offers.respray && RESPRAYS.some(([, colour]) => colour === choice)) {
+      if (car.color === choice) { this._say('It is that colour already.'); return false; }
+      if (!pay(RESPRAY_PRICE, `Resprayed. $${RESPRAY_PRICE}.`)) return false;
+      // A cab out of its livery is a car like any other.
+      car.color = choice; if (car.type === 'taxi') { car.type = 'sedan'; car.shape = 'sedan'; }
+      car.resprays = (car.resprays || 0) + 1; return true;
+    }
+    if (PARTS[job] && offers.parts) {
+      const stage = car.mods?.[job] || 0, price = PARTS[job].prices[stage];
+      if (price === undefined) { this._say('Nothing better to fit.'); return false; }
+      if (!pay(price, `${PARTS[job].label[0]}${PARTS[job].label.slice(1).toLowerCase()} stage ${stage + 1} fitted. $${price}.`)) return false;
+      car.mods = { ...car.mods, [job]: stage + 1 };
+      car.handling = handlingFor(bodyShape(car.type, car.id, car.shape), car.mods); return true;
+    }
+    this._say('They do not do that here.'); return false;
+  }
+
+  /** Call the mechanic out to the car being driven: it is mended where it stands, for the call-out on top. */
+  callMechanic() {
+    const car = this.vehicle;
+    if (!car) { this._say('The mechanic needs a car to come out to. Get in one first.'); return false; }
+    const price = repairCost(this.health) + CALL_OUT;
+    if (this.health >= 100) { this._say('Nothing needs mending.'); return false; }
+    if (this.cash < price) { this._say(`The call-out and the repair come to $${price}. You have $${Math.floor(this.cash)}.`); return false; }
+    this.cash -= price; this.health = 100; this._say(`The mechanic came out and mended it. $${price}.`, 6); return true;
+  }
+
+  /** Have the player's own cab brought to the nearest street. */
+  summonCab() {
+    const cab = this.cars.find(car => car.id === 'player-taxi'), nearest = this._nearestEdge(this.player.x, this.player.z);
+    if (!cab || !nearest) { this._say('There is no street near enough to bring it to.'); return false; }
+    if (cab.controlled) { this._say('You are sitting in it.'); return false; }
+    if (distance(cab, this.player) < 30) { this._say('Your cab is right here.'); return false; }
+    if (this.cash < DELIVERY) { this._say(`Bringing it round is $${DELIVERY}. You have $${Math.floor(this.cash)}.`); return false; }
+    for (const offset of [6, -6, 12, -12, 18]) {
+      const point = this._lanePoint(nearest.edge, clamp(nearest.t + offset / nearest.edge.length, .05, .95));
+      if (this._carContact(point.x, point.z, nearest.edge.angle) || this._nearCar(point.x, point.z, 4, cab.id)) continue;
+      Object.assign(cab, { x: point.x, z: point.z, y: undefined, transportId: null, angle: nearest.edge.angle, speed: 0 });
+      resetVehicleDynamics(cab); this.updateGrounding();
+      this.cash -= DELIVERY; this._say(`Your cab is waiting on ${nearest.edge.road.name || 'the street'}. $${DELIVERY}.`, 6); return true;
+    }
+    this._say('There is no room at the kerb here. Try from the next block.'); return false;
+  }
+
+  /**
+   * The cars registered where the player is: a mix from fleet.js. Cars that
+   * join the traffic or are found at the kerb from now on are drawn from it.
+   */
+  setFleet(mix = null) { this._fleet = mix && Array.isArray(mix.bodies) ? mix : null; }
 
   /**
    * Which way the player is looking, as [x, z] on the ground. Traffic joins
@@ -864,7 +938,9 @@ export class Simulation {
       const car = this._makeCar(space.id, 'sedan', space, space.angle);
       let hash = 0;
       for (const character of String(space.id)) hash = (hash * 33 + character.charCodeAt(0)) >>> 0;
-      car.color = KERB_PAINT[hash % KERB_PAINT.length];
+      // The same space always holds the same car: one of those registered round here, if the game has said which they are.
+      if (this._fleet) { car.shape = drawBody(this._fleet, (hash % 9973) / 9973); car.color = drawPaint(this._fleet, (Math.imul(hash, 2654435761) >>> 0) / 4294967296); }
+      else car.color = KERB_PAINT[hash % KERB_PAINT.length];
       car._kerb = true; this.cars.push(car); ids.add(space.id); present++; changed = true;
     }
     this._rngState = sequence;
@@ -897,6 +973,7 @@ export class Simulation {
       car.parked = true;
       car._kerb = false;
       car._route = [];
+      car.handling = handlingFor(bodyShape(car.type, car.id, car.shape), car.mods);
       resetVehicleDynamics(car, car.speed);
       Object.assign(player, { mode: 'drive', vehicleId: car.id, x: car.x, z: car.z, angle: car.angle, speed: car.speed, velocityX: car.velocityX, velocityZ: car.velocityZ });
       this.updateGrounding();
