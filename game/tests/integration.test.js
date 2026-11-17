@@ -493,10 +493,14 @@ test('street view builds surveyed SoHo street surfaces and shares source imagery
     app.frames(2);
     assert.equal(app.state().streetscape.surfaces,0);
     assert.ok(!app.requests.some(url=>url.startsWith('./street-detail/')),'city overview does not download neighborhood surface chunks');
-    assert.equal(app.rendererInstances[0].shadowMap.enabled,false);
+    assert.equal(app.rendererInstances[0].shadowMap.enabled,true,'the opening skyline shot is lit with sun shadows');
     const roofMaterial=app.renderState().scene.getObjectByName('NYC survey node 4341').material;
+    const openingMaterialVersion=roofMaterial.version;
+    app.click('start-button');app.frames(2);
+    assert.equal(app.rendererInstances[0].shadowMap.enabled,false,'the five-borough map draws no sun shadows');
+    assert.ok(roofMaterial.version>openingMaterialVersion,'leaving the opening shot invalidates the shadow shader variant');
     const overviewMaterialVersion=roofMaterial.version;
-    app.click('start-button');app.click('view-button');app.frames(2);
+    app.click('view-button');app.frames(2);
     assert.ok(roofMaterial.version>overviewMaterialVersion,'entering local view invalidates the shadow shader variant');
     const localMaterialVersion=roofMaterial.version;
     await app.until(()=>{app.frames();return app.state().streetscape.cells>0&&app.state().streetscape.loading===0&&app.state().streetDetail.loading===0&&app.state().ground.loading===0;});

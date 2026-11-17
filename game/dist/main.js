@@ -33,6 +33,9 @@ let cityView=false, cityZoom=1, cityOrbit=0, cityFocus=null, roadCell='', roadEp
 let streetscape=null, streetLife=null, water=null, parkedCars=null;
 const noStreetFurniture=[];
 let landscape=null, landscapeRevision=0, landscapeDirty=false, landscapeManifest=null, reconstructionReview=null, roadReconstructionReview=null, streetManifest=null;
+// The opening shot: a slow sweep around the Financial District from the harbor.
+const INTRO={x:-420,z:1760,radius:2700,height:150,aim:150,aside:620,bearing:-.82,sweep:.38};
+let introTime=0;
 const terrainHeight=(x,z)=>landscape?.sampleHeight(x,z)??0;
 // Where actors stand: the bare terrain plus the street surface laid on it.
 const groundHeight=(x,z)=>terrainHeight(x,z)+(streetscape?.offsetAt(x,z)||0);
@@ -106,7 +109,7 @@ $('quality-button').addEventListener('click',()=>{highQuality=!highQuality;apply
 $('shadows-button').addEventListener('click',()=>{
   shadowsEnabled=!shadowsEnabled;
   updateShadowButton();
-  if(renderer)setLocalShadows(started&&!cityView);
+  if(renderer)setLocalShadows(!cityView);
   saveDisplaySettings();
 });
 $('time-button').addEventListener('click',()=>action('time'));
@@ -150,7 +153,7 @@ function applyQuality() {
   // Quality sets shadow map sizes and the resolution the frame is drawn at.
   gfx.setQuality(highQuality?'high':'balanced');
   renderer.setPixelRatio(Math.min(devicePixelRatio||1,gfx.pixelRatioLimit));
-  setLocalShadows(started&&!cityView);
+  setLocalShadows(!cityView);
   $('quality-button').textContent='QUALITY: '+(highQuality?'HIGH':'BALANCED');
   resize();
 }
@@ -299,7 +302,17 @@ function updateCamera(dt) {
     camera.position.set(...v.position);camera.near=v.near??.3;camera.far=v.far??9000;camera.fov=v.fov??55;
     camera.lookAt(...v.target);camera.updateProjectionMatrix();return;
   }
-  if(cityView||!started){
+  if(!started){
+    // Before play begins the camera drifts over the Upper Bay, facing Lower
+    // Manhattan: the first thing shown is the skyline, not a map.
+    chaseHeight=null;chaseEyeOffset=null;input.lookDelta=0;input.lookVertical=0;
+    const a=INTRO.bearing+INTRO.sweep*Math.sin(introTime*.045),sin=Math.sin(a),cos=Math.cos(a);
+    camera.position.set(INTRO.x+sin*INTRO.radius,INTRO.height,INTRO.z+cos*INTRO.radius);
+    camera.near=5;camera.far=60000;camera.fov=36;
+    // Aim left of the towers so they stand clear of the title.
+    camera.lookAt(INTRO.x-cos*INTRO.aside,INTRO.aim,INTRO.z+sin*INTRO.aside);camera.updateProjectionMatrix();return;
+  }
+  if(cityView){
     chaseHeight=null;chaseEyeOffset=null;
     input.lookVertical=0;cityOrbit+=input.lookDelta;input.lookDelta=0;
     const b=city.bounds,cx=cityFocus?.x??(b.minX+b.maxX)/2,cz=cityFocus?.z??(b.minZ+b.maxZ)/2,span=Math.max(b.maxX-b.minX,b.maxZ-b.minZ);
@@ -399,7 +412,7 @@ function frame(now) {
     camera.getWorldDirection(cameraForward);
     controls=input.sample(Math.atan2(cameraForward.x,cameraForward.z),dt);
     if(!paused&&!traveling&&!cityView&&!mapOpen&&bootReady){sim.step(controls,dt);elapsed+=dt;}
-  }else elapsed+=dt;
+  }else{elapsed+=dt;introTime+=dt;}
   if(landscapeDirty){
     landscapeDirty=false;landscapeRevision++;
     world.setTerrainSampler(terrainHeight,landscapeRevision);
@@ -422,12 +435,13 @@ function frame(now) {
   roadPilot?.setLocalOrthophoto(ground.localOrthophoto);
   if(started&&!cityView&&roadPilotIndex&&!roadPilot&&!roadPilotLoading&&Date.now()>=roadPilotRetryAt&&nearRoadPilot(sim.player,600))ensureRoadPilot().catch(()=>{});
   updateRoadPilotControls();
-  setLocalShadows(started&&!cityView);
+  // The opening shot and street play are lit with shadows; the map view is not.
+  setLocalShadows(!cityView);
   // Light and shadows follow what the camera is looking at.
   const overview=cityView||!started;
-  const lit=viewOverride?{x:viewOverride.target[0],y:viewOverride.target[1],z:viewOverride.target[2]}
+  const lit=viewOverride?{x:viewOverride.target[0],y:viewOverride.target[1],z:viewOverride.target[2]}:!started?{x:INTRO.x,y:0,z:INTRO.z}
     :aerialView&&!overview?aerialTarget:{x:sim.player.x,y:sim.player.y||0,z:sim.player.z};
-  gfx.update(dt,{focus:lit,overview:overview&&!viewOverride,paused:paused||mapOpen});
+  gfx.update(dt,{focus:lit,overview:cityView&&!viewOverride,paused:paused||mapOpen});
   if(bootReady&&!traveling)refreshRoads();
   if(bootReady&&started&&!traveling&&!cityView)refreshParkedCars();
   audio.update(sim,elapsed,started&&!paused&&!traveling&&!cityView&&!mapOpen);
@@ -436,7 +450,7 @@ function frame(now) {
     if(!routePlanner&&gameMap.roads!==sim.city.roads)gameMap.setRoads(sim.city.roads);
     hud.city=sim.city;hud.update(sim);updateDirections();saveProgress();updateLocation();updateTimeButton();hudTime=0;
   }
-  water.update(lit,{overview:overview&&!viewOverride});
+  water.update(lit,{overview:cityView&&!viewOverride});
   // Lamps and headlights are gathered before the frame that they light.
   streetLife.update(lit,{lights:gfx.state.lightsOn,cars:sim.cars,overview:overview&&!viewOverride});
   setVehicleLamps(gfx.state.lightsOn);
