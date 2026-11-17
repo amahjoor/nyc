@@ -1,4 +1,5 @@
 import { updateRide } from './vehicle-presentation.js';
+import { buildCar, createCarMaterial, createLampMaterial, wheelGeometry, WHEEL } from './vehicle-model.js';
 import * as THREE from './vendor/three.module.min.js';
 
 // The city mesh comes from NYC's measured 2014 CityGML survey. Only the
@@ -310,83 +311,56 @@ export function createWorld(city, survey, { orthoTexture, orthoBounds, profiles 
   };
 }
 
-// Vehicles share materials and geometries; only wheels remain separate for
-// steering/spin animation. All models face +Z and sit on the ground at y=0.
-const carPaint = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.38, metalness: 0.26 });
-const carGlass = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.18, metalness: 0.45 });
-const carGlow = new THREE.MeshStandardMaterial({ vertexColors: true, color: 0xffffff, emissive: 0xffffff, emissiveIntensity: 0.55, roughness: 0.25 });
-const tireMaterial = new THREE.MeshStandardMaterial({ color: 0x222728, roughness: 0.92 });
-const wheelGeometry = new THREE.CylinderGeometry(0.35, 0.35, 0.24, 16); wheelGeometry.rotateZ(Math.PI / 2);
-const hubGeometry = new THREE.CylinderGeometry(0.195, 0.195, 0.252, 12); hubGeometry.rotateZ(Math.PI / 2);
-const hubMaterial = new THREE.MeshStandardMaterial({ color: 0xabb3b1, metalness: 0.6, roughness: 0.38 });
+// Vehicles share materials; only wheels remain separate for steering/spin
+// animation. All models face +Z and sit on the ground at y=0.
+const carPaint = createCarMaterial(), carGlow = createLampMaterial();
+const tireMaterial = new THREE.MeshStandardMaterial({ color: 0x17191a, roughness: .9 });
+const hubMaterial = new THREE.MeshStandardMaterial({ color: 0xa9afb0, metalness: .85, roughness: .32 });
+const { tyre: wheelTyre, rim: wheelRim } = wheelGeometry();
+const bodies = new Map();
+const SHAPES = ['sedan', 'sedan', 'suv', 'suv', 'van'];
 
-function carBodyGeometry(width, yBottom, yTop, rearBottom, frontBottom, rearTop, frontTop) {
-  const x = width / 2;
-  const points = [[-x, yBottom, rearBottom], [x, yBottom, rearBottom], [x, yBottom, frontBottom], [-x, yBottom, frontBottom], [-x * 0.85, yTop, rearTop], [x * 0.85, yTop, rearTop], [x * 0.85, yTop, frontTop], [-x * 0.85, yTop, frontTop]];
-  const g = new THREE.BufferGeometry();
-  g.setAttribute('position', new THREE.Float32BufferAttribute(points.flat(), 3));
-  // Counterclockwise faces are outward in Three.js. These corner indices
-  // are reversed from the profile order so the single-sided body is visible.
-  const indices = [0, 3, 2, 0, 2, 1, 0, 1, 5, 0, 5, 4, 3, 7, 6, 3, 6, 2, 0, 4, 7, 0, 7, 3, 1, 2, 6, 1, 6, 5, 4, 5, 6, 4, 6, 7];
-  for (let i = 0; i < indices.length; i += 3) [indices[i + 1], indices[i + 2]] = [indices[i + 2], indices[i + 1]];
-  g.setIndex(indices);
-  g.computeVertexNormals();
-  return g.toNonIndexed();
-}
+/** Lamps brighten after dark; 0 is daylight, 1 is night. Shared by every car. */
+export function setVehicleLamps(night) { carGlow.emissiveIntensity = .55 + 2.6 * Math.max(0, Math.min(1, night)); }
 
-export function createCar({ type = 'sedan', color: tint = 0xbcc5bd } = {}) {
+export function createCar({ type = 'sedan', color: tint = 0xbcc5bd, seed = '' } = {}) {
   const group = new THREE.Group(); group.name = type;
-  const batch = new Batches();
   const taxi = type === 'taxi', police = type === 'police';
   if (taxi) tint = 0xf3ba31;
   if (police) tint = 0xe4e9e4;
-  batch.add(carBodyGeometry(1.85, 0.4, 1.01, -2.2, 2.2, -2.05, 1.95), carPaint, null, tint);
-  batch.add(carBodyGeometry(1.67, 1.0, 1.61, -1.35, 0.97, -0.89, 0.49), carGlass, null, 0x29434c);
-  batch.box(carPaint, 0, 1.63, -0.2, 1.48, 0.085, 1.42, tint);
-  batch.box(carPaint, 0, 1.27, -0.22, 1.71, 0.61, 0.095, tint);
-  batch.box(carPaint, 0, 0.67, 2.14, 1.76, 0.22, 0.15, 0x313c3e);
-  batch.box(carPaint, 0, 0.59, -2.2, 1.79, 0.18, 0.14, 0x354041);
-  batch.box(carPaint, 0, 0.91, 2.10, 0.65, 0.20, 0.08, 0x374449);
-  batch.box(carPaint, 0, 0.71, 2.24, 0.42, 0.13, 0.025, 0xd6cdaa);
-  for (const side of [-1, 1]) {
-    batch.box(carGlow, side * 0.62, 0.94, 2.075, 0.43, 0.17, 0.09, 0xffe2a4);
-    batch.box(carGlow, side * 0.63, 0.88, -2.17, 0.44, 0.14, 0.075, 0xb54130);
-    batch.box(carPaint, side * 0.965, 1.17, 0.62, 0.22, 0.13, 0.29, tint);
-    for (const z of [-0.78, 0.37]) batch.box(carPaint, side * 0.942, 0.99, z, 0.03, 0.045, 0.23, 0xd6d4c6);
-    if (taxi) for (let i = 0; i < 14; i++) batch.box(carPaint, side * 0.934, 0.77, -1.65 + i * 0.25, 0.013, 0.12, 0.125, i % 2 ? 0xd9a72a : 0x242b28);
-    if (police) batch.box(carPaint, side * 0.94, 0.8, -0.1, 0.015, 0.26, 2.8, 0x254571);
-  }
-  if (taxi) {
-    batch.box(carPaint, 0, 1.77, -0.25, 0.75, 0.23, 0.35, 0x353b31);
-    batch.box(carGlow, 0, 1.78, -0.064, 0.64, 0.15, 0.024, 0xffe5ad);
-    batch.box(carGlow, 0, 1.78, -0.436, 0.64, 0.15, 0.024, 0xffe5ad);
-  }
-  if (police) {
-    batch.box(carPaint, 0, 1.73, -0.2, 1.18, 0.09, 0.27, 0x313a3d);
-  }
+  // Traffic varies in body style; a car keeps the one its identity picks.
+  let hash = 0;
+  for (const character of String(seed)) hash = (hash * 31 + character.charCodeAt(0)) >>> 0;
+  const shape = taxi || police ? 'sedan' : SHAPES[hash % SHAPES.length];
+  const key = `${type}:${shape}:${new THREE.Color(tint).getHexString()}`;
+  // Identical cars share one set of geometry.
+  if (!bodies.has(key)) bodies.set(key, buildCar({ type, shape, paint: tint }));
+  const built = bodies.get(key);
   // The body rides above independent wheel pivots. Each tire can follow a
   // different measured height while the chassis absorbs terrain changes.
   const chassis = new THREE.Group();
-  batch.finish(chassis);group.add(chassis);group.userData.chassis = chassis;
+  const body = new THREE.Mesh(built.body, carPaint); body.castShadow = true; body.receiveShadow = true; body.name = 'Car body';
+  const lamps = new THREE.Mesh(built.lamps, carGlow); lamps.name = 'Car lamps';
+  chassis.add(body, lamps); group.add(chassis); group.userData.chassis = chassis; group.userData.shape = shape;
   group.userData.lights = [];
   if (police) {
     for (const [x, tone] of [[-0.38, 0x3379fa], [0.38, 0xfa493d]]) {
       // Each light owns its material so one police car can flash independently.
       const material = new THREE.MeshStandardMaterial({ color: tone, emissive: tone, emissiveIntensity: 1.5, roughness: 0.22 });
       const light = new THREE.Mesh(new THREE.BoxGeometry(0.42, 0.15, 0.24), material);
-      light.position.set(x, 1.83, -0.2); chassis.add(light); group.userData.lights.push(light);
+      light.position.set(x, built.roof + .15, -0.2); chassis.add(light); group.userData.lights.push(light);
     }
   }
   group.userData.wheels = [];
-  for (const x of [-0.90, 0.90]) for (const z of [-1.37, 1.30]) {
+  for (const x of [-WHEEL.x, WHEEL.x]) for (const z of [WHEEL.rear, WHEEL.front]) {
     const wheel = new THREE.Group(); wheel.position.set(x, 0.36, z);
     const roll = new THREE.Group();
-    const tire = new THREE.Mesh(wheelGeometry, tireMaterial); tire.castShadow = true;
-    const hub = new THREE.Mesh(hubGeometry, hubMaterial);
+    const tire = new THREE.Mesh(wheelTyre, tireMaterial); tire.castShadow = true;
+    const hub = new THREE.Mesh(wheelRim, hubMaterial);
     // Steering turns the axle around Y; the child spins around that axle's X.
     // Mixing both rotations on one default Euler pivot would wobble the axle.
     roll.add(tire, hub); wheel.add(roll);
-    wheel.userData.front = z > 0; wheel.userData.roll = roll; wheel.userData.radius = 0.35;
+    wheel.userData.front = z > 0; wheel.userData.roll = roll; wheel.userData.radius = WHEEL.radius;
     group.add(wheel); group.userData.wheels.push(wheel);
   }
   return group;
@@ -430,30 +404,56 @@ export function updateCarVisuals(mesh, car, dt) {
   }
 }
 
-const personMaterial = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.93 });
+const personMaterial = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.86 });
+const SKIN = [0xc79a7b, 0x8d5b3f, 0xe0b99a, 0x6b4630, 0xb98563], HAIR = [0x2a211c, 0x14110f, 0x5a3b25, 0x8a6a45, 0x3a3a3c], TROUSERS = [0x2b3440, 0x1f2226, 0x4a4e57, 0x3b4a5e, 0x5d5648];
 
-export function createPerson(tint = 0x576e65) {
+/** A limb or torso: a tube of the given radii at the given heights, rounded off at both ends. */
+function limb(profile, segments = 10) {
+  const points = [new THREE.Vector2(0, profile[0][1] - profile[0][0] * .6)];
+  for (const [radius, y] of profile) points.push(new THREE.Vector2(radius, y));
+  points.push(new THREE.Vector2(0, profile.at(-1)[1] + profile.at(-1)[0] * .6));
+  // Lathe profiles run bottom to top, which winds the surface outward.
+  return new THREE.LatheGeometry(points, segments);
+}
+
+/**
+ * A walking figure about 1.78 m tall, facing +Z, feet at y = 0. Legs and arms
+ * hang from their own pivots so a walk cycle can swing them.
+ * @param {number} tint jacket colour; hair, skin and trousers follow from it
+ * @param {{courier?: boolean}} options a courier carries a messenger bag
+ */
+export function createPerson(tint = 0x576e65, { courier = false } = {}) {
   const group = new THREE.Group();
-  const batch = new Batches();
-  batch.box(personMaterial, 0, 1.18, 0, 0.43, 0.60, 0.26, tint);
-  batch.box(personMaterial, 0, 0.89, 0, 0.35, 0.13, 0.24, 0x2c363c);
-  const head = new THREE.SphereGeometry(0.175, 9, 7); head.scale(0.85, 1.13, 0.88); head.translate(0, 1.65, 0.02);
-  batch.add(head, personMaterial, null, 0xbd9370);
-  const hair = new THREE.SphereGeometry(0.177, 9, 5, 0, TAU, 0, Math.PI * 0.46); hair.scale(0.88, 1.05, 0.9); hair.translate(0, 1.69, 0.01);
-  batch.add(hair, personMaterial, null, 0x3c302b);
+  const batch = new Batches(), place = new THREE.Matrix4();
+  const pick = (list, salt) => list[(Math.imul(tint ^ salt, 2654435761) >>> 0) % list.length];
+  const skin = pick(SKIN, 0x51), hair = pick(HAIR, 0x9e), trousers = pick(TROUSERS, 0x37);
+  const at = (x, y, z, sx = 1, sy = 1, sz = 1) => place.makeScale(sx, sy, sz).setPosition(x, y, z);
+  // Hips to shoulders, flattened front to back.
+  batch.add(limb([[.15, .9], [.165, .98], [.15, 1.12], [.185, 1.3], [.2, 1.42], [.12, 1.49]], 12), personMaterial, at(0, 0, 0, 1, 1, .62), tint);
+  batch.add(limb([[.052, 1.47], [.05, 1.56]], 8), personMaterial, at(0, 0, 0), skin);
+  batch.add(new THREE.SphereGeometry(.108, 14, 10), personMaterial, at(0, 1.645, .008, .9, 1.1, 1), skin);
+  // Hair covers the crown and the back of the head.
+  batch.add(new THREE.SphereGeometry(.114, 14, 8, 0, TAU, 0, Math.PI * .56), personMaterial, at(0, 1.662, -.012, .93, 1.06, 1.02), hair);
+  if (courier) {
+    // The bag rides on the back, its strap across the chest.
+    batch.box(personMaterial, 0, 1.2, -.165, .3, .24, .11, 0x23272b);
+    batch.box(personMaterial, 0, 1.3, -.225, .31, .05, .012, 0xf05a28);
+    place.makeRotationZ(.72).setPosition(0, 1.27, .118); batch.add(new THREE.BoxGeometry(.045, .62, .012), personMaterial, place, 0x23272b);
+  }
   batch.finish(group);
   group.userData.legs = []; group.userData.arms = [];
   for (const side of [-1, 1]) {
-    const leg = new THREE.Group(); leg.position.set(side * 0.115, 0.87, 0);
+    const leg = new THREE.Group(); leg.position.set(side * .088, .92, 0);
     const legBatch = new Batches();
-    legBatch.box(personMaterial, 0, -0.37, 0, 0.16, 0.72, 0.18, 0x344249);
-    legBatch.box(personMaterial, 0, -0.79, 0.06, 0.19, 0.12, 0.30, 0xd2cbb9);
+    legBatch.add(limb([[.05, -.84], [.058, -.5], [.072, -.42], [.082, -.06]], 9), personMaterial, at(0, 0, 0), trousers);
+    // The shoe points forward, its sole on the ground.
+    legBatch.add(new THREE.SphereGeometry(.07, 10, 8), personMaterial, at(0, -.868, .045, .78, .72, 1.85), 0xe9e4d8);
     legBatch.finish(leg); group.add(leg); group.userData.legs.push(leg);
-    const arm = new THREE.Group(); arm.position.set(side * 0.265, 1.4, 0);
+    const arm = new THREE.Group(); arm.position.set(side * .222, 1.41, 0);
     const armBatch = new Batches();
-    armBatch.box(personMaterial, 0, -0.21, 0, 0.145, 0.43, 0.17, tint);
-    armBatch.box(personMaterial, 0, -0.46, 0.015, 0.11, 0.12, 0.12, 0xbd9370);
-    armBatch.finish(arm); arm.rotation.z = side * 0.08;
+    armBatch.add(limb([[.04, -.56], [.048, -.3], [.06, -.04]], 8), personMaterial, at(0, 0, 0), tint);
+    armBatch.add(new THREE.SphereGeometry(.044, 8, 6), personMaterial, at(0, -.62, .008, .9, 1.15, 1), skin);
+    armBatch.finish(arm); arm.rotation.z = side * .07;
     group.add(arm); group.userData.arms.push(arm);
   }
   return group;

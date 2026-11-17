@@ -5,7 +5,7 @@ import { readFileSync } from 'node:fs';
 import { gunzipSync } from 'node:zlib';
 import vm from 'node:vm';
 import * as THREE from '../dist/vendor/three.module.min.js';
-import { createCar, createPerson, updateCarVisuals } from '../dist/world.js';
+import { createCar, createPerson, updateCarVisuals, setVehicleLamps } from '../dist/world.js';
 import { Simulation } from '../dist/simulation.js';
 import { resetVehicleDynamics } from '../dist/vehicle-dynamics.js';
 import { Input } from '../dist/input.js';
@@ -247,7 +247,7 @@ async function bootHarness({ stored = null, displayStored = null, unavailableSto
     },
     updateChaseHeight, createCityGround, worldToGeographic, createRoadStream, nearestStreet, localDestinations, createCityNavigation,
     createStreetDetail:(manifest,options)=>createStreetDetail(manifest,{...options,now:()=>timestamp}),
-    Landscape, RoadPilot, AbortSignal, createGraphics,
+    Landscape, RoadPilot, AbortSignal, createGraphics, setVehicleLamps,
     console: { error: error => errors.push(error), warn: () => {}, log: () => {} },
     matchMedia: () => ({ matches: coarsePointer }),
     innerWidth: 1440, innerHeight: 900, devicePixelRatio: 2,

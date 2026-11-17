@@ -1,6 +1,6 @@
 import { updateChaseHeight } from './vehicle-presentation.js';
 import * as THREE from './vendor/three.module.min.js';
-import { createCar, createPerson, updateCarVisuals } from './world.js';
+import { createCar, createPerson, updateCarVisuals, setVehicleLamps } from './world.js';
 import { Simulation } from './simulation.js';
 import { Input } from './input.js';
 import { HUD } from './hud.js';
@@ -234,7 +234,7 @@ function syncScene(dt,controls) {
   animatePerson(avatar,Math.abs(p.speed)>.1,elapsed,Math.abs(p.speed)/3);
   for(const car of sim.cars){
     let mesh=carModels.get(car.id);
-    if(!mesh){mesh=createCar({type:car.type,color:car.color});carModels.set(car.id,mesh);scene.add(mesh);}
+    if(!mesh){mesh=createCar({type:car.type,color:car.color,seed:car.id});carModels.set(car.id,mesh);scene.add(mesh);}
     mesh.visible=Math.hypot(car.x-p.x,car.z-p.z)<230;
     updateCarVisuals(mesh,car,dt);
     if(mesh.userData.update)mesh.userData.update(elapsed,car,sim.heat);
@@ -400,6 +400,7 @@ function frame(now) {
     if(!routePlanner&&gameMap.roads!==sim.city.roads)gameMap.setRoads(sim.city.roads);
     hud.city=sim.city;hud.update(sim);updateDirections();saveProgress();updateLocation();updateTimeButton();hudTime=0;
   }
+  setVehicleLamps(gfx.state.lightsOn);
   gfx.render();
   qualityTimer+=dt;if(dt>.035)slowFrames++;
   if(highQuality&&qualityTimer>5){if(slowFrames>90){highQuality=false;applyQuality();announce('Switched to balanced graphics for smoother streets.');}qualityTimer=0;slowFrames=0;}
@@ -626,7 +627,7 @@ async function boot() {
     $('road-reconstruction-status').textContent=report.summary.accepted+' of '+report.summary.candidates+
       ' road and parking masks passed source checks. Rejected masks create no game geometry.';
   }).catch(()=>{$('road-reconstruction-status').textContent='Road image review unavailable. Surveyed surfaces remain active.';});
-  avatar=createPerson(0xd7774e);scene.add(avatar);marker=createMissionMarker();enterHint=createEnterHint();
+  avatar=createPerson(0xd7774e,{courier:true});scene.add(avatar);marker=createMissionMarker();enterHint=createEnterHint();
   hud=new HUD(city);applyQuality();
   gameMap=new GameMap({city,onPin:clearDirections,onRoute:requestDirections,
     onSpawn:pin=>travel({...pin,exact:true}),
