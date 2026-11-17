@@ -39,7 +39,47 @@ function plane(bounds, y, material) {
   return new THREE.Mesh(geometry, material);
 }
 
-export function createCityGround({ scene, origin = CITY_ORIGIN, onStatus = () => {}, createImage = () => new Image(), now = () => performance.now() }) {
+/**
+ * Paints the close atlas on the GPU, one quad a tile, from each tile's own
+ * texture. Sending the whole 2304-pixel canvas to the GPU again for every
+ * tile that arrived cost a frame each time; a street's worth cost a second.
+ */
+function createAtlasPainter(renderer, grid) {
+  const size = grid * 256;
+  const target = new THREE.WebGLRenderTarget(size, size, { colorSpace: THREE.SRGBColorSpace, depthBuffer: false, generateMipmaps: true,
+    minFilter: THREE.LinearMipmapLinearFilter, magFilter: THREE.LinearFilter, anisotropy: 4 });
+  target.texture.name = 'Close aerial imagery';
+  // One unit a tile, north at the top, as the canvas atlas is laid out.
+  const scene = new THREE.Scene(), camera = new THREE.OrthographicCamera(0, grid, grid, 0, -1, 1);
+  const geometry = new THREE.PlaneGeometry(1, 1);geometry.translate(.5, .5, 0);
+  const pool = [], clearColor = new THREE.Color();
+  return {
+    texture: target.texture,
+    /** Draw `tiles` ({ x, y, map } in atlas cells from the north-west), after emptying the atlas if `clear`. */
+    paint(tiles, clear) {
+      while (pool.length < tiles.length) {
+        const mesh = new THREE.Mesh(geometry, new THREE.MeshBasicMaterial({ depthTest: false, depthWrite: false, blending: THREE.NoBlending, toneMapped: false, fog: false }));
+        mesh.frustumCulled = false;scene.add(mesh);pool.push(mesh);
+      }
+      pool.forEach((mesh, i) => {
+        const tile = tiles[i];mesh.visible = Boolean(tile);
+        if (tile) { mesh.material.map = tile.map;mesh.position.set(tile.x, grid - 1 - tile.y, 0); }
+      });
+      const previous = renderer.getRenderTarget(), autoClear = renderer.autoClear, alpha = renderer.getClearAlpha();
+      renderer.getClearColor(clearColor);
+      renderer.setRenderTarget(target);renderer.autoClear = false;
+      // Transparency says "no imagery here"; it must never be a guessed colour.
+      if (clear) { renderer.setClearColor(0x000000, 0);renderer.clear(true, false, false); }
+      // Rendering, even nothing, is what refreshes the atlas's smaller copies.
+      renderer.render(scene, camera);
+      renderer.setRenderTarget(previous);renderer.setClearColor(clearColor, alpha);renderer.autoClear = autoClear;
+    },
+    dispose() { target.dispose();geometry.dispose();for (const mesh of pool) mesh.material.dispose(); },
+  };
+}
+const canPaintOnGPU = renderer => Boolean(renderer?.capabilities?.isWebGL2 && typeof renderer.getContext === 'function' && typeof renderer.setRenderTarget === 'function');
+
+export function createCityGround({ scene, renderer = null, origin = CITY_ORIGIN, onStatus = () => {}, createImage = () => new Image(), now = () => performance.now() }) {
   const group = new THREE.Group();group.name = 'NYC 2024 aerial imagery';scene.add(group);
   const coarse = overviewTiles(), first = coarse[0], last = coarse.at(-1);
   const columns = last.column - first.column + 1, rows = last.row - first.row + 1;
@@ -62,9 +102,14 @@ export function createCityGround({ scene, origin = CITY_ORIGIN, onStatus = () =>
   // value. Paint imagery in order without writing depth, before normal objects.
   const overviewMesh = new THREE.Mesh(atlas,new THREE.MeshBasicMaterial({ map: texture, side: THREE.DoubleSide, depthWrite: false }));
   overviewMesh.renderOrder = -20;group.add(overviewMesh);
-  const localCanvas = document.createElement('canvas');localCanvas.width = localCanvas.height = LOCAL_GRID * 256;
-  const localContext = localCanvas.getContext('2d');
-  const localTexture = new THREE.CanvasTexture(localCanvas);localTexture.colorSpace = THREE.SRGBColorSpace;localTexture.anisotropy = 4;
+  // With a GPU the close atlas is painted there; without one (tests, a
+  // software renderer) it is a canvas sent whole whenever it changes.
+  const painter = canPaintOnGPU(renderer) ? createAtlasPainter(renderer, LOCAL_GRID) : null;
+  const localCanvas = painter ? null : document.createElement('canvas');
+  if (localCanvas) localCanvas.width = localCanvas.height = LOCAL_GRID * 256;
+  const localContext = localCanvas?.getContext('2d');
+  const localTexture = painter ? painter.texture : new THREE.CanvasTexture(localCanvas);
+  if (!painter) { localTexture.colorSpace = THREE.SRGBColorSpace;localTexture.anisotropy = 4; }
   const localOrthophoto = { texture: localTexture, bounds: { minX: 0, maxX: 0, minZ: 0, maxZ: 0 }, mercator: {
     north: 0, south: 0, originLat: origin.lat*Math.PI/180, radius: R,
   } };
@@ -130,13 +175,14 @@ export function createCityGround({ scene, origin = CITY_ORIGIN, onStatus = () =>
     if (!entry.mesh) return;
     group.remove(entry.mesh);entry.mesh.geometry.dispose();entry.mesh.material.map.dispose();entry.mesh.material.dispose();
   }
-  function paintLocal(column, row, image) {
+  function paintLocal(column, row, map) {
     // A surviving request can finish after the atlas moves by one tile. Its
     // source coordinates, not its old canvas offset, determine where it belongs.
     if (disposed || !desired.has(`${column},${row}`)) return;
     const x = column - localColumn, y = row - localRow;
     if (x < 0 || x >= LOCAL_GRID || y < 0 || y >= LOCAL_GRID) return;
-    localContext.drawImage(image, x * 256, y * 256, 256, 256);localTexture.needsUpdate = true;
+    if (painter) painter.paint([{ x, y, map }], false);
+    else { localContext.drawImage(map.image, x * 256, y * 256, 256, 256);localTexture.needsUpdate = true; }
   }
   function recenterLocal(tile) {
     localColumn = tile.column - LOCAL_RADIUS;localRow = tile.row - LOCAL_RADIUS;
@@ -147,12 +193,24 @@ export function createCityGround({ scene, origin = CITY_ORIGIN, onStatus = () =>
     localOrthophoto.mercator.south = Math.PI * (1 - 2 * (localRow + LOCAL_GRID) / 2 ** LOCAL_ZOOM);
     // Transparency is coverage metadata for roof/street sampling. Never fill
     // missing cells with a guessed color or imagery from the previous location.
+    if (painter) {
+      // Every resident tile, redrawn in its new cell in one pass.
+      const tiles = [];
+      for (const key of desired) {
+        const entry = cache.get(key);
+        if (!entry?.mesh) continue;
+        const [column, row] = key.split(',').map(Number);
+        tiles.push({ x: column - localColumn, y: row - localRow, map: entry.mesh.material.map });
+      }
+      painter.paint(tiles, true);
+      return;
+    }
     localContext.clearRect(0, 0, localCanvas.width, localCanvas.height);
     for (const key of desired) {
       const entry = cache.get(key);
       if (entry?.mesh) {
         const [column, row] = key.split(',').map(Number);
-        paintLocal(column, row, entry.mesh.material.map.image);
+        paintLocal(column, row, entry.mesh.material.map);
       }
     }
     localTexture.needsUpdate = true;
@@ -168,7 +226,7 @@ export function createCityGround({ scene, origin = CITY_ORIGIN, onStatus = () =>
         new THREE.MeshStandardMaterial({ map, color: 0xffffff, roughness: 1, side: THREE.DoubleSide, depthWrite: false }));
       entry.mesh.renderOrder = -10;entry.mesh.receiveShadow = true;
       entry.mesh.visible = desired.has(tileKey);group.add(entry.mesh);
-      paintLocal(column, row, image);
+      paintLocal(column, row, map);
     } });
   }
   return {
@@ -215,7 +273,8 @@ export function createCityGround({ scene, origin = CITY_ORIGIN, onStatus = () =>
       disposed = true;queue.length = 0;desired.clear();
       for (const request of [...requests]) request.cancel();
       for (const entry of cache.values()) release(entry);
-      cache.clear();texture.dispose();localTexture.dispose();localCanvas.width = localCanvas.height = 0;
+      cache.clear();texture.dispose();
+      if (painter) painter.dispose();else { localTexture.dispose();localCanvas.width = localCanvas.height = 0; }
       group.children[0].geometry.dispose();group.children[0].material.dispose();scene.remove(group);
     },
   };

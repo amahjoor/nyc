@@ -572,7 +572,7 @@ async function boot() {
   sun.shadow.mapSize.set(2048,2048);sun.shadow.camera.left=-160;sun.shadow.camera.right=160;sun.shadow.camera.top=160;sun.shadow.camera.bottom=-160;sun.shadow.camera.near=1;sun.shadow.camera.far=550;sun.shadow.bias=-.001;sun.shadow.normalBias=.1;scene.add(sun);scene.add(sun.target);
   sim=new Simulation(city);restoreProgress();yaw=sim.player.angle;
   world=createCityStream(cityIndex,{scene,onCollisionChange:applyBuildings,onStatus:updateStreaming,heightAt:terrainHeight});
-  ground=createCityGround({scene,onStatus:status=>{if(status.failures)$('imagery-status').textContent='Some aerial tiles are unavailable. NYC imagery will retry as you explore; surveyed geometry loads separately.';}});
+  ground=createCityGround({scene,renderer,onStatus:status=>{if(status.failures)$('imagery-status').textContent='Some aerial tiles are unavailable. NYC imagery will retry as you explore; surveyed geometry loads separately.';}});
   world.setOrthophoto(ground.orthophoto);
   const landscapeReady=loadData('landscape-index.json').then(async index=>{
     landscapeManifest=index;
