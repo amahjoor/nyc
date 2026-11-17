@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { KINDS, KIND, cuisineKind, storeKind, tradeName, placeName, mergePlaces, packPlace, unpackPlace, placeCellKey, PLACE_CELL, createPlaceSource, indexFootprints, solveFrontages, frontWidth, isOpen, signFor } from '../dist/places.js';
+import { KINDS, KIND, cuisineKind, storeKind, tradeName, placeName, mergePlaces, packPlace, unpackPlace, placeCellKey, PLACE_CELL, createPlaceSource, indexFootprints, solveFrontages, frontWidth, isOpen, signFor, joinPlaceSources, osmKind } from '../dist/places.js';
 
 const read = path => JSON.parse(readFileSync(new URL(`../dist/${path}`, import.meta.url), 'utf8'));
 
@@ -56,7 +56,8 @@ test('the same business in two registers is one place, and a place survives bein
 
 test('the bundled places cover the city, keyed as the index says', () => {
   const index = read('places-index.json');
-  assert.deepEqual(index.kinds, KINDS.map(kind => kind.id), 'the bundle was built with the kinds the game knows');
+  // Rows name a kind by its place in the list, and kinds are only ever added at its end: an older bundle's list is the start of today's.
+  assert.deepEqual(index.kinds, KINDS.map(kind => kind.id).slice(0, index.kinds.length), 'the bundle was built with the kinds the game knows');
   assert.equal(index.cellSize, PLACE_CELL);
   assert.ok(index.total > 50000 && Object.keys(index.cells).length > 600, `${index.total} places in ${Object.keys(index.cells).length} cells`);
   assert.ok(Object.keys(index.counts).length > 50 && index.counts.bodega > 4000 && index.counts.nails > 1000 && index.counts.repair > 1500 && index.counts.pizza > 800);
@@ -161,4 +162,34 @@ test('opening hours and signs follow the kind of place', () => {
   for (const kind of KINDS) { const sign = signFor({ ...place('x', kind.id, 1, 2), name: '' }); assert.ok(/^#[0-9a-f]{6}$/.test(sign.background) && /^#[0-9a-f]{6}$/.test(sign.lettering) && sign.background !== sign.lettering && sign.name); }
   const seen = new Set(Array.from({ length: 40 }, (_, i) => signFor(place(`deli ${i}`, 'bodega', i, 0)).background));
   assert.ok(seen.size >= 3, 'bodegas do not all have the same awning');
+});
+
+test('the shops no register lists come from OpenStreetMap, bundled apart and under its licence', () => {
+  const index = JSON.parse(readFileSync(new URL('../dist/shops-index.json', import.meta.url), 'utf8'));
+  assert.deepEqual(index.kinds, KINDS.map(kind => kind.id).slice(0, index.kinds.length));
+  assert.ok(index.total > 8000 && index.total < 40000 && Object.keys(index.cells).length > 300, `${index.total} shops`);
+  assert.match(index.licence.attribution, /OpenStreetMap contributors/); assert.match(index.licence.url, /odbl/);
+  // None is of a kind a register already lists, so nothing is counted twice.
+  const registers = JSON.parse(readFileSync(new URL('../dist/places-index.json', import.meta.url), 'utf8'));
+  assert.deepEqual(Object.keys(index.counts).filter(kind => registers.counts[kind]), []);
+  assert.ok(index.counts.clothes > 1000 && index.counts.bank > 500 && index.counts.laundromat > 500);
+  const key = placeCellKey(126, -80), cell = JSON.parse(readFileSync(new URL(`../dist/${index.cells[key].url.slice(2)}`, import.meta.url), 'utf8'));
+  assert.equal(cell.places.length, index.cells[key].count);
+  const soho = cell.places.map((row, i) => unpackPlace(row, `o${key}:${i}`));
+  assert.ok(soho.every(place => place && place.group && Math.abs(place.x) < 40000) && soho.filter(place => place.kind === 'clothes').length > 30, 'SoHo is clothes shops');
+  assert.deepEqual([osmKind({ shop: 'laundry' }), osmKind({ amenity: 'bank' }), osmKind({ leisure: 'fitness_centre' }), osmKind({ shop: 'convenience' }), osmKind({}), osmKind(null)], ['laundromat', 'bank', 'gym', null, null, null]);
+  assert.deepEqual([isOpen('bank', 12), isOpen('bank', 19), isOpen('laundromat', 22), isOpen('gym', 5.5)], [true, false, true, true]);
+  assert.deepEqual(signFor({ kind: 'cleaners', name: '', x: 1, z: 1 }).name, 'DRY CLEANERS');
+});
+
+test('two sources of places read as one, nearest first, each keeping its own ids', () => {
+  const index = { cells: { '0,0': { url: 'a' } } }, row = (x, kind) => [x, 0, KINDS.findIndex(k => k.id === kind), kind.toUpperCase(), 0, 0, ''];
+  const first = createPlaceSource({ index, load: async () => ({ places: [row(10, 'pizza'), row(300, 'bar')] }) }), second = createPlaceSource({ index, prefix: 'o', load: async () => ({ places: [row(50, 'bank')] }) });
+  const both = joinPlaceSources(first, second);
+  assert.equal(both.ready, true); both.request(0, 0, 100);
+  return new Promise(resolve => setTimeout(resolve, 5)).then(() => {
+    assert.equal(both.version, 2);
+    assert.deepEqual(both.near(0, 0, 500).map(place => [place.id, place.kind]), [['0,0:0', 'pizza'], ['o0,0:0', 'bank'], ['0,0:1', 'bar']]);
+    assert.deepEqual(both.near(0, 0, 20).map(place => place.kind), ['pizza']);
+  });
 });

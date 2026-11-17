@@ -22,7 +22,7 @@ import { createCityLife, manhattanCore, characterAt } from './citylife.js';
 import { createStreetSigns } from './street-signs.js';
 import { createCrowd, dress, seeded, KIT } from './crowd.js';
 import { createStreetProps } from './street-props.js';
-import { createPlaceSource, indexFootprints, solveFrontages } from './places.js';
+import { createPlaceSource, joinPlaceSources, indexFootprints, solveFrontages } from './places.js';
 import { createStorefronts } from './storefronts.js';
 import { createPhone, describePlace } from './phone.js';
 import { createFleet } from './fleet.js';
@@ -844,8 +844,11 @@ async function boot() {
   sim.setActiveCity({signalHints});
   props=createStreetProps({scene,heightAt:groundHeight});
   storefronts=createStorefronts();
-  placeSource=createPlaceSource({load:url=>loadData(url.replace(/^\.\//,''))});
-  loadData('places-index.json').then(index=>placeSource.setIndex(index)).catch(()=>{});
+  // The registers' places, and the shops they do not list (OpenStreetMap), read as one.
+  const registerPlaces=createPlaceSource({load:url=>loadData(url.replace(/^\.\//,''))}),otherShops=createPlaceSource({load:url=>loadData(url.replace(/^\.\//,'')),prefix:'o'});
+  placeSource=joinPlaceSources(registerPlaces,otherShops);
+  loadData('places-index.json').then(index=>registerPlaces.setIndex(index)).catch(()=>{});
+  loadData('shops-index.json').then(index=>otherShops.setIndex(index)).catch(()=>{});
   subwayStairs=createSubwayEntrances({scene,heightAt:groundHeight,facing:(x,z)=>{const kerb=kerbIndex&&snapToKerb(kerbIndex,x,z,12);return kerb?[kerb.tx,kerb.tz]:null;}});
   loadData('demographics.json').then(data=>{demographics=createDemographics(data);}).catch(()=>{});
   busStops=createBusStops({scene,heightAt:groundHeight,kerb:(x,z)=>kerbIndex&&snapToKerb(kerbIndex,x,z,14)});

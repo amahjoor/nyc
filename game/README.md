@@ -149,6 +149,14 @@ Each place near the player is given a street front: the stretch of its building'
 
 Shop fronts that belong to no registered place stay as they were, anonymous. The registers do not cover clothes shops, banks, laundromats, pharmacies without a beer licence or offices, so most of Fifth Avenue is still unnamed.
 
+## Shops the registers do not list
+
+No city or state register lists a clothes shop, a bank or a laundromat. `scripts/build-shops.mjs` takes 12,296 of them in 37 kinds from OpenStreetMap, inside the city's boundary: clothes, banks, laundromats, gyms, phone shops, dry cleaners, jewellers, opticians, post offices, cinemas and so on. They get a front, a sign, opening hours and a room like any other place, and the phone finds them under MORE. Kinds a register already covers (delis, pharmacies, restaurants) are not taken, so nothing is counted twice. OpenStreetMap is mapped by volunteers and is uneven: Manhattan is dense, parts of the other boroughs sparse.
+
+These files (`dist/shops-index.json`, `dist/shops/`) are kept apart from the registers' places because they are © OpenStreetMap contributors under the [Open Database Licence](https://opendatacommons.org/licenses/odbl/1-0/), and remain under it. The public Overpass server often refuses a request when busy; `--save` keeps a response and `--from` reuses it.
+
+The sign atlas now letters the nearest 152 fronts (it was 74); beyond that a front keeps its colours without a name.
+
 ## Who is on the street
 
 `scripts/build-demographics.mjs` takes two tables of the Census Bureau's 2019-2023 American Community Survey for the 2,231 lived-in census tracts of the five boroughs: residents by race and Hispanic origin, and the language spoken at home. `demographics.js` gives the crowd on a block its mix of skin and hair from the people who live in that tract, blended toward the whole city's where most people on the street are there to work, shop or look around, and by day more than by night. The survey's five groups are each given a wide, overlapping range of tones, so the proportions of a crowd follow the tract while no figure stands for a category; which tones each group ranges over is the game's assumption. Nothing else about a person, their clothes or what they do, is drawn from this.
@@ -246,6 +254,7 @@ The full map is available to render and explore, but this is a historical city m
 | Places | `dist/places-index.json`, `dist/places/`, `scripts/build-places.mjs` | NYC Open Data: [restaurant inspections](https://data.cityofnewyork.us/d/43nn-pn8j), [legally operating businesses](https://data.cityofnewyork.us/d/w7w3-xahh), [facilities database](https://data.cityofnewyork.us/d/ji82-xba5). New York State Open Data: [retail food stores](https://data.ny.gov/d/9a8c-vfzj), [appearance enhancement and barber businesses](https://data.ny.gov/d/y3u4-jbgh), [liquor authority licences](https://data.ny.gov/d/9s3h-dpkz), [DMV-licensed facilities](https://data.ny.gov/d/nhjr-rpi2) |
 | Cars | `dist/fleet.json`, `scripts/build-fleet.mjs` | New York State Open Data: [vehicle, snowmobile and boat registrations](https://data.ny.gov/d/w4pv-hbkt); ZIP code positions from the restaurant inspections above |
 | Subway | `dist/transit.json`, `scripts/build-transit.mjs` | New York State Open Data: [MTA subway entrances and exits, 2024](https://data.ny.gov/d/i9wp-a4ja) |
+| Other shops | `dist/shops-index.json`, `dist/shops/`, `scripts/build-shops.mjs` | © [OpenStreetMap](https://www.openstreetmap.org/copyright) contributors, Open Database Licence 1.0 |
 | Sidewalk sheds | `dist/sheds.json`, `scripts/build-sheds.mjs` | NYC Open Data: [DOB NOW: Build – Approved Permits](https://data.cityofnewyork.us/d/rbx6-tga4) |
 | Bus stops | `dist/bus-stops.json`, `scripts/build-transit.mjs` | New York State Open Data: [MTA bus stops](https://data.ny.gov/d/2ucp-7wg5) |
 | Residents | `dist/demographics.json`, `scripts/build-demographics.mjs` | U.S. Census Bureau, [American Community Survey 2019-2023](https://www.census.gov/programs-surveys/acs/data/summary-file.html), tables B03002 and C16001; tract positions from NYC Open Data [2020 census tracts](https://data.cityofnewyork.us/d/63ge-mke6) |

@@ -32,6 +32,13 @@ export const KINDS = [
   // Public buildings, from the city's facilities database.
   ['school', 'School', 'public'], ['college', 'College', 'public'], ['library', 'Public Library', 'public'], ['firehouse', 'Firehouse', 'public'], ['police', 'Police Precinct', 'public'],
   ['hospital', 'Hospital', 'public'], ['museum', 'Museum', 'public'], ['courthouse', 'Courthouse', 'public'], ['ferry', 'Ferry Landing', 'public'],
+  // Shops no register lists, from OpenStreetMap. New kinds go at the end: the bundled files name kinds by their place in this list.
+  ['clothes', 'Clothing', 'shop'], ['shoes', 'Shoes', 'shop'], ['bank', 'Bank', 'shop'], ['laundromat', 'Laundromat', 'shop'], ['cleaners', 'Dry Cleaners', 'shop'], ['books', 'Books', 'shop'],
+  ['hardware', 'Hardware', 'shop'], ['florist', 'Florist', 'shop'], ['optician', 'Optical', 'shop'], ['phones', 'Wireless', 'shop'], ['jewelry', 'Jewelry', 'shop'], ['gym', 'Gym', 'shop'],
+  ['bikes', 'Bicycles', 'shop'], ['pets', 'Pet Supplies', 'shop'], ['furniture', 'Furniture', 'shop'], ['tattoo', 'Tattoo', 'shop'], ['smoke', 'Smoke Shop', 'shop'], ['dispensary', 'Dispensary', 'shop'],
+  ['cosmetics', 'Beauty Supply', 'shop'], ['toys', 'Toys', 'shop'], ['gifts', 'Gifts', 'shop'], ['department', 'Department Store', 'shop'], ['sports', 'Sporting Goods', 'shop'], ['stationery', 'Stationery', 'shop'],
+  ['music', 'Music', 'shop'], ['art', 'Art Supplies', 'shop'], ['bags', 'Luggage', 'shop'], ['copyshop', 'Copies and Shipping', 'shop'], ['tailor', 'Tailor', 'shop'], ['travel', 'Travel Agency', 'shop'],
+  ['massage', 'Massage', 'shop'], ['housewares', 'Housewares', 'shop'], ['postoffice', 'Post Office', 'public'], ['cinema', 'Cinema', 'hotel'], ['vet', 'Veterinarian', 'shop'], ['dentist', 'Dentist', 'shop'], ['clinic', 'Medical Office', 'shop'],
 ].map(([id, label, group], index) => ({ id, label, group, index }));
 
 export const KIND = Object.fromEntries(KINDS.map(kind => [kind.id, kind]));
@@ -158,7 +165,7 @@ export function unpackPlace(row, id) {
  * Loads the places around the player, a square kilometre at a time.
  * `load(url)` resolves to the parsed file; `index` is places-index.json.
  */
-export function createPlaceSource({ load, index = null } = {}) {
+export function createPlaceSource({ load, index = null, prefix = '' } = {}) {
   const cells = new Map();
   let version = 0;
   const want = key => {
@@ -166,7 +173,7 @@ export function createPlaceSource({ load, index = null } = {}) {
     const cell = { places: null };
     cells.set(key, cell);
     Promise.resolve(load(index.cells[key].url)).then(data => {
-      cell.places = (data?.places || []).map((row, i) => unpackPlace(row, `${key}:${i}`)).filter(Boolean);
+      cell.places = (data?.places || []).map((row, i) => unpackPlace(row, `${prefix}${key}:${i}`)).filter(Boolean);
       version++;
     }).catch(() => { cells.delete(key); });
   };
@@ -192,6 +199,23 @@ export function createPlaceSource({ load, index = null } = {}) {
   };
 }
 
+/** Several sources read as one: asked together, and their places given together, nearest first. */
+export function joinPlaceSources(...sources) {
+  return {
+    get ready() { return sources.some(source => source.ready); },
+    get version() { return sources.reduce((sum, source) => sum + source.version, 0); },
+    request(x, z, radius) { for (const source of sources) source.request(x, z, radius); },
+    near(x, z, radius) { return sources.flatMap(source => source.near(x, z, radius)).map(place => ({ place, distance: Math.hypot(place.x - x, place.z - z) })).sort((a, b) => a.distance - b.distance).map(entry => entry.place); },
+  };
+}
+
+/** What OpenStreetMap calls a shop, an amenity or a place of leisure, as a kind of place here; null for those not taken. */
+const OSM_KINDS = { clothes: 'clothes', shoes: 'shoes', bank: 'bank', laundry: 'laundromat', dry_cleaning: 'cleaners', books: 'books', hardware: 'hardware', florist: 'florist', optician: 'optician', mobile_phone: 'phones',
+  jewelry: 'jewelry', fitness_centre: 'gym', bicycle: 'bikes', pet: 'pets', furniture: 'furniture', tattoo: 'tattoo', tobacco: 'smoke', 'e-cigarette': 'smoke', cannabis: 'dispensary', cosmetics: 'cosmetics', toys: 'toys', gift: 'gifts',
+  department_store: 'department', sports: 'sports', stationery: 'stationery', music: 'music', art: 'art', bag: 'bags', copyshop: 'copyshop', tailor: 'tailor', travel_agency: 'travel', massage: 'massage', houseware: 'housewares',
+  post_office: 'postoffice', cinema: 'cinema', veterinary: 'vet', dentist: 'dentist', clinic: 'clinic' };
+export const osmKind = tags => OSM_KINDS[tags?.shop] || OSM_KINDS[tags?.amenity] || OSM_KINDS[tags?.leisure] || null;
+
 // ---------------------------------------------------------------------------
 // Where on its building a place has its front
 
@@ -200,7 +224,7 @@ const SQUARE_FOOT = .0929;
 export function frontWidth(place) {
   if (place.area > 0 && ['bodega', 'grocery', 'supermarket', 'pharmacy', 'variety', 'butcher', 'fishmarket', 'produce', 'bakery'].includes(place.kind)) return Math.max(7, Math.min(26, Math.sqrt(place.area * SQUARE_FOOT) * .7));
   if (place.kind === 'supermarket') return 16;
-  if (['hotel', 'theatre', 'museum', 'hospital', 'courthouse', 'college'].includes(place.kind)) return 12;
+  if (['hotel', 'theatre', 'museum', 'hospital', 'courthouse', 'college', 'department', 'cinema'].includes(place.kind)) return 12;
   if (place.group === 'public') return 10;
   return 7;
 }
@@ -335,6 +359,10 @@ export function solveFrontages(places, footprints, isStreet, { reach = 28 } = {}
 /** Whether a place of this kind is open at `hours` (0 to 24). */
 export function isOpen(kind, hours) {
   const group = KIND[kind]?.group, between = (from, to) => from <= to ? hours >= from && hours < to : hours >= from || hours < to;
+  if (kind === 'laundromat') return between(6, 23);
+  if (kind === 'gym') return between(5, 23);
+  if (kind === 'bank' || kind === 'postoffice' || kind === 'dentist' || kind === 'clinic' || kind === 'vet') return between(9, 17);
+  if (kind === 'cinema') return between(11, 24);
   if (kind === 'bodega' || kind === 'hotel' || kind === 'police' || kind === 'firehouse' || kind === 'hospital' || kind === 'gas' || kind === 'parking') return true;
   if (kind === 'club') return between(21, 4);
   if (group === 'bar') return between(15, 3.5);
@@ -370,7 +398,9 @@ const SCHEMES = {
   public: [['#2a2f36', '#e8e8e8']],
   stand: [['#0b5d2a', '#ffffff']],
 };
-const KIND_SCHEMES = { chinese: [['#b01515', '#ffd84a'], ['#c81e1e', '#ffe9a8'], ['#f2c400', '#b01515']], pizza: [['#c81e1e', '#ffffff'], ['#f4f1e6', '#0b6b2f'], ['#0b6b2f', '#ffffff']],
+const KIND_SCHEMES = { bank: [['#0f2d5c', '#ffffff'], ['#0b5d2a', '#ffffff'], ['#f4f1e6', '#b01515'], ['#141414', '#ffffff']], laundromat: [['#1a6fb0', '#ffffff'], ['#f4f1e6', '#1a3fa0'], ['#f2c400', '#1a3fa0']],
+  postoffice: [['#1a3fa0', '#ffffff']], dispensary: [['#0b5d2a', '#ffffff'], ['#141414', '#7be08a']], smoke: [['#141414', '#f2c400'], ['#5a1a8a', '#ffffff'], ['#0b5d2a', '#ffe36a']], gym: [['#141414', '#f2c400'], ['#5a1a8a', '#ffe36a'], ['#c81e1e', '#ffffff']],
+  clothes: [['#141414', '#ffffff'], ['#f4f1e6', '#141414'], ['#c81e1e', '#ffffff'], ['#1c2a3a', '#ffffff']], cleaners: [['#f4f1e6', '#1a3fa0'], ['#1a6fb0', '#ffffff'], ['#c81e1e', '#ffffff']], chinese: [['#b01515', '#ffd84a'], ['#c81e1e', '#ffe9a8'], ['#f2c400', '#b01515']], pizza: [['#c81e1e', '#ffffff'], ['#f4f1e6', '#0b6b2f'], ['#0b6b2f', '#ffffff']],
   pharmacy: [['#f4f1e6', '#c81e1e'], ['#0b5d2a', '#ffffff'], ['#1a3fa0', '#ffffff']], supermarket: [['#c81e1e', '#ffffff'], ['#0b6b2f', '#ffffff'], ['#f2c400', '#c81e1e']] };
 // What else the sign says, under the name.
 const TAGLINES = { bodega: 'DELI  GROCERY  ATM  LOTTO  COLD CUTS', grocery: 'FRESH PRODUCE  MEAT  DAIRY', supermarket: '', pizza: 'PIZZA  PASTA  HEROS', chinese: 'CHINESE RESTAURANT  TAKE OUT',
@@ -378,6 +408,10 @@ const TAGLINES = { bodega: 'DELI  GROCERY  ATM  LOTTO  COLD CUTS', grocery: 'FRE
   dealer: 'CARS BOUGHT & SOLD', carwash: 'HAND WASH  DETAILING', coffee: 'COFFEE  ESPRESSO', bagels: 'HOT BAGELS', donuts: 'DONUTS  COFFEE', juice: 'JUICES  SMOOTHIES', chicken: 'FRIED CHICKEN',
   burgers: 'BURGERS  FRIES  SHAKES', mexican: 'TACOS  BURRITOS', japanese: 'SUSHI  RAMEN', pharmacy: 'PHARMACY  PRESCRIPTIONS', pawn: 'WE BUY GOLD  LOANS', secondhand: 'BUY  SELL  TRADE', electronics: 'PHONES  REPAIRS  ACCESSORIES',
   parking: 'PARK  24 HOURS', butcher: 'MEAT  POULTRY', fishmarket: 'FRESH FISH', produce: 'FRUITS & VEGETABLES', bakery: 'BREAD  CAKES  PASTRY', icecream: 'ICE CREAM', mediterranean: 'GYRO  FALAFEL  KEBAB', indian: 'CURRY  TANDOORI',
+  clothes: '', bank: '', laundromat: 'WASH  DRY  FOLD  DROP OFF SERVICE', cleaners: 'DRY CLEANING  ALTERATIONS  SAME DAY', hardware: 'KEYS  PAINT  TOOLS  PLUMBING', florist: 'FLOWERS  PLANTS  WE DELIVER', optician: 'EYE EXAMS  GLASSES  CONTACTS',
+  phones: 'PHONES  PLANS  REPAIRS', jewelry: 'GOLD  DIAMONDS  WATCHES  REPAIRS', gym: 'FITNESS  24 HOURS', bikes: 'SALES  SERVICE  RENTALS', pets: 'FOOD  SUPPLIES  GROOMING', tattoo: 'TATTOO  PIERCING', smoke: 'CIGARS  VAPE  HOOKAH  CBD',
+  cosmetics: 'WIGS  HAIR  COSMETICS', copyshop: 'COPIES  PRINTING  SHIPPING  NOTARY', tailor: 'ALTERATIONS  HEMMING', travel: 'TICKETS  TOURS  MONEY TRANSFER', massage: 'BODY WORK  FOOT RUB', housewares: 'KITCHEN  BATH  HOME',
+  shoes: 'SNEAKERS  BOOTS  REPAIRS', books: 'NEW  USED  RARE', vet: 'ANIMAL HOSPITAL', dentist: 'FAMILY DENTISTRY', clinic: 'WALK-INS WELCOME', furniture: 'SOFAS  BEDS  FINANCING', gifts: 'SOUVENIRS  CARDS  GIFTS',
   thai: 'THAI KITCHEN', korean: 'KOREAN BBQ', caribbean: 'JERK  ROTI  PATTIES', latin: 'COMIDA LATINA', sandwiches: 'SANDWICHES  SALADS  SOUPS', variety: 'EVERYTHING MUST GO', gas: 'GAS  DIESEL  MART' };
 
 // What a kind of place is called in the languages most spoken at home in New York after English: the word a sign

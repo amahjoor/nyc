@@ -59,7 +59,7 @@ test('the three textures follow the fronts, the player and the hour', () => {
   assert.equal(shared.uNycPlaceMap.value, store.textures.map); assert.equal(shared.uNycPlaceTable.value, store.textures.table); assert.equal(shared.uNycPlaceAtlas.value, store.textures.atlas);
   assert.equal(shared.uNycPlaceRect.value.w, 0, 'nothing is looked up until there is something to find');
   assert.deepEqual(surface.drawn.map(item => item.text), ['A', 'B', 'C', 'OPEN'], 'the first cell holds the grade letters and OPEN');
-  assert.deepEqual([surface.width, surface.height, ATLAS.cellHeight, ATLAS.cellWidth], [2048, 2048, ATLAS_CELL_HEIGHT, 8 * ATLAS_CELL_HEIGHT]);
+  assert.deepEqual([surface.width, surface.height, ATLAS.cellHeight, ATLAS.cellWidth], [2048, 4096, ATLAS_CELL_HEIGHT, 8 * ATLAS_CELL_HEIGHT]);
   const fronts = [front('nails', 'nails', 40), front('cafe', 'american', 3, { grade: 'B' }), front('barber', 'barber', -20), front('pub', 'pub', 120), front('beyond', 'bodega', 400)];
   store.update(fronts, { x: 0.4, z: 0 }, 13);
   assert.deepEqual(store.counts, { fronts: 4, lettered: 4 }, 'a front beyond the map is left out');
@@ -102,11 +102,11 @@ test('the three textures follow the fronts, the player and the hour', () => {
 
 test('more fronts than there is lettering for: the nearest are lettered, the rest keep their colours', () => {
   const surface = canvas(), store = createStorefronts({ createCanvas: () => surface });
-  const fronts = Array.from({ length: 120 }, (_, i) => front(`shop ${i}`, 'bodega', i * 2 - 100));
+  const fronts = Array.from({ length: 200 }, (_, i) => front(`shop ${i}`, 'bodega', i * 2 - 200));
   store.update(fronts, { x: 0, z: 0 }, 12);
   const lettering = ATLAS.columns * ATLAS.rows - 1, table = store.textures.table.image.data;
-  assert.deepEqual(store.counts, { fronts: 120, lettered: lettering });
-  for (let n = 1; n <= 120; n++) { assert.ok(table[n * 16] + table[n * 16 + 1] + table[n * 16 + 2] > 0, 'every front has its colours'); assert.equal(table[n * 16 + 10] > 0, n <= lettering); }
+  assert.deepEqual(store.counts, { fronts: 200, lettered: lettering });
+  for (let n = 1; n <= 200; n++) { assert.ok(table[n * 16] + table[n * 16 + 1] + table[n * 16 + 2] > 0, 'every front has its colours'); assert.equal(table[n * 16 + 10] > 0, n <= lettering); }
   store.dispose();
 });
 

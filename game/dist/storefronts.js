@@ -22,7 +22,7 @@ export const MAP_SPAN = 512;
 /** Rows in the place table; row 0 means nobody. */
 export const TABLE_ROWS = 1024;
 /** The lettering atlas, in pixels, and one sign's share of it: eight times as wide as it is high, like a sign band. */
-export const ATLAS = { width: 2048, height: 2048, cellWidth: 8 * ATLAS_CELL_HEIGHT, cellHeight: ATLAS_CELL_HEIGHT, columns: 3, rows: 25 };
+export const ATLAS = { width: 2048, height: 4096, cellWidth: 8 * ATLAS_CELL_HEIGHT, cellHeight: ATLAS_CELL_HEIGHT, columns: 3, rows: 51 };
 // How far either side of the wall line a front reaches in the map, in metres.
 const FRONT_DEPTH = 1.6;
 // Kinds of place with something of their own on the front, as the shader numbers them.
