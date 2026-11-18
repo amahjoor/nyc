@@ -1019,7 +1019,9 @@ function clearDirections(){
   routeEpoch++;activeRoute=null;routeDestination=null;routeGuidance=null;gameMap?.setRoute(null);
 }
 async function requestDirections(pin){
-  const epoch=++routeEpoch;gameMap.setStatus('Finding a route along mapped streets…');
+  clearDirections();
+  if(!pin)return false;
+  const epoch=routeEpoch;gameMap.setStatus('Finding a route along mapped streets…');
   try{
     const planner=await plannerReady;
     if(epoch!==routeEpoch)return false;
@@ -1167,7 +1169,7 @@ async function boot() {
   }).catch(()=>{$('road-reconstruction-status').textContent='Road image review unavailable. Surveyed surfaces remain active.';});
   avatar=createPerson(0xd7774e,{courier:true});scene.add(avatar);marker=createMissionMarker();enterHint=createEnterHint();policeScene=createPoliceScene(scene,(x,z)=>groundHeight(x,z));
   hud=new HUD(city);applyQuality();
-  gameMap=new GameMap({city,searchLocal:findLocally,onPlacesWanted:loadPlaceNames,onPin:clearDirections,onRoute:requestDirections,
+  gameMap=new GameMap({city,searchLocal:findLocally,onPlacesWanted:loadPlaceNames,onPin:requestDirections,
     onSpawn:pin=>travel({...pin,exact:true}),
     onOpenChange:open=>{mapOpen=open;input.clear();input.lookDelta=0;input.lookVertical=0;if(!open)canvas.focus();}});
   hud.attachMap(gameMap);

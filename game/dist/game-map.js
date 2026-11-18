@@ -28,8 +28,8 @@ function shapeBounds(points) {
 
 /** Canvas map uses the game's local meters, never an independent map projection. */
 export class GameMap {
-  constructor({ document = globalThis.document, city, searchLocal = () => [], onPlacesWanted = () => {}, lookupAddress, onPin = () => {}, onRoute = () => {}, onSpawn = () => {}, onOpenChange = () => {} } = {}) {
-    this.document = document;this.city = city;this.onPin = onPin;this.onRoute = onRoute;this.onSpawn = onSpawn;this.onOpenChange = onOpenChange;
+  constructor({ document = globalThis.document, city, searchLocal = () => [], onPlacesWanted = () => {}, lookupAddress, onPin = () => {}, onSpawn = () => {}, onOpenChange = () => {} } = {}) {
+    this.document = document;this.city = city;this.onPin = onPin;this.onSpawn = onSpawn;this.onOpenChange = onOpenChange;
     this.element = document.getElementById('game-map');this.canvas = document.getElementById('game-map-canvas');
     this.mini = document.getElementById('minimap');this.open = false;this.pin = null;this.route = null;this.progress = null;this.busy = false;
     this.player = { x: city.spawn?.x || 0, z: city.spawn?.z || 0, angle: 0 };
@@ -55,9 +55,7 @@ export class GameMap {
     listen(byId('game-map-zoom-out'), 'click', () => this.zoom(1 / .65));
     listen(byId('game-map-recenter'), 'click', () => this.recenter());
     listen(byId('game-map-city'), 'click', () => this.showCity());
-    listen(byId('game-map-clear'), 'click', () => this.clearPin());
-    listen(byId('game-map-route'), 'click', () => this.invoke(this.onRoute));
-    listen(byId('game-map-spawn'), 'click', () => this.invoke(this.onSpawn));
+    listen(byId('game-map-spawn'), 'click', () => this.spawnAtPin());
     listen(this.canvas, 'wheel', event => {
       event.preventDefault();event.stopPropagation();
       this.zoom(Math.exp(clamp(event.deltaY * (event.deltaMode === 1 ? 16 : event.deltaMode === 2 ? this.view.height : 1), -500, 500) * .0015), this.pointerPoint(event));
@@ -78,11 +76,13 @@ export class GameMap {
         // dialog; the existing 3D map and pause dialogs remain separate flows.
         const elements = [byId('game-map-address'), byId('game-map-search-button'),
           ...Array.from(byId('game-map-search-results').children || []),
-          ...['game-map-close','game-map-canvas','game-map-zoom-in','game-map-zoom-out','game-map-recenter','game-map-city','game-map-route','game-map-spawn','game-map-clear'].map(byId)
+          ...['game-map-close','game-map-canvas','game-map-zoom-in','game-map-zoom-out','game-map-recenter','game-map-city','game-map-spawn'].map(byId)
         ].filter(element => !element.disabled);
         const i = elements.indexOf(document.activeElement);
         const next = i < 0 ? (event.shiftKey ? elements.length - 1 : 0) : (i + (event.shiftKey ? -1 : 1) + elements.length) % elements.length;
         event.preventDefault();elements[next]?.focus();
+      } else if (document.activeElement === this.canvas && key === 'Delete' && this.pin && !this.busy) {
+        event.preventDefault();this.clearPin();
       } else if (document.activeElement === this.canvas && ['ArrowLeft','ArrowRight','ArrowUp','ArrowDown','+','=','-'].includes(key)) {
         event.preventDefault();event.stopPropagation();
         if (key === '+' || key === '=') this.zoom(.8);
@@ -114,7 +114,9 @@ export class GameMap {
     const point = this.pointerPoint(event), dx = point.x - this.drag.start.x, dy = point.y - this.drag.start.y;
     if (Math.hypot(dx, dy) > 4) this.drag.moved = true;
     if (!this.drag.moved) return;
-    if (this.drag.pin) this.setPin(mapScreenToWorld(point, this.view));
+    if (this.drag.pin) {
+      this.drag.preview = mapScreenToWorld(point, this.view);this.draw();
+    }
     else {
       this.following = false;this.view.x = this.drag.center.x - dx * this.view.span / this.view.width;
       this.view.z = this.drag.center.z - dy * this.view.span / this.view.width;this.clampCenter();this.draw();
@@ -124,12 +126,18 @@ export class GameMap {
     if (!this.drag || event.pointerId !== this.drag.pointerId) return;
     const drag = this.drag;this.drag = null;
     this.canvas.releasePointerCapture?.(event.pointerId);
-    if (drag.moved || drag.pin) return;
+    if (drag.pin) {
+      const point = this.pointerPoint(event);
+      if (!drag.moved && Math.hypot(point.x - drag.start.x, point.y - drag.start.y) <= 4) this.clearPin();
+      else if (!this.setPin(mapScreenToWorld(point, this.view))) this.draw();
+      return;
+    }
+    if (drag.moved) return;
     // A click on a place that is shown pins the place itself, by name.
     const point = mapScreenToWorld(this.pointerPoint(event), this.view), place = this.placeLayer && this.placeKinds.size && this.view.span <= 1400 ? this.placeLayer.nearest(point, 12 * this.view.span / this.view.width, this.placeKinds) : null;
     this.setPin(place ? { x: place.x, z: place.z, name: `${place.name} · ${place.kind}` } : point);
   }
-  cancelPointer(event) { if (this.drag?.pointerId === event.pointerId) this.drag = null; }
+  cancelPointer(event) { if (this.drag?.pointerId === event.pointerId) { this.drag = null;this.draw(); } }
   clampCenter() {
     const bounds = this.city.bounds;this.view.x = clamp(this.view.x, bounds.minX, bounds.maxX);this.view.z = clamp(this.view.z, bounds.minZ, bounds.maxZ);this.dirty = true;
   }
@@ -373,7 +381,7 @@ export class GameMap {
     this.pin = { x: point.x, z: point.z, name: point.name || 'Map pin' };this.route = null;this.progress = null;
     this.setStatus(point.name || '');this.updateControls();this.onPin({ ...this.pin });this.dirty = true;this.draw();return true;
   }
-  clearPin() { this.clearAddressResults();this.byId('game-map-address').value = '';this.pin = null;this.route = null;this.progress = null;this.onPin(null);this.setStatus('');this.updateControls();this.dirty = true;this.draw();this.canvas.focus(); }
+  clearPin() { this.drag = null;this.clearAddressResults();this.byId('game-map-address').value = '';this.pin = null;this.route = null;this.progress = null;this.onPin(null);this.setStatus('');this.updateControls();this.dirty = true;this.draw();this.canvas.focus(); }
   setRoute(route) { this.route = route?.ok === false ? null : route;this.progress = null;this.dirty = true;this.updateDirections();this.draw(); }
   setRouteProgress(progress) { this.progress = progress;this.updateDirections(); }
   setGuidance(progress) { this.setRouteProgress(progress); }
@@ -383,26 +391,26 @@ export class GameMap {
     const instruction = progress?.nextInstruction?.text || route?.instructions?.[0]?.text || 'Follow the highlighted streets';
     const turn = Number.isFinite(progress?.distanceToInstruction) && progress.distanceToInstruction > 6 ? `In ${distanceText(progress.distanceToInstruction)}: ${instruction}` : instruction;
     let text = route ? progress?.arrived ? 'You have arrived.' : `${turn} · ${distanceText(progress?.remainingDistance ?? route.distance ?? 0)} remaining` : '';
-    if (route && progress?.offRoute) text = 'Off route. Open the map to update directions.';
-    const mapText = route && progress?.offRoute ? 'Off route. Route here to update directions.' : text, instructionElement = this.byId('route-instruction');
+    if (route && progress?.offRoute) text = 'Off route.';
+    const instructionElement = this.byId('route-instruction');
     guide.hidden = !text;
     // Progress updates run with the HUD. Avoid repeatedly announcing identical
     // text through the map's aria-live region while the game is stationary.
     if (instructionElement.textContent !== text) instructionElement.textContent = text;
-    if (summary.textContent !== mapText) summary.textContent = mapText;
+    if (summary.textContent !== text) summary.textContent = text;
   }
   setStatus(text) { this.byId('game-map-status').textContent = text; }
   setBusy(busy) { this.busy = Boolean(busy);if (this.busy) this.drag = null;this.updateControls(); }
   updateControls() {
     this.byId('game-map-pin-actions').hidden = !this.pin;
-    for (const id of ['game-map-route','game-map-spawn','game-map-clear']) this.byId(id).disabled = this.busy || !this.pin;
+    this.byId('game-map-spawn').disabled = this.busy || !this.pin;
     this.byId('game-map-search-button').disabled = this.busy;
     this.updateDirections();
   }
-  async invoke(handler) {
+  async spawnAtPin() {
     if (!this.pin || this.busy) return;
     this.setBusy(true);
-    try { const result = await handler({ ...this.pin });if (handler === this.onSpawn && result === true) this.setOpen(false); } catch (error) { this.setStatus(error?.message || 'That destination is unavailable.'); }
+    try { const result = await this.onSpawn({ ...this.pin });if (result === true) this.setOpen(false); } catch (error) { this.setStatus(error?.message || 'That destination is unavailable.'); }
     finally { if (!this.disposed) this.setBusy(false); }
   }
   update(sim) { this.sim = sim;this.setPlayer(sim.player);this.drawMini();if (this.open) { this.dimensions();if (this.dirty) this.draw(); } }
@@ -456,7 +464,7 @@ export class GameMap {
     } else if (!mini) { const note = this.byId('game-map-places-note');if (note) note.textContent = this.placeKinds.size ? 'LOADING PLACES…' : ''; }
     const route = pointsOf(this.route);
     if (route.length > 1) { context.strokeStyle = '#131c24';context.lineWidth = mini ? 9 : 8;context.beginPath();chain(route);context.stroke();context.strokeStyle = '#ba8cff';context.lineWidth = mini ? 5 : 4;context.stroke(); }
-    const pin = this.pin || (this.sim?.mission?.phase === 'active' ? this.sim.mission.target : null);
+    const pin = this.drag?.preview || this.pin || (this.sim?.mission?.phase === 'active' ? this.sim.mission.target : null);
     if (pin) { const p = mapWorldToScreen(pin, view), x = mini ? clamp(p.x, 12, view.width - 12) : p.x, y = mini ? clamp(p.y, 12, view.height - 12) : p.y;context.fillStyle = '#ff9369';context.strokeStyle = '#1b2529';context.lineWidth = 3;context.beginPath();context.arc(x, y, mini ? 7 : 9, 0, Math.PI * 2);context.fill();context.stroke(); }
     // Civilian traffic stays off the map. Police show once you are wanted, held
     // to the edge of the minimap the way a radar keeps a chase in view, and a

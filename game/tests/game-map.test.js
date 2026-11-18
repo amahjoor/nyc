@@ -88,7 +88,7 @@ test('address search centers a named destination and ignores results after the m
   assert.deepEqual(map.getState().pin, { x: 100, z: 200, name: '350 5th Avenue · Manhattan' });
   assert.equal(map.getState().view.x, 100);
   assert.equal(map.getState().view.z, 200);
-  assert.equal(byId('game-map-route').disabled, false);
+  assert.equal(byId('game-map-spawn').disabled, false);
   assert.equal(results.children.length, 0);
 
   const pending = map.searchAddress();
@@ -115,31 +115,38 @@ test('click places a pin, dragging the pin moves it, and dragging background onl
   const pins = [], { map, pointer, byId } = fixture(t, { onPin: pin => pins.push(pin) });map.setOpen(true);
   pointer('pointerdown', 450, 300);pointer('pointerup', 450, 300);
   assert.deepEqual(map.getState().pin, { x: 0, z: 0, name: 'Map pin' });assert.equal(byId('game-map-spawn').disabled, false);
-  pointer('pointerdown', 450, 300);pointer('pointermove', 540, 300);pointer('pointerup', 540, 300);
+  pointer('pointerdown', 450, 300);pointer('pointermove', 540, 300);assert.equal(pins.length, 1);pointer('pointerup', 540, 300);
+  assert.equal(pins.length, 2);
   assert.equal(map.getState().pin.x, 100);assert.equal(map.getState().view.x, 0);
   const pinCount = pins.length;
   pointer('pointerdown', 200, 100);pointer('pointermove', 290, 160);pointer('pointerup', 290, 160);
   assert.equal(pins.length, pinCount);assert.equal(map.getState().view.x, -100);assert.ok(map.getState().view.z < 0);
-  map.clearPin();assert.equal(pins.at(-1), null);assert.equal(byId('game-map-route').disabled, true);
+  const placed = mapWorldToScreen(map.pin, map.view);
+  pointer('pointerdown', placed.x, placed.y);pointer('pointerup', placed.x, placed.y);
+  assert.equal(map.pin, null);assert.equal(pins.at(-1), null);assert.equal(byId('game-map-spawn').disabled, true);
 });
 
 test('canceled touches, secondary pointers and off-city clicks cannot create accidental destinations', t => {
-  const { map, pointer } = fixture(t);map.setOpen(true);
+  const { map, pointer, document } = fixture(t);map.setOpen(true);
   pointer('pointerdown', 300, 250);pointer('pointerup', 600, 350, { pointerId: 2 });assert.equal(map.pin, null);
   pointer('pointercancel', 300, 250);pointer('pointerup', 300, 250);assert.equal(map.pin, null);
   map.setPin({ x: 900000, z: 0 });assert.equal(map.pin, null);
   map.setPin({ x: NaN, z: 0 });assert.equal(map.pin, null);
+  pointer('pointerdown', 450, 300);pointer('pointerup', 450, 300);
+  pointer('pointerdown', 450, 300);pointer('pointermove', 560, 350);pointer('pointercancel', 560, 350);
+  assert.deepEqual(map.pin, { x: 0, z: 0, name: 'Map pin' });
+  document.fire('keydown', { key: 'Delete' });assert.equal(map.pin, null);
 });
 
-test('route and spawn use the selected coordinates, disable edits while pending, and close only after successful spawn', async t => {
-  let release, result = false;const calls = [];
-  const { map, byId, pointer } = fixture(t, { onRoute: pin => { calls.push(pin);return new Promise(resolve => { release = resolve; }); }, onSpawn: async pin => { calls.push(pin);return result; } });
+test('spawning uses the pin, locks edits while pending, and closes only on success', async t => {
+  let release;const calls = [];
+  const { map, byId, pointer } = fixture(t, { onSpawn: pin => { calls.push(pin);return new Promise(resolve => { release = resolve; }); } });
   map.setOpen(true);map.setPin({ x: 100, z: 200 });
-  const pending = byId('game-map-route').fire('click')[0];assert.equal(map.busy, true);assert.equal(byId('game-map-spawn').disabled, true);
+  const pending = byId('game-map-spawn').fire('click')[0];assert.equal(map.busy, true);assert.equal(byId('game-map-spawn').disabled, true);
   pointer('pointerdown', 100, 100);pointer('pointerup', 100, 100);assert.equal(map.pin.x, 100);
-  release();await pending;assert.deepEqual(calls[0], { x: 100, z: 200, name: 'Map pin' });assert.equal(map.busy, false);
-  await byId('game-map-spawn').fire('click')[0];assert.equal(map.open, true);
-  result = true;await byId('game-map-spawn').fire('click')[0];assert.equal(map.open, false);
+  release(false);await pending;assert.deepEqual(calls[0], { x: 100, z: 200, name: 'Map pin' });assert.equal(map.busy, false);
+  assert.equal(map.open, true);
+  const [retry] = byId('game-map-spawn').fire('click');release(true);await retry;assert.equal(map.open, false);
 });
 
 test('the actual route polyline renders on the compact map and directions clear with the pin', t => {

@@ -1518,7 +1518,7 @@ test('uneven-road camera uses one elevation anchor without pitching at every bum
   }finally{app.close();}
 });
 
-function dropGameMapPin(app,point){
+function clickGameMapPoint(app,point){
   const view=app.state().map.view,canvas=app.elements.get('game-map-canvas');
   const clientX=(point.x-view.x)*view.width/view.span+view.width/2;
   const clientY=(point.z-view.z)*view.width/view.span+view.height/2;
@@ -1540,7 +1540,8 @@ test('interactive map opens from city view, zooms, pans, and pauses driving with
     results.children[0].click();
     assert.ok(app.state().map.pin,'an offline intersection result places a destination pin');
     assert.equal(app.state().map.view.x,app.state().map.pin.x);
-    app.click('game-map-clear');
+    await app.until(()=>app.state().map.route);
+    clickGameMapPoint(app,app.state().map.pin);
     app.click('game-map-city');assert.ok(app.state().map.view.span>40000);
     app.click('game-map-zoom-in');const zoom=app.state().map.view.span;
     assert.ok(zoom<70000);app.click('game-map-recenter');assert.equal(app.state().map.view.span,1000);
@@ -1566,8 +1567,8 @@ test('map pins produce real street routes, live guidance, reroutes and can be cl
   try{
     app.click('start-button');app.frames(2);app.click('open-map-button');
     const destination=app.roadIndex().places.find(place=>/times/i.test(place.name));assert.ok(destination);
-    app.click('game-map-city');dropGameMapPin(app,destination);app.click('game-map-route');
-    await app.until(()=>!app.state().map.busy);
+    app.click('game-map-city');clickGameMapPoint(app,destination);
+    await app.until(()=>app.state().map.route);
     assert.ok(app.state().map.route?.points.length>20,app.elements.get('game-map-status').textContent);
     assert.ok(app.state().map.route.distance>3000);
     assert.equal(app.elements.get('route-guide').hidden,false);assert.match(app.elements.get('route-instruction').textContent,/remaining/);
@@ -1578,7 +1579,7 @@ test('map pins produce real street routes, live guidance, reroutes and can be cl
       .find(([x,z])=>Math.hypot(x-original[0],z-original[1])>500&&x<original[0]-150);
     assert.ok(candidate);Object.assign(sim.player,{x:candidate[0],z:candidate[1]});app.frames(180);
     const rerouted=app.state().map.route.points[0];assert.ok(Math.hypot(rerouted[0]-original[0],rerouted[1]-original[1])>200);
-    app.click('open-map-button');app.click('game-map-clear');
+    app.click('open-map-button');app.click('game-map-city');clickGameMapPoint(app,app.state().map.pin);
     assert.equal(app.state().map.route,null);assert.equal(app.state().map.pin,null);assert.equal(app.elements.get('route-guide').hidden,true);
     assert.equal(app.errors.length,0,app.errors[0]?.stack);
   }finally{app.close();}
@@ -1593,7 +1594,7 @@ test('Spawn here waits for destination data, preserves the exact pin and closes 
     // its source extract offline; gameplay must still fetch those cells itself.
     const stream=createRoadStream(app.roadIndex());const roads=await stream.loadAround(destination,1000);
     const target=nearestStreet(roads,destination,600);assert.ok(target);
-    app.click('game-map-city');dropGameMapPin(app,target);
+    app.click('game-map-city');clickGameMapPoint(app,target);
     const selected=app.state().map.pin,before=app.state().player;hold=true;app.click('game-map-spawn');
     await app.until(()=>app.waitingRoads()>0);
     assert.equal(app.state().traveling,true);assert.deepEqual(app.state().player,before);assert.equal(app.state().map.open,true);
@@ -1609,13 +1610,13 @@ test('unavailable routes and invalid water pins show useful errors without losin
   try{
     app.click('start-button');app.frames(8);app.click('open-map-button');
     assert.ok(app.gameMap().roads.length>10,'loaded nearby streets survive a citywide navigation download failure');
-    dropGameMapPin(app,{x:app.state().player.x+30,z:app.state().player.z});app.click('game-map-route');
-    await app.until(()=>!app.state().map.busy);assert.match(app.elements.get('game-map-status').textContent,/directions could not load/);
-    const before=app.state().player;app.click('game-map-city');dropGameMapPin(app,{x:-1500,z:-3500});app.click('game-map-spawn');
+    clickGameMapPoint(app,{x:app.state().player.x+30,z:app.state().player.z});
+    await app.until(()=>/directions could not load/.test(app.elements.get('game-map-status').textContent));
+    const before=app.state().player;app.click('game-map-city');clickGameMapPoint(app,{x:-1500,z:-3500});app.click('game-map-spawn');
     await app.until(()=>!app.state().map.busy);
     assert.deepEqual(app.state().player,before);assert.equal(app.state().map.open,true);
     assert.match(app.elements.get('game-map-status').textContent,/shoreline|water/);
-    assert.equal(app.elements.get('game-map-clear').disabled,false);
+    assert.equal(app.elements.get('game-map-spawn').disabled,false);
     assert.equal(app.errors.length,0,app.errors[0]?.stack);
   }finally{app.close();}
 });
@@ -1626,13 +1627,13 @@ test('pin spawning requires citywide water data even when measured ground has lo
   try{
     app.click('start-button');app.frames(2);app.click('open-map-button');
     assert.equal(app.state().landscape.baseReady,true);
-    const before=app.state().player;app.click('game-map-city');dropGameMapPin(app,{x:8554.682909090909,z:-19372.682});
+    const before=app.state().player;app.click('game-map-city');clickGameMapPoint(app,{x:8554.682909090909,z:-19372.682});
     app.click('game-map-spawn');await app.until(()=>!app.state().map.busy);
     assert.equal(app.state().map.open,true);assert.deepEqual(app.state().player,before);
     assert.match(app.elements.get('game-map-status').textContent,/water.*unavailable|water.*load/i);
     // A second attempt can recover without restarting the game or rebuilding
     // terrain. An unavailable safety layer must not become a permanent lockout.
-    app.setBaseWaterFailure(false);app.click('game-map-clear');app.click('game-map-recenter');dropGameMapPin(app,before);
+    app.setBaseWaterFailure(false);clickGameMapPoint(app,app.state().map.pin);app.click('game-map-recenter');clickGameMapPoint(app,before);
     const selected=app.state().map.pin;
     app.click('game-map-spawn');await app.until(()=>!app.state().map.busy);
     assert.equal(app.state().landscape.baseWaterReady,true);
