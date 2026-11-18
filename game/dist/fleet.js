@@ -1,15 +1,11 @@
 // Which cars are on the block.
 //
-// The state publishes every vehicle registration with its body type, its
-// colour and the ZIP code it is registered in. scripts/build-fleet.mjs
-// counts the passenger cars of the five boroughs by ZIP code; this module
-// turns the counts for wherever the player is into the mix of bodies and
-// paint that the cars parked and driving there are drawn from. SoHo's
-// registrations are seven in ten SUVs and wagons; Staten Island has more
-// pickups.
+// Passenger registrations supply joint make, model, year and body counts
+// for each ZIP. The earlier fleet bundle supplies centroids and paint.
 
 /** The bodies the game draws (vehicle-model.js), in the order the bundle stores their shares. */
 export const BODIES = ['sedan', 'suv', 'hatch', 'wagon', 'minivan', 'coupe', 'pickup', 'van'];
+export const WHEEL = { radius: .35, x: .9, front: 1.3, rear: -1.37 };
 
 /**
  * How the registration body types fall into those bodies. "Suburban" is the
@@ -76,19 +72,27 @@ function registrationPicker(pairs, catalog) {
 }
 const suburbanBodies = Object.keys(BODY_OF.SUBN), suburbanTotals = cumulative(Object.values(BODY_OF.SUBN));
 
-function registrationCatalog(data, assets) {
-  if (data?.version !== 1 || !data.city?.length || !Array.isArray(data.variants)) return null;
+/**
+ * Attach an exterior to each registration variant in catalog order: an imported
+ * one where its years and body match, otherwise the one `design` draws for that
+ * make, model, year and body (vehicle-designs.js), if a designer is given.
+ */
+export function catalogVehicles(data, assets = [], design = null) {
   const byModel = new Map();
   for (const asset of assets || []) {
     const key = asset.make + '/' + asset.model;
     if (!byModel.has(key)) byModel.set(key, []);
     byModel.get(key).push(asset);
   }
-  const variants = data.variants.map(([make, model, year, shape]) => {
+  return data.variants.map(([make, model, year, shape]) => {
     const asset = byModel.get(make + '/' + model)?.find(a => a.shape === shape && year >= a.years[0] && year <= a.years[1]);
-    return { make, model, year, shape, asset: asset || null };
+    return { make, model, year, shape, asset: asset || design?.(make, model, year, shape) || null };
   });
-  const catalog = { variants, fallbacks: data.fallbacks };
+}
+
+function registrationCatalog(data, assets, design) {
+  if (data?.version !== 1 || !data.city?.length || !Array.isArray(data.variants)) return null;
+  const catalog = { variants: catalogVehicles(data, assets, design), fallbacks: data.fallbacks };
   const city = registrationPicker(data.city, catalog);
   return zip => {
     const pairs = data.zips?.[zip];
@@ -103,8 +107,8 @@ function registrationCatalog(data, assets) {
  * The fleet for the whole city. `data` is fleet.json; without it every
  * place has the same plain mix.
  */
-export function createFleet(data = null, registrations = null, assets = []) {
-  const catalog = registrationCatalog(registrations, assets);
+export function createFleet(data = null, registrations = null, assets = [], design = null) {
+  const catalog = registrationCatalog(registrations, assets, design);
   const bodies = data?.bodies || BODIES, paints = data?.paints || PAINTS.map(([, hex]) => hex);
   const normal = shares => { const total = shares.reduce((sum, share) => sum + share, 0) || 1; return shares.map(share => share / total); };
   const cityBodies = normal(data?.city?.bodies || [26, 39, 12, 7, 10, 3, 2, 1]), cityPaints = normal(data?.city?.paints || [26, 22, 20, 14, 8, 5, 2, 1, 1, 1, 0, 0, 0, 0]);
