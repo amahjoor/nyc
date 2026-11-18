@@ -362,14 +362,15 @@ export function planRoom(front, inside = () => true) {
   depth = Math.min(12, depth - .4);
   const width = Math.max(5, Math.min(9, front.width)), half = width / 2, seed = hashOf(`${placeName(place)}|${place.x}|${place.z}`), style = roomStyle(place);
   const r = { width, half, depth, seed, place, things: [], people: [], seats: [], wall: '#d8d2c4', floor: '#8a8378', light: { color: 0xfff1dc, power: 60 } };
-  r.add = (a, b, w, d, h, color, y = 0, solid = true) => { r.things.push({ a, b, w, d, h, y, color, solid }); };
+  // `shape` says how a thing is drawn where it is more than a box: 'table', 'chair', 'bench', 'stool'; `face` is the way a seat faces.
+  r.add = (a, b, w, d, h, color, y = 0, solid = true, shape = null, face = null) => { const thing = { a, b, w, d, h, y, color, solid }; if (shape) thing.shape = shape; if (face) thing.face = face; r.things.push(thing); };
   r.staff = (a, b, da, db) => { r.people.push({ a, b, da, db, facing: db < 0 ? 0 : db > 0 ? 2 : da > 0 ? 3 : 1 }); };
   /** Something to sit on, w by d and `top` high, with someone perhaps on it facing (da, db). */
-  r.seat = (a, b, da, db, lift = 0, color = DARK, w = .4, d = .4, top = .45) => { r.add(a, b, w, d, top, color); r.seats.push({ a, b, da, db, lift }); };
+  r.seat = (a, b, da, db, lift = 0, color = DARK, w = .4, d = .4, top = .45) => { r.add(a, b, w, d, top, color, 0, true, top >= .7 ? 'stool' : w > .62 || d > .62 ? 'bench' : 'chair', [da, db]); r.seats.push({ a, b, da, db, lift }); };
   /** A table for two: its chairs to either side along the wall, facing each other. */
-  r.table = (a, b, top = WOOD, chair = DARK) => { r.add(a, b, .8, .8, .74, top); r.seat(a - .65, b, 1, 0, 0, chair); r.seat(a + .65, b, -1, 0, 0, chair); };
+  r.table = (a, b, top = WOOD, chair = DARK) => { r.add(a, b, .8, .8, .74, top, 0, true, 'table'); r.seat(a - .65, b, 1, 0, 0, chair); r.seat(a + .65, b, -1, 0, 0, chair); };
   /** A booth against a side wall at a: two benches with a table between them, facing each other along the wall. */
-  r.booth = (a, b, color) => { r.add(a, b, 1.2, .7, .74, '#d9d2c0'); for (const way of [-1, 1]) { r.seat(a, b + way * .75, 0, -way, 0, color, 1.2, .5); r.add(a, b + way * 1.02, 1.2, .1, .6, color, .45, false); } };
+  r.booth = (a, b, color) => { r.add(a, b, 1.2, .7, .74, '#d9d2c0', 0, true, 'table'); for (const way of [-1, 1]) r.seat(a, b + way * .75, 0, -way, 0, color, 1.2, .5); };
   /** Something flat on a wall: side -1 or 1 for a side wall (from b = `from`, `along` wide), 0 for the back wall (centred at a = `from`); `inset` brings it out in front of what stands there. */
   r.panel = (side, from, along, high, up, color, inset = 0) => { if (side) r.add(side * (half - .03 - inset), from + along / 2, .04, along, high, color, up, false); else r.add(from, depth - .03 - inset, along, .04, high, color, up, false); };
   /** Shelving down a side wall from b = from to b = to, its goods in bands of colour. */
@@ -418,7 +419,42 @@ export function buildRoom(room, y = 0) {
   box(0, room.depth / 2, room.width - .02, room.depth - .02, .03, 0, room.floor); box(0, room.depth / 2, room.width - .02, room.depth - .02, .03, CEILING - .04, '#f2efe6');
   box(0, .03, DOOR, .04, 2.15, 0, '#cfe3ee'); box(-room.width / 4 - .4, .03, room.width / 2 - 1.6, .04, 1.5, .8, '#bcd6e4'); box(room.width / 4 + .4, .03, room.width / 2 - 1.6, .04, 1.5, .8, '#bcd6e4');
   for (let b = 1.5; b < room.depth; b += 3) box(0, b, room.width * .5, .5, .05, CEILING - .1, '#fffbe8');
-  for (const thing of room.things) box(thing.a, thing.b, thing.w, thing.d, thing.h, thing.y, thing.color);
+  // A cylinder standing on end, shaded like the boxes.
+  const post = (a, b, radius, h, y0, hex, sides = 10) => {
+    const geometry = new THREE.CylinderGeometry(radius, radius, h, sides).toNonIndexed(), p = geometry.attributes.position, n = geometry.attributes.normal;
+    tone.set(hex);
+    for (let i = 0; i < p.count; i++) {
+      const [x, z] = roomPoint(room, a + p.getX(i), b + p.getZ(i)), ny = n.getY(i), shade = ny > .5 ? 1.08 : ny < -.5 ? .7 : .84 + .14 * Math.abs(n.getX(i));
+      position.push(x, y + y0 + h / 2 + p.getY(i), z); color.push(tone.r * shade, tone.g * shade, tone.b * shade);
+    }
+    geometry.dispose();
+  };
+  const LEG = '#2a2c30';
+  for (const thing of room.things) {
+    const { a, b, w, d, h, y: up, color: hex, shape, face } = thing;
+    if (shape === 'table') {
+      // A top on a pedestal, or on four legs if it is long.
+      box(a, b, w, d, .05, up + h - .05, hex);
+      if (Math.max(w, d) > 1.3) for (const sa of [-1, 1]) for (const sb of [-1, 1]) box(a + sa * (w / 2 - .08), b + sb * (d / 2 - .08), .06, .06, h - .05, up, LEG);
+      else { post(a, b, .05, h - .07, up + .02, LEG); post(a, b, Math.min(w, d) * .32, .02, up, LEG); }
+    } else if (shape === 'chair') {
+      // Seat, four legs, and a back on the side away from the way it faces.
+      box(a, b, w, d, .05, up + h - .05, hex);
+      for (const sa of [-1, 1]) for (const sb of [-1, 1]) box(a + sa * (w / 2 - .03), b + sb * (d / 2 - .03), .035, .035, h - .05, up, LEG);
+      if (face) box(a - face[0] * (w / 2 - .02), b - face[1] * (d / 2 - .02), face[0] ? .04 : w, face[1] ? .04 : d, .42, up + h, hex);
+    } else if (shape === 'stool') {
+      // A round seat on a post with a foot ring.
+      const radius = Math.min(w, d) / 2;
+      post(a, b, radius, .07, up + h - .07, hex, 14); post(a, b, .03, h - .08, up + .01, '#8d9498'); post(a, b, radius * .8, .02, up, '#8d9498', 14); post(a, b, radius * .7, .02, up + h * .38, '#8d9498', 14);
+    } else if (shape === 'bench') {
+      // An upholstered seat on a plinth, with a back on the side away from the way it faces.
+      box(a, b, w - .04, d - .04, h - .14, up, LEG); box(a, b, w, d, .14, up + h - .14, hex);
+      if (face) box(a - face[0] * (w / 2 - .05), b - face[1] * (d / 2 - .05), face[0] ? .1 : w, face[1] ? .1 : d, .5, up + h, hex);
+    } else if (thing.solid && h >= .84 && h <= 1.2 && up === 0 && Math.max(w, d) >= 1.2) {
+      // A counter: a recessed kick at the floor and a top that overhangs a little.
+      box(a, b, w - .06, d - .06, .1, 0, '#1b1d20'); box(a, b, w, d, h - .14, .1, hex); box(a, b, w + .06, d + .06, .04, h - .04, '#d9d4c8');
+    } else box(a, b, w, d, h, up, hex);
+  }
   const geometry = new THREE.BufferGeometry();
   geometry.setAttribute('position', new THREE.Float32BufferAttribute(position, 3)); geometry.setAttribute('color', new THREE.Float32BufferAttribute(color, 3));
   const material = new THREE.MeshBasicMaterial({ vertexColors: true, fog: false }); material.name = 'Room';
