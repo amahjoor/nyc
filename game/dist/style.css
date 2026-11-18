@@ -145,3 +145,28 @@
 .game-map-chip::before{content:"";position:absolute;left:8px;top:50%;width:8px;height:8px;margin-top:-4px;border-radius:50%;background:var(--chip,#fff);opacity:.45}
 .game-map-chip[aria-pressed="true"]{border-color:var(--chip,#fff);background:#0f171c;color:#fff}.game-map-chip[aria-pressed="true"]::before{opacity:1}
 .game-map-places-note{position:absolute;left:64px;top:9px;background:#17252fdb;padding:6px 8px;font-size:9px;color:#d2d9d2;pointer-events:none;max-width:70%}.game-map-places-note:empty{display:none}
+
+/* Type. Two faces, both under the SIL Open Font License (see assets/fonts):
+   a heavy display face for titles, money and the speedometer, and a condensed
+   one for everything else. The interface was sized for Arial, which is wider
+   and taller in the x than a condensed face, so size-adjust scales the glyphs
+   and every existing font-size keeps meaning what it meant. */
+@font-face{font-family:"Passion One";src:url(assets/fonts/passion-one-black.woff2) format("woff2");font-weight:100 900;font-display:swap}
+@font-face{font-family:"Barlow Condensed";src:url(assets/fonts/barlow-condensed-500.woff2) format("woff2");font-weight:100 500;font-display:swap;size-adjust:124%}
+@font-face{font-family:"Barlow Condensed";src:url(assets/fonts/barlow-condensed-600.woff2) format("woff2");font-weight:600;font-display:swap;size-adjust:124%}
+@font-face{font-family:"Barlow Condensed";src:url(assets/fonts/barlow-condensed-700.woff2) format("woff2");font-weight:700 900;font-display:swap;size-adjust:124%}
+:root{--display:"Passion One",Impact,"Arial Black",sans-serif;--ui:"Barlow Condensed","Arial Narrow",Arial,Helvetica,sans-serif;font-family:var(--ui);font-weight:500}
+input,select,textarea,kbd{font-family:var(--ui)}
+h1,h2,.wordmark,.cash strong,.speed>strong,.phone-wallet b,.phone-place b,.road-pilot-destination strong{font-family:var(--display);font-weight:400;font-synthesis:none}
+h1{letter-spacing:.005em;line-height:.88}
+h1 span{-webkit-text-stroke-width:1.5px}
+h2{text-transform:uppercase}
+.modal h2,.city-navigation h2{letter-spacing:0;line-height:1}
+.mission-panel h2{letter-spacing:.2px;font-size:28px;line-height:1.05}
+.wordmark{letter-spacing:.3px;font-size:19px}
+.wordmark .edition{font-family:var(--ui);font-weight:600}
+.brand-icon{letter-spacing:-9px}
+.cash strong{letter-spacing:.3px;font-size:24px;color:#8fd684}
+.speed>strong{letter-spacing:-1px}
+.phone-wallet b{letter-spacing:0}
+@media(max-width:600px){.wordmark{font-size:15px}.brand-icon{letter-spacing:-7px}.mission-panel h2{font-size:23px}.cash strong{font-size:19px}}

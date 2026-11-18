@@ -120,7 +120,7 @@ export function drawPlaceMarks(context, { mode, marks }) {
     context.globalAlpha = mode === 'gathered' ? .55 : .95; context.fillStyle = mark.colour;
     context.beginPath(); context.arc(mark.px, mark.py, mark.radius, 0, Math.PI * 2); context.fill();
   }
-  context.globalAlpha = 1; context.font = '600 10px Arial, sans-serif'; context.textBaseline = 'middle'; context.textAlign = 'left';
+  context.globalAlpha = 1; context.font = '600 10px "Barlow Condensed", Arial, sans-serif'; context.textBaseline = 'middle'; context.textAlign = 'left';
   // Names are written where there is room: one that would run over another already written is left out.
   const written = [];
   for (const mark of marks) {
