@@ -1,4 +1,5 @@
 import { updateChaseHeight } from '../dist/vehicle-presentation.js';
+import { createDriverCabin } from '../dist/driver-cabin.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
@@ -7,6 +8,8 @@ import vm from 'node:vm';
 import * as THREE from '../dist/vendor/three.module.min.js';
 import { createCar, createParkedCars, createDistantTraffic, createPerson, updateCarVisuals, setVehicleLamps } from '../dist/world.js';
 import { Simulation, TRAFFIC_SIGHT } from '../dist/simulation.js';
+import { OFFICER_LOOK } from '../dist/police.js';
+import { createPoliceScene } from '../dist/police-scene.js';
 import { resetVehicleDynamics } from '../dist/vehicle-dynamics.js';
 import { Input } from '../dist/input.js';
 import { HUD } from '../dist/hud.js';
@@ -33,6 +36,8 @@ import { createPlaceSource, placeName, joinPlaceSources, indexFootprints, solveF
 import { createStorefronts } from '../dist/storefronts.js';
 import { createPhone, describePlace } from '../dist/phone.js';
 import { createFleet } from '../dist/fleet.js';
+import { createVehicleMeshLibrary } from '../dist/vehicle-assets.js';
+import { designFor } from '../dist/vehicle-designs.js';
 import { offersAt } from '../dist/garage.js';
 import { planRoom, buildRoom, roomKind } from '../dist/interiors.js';
 import { createDemographics } from '../dist/demographics.js';
@@ -106,7 +111,7 @@ class Element extends EventTarget {
     this.width = Number(attributes.match(/width="(\d+)"/)?.[1] || 300);
     this.height = Number(attributes.match(/height="(\d+)"/)?.[1] || 150);
     this.open = false;
-    this.value = attributes.match(/value="([^"]*)"/)?.[1] || '0';
+    this.value = attributes.match(/value="([^"]*)"/)?.[1] ?? '';
     this.classes = new Set();
     this.classList = {
       add: name => this.classes.add(name),
@@ -135,8 +140,8 @@ class Element extends EventTarget {
   showModal() { this.open = true; }
   close() { this.open = false; this.dispatch('close'); }
   querySelector(selector) {
-    assert.equal(selector, 'span', 'the DOM stub should not silently accept an unimplemented selector');
-    return this.span ||= new Element('span');
+    assert.ok(selector === 'span' || selector === 'kbd', 'the DOM stub should not silently accept an unimplemented selector');
+    return this[selector] ||= new Element(selector);
   }
 }
 
@@ -215,7 +220,8 @@ async function bootHarness({ stored = null, displayStored = null, unavailableSto
     set src(url) {
       this.url=url;
       if(!url)return;
-      // The bundled land silhouette loads from the game's own assets.
+      // Local land and airfield masks load separately from streamed imagery.
+      if(url===new URL('../dist/assets/airfield-surfaces.png',import.meta.url).href){queueMicrotask(()=>this.onload?.());return;}
       if(url.startsWith('./assets/context/')){queueMicrotask(()=>this.onload?.());return;}
       assert.match(url,/^https:\/\/tiles\.arcgis\.com\/.+\/NYC_Orthos_2024\/MapServer\/tile\//);
       imageRequests.push(url);
@@ -271,9 +277,9 @@ async function bootHarness({ stored = null, displayStored = null, unavailableSto
       assert.equal(fullIndex.stats.buildingFeatures,index.stats.buildingFeatures);
       return createCityStream(geometryIndex,options);
     },
-    updateChaseHeight, createCityGround, worldToGeographic, createRoadStream, nearestStreet, localDestinations, createCityNavigation,
+    updateChaseHeight, createDriverCabin, createCityGround, worldToGeographic, createRoadStream, nearestStreet, localDestinations, createCityNavigation,
     createStreetDetail:(manifest,options)=>createStreetDetail(manifest,{...options,now:()=>timestamp}),
-    Landscape, RoadPilot, AbortSignal, createGraphics, createStreetLife, createWater, setVehicleLamps, createCityLife, manhattanCore, createStreetSigns, createCrowd, dress, seeded, KIT, createStreetProps, createPlaceSource, placeName, joinPlaceSources, indexFootprints, solveFrontages, createStorefronts, createPhone, describePlace, createFleet, offersAt, planRoom, buildRoom, roomKind, createDemographics, characterAt, createBuses, createBusStops, createSheds, planSheds, createShedMesh, createDining, planDining, createDiningMesh, seatsOf, planStands, vendorOf, createStandMesh, createBikeShare, planBikeDocks, createBikeDocks, menuFor, createSubway, createSubwayEntrances, FARE, indexKerbs, snapToKerb, formatDistance,
+    Landscape, RoadPilot, AbortSignal, createGraphics, createStreetLife, createWater, setVehicleLamps, OFFICER_LOOK, createPoliceScene, createCityLife, manhattanCore, createStreetSigns, createCrowd, dress, seeded, KIT, createStreetProps, createPlaceSource, placeName, joinPlaceSources, indexFootprints, solveFrontages, createStorefronts, createPhone, describePlace, createFleet, createVehicleMeshLibrary, designFor, offersAt, planRoom, buildRoom, roomKind, createDemographics, characterAt, createBuses, createBusStops, createSheds, planSheds, createShedMesh, createDining, planDining, createDiningMesh, seatsOf, planStands, vendorOf, createStandMesh, createBikeShare, planBikeDocks, createBikeDocks, menuFor, createSubway, createSubwayEntrances, FARE, indexKerbs, snapToKerb, formatDistance,
     // Bundled survey cells only: these tests stay offline.
     createStreetscape:options=>createStreetscape({...options,live:false,now:()=>timestamp}),
     console: { error: error => errors.push(error), warn: () => {}, log: () => {} },
@@ -337,6 +343,8 @@ async function bootHarness({ stored = null, displayStored = null, unavailableSto
       },
       click: id => elements.get(id).click(),
       key: (code, down = true) => window.dispatch(down ? 'keydown' : 'keyup', { code, repeat: false, target: elements.get('world') }),
+      wheel: deltaY => elements.get('world').dispatch('wheel', { deltaY, deltaMode: 0 }),
+      press: key => window.dispatch('keydown', { key, code: '', repeat: false, target: elements.get('world') }),
       frames(count = 1) {
         for (let i = 0; i < count; i++) {
           assert.equal(frames.length, 1, 'one animation loop should be scheduled');
@@ -346,6 +354,16 @@ async function bootHarness({ stored = null, displayStored = null, unavailableSto
       },
     };
   } catch (error) { close(); throw error; }
+}
+
+function spawnAtPreset(app, name) {
+  if(!app.state().cityView)app.click('city-button');
+  app.click('address-input');
+  const option=app.elements.get('address-results').children.find(button=>
+    button.textContent===name||button.textContent.startsWith(name+' · '));
+  assert.ok(option,'missing preset: '+name);
+  option.click();
+  app.click('spawn-button');
 }
 
 test('five-borough app boots, walks, enters a cab, delivers, saves and pauses through production UI', async () => {
@@ -384,9 +402,16 @@ test('five-borough app boots, walks, enters a cab, delivers, saves and pauses th
     app.click('view-button');assert.equal(app.state().cityView,true);
     assert.equal(app.elements.get('touch-controls').hidden,true,'returning to city overview hides touch controls again');
     app.click('city-button');assert.equal(app.state().cityView,false);assert.equal(app.state().aerialView,false);
-    app.click('sources-button');assert.equal(app.state().paused,true);
+    assert.equal(app.key('Escape').defaultPrevented,true);
+    app.key('Escape',false);
+    app.click('sources-button');
+    assert.equal(app.state().paused,true);
     assert.equal(app.elements.get('sources-dialog').open,true);
-    app.elements.get('sources-dialog').close();assert.equal(app.state().paused,false);
+    app.key('Escape');app.key('Escape',false);
+    assert.equal(app.elements.get('sources-dialog').open,false);
+    assert.equal(app.elements.get('pause-dialog').open,true);
+    assert.equal(app.state().paused,true);
+    app.click('resume-button');
     const initial = app.state().player;
     app.key('KeyW'); app.frames(12); app.key('KeyW', false);
     const walked = app.state().player;
@@ -394,10 +419,16 @@ test('five-borough app boots, walks, enters a cab, delivers, saves and pauses th
     app.key('KeyR'); app.key('KeyR', false);
     app.key('KeyE'); app.key('KeyE', false);
     assert.equal(app.state().player.mode, 'drive');
-    app.click('job-button');
+    const balance = app.elements.get('cash-display');
+    assert.equal(balance.hidden, true);
+    app.key('KeyZ');app.key('KeyZ', false);
+    assert.equal(balance.hidden, false);
+    assert.equal(app.elements.get('cash').textContent, '$225');
+    app.key('KeyP');app.key('KeyP', false);
+    app.click('phone-app-contacts');app.click('phone-contact-dispatch');
     app.frames(6);
     assert.equal(app.state().mission.phase, 'active');
-    assert.equal(app.elements.get('job-button').hidden, true);
+    assert.equal(app.elements.get('phone').hidden, true);
     assert.equal(app.elements.get('mission-title').textContent, app.state().mission.target.name);
     assert.equal(app.elements.get('speed-unit').textContent, 'MPH');
     app.click('map-button');
@@ -432,7 +463,7 @@ test('five-borough app boots, walks, enters a cab, delivers, saves and pauses th
     assert.equal(saved.deliveries, app.state().deliveries);
     assert.equal(saved.cash, app.state().cash);
     assert.equal(app.elements.get('mission-kicker').textContent, 'DELIVERY COMPLETE');
-    assert.equal(app.elements.get('job-button').hidden, false);
+    assert.equal(app.elements.has('job-button'), false);
     app.document.hidden = true;
     app.document.dispatch('visibilitychange');
     assert.equal(app.state().paused, true);
@@ -583,7 +614,7 @@ test('street view builds surveyed SoHo street surfaces and shares source imagery
     assert.equal(shader.uniforms.streetLocal.value,localOrthophoto.texture);
     assert.deepEqual(shader.uniforms.streetLocalBounds.value.toArray(),roofUniforms.cityLocalOrthoBounds.value.toArray());
     const destination=app.roadIndex().places.findIndex(place=>place.borough==='Staten Island');
-    app.elements.get('place-select').value=String(destination);app.click('travel-button');
+    spawnAtPreset(app,app.roadIndex().places[destination].name);
     await app.until(()=>!app.state().traveling);app.frames(2);
     assert.equal(app.state().streetDetail.covered,false);
     assert.equal(app.state().streetscape.surfaces,0,'SoHo outlines do not follow the player into another borough');
@@ -625,7 +656,7 @@ test('failed or stalled optional street data keep the full city playable', async
       app.key('KeyW');app.frames(20);app.key('KeyW',false);
       assert.ok(Math.hypot(app.state().player.x-before.x,app.state().player.z-before.z)>.1,'optional surface failure cannot block walking');
       const destination=app.roadIndex().places.findIndex(place=>place.borough==='Staten Island');
-      app.elements.get('place-select').value=String(destination);app.click('travel-button');
+      spawnAtPreset(app,app.roadIndex().places[destination].name);
       await app.until(()=>!app.state().traveling);app.frames(8);
       assert.equal(app.elements.get('district-name').textContent,'STATEN ISLAND');
       assert.equal(app.state().stream.readyAtFocus,true);
@@ -633,7 +664,7 @@ test('failed or stalled optional street data keep the full city playable', async
         assert.equal(app.elements.get('street-detail-status').textContent,'','leaving mapped coverage clears its failed-chunk warning');
         const soho=app.roadIndex().places.findIndex(place=>place.name==='SoHo');
         assert.ok(soho>=0);
-        app.elements.get('place-select').value=String(soho);app.click('travel-button');
+        spawnAtPreset(app,app.roadIndex().places[soho].name);
         await app.until(()=>!app.state().traveling);app.frames();
         await app.until(()=>app.state().streetDetail.failures>0&&app.state().streetDetail.loading===0);
         assert.match(app.elements.get('street-detail-status').textContent,/unavailable here/);
@@ -658,14 +689,24 @@ test('borough selector loads actual Staten Island streets and geometry before mo
     const destination=places.findIndex(place=>place.borough==='Staten Island');
     assert.ok(destination>=0);
     const initial={...app.state().player};
-    app.elements.get('place-select').value=String(destination);
-    app.click('travel-button');
+    const address=app.elements.get('address-input');
+    address.value='Staten Island';
+    address.dispatch('input');
+    const matches=app.elements.get('address-results').children;
+    assert.ok(matches.some(button=>button.textContent.includes('Clove Lake')),
+      'typing a borough shows matching parks and neighborhoods in the same list');
+    const option=matches.find(button=>button.textContent.startsWith(places[destination].name));
+    assert.ok(option);
+    option.click();
+    assert.equal(app.state().traveling,false,'selecting a preset previews it before spawning');
+    assert.equal(app.state().navigation.selected.name,places[destination].name);
+    assert.deepEqual({...app.state().player},initial);
+    app.click('spawn-button');
     assert.equal(app.state().traveling,true);
-    assert.equal(app.elements.get('travel-button').disabled,true);
+    assert.equal(app.elements.get('spawn-button').disabled,true);
     assert.equal(app.state().player.x,initial.x,'asynchronous travel retains the previous position until ready');
     await app.until(()=>!app.state().traveling);
     assert.equal(app.state().cityView,false);
-    assert.equal(app.elements.get('travel-button').disabled,false);
     assert.ok(Math.hypot(app.state().player.x-initial.x,app.state().player.z-initial.z)>9000);
     assert.ok(Math.hypot(app.state().player.x-places[destination].x,app.state().player.z-places[destination].z)<100);
     assert.equal(app.state().stream.readyAtFocus,true);
@@ -689,7 +730,7 @@ test('a late street refresh cannot replace the roads of a newly selected borough
     app.frames(2);
     await app.until(()=>app.waitingRoads()>0,'the old neighborhood street request should remain in flight');
     const destination=app.roadIndex().places.findIndex(place=>place.borough==='Staten Island');
-    app.elements.get('place-select').value=String(destination);app.click('travel-button');
+    spawnAtPreset(app,app.roadIndex().places[destination].name);
     await app.until(()=>!app.state().traveling);
     const roads=app.simulation().city.roads,arrival={...app.state().player};
     assert.ok(roads.length>0);
@@ -754,6 +795,32 @@ test('aerial movement and stopping translate a fixed view with sufficient ground
     assert.ok(Math.hypot(sim.player.x-before.x,sim.player.z-before.z)>.4,'the fixed-view assertions must exercise actual player movement');
     assert.ok(aerialPose(app).position.distanceTo(baseline.position)>.25,'the camera still follows the moving player');
     assert.equal(app.errors.length,0,app.errors[0]?.stack);
+  }finally{app.close();}
+});
+
+test('the aerial camera zooms in and out over the same ground, within limits, by wheel or keys',async()=>{
+  const app=await bootHarness();
+  try{
+    app.click('start-button');app.click('view-button');app.frames(2);
+    await app.until(()=>app.state().stream.loading===0);
+    app.key('KeyV');app.key('KeyV',false);app.frames(3);
+    const sim=app.simulation(),height=()=>app.camera().position.y-(sim.player.y||0);
+    const start=aerialPose(app),base=height();
+    const same=pose=>{assert.ok(pose.focus.distanceTo(start.focus)<.01,'zoom keeps the ground point');assert.ok(pose.quaternion.angleTo(start.quaternion)<1e-6,'zoom keeps the angle');};
+    app.wheel(400);app.frames();
+    assert.ok(height()>base&&height()<base*1.4,'the camera eases out instead of jumping');
+    app.frames(240);assert.ok(Math.abs(height()/base-Math.exp(.6))<.01);same(aerialPose(app));
+    for(let i=0;i<12;i++)app.wheel(900);app.frames(300);
+    assert.ok(Math.abs(height()/base-3)<.01,'three times as far is the widest');same(aerialPose(app));
+    for(let i=0;i<24;i++)app.wheel(-900);app.frames(300);
+    assert.ok(Math.abs(height()/base-.3)<.01,'and three tenths the closest');same(aerialPose(app));
+    app.press('-');app.frames(300);assert.ok(Math.abs(height()/base-.375)<.01);
+    app.press('=');app.frames(300);assert.ok(Math.abs(height()/base-.3)<.01);
+    // Out of aerial view the wheel and keys leave the setting alone.
+    app.key('KeyV');app.key('KeyV',false);app.key('KeyV');app.key('KeyV',false);app.frames(2);
+    app.wheel(900);app.press('-');
+    app.key('KeyV');app.key('KeyV',false);app.frames(300);
+    assert.ok(Math.abs(height()/base-.3)<.01);
   }finally{app.close();}
 });
 
@@ -823,6 +890,74 @@ test('walking A/D and arrow keys follow the visible camera right axis after orbi
       assert.ok(delta.normalize().dot(direction)>.98,
         `${key} follows the aerial camera basis instead of the earlier chase-camera yaw`);
     }
+    assert.equal(app.errors.length,0,app.errors[0]?.stack);
+  }finally{app.close();}
+});
+
+test('first person follows the walker at eye level and keeps their heading while strafing',async()=>{
+  const app=await bootHarness();
+  try{
+    app.click('start-button');app.key('KeyB');app.frames(2);
+    assert.equal(app.state().firstPersonView,true);
+    assert.equal(app.state().cityView,false);
+    const p=app.simulation().player, canvas=app.elements.get('world');
+    const checkEye=()=>{
+      const eye=app.camera().position;
+      assert.equal(eye.x,p.x);assert.equal(eye.z,p.z);
+      assert.ok(Math.abs(eye.y-p.y-1.64)<1e-6);
+    };
+    checkEye();
+    const initial=app.camera().quaternion;
+    canvas.dispatch('pointerdown',{clientX:100,clientY:200,pointerId:1});
+    canvas.dispatch('pointermove',{clientX:260,clientY:150,pointerId:1});
+    canvas.dispatch('pointerup',{clientX:260,clientY:150,pointerId:1});
+    app.frames();
+    const facing=app.camera().quaternion, right=cameraRight(app), start={...p};
+    assert.ok(facing.angleTo(initial)>.7);
+    assert.ok(new THREE.Vector3(0,0,-1).applyQuaternion(facing).y>.12,'dragging up raises the gaze');
+    app.key('KeyD');app.frames(6);app.key('KeyD',false);
+    assert.ok(new THREE.Vector3(p.x-start.x,0,p.z-start.z).dot(right)>.02);
+    assert.ok(app.camera().quaternion.angleTo(facing)<1e-6);
+    app.key('Space');app.frames(5);app.key('Space',false);
+    assert.ok(p.y>start.y+.15,'the eye rises with a jump');checkEye();
+    app.key('KeyM');app.key('KeyB');assert.equal(app.state().firstPersonView,true);
+    app.click('game-map-close');app.key('Escape');
+    app.click('first-person-button');app.frames();
+    assert.equal(app.state().paused,false);assert.equal(app.state().firstPersonView,false);
+    assert.ok(Math.hypot(app.camera().position.x-p.x,app.camera().position.z-p.z)>.5);
+    assert.equal(app.errors.length,0,app.errors[0]?.stack);
+  }finally{app.close();}
+});
+
+test('right-stick click toggles the driver seat and other cameras restore the car exterior',async()=>{
+  const app=await bootHarness();
+  try{
+    app.click('start-button');app.click('view-button');app.frames(2);
+    const pad={axes:[0,0,0,0],buttons:Array.from({length:17},()=>({pressed:false,value:0}))};
+    app.pads.push(pad);pad.buttons[11].pressed=true;app.frames(4);
+    assert.equal(app.state().firstPersonView,true,'holding the stick click toggles once');
+    pad.buttons[11].pressed=false;app.key('KeyE');app.key('KeyE',false);app.frames();
+    const sim=app.simulation(), scene=app.renderState().scene, cabin=scene.getObjectByName('Driver cabin');
+    assert.equal(sim.player.mode,'drive');assert.equal(cabin.visible,true);
+    const car=sim.vehicle, exterior=scene.children.find(mesh=>mesh.userData.chassis&&Math.hypot(mesh.position.x-car.x,mesh.position.z-car.z)<.01);
+    assert.ok(exterior);assert.equal(exterior.visible,false);
+    assert.ok(scene.children.some(mesh=>mesh.userData.chassis&&mesh.visible),'nearby cars remain visible');
+    const eye=exterior.worldToLocal(app.camera().position), forward=()=>new THREE.Vector3(0,0,-1).applyQuaternion(app.camera().quaternion);
+    assert.ok(eye.x>.15&&eye.x<.7&&eye.y>.85&&eye.y<1.9&&Math.abs(eye.z)<.65,'eye is at the left-hand seat');
+    assert.ok(forward().dot(app.vehicleVisual().forward)>.99);
+    app.key('KeyW');app.key('KeyD');app.frames(25);app.key('KeyW',false);app.key('KeyD',false);
+    assert.ok(Math.abs(car.speed)>1);assert.ok(forward().dot(app.vehicleVisual().forward)>.99,'the seat faces the turning car nose');
+    pad.axes[2]=1;app.frames(16);pad.axes[2]=0;
+    assert.ok(forward().dot(app.vehicleVisual().forward)<.95,'the driver can look out the side');
+    app.key('KeyV');app.frames();assert.equal(app.state().aerialView,true);
+    assert.equal(cabin.visible,false);assert.equal(exterior.visible,true);
+    app.key('KeyV');app.frames();app.key('KeyV');app.frames();
+    assert.equal(app.state().firstPersonView,true);assert.equal(cabin.visible,true);
+    app.key('KeyE');app.frames();
+    assert.equal(sim.player.mode,'walk');assert.equal(cabin.visible,false);assert.equal(exterior.visible,true);
+    assert.equal(app.camera().position.x,sim.player.x);
+    pad.buttons[11].pressed=true;app.frames(3);
+    assert.equal(app.state().firstPersonView,false);
     assert.equal(app.errors.length,0,app.errors[0]?.stack);
   }finally{app.close();}
 });
@@ -1189,7 +1324,7 @@ test('measured landscape boots at elevation and supports park travel through the
     app.key('KeyV');app.key('KeyV',false);app.frames();
     assert.equal(app.camera().position.y,268,'aerial eye height is relative to measured ground');
     app.click('city-button');
-    app.click('landscape-travel-button');
+    spawnAtPreset(app,'Central Park · The Pond');
     await app.until(()=>!app.state().traveling);
     app.frames(2);
     // Street surfaces add at most a kerb to the measured ground.
@@ -1207,9 +1342,13 @@ test('landscape source failure leaves existing city exploration available',async
   try{
     assert.equal(app.state().bootReady,true);
     assert.equal(app.state().landscape,null);
-    assert.equal(app.elements.get('landscape-travel-button').disabled,true);
     assert.match(app.elements.get('landscape-status').textContent,/unavailable/);
-    app.click('start-button');app.click('view-button');app.frames();
+    app.click('start-button');
+    app.click('address-input');
+    const options=app.elements.get('address-results').children;
+    assert.ok(options.some(button=>button.textContent.startsWith('SoHo')));
+    assert.ok(!options.some(button=>button.textContent.includes('The Pond')));
+    app.click('view-button');app.frames();
     assert.equal(app.state().player.y,0);
     assert.equal(app.errors.length,0,app.errors[0]?.stack);
   }finally{app.close();}
@@ -1222,9 +1361,8 @@ test('Prospect Lake arrival retains real building collisions while slower park d
     const manifest=JSON.parse(readFileSync(new URL('../dist/landscape-index.json',import.meta.url)));
     const region=manifest.regions.find(region=>region.id==='prospect-lake');
     app.click('start-button');
-    app.elements.get('landscape-select').value=String(manifest.regions.indexOf(region));
     const before={...app.state().player};
-    app.click('landscape-travel-button');
+    spawnAtPreset(app,region.name);
     await app.until(()=>app.waitingLandscape()>0&&app.state().stream.loading===0);
     assert.equal(app.state().traveling,true);
     const roads=app.simulation().city.roads;
@@ -1273,8 +1411,8 @@ test('Central Park Pond arrival accepts the actual surveyed building with a rais
   try{
     const manifest=JSON.parse(readFileSync(new URL('../dist/landscape-index.json',import.meta.url)));
     const region=manifest.regions.find(region=>region.id==='central-park-south');
-    app.click('start-button');app.elements.get('landscape-select').value=String(manifest.regions.indexOf(region));
-    app.click('landscape-travel-button');await app.until(()=>!app.state().traveling);
+    app.click('start-button');
+    spawnAtPreset(app,region.name);await app.until(()=>!app.state().traveling);
     assert.equal(app.state().cityView,false,app.elements.get('travel-note').textContent);
     const {player}=app.state(),b=region.bounds;
     assert.ok(player.x>b.minX&&player.x<b.maxX&&player.z>b.minZ&&player.z<b.maxZ);
@@ -1290,8 +1428,7 @@ test('road pilot loads on demand, arrives on measured pavement and toggles appea
   const app=await bootHarness({measuredLandscape:true});
   try{
     assert.equal(app.requests.includes('./road-pilot.json'),false,'ordinary city startup must not allocate pilot geometry');
-    assert.equal(app.elements.get('road-pilot-travel-button').disabled,false);
-    app.click('start-button');app.click('road-pilot-travel-button');
+    app.click('start-button');spawnAtPreset(app,'Meadow Lake road reconstruction');
     assert.equal(app.state().traveling,true);
     await app.until(()=>!app.state().traveling);
     assert.equal(app.state().roadPilot.surfaces,27,app.elements.get('travel-note').textContent);
@@ -1324,11 +1461,11 @@ test('failed road pilot data leaves the original terrain and current player inta
   const app=await bootHarness({roadPilotFailure:true});
   try{
     app.click('start-button');const before={...app.state().player};
-    app.click('road-pilot-travel-button');await app.until(()=>!app.state().traveling);
+    spawnAtPreset(app,'Meadow Lake road reconstruction');await app.until(()=>!app.state().traveling);
     assert.equal(app.state().roadPilot.ready,false);assert.match(app.state().roadPilot.error,/could not load/);
     assert.equal(app.state().player.x,before.x);assert.equal(app.state().player.z,before.z);
     assert.equal(app.state().landscape.terrainOverlays.length,0);
-    assert.equal(app.elements.get('road-pilot-travel-button').disabled,false,'the user can retry without reloading the city');
+    assert.equal(app.elements.get('spawn-button').disabled,false,'the user can retry without reloading the city');
     app.click('view-button');app.frames(2);app.key('KeyW');app.frames(12);app.key('KeyW',false);
     assert.notEqual(app.state().player.z,before.z,'the original neighborhood remains playable');
   }finally{app.close();}
@@ -1339,24 +1476,21 @@ test('road and bridge destinations use source-backed arrival points and disclose
   try{
     const source=JSON.parse(readFileSync(new URL('../dist/street-detail-index.json',import.meta.url),'utf8'));
     const destinations=source.coverageRegions.filter(region=>region.view);
-    assert.equal(app.elements.get('transport-travel-button').disabled,false);
-    assert.match(app.elements.get('transport-select').innerHTML,/Brooklyn Bridge/);
-    assert.match(app.elements.get('transport-select').innerHTML,/Meadow Lake roads/);
     assert.equal(app.state().roadReconstruction.summary.candidates,34);
     assert.equal(app.state().roadReconstruction.summary.accepted,0);
     assert.match(app.elements.get('road-reconstruction-status').textContent,/0 of 34/);
     app.click('start-button');
-    for(let i=0;i<destinations.length;i++){
-      app.elements.get('transport-select').value=String(i);app.click('transport-travel-button');
+    for(const destination of destinations){
+      spawnAtPreset(app,destination.exploreName||destination.name);
       assert.equal(app.state().traveling,true);
-      assert.equal(app.elements.get('transport-travel-button').disabled,true);
+      assert.equal(app.elements.get('spawn-button').disabled,true);
       await app.until(()=>!app.state().traveling);
-      const target=destinations[i].view, player=app.state().player;
+      const target=destination.view, player=app.state().player;
       assert.equal(app.state().cityView,false,app.elements.get('travel-note').textContent);
       assert.ok(Math.hypot(player.x-target.x,player.z-target.z)<100);
       await app.until(()=>{app.frames();return app.state().streetDetail.loading===0&&app.state().streetscape.loading===0&&app.state().streetscape.surfaces>0;});
       assert.equal(app.state().streetDetail.covered,true);
-      assert.equal(app.elements.get('transport-travel-button').disabled,false);
+      app.click('city-button');
     }
     assert.equal(app.errors.length,0);
   }finally{app.close();}
