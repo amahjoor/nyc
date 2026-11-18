@@ -4,7 +4,7 @@ import * as THREE from '../dist/vendor/three.module.min.js';
 import { shared, NYC_COMMON_GLSL } from '../dist/gfx-common.js';
 import { FACADE_FRAGMENT_PARS, FACADE_FRAGMENT, ATLAS_CELL_HEIGHT } from '../dist/facade.js';
 import { KIND } from '../dist/places.js';
-import { createStorefronts, rasterFronts, drawSign, MAP_SPAN, TABLE_ROWS, ATLAS } from '../dist/storefronts.js';
+import { drawLogo, LOGO_TRIM, createStorefronts, rasterFronts, drawSign, MAP_SPAN, TABLE_ROWS, ATLAS } from '../dist/storefronts.js';
 
 // A canvas that records the lettering drawn on it.
 function canvas() {
@@ -122,4 +122,25 @@ test('the facade shader asks whose shop front it is drawing', () => {
   assert.match(storey, new RegExp(`pixel\\.y \\* ${ATLAS_CELL_HEIGHT}\\.0 / 0\\.36`));
   for (const word of ['flat', 'cast', 'patch', 'sample', 'filter', 'input', 'output', 'common', 'active', 'half', 'smooth', 'layout', 'centroid', 'partition', 'resource', 'precise', 'coherent', 'volatile', 'restrict', 'readonly', 'writeonly', 'shared', 'namespace', 'using', 'external', 'interface', 'long', 'short', 'double', 'fixed', 'unsigned', 'superp', 'template', 'this', 'packed', 'goto', 'union', 'enum', 'typedef', 'class', 'inline', 'noinline', 'public', 'static', 'extern', 'asm', 'sizeof', 'row_major'])
     assert.ok(!new RegExp(`\\b(?:float|vec[234]|int|bool)\\s+(?:[A-Za-z_]+\\s*(?:=[^;,]*)?,\\s*)*${word}\\b`).test(storey), `"${word}" is reserved`);
+});
+
+test('a chain whose logo has been fetched is signed with it, in its own colours; without it, by name', () => {
+  const surface = canvas(), store = createStorefronts({ createCanvas: () => surface });
+  const fronts = [front('STARBUCKS', 'coffee', -10), front('FANELLI CAFE', 'american', 10)];
+  store.update(fronts, { x: 0, z: 0 }, 12);
+  const table = store.textures.table.image.data, trim = n => table[n * 16 + 15], ground = n => [table[n * 16], table[n * 16 + 1], table[n * 16 + 2]].map(value => Math.round(value * 100) / 100);
+  assert.ok(trim(1) < LOGO_TRIM && trim(2) < LOGO_TRIM, 'no logos on this machine: names');
+  const greenGround = ground(1);
+  // The logo arrives: the sign is drawn again as an image on its own ground, and the table says so.
+  const drawn = []; surface.getContext('2d').drawImage = (...args) => drawn.push(args);
+  store.setLogos(new Map([['starbucks', { image: { id: 'siren' }, width: 400, height: 400, background: '#ffffff' }]]));
+  store.update(fronts, { x: 0, z: 0 }, 12);
+  assert.ok(trim(1) >= LOGO_TRIM && trim(2) < LOGO_TRIM); assert.deepEqual(ground(1), [1, 1, 1]); assert.notDeepEqual(greenGround, [1, 1, 1]);
+  assert.equal(drawn.length, 1); assert.equal(drawn[0][0].id, 'siren');
+  // It keeps its shape, fits its cell and sits in the middle of it.
+  const [, x, y, w, h] = drawn[0];
+  assert.ok(Math.abs(w - h) < 1e-6 && h <= ATLAS.cellHeight * .84 + 1e-6 && w <= ATLAS.cellWidth * .9 + 1e-6 && x % ATLAS.cellWidth > 100 && Math.abs((x % ATLAS.cellWidth) + w / 2 - ATLAS.cellWidth / 2) < 1e-6);
+  store.setLogos(null); store.update(fronts, { x: 0, z: 0 }, 12);
+  assert.ok(trim(1) < LOGO_TRIM, 'and without it, the name again');
+  store.dispose();
 });

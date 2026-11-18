@@ -725,6 +725,29 @@ function syncChrome(){
   $('top-actions').hidden=!started;$('more-actions').hidden=true;$('menu-button').setAttribute('aria-expanded','false');
   $('credits').hidden=started&&!cityView;
 }
+// Chain logos, where they have been fetched to this machine (scripts/build-logos.mjs); they are not part of the game.
+// Each is given the plain ground it reads on: its own, if it has no clear parts; white, or near-black for a pale logo.
+async function loadLogos(){
+  const logos=new Map(),response=await fetch('./logos/index.json').catch(()=>null);
+  if(!response?.ok)return logos;
+  const index=await response.json(),scratch=document.createElement('canvas'),context=scratch.getContext('2d',{willReadFrequently:true});
+  await Promise.all(Object.entries(index.logos||{}).map(([key,entry])=>new Promise(resolve=>{
+    const image=new Image();
+    image.onload=()=>{
+      try{
+        const w=scratch.width=64,h=scratch.height=Math.max(1,Math.round(64*image.height/image.width));
+        context.clearRect(0,0,w,h);context.drawImage(image,0,0,w,h);
+        const pixels=context.getImageData(0,0,w,h).data;let light=0,solid=0,clear=0;
+        for(let i=0;i<pixels.length;i+=4){if(pixels[i+3]<40){clear++;continue;}solid++;light+=(pixels[i]*.299+pixels[i+1]*.587+pixels[i+2]*.114)/255;}
+        const hex=i=>'#'+[0,1,2].map(k=>pixels[i+k].toString(16).padStart(2,'0')).join('');
+        logos.set(key,{image,width:image.width,height:image.height,background:clear<pixels.length/4*.02?hex(0):light/Math.max(1,solid)>.72?'#17191b':'#ffffff'});
+      }catch{}
+      resolve();
+    };
+    image.onerror=resolve;image.src='./logos/'+entry.file;
+  })));
+  return logos;
+}
 // Through the door of a place and into its room. Returns whether there was a room to go into.
 function goIn(front){
     const room=planRoom(front,(x,z)=>Boolean(footprints.at(x,z)));
@@ -969,6 +992,7 @@ async function boot() {
   sim.setActiveCity({signalHints});
   props=createStreetProps({scene,heightAt:groundHeight});
   storefronts=createStorefronts();
+  loadLogos().then(logos=>{if(logos.size)storefronts.setLogos(logos);}).catch(()=>{});
   // The registers' places, and the shops they do not list (OpenStreetMap), read as one.
   const registerPlaces=createPlaceSource({load:url=>loadData(url.replace(/^\.\//,''))}),otherShops=createPlaceSource({load:url=>loadData(url.replace(/^\.\//,'')),prefix:'o'});
   placeSource=joinPlaceSources(registerPlaces,otherShops);

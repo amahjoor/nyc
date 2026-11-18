@@ -603,7 +603,8 @@ NycFacade nycFacade( vec4 facade, vec4 styleIn, vec3 wallNormal, float facing, v
 			float open = step( fract( shopSeed * 13.0 ), 0.72 );
 			// Across the shop from its left as seen from the street, and up its sign band.
 			float across = 1.0 - fract( ( cellU + shopShift ) * 0.5 ), shopWidth = 2.0 * bayWidth, bandHeight = 0.18 * storeyHeight;
-			float ink = 0.0, card = 0.0, cardInk = 0.0, neon = 0.0, pole = 0.0;
+			float ink = 0.0, card = 0.0, cardInk = 0.0, neon = 0.0, pole = 0.0, logo = 0.0;
+			vec3 logoColor = vec3( 0.0 );
 			if ( tenanted ) {
 				signColor = tenantSign.rgb; open = tenantSign.a;
 				// The lettering keeps its proportions whatever the shape of the band.
@@ -612,7 +613,12 @@ NycFacade nycFacade( vec4 facade, vec4 styleIn, vec3 wallNormal, float facing, v
 				vec2 q = ( vec2( across, ( height - 0.77 ) / 0.18 ) - 0.5 ) * stretch + 0.5;
 				vec2 spread = vec2( pixel.x / shopWidth, pixel.y / bandHeight ) * stretch * tenantLabel.zw;
 				float lettered = step( 0.0, q.x ) * step( q.x, 1.0 ) * step( 0.0, q.y ) * step( q.y, 1.0 ) * step( 0.0001, tenantLabel.z );
-				ink = textureGrad( uNycPlaceAtlas, tenantLabel.xy + clamp( q, 0.0, 1.0 ) * tenantLabel.zw, vec2( spread.x, 0.0 ), vec2( 0.0, spread.y ) ).r * lettered * tenantMiddle * signBand;
+				vec4 lettering = textureGrad( uNycPlaceAtlas, tenantLabel.xy + clamp( q, 0.015, 0.985 ) * tenantLabel.zw, vec2( spread.x, 0.0 ), vec2( 0.0, spread.y ) );
+				// A chain's logo is kept in its own colours; anything else is ink, coloured as the sign's lettering.
+				float isLogo = step( 7.5, tenantAt.w );
+				tenantAt.w = mod( tenantAt.w, 8.0 );
+				ink = lettering.r * lettered * tenantMiddle * signBand * ( 1.0 - isLogo );
+				logo = isLogo * lettered * tenantMiddle * signBand; logoColor = pow( lettering.rgb, vec3( 2.2 ) );
 				// In the window: the health department's grade card, and OPEN in neon where there is a bar.
 				vec2 glyph = uNycPlaceGlyphs.zw * vec2( 0.25, 1.0 );
 				vec2 cardAt = vec2( ( across - 0.075 ) / 0.05, ( height - 0.42 ) / ( 0.36 / storeyHeight ) );
@@ -627,7 +633,7 @@ NycFacade nycFacade( vec4 facade, vec4 styleIn, vec3 wallNormal, float facing, v
 				float poleAt = ( across - 0.012 ) / 0.03;
 				pole = step( 0.5, tenantAt.w ) * step( tenantAt.w, 1.5 ) * tenantMiddle * step( 0.0, poleAt ) * step( poleAt, 1.0 ) * nycBox( height, 0.3, 0.68, pixel.y / storeyHeight ) * close;
 			}
-			vec3 bandColor = mix( signColor, tenantInk.rgb, ink );
+			vec3 bandColor = mix( mix( signColor, tenantInk.rgb, ink ), logoColor, logo );
 			vec3 base = mix( wall * 0.55, vec3( 0.07, 0.075, 0.08 ), 0.6 );
 			result.albedo = mix( base, bandColor, signBand );
 			result.roughness = mix( 0.55, 0.7, signBand );

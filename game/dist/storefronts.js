@@ -15,7 +15,7 @@
 import * as THREE from './vendor/three.module.min.js';
 import { shared } from './gfx-common.js';
 import { ATLAS_CELL_HEIGHT } from './facade.js';
-import { isOpen, signFor } from './places.js';
+import { isOpen, signFor, brandKey, placeName } from './places.js';
 
 /** The map covers this many metres square, at a metre to the texel. */
 export const MAP_SPAN = 512;
@@ -68,6 +68,19 @@ export function drawSign(context, sign, x, y, width, height) {
 }
 
 /**
+ * Draw a chain's logo as its sign: the image as large as fits, on the plain
+ * ground it was made to stand on. Unlike lettering, which is kept as ink to
+ * be coloured, a logo is kept in its own colours and fills its cell.
+ */
+export function drawLogo(context, logo, x, y, width, height) {
+  context.fillStyle = logo.background; context.fillRect(x, y, width, height);
+  const scale = Math.min(width * .9 / logo.width, height * .84 / logo.height), w = logo.width * scale, h = logo.height * scale;
+  context.drawImage(logo.image, x + (width - w) / 2, y + (height - h) / 2, w, h);
+}
+/** Added to a front's trim number in the table when its sign is a logo in its own colours. */
+export const LOGO_TRIM = 8;
+
+/**
  * Keep the three textures in step with the street fronts around the player.
  * `createCanvas` makes the canvas the lettering is drawn on.
  */
@@ -98,12 +111,16 @@ export function createStorefronts({ createCanvas = () => document.createElement(
   // Which sign each lettering cell holds, by place.
   const held = new Array(cells).fill(null), where = new Map();
   let shown = [], source = null, at = null, openAt = -1, lettered = 0;
+  // Logos fetched to this machine, by chain: { image, width, height, background }. Empty unless build-logos.mjs has been run.
+  let logos = new Map();
   const state = {
     textures: { map, table, atlas },
     /** How many places have a front in the map, and how many of those are lettered. */
     get counts() { return { fronts: shown.length, lettered }; },
     /** The fronts in the table, row 1 first. */
     get fronts() { return shown; },
+    /** Give the logos that have been fetched: a Map of chain key to { image, width, height, background }. Signs are drawn again. */
+    setLogos(next) { logos = next || new Map(); for (let cell = 1; cell < cells; cell++) held[cell] = null; where.clear(); source = null; },
     /**
      * `fronts` is solveFrontages()'s answer for the places around `focus`;
      * pass the same array until it changes. `hours` is the time of day.
@@ -125,10 +142,11 @@ export function createStorefronts({ createCanvas = () => document.createElement(
         let free = 1, drawn = false;
         tableData.fill(0); lettered = 0;
         shown.forEach((front, i) => {
-          const sign = signFor(front.place, front.language || null), o = (i + 1) * 16, [br, bg, bb] = linear(sign.background), [lr, lg, lb] = linear(sign.lettering);
+          const logo = logos.get(brandKey(placeName(front.place))) || null;
+          const sign = signFor(front.place, front.language || null), o = (i + 1) * 16, [br, bg, bb] = linear(logo ? logo.background : sign.background), [lr, lg, lb] = linear(sign.lettering);
           tableData[o] = br; tableData[o + 1] = bg; tableData[o + 2] = bb; tableData[o + 3] = 1;
           tableData[o + 4] = lr; tableData[o + 5] = lg; tableData[o + 6] = lb; tableData[o + 7] = { A: 1, B: 2, C: 3 }[front.place.grade] || 0;
-          tableData[o + 12] = front.x; tableData[o + 13] = front.z; tableData[o + 14] = front.width / 2; tableData[o + 15] = TRIM[front.place.kind] || 0;
+          tableData[o + 12] = front.x; tableData[o + 13] = front.z; tableData[o + 14] = front.width / 2; tableData[o + 15] = (TRIM[front.place.kind] || 0) + (logo ? LOGO_TRIM : 0);
           if (!wanted.has(front.place.id) || !context) return;
           let cell = where.get(front.place.id);
           if (cell === undefined) {
@@ -136,7 +154,8 @@ export function createStorefronts({ createCanvas = () => document.createElement(
             if (free >= cells) return;
             cell = free; held[cell] = front.place.id; where.set(front.place.id, cell);
             const { px, py } = rect(cell);
-            drawSign(context, sign, px, py, ATLAS.cellWidth, ATLAS.cellHeight); drawn = true;
+            if (logo) drawLogo(context, logo, px, py, ATLAS.cellWidth, ATLAS.cellHeight); else drawSign(context, sign, px, py, ATLAS.cellWidth, ATLAS.cellHeight);
+            drawn = true;
           }
           const r = rect(cell);
           tableData[o + 8] = r.u; tableData[o + 9] = r.v; tableData[o + 10] = r.w; tableData[o + 11] = r.h; lettered++;
