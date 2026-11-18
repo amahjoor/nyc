@@ -195,3 +195,23 @@ test('local land uses only intersecting polygons and reuses its precise buffer u
   map.update({ player: { x: 80, z: 40 } });assert.equal(map.miniLandCache, cache);
   map.update({ player: { x: 350, z: 40 } });assert.notEqual(map.miniLandCache, cache);
 });
+
+test('zoomed-out streets are redrawn at screen resolution once the view rests', async t => {
+  const f = fixture(t), roads = [];
+  for (let i = 0; i < 1200; i++) roads.push({ id: `r${i}`, width: 8, points: [[-15000 + i * 30, -20000], [-15000 + i * 30, 30000]] });
+  f.map.setRoads(roads);f.map.setOpen(true);f.map.zoom(12);
+  assert.equal(f.map.view.span, 12000);
+  const blits = () => f.canvas.calls.filter(call => call.key === 'drawImage'), city = f.map.overviewCache.canvas;
+  // While the view moves, the citywide picture stands in: here one of its
+  // pixels covers more than two of the screen's.
+  assert.equal(blits().at(-1).args[0], city);assert.ok(city.width / 50000 < 900 / 12000 / 2);
+  await new Promise(resolve => setTimeout(resolve, 150));
+  const sharp = f.map.sharpRoads, last = blits().at(-1).args;
+  assert.equal(last[0], sharp.canvas);assert.notEqual(sharp.canvas, city);
+  assert.ok(Math.abs(sharp.canvas.width / sharp.view.span - 900 / 12000) < 1e-9, 'one kept pixel per screen pixel');
+  assert.deepEqual(last.slice(3), [sharp.view.width, sharp.view.height], 'copied at its own size, not stretched');
+  // A pan inside what is kept reuses it without another pass over the streets.
+  const strokes = sharp.canvas.calls.length;f.map.view.x += 1000;f.map.draw();
+  assert.equal(blits().at(-1).args[0], sharp.canvas);assert.equal(sharp.canvas.calls.length, strokes);assert.equal(f.map.sharpTimer, null);
+  f.map.setOpen(false);assert.equal(f.map.sharpRoads, null);
+});
