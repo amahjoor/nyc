@@ -320,7 +320,8 @@ export function createCrowd({ scene = null, life, heightAt = () => 0, isRoad = (
   const sinks = [sink(geometry, 'People'), sink(other, 'People, the other body')], mesh = sinks[0].mesh;
   mesh.add(sinks[1].mesh);
   scene?.add(mesh);
-  const people = [], crossing = [];
+  const people = [], crossing = [], threats = [];
+  let damage = 0;
   // Figures that are not of the crowd but are drawn with it: the player, and whoever serves in a shop.
   let extras = [];
   let network = null, source = null, balanceTimer = 0, filled = false, lastFocus = null;
@@ -408,6 +409,79 @@ export function createCrowd({ scene = null, life, heightAt = () => 0, isRoad = (
     else person.heading = Math.atan2(at.tx * person.way, at.tz * person.way);
   }
 
+  function combat(person, dt, player) {
+    person.stun = Math.max(0, (person.stun || 0) - dt);
+    if (!person.shove) person.shove = [0, 0];
+    if (person.state === 'down') {
+      person.down = (person.down || 0) - dt;
+      if (person.down <= 0) { person.state = 'flee'; person.mad = 3; person.hp = 3; }
+      return;
+    }
+    const away = player ? { x: person.x - player.x, z: person.z - player.z } : { x: Math.sin(person.heading || 0), z: Math.cos(person.heading || 0) };
+    const dist = Math.hypot(away.x, away.z) || 1;
+    if (person.state === 'flee') {
+      person.mad = (person.mad || 0) - dt;
+      person.heading = Math.atan2(away.x, away.z);
+      person.x += away.x / dist * 3.8 * dt;
+      person.z += away.z / dist * 3.8 * dt;
+      if (person.mad <= 0) person.state = 'walk';
+      return;
+    }
+    person.mad = (person.mad || 0) - dt;
+    if (!player || person.stun > 0) {
+      if (person.mad <= 0) person.state = 'walk';
+      return;
+    }
+    const dx = player.x - person.x, dz = player.z - person.z, gap = Math.hypot(dx, dz) || 1;
+    person.heading = Math.atan2(dx, dz);
+    if (gap > 1.05) {
+      const step = Math.min(gap - 0.9, 3.5 * dt);
+      person.x += dx / gap * step;
+      person.z += dz / gap * step;
+    } else if (dt > 0 && player.mode === 'walk' && (person.attack || 0) <= 0) {
+      person.attack = 0.9;
+      damage += 12;
+    } else person.attack = Math.max(0, (person.attack || 0) - dt);
+    if (person.mad <= 0) person.state = 'walk';
+  }
+
+  /** The nearest person still on their feet, within arm's reach of a punch. */
+  function closest(x, z, reach = 2.2) {
+    let best = null, bestD = reach;
+    for (const person of people) {
+      if (person.state === 'down') continue;
+      const dist = Math.hypot(person.x - x, person.z - z);
+      if (dist < bestD) { best = person; bestD = dist; }
+    }
+    return best;
+  }
+
+  /**
+   * Swing from (x, z) facing `angle`. Someone in front takes the hit, stumbles,
+   * and swings back. A third clean punch puts them down.
+   */
+  function strike(x, z, angle) {
+    const fx = Math.sin(angle), fz = Math.cos(angle);
+    let best = null, bestD = 1.85;
+    for (const person of people) {
+      if (person.state === 'down') continue;
+      const dx = person.x - x, dz = person.z - z, dist = Math.hypot(dx, dz);
+      if (dist > bestD || dist < 0.01) continue;
+      if (dist > 0.75 && (dx * fx + dz * fz) / dist < 0.2) continue;
+      best = person; bestD = dist;
+    }
+    if (!best) return null;
+    if (!best.shove) best.shove = [0, 0];
+    best.hp = (best.hp ?? 3) - 1;
+    best.stun = 0.45;
+    const dx = best.x - x, dz = best.z - z, dist = Math.hypot(dx, dz) || 1;
+    best.shove[0] += dx / dist * 1.5;
+    best.shove[1] += dz / dist * 1.5;
+    if (best.hp <= 0) { best.state = 'down'; best.down = 6; best.mad = 0; }
+    else { best.state = 'fight'; best.mad = 8; }
+    return best;
+  }
+
   return {
     mesh, people, crossing,
     get count() { return people.length; },
@@ -463,7 +537,7 @@ export function createCrowd({ scene = null, life, heightAt = () => 0, isRoad = (
         // Those who have walked out of range, and those a quieter hour no longer calls for, leave.
         for (let i = people.length - 1; i >= 0; i--) {
           const person = people[i], d = Math.hypot(person.x - focus.x, person.z - focus.z);
-          if (person.age > 1 && d > range + 25) people.splice(i, 1);
+          if (person.age > 1 && d > range + 25 && person.state !== 'fight' && person.state !== 'down' && person.state !== 'flee') people.splice(i, 1);
         }
         if (people.length > wanted * scale + 6) {
           for (let i = people.length - 1, drop = Math.ceil((people.length - wanted * scale) * .1); i >= 0 && drop > 0; i--) {
@@ -474,11 +548,18 @@ export function createCrowd({ scene = null, life, heightAt = () => 0, isRoad = (
         filled = true;
       }
       crossing.length = 0; sinks[0].count = sinks[1].count = 0;
+      damage = 0; threats.length = 0;
       const driving = player && player.mode === 'drive' && Math.hypot(player.velocityX || 0, player.velocityZ || 0) > 2;
       for (let i = 0; i < people.length; i++) {
         const person = people[i];
-        if (network) step(person, dt, context);
-        locate(person);
+        const fighting = person.state === 'fight' || person.state === 'down' || person.state === 'flee';
+        if (fighting) {
+          combat(person, dt, player);
+          if (person.state === 'fight' || person.state === 'down') threats.push({ x: person.x, z: person.z, kind: person.state === 'down' ? 'down' : 'fight' });
+        } else {
+          if (network) step(person, dt, context);
+          locate(person);
+        }
         if (person.state === 'cross') crossing.push(person);
         // Step back from a car that is about to brush past.
         if (driving) {
@@ -489,7 +570,7 @@ export function createCrowd({ scene = null, life, heightAt = () => 0, isRoad = (
         // The ground is read a few times a second; a sidewalk does not change underfoot.
         person.sample -= dt;
         if (person.y === null || person.sample <= 0) { const y = heightAt(person.x, person.z); person.y = person.y === null ? y : person.y + (y - person.y) * .6; person.sample = .22; }
-        const look = person.look, moving = person.state === 'wait' ? 0 : 1, grow = Math.min(1, person.age * 3);
+        const look = person.look, moving = person.state === 'wait' || person.state === 'down' ? 0 : 1, grow = Math.min(1, person.age * 3);
         // Half are drawn with the woman's figure: which, is fixed by where in their stride they began.
         const woman = Math.floor(person.phase * 997) % 2 === 1, to = sinks[figures && woman ? 1 : 0], at = to.count++, slot = (to === sinks[1] ? capacity : 0) + at;
         place.set(person.x + person.shove[0], person.y, person.z + person.shove[1]);
@@ -530,6 +611,9 @@ export function createCrowd({ scene = null, life, heightAt = () => 0, isRoad = (
      * and `stride` how much it is striding, from 0 standing to 1; `sitting` seats the figure instead.
      */
     setExtras(list) { extras = list || []; },
+    strike, closest,
+    get damage() { return damage; },
+    get threats() { return threats; },
     /** Draw the crowd with the modelled figures in place of the blocked-out ones. */
     setFigures(meta, poses) {
       const next = createFigures(meta, poses);

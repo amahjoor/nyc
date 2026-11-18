@@ -242,3 +242,26 @@ test('the player and shop staff are drawn after the crowd, with their own stride
   assert.equal(mesh.count, crowd.count);
   crowd.dispose();
 });
+
+test('a punch staggers the person in front, and they swing back', () => {
+  const crowd = createCrowd({ life: life(0), capacity: 8, range: 40, random: seeded(4) });
+  const walks = corner();
+  crowd.people.push({ run: walks[0], s: 10, way: 1, lane: 1, look: dress('casual', seeded(3)), state: 'walk', hop: null, wait: 0, bold: false, phase: 0, y: 0, sample: 1, age: 5, shove: [0, 0], x: 0.2, z: 1.2, heading: 0 });
+  const hit = crowd.strike(0, 0, 0);
+  assert.equal(hit, crowd.people[0]);
+  assert.equal(hit.state, 'fight');
+  assert.equal(hit.hp, 2);
+  assert.ok(Math.hypot(hit.shove[0], hit.shove[1]) > 0.5);
+  const player = { x: 0, z: 0, mode: 'walk' };
+  crowd.update(0.2, { walks, focus: { x: 0, z: 0 }, hours: 12, time: 0, junctions: [], cars: [], player });
+  assert.equal(crowd.threats.length, 1);
+  assert.equal(crowd.threats[0].kind, 'fight');
+  for (let i = 0; i < 8 && crowd.damage === 0; i++) crowd.update(0.2, { walks, focus: { x: 0, z: 0 }, hours: 12, time: i, junctions: [], cars: [], player });
+  assert.ok(crowd.damage >= 12, 'they hit back when they reach you');
+  hit.hp = 1;
+  crowd.strike(hit.x - 0.4, hit.z, Math.atan2(hit.x, hit.z));
+  assert.equal(hit.state, 'down');
+  crowd.update(0.05, { walks, focus: { x: 0, z: 0 }, hours: 12, time: 3, junctions: [], cars: [], player });
+  assert.equal(crowd.threats[0].kind, 'down');
+  crowd.dispose();
+});
