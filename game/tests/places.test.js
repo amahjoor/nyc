@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { KINDS, KIND, cuisineKind, storeKind, tradeName, placeName, mergePlaces, packPlace, unpackPlace, placeCellKey, PLACE_CELL, createPlaceSource, indexFootprints, solveFrontages, frontWidth, isOpen, signFor, joinPlaceSources, osmKind } from '../dist/places.js';
+import { KINDS, KIND, cuisineKind, storeKind, tradeName, placeName, mergePlaces, packPlace, unpackPlace, placeCellKey, PLACE_CELL, createPlaceSource, indexFootprints, solveFrontages, frontWidth, isOpen, signFor, joinPlaceSources, osmKind, brandOf } from '../dist/places.js';
 
 const read = path => JSON.parse(readFileSync(new URL(`../dist/${path}`, import.meta.url), 'utf8'));
 
@@ -192,4 +192,16 @@ test('two sources of places read as one, nearest first, each keeping its own ids
     assert.deepEqual(both.near(0, 0, 500).map(place => [place.id, place.kind]), [['0,0:0', 'pizza'], ['o0,0:0', 'bank'], ['0,0:1', 'bar']]);
     assert.deepEqual(both.near(0, 0, 20).map(place => place.kind), ['pizza']);
   });
+});
+
+test('a chain is signed in its own colours with its name alone; a name that only begins like one is not', () => {
+  const sign = (name, kind = 'coffee') => signFor({ kind, name, x: 3, z: 4 });
+  assert.deepEqual(sign('STARBUCKS'), { name: 'STARBUCKS', tagline: '', background: '#00704a', lettering: '#ffffff' });
+  assert.deepEqual([sign('STARBUCKS COFFEE').background, sign("MCDONALD'S", 'burgers').background, sign('CHASE', 'bank').lettering, sign('CHASE BANK', 'bank').lettering, sign("DUNKIN'", 'donuts').lettering, sign('T-MOBILE', 'phones').background],
+    ['#00704a', '#da291c', '#117aca', '#117aca', '#f5821f', '#e20074']);
+  // The same on every block, and with a second language nothing is added to it.
+  assert.deepEqual(signFor({ kind: 'coffee', name: 'STARBUCKS', x: 900, z: -70 }, 'spanish'), sign('STARBUCKS'));
+  for (const name of ['CHASE MANHATTAN PLAZA DELI', 'SUBWAY INN', 'TARGET MARGIN THEATER', 'CITIZEN PIZZA', "JOE'S PIZZA", 'FANELLI CAFE', '']) assert.equal(brandOf(name), null, name);
+  assert.notEqual(sign('SUBWAY INN', 'bar').tagline === '' && sign('SUBWAY INN', 'bar').background === '#008c15', true);
+  for (const name of ['SUBWAY', 'TARGET', 'NIKE', 'WHOLE FOODS MARKET', "TRADER JOE'S", 'CVS PHARMACY', 'DUANE READE', 'BANK OF AMERICA']) { const brand = brandOf(name); assert.ok(brand && brand.every(colour => /^#[0-9a-f]{6}$/.test(colour)) && brand[0] !== brand[1], name); }
 });

@@ -436,9 +436,35 @@ const hashText = text => { let h = 2166136261; for (let i = 0; i < text.length; 
  * What a place's sign looks like: { name, tagline, background, lettering }
  * with colours as '#rrggbb'. The same place always gets the same sign.
  */
+// Chains with many branches in the city are signed in their own colours: [name as the sign has it, background, lettering].
+// Only the colours and the name are theirs; the lettering is the game's plain face and no logo is drawn.
+const BRANDS = [
+  [/^DUNKIN/, '#ffffff', '#f5821f'], [/^CHASE( BANK)?$|^JPMORGAN CHASE/, '#ffffff', '#117aca'], [/^MCDONALD/, '#da291c', '#ffc72c'], [/T-?MOBILE/, '#e20074', '#ffffff'], [/^STARBUCKS/, '#00704a', '#ffffff'],
+  [/^SUBWAY( RESTAURANTS?| SANDWICH(ES)?)?$/, '#008c15', '#ffc600'], [/^CHIPOTLE/, '#441500', '#ffffff'], [/^POPEYES/, '#f15c22', '#ffffff'], [/^BANK OF AMERICA/, '#ffffff', '#012169'], [/^TD BANK/, '#34a853', '#ffffff'], [/^CITIBANK|^CITI$/, '#ffffff', '#003b70'],
+  [/^CVS/, '#cc0000', '#ffffff'], [/^WALGREENS/, '#ffffff', '#e31837'], [/^DUANE READE/, '#ffffff', '#00539b'], [/^DOMINO/, '#006491', '#ffffff'], [/^TACO BELL/, '#702082', '#ffffff'], [/KENNEDY FRIED CHICKEN/, '#c8102e', '#ffffff'],
+  [/^VERIZON|BY VERIZON/, '#000000', '#ffffff'], [/^DOLLAR TREE/, '#ffffff', '#00843d'], [/^KEY FOOD/, '#e31837', '#ffffff'], [/^AT ?& ?T\b/, '#ffffff', '#00a8e0'], [/^BURGER KING/, '#f5ebdc', '#d62300'], [/^WENDY/, '#ffffff', '#e2203d'],
+  [/^CITYMD/, '#ffffff', '#00467f'], [/^BOOST MOBILE/, '#f7901e', '#000000'], [/^CARVEL/, '#ffffff', '#0033a0'], [/^SANTANDER/, '#ec0000', '#ffffff'], [/^WINGSTOP/, '#006a4e', '#ffffff'], [/^CAPITAL ONE/, '#ffffff', '#004977'],
+  [/^CITIZENS( BANK)?$/, '#008555', '#ffffff'], [/UPS STORE/, '#351c15', '#ffb500'], [/^7[- ]?ELEVEN/, '#ffffff', '#008061'], [/^JUST SALAD/, '#f37021', '#ffffff'], [/^PARIS BAGUETTE/, '#003b7d', '#ffffff'], [/^SWEETGREEN/, '#0e150e', '#e6ff55'],
+  [/^TARGET( STORE)?$/, '#cc0000', '#ffffff'], [/POST OFFICE|^USPS/, '#ffffff', '#004b87'], [/^PRET A MANGER/, '#8b1a2b', '#ffffff'], [/^FAMILY DOLLAR/, '#ffffff', '#e2231a'], [/^PLANET FITNESS/, '#5c2d91', '#fff200'], [/^C[- ]?TOWN/, '#e31837', '#fff200'],
+  [/^SPECTRUM/, '#ffffff', '#0099d8'], [/^VAN LEEUWEN/, '#f6e27a', '#1a1a1a'], [/CROWN FRIED CHICKEN/, '#c8102e', '#ffd100'], [/^FEDEX/, '#ffffff', '#4d148c'], [/^SHAKE SHACK/, '#1f1f1f', '#6cb33f'], [/^WELLS FARGO/, '#d71e28', '#ffcd41'],
+  [/^GOLDEN KRUST/, '#ffc20e', '#007a33'], [/^GONG CHA/, '#b5121b', '#ffffff'], [/^KFC\b/, '#ffffff', '#e4002b'], [/^PAPA JOHN/, '#00704a', '#ffffff'], [/^JOE (&|AND|THE) THE JUICE|^JOE & THE JUICE|^JOE THE JUICE/, '#f8c8d0', '#1a1a1a'],
+  [/^LITTLE CAESARS/, '#ffffff', '#ff6b00'], [/^APPLE BANK/, '#ffffff', '#c8102e'], [/^EUROPEAN WAX/, '#ffffff', '#e4002b'], [/^FINE FARE/, '#e31837', '#ffffff'], [/^CHICK-?FIL-?A/, '#ffffff', '#e51636'], [/^FLAGSTAR/, '#ffffff', '#c8102e'],
+  [/^LE PAIN QUOTIDIEN/, '#f3ead6', '#3a2a1e'], [/^IHOP\b/, '#ffffff', '#1b5fa7'], [/^PIZZA HUT/, '#ee3124', '#ffffff'], [/^BLINK FITNESS/, '#00aeef', '#ffffff'], [/^CHOPT/, '#ffffff', '#ee3524'], [/^PLAYA BOWLS/, '#ffffff', '#ec008c'],
+  [/^KUNG FU TEA/, '#c8102e', '#ffffff'], [/^LUCKIN/, '#1a3a8a', '#ffffff'], [/^PANERA/, '#5b6f2a', '#ffffff'], [/^STAPLES\b/, '#cc0000', '#ffffff'], [/^BLANK STREET/, '#cfe3c8', '#1a1a1a'], [/^DOLLAR GENERAL/, '#fff200', '#000000'],
+  [/^SEPHORA/, '#000000', '#ffffff'], [/^XI'?AN FAMOUS/, '#000000', '#ffffff'], [/^BRAVO SUPERMARKET/, '#e31837', '#fff200'], [/^CRICKET/, '#6cc04a', '#ffffff'], [/^MARSHALLS/, '#ffffff', '#00338d'], [/^WHITE CASTLE/, '#ffffff', '#003f87'],
+  [/^INSOMNIA COOKIES/, '#4b2e83', '#ffffff'], [/^ORANGETHEORY/, '#f58220', '#ffffff'], [/^PANDA EXPRESS/, '#ffffff', '#d02b2e'], [/^BLUE BOTTLE/, '#ffffff', '#00a3e0'], [/^EQUINOX/, '#000000', '#ffffff'], [/^GREGORYS/, '#000000', '#f5821f'],
+  [/^JUICE GENERATION/, '#ffffff', '#6cb33f'], [/^PETCO/, '#ffffff', '#00467f'], [/^WHOLE FOODS/, '#00674b', '#ffffff'], [/^TRADER JOE/, '#ba0c2f', '#ffffff'], [/^NIKE\b/, '#000000', '#ffffff'], [/^APPLE (STORE|FIFTH|SOHO|GRAND)|^APPLE$/, '#f5f5f7', '#1d1d1f'],
+  [/^H ?& ?M\b/, '#ffffff', '#e50010'], [/^ZARA\b/, '#ffffff', '#000000'], [/^UNIQLO/, '#ff0000', '#ffffff'], [/^BEST BUY/, '#0046be', '#fff200'], [/^HOME DEPOT|^THE HOME DEPOT/, '#f96302', '#ffffff'], [/^RITE AID/, '#ffffff', '#00539b'],
+  [/^FIVE GUYS/, '#ffffff', '#d21033'], [/^BASKIN/, '#ffffff', '#e6007e'], [/^TIM HORTONS/, '#c8102e', '#ffffff'], [/^HSBC/, '#ffffff', '#db0011'], [/^WHITE CASTLE/, '#ffffff', '#003f87'], [/^FOOT LOCKER/, '#000000', '#ffffff'], [/^GAP\b/, '#002868', '#ffffff'],
+];
+/** The chain a name belongs to, as [background, lettering], or null. */
+export const brandOf = name => { const found = BRANDS.find(([pattern]) => pattern.test(name)); return found ? [found[1], found[2]] : null; };
+
 export function signFor(place, language = null) {
-  const name = placeName(place), schemes = KIND_SCHEMES[place.kind] || SCHEMES[KIND[place.kind]?.group] || SCHEMES.shop;
-  const [background, lettering] = schemes[hashText(`${name}|${place.x}|${place.z}`) % schemes.length];
+  const name = placeName(place), brand = brandOf(name), schemes = KIND_SCHEMES[place.kind] || SCHEMES[KIND[place.kind]?.group] || SCHEMES.shop;
+  const [background, lettering] = brand || schemes[hashText(`${name}|${place.x}|${place.z}`) % schemes.length];
+  // A chain's sign is its name and nothing more.
+  if (brand) return { name, tagline: '', background, lettering };
   // A sign does not say the same thing twice: words already in the name are left out of the line under it.
   const said = new Set(name.split(/[^A-Z]+/)), tagline = (TAGLINES[place.kind] || '').split(/ {2,}/).filter(item => item && !item.split(' ').some(word => said.has(word) || said.has(`${word}S`) || said.has(word.replace(/S$/, '')))).join('  ');
   // Where many of the neighbours speak another language at home, the sign says what the place is in it too.
