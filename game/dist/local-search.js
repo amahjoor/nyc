@@ -207,12 +207,15 @@ export function createPlaceIndex(data = null) {
     search(text, { borough = 0, near = null, limit = 6 } = {}) {
       const asked = plain(text).split(' ').filter(word => word && !/^[&@/+]$/.test(word)), whole = asked.join(' ');
       if (!whole || whole.length < 2) return [];
+      const lifeTime = /^LIFE ?TIME(?: FITNESS)?$/.test(whole);
       const found = [];
       for (const place of places) {
         if (borough && place.order !== borough) continue;
         const name = place.words.join(' ');
         let score = 0;
-        if (name === whole) score = 5;
+        // The mapped clubs use both spellings, and some share a name with their café.
+        if (lifeTime && place.kind === 'Gym' && /^LIFE ?TIME(?: FITNESS)?$/.test(name)) score = 6;
+        else if (name === whole) score = 5;
         else if (name.startsWith(`${whole} `)) score = 4;
         else if (asked.every((word, i) => place.words.some(own => own === word || (word.length >= (i === asked.length - 1 ? 2 : 3) && own.startsWith(word))))) score = name.startsWith(asked[0]) ? 3 : 2;
         else if (asked.length === 1 && place.words.some(own => typo(own, whole))) score = 1;

@@ -2,14 +2,10 @@
 //
 // No register holds the inside of a shop. A place's room is laid out by the
 // game: as wide as its street front, as deep as its building allows, and
-// furnished in the manner of the kind of place it is. There are some thirty
-// manners of room, made in the order of how many places in the city are of
-// each kind: a diner, a deli, a hair salon, a pawn counter, a take-out
-// counter, a coffee shop, a barber's, a clothes shop, a pizzeria and so on
-// (see STYLE_OF). Every place of a kind has the same manner of room, varied a
-// little by the place's own name: the colours, which stools are taken.
-// The room is a closed box built behind the place's front wall. From inside,
-// the street is not seen: the front is a wall with a lit door.
+// furnished for its trade (see STYLE_OF). A place's name can also determine
+// its fittings: a cycling studio and a Planet Fitness have different floors.
+// The room is a box built behind the place's front wall. From inside, the
+// street is seen through the doorway and the two windows in that wall.
 import * as THREE from './vendor/three.module.min.js';
 import { KIND, placeName } from './places.js';
 import { CEILING, roomPoint, DOOR, ShopDoor } from './room.js';
@@ -32,7 +28,7 @@ export const STYLE_OF = {
   bodega: 'bodega', grocery: 'market', supermarket: 'market', butcher: 'market', fishmarket: 'market', produce: 'market', liquor: 'liquor',
   clothes: 'clothes', shoes: 'clothes', department: 'clothes', sports: 'clothes', bags: 'clothes', tailor: 'clothes', cosmetics: 'clothes',
   secondhand: 'cases', pawn: 'cases', jewelry: 'cases', optician: 'cases', pharmacy: 'aisles', variety: 'aisles', hardware: 'aisles', pets: 'aisles', stationery: 'aisles', toys: 'aisles', housewares: 'aisles',
-  bank: 'bank', postoffice: 'bank', laundromat: 'laundromat', cleaners: 'cleaners', gym: 'gym', phones: 'tech', electronics: 'tech',
+  bank: 'bank', cleaners: 'cleaners', phones: 'tech', electronics: 'tech',
   clinic: 'waiting', dentist: 'waiting', vet: 'waiting', massage: 'waiting', travel: 'waiting',
   salon: 'salon', nails: 'nails', barber: 'barber', tattoo: 'barber',
   hotel: 'hotel', cinema: 'cinema', theatre: 'cinema',
@@ -117,7 +113,7 @@ const STYLES = {
     r.staff(0, r.depth - .8, 0, -1); r.staff(-(r.half - .65), 2.2 + run / 2, 1, 0);
     r.panel(0, 0, r.width - 2, .9, 1.7, '#c9a23f');
   },
-  // A bank or a post office: machines by the door, a rope to wait behind, the tellers behind glass, a desk to one side.
+  // A bank: machines by the door, a rope to wait behind, the tellers behind glass, a desk to one side.
   bank(r) {
     r.floor = '#8f8a7c'; r.wall = '#e6e2d6';
     for (let i = 0; i < 2; i++) { r.add(r.half - .4, 1.6 + i * 1.1, .6, .8, 1.5, '#2f3f5a'); r.add(r.half - .72, 1.6 + i * 1.1, .04, .5, .4, '#9fd0e0', .95, false); }
@@ -127,15 +123,6 @@ const STYLES = {
     if (r.half > 3) { r.add(-r.half + 1.1, 2.6, 1.4, .8, .76, WOOD); r.seat(-r.half + 1.1, 3.6, 0, -1, 0, '#3f4a5a'); }
     r.panel(0, 0, r.width - 1.5, .5, 2.4, '#0f2d5c');
   },
-  // A laundromat: washers down one wall, dryers stacked down the other, tables to fold on and a bench to wait on.
-  laundromat(r) {
-    r.floor = '#b7c0c4'; r.wall = '#eef1f0';
-    for (let b = 1.5; b < r.depth - 1.2; b += .95) { r.add(-r.half + .45, b, .8, .85, .95, '#e8ebec'); r.add(-r.half + .87, b, .04, .5, .5, '#3a4750', .3, false); r.add(-r.half + .45, b, .8, .85, .12, '#c9cfd2', .95, false); }
-    for (let b = 1.5; b < r.depth - 1.2; b += 1.05) { r.add(r.half - .5, b, .9, .95, 2.1, '#d2d7da'); for (const y of [.35, 1.35]) r.add(r.half - .97, b, .04, .6, .6, '#3a4750', y, false); }
-    for (let b = 3.4; b < r.depth - 2.6; b += 2.4) r.add(0, b, 1.1, 1.6, .9, '#d8d2c4');
-    r.seat(0, r.depth - .9, 0, -1, 0, '#3f4a5a', 1.8, .5);
-    r.add(-r.half + .5, r.depth - .5, .7, .6, 1.7, '#2f3f5a'); r.staff(.9, r.depth - 1.7, 0, -1);
-  },
   // Dry cleaners: a counter across the room, and the clothes in their bags on a rail behind it.
   cleaners(r) {
     r.floor = '#9c988c'; r.wall = '#e9e6dc';
@@ -143,15 +130,6 @@ const STYLES = {
     r.add(0, back - 1.2, r.width - 1.6, .7, 1.05, WHITE); r.staff(0, back - .5, 0, -1);
     for (let row = 0; row * .7 + back + .3 < r.depth - .3; row++) { const b = back + .3 + row * .7; r.add(0, b, r.width - .6, .05, .04, STEEL, 2.0, false); for (let a = -r.half + .5; a < r.half - .4; a += .34) r.add(a, b, .28, .1, 1.2, row % 2 ? '#dfe6ea' : CLOTH[(r.seed + Math.round(a * 3)) % CLOTH.length], .78, false); }
     r.add(-r.half + .7, 1.6, .5, 1.6, .45, '#3f4a5a');
-  },
-  // A gym: treadmills facing the mirrors, racks of weights, benches, the desk by the door.
-  gym(r) {
-    r.floor = '#2f3236'; r.wall = '#cfd2d0'; r.light = { color: 0xeaf2ff, power: 70 };
-    r.add(-r.half + 1.2, 1.8, 1.8, .7, 1.05, BLACK); r.staff(-r.half + 1.2, 1.1, 0, 1);
-    for (let b = 3.4; b < r.depth - 2.6; b += 1.25) { r.add(r.half - 1.2, b, 1.9, .8, .22, BLACK); r.add(r.half - .35, b, .12, .6, 1.2, '#3a3d42', .22, false); r.add(r.half - .4, b, .06, .5, .32, '#9fd0e0', 1.25, false); }
-    r.panel(1, 3.2, r.depth - 6, 2.0, .4, GLASS);
-    for (let b = 3.6; b < r.depth - 2.6; b += 2.3) { r.add(-r.half + .5, b, .7, 1.7, 1.1, '#3a3d42'); for (let i = 0; i < 4; i++) r.add(-r.half + .5, b - .6 + i * .4, .74, .26, .26, i % 2 ? '#5d6468' : '#17191b', .25 + (i % 2) * .5, false); r.add(-r.half + 1.9, b, .45, 1.3, .48, '#7a1f2a'); }
-    r.add(0, r.depth - .9, Math.min(3.4, r.width - 2), 1.2, .08, '#1f4a6a');
   },
   // Phones and electronics: tables of them under bright light, the accessories on the walls.
   tech(r) {

@@ -63,6 +63,7 @@ test('a business is found by its name anywhere in the city', () => {
   assert.deepEqual([first('fanelli').name, first('fanelli').what, first('fanelli').borough, first('fanelli').kind], ['FANELLI CAFE', 'Restaurant', 'Manhattan', 'place']);
   assert.equal(first("Katz's").name, "KATZ'S DELICATESSEN"); assert.equal(first('katz deli').name, "KATZ'S DELICATESSEN"); assert.equal(first('strand book').name, 'STRAND BOOKSTORE');
   assert.equal(first('museum of modern art').what, 'Museum');
+  for (const name of ['Planet Fitness', 'Equinox', 'Lifetime', 'Life Time Fitness']) assert.equal(first(name).what, 'Gym', name);
   // A chain: the nearest branches first, and a borough narrows it.
   const near = places.search('starbucks', { near: { x: 126, z: -80 } }), far = places.search('starbucks', { near: { x: 9000, z: -9000 } });
   assert.equal(near.length, 6); assert.ok(Math.hypot(near[0].x - 126, near[0].z + 80) < 800 && Math.hypot(far[0].x - 9000, far[0].z + 9000) < Math.hypot(near[0].x - 9000, near[0].z + 9000));

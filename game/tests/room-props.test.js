@@ -2,9 +2,10 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { planRoom, buildRoom, roomKind, roomStyle, STYLE_OF, CEILING } from '../dist/interiors.js';
 import { PROP_SHAPES, OWN_STYLE_OF, OWN_STYLES, DRESSED_STYLES } from '../dist/room-props.js';
-import { KIND } from '../dist/places.js';
+import { KIND, signFor } from '../dist/places.js';
 import { menuFor } from '../dist/menu.js';
 import { walkRoom } from '../dist/room.js';
+import { counterPath, populateShop } from '../dist/shop-life.js';
 
 const place = kind => ({ kind, name: 'The ' + kind + ' place', x: 40, z: -30 });
 // A front facing either way along either axis, wound either way: the four a block has.
@@ -19,7 +20,8 @@ test('each trade has the fittings that mark it', () => {
   const marks = { pizza: ['oven', 'pizza', 'menuboard'], clothes: ['mannequin', 'register'], jewelry: ['showcase', 'bust'], optician: ['frames', 'eyechart', 'examchair', 'showcase'], bodega: ['grill', 'cooler', 'register'],
     shoes: ['shoewall'], pawn: ['showcase', 'guitar', 'tv'], secondhand: ['showcase', 'guitar'], books: ['bookcase'], florist: ['flowers', 'cooler'], bikes: ['bike'], pets: ['tank'], hardware: ['pegboard'],
     electronics: ['tv', 'showcase'], music: ['guitar'], butcher: ['showcase'], fishmarket: ['showcase'], cosmetics: ['showcase'], coffee: ['espresso', 'showcase'], bakery: ['breadrack', 'showcase'],
-    mediterranean: ['spit', 'menuboard'], chinese: ['menuboard', 'cooler'], japanese: ['showcase'], pharmacy: ['cooler', 'register'], smoke: ['showcase'] };
+    mediterranean: ['spit', 'menuboard'], chinese: ['menuboard', 'cooler'], japanese: ['showcase'], pharmacy: ['cooler', 'register'], smoke: ['showcase'],
+    gym: ['treadmill', 'cableStation', 'dumbbells'], laundromat: ['laundryMachine', 'laundryCart', 'soapVendor'], postoffice: ['poBoxes', 'parcelDrop', 'mailSupplies'] };
   for (const [kind, expected] of Object.entries(marks)) {
     const room = plan(kind, 9, 12), found = shapes(room);
     for (const shape of expected) assert.ok(found.has(shape), `a ${kind} place has its ${shape}`);
@@ -31,7 +33,41 @@ test('each trade has the fittings that mark it', () => {
   assert.ok(holds(plan('pizza', 9, 12), 'pizza').length >= 3, 'pies along the counter');
   for (const kind of ['pizza', 'chinese', 'mediterranean']) assert.equal(holds(plan(kind, 9, 12), 'menuboard')[0].more.lines, menuFor(place(kind)).length, `the ${kind} menu has a line for each thing sold`);
   // A plain place is left as interiors.js made it.
-  for (const kind of ['bank', 'laundromat', 'gym', 'hotel', 'barber']) assert.equal(shapes(plan(kind, 9, 12)).size, 0, kind);
+  for (const kind of ['bank', 'hotel', 'barber']) assert.equal(shapes(plan(kind, 9, 12)).size, 0, kind);
+});
+
+test('fitness chains and studios keep their equipment and a route from the door at every size', () => {
+  const examples = [
+    ['Planet Fitness', 'treadmill'], ['Equinox', 'treadmill'], ['LIFE TIME FITNESS', 'spinBike'],
+    ['LIFETIME', 'spinBike'], ['SOULCYCLE', 'spinBike'], ['CorePower Yoga', 'exerciseMat'], ['Club Pilates', 'reformer'],
+  ];
+  for (const [name, equipment] of examples) for (const width of [5, 7, 9]) for (const deep of [4, 5, 6, 8, 10, 14]) {
+    const f = front('gym', width); f.place.name = name;
+    const room = planRoom(f, building(f, deep)), label = `${name} at ${width} × ${deep}`;
+    assert.ok(holds(room, equipment).length, label);
+    assert.ok(room.register && counterPath(room), label);
+    for (let b = .5; b < room.depth - .4; b += .20) {
+      const next = walkRoom(room, 0, b, 0, .05);
+      assert.ok(Math.abs(next.a) < .001 && Math.abs(next.b - b - .05) < .001, `clear central aisle: ${label}`);
+    }
+    const view = { plan: room, floor: 3, actors: [], occupied: new Set() };
+    populateShop(view);
+    assert.ok(view.clerk && !view.clerk.spot.treadmill);
+    const runners = view.actors.filter(actor => actor.spot.treadmill);
+    assert.equal(Boolean(runners.length), Boolean(holds(room, 'treadmill').length));
+    for (const { spot } of runners) assert.ok(holds(room, 'treadmill').some(t => spot.a === t.a && Math.abs(spot.b - t.b) < .2 && spot.db === -t.face[1]));
+    if (deep >= 10) {
+      if (name === 'Planet Fitness' && width >= 7) assert.ok(holds(room, 'treadmill').some((t,i,all) => all.some(other => t.b === other.b && t.a !== other.a)));
+      if (name === 'Equinox' && width >= 7) assert.ok(holds(room, 'weightBench').length);
+      if (room.finish.title === 'LIFE TIME') assert.ok(holds(room, 'reformer').length && room.seats.length && holds(room, 'towelShelf').length);
+    }
+    const built = buildRoom(room);
+    assert.ok(built.children[0].geometry.attributes.position.count / 3 < 9000, label);
+    built.userData.dispose();
+  }
+  const nonGym = front('clothes', 7); nonGym.place.name = 'EQUINOX';
+  assert.equal(planRoom(nonGym).style, 'clothes');
+  for (const name of ['LIFETIME', 'Life Time Fitness']) assert.equal(signFor({ kind: 'gym', name }).background, '#292724');
 });
 
 test('trades that shared a room have their own, and the commonest keep the manner they had', () => {

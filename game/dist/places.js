@@ -438,7 +438,7 @@ const TAGLINES = { bodega: 'DELI  GROCERY  ATM  LOTTO  COLD CUTS', grocery: 'FRE
   burgers: 'BURGERS  FRIES  SHAKES', mexican: 'TACOS  BURRITOS', japanese: 'SUSHI  RAMEN', pharmacy: 'PHARMACY  PRESCRIPTIONS', pawn: 'WE BUY GOLD  LOANS', secondhand: 'BUY  SELL  TRADE', electronics: 'PHONES  REPAIRS  ACCESSORIES',
   parking: 'PARK  24 HOURS', butcher: 'MEAT  POULTRY', fishmarket: 'FRESH FISH', produce: 'FRUITS & VEGETABLES', bakery: 'BREAD  CAKES  PASTRY', icecream: 'ICE CREAM', mediterranean: 'GYRO  FALAFEL  KEBAB', indian: 'CURRY  TANDOORI',
   clothes: '', bank: '', laundromat: 'WASH  DRY  FOLD  DROP OFF SERVICE', cleaners: 'DRY CLEANING  ALTERATIONS  SAME DAY', hardware: 'KEYS  PAINT  TOOLS  PLUMBING', florist: 'FLOWERS  PLANTS  WE DELIVER', optician: 'EYE EXAMS  GLASSES  CONTACTS',
-  phones: 'PHONES  PLANS  REPAIRS', jewelry: 'GOLD  DIAMONDS  WATCHES  REPAIRS', gym: 'FITNESS  24 HOURS', bikes: 'SALES  SERVICE  RENTALS', pets: 'FOOD  SUPPLIES  GROOMING', tattoo: 'TATTOO  PIERCING', smoke: 'CIGARS  VAPE  HOOKAH  CBD',
+  phones: 'PHONES  PLANS  REPAIRS', jewelry: 'GOLD  DIAMONDS  WATCHES  REPAIRS', gym: 'FITNESS', bikes: 'SALES  SERVICE  RENTALS', pets: 'FOOD  SUPPLIES  GROOMING', tattoo: 'TATTOO  PIERCING', smoke: 'CIGARS  VAPE  HOOKAH  CBD',
   cosmetics: 'WIGS  HAIR  COSMETICS', copyshop: 'COPIES  PRINTING  SHIPPING  NOTARY', tailor: 'ALTERATIONS  HEMMING', travel: 'TICKETS  TOURS  MONEY TRANSFER', massage: 'BODY WORK  FOOT RUB', housewares: 'KITCHEN  BATH  HOME',
   shoes: 'SNEAKERS  BOOTS  REPAIRS', books: 'NEW  USED  RARE', vet: 'ANIMAL HOSPITAL', dentist: 'FAMILY DENTISTRY', clinic: 'WALK-INS WELCOME', furniture: 'SOFAS  BEDS  FINANCING', gifts: 'SOUVENIRS  CARDS  GIFTS',
   thai: 'THAI KITCHEN', korean: 'KOREAN BBQ', caribbean: 'JERK  ROTI  PATTIES', latin: 'COMIDA LATINA', sandwiches: 'SANDWICHES  SALADS  SOUPS', variety: 'EVERYTHING MUST GO', gas: 'GAS  DIESEL  MART' };
@@ -469,6 +469,7 @@ const hashText = text => { let h = 2166136261; for (let i = 0; i < text.length; 
 // Only the colours and the name are theirs, and the lettering is the game's plain face, unless the chain's logo has
 // been fetched to this machine. The fourth entry is the name the chain is known by, used to look its logo up.
 const BRANDS = [
+  [/^LIFE\s*TIME(?:$|\s+(?:FITNESS|ATHLETIC)\b| - )/, '#292724', '#eee9df', 'Life Time Fitness'],
   [/^DUNKIN/, '#ffffff', '#f5821f', 'Dunkin\''], [/^CHASE( BANK)?$|^JPMORGAN CHASE/, '#ffffff', '#117aca', 'Chase Bank'], [/^MCDONALD/, '#da291c', '#ffc72c', 'McDonald\'s'], [/T-?MOBILE/, '#e20074', '#ffffff', 'T-Mobile US'], [/^STARBUCKS/, '#00704a', '#ffffff', 'Starbucks'],
   [/^SUBWAY( RESTAURANTS?| SANDWICH(ES)?)?$/, '#008c15', '#ffc600', 'Subway (restaurant)'], [/^CHIPOTLE/, '#441500', '#ffffff', 'Chipotle Mexican Grill'], [/^POPEYES/, '#f15c22', '#ffffff', 'Popeyes'], [/^BANK OF AMERICA/, '#ffffff', '#012169', 'Bank of America'], [/^TD BANK/, '#34a853', '#ffffff', 'TD Bank, N.A.'], [/^CITIBANK|^CITI$/, '#ffffff', '#003b70', 'Citibank'],
   [/^CVS/, '#cc0000', '#ffffff', 'CVS Pharmacy'], [/^WALGREENS/, '#ffffff', '#e31837', 'Walgreens'], [/^DUANE READE/, '#ffffff', '#00539b', 'Duane Reade'], [/^DOMINO/, '#006491', '#ffffff', 'Domino\'s'], [/^TACO BELL/, '#702082', '#ffffff', 'Taco Bell'], [/KENNEDY FRIED CHICKEN/, '#c8102e', '#ffffff', ''],
@@ -491,12 +492,16 @@ const BRANDS = [
  * The chain a name belongs to, by a short name fit for a file ("starbucks", "chase-bank"), or null: what its logo,
  * if one has been fetched (scripts/build-logos.mjs), is filed under.
  */
-export const brandKey = name => { const found = BRANDS.find(([pattern]) => pattern.test(name)); return found && found[3] ? logoKey(found[3]) : null; };
+const findBrand = name => {
+  const sign = String(name || '').toUpperCase();
+  return BRANDS.find(([pattern]) => pattern.test(sign));
+};
+export const brandKey = name => { const found = findBrand(name); return found && found[3] ? logoKey(found[3]) : null; };
 export const logoKey = brand => brand.toLowerCase().replace(/\(.*?\)/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
 /** Every chain that could have a logo: [key, the name it is known by]. */
 export const brandNames = () => [...new Map(BRANDS.filter(entry => entry[3]).map(entry => [logoKey(entry[3]), entry[3]]))];
 /** The chain a name belongs to, as [background, lettering], or null. */
-export const brandOf = name => { const found = BRANDS.find(([pattern]) => pattern.test(name)); return found ? [found[1], found[2]] : null; };
+export const brandOf = name => { const found = findBrand(name); return found ? [found[1], found[2]] : null; };
 
 export function signFor(place, language = null) {
   const name = placeName(place), brand = brandOf(name), schemes = KIND_SCHEMES[place.kind] || SCHEMES[KIND[place.kind]?.group] || SCHEMES.shop;

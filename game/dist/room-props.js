@@ -15,6 +15,8 @@
 import * as THREE from './vendor/three.module.min.js';
 import { roomPoint } from './room.js';
 import { menuFor } from './menu.js';
+import { BUSINESS_FIXTURES } from './business-fixtures.js';
+import { BUSINESS_ROOMS } from './business-rooms.js';
 
 const STEEL = '#9aa1a5', DARK = '#23272b', BLACK = '#17191b', WHITE = '#ecebe4', WOOD = '#6b4a32', GLASS = '#bfd9e4', CHROME = '#c6cbce', GOLD = '#c9a23f', FELT = '#1b2440';
 const CLOTH = ['#1f2a44', '#7a1f2a', '#d9d2c0', '#2f5a45', '#c9a23f', '#3a3a40', '#b65a7a', '#5f7fa8'];
@@ -27,6 +29,7 @@ let UNITS = null;
 const units = () => UNITS ||= {
   box: unit(new THREE.BoxGeometry(1, 1, 1)), post: unit(new THREE.CylinderGeometry(.5, .5, 1, 8)), round: unit(new THREE.CylinderGeometry(.5, .5, 1, 14)),
   cone: unit(new THREE.CylinderGeometry(.3, .5, 1, 8)), rodU: unit(new THREE.CylinderGeometry(.5, .5, 1, 6).rotateZ(Math.PI / 2)), rodV: unit(new THREE.CylinderGeometry(.5, .5, 1, 6).rotateX(Math.PI / 2)),
+  drum: unit(new THREE.CylinderGeometry(.5, .5, 1, 16).rotateX(Math.PI / 2)),
   ball: unit(new THREE.SphereGeometry(.5, 6, 4)), bud: unit(new THREE.SphereGeometry(.5, 4, 2)), hex: unit(new THREE.CylinderGeometry(.5, .5, 1, 6)), taper: unit(new THREE.CylinderGeometry(.3, .5, 1, 6)), plate: unit(new THREE.PlaneGeometry(1, 1)), ring: unit(new THREE.TorusGeometry(.5, .05, 4, 12)),
   // Half a drum lying on its flat side: an oven's arched mouth, a bread loaf.
   arch: unit(new THREE.CylinderGeometry(.5, .5, 1, 10, 1, false, -Math.PI / 2, Math.PI).rotateX(Math.PI / 2)),
@@ -42,19 +45,25 @@ export function roomProps(room, y, position, color) {
   const mirrored = room.tx * room.nz - room.tz * room.nx > 0, order = mirrored ? [0, 2, 1] : [0, 1, 2], tone = new THREE.Color(), U = units();
   let A = 0, B = 0, cos = 1, sin = 0, floor = 0;
   /** Set down one unit solid: `size` along the prop's width, height and depth, centred at `at` (width, height above its foot, depth). */
-  const put = (shape, size, at, hex, glow = false) => {
+  const put = (shape, size, at, hex, glow = false, pitchCos = 1, pitchSin = 0) => {
     const p = shape.attributes.position, n = shape.attributes.normal;
     tone.set(hex);
     for (let i = 0; i < p.count; i += 3) for (const k of order) {
-      const lx = at[0] + p.getX(i + k) * size[0], ly = at[1] + p.getY(i + k) * size[1], lz = at[2] + p.getZ(i + k) * size[2];
-      const [x, z] = roomPoint(room, A + lx * cos + lz * sin, B - lx * sin + lz * cos), ny = n.getY(i + k);
-      const shade = glow ? 1 : ny > .5 ? 1.08 : ny < -.5 ? .7 : .84 + .14 * Math.abs(n.getX(i + k) * cos + n.getZ(i + k) * sin);
+      const py = p.getY(i + k) * size[1], pz = p.getZ(i + k) * size[2];
+      const lx = at[0] + p.getX(i + k) * size[0], ly = at[1] + py * pitchCos - pz * pitchSin, lz = at[2] + py * pitchSin + pz * pitchCos;
+      const [x, z] = roomPoint(room, A + lx * cos + lz * sin, B - lx * sin + lz * cos);
+      const ny = n.getY(i + k) * pitchCos - n.getZ(i + k) * pitchSin, nz = n.getY(i + k) * pitchSin + n.getZ(i + k) * pitchCos;
+      const shade = glow ? 1 : ny > .5 ? 1.08 : ny < -.5 ? .7 : .84 + .14 * Math.abs(n.getX(i + k) * cos + nz * sin);
       position.push(x, y + floor + ly, z); color.push(tone.r * shade, tone.g * shade, tone.b * shade);
     }
   };
   // The prop's own frame: u across it, v out of its front, heights from its foot.
   const t = {
     box: (u, v, wu, wv, h, up, hex, glow) => put(U.box, [wu, h, wv], [u, up + h / 2, v], hex, glow),
+    slope(u, v0, y0, v1, y1, width, thickness, hex) {
+      const rise = y1 - y0, run = v1 - v0, length = Math.hypot(rise, run);
+      put(U.box, [width, length, thickness], [u, (y0 + y1) / 2, (v0 + v1) / 2], hex, false, rise / length, run / length);
+    },
     post: (u, v, radius, h, up, hex, shape = U.post) => put(shape, [radius * 2, h, radius * 2], [u, up + h / 2, v], hex),
     disc: (u, v, radius, h, up, hex) => put(U.round, [radius * 2, h, radius * 2], [u, up + h / 2, v], hex),
     cone: (u, v, radius, h, up, hex) => put(U.cone, [radius * 2, h, radius * 2], [u, up + h / 2, v], hex),
@@ -65,6 +74,7 @@ export function roomProps(room, y, position, color) {
     tub: (u, v, radius, h, up, hex) => put(U.taper, [radius * 2, h, radius * 2], [u, up + h / 2, v], hex),
     rodU: (u, v, length, radius, up, hex) => put(U.rodU, [length, radius * 2, radius * 2], [u, up, v], hex),
     rodV: (u, v, length, radius, up, hex) => put(U.rodV, [radius * 2, radius * 2, length], [u, up, v], hex),
+    drum: (u, v, length, radius, up, hex) => put(U.drum, [radius * 2, radius * 2, length], [u, up, v], hex),
     /** A flat card standing up, seen from the front: a label, a lens, a spine, a screen. */
     plate: (u, v, wu, h, up, hex, glow) => put(U.plate, [wu, h, 1], [u, up + h / 2, v], hex, glow),
     /** A hoop standing up, `radius` to its outside. */
@@ -112,6 +122,7 @@ function showcase(t, w, d, h, hex, { items = 'watches', felt = FELT, seed = 0 } 
 }
 
 const PROPS = {
+  ...BUSINESS_FIXTURES,
   /** A shop figure on a stand, dressed in `hex`. */
   mannequin(t, w, d, h, hex, { skin = '#e2dccd', legs = null, seed = 0 }) {
     const s = h / 1.78, trousers = legs || pick(['#23272b', '#1f2a44', '#3a3a40', '#5a4632'], seed);
@@ -374,6 +385,7 @@ const DRESS = {
 
 /** Manners of room this module furnishes by itself, for kinds of place interiors.js gave a room shared with others. */
 const OWN = {
+  ...BUSINESS_ROOMS,
   // A jeweller: cases of watches, rings and chains down both sides and across the back, necklaces on forms behind.
   jewelry(r) {
     r.floor = '#3a3438'; r.wall = '#e6dfd2'; r.light = { color: 0xfff6e6, power: 78 };
@@ -513,12 +525,13 @@ function fresh(r, items, sign) {
 
 /** Kinds of place that get a manner of room of their own here, in place of the one interiors.js shares among several. */
 export const OWN_STYLE_OF = { jewelry: 'jewelry', optician: 'optician', pawn: 'pawn', shoes: 'shoes', books: 'books', florist: 'florist', bikes: 'bikes', pets: 'pets', hardware: 'hardware', pharmacy: 'pharmacy',
-  electronics: 'electronics', music: 'music', butcher: 'butcher', fishmarket: 'fishmarket', cosmetics: 'cosmetics', smoke: 'smoke', dispensary: 'smoke' };
+  electronics: 'electronics', music: 'music', butcher: 'butcher', fishmarket: 'fishmarket', cosmetics: 'cosmetics', smoke: 'smoke', dispensary: 'smoke',
+  gym: 'gym', laundromat: 'laundromat', postoffice: 'postoffice' };
 export const OWN_STYLES = Object.keys(OWN), DRESSED_STYLES = Object.keys(DRESS);
 
 /** Furnish `r` in a manner of room: this module's own where it has one, otherwise `styles[style]` and then what this adds to it. */
 export function furnishRoom(styles, style, r) {
-  if (OWN[style]) { OWN[style](r); return; }
+  if (OWN[style]) { OWN[style](r, (...args) => prop(r, ...args)); return; }
   styles[style](r);
   DRESS[style]?.(r);
 }
