@@ -2,6 +2,7 @@
 
 /** The width of a room's door, in metres. */
 export const DOOR = 1.1;
+export const CEILING = 3.1;
 
 /** Where a point of the room is in the world: (a, b) to [x, z]. */
 export const roomPoint = (room, a, b) => [room.x + room.tx * a - room.nx * b, room.z + room.tz * a - room.nz * b];

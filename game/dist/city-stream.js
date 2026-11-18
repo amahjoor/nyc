@@ -1,3 +1,4 @@
+import { createRoomCutaways } from './room-cutaways.js';
 import * as THREE from './vendor/three.module.min.js';
 import { mercatorCoefficients, atlasProjectionGLSL } from './imagery-projection.js';
 import { chooseStyle, featureRandom, writeFacade, createFacadeScratch, applyFacadeShader, HEIGHT_UNIT, setLots, setLandmarks } from './facade.js';
@@ -393,6 +394,9 @@ class CityStream {
     this.collisionDesired = new Set(); this.preparedCollisions = new Set(); this.collisionRecords = new Map();
     this.focus = { x: 0, z: 0 }; this.lastSelection = -Infinity; this.lastOverview = null;
     this.material = new THREE.MeshStandardMaterial({ color: 0xbebfb9, roughness: 0.94, side: THREE.DoubleSide });
+    this.roomCutaways = createRoomCutaways();
+    this.depthMaterial = new THREE.MeshDepthMaterial({ depthPacking: THREE.RGBADepthPacking });
+    this.depthMaterial.onBeforeCompile = this.roomCutaways.apply;
     this.material.name = 'Official citywide measured surfaces';
     this.orthoUniforms = { cityOrtho: { value: null }, cityOrthoBounds: { value: new THREE.Vector4() }, cityUseOrtho: { value: false },
       cityMercator: { value: new THREE.Vector4() }, cityUseMercator: { value: false },
@@ -439,6 +443,7 @@ class CityStream {
         }`);
       // Walls are dressed as New York building types; see facade.js.
       applyFacadeShader(shader);
+      this.roomCutaways.apply(shader);
     };
   }
 
@@ -623,6 +628,7 @@ class CityStream {
       for (const name of ['normal', 'aFacade', 'aStyle']) geometry.attributes[name].onUpload(releaseArray);
       geometry.computeBoundingSphere();
       const mesh = new THREE.Mesh(geometry, this.material); mesh.name = `NYC survey node ${node.resource}`;
+      mesh.customDepthMaterial = this.depthMaterial;
       mesh.castShadow = true; mesh.receiveShadow = true; mesh.visible = false;
       this.group.add(mesh);
       const record = { node, mesh, buildings: data.buildings, anchors: data.anchors, bytes: data.positions.byteLength + data.normals.byteLength + data.facade.byteLength + data.style.byteLength + data.anchors.length * 64, used: ++this.serial, triangles: data.triangles };
@@ -714,7 +720,7 @@ class CityStream {
     for (const task of this.requests.values()) { task.controller.abort(); task.reject(new Error('NYC city stream has been disposed.')); }
     this.queue.length = 0; this.requests.clear();
     for (const record of this.cache.values()) record.mesh.geometry.dispose();
-    this.cache.clear(); this.collisionRecords.clear(); this.preparedCollisions.clear(); this.material.dispose(); this.scene?.remove(this.group); this.group.clear();
+    this.cache.clear(); this.collisionRecords.clear(); this.preparedCollisions.clear(); this.material.dispose(); this.depthMaterial.dispose(); this.roomCutaways.dispose(); this.scene?.remove(this.group); this.group.clear();
   }
 }
 

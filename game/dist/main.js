@@ -856,6 +856,9 @@ function frame(now) {
   props.group.visible=crowd.mesh.visible;
   if(props.group.visible)props.update(streetscape?.walks()||noStreetFurniture,lit,signs.poles);
   setVehicleLamps(gfx.state.lightsOn);
+  const furnishedRooms=storefronts?.rooms;
+  if(furnishedRooms)world.roomCutaways.update(furnishedRooms);
+  else world.roomCutaways.update(sim.room&&roomGroup?[{plan:sim.room,floor:roomGroup.userData.floorY}]:[]);
   gfx.render();
   qualityTimer+=dt;if(dt>.035)slowFrames++;
   if(highQuality&&qualityTimer>5){if(slowFrames>90){highQuality=false;applyQuality();announce('Switched to balanced graphics for smoother streets.');}qualityTimer=0;slowFrames=0;}

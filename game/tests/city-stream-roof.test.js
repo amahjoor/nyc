@@ -96,3 +96,39 @@ test('walls are dressed in the fragment stage, after roof imagery and before lig
   assert.match(shader.fragmentShader, /NycFacade nycFacade\(/);
   stream.dispose();
 });
+
+test('survey cutaways follow furnished rooms, streamed floor elevations and room removal', () => {
+  const stream = createCityStream(index);
+  try {
+    const color = compileHook(stream);
+    const depth = { ...THREE.ShaderLib.depth, uniforms: {} };
+    stream.depthMaterial.onBeforeCompile(depth);
+    const { roomCutCount, roomCuts, roomCutMin, roomCutMax } = color.uniforms;
+    assert.equal(depth.uniforms.roomCuts, roomCuts);
+    assert.equal(roomCutCount.value, 0);
+    // A skewed Adams Street room on a slope. The survey bottom is at 21.16 m.
+    const plan = { x: 1045, z: 3106, nx: 1, nz: 0, tx: 0, tz: 1, width: 9, depth: 12, skew: .25 };
+    const view = { plan, floor: 20 };
+    stream.roomCutaways.update([view]);
+    assert.equal(roomCutCount.value, 1);
+    assert.deepEqual(roomCutMin.value.toArray(), [1033,20,3101.5]);
+    assert.deepEqual(roomCutMax.value.toArray(), [1045,23.1,3113.5]);
+    assert.deepEqual(Array.from(roomCuts.value.image.data.slice(4,11)), [0,1,1,0,4.5,12,.25]);
+    const version = roomCuts.value.version;
+    stream.roomCutaways.update([view]);
+    assert.equal(roomCuts.value.version, version, 'standing still does not upload room data');
+    view.floor += 2;
+    stream.roomCutaways.update([view]);
+    assert.equal(roomCutMin.value.y, 22);
+    assert.equal(roomCuts.value.image.data[2], 22);
+    const adjacent = { plan: {...plan, x: 1058, skew: 0}, floor: 18 };
+    stream.roomCutaways.update([view, adjacent]);
+    assert.equal(roomCutCount.value, 2);
+    assert.equal(roomCutMax.value.x, 1058);
+    stream.roomCutaways.update([adjacent]);
+    assert.equal(roomCutCount.value, 1);
+    assert.equal(roomCuts.value.image.data[0], 1058);
+    stream.roomCutaways.update([]);
+    assert.equal(roomCutCount.value, 0);
+  } finally { stream.dispose(); }
+});

@@ -12,7 +12,7 @@
 // the street is not seen: the front is a wall with a lit door.
 import * as THREE from './vendor/three.module.min.js';
 import { KIND, placeName } from './places.js';
-import { roomPoint, DOOR } from './room.js';
+import { CEILING, roomPoint, DOOR } from './room.js';
 import { roomProps, furnishRoom, OWN_STYLE_OF } from './room-props.js';
 
 /** Kinds of place with a room to walk into, by group. */
@@ -40,7 +40,7 @@ const PLAIN = { shop: 'store', eat: 'diner', bar: 'bar', chairs: 'salon', lobby:
 /** The manner of room a place has, or null if it has none. */
 export const roomStyle = place => { const kind = roomKind(place); return kind ? STYLE_OF[place.kind] || PLAIN[kind] : null; };
 
-export const CEILING = 3.1;
+export { CEILING };
 const hashOf = text => { let h = 2166136261; for (let i = 0; i < text.length; i++) { h ^= text.charCodeAt(i); h = Math.imul(h, 16777619); } return (h ^ (h >>> 15)) >>> 0; };
 
 const WOOD = '#6b4a32', STEEL = '#8d9498', DARK = '#23272b', WHITE = '#e6e3da', GLASS = '#a9cbd8', BLACK = '#17191b';
