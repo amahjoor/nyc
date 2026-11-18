@@ -161,9 +161,12 @@ function action(name) {
     if(sim.player.mode==='walk'&&!sim.room&&doorHere&&!sim.getNearbyCar()){
       const room=planRoom(doorHere,(x,z)=>Boolean(footprints.at(x,z)));
       if(room&&sim.enterRoom(room)){
-        const floor=groundHeight(room.x+room.nx*1.5,room.z+room.nz*1.5)+.04;
+        // The floor is laid just above the highest ground under the room, so no ground shows through it.
+        let floor=groundHeight(room.x+room.nx*1.5,room.z+room.nz*1.5);
+        for(const along of [-.5,0,.5])for(const deep of [0,.5,1]){const h=groundHeight(room.x+room.tx*room.width*along-room.nx*room.depth*deep,room.z+room.tz*room.width*along-room.nz*room.depth*deep);if(Number.isFinite(h)&&h>floor&&h<floor+1.2)floor=h;}
+        floor+=.06;
         roomGroup=buildRoom(room,floor);scene.add(roomGroup);
-        roomStaff=room.staff.map((spot,i)=>{const person=createPerson([0x2f4a5a,0x7a2f2f,0x3f5a3a,0x4a3a5a][i%4]);const x=room.x+room.tx*spot.a-room.nx*spot.b,z=room.z+room.tz*spot.a-room.nz*spot.b;person.position.set(x,floor,z);person.rotation.y=Math.atan2(room.nx,room.nz)+spot.facing*Math.PI/2;roomGroup.add(person);
+        roomStaff=room.staff.map((spot,i)=>{const person=createPerson([0x2f4a5a,0x7a2f2f,0x3f5a3a,0x4a3a5a][i%4]);const x=room.x+room.tx*spot.a-room.nx*spot.b,z=room.z+room.tz*spot.a-room.nz*spot.b;person.position.set(x,floor,z);person.rotation.y=Math.atan2(room.tx*spot.da-room.nx*spot.db,room.tz*spot.da-room.nz*spot.db);roomGroup.add(person);
           // The same person each visit: drawn from the place's own number, with the faces of the neighbourhood.
           const random=seeded((Math.round(room.x*7+room.z*13)^(i*7919))>>>0||1),look=dress('casual',random,demographics.tracts?demographics.tonesAt(x,z,.2):null);
           look.kit=(look.kit&(KIT.longHair|KIT.shortSleeves))|(random()<.5?KIT.woman:0);
@@ -1014,7 +1017,7 @@ async function boot() {
   }).catch(()=>{$('road-reconstruction-status').textContent='Road image review unavailable. Surveyed surfaces remain active.';});
   avatar=createPerson(0xd7774e,{courier:true});scene.add(avatar);marker=createMissionMarker();enterHint=createEnterHint();
   hud=new HUD(city);applyQuality();
-  gameMap=new GameMap({city,onPin:clearDirections,onRoute:requestDirections,
+  gameMap=new GameMap({city,searchLocal:findLocally,onPin:clearDirections,onRoute:requestDirections,
     onSpawn:pin=>travel({...pin,exact:true}),
     onOpenChange:open=>{mapOpen=open;input.clear();input.lookDelta=0;input.lookVertical=0;if(!open)canvas.focus();}});
   hud.attachMap(gameMap);

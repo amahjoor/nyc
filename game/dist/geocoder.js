@@ -1,4 +1,5 @@
 import { geographicToWorld, NYC_BBOX } from './city-ground.js';
+import { parseQuery } from './local-search.js';
 
 const ENDPOINT = 'https://geosearch.planninglabs.nyc/v2/search';
 const MAX_RESULTS = 6;
@@ -88,4 +89,19 @@ export async function searchAddresses(query, { signal, fetcher = globalThis.fetc
   } finally {
     clearTimeout(timeout);signal?.removeEventListener('abort', abort);
   }
+}
+
+/** Combine surveyed intersections and businesses with NYC building addresses. */
+export async function searchDestinations(query, { searchLocal, lookup = searchAddresses, signal }) {
+  const [local, remote] = await Promise.allSettled([
+    Promise.resolve().then(() => searchLocal(query)),
+    lookup(query, { signal }),
+  ]);
+  if (signal?.aborted) throw canceled();
+  const found = local.status === 'fulfilled' && Array.isArray(local.value) ? local.value : [];
+  if (remote.status === 'rejected' && !found.length) throw remote.reason;
+  const addresses = remote.status === 'fulfilled' ? remote.value : [];
+
+  if (found.some(place => place.kind === 'corner')) return found.slice(0, 8);
+  return (parseQuery(query).numbered ? [...addresses, ...found] : [...found, ...addresses]).slice(0, 8);
 }

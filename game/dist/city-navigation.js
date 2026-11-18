@@ -1,7 +1,6 @@
 import * as THREE from './vendor/three.module.min.js';
 import { worldToGeographic } from './city-ground.js';
-import { searchAddresses } from './geocoder.js';
-import { parseQuery } from './local-search.js';
+import { searchDestinations } from './geocoder.js';
 
 const flatHeight = () => 0;
 const finiteHeight = (heightAt, x, z) => { const height=heightAt(x,z);return Number.isFinite(height)?height:0; };
@@ -113,15 +112,7 @@ export function createCityNavigation({ canvas, camera, input, bounds, onTravel, 
     const epoch=searchEpoch, controller=new AbortController();searchController=controller;
     searching=true;controls();$('address-status').textContent='Searching New York…';
     try{
-      // Corners and businesses are found in the game's own data; building addresses by the city's search. Either may fail without the other.
-      const query=$('address-input').value;
-      const [local,remote]=await Promise.allSettled([Promise.resolve().then(()=>searchLocal(query)),searchAddresses(query,{signal:controller.signal})]);
-      if(epoch!==searchEpoch||!visible)return;
-      const found=local.status==='fulfilled'&&Array.isArray(local.value)?local.value:[],addresses=remote.status==='fulfilled'?remote.value:[];
-      if(remote.status==='rejected'&&!found.length)throw remote.reason;
-      // A corner is what was asked for when one was; a numbered address is a building first.
-      const corner=found.some(place=>place.kind==='corner'),first=corner?found:parseQuery(query).numbered?addresses:found,second=first===found?(corner?[]:addresses):found;
-      const places=[...first,...second].slice(0,8);
+      const places = await searchDestinations($('address-input').value, { searchLocal, signal: controller.signal });
       // Aborting fetch alone cannot prevent a late or already parsed response
       // from replacing a newer search or a manual map selection.
       if(epoch!==searchEpoch||!visible)return;

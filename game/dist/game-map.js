@@ -1,3 +1,5 @@
+import { searchDestinations } from './geocoder.js';
+
 const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
 const finitePoint = point => point && Number.isFinite(point.x) && Number.isFinite(point.z);
 const distanceText = meters => meters >= 1000 ? `${(meters / 1000).toFixed(1)} km` : `${Math.round(meters)} m`;
@@ -24,7 +26,7 @@ function shapeBounds(points) {
 
 /** Canvas map uses the game's local meters, never an independent map projection. */
 export class GameMap {
-  constructor({ document = globalThis.document, city, onPin = () => {}, onRoute = () => {}, onSpawn = () => {}, onOpenChange = () => {} } = {}) {
+  constructor({ document = globalThis.document, city, searchLocal = () => [], lookupAddress, onPin = () => {}, onRoute = () => {}, onSpawn = () => {}, onOpenChange = () => {} } = {}) {
     this.document = document;this.city = city;this.onPin = onPin;this.onRoute = onRoute;this.onSpawn = onSpawn;this.onOpenChange = onOpenChange;
     this.element = document.getElementById('game-map');this.canvas = document.getElementById('game-map-canvas');
     this.mini = document.getElementById('minimap');this.open = false;this.pin = null;this.route = null;this.progress = null;this.busy = false;
@@ -33,6 +35,10 @@ export class GameMap {
     this.roadGrid = new Map();this.longRoads = [];this.roads = [];this.overviewCache = null;this.sim = null;this.disposed = false;
     const byId = id => document.getElementById(id);this.byId = byId;
     const listen = (target, type, callback, options) => { target.addEventListener(type, callback, options);this.listeners.push(() => target.removeEventListener(type, callback, options)); };
+    this.searchLocal = searchLocal;
+    this.lookupAddress = lookupAddress;
+    listen(byId('game-map-search'), 'submit', event => { event.preventDefault();return this.searchAddress(); });
+    listen(byId('game-map-address'), 'input', () => this.clearAddressResults());
     listen(byId('game-map-close'), 'click', () => this.setOpen(false));
     listen(byId('game-map-zoom-in'), 'click', () => this.zoom(.65));
     listen(byId('game-map-zoom-out'), 'click', () => this.zoom(1 / .65));
@@ -53,14 +59,18 @@ export class GameMap {
     listen(document, 'keydown', event => {
       if (!this.open) return;
       const key = event.key || event.code;
-      if (key === 'Escape' || key === 'm' || key === 'M' || key === 'KeyM') {
+      const typing = document.activeElement === byId('game-map-address');
+      if (key === 'Escape' || (!typing && ['m','M','KeyM'].includes(key))) {
         event.preventDefault();event.stopImmediatePropagation();if (!event.repeat) this.setOpen(false);
       } else if (key === 'Tab') {
         // Keep keyboard focus inside this modal without relying on a native
         // dialog; the existing 3D map and pause dialogs remain separate flows.
-        const ids = ['game-map-close','game-map-canvas','game-map-zoom-in','game-map-zoom-out','game-map-recenter','game-map-city','game-map-route','game-map-spawn','game-map-clear'];
-        const elements = ids.map(byId).filter(element => !element.disabled);
-        const i = elements.indexOf(document.activeElement), next = (i + (event.shiftKey ? -1 : 1) + elements.length) % elements.length;
+        const elements = [byId('game-map-address'), byId('game-map-search-button'),
+          ...Array.from(byId('game-map-search-results').children || []),
+          ...['game-map-close','game-map-canvas','game-map-zoom-in','game-map-zoom-out','game-map-recenter','game-map-city','game-map-route','game-map-spawn','game-map-clear'].map(byId)
+        ].filter(element => !element.disabled);
+        const i = elements.indexOf(document.activeElement);
+        const next = i < 0 ? (event.shiftKey ? elements.length - 1 : 0) : (i + (event.shiftKey ? -1 : 1) + elements.length) % elements.length;
         event.preventDefault();elements[next]?.focus();
       } else if (document.activeElement === this.canvas && ['ArrowLeft','ArrowRight','ArrowUp','ArrowDown','+','=','-'].includes(key)) {
         event.preventDefault();event.stopPropagation();
@@ -123,10 +133,56 @@ export class GameMap {
     if (this.disposed || this.open === Boolean(open)) return;
     this.open = Boolean(open);this.element.hidden = !this.open;
     if (this.open) { this.previousFocus = this.document.activeElement;this.dimensions();this.recenter();this.byId('game-map-close').focus(); }
-    else { this.drag = null;this.previousFocus?.focus?.(); }
+    else { this.drag = null;this.clearAddressResults();this.previousFocus?.focus?.(); }
     this.byId('map-button').setAttribute('aria-expanded', String(this.open));this.byId('open-map-button').setAttribute('aria-expanded', String(this.open));this.onOpenChange(this.open);
   }
   toggle() { this.setOpen(!this.open); }
+  clearAddressResults() {
+    this.addressRequest?.abort();
+    this.addressRequest = null;
+    this.byId('game-map-search-results').replaceChildren();
+    this.byId('game-map-search-status').textContent = '';
+    this.byId('game-map-search').setAttribute('aria-busy', 'false');
+  }
+  async searchAddress() {
+    if (!this.open || this.busy) return;
+    this.clearAddressResults();
+    const controller = new AbortController();
+    this.addressRequest = controller;
+    const field = this.byId('game-map-address'), results = this.byId('game-map-search-results');
+    const status = this.byId('game-map-search-status');
+    this.byId('game-map-search').setAttribute('aria-busy', 'true');
+    status.textContent = 'Searching…';
+    try {
+      const places = await searchDestinations(field.value, {
+        searchLocal: this.searchLocal, lookup: this.lookupAddress, signal: controller.signal,
+      });
+      if (controller.signal.aborted) return;
+      status.textContent = places.length ? '' : 'No results. Try a nearby intersection or add the borough.';
+      for (const place of places) {
+        const button = this.document.createElement('button');
+        button.type = 'button';
+        button.className = 'address-result';
+        button.textContent = [place.name, place.what, place.detail, place.borough].filter(Boolean).join(' · ');
+        button.addEventListener('click', () => {
+          if (!this.open || this.busy) return;
+          const label = button.textContent;
+          if (!this.setPin({ ...place, name: label })) return;
+          this.view.x = place.x;this.view.z = place.z;this.view.span = 1000;
+          this.following = false;this.clampCenter();this.draw();
+          this.canvas.focus();
+        });
+        results.append(button);
+      }
+    } catch (error) {
+      if (!controller.signal.aborted) status.textContent = error.message;
+    } finally {
+      if (this.addressRequest === controller) {
+        this.addressRequest = null;
+        this.byId('game-map-search').setAttribute('aria-busy', 'false');
+      }
+    }
+  }
   setCity(city) {
     if (!city) return;
     if (this.city !== city) { this.city = city;this.dirty = true; }
@@ -226,10 +282,12 @@ export class GameMap {
     if (!finitePoint(point)) return;
     const b = this.city.bounds;
     if (point.x < b.minX || point.x > b.maxX || point.z < b.minZ || point.z > b.maxZ) { this.setStatus('Choose a point inside New York City.');return; }
+    this.clearAddressResults();
+    this.byId('game-map-address').value = point.name || '';
     this.pin = { x: point.x, z: point.z, name: point.name || 'Map pin' };this.route = null;this.progress = null;
-    this.setStatus('Pin selected. Drag it to move, get directions, or spawn at this location.');this.updateControls();this.onPin({ ...this.pin });this.dirty = true;this.draw();
+    this.setStatus(point.name || '');this.updateControls();this.onPin({ ...this.pin });this.dirty = true;this.draw();return true;
   }
-  clearPin() { this.pin = null;this.route = null;this.progress = null;this.onPin(null);this.setStatus('Click anywhere to place a pin. Drag the map to explore.');this.updateControls();this.dirty = true;this.draw(); }
+  clearPin() { this.clearAddressResults();this.byId('game-map-address').value = '';this.pin = null;this.route = null;this.progress = null;this.onPin(null);this.setStatus('');this.updateControls();this.dirty = true;this.draw();this.canvas.focus(); }
   setRoute(route) { this.route = route?.ok === false ? null : route;this.progress = null;this.dirty = true;this.updateDirections();this.draw(); }
   setRouteProgress(progress) { this.progress = progress;this.updateDirections(); }
   setGuidance(progress) { this.setRouteProgress(progress); }
@@ -249,7 +307,12 @@ export class GameMap {
   }
   setStatus(text) { this.byId('game-map-status').textContent = text; }
   setBusy(busy) { this.busy = Boolean(busy);if (this.busy) this.drag = null;this.updateControls(); }
-  updateControls() { for (const id of ['game-map-route','game-map-spawn','game-map-clear']) this.byId(id).disabled = this.busy || !this.pin;this.updateDirections(); }
+  updateControls() {
+    this.byId('game-map-pin-actions').hidden = !this.pin;
+    for (const id of ['game-map-route','game-map-spawn','game-map-clear']) this.byId(id).disabled = this.busy || !this.pin;
+    this.byId('game-map-search-button').disabled = this.busy;
+    this.updateDirections();
+  }
   async invoke(handler) {
     if (!this.pin || this.busy) return;
     this.setBusy(true);

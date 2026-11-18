@@ -1391,11 +1391,20 @@ function dropGameMapPin(app,point){
 }
 
 test('interactive map opens from city view, zooms, pans, and pauses driving without pausing the menu',async()=>{
-  const app=await bootHarness();
+  const app=await bootHarness({geocodeFetch:async()=>{throw new Error('Address service unavailable');}});
   try{
     app.click('start-button');app.frames(2);app.key('KeyM');app.key('KeyM',false);
     assert.equal(app.state().map.open,true);assert.equal(app.elements.get('game-map').hidden,false);
     assert.equal(app.state().map.view.span,1000);
+    app.elements.get('game-map-address').value='53rd & 6th, Manhattan';
+    app.elements.get('game-map-search').dispatch('submit');
+    const results=app.elements.get('game-map-search-results');
+    await app.until(()=>results.children.length>0);
+    assert.match(results.children[0].textContent,/Manhattan/);
+    results.children[0].click();
+    assert.ok(app.state().map.pin,'an offline intersection result places a destination pin');
+    assert.equal(app.state().map.view.x,app.state().map.pin.x);
+    app.click('game-map-clear');
     app.click('game-map-city');assert.ok(app.state().map.view.span>40000);
     app.click('game-map-zoom-in');const zoom=app.state().map.view.span;
     assert.ok(zoom<70000);app.click('game-map-recenter');assert.equal(app.state().map.view.span,1000);

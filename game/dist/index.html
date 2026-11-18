@@ -121,11 +121,21 @@
     </div>
     <footer class="phone-keys"><button id="phone-back" hidden>BACK</button><button id="phone-close">PUT AWAY</button></footer>
   </section>
-  <section id="game-map" class="game-map" hidden role="dialog" aria-modal="true" aria-labelledby="game-map-title">
-    <header class="game-map-header"><div><p class="eyebrow">NEW YORK CITY / STREET MAP</p><h2 id="game-map-title">Your next stop.</h2></div><button id="game-map-close" aria-label="Close street map">BACK TO GAME <kbd>M</kbd> <span aria-hidden="true">×</span></button></header>
+  <section id="game-map" class="game-map" hidden role="dialog" aria-modal="true" aria-label="Street map">
+    <div class="game-map-toolbar">
+      <form id="game-map-search" class="game-map-search" role="search">
+        <input id="game-map-address" type="search" aria-label="NYC address, intersection or business" placeholder="Address, intersection or business" autocomplete="off" required minlength="3" maxlength="160">
+        <button type="submit" id="game-map-search-button">Search</button>
+        <div class="game-map-search-panel">
+          <p id="game-map-search-status" role="status"></p>
+          <div id="game-map-search-results" class="address-results"></div>
+        </div>
+      </form>
+      <button type="button" id="game-map-close" aria-label="Close street map">×</button>
+    </div>
     <div class="game-map-layout">
       <div class="game-map-viewport"><canvas id="game-map-canvas" width="1000" height="700" tabindex="0" aria-label="Interactive New York City street map. Drag to pan, scroll or use plus and minus to zoom. Click to place a destination pin."></canvas><div class="game-map-zoom"><button id="game-map-zoom-in" aria-label="Zoom in">+</button><button id="game-map-zoom-out" aria-label="Zoom out">−</button></div><span id="game-map-scale" class="game-map-scale">1.0 km across · NORTH ↑</span><div class="game-map-position"><button id="game-map-recenter">MY LOCATION</button><button id="game-map-city">ALL FIVE BOROUGHS</button></div></div>
-      <aside class="game-map-destination"><p class="eyebrow">SET A DESTINATION</p><h3>Pick your spot.</h3><p id="game-map-status" role="status" aria-live="polite">Click anywhere to place a pin. Drag the map to explore.</p><p id="game-map-directions" class="game-map-directions" aria-live="polite"></p><button id="game-map-route" class="primary-button" disabled>ROUTE HERE <span aria-hidden="true">↗</span></button><button id="game-map-spawn" class="secondary-button" disabled>SPAWN HERE</button><button id="game-map-clear" class="game-map-clear" disabled>CLEAR PIN &amp; ROUTE</button><p class="game-map-help">Scroll to zoom from your block to the whole city. Drag a pin to move it. Routes follow mapped streets. Spawn at the pin when its ground is clear.</p><div class="game-map-legend"><span><i class="map-you"></i>You</span><span><i class="map-pin"></i>Destination</span><span><i class="map-route"></i>Route</span></div></aside>
+      <aside class="game-map-destination"><p id="game-map-status" role="status"></p><p id="game-map-directions" class="game-map-directions" aria-live="polite"></p><div id="game-map-pin-actions" hidden><button id="game-map-route" disabled>Route here</button><button id="game-map-spawn" disabled>Spawn here</button><button id="game-map-clear" disabled>Clear pin</button></div></aside>
     </div>
   </section>
   <div id="touch-controls" class="touch-controls" hidden>

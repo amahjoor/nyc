@@ -14,6 +14,9 @@ class Element extends Events {
   getContext() { return this.context; }
   getBoundingClientRect() { return { left: 40, top: 20, width: 900, height: 600 }; }
   setAttribute(key, value) { this.attributes.set(key, value); }
+  children = [];
+  append(child) { this.children.push(child); }
+  replaceChildren() { this.children = []; }
   focus() { this.document.activeElement = this; }
   setPointerCapture(id) { this.captures.add(id); }
   releasePointerCapture(id) { this.captures.delete(id); }
@@ -64,6 +67,35 @@ test('opening shows the local player neighborhood, not the whole city, and emits
   assert.equal(byId('map-button').attributes.get('aria-expanded'), 'true');
   assert.equal(byId('open-map-button').attributes.get('aria-expanded'), 'true');
   map.setOpen(false);assert.deepEqual(changes, [true, false]);assert.equal(byId('game-map').hidden, true);
+});
+
+test('address search centers a named destination and ignores results after the map closes', async t => {
+  let completeSearch;
+  const { map, document, byId } = fixture(t, {
+    lookupAddress: () => new Promise(resolve => { completeSearch = resolve; }),
+  });
+  const place = { name: '350 5th Avenue', borough: 'Manhattan', x: 100, z: 200 };
+  map.setOpen(true);
+  const field = byId('game-map-address');
+  field.focus();field.value = '350 5th Avenue Manhattan';
+  document.fire('keydown', { key: 'm' });
+  assert.equal(map.getState().open, true);
+  const [submitted] = byId('game-map-search').fire('submit');
+  completeSearch([place]);
+  await submitted;
+  const results = byId('game-map-search-results');
+  results.children[0].fire('click');
+  assert.deepEqual(map.getState().pin, { x: 100, z: 200, name: '350 5th Avenue · Manhattan' });
+  assert.equal(map.getState().view.x, 100);
+  assert.equal(map.getState().view.z, 200);
+  assert.equal(byId('game-map-route').disabled, false);
+  assert.equal(results.children.length, 0);
+
+  const pending = map.searchAddress();
+  map.setOpen(false);
+  completeSearch([place]);
+  await pending;
+  assert.equal(results.children.length, 0);
 });
 
 test('wheel zoom keeps its cursor anchor, has bounds, and full city includes every borough extent', t => {

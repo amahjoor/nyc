@@ -1,7 +1,9 @@
 import test from 'node:test';
+import { readFileSync } from 'node:fs';
 import assert from 'node:assert/strict';
 import { KIND } from '../dist/places.js';
-import { planRoom, buildRoom, roomKind, CEILING } from '../dist/interiors.js';
+import { planRoom, buildRoom, roomKind, roomStyle, STYLE_OF, CEILING } from '../dist/interiors.js';
+import { KINDS } from '../dist/places.js';
 import { walkRoom, roomPoint, DOOR } from '../dist/room.js';
 import { Simulation } from '../dist/simulation.js';
 
@@ -66,11 +68,46 @@ test('there is somewhere for customers to sit: at tables, at the bar and in the 
   assert.ok(bar.seats.some(seat => seat.lift > 0) && barber.seats.length >= 2);
   assert.deepEqual(shop.seats, [], 'nobody sits in a deli');
   for (const room of [eat, bar, barber]) for (const seat of room.seats) {
-    // On a piece of furniture low enough to sit on, inside the room, and facing square across it.
+    // On a piece of furniture low enough to sit on, inside the room, and facing square along or across it.
     assert.ok(room.things.some(thing => thing.solid && thing.h <= .8 && Math.abs(thing.a - seat.a) < .01 && Math.abs(thing.b - seat.b) < .01), 'on a seat');
-    assert.ok(Math.abs(seat.a) < room.width / 2 && seat.b > 0 && seat.b < room.depth && Math.abs(seat.da) === 1 && seat.db === 0);
+    assert.ok(Math.abs(seat.a) < room.width / 2 && seat.b > 0 && seat.b < room.depth && Math.abs(seat.da) + Math.abs(seat.db) === 1);
   }
   // At a table the two face each other.
   const [left, right] = eat.seats;
   assert.ok(left.b === right.b && left.a < right.a && left.da === 1 && right.da === -1);
+});
+
+test('each kind of place has its own manner of room, the commonest kinds first', () => {
+  assert.deepEqual(['american', 'bodega', 'salon', 'secondhand', 'nails', 'chinese', 'coffee', 'barber', 'latin', 'clothes', 'pizza', 'liquor', 'mexican', 'bar', 'bank', 'laundromat', 'bakery', 'japanese', 'supermarket', 'italian', 'hotel', 'mediterranean', 'club', 'gym', 'school'].map(kind => roomStyle(place(kind))),
+    ['diner', 'bodega', 'salon', 'cases', 'nails', 'takeout', 'coffee', 'barber', 'steamtable', 'clothes', 'pizza', 'liquor', 'takeout', 'bar', 'bank', 'laundromat', 'bakery', 'sushi', 'market', 'fine', 'hotel', 'halal', 'club', 'gym', 'lobby']);
+  assert.equal(roomStyle(place('repair')), null);
+  for (const kind of Object.keys(STYLE_OF)) assert.ok(KIND[kind], `${kind} is a kind of place`);
+  // Nine places in ten that can be walked into have a manner of room made for their kind.
+  const index = name => JSON.parse(readFileSync(new URL(`../dist/${name}`, import.meta.url), 'utf8')).counts, counts = { ...index('places-index.json') };
+  for (const [kind, n] of Object.entries(index('shops-index.json'))) counts[kind] = (counts[kind] || 0) + n;
+  let rooms = 0, made = 0;
+  for (const [kind, n] of Object.entries(counts)) if (roomKind(place(kind))) { rooms += n; if (STYLE_OF[kind]) made += n; }
+  assert.ok(made / rooms > .9, `${(100 * made / rooms).toFixed(0)}% of places with a room have one made for their kind`);
+  // Two manners of room are not the same room in other colours.
+  const shape = kind => JSON.stringify(planRoom(front(kind), building(30)).things.map(thing => [thing.a, thing.b, thing.w, thing.d]));
+  assert.equal(new Set(['american', 'italian', 'chinese', 'pizza', 'coffee', 'japanese', 'mediterranean', 'latin', 'bakery', 'bar', 'club', 'bodega', 'supermarket', 'liquor', 'clothes', 'secondhand', 'bank', 'laundromat', 'gym', 'salon', 'nails', 'barber', 'hotel', 'cinema'].map(shape)).size, 24);
+});
+
+test('whatever the size of the room, it can be walked into and whoever serves can be reached', () => {
+  for (const kind of KINDS.map(entry => entry.id).filter(id => roomKind(place(id)))) for (const width of [5, 7, 9]) for (const deep of [5, 7, 10, 30]) {
+    const room = planRoom(front(kind, width), building(deep)), label = `${kind} ${width} x ${room.depth}`;
+    assert.ok(room.style && room.things.length >= 3 && room.staff.length >= 1 && /^#[0-9a-f]{6}$/.test(room.wall) && /^#[0-9a-f]{6}$/.test(room.floor) && room.light.power > 10, label);
+    for (const thing of room.things) assert.ok(/^#[0-9a-f]{6}$/.test(thing.color) && Math.abs(thing.a) + thing.w / 2 <= room.width / 2 + .01 && thing.b - thing.d / 2 >= -.01 && thing.b + thing.d / 2 <= room.depth + .01 && thing.y >= 0 && thing.y + thing.h <= CEILING, `${label}: everything is inside the room`);
+    assert.ok(!room.things.some(thing => thing.solid && Math.abs(thing.a) < thing.w / 2 + .4 && thing.b - thing.d / 2 < 1.4), `${label}: nothing in the doorway`);
+    for (const spot of room.staff) assert.ok(Math.abs(spot.da) + Math.abs(spot.db) === 1 && !room.things.some(thing => thing.solid && Math.abs(spot.a - thing.a) < thing.w / 2 && Math.abs(spot.b - thing.b) < thing.d / 2), `${label}: staff stand clear`);
+    for (const seat of room.seats) assert.ok(room.things.some(thing => thing.solid && thing.h <= .8 && thing.a === seat.a && thing.b === seat.b), `${label}: a seat is something to sit on`);
+    // Walk everywhere that can be walked from the door, a quarter of a metre at a time.
+    const step = .25, seen = new Set(), queue = [[0, .5]], key = (a, b) => `${Math.round(a / step)},${Math.round(b / step)}`;
+    const free = (a, b) => Math.abs(a) <= room.width / 2 - .35 && b >= .35 && b <= room.depth - .35 && !room.things.some(thing => thing.solid && Math.abs(a - thing.a) < thing.w / 2 + .3 && Math.abs(b - thing.b) < thing.d / 2 + .3);
+    seen.add(key(0, .5));
+    while (queue.length) { const [a, b] = queue.pop(); for (const [da, db] of [[step, 0], [-step, 0], [0, step], [0, -step]]) { const na = a + da, nb = b + db; if (!seen.has(key(na, nb)) && free(na, nb)) { seen.add(key(na, nb)); queue.push([na, nb]); } } }
+    const reached = [...seen].map(text => text.split(',').map(n => Number(n) * step));
+    assert.ok(reached.length > 30, `${label}: there is room to walk`);
+    assert.ok(room.staff.some(spot => reached.some(([a, b]) => Math.hypot(a - spot.a, b - spot.b) < 2.4)), `${label}: someone serving can be reached`);
+  }
 });
