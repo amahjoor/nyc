@@ -1,3 +1,4 @@
+import { landmarkBridges } from './landmark-bridges.js';
 import * as THREE from './vendor/three.module.min.js';
 import { mercatorCoefficients, atlasProjectionGLSL } from './imagery-projection.js';
 import { cellsAround } from './road-stream.js';
@@ -248,6 +249,15 @@ export function createStreetDetail(index, { scene, orthophoto, heightAt = null, 
       if (key !== selection) {
         selection = key;
         const next = new Map((overview ? [] : cellsAround(index, focus, 600)).map(cell => [cell.key, cell]));
+        if (!overview) {
+          const west = Math.floor(focus.x / index.cellSize) * index.cellSize;
+          const north = Math.floor(focus.z / index.cellSize) * index.cellSize;
+          for (const bridge of landmarkBridges) {
+            const b = bridge.bounds;
+            if (b.maxX >= west - 600 && b.minX <= west + index.cellSize + 600 &&
+                b.maxZ >= north - 600 && b.minZ <= north + index.cellSize + 600) next.set(bridge.key, bridge);
+          }
+        }
         // Crossing a player cell need not change the surrounding tile set.
         // Keep the existing GPU batch when its sources have not changed.
         if (next.size !== wanted.size || [...next.keys()].some(id => !wanted.has(id))) dirty = true;

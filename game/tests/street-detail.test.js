@@ -1,4 +1,6 @@
 import test from 'node:test';
+import { readFileSync } from 'node:fs';
+import { landmarkBridges } from '../dist/landmark-bridges.js';
 import assert from 'node:assert/strict';
 import * as THREE from '../dist/vendor/three.module.min.js';
 import { Simulation } from '../dist/simulation.js';
@@ -299,4 +301,21 @@ test('opening the city map preserves an actor supported by a streamed bridge dec
   assert.equal(sim.player.y,8.5,'hiding the city must not change its support level');
   detail.update(focus);sim.updateGrounding();
   assert.equal(sim.player.y,8.5,'returning to street view keeps the actor on the deck');
+});
+
+test('major crossing decks stream near their surveyed extents and clear after travel', async t => {
+  const detail = createStreetDetail({cellSize:500, cells:{}}, {
+    scene: new THREE.Scene(), orthophoto, drape:false,
+    fetcher: async url => ({ok:true, json:async () => JSON.parse(readFileSync(new URL('../dist/' + url, import.meta.url)))}),
+  });
+  t.after(() => detail.dispose());
+  for (const { bounds } of landmarkBridges) {
+    const middle = {x:(bounds.minX+bounds.maxX)/2, z:(bounds.minZ+bounds.maxZ)/2};
+    detail.update(middle);await tick();detail.update(middle);
+    const status = detail.getStatus().transport;
+    assert.ok(status.triangles > 0);
+    assert.equal(status.rejectedFeatures, 0);
+  }
+  detail.update({x:-15000,z:10000});
+  assert.equal(detail.getStatus().transport.surfaces, 0);
 });
