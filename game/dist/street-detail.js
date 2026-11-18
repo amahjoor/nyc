@@ -196,7 +196,8 @@ export function createStreetDetail(index, { scene, orthophoto, heightAt = null, 
     // Opening the city map hides local rendering, but an actor may still be
     // supported by a deck. Retain those collision surfaces until local play
     // chooses its next cells, or returning from the map would drop the actor.
-    if (!overviewMode) transport.setFeatures(extra.length ? [...structures, ...extra] : structures);
+    // Where both hold the same deck, the one handed over says more about it, and comes first.
+    if (!overviewMode) transport.setFeatures(extra.length ? [...extra, ...structures] : structures);
     dirty = false;onChange();report();
   }
   function pump() {

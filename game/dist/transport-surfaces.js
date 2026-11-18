@@ -222,6 +222,8 @@ function prepareFeature(feature) {
   const part = finishPart({ id: feature.id, sourceId: feature.sourceId, subtype: feature.subtype, name: feature.name || '', X, Z, Y, triangles, boundary });
   // A lid over a cutting carries the ground across it, and is drawn as that ground.
   if (feature.cover === 'ground') part.cover = 'ground';
+  // Some decks are the street level where they lie: a lid, or a park bridge that a drive crosses at grade.
+  if (feature.grade === true || feature.cover === 'ground') part.grade = true;
   return part;
 }
 
@@ -320,7 +322,7 @@ export class TransportSurfaces {
       for (const point of part.vertices) positions.push(point.x, point.y, point.z);
       for (const index of part.indices) indices.push(index + offset);
       for (const triangle of part.triangles) {
-        const record = { ...triangle, id: part.id, sourceId: part.sourceId, subtype: part.subtype }, b = triangle.bounds;
+        const record = { ...triangle, id: part.id, sourceId: part.sourceId, subtype: part.subtype, grade: part.grade }, b = triangle.bounds;
         const minX = Math.floor(b.minX / CELL_SIZE), maxX = Math.floor(b.maxX / CELL_SIZE);
         const minZ = Math.floor(b.minZ / CELL_SIZE), maxZ = Math.floor(b.maxZ / CELL_SIZE);
         // Avoid unbounded grid allocation for a malformed or unusually long
@@ -424,6 +426,14 @@ export class TransportSurfaces {
       // A car already on the ground does not leap to a deck far above it.
       const deck = this.deckFor(x, z, level);
       if (deck && !(Number.isFinite(referenceHeight) && !transportId && deck.elevation - referenceHeight > 2.5)) return this._result(deck);
+    }
+    // A deck at grade is the ground where it lies: a lid over a cutting, a park bridge a drive runs
+    // straight onto. Whatever is not on the way beneath stands on it: a car on a street at grade, or
+    // anyone whose height is not yet known. Only what is already down in the gap, or follows a road
+    // coded below grade, passes under.
+    if (!(level < GRADE_LEVEL - .05)) {
+      const top = this.surfacesAt(x, z, mode).find(found => found.triangle.grade);
+      if (top && !(Number.isFinite(referenceHeight) && !transportId && top.elevation - referenceHeight > 2.5)) return this._result(top);
     }
     if (!Number.isFinite(referenceHeight)) return null;
     let best = null, distance = Infinity;

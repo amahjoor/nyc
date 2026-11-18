@@ -249,3 +249,53 @@ test('actual Brooklyn Bridge outline becomes a smooth roadway from its approach 
     before = deck.elevation;
   }
 });
+
+test('a lid over a cutting carries the ground across it and is drawn as that ground, not as roadway', t => {
+  // A cutting six metres deep runs along x under a lid whose outline follows the ground either side, step and all.
+  const ground = (x, z) => z > 2 && z < 14 ? 0 : 6 + (x > 20 ? 2 : 0);
+  const lid = feature({ id: 'transport:lid:0', sourceId: 'dem', cover: 'ground', polygon: [[0, 0], [20, 0], [20.5, 0], [40, 0], [40, 16], [20.5, 16], [20, 16], [0, 16]],
+    elevations: { polygon: [6, 6, 8, 8, 8, 8, 6, 6], holes: [] } });
+  const road = feature({ id: 'transport:road:0', sourceId: 'survey-2', polygon: [[100, 0], [120, 0], [120, 10], [100, 10]], elevations: { polygon: [5, 5, 5, 5], holes: [] } });
+  const turf = new THREE.MeshStandardMaterial(), scene = new THREE.Scene(), decks = new TransportSurfaces({ scene, groundAt: ground });
+  t.after(() => { decks.dispose();turf.dispose(); });
+  decks.setFeatures([lid, road]);decks.setGroundMaterial(turf);
+  assert.equal(decks.ground.material, turf);
+  const lidTop = decks.ground.geometry.attributes.position, roadTop = decks.mesh.geometry.attributes.position;
+  assert.ok(lidTop.count > 8 && roadTop.count >= 4);
+  for (let i = 0; i < lidTop.count; i++) assert.ok(lidTop.getX(i) <= 40.001, 'only the lid is drawn as ground');
+  for (let i = 0; i < roadTop.count; i++) assert.ok(roadTop.getX(i) >= 99.999, 'and only the bridge as roadway');
+  // The step in the ground is kept: a lid's heights are read off a model of the ground, with no survey steps to smooth away.
+  assert.ok(Math.abs(decks.sampleSurface(14, .3, { referenceHeight: 6, mode: 'walk' }).elevation - 6) < .1);
+  assert.ok(Math.abs(decks.sampleSurface(26, .3, { referenceHeight: 8, mode: 'walk' }).elevation - 8) < .1);
+  const middle = decks.sampleSurface(10, 8, { referenceHeight: 6, mode: 'walk' }).elevation;
+  assert.ok(middle >= 6 && middle < 7, 'between its edges the lid runs smoothly from one to the other');
+  // A car on the road in the cutting stays on it; one on the drive above crosses the lid.
+  assert.equal(decks.sampleSurface(10, 8, { referenceHeight: 0, mode: 'drive' }), null);
+  assert.equal(decks.sampleSurface(10, 8, { referenceHeight: 6.1, mode: 'drive' }).transportId, 'transport:lid:0');
+  // Set down with no height yet, a car on a street at grade is on the lid, and one on the sunken road is under it.
+  assert.equal(decks.sampleSurface(10, 8, { mode: 'drive', level: 13 }).transportId, 'transport:lid:0');
+  assert.equal(decks.sampleSurface(10, 8, { mode: 'walk' }).transportId, 'transport:lid:0');
+  assert.equal(decks.sampleSurface(10, 8, { mode: 'drive', level: 9 }), null);
+  assert.equal(decks.sampleSurface(110, 5, { mode: 'drive', level: 13 }), null, 'an ordinary bridge still needs a height or a raised road to be entered');
+  // A park bridge that a drive crosses at grade behaves as the lid does, though it is drawn as a roadway.
+  decks.setFeatures([lid, { ...road, grade: true }]);
+  assert.equal(decks.sampleSurface(110, 5, { mode: 'drive', level: 13 }).transportId, 'transport:road:0');
+  assert.equal(decks.sampleSurface(110, 5, { referenceHeight: 4.2, mode: 'drive' }).transportId, 'transport:road:0', 'ground that sags toward the gap still leads onto it');
+  assert.equal(decks.sampleSurface(110, 5, { referenceHeight: 0, mode: 'walk' }), null, 'and a walker on the path beneath stays there');
+  assert.ok(decks.mesh.geometry.attributes.position.count >= 4 && decks.ground.geometry.attributes.position.count > 8);
+  // Its sides rest on the ground and are open; its ends hang over the cutting and are railed.
+  const part = decks.parts.find(p => p.id === lid.id);
+  const edges = test => part.edges.filter(edge => { const p = part.vertices[edge.i], q = part.vertices[edge.j]; return test((p.x + q.x) / 2, (p.z + q.z) / 2); });
+  assert.ok(edges((x, z) => z < .01 || z > 15.99).every(edge => edge.open));
+  assert.ok(edges((x, z) => (x < .01 || x > 39.99) && z > 3 && z < 13).every(edge => !edge.open));
+  decks.setGroundMaterial(null);assert.equal(decks.ground.material, decks.material);
+});
+
+test('a centreline marked as a bridge but coded at grade is reported one level up, so traffic set down on it lands on its deck', async () => {
+  const { roadLevelAt, GRADE } = await import('../dist/road-level.js');
+  const points = [[0, 0], [100, 0]];
+  assert.equal(roadLevelAt({ points, fromLevel: 13, toLevel: 13 }, 50, 0), GRADE);
+  assert.equal(roadLevelAt({ points, fromLevel: 13, toLevel: 13, kind: 'bridge' }, 50, 0), GRADE + 4);
+  assert.equal(roadLevelAt({ points, fromLevel: 9, toLevel: 13, kind: 'bridge' }, 50, 0), 11, 'a coded slope is kept as coded');
+  assert.equal(roadLevelAt({ points, fromLevel: 9, toLevel: 9 }, 50, 0), 9);
+});

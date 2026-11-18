@@ -12,6 +12,9 @@ export function measure(road) {
 /** How high a road runs at a point along it, in the city's level code (13 is the ground). */
 export function roadLevelAt(road, x, z) {
   const from = Number.isFinite(road?.fromLevel) ? road.fromLevel : GRADE, to = Number.isFinite(road?.toLevel) ? road.toLevel : GRADE;
+  // The city marks some centrelines as bridges yet codes both ends at grade: a park drive over an arch,
+  // a short span over a path. Such a road still runs on a deck, one level above whatever passes beneath.
+  if (road?.kind === 'bridge' && from === GRADE && to === GRADE) return GRADE + 4;
   if (from === to || !Array.isArray(road.points) || road.points.length < 2) return from;
   const at = road._measure ||= measure(road), total = at.at(-1);
   if (!(total > 0)) return from;

@@ -318,3 +318,24 @@ test('major crossing decks stream near their surveyed extents and clear after tr
   detail.update({x:-15000,z:10000});
   assert.equal(detail.getStatus().transport.surfaces, 0);
 });
+
+test('decks from outside the bundled cells join them once each, and leave when taken away', async t => {
+  const deck = { id: 'transport:park-lid:0', sourceId: 'dem', kind: 'transport', subtype: 'bridge', cover: 'ground', polygon: [[20, 20], [40, 20], [40, 30], [20, 30]], holes: [],
+    elevations: { polygon: [5, 5, 5, 5], holes: [] }, elevationStatus: 'surveyed', elevationUnits: 'meters', verticalDatum: 'NAVD88' };
+  const turf = new THREE.MeshStandardMaterial();
+  const detail = createStreetDetail(index, { scene: new THREE.Scene(), orthophoto, drape: false, fetcher: async () => response([square]) });
+  t.after(() => { detail.dispose();turf.dispose(); });
+  detail.update({ x: 10, z: 10 });await tick();detail.update({ x: 10, z: 10 });
+  assert.equal(detail.getStatus().transport.surfaces, 0);
+  detail.setExtraStructures([deck, { ...deck }], turf);
+  assert.equal(detail.getStatus().transport.surfaces, 1, 'the same deck given twice is one deck');
+  assert.equal(detail.sampleSurface(30, 25, { referenceHeight: 5, mode: 'walk' }).transportId, deck.id);
+  const lids = detail.group.children.flatMap(child => child.children).find(mesh => mesh.name.startsWith('Decks that carry the ground'));
+  assert.equal(lids.material, turf);assert.ok(lids.geometry.attributes.position.count >= 4);
+  // Streaming on does not drop them, and taking them away does.
+  detail.update({ x: 600, z: 10 });await tick();detail.update({ x: 600, z: 10 });
+  assert.equal(detail.getStatus().transport.surfaces, 1);
+  detail.setExtraStructures([]);
+  assert.equal(detail.getStatus().transport.surfaces, 0);
+  assert.equal(detail.sampleSurface(30, 25, { referenceHeight: 5, mode: 'walk' }), null);
+});
