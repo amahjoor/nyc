@@ -678,7 +678,7 @@ float streetPulse( float x, float duty, float width ) {
 	return ( streetPulseArea( x + 0.5 * width, duty ) - streetPulseArea( x - 0.5 * width, duty ) ) / width;
 }`;
 
-function asphaltMaterial() {
+export function asphaltMaterial() {
   const material = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: .9, metalness: 0 });
   material.name = 'Asphalt';
   material.onBeforeCompile = shader => {
@@ -764,7 +764,7 @@ function pavementMaterial() {
   return material;
 }
 
-function paintMaterial() {
+export function paintMaterial() {
   const material = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: .62, metalness: 0, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -4 });
   material.name = 'Road paint';
   material.onBeforeCompile = shader => {

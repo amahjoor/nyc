@@ -1,5 +1,6 @@
 import { updateChaseHeight } from './vehicle-presentation.js';
 import { createDriverCabin } from './driver-cabin.js';
+import { createSwitchShot } from './switch-shot.js';
 import * as THREE from './vendor/three.module.min.js';
 import { createCar, createParkedCars, createDistantTraffic, createPerson, updateCarVisuals, setVehicleLamps } from './world.js';
 import { Simulation, TRAFFIC_SIGHT } from './simulation.js';
@@ -57,6 +58,8 @@ let started=false, paused=false, highQuality=false, farCamera=false, aerialView=
 let shadowsEnabled=true;
 let cityIndex, roadIndex, roadStream, ground, streetDetail, bootReady=false, traveling=false;
 let viewOverride=null;
+// The satellite shot that carries the view from one place to the next (switch-shot.js).
+const switchShot=createSwitchShot();let switchShotLive=false;
 let cityView=false, cityZoom=1, cityOrbit=0, cityFocus=null, roadCell='', roadEpoch=0, roadBusy=false, buildings=[], boroughs=[];
 let streetscape=null, streetLife=null, water=null, parkedCars=null, distantTraffic=null, signs=null, crowd=null, props=null, cityLife=createCityLife(null), lifeTimer=0;
 const noStreetFurniture=[], crowdAhead=new THREE.Vector3();
@@ -138,7 +141,7 @@ const zoomAerial=factor=>{aerialZoomGoal=clamp(aerialZoomGoal*factor,AERIAL_ZOOM
 const chaseLookAhead=new THREE.Vector3(), desiredLookAhead=new THREE.Vector3();
 
 function announce(text) { if(sim){sim.notice=text;sim.noticeTime=4;} }
-function firstPersonActive(){return started&&firstPerson&&!aerialView&&!cityView&&!viewOverride;}
+function firstPersonActive(){return started&&firstPerson&&!aerialView&&!cityView&&!viewOverride&&!switchShot.active;}
 function updatePerspectiveButton(){
   $('first-person-button').textContent=firstPersonActive()?'THIRD PERSON':'FIRST PERSON';
 }
@@ -530,6 +533,14 @@ function updateCamera(dt) {
     camera.position.set(...v.position);camera.near=v.near??.3;camera.far=v.far??9000;camera.fov=v.fov??55;
     camera.lookAt(...v.target);camera.updateProjectionMatrix();return;
   }
+  // Between two places the shot has the camera: straight up, across, and down behind the player.
+  const shotPose=switchShot.update(dt,switchShot.stage!=='cross'||!world.getStatus().loading);
+  if(shotPose){
+    chaseHeight=null;chaseEyeOffset=null;input.lookDelta=0;input.lookVertical=0;switchShotLive=true;
+    camera.up.set(...shotPose.up);camera.position.set(...shotPose.position);camera.near=shotPose.near;camera.far=shotPose.far;camera.fov=shotPose.fov;
+    camera.lookAt(...shotPose.target);camera.updateProjectionMatrix();return;
+  }
+  if(switchShotLive){switchShotLive=false;camera.up.set(0,1,0);}
   if(!started){
     // Before play begins the camera drifts over the Upper Bay, facing Lower
     // Manhattan: the first thing shown is the skyline, not a map.
@@ -648,6 +659,9 @@ function frame(now) {
     // and camera smoothing, rather than an intended chase-camera angle.
     camera.getWorldDirection(cameraForward);
     controls=input.sample(Math.atan2(cameraForward.x,cameraForward.z),dt);
+    // Nobody steers a player they cannot see: they stand where they were put until the shot comes down.
+    if(switchShot.active)controls={forward:0,turn:0,brake:false,run:false,moveX:0,moveZ:0};
+    document.body.classList.toggle('switch-shot',switchShot.active);
     if(!paused&&!traveling&&!cityView&&!mapOpen&&bootReady){sim.step(controls,dt);elapsed+=dt;}
   }else{elapsed+=dt;introTime+=dt;}
   if(landscapeDirty){
@@ -1003,6 +1017,10 @@ async function ensureRoadPilot(){
 async function travel(place){
   if(!place||traveling||!bootReady)return false;
   traveling=true;roadEpoch++;input.clear();
+  // Leave by the sky. From indoors, or from a map, there is no street on screen to rise from: hold the picture instead.
+  camera.getWorldDirection(cameraForward);
+  switchShot.depart(started&&!cityView&&!aerialView&&!mapOpen&&!sim.room?{x:sim.player.x,y:sim.player.y||0,z:sim.player.z,angle:sim.player.angle}:null,
+    {position:camera.position.toArray(),target:camera.position.clone().addScaledVector(cameraForward,30).toArray(),up:[0,1,0],fov:camera.fov,near:camera.near,far:camera.far});
   navigation?.setTraveling(true);
   $('travel-note').textContent='Loading surveyed buildings and streets…';
   if(mapOpen)gameMap.setStatus('Loading measured ground and buildings at the pin…');
@@ -1023,10 +1041,12 @@ async function travel(place){
     camera.position.set(sim.player.x-Math.sin(yaw)*12,(sim.player.y||0)+9,sim.player.z-Math.cos(yaw)*12);
     if(!started)$('start-button').click();
     setView('street');$('travel-note').textContent='';
+    switchShot.arrive({x:sim.player.x,y:sim.player.y||0,z:sim.player.z,angle:sim.player.angle});
     clearDirections();gameMap?.setStatus('Spawned at the selected location.');return true;
   }catch(error){
     // The stream can publish additional colliders while a destination loads.
     // Restore navigation data without replacing that newer collision snapshot.
+    switchShot.cancel();
     sim.setActiveCity({...previous,buildings});$('travel-note').textContent=error.message;announce(error.message);
     if(mapOpen)gameMap.setStatus(error.message);return false;
   }

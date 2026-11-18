@@ -3,6 +3,8 @@ import * as THREE from './vendor/three.module.min.js';
 import { mercatorCoefficients, atlasProjectionGLSL } from './imagery-projection.js';
 import { cellsAround } from './road-stream.js';
 import { TransportSurfaces } from './transport-surfaces.js';
+import { concreteMaterial } from './deck-structure.js';
+import { asphaltMaterial, paintMaterial } from './streetscape.js';
 
 // Source polygons supply plan positions, while the measured terrain supplies
 // elevation. There is still no invented curb step or pavement material.
@@ -123,7 +125,7 @@ export function buildStreetGeometry(surfaces, orthophoto, memo = new Map(), heig
   return geometry;
 }
 
-export function createStreetDetail(index, { scene, orthophoto, heightAt = null, fetcher = globalThis.fetch.bind(globalThis), onStatus = () => {}, onChange = () => {}, now = () => Date.now(), drape = true } = {}) {
+export function createStreetDetail(index, { scene, orthophoto, heightAt = null, fetcher = globalThis.fetch.bind(globalThis), onStatus = () => {}, onChange = () => {}, now = () => Date.now(), drape = true, roadsFor = null, waterAt = null } = {}) {
   const group = new THREE.Group();group.name = 'NYC mapped street surfaces';scene.add(group);
   const material = new THREE.MeshStandardMaterial({ map: orthophoto.texture, color: 0xffffff, roughness: 1, metalness: 0,
     // Old building bottom caps can overlap newer mapped sidewalks at y=0.
@@ -172,15 +174,12 @@ export function createStreetDetail(index, { scene, orthophoto, heightAt = null, 
       }`);
   };
   const mesh = new THREE.Mesh(new THREE.BufferGeometry(), material);mesh.receiveShadow = true;mesh.visible = drape;group.add(mesh);
-  const deckMaterial = material.clone();deckMaterial.side = THREE.DoubleSide;
-  deckMaterial.name = 'Official aerial imagery on measured transport decks';
-  deckMaterial.onBeforeCompile = shader => {
-    material.onBeforeCompile(shader);shader.uniforms.streetElevated.value = true;
-  };
-  const transport = new TransportSurfaces({ material: deckMaterial });group.add(transport.group);
+  // Decks are structures of their own: asphalt above, concrete around and beneath.
+  const deckMaterials = [asphaltMaterial(), concreteMaterial(), paintMaterial()];
+  const transport = new TransportSurfaces({ material: deckMaterials[0], structureMaterial: deckMaterials[1], paintMaterial: deckMaterials[2], groundAt: heightAt, waterAt });group.add(transport.group);
   const cache = new Map(), pending = new Map(), errors = new Map(), triangulations = new Map();
   let wanted = new Map(), serial = 0, disposed = false, dirty = false, selection = '', covered = false, overviewMode = false;
-  let terrainRevision = 0;
+  let terrainRevision = 0, roadsKey = '', structureBuilt = -Infinity;
   const status = () => ({ cachedCells: cache.size, loading: pending.size,
     activeCells: [...wanted.keys()].filter(key => cache.has(key)).length,
     surfaces: mesh.geometry.userData.sourceIds?.length || 0, transport: transport.getStatus(),
@@ -268,6 +267,12 @@ export function createStreetDetail(index, { scene, orthophoto, heightAt = null, 
         trim();report();
       }
       if (dirty) rebuild();
+      // The streets the decks carry say where their lanes and piers go.
+      if (roadsFor && !overview && roadsKey !== key) {
+        const asked = roadsKey = key;
+        Promise.resolve(roadsFor(focus)).then(roads => { if (!disposed && asked === roadsKey) transport.setRoads(roads || []); }).catch(() => { if (asked === roadsKey) roadsKey = ''; });
+      }
+      if (!overview && now() - structureBuilt > 500 && transport.structureDirty) { structureBuilt = now();transport.refresh();onChange(); }
       pump();
     },
     setLocalOrthophoto({ texture, bounds, mercator } = {}) {
@@ -281,7 +286,7 @@ export function createStreetDetail(index, { scene, orthophoto, heightAt = null, 
     },
     setTerrainSampler(sampler, revision = terrainRevision + 1) {
       if (disposed || (heightAt === sampler && terrainRevision === revision)) return;
-      heightAt = typeof sampler === 'function' ? sampler : null;terrainRevision = revision;dirty = true;
+      heightAt = typeof sampler === 'function' ? sampler : null;terrainRevision = revision;dirty = true;transport.setGround(heightAt);
     },
     setGroundReplacementBounds(bounds) {
       // Ordinary street meshes are aerial drapes. The finer terrain replaces
@@ -291,13 +296,14 @@ export function createStreetDetail(index, { scene, orthophoto, heightAt = null, 
       if (uniforms.streetGroundReplacement.value) uniforms.streetGroundReplacementBounds.value.set(bounds.minX,bounds.maxX,bounds.minZ,bounds.maxZ);
     },
     sampleSurface: (x, z, options) => transport.sampleSurface(x, z, options),
+    surfacesAt: (x, z, mode) => transport.surfacesAt(x, z, mode),
     getStatus: status,
     dispose() {
       if (disposed) return;
       disposed = true;
       for (const controller of pending.values()) controller.abort();
       pending.clear();cache.clear();wanted.clear();errors.clear();triangulations.clear();
-      transport.dispose();deckMaterial.dispose();mesh.geometry.dispose();material.dispose();scene.remove(group);
+      transport.dispose();for (const deckMaterial of deckMaterials) deckMaterial.dispose();mesh.geometry.dispose();material.dispose();scene.remove(group);
     },
   };
 }

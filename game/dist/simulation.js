@@ -1,6 +1,7 @@
 import { resetVehicleDynamics, stepVehicleDynamics, stopVehicleRotation, vehicleTravelSpeed } from './vehicle-dynamics.js';
 import { planJunction, junctionArms, vehicleAspect, stopDistance } from './signal-plan.js';
 import { laneLayout } from './lanes.js';
+import { roadLevelAt } from './road-level.js';
 import { drawVehicle, drawPaint, drawTaxi, bodyShape, WHEEL } from './fleet.js';
 import { walkRoom, roomPoint } from './room.js';
 import { PEP, scratch } from './menu.js';
@@ -767,6 +768,16 @@ export class Simulation {
     return finite(this._sampleSurface?.(x, z)?.elevation);
   }
 
+  /**
+   * The decks over the streets have changed. Traffic takes its level afresh
+   * from the street it is following, so a car that was put on the ground
+   * before a viaduct loaded is lifted onto it.
+   */
+  regroundTraffic() {
+    for (const car of this.cars) if (car._edge && !car.controlled && car.id !== this.player.vehicleId) { car.y = undefined;car.transportId = null; }
+    this.updateGrounding();
+  }
+
   updateGrounding() {
     // Reuse the same sampled surface as the renderer. Four wheel contact
     // points establish the support plane while suspension remains visual.
@@ -781,7 +792,11 @@ export class Simulation {
       const sin = Math.sin(car.angle), cos = Math.cos(car.angle);
       // A new or teleported actor has no previous level. Its first sample is
       // ground-only; carrying an old Y could capture an unrelated overpass.
-      const options = Number.isFinite(car.y) ? { referenceHeight: car.y, mode: 'drive', transportId: car.transportId } : undefined;
+      // Traffic following a street takes that street's level, so a car put
+      // down in the middle of a viaduct is on it and not on the ground below.
+      const level = car._edge && !car.controlled ? roadLevelAt(car._edge.road, car.x, car.z) : undefined;
+      const options = Number.isFinite(car.y) ? { referenceHeight: car.y, mode: 'drive', transportId: car.transportId, level }
+        : level > 13 ? { mode: 'drive', level } : undefined;
       const center = this._sampleSurface?.(car.x, car.z, options);
       const wheelOptions = center?.transportId ? { referenceHeight: center.elevation, mode: 'drive', transportId: center.transportId } : undefined;
       const supported = [];

@@ -245,7 +245,7 @@ const deck = { id:'bridge:measured',sourceId:'NYC transport survey:1',kind:'tran
   polygon:[[0,0],[10,0],[10,10],[0,10]],holes:[],elevations:{polygon:[8,8,9,9],holes:[]},
   elevationUnits:'meters',verticalDatum:'NAVD88',elevationStatus:'surveyed' };
 
-test('streamed bridge levels use the same imagery and retain a fallback while local photos load', async t => {
+test('streamed bridge levels are entered only from a continuous approach and are drawn as structures', async t => {
   const detail=createStreetDetail(index,{scene:new THREE.Scene(),orthophoto,
     fetcher:async()=>({ok:true,json:async()=>({surfaces:[square],structures:[deck]})})});
   t.after(()=>detail.dispose());
@@ -259,18 +259,17 @@ test('streamed bridge levels use the same imagery and retain a fallback while lo
   const transportGroup=detail.group.children.find(group=>group.name==='NYC measured transport decks');
   const bridgeMesh=transportGroup.children[0];
   assert.equal(bridgeMesh.geometry.attributes.position.getY(0),8);
-  const shaders=[detail.group.children[0],bridgeMesh].map(mesh=>{
-    const shader={uniforms:{},vertexShader:'#include <begin_vertex>',fragmentShader:'#include <color_fragment>'};
-    mesh.material.onBeforeCompile(shader);return shader;
-  });
-  assert.equal(shaders[0].uniforms.streetElevated.value,false);
-  assert.equal(shaders[1].uniforms.streetElevated.value,true);
-  assert.equal(shaders[1].uniforms.streetBase.value,orthophoto.texture);
-  assert.match(shaders[1].fragmentShader,/texture2D\(streetBase/);
+  // A deck is a structure of its own: asphalt above, concrete around and beneath, not a sheet of photograph.
+  assert.equal(bridgeMesh.material.name,'Asphalt');
+  const structure=transportGroup.children.find(mesh=>mesh.name==='Deck slabs, parapets and piers');
+  assert.equal(structure.material.name,'Deck concrete');
+  assert.ok(structure.geometry.attributes.position.count>0,'the deck has a slab and parapets');
+  const shader={uniforms:{},vertexShader:'#include <begin_vertex>',fragmentShader:'#include <color_fragment>'};
+  detail.group.children[0].material.onBeforeCompile(shader);
+  assert.equal(shader.uniforms.streetElevated.value,false);
   const texture=new THREE.Texture();detail.setLocalOrthophoto({texture,bounds:orthophoto.bounds,
     mercator:{north:1,south:0,originLat:.7,radius:6371008.8}});
-  assert.equal(shaders[1].uniforms.streetLocal.value,texture);
-  assert.equal(shaders[0].uniforms.streetLocal.value,texture);
+  assert.equal(shader.uniforms.streetLocal.value,texture);
   detail.update({x:10000,z:10000});
   assert.equal(detail.getStatus().transport.surfaces,0);
   assert.equal(detail.sampleSurface(5,5,{referenceHeight:8}),null,'travel releases obsolete deck collisions');

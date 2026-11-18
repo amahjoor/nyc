@@ -318,3 +318,6 @@ h2 { text-transform: uppercase; }
 @media (max-width: 600px) {
   .mission-panel h2 { font-size: 23px; }
 }
+
+/* While the view travels between two places, only the picture shows. */
+body.switch-shot #hud, body.switch-shot #mission-panel, body.switch-shot #wanted, body.switch-shot #touch-controls { visibility: hidden }
