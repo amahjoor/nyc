@@ -757,7 +757,12 @@ function goIn(front){
 let streetIndex=null, placeIndex=null, placeIndexReady=null;
 // The citywide list of place names is fetched once, the first time a search or the map's layers ask for it.
 function loadPlaceNames(){
-  placeIndexReady||=fetch('./place-names.json',{signal:AbortSignal.timeout(30000)}).then(response=>response.ok?response.json():null).then(data=>{placeIndex=createPlaceIndex(data);gameMap?.setPlaces(createPlaceLayer(data));}).catch(()=>{placeIndexReady=null;});
+  const read=file=>fetch('./'+file,{signal:AbortSignal.timeout(30000)}).then(response=>response.ok?response.json():null);
+  placeIndexReady||=Promise.all([read('place-names.json'),read('landmarks.json').catch(()=>null)]).then(([data,named])=>{
+    // The city's individual landmarks are searched and mapped by name with everything else.
+    if(data&&named){const kind=data.kinds.length;data.kinds.push('Landmark');for(const [name,x,z] of named.landmarks)data.places.push([name,x,z,kind,0]);}
+    placeIndex=createPlaceIndex(data);gameMap?.setPlaces(createPlaceLayer(data));
+  }).catch(()=>{placeIndexReady=null;});
   return placeIndexReady;
 }
 async function findLocally(query){

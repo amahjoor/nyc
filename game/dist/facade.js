@@ -9,6 +9,7 @@
 // no extra triangles. Shapes stay surveyed; the dressing is an interpretation.
 
 import { lotStyle } from './lots.js';
+import { landmarkStyle, paletteFor } from './landmarks.js';
 
 export const MATERIAL = { BRICK: 0, STONE: 1, CONCRETE: 2, GLASS: 3, IRON: 4, BROWNSTONE: 5, SIDING: 6 };
 
@@ -95,6 +96,9 @@ const attachedHousing = (x, z) => within(x, z, 1800, -1500, 9500) || within(x, z
 // wherever nothing is recorded, a building's facade is chosen from its size and where it stands alone.
 let lots = null;
 export function setLots(next) { lots = next?.cells ? next : null; }
+// The buildings the Landmarks Commission records, each with its type and what it is faced with (landmarks.js).
+let landmarks = null;
+export function setLandmarks(next) { landmarks = next?.count ? next : null; }
 
 /**
  * Choose a building type for a surveyed volume.
@@ -111,7 +115,9 @@ export function chooseStyle({ height, area, x, z, random, random2 }) {
   let style;
   const lot = lots ? lots.at(x, z) : null;
   // The old loft districts are lofts whatever the assessor now calls them: offices, shops and apartments have moved in.
-  const known = lot && lots && lofts && lot.era >= 1 && lot.era <= 3 && lot.use !== 1 && lot.use !== 9 && height >= 12 && height < 62 && random < .78 ? 'loft' : lotStyle(lot, { height, area, random });
+  // A building in the Landmarks Commission's record is what the record says it is.
+  const record = landmarks ? landmarks.at(x, z) : null;
+  const known = landmarkStyle(record, { height }) || (lot && lots && lofts && lot.era >= 1 && lot.era <= 3 && lot.use !== 1 && lot.use !== 9 && height >= 12 && height < 62 && random < .78 ? 'loft' : lotStyle(lot, { height, area, random }));
   if (known) style = s[known];
   else if (height < 9.5) {
     if (area > 1100) style = s.industrial;
@@ -136,7 +142,9 @@ export function chooseStyle({ height, area, x, z, random, random2 }) {
     style = pick([[s.curtain, 5], [s.deco, business > .3 ? 3 : 1], [s.slab, 3], [s.supertall, 1]]);
   } else style = pick([[s.supertall, 6], [s.curtain, 2], [s.deco, height < 330 ? 2.5 : 0]]);
   const definition = STYLES[style];
-  let flags = Math.floor(random2 * 4) & FLAG.PALETTE;
+  // Its walls are the colour of what the record says it is faced with; otherwise one of the style's four.
+  const faced = record ? paletteFor(definition.palettes, record.facing) : -1;
+  let flags = (faced >= 0 ? faced : Math.floor(random2 * 4)) & FLAG.PALETTE;
   // Derive independent draws from the second number.
   const third = (random2 * 37.719) % 1, fourth = (random2 * 91.337) % 1;
   // Shops line busy streets; quiet residential blocks have few.
