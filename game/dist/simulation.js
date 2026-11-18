@@ -1150,19 +1150,25 @@ export class Simulation {
     return true;
   }
 
-  startMission() {
+  startMission(food = null) {
     if (this.mission.phase === 'active') { this._say('Finish your current delivery first.'); return false; }
     const all = (this.city.missionPoints || []).filter(point => Number.isFinite(point.x) && Number.isFinite(point.z) && !this.isBlocked(point.x, point.z, 1));
-    let options = all.filter(point => distance(point, this.player) > 45 && point.name !== this._lastTarget);
-    if (!options.length) options = all.filter(point => distance(point, this.player) > 20);
+    const origin = food?.pickup || this.player;
+    let options = all.filter(point => distance(point, origin) > 45 && point.name !== this._lastTarget);
+    if (!options.length) options = all.filter(point => distance(point, origin) > 20);
     if (!options.length) { this._say('No reachable delivery destination is available.'); return false; }
     const target = options[Math.floor(this._random() * options.length)];
-    const routeDistance = distance(this.player, target);
+    const routeDistance = distance(origin, target) + distance(this.player, origin);
     const totalTime = Math.round(clamp(55 + routeDistance / 7, 65, 180));
     const reward = Math.round((120 + routeDistance * 0.45) / 5) * 5;
     this.mission = { phase: 'active', target: { ...target }, timeLeft: totalTime, totalTime, reward };
+    if (food) {
+      Object.assign(this.mission, { meal: food.meal, dropoff: { ...target }, target: { ...food.pickup }, stage: 'pickup',
+        reward: 15 + Math.round(Math.min(distance(origin, target), 2500) * .025) });
+      this.mission.totalTime = this.mission.timeLeft = Math.max(totalTime, 90 + Math.ceil(routeDistance / 4));
+    }
     this._lastTarget = target.name;
-    this._say(`Delivery accepted: ${target.name}. Follow the gold marker and stop inside it.`, 7);
+    this._say(food ? `Pick up ${food.meal} at ${origin.name}. Stop at the gold marker.` : `Delivery accepted: ${target.name}. Follow the gold marker and stop inside it.`, 7);
     return true;
   }
 
@@ -1692,13 +1698,22 @@ export class Simulation {
       return;
     }
     if (distance(this.player, this.mission.target) < 10 && playerTravelSpeed(this.player) < 3) {
-      const bonus = Math.round(this.mission.timeLeft / this.mission.totalTime * 50 / 5) * 5;
+      if (this.mission.meal && this.room) return;
+      if (this.mission.stage === 'pickup') {
+        this.mission.target = this.mission.dropoff;
+        this.mission.stage = 'dropoff';
+        this._say(`Order collected. Deliver to ${this.mission.target.name}.`, 6);
+        return;
+      }
+      const bonus = this.mission.meal ? Math.round(12 * this.mission.timeLeft / this.mission.totalTime) :
+        Math.round(this.mission.timeLeft / this.mission.totalTime * 50 / 5) * 5;
       const payout = this.mission.reward + bonus;
       this.cash += payout;
       this.deliveries += 1;
       this.mission.phase = 'complete';
       this.mission.payout = payout;
-      this._say(`Delivery complete. +$${payout}. Press N for your next job.`, 7);
+      this._say(this.mission.meal ? `Food delivered. +$${payout} including a $${bonus} tip.` :
+        `Delivery complete. +$${payout}. Press N for your next job.`, 7);
     }
   }
 }

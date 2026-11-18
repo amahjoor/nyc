@@ -60,10 +60,10 @@ export class HUD {
     $('toast').classList.toggle('visible', Boolean(sim.notice && sim.noticeTime>0));
     const active=mission.phase==='active' && mission.target;
     if(active) {
-      this.text('mission-kicker','SPECIAL DELIVERY');
+      this.text('mission-kicker', mission.stage === 'pickup' ? 'FOOD PICKUP' : mission.meal ? 'FOOD DROP-OFF' : 'SPECIAL DELIVERY');
       this.text('mission-title', mission.target.name);
-      this.text('mission-description','Follow the orange marker. Slow to a stop inside the ring to make the drop.');
-      this.text('mission-distance', Math.round(Math.hypot(p.x-mission.target.x,p.z-mission.target.z))+' M TO DROP');
+      this.text('mission-description', mission.meal ? `Stop at the marker to ${mission.stage === 'pickup' ? 'collect' : 'deliver'} the ${mission.meal.toLowerCase()}.` : 'Follow the orange marker. Slow to a stop inside the ring to make the drop.');
+      this.text('mission-distance', Math.round(Math.hypot(p.x-mission.target.x,p.z-mission.target.z))+(mission.stage === 'pickup' ? ' M TO PICKUP' : ' M TO DROP'));
       const sec=Math.max(0,Math.ceil(mission.timeLeft));
       this.text('mission-timer',Math.floor(sec/60)+':'+String(sec%60).padStart(2,'0'));
     } else {
