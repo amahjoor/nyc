@@ -239,15 +239,18 @@ export function createCarMaterial({ instancedPaint = false, bodyPaint = null, do
       shader.vertexShader = 'uniform vec3 nycBodyPaint;\n' + shader.vertexShader.replace('#include <color_vertex>',
         `#include <color_vertex>\nvColor.rgb *= mix(vec3(1.0), nycBodyPaint, ${tintWeight});`);
     }
-    shader.vertexShader = `attribute vec3 aFinish;\nvarying vec3 vFinish;\n#ifdef NYC_INSTANCED_PAINT\nattribute vec3 aPaint;\n#endif\n${shader.vertexShader}`
-      .replace('#include <begin_vertex>', '#include <begin_vertex>\nvFinish = aFinish;')
+    shader.vertexShader = `attribute vec3 aFinish;\nvarying vec3 vFinish;\nvarying float vLining;\n#ifdef NYC_INSTANCED_PAINT\nattribute vec3 aPaint;\n#endif\n${shader.vertexShader}`
+      .replace('#include <begin_vertex>', '#include <begin_vertex>\nvFinish = aFinish; vLining = normal.y;')
       // Lacquered and not mirror-smooth: that is the paint, and only the paint takes the colour.
       .replace('#include <color_vertex>', `#include <color_vertex>\n#ifdef NYC_INSTANCED_PAINT\nvColor.rgb *= mix( vec3( 1.0 ), aPaint, ${tintWeight} );\n#endif`);
     if (doubleSided) shader.vertexShader = 'attribute float aPaintWeight;\n' + shader.vertexShader;
-    shader.fragmentShader = `varying vec3 vFinish;\n${shader.fragmentShader}`
-      .replace('#include <emissivemap_fragment>', '#include <emissivemap_fragment>\nfloat lacquer = vFinish.z * smoothstep(.20, .31, vFinish.x) * (1.0 - smoothstep(.40,.55,vFinish.x)); roughnessFactor = mix(vFinish.x, .235, lacquer); metalnessFactor = mix(vFinish.y, .48, lacquer);')
+    // The shell is one sheet thick. Seen from inside the car its back is the cabin's lining, not the paint
+    // of the outside showing through: pale cloth under the roof, dark trim on the doors and bulkheads.
+    shader.fragmentShader = `varying vec3 vFinish;\nvarying float vLining;\n${shader.fragmentShader}`
+      .replace('#include <color_fragment>', '#include <color_fragment>\nfloat nycOutside = 1.0;\n#ifdef DOUBLE_SIDED\nif ( ! gl_FrontFacing ) { nycOutside = 0.0; diffuseColor.rgb = mix( vec3( .034, .035, .038 ), vec3( .27, .265, .25 ), smoothstep( .45, .8, vLining ) ); }\n#endif')
+      .replace('#include <emissivemap_fragment>', '#include <emissivemap_fragment>\nfloat lacquer = vFinish.z * smoothstep(.20, .31, vFinish.x) * (1.0 - smoothstep(.40,.55,vFinish.x)); roughnessFactor = mix(.94, mix(vFinish.x, .235, lacquer), nycOutside); metalnessFactor = nycOutside * mix(vFinish.y, .48, lacquer);')
       // Lacquer on the paint and glass only; trim and rubber stay matt.
-      .replace('#include <lights_physical_fragment>', '#include <lights_physical_fragment>\nmaterial.clearcoat *= vFinish.z;');
+      .replace('#include <lights_physical_fragment>', '#include <lights_physical_fragment>\nmaterial.clearcoat *= vFinish.z * nycOutside;');
   };
   if (bodyPaint !== null) material.customProgramCacheKey = () => 'nyc-uniform-car-paint';
   return material;
@@ -259,7 +262,9 @@ export function createLampMaterial() {
   material.side = THREE.DoubleSide;
   material.name = 'Vehicle lamps';
   material.onBeforeCompile = shader => {
-    shader.fragmentShader = shader.fragmentShader.replace('#include <emissivemap_fragment>', '#include <emissivemap_fragment>\n#ifdef USE_COLOR\ntotalEmissiveRadiance *= vColor.rgb;\n#endif');
+    // A lens is deep in colour until its lamp is lit, and from behind it is the dark back of its housing.
+    shader.fragmentShader = shader.fragmentShader.replace('#include <color_fragment>', '#include <color_fragment>\ndiffuseColor.rgb *= gl_FrontFacing ? .5 : .03;')
+      .replace('#include <emissivemap_fragment>', '#include <emissivemap_fragment>\n#ifdef USE_COLOR\ntotalEmissiveRadiance *= vColor.rgb;\n#endif\nif ( ! gl_FrontFacing ) totalEmissiveRadiance *= 0.0;');
   };
   return material;
 }

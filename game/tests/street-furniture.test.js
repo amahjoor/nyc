@@ -81,11 +81,14 @@ test('finished cars share geometry and materials, vary by identity, and light up
   setVehicleLamps(5); const bright = lamps(a).material.emissiveIntensity; setVehicleLamps(1); assert.equal(lamps(a).material.emissiveIntensity, bright, 'input is clamped');
   setVehicleLamps(0); assert.equal(lamps(a).material.emissiveIntensity, .55);
   // Finish and lamp colour ride on the stock physical and standard shaders.
-  const paint = { vertexShader: '#include <begin_vertex>', fragmentShader: '#include <emissivemap_fragment>\n#include <lights_physical_fragment>' };
+  const paint = { vertexShader: '#include <begin_vertex>', fragmentShader: '#include <color_fragment>\n#include <emissivemap_fragment>\n#include <lights_physical_fragment>' };
   createCarMaterial().onBeforeCompile(paint);
-  assert.match(paint.fragmentShader, /roughnessFactor = mix\(vFinish\.x, [\d.]+, lacquer\); metalnessFactor = mix\(vFinish\.y, [\d.]+, lacquer\);/); assert.match(paint.fragmentShader, /material\.clearcoat \*= vFinish\.z;/);
-  const glow = { fragmentShader: '#include <emissivemap_fragment>' };
+  assert.match(paint.fragmentShader, /mix\(vFinish\.x, [\d.]+, lacquer\)/); assert.match(paint.fragmentShader, /mix\(vFinish\.y, [\d.]+, lacquer\)/); assert.match(paint.fragmentShader, /material\.clearcoat \*= vFinish\.z \* nycOutside;/);
+  // Seen from inside, the shell is the cabin's lining: matt, unlacquered and not the colour of the paint.
+  assert.match(paint.fragmentShader, /if \( ! gl_FrontFacing \) \{ nycOutside = 0\.0; diffuseColor\.rgb = /); assert.match(paint.vertexShader, /vLining = normal\.y;/);
+  const glow = { fragmentShader: '#include <color_fragment>\n#include <emissivemap_fragment>' };
   createLampMaterial().onBeforeCompile(glow); assert.match(glow.fragmentShader, /totalEmissiveRadiance \*= vColor\.rgb;/);
+  assert.match(glow.fragmentShader, /if \( ! gl_FrontFacing \) totalEmissiveRadiance \*= 0\.0;/, 'a lamp does not shine into the car it is on');
 });
 
 test('street trees take their size and colour from species and trunk girth', () => {
