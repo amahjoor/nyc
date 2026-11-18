@@ -3,6 +3,7 @@ import { catalogVehicles, vehicleName } from './fleet.js';
 import { decodeVehicleMesh } from './vehicle-assets.js';
 import { generateVehicle } from './vehicle-generator.js';
 import { designFor } from './vehicle-designs.js';
+import { describePerformance } from './vehicle-performance.js';
 import { createCar } from './world.js';
 
 const el = id => document.getElementById(id);
@@ -84,6 +85,13 @@ async function preview(v) {
   const zip = el('area').value;
   el('population').textContent = zip ? count(areaWeights.get(v.index) || 0) + ' registrations in ZIP ' + zip + ' · ' + count(v.total) + ' citywide for this year and body.'
     : count(v.total) + ' NYC passenger registrations for this model year and body.';
+  if (v.performance) {
+    // What is on file for the cars registered, and what follows from it. A tilde marks what the game had to estimate.
+    const line = document.createElement('small'), to = v.performance.handling;
+    line.style.fontWeight = 'normal'; line.title = `Against the game's reference sedan: ${to.power}× the pull, ${to.top}× the top speed, ${to.brakes}× the brakes, ${to.grip}× the grip.`;
+    line.textContent = describePerformance(v.performance);
+    el('population').append(document.createElement('br'), line);
+  }
   const size = asset?.design && [asset.design.L, asset.design.W, asset.design.H].map(m => m.toFixed(2)).join(' × ') + ' m';
   el('credit').replaceChildren(...(!asset ? ['The game represents this model year with its shared ' + shapes[v.shape] + ' body.']
     : asset.generated ? [asset.known ? 'Drawn by the game for the ' + asset.years[0] + '–' + Math.min(asset.years[1], new Date().getFullYear() + 1) + ' generation, ' + size + ', with the make’s grille and lamps of those years. A likeness, not a survey of the car.'
@@ -110,8 +118,8 @@ function options(id, entries, current) {
 }
 
 async function start() {
-  const [data, art] = await Promise.all(['./vehicle-catalog.json', './assets/vehicles/index.json'].map(async url => (await getFile(url)).json()));
-  const vehicles = catalogVehicles(data, art.models, designFor);
+  const [data, art, performance] = await Promise.all(['./vehicle-catalog.json', './assets/vehicles/index.json', './vehicle-performance.json'].map(async url => (await getFile(url)).json()));
+  const vehicles = catalogVehicles(data, art.models, designFor, performance.variants.length === data.variants.length ? performance : null);
   for (let i = 0; i < data.city.length; i += 2) {
     const v = vehicles[data.city[i]];
     if (v) { v.total = data.city[i + 1]; v.index = data.city[i]; }

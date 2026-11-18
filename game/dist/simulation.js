@@ -489,7 +489,7 @@ export class Simulation {
       if (price === undefined) { this._say('Nothing better to fit.'); return false; }
       if (!pay(price, `${PARTS[job].label[0]}${PARTS[job].label.slice(1).toLowerCase()} stage ${stage + 1} fitted. $${price}.`)) return false;
       car.mods = { ...car.mods, [job]: stage + 1 };
-      car.handling = handlingFor(bodyShape(car.type, car.id, car.shape), car.mods); return true;
+      car.handling = handlingFor(bodyShape(car.type, car.id, car.shape), car.mods, car.identity?.performance?.handling); return true;
     }
     this._say('They do not do that here.'); return false;
   }
@@ -1095,7 +1095,7 @@ export class Simulation {
       car._loose = 0;
       car._kerb = false;
       car._route = [];
-      car.handling = handlingFor(bodyShape(car.type, car.id, car.shape), car.mods);
+      car.handling = handlingFor(bodyShape(car.type, car.id, car.shape), car.mods, car.identity?.performance?.handling);
       resetVehicleDynamics(car, car.speed);
       Object.assign(player, { mode: 'drive', vehicleId: car.id, x: car.x, z: car.z, angle: car.angle, speed: car.speed, velocityX: car.velocityX, velocityZ: car.velocityZ, vy: 0, grounded: true, slide: 0, swing: 0 });
       this.updateGrounding();

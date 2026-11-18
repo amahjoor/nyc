@@ -33,9 +33,12 @@ export function offersAt(kind) {
   return null;
 }
 
-/** How a car drives: its body's figures raised by whatever has been fitted. `mods` is { engine, brakes, tyres } in stages. */
-export function handlingFor(body, mods = {}) {
-  const handling = { ...(BODY_HANDLING[body] || BODY_HANDLING.sedan) };
+/**
+ * How a car drives: its own figures where its model's power and weight are known (`own`, from
+ * vehicle-performance.js), otherwise its body's, raised by whatever has been fitted. `mods` is { engine, brakes, tyres } in stages.
+ */
+export function handlingFor(body, mods = {}, own = null) {
+  const handling = { ...(own || BODY_HANDLING[body] || BODY_HANDLING.sedan) };
   for (const [part, { gain }] of Object.entries(PARTS)) {
     const stage = Math.max(0, Math.min(3, Math.floor(mods?.[part] || 0)));
     for (const [figure, each] of Object.entries(gain)) handling[figure] *= 1 + each * stage;

@@ -1128,8 +1128,8 @@ async function boot() {
   loadData('bus-stops.json').then(data=>{buses=createBuses(data);}).catch(()=>{});
   loadData('transit.json').then(data=>{subway=createSubway(data);}).catch(()=>{});
   sim.setFleet(fleet);
-  Promise.all(['fleet.json','vehicle-catalog.json','assets/vehicles/index.json','working-vehicles.json'].map(file=>loadData(file).catch(()=>null)))
-    .then(([base,catalog,art,working])=>{fleet=createFleet(base,catalog,art?.models,designFor,working);sim.setFleet(fleet);});
+  Promise.all(['fleet.json','vehicle-catalog.json','assets/vehicles/index.json','working-vehicles.json','vehicle-performance.json'].map(file=>loadData(file).catch(()=>null)))
+    .then(([base,catalog,art,working,performance])=>{fleet=createFleet(base,catalog,art?.models,designFor,working,performance);sim.setFleet(fleet);});
   // The modelled figures replace the blocked-out ones once they have loaded.
   Promise.all([loadData('people.json'),fetch('./people.bin').then(response=>{if(!response.ok)throw new Error('people');return response.arrayBuffer();})]).then(([meta,buffer])=>crowd.setFigures(meta,new Int16Array(buffer))).catch(()=>{});
   phone=createPhone({$,places:()=>placeSource.near(sim.player.x,sim.player.z,700),

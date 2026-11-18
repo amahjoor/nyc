@@ -50,6 +50,14 @@ Each source is asked only for counts by partial VIN, as for passenger cars: no l
 
 Patrol cars are drawn as the Ford Police Interceptor Utility, the Explorer-based car that makes up most of the NYPD's marked fleet, in white with two blue stripes. That choice is the game's; no fleet list is behind it. For-hire cars (about 100,000 TLC-plated vehicles, mostly Uber and Lyft) are not in traffic yet.
 
+## How each car goes
+
+A car the player drives pulls, tops out, brakes and corners as its model does against other cars. The figures start from what the makers filed with NHTSA: vPIC decodes engine power, curb weight, driven wheels and fuel from the same partial VINs the catalog counts, and the build averages them over the cars registered. A 2018 Mustang's 357 hp is the mix of four- and eight-cylinder cars New Yorkers own, not the brochure's best. Power is on file for 71% of named registrations, weight for 57%, driven wheels for 86% and fuel for 99%. [Figures by model year](../dist/vehicle-performance.json) · [Formulas](../dist/vehicle-performance.js)
+
+From those the game estimates what a road test would measure. Time to 60 mph follows pounds per horsepower to the three-quarters power, by which wheels are driven. Top speed is where the engine's power meets air resistance for the body's frontal area, or the maker's limiter for that kind of car if that comes first. Cornering and braking follow the kind of car and how hard it was built to be driven. Against published times for fourteen well-known cars the estimate is 0.6 s out on average. A hybrid's filing gives its engine alone, so the game adds 30% for the motor. Where power or weight is not on file the game estimates it from the car's size, kind and period, and the catalog marks that figure with a tilde.
+
+The game does not run at a real car's pace: its sedan reaches 60 mph in under three seconds and stops at 67. Each car is therefore read against a reference family sedan (8.0 s to 60 mph, 130 mph, 0.86 g) and is that many times quicker, faster or grippier than the game's sedan. A Sienna cab takes 1.6 times as long to reach 60 as a Mustang, as it would on the road. Ratios are held between 0.45 and 2.6 for pull and 0.7 and 1.6 for top speed. Parts fitted at a garage raise a car's own figures. Traffic and the police drive to the simulation's rules and are not affected. A car with no figures, and any car when the file is missing, drives as its body style does.
+
 To add or correct a car, edit its row in `ROWS`: `[make, model, body, [[first year, last year, length, width, height, wheelbase, {overrides}], …]]`, with the make and model spelled as the catalog page shows them. Then look at it in the catalog and run `node --test tests/vehicle-catalog.test.js`.
 
 ## Where imported art would reach the most cars
@@ -70,6 +78,7 @@ Use Python 3.11 or later in a virtual environment. These tools are needed only f
 python -m pip install ultravin==3.0.2
 python scripts/build-vehicle-catalog.py --cache /tmp/nyc-dmv
 python scripts/build-working-vehicles.py --cache /tmp/nyc-working
+python scripts/build-vehicle-performance.py --cache /tmp/nyc-dmv --working-cache /tmp/nyc-working
 
 python -m pip install numpy==2.4.6 scipy==1.17.1 trimesh==5.2.1 fast-simplification==0.2.0 Pillow==13.0.0
 python scripts/build-vehicle-meshes.py --cache /tmp/nyc-vehicle-sources
@@ -77,6 +86,6 @@ python scripts/build-vehicle-meshes.py --cache /tmp/nyc-vehicle-sources
 
 With the local fleet in place, pass `--only honda-civic-2016` or another recipe ID to rebuild a single exterior. The same option adds a newly specified model to the existing fleet.
 
-The second command rebuilds the cab and work-van mix from the TLC and the register's commercial class. The DMV build reuses a completed five-county cache. An empty directory requests the current register. The checked-in catalog records the DMV revision, query, decoder version and vPIC data month. The November build uses the October 2026 decoding database. The separate `node scripts/build-fleet.mjs` rebuilds the ZIP centroids, shared body mix and paint counts.
+The second command rebuilds the cab and work-van mix from the TLC and the register's commercial class. The third reads both caches, requests nothing, and must be rerun whenever the catalog is. The DMV build reuses a completed five-county cache. An empty directory requests the current register. The checked-in catalog records the DMV revision, query, decoder version and vPIC data month. The November build uses the October 2026 decoding database. The separate `node scripts/build-fleet.mjs` rebuilds the ZIP centroids, shared body mix and paint counts.
 
 To add art, find the exact catalog spelling and body in the viewer. Add one recipe with the artist, license, original URL, download URL, source SHA-256, supported US years and the materials or engineering part IDs used for its exterior. The importer keeps paint, glass, trim, chrome and lamps, derives the wheel positions and writes a local glTF plus its manifest entry. Registration weights stay independent of art availability. Run `node --test tests/vehicle-catalog.test.js` and inspect the result in the catalog. [Model recipes](../data/vehicle-models.json) · [Mesh importer](../scripts/build-vehicle-meshes.py) · [Registration importer](../scripts/build-vehicle-catalog.py)
