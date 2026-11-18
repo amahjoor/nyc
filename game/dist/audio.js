@@ -29,6 +29,23 @@ export class CityAudio {
     const ambient = c.createBufferSource(); ambient.buffer = buffer; ambient.loop = true;
     this.ambientGain = c.createGain(); this.ambientGain.gain.value = .075;
     ambient.connect(this.ambientGain).connect(this.master); ambient.start();
+    // Rotor blades: the same noise, low, chopped a dozen times a second.
+    const rotor = c.createBufferSource(); rotor.buffer = buffer; rotor.loop = true;
+    const rotorFilter = c.createBiquadFilter(); rotorFilter.type = 'lowpass'; rotorFilter.frequency.value = 160;
+    const chop = c.createGain(); chop.gain.value = .5;
+    const beat = c.createOscillator(); beat.type = 'square'; beat.frequency.value = 13;
+    const depth = c.createGain(); depth.gain.value = .5;
+    beat.connect(depth).connect(chop.gain); beat.start();
+    this.rotorGain = c.createGain(); this.rotorGain.gain.value = 0;
+    rotor.connect(rotorFilter).connect(chop).connect(this.rotorGain).connect(this.master); rotor.start();
+    this.noise = buffer;
+  }
+  gunshot() {
+    if (!this.ctx || !this.enabled) return;
+    const c = this.ctx, source = c.createBufferSource(), filter = c.createBiquadFilter(), gain = c.createGain();
+    source.buffer = this.noise; filter.type = 'bandpass'; filter.frequency.value = 900 + Math.random() * 500; filter.Q.value = .6;
+    gain.gain.setValueAtTime(.9, c.currentTime); gain.gain.exponentialRampToValueAtTime(.001, c.currentTime + .16);
+    source.connect(filter).connect(gain).connect(this.master); source.start(c.currentTime, Math.random() * 2, .2);
   }
   update(sim, time, playing) {
     if (!this.ctx) return;
@@ -38,7 +55,14 @@ export class CityAudio {
     this.engineGain.gain.setTargetAtTime(driving ? .13 : 0, now, .12);
     this.engineFilter.frequency.setTargetAtTime(180 + Math.abs(sim.player.speed)*13, now, .1);
     this.siren.frequency.setTargetAtTime(620 + Math.sin(time*4)*260, now, .04);
-    this.sirenGain.gain.setTargetAtTime(playing && sim.heat > .6 ? .035 : 0, now, .15);
+    this.sirenGain.gain.setTargetAtTime(playing && sim.heat > 0 ? (sim.spotted ? .045 : .02) : 0, now, .15);
+    const police = sim.police, helicopter = police?.helicopter;
+    // The helicopter is heard before it is seen, and louder overhead.
+    if (this.rotorGain) {
+      const away = helicopter ? Math.hypot(helicopter.x - sim.player.x, helicopter.z - sim.player.z) : Infinity;
+      this.rotorGain.gain.setTargetAtTime(playing && helicopter ? .22 * Math.max(0, 1 - away / 420) : 0, now, .2);
+    }
+    if (police && police.shotsFired !== this.shotsHeard) { if (playing && this.shotsHeard !== undefined) this.gunshot(); this.shotsHeard = police.shotsFired; }
     this.ambientGain.gain.setTargetAtTime(playing ? .075 : .02, now, .2);
   }
   horn() {
