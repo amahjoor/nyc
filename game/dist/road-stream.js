@@ -44,7 +44,7 @@ export function createRoadStream(index,{fetcher=fetch}={}) {
     if(cache.has(cell.key)){const entry=cache.get(cell.key);entry.used=++serial;return entry.roads;}
     if(pending.has(cell.key))return pending.get(cell.key);
     const promise=(async()=>{
-      const response=await fetcher(cell.url);if(!response.ok)throw new Error('The streets could not load. Try this location again.');
+      const response=await fetcher(cell.url,{signal:AbortSignal.timeout(20000)});if(!response.ok)throw new Error('The streets could not load. Try this location again.');
       const data=await response.json();if(!Array.isArray(data.roads))throw new Error('The street data is incomplete.');
       cache.set(cell.key,{roads:data.roads,used:++serial});return data.roads;
     })();
