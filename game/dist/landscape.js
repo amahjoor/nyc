@@ -1,5 +1,6 @@
 import * as THREE from './vendor/three.module.min.js';
 import { mercatorCoefficients, atlasProjectionGLSL } from './imagery-projection.js';
+import { airports } from './airport-data.js';
 import { createLeafMaterial } from './foliage.js';
 import { STILL_WATER_GLSL } from './water.js';
 
@@ -245,11 +246,52 @@ const GROUND_FINISH_GLSL = /* glsl */`
         vec3 court = mix(landscapeBroad, vec3(0.3, 0.1, 0.07), 0.45) * (0.9 + 0.2 * mottle) * (1.0 + close * 0.3 * (grit - 0.5));
         vec3 drawn = mix(photo, paving * hard + turf * planted + court * clay, dry);
         diffuseColor.rgb = mix(relit, drawn, 1.0 - smoothstep(150.0, 480.0, span));
+        vec3 airport = airportPavement(w);
+        float paved = min(1.0, airport.r + airport.g + airport.b);
+        if (paved > 0.0) {
+          // Runways and taxiways use dark paving. Aprons keep a lighter concrete finish.
+          vec3 airfield = mix(vec3(0.105, 0.108, 0.11), vec3(0.30, 0.29, 0.27), airport.b / paved);
+          airfield *= 0.88 + 0.24 * mottle + close * 0.18 * (grit - 0.5);
+          // Preserve photographed striping and rubber wear where detailed tiles have loaded.
+          float detail = clamp(sharpTone - dot(landscapeBroad, LUMA), -0.16, 0.72);
+          vec3 paint = max(photo - landscapeBroad, vec3(0.0));
+          airfield += hasLocalPhoto ? paint * 0.85 + min(detail, 0.0) * 0.4 : vec3(0.0);
+          if (airport.r > 0.01) {
+            vec2 marks = runwayDetail(w, max(size, 0.05));
+            if (!hasLocalPhoto) airfield = mix(airfield, vec3(0.65), marks.x * airport.r);
+            runwayGlow = marks.y * airport.r * uNycLights;
+          }
+          diffuseColor.rgb = mix(diffuseColor.rgb, airfield, paved);
+        }
       }`;
 
-function createTerrainMaterial() {
+// Each airport occupies one band of the north-up FAA pavement mask.
+const airportMaskGLSL = airports.map(({rect: [x, z, width, depth], uv: [top, height]}) => `
+  {
+    vec2 uv = (xz - vec2(${x}.0, ${z}.0)) / vec2(${width}.0, ${depth}.0);
+    if (landscapeInside(uv)) return texture2D(airportMask, vec2(uv.x, ${top.toFixed(8)} + uv.y * ${height.toFixed(8)})).rgb;
+  }`).join('\n');
+
+const runwayDetailsGLSL = airports.flatMap(airport => airport.runways.map(({frame}) => {
+  const [x, z, ux, uz, halfLength, halfWidth] = frame.map(n => n.toFixed(6));
+  return `
+    delta = xz - vec2(${x}, ${z});
+    along = dot(delta, vec2(${ux}, ${uz}));
+    side = abs(dot(delta, vec2(-(${uz}), ${ux})));
+    if (abs(along) < ${halfLength} && side < ${halfWidth}) {
+      float edge = abs(side - (${halfWidth} - 1.5));
+      float dash = abs(mod(along, 60.0) - 30.0);
+      float line = 1.0 - smoothstep(0.35, 0.35 + pixel, side);
+      float edgeLine = 1.0 - smoothstep(0.25, 0.25 + pixel, edge);
+      paint = max(paint, max(edgeLine, line * (1.0 - smoothstep(14.0, 14.0 + pixel, dash))) / max(1.0, pixel));
+      float lamp = length(vec2(edge, dash));
+      glow = max(glow, (1.0 - smoothstep(0.5, 1.5 + pixel, lamp)) / max(1.0, pixel));
+    }`;
+})).join('\n');
+
+function createTerrainMaterial(airportTexture) {
   const material = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 1, side: THREE.DoubleSide });
-  const uniforms = { landscapeOrtho: { value: null }, landscapeLocal: { value: null }, landscapeUseOrtho: { value: false },
+  const uniforms = { airportMask: { value: airportTexture }, landscapeOrtho: { value: null }, landscapeLocal: { value: null }, landscapeUseOrtho: { value: false },
     landscapeUseLocal: { value: false }, landscapeBounds: { value: new THREE.Vector4() }, landscapeLocalBounds: { value: new THREE.Vector4() },
     landscapeMercator: { value: new THREE.Vector4() }, landscapeLocalMercator: { value: new THREE.Vector4() },
     landscapeUseMercator: { value: false }, landscapeUseLocalMercator: { value: false }, landscapeCoverageCount: { value: 0 },
@@ -268,6 +310,16 @@ function createTerrainMaterial() {
         return uv;
       }
       bool landscapeInside(vec2 uv) { return all(greaterThanEqual(uv,vec2(0.0))) && all(lessThanEqual(uv,vec2(1.0))); }
+      vec2 runwayDetail(vec2 xz, float pixel) {
+        vec2 delta; float along, side, paint = 0.0, glow = 0.0;
+        ${runwayDetailsGLSL}
+        return vec2(paint, glow);
+      }
+      uniform sampler2D airportMask;
+      vec3 airportPavement(vec2 xz) {
+        ${airportMaskGLSL}
+        return vec3(0.0);
+      }
       ` + shader.fragmentShader;
     shader.fragmentShader = shader.fragmentShader.replace('#include <color_fragment>', `#include <color_fragment>
       for (int i=0; i<16; i++) {
@@ -278,15 +330,19 @@ function createTerrainMaterial() {
       if (landscapeUseOrtho) { vec2 uv = landscapeUV(landscapeBounds,landscapeMercator,landscapeUseMercator); if (landscapeInside(uv)) diffuseColor.rgb = texture2D(landscapeOrtho,uv).rgb; }
       // The photograph averaged over about two metres, and over about eight:
       // enough to lose the cars, their shadows and the lane paint.
+      float runwayGlow = 0.0;
+      bool hasLocalPhoto = false;
       vec3 landscapeAverage = diffuseColor.rgb, landscapeBroad = diffuseColor.rgb;
       if (landscapeUseLocal) { vec2 uv = landscapeUV(landscapeLocalBounds,landscapeLocalMercator,landscapeUseLocalMercator); if (landscapeInside(uv)) { vec4 pixel = texture2D(landscapeLocal,uv); if (pixel.a>0.99) {
-        diffuseColor.rgb = pixel.rgb;
+        hasLocalPhoto = true; diffuseColor.rgb = pixel.rgb;
         vec4 mid = textureLod(landscapeLocal,uv,3.2), wide = textureLod(landscapeLocal,uv,5.2);
         landscapeAverage = mid.a>0.5 ? mid.rgb/mid.a : pixel.rgb;
         landscapeBroad = wide.a>0.5 ? wide.rgb/wide.a : landscapeAverage;
       } } }
       ${GROUND_FINISH_GLSL}
       `);
+    shader.fragmentShader = shader.fragmentShader.replace('#include <emissivemap_fragment>',
+      '#include <emissivemap_fragment>\n totalEmissiveRadiance += runwayGlow * vec3(2.6, 2.35, 1.9);');
   };
   material.userData.uniforms = uniforms;material.name = 'Measured NYC terrain with official aerial imagery';return material;
 }
@@ -378,6 +434,17 @@ export class Landscape {
     this.group = new THREE.Group();this.group.name = 'Measured NYC landscape reconstruction';scene?.add(this.group);
     this.cache = new Map();this.pending = new Map();this.errors = new Map();this.wanted = new Map();this.preparing = new Map();this.serial = 0;this.disposed = false;
     this.layers = { terrain: true, water: true, vegetation: true };this.base = null;this.basePromise = null;this.baseWaterReady = false;this.review = null;this.focus = { x: 0, z: 0 };
+    this.airportTexture = new THREE.Texture();
+    this.airportTexture.flipY = false;
+    if (typeof Image !== 'undefined') {
+      const image = new Image();
+      image.onload = () => {
+        if (this.disposed) return;
+        this.airportTexture.image = image;
+        this.airportTexture.needsUpdate = true;
+      };
+      image.src = new URL('./assets/airfield-surfaces.png', import.meta.url).href;
+    }
     this.terrainOverlays = new Map();this.retainedTerrainRegions = new Map();
   }
 
@@ -418,7 +485,7 @@ export class Landscape {
   }
 
   _build(terrain, features, regionId = null) {
-    const group = new THREE.Group(), material = createTerrainMaterial(), mesh = new THREE.Mesh(buildTerrainGeometry(terrain), material);
+    const group = new THREE.Group(), material = createTerrainMaterial(this.airportTexture), mesh = new THREE.Mesh(buildTerrainGeometry(terrain), material);
     mesh.receiveShadow = true;mesh.name = 'Surveyed terrain';group.add(mesh);this.group.add(group);
     bindAtlas(material, this.orthophoto);bindAtlas(material, this.localOrthophoto, true);
     const entry = { terrain, group, mesh, material, regionId, used: ++this.serial, water: null, vegetation: null };
@@ -737,7 +804,7 @@ export class Landscape {
       terrainOverlays: [...this.terrainOverlays.keys()], verticalDatum: 'NAVD88', layers: { ...this.layers } };
   }
   dispose() {
-    if (this.disposed) return;this.disposed = true;this.baseController?.abort();
+    if (this.disposed) return;this.disposed = true;this.airportTexture.dispose();this.baseController?.abort();
     for (const controller of this.pending.values()) controller.abort();this.pending.clear();
     if (this.base) this._release(this.base);for (const entry of this.cache.values()) this._release(entry);
     for (const entry of this.terrainOverlays.values()) this._release(entry);this.terrainOverlays.clear();

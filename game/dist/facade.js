@@ -8,6 +8,8 @@
 // and fire escapes are drawn there, not modelled, so a million buildings cost
 // no extra triangles. Shapes stay surveyed; the dressing is an interpretation.
 
+import { airports } from './airport-data.js';
+
 export const MATERIAL = { BRICK: 0, STONE: 1, CONCRETE: 2, GLASS: 3, IRON: 4, BROWNSTONE: 5, SIDING: 6 };
 
 const srgb = hex => {
@@ -89,6 +91,22 @@ export function timesSquare(x, z) {
 /** Dense attached housing, as opposed to free-standing houses. */
 const attachedHousing = (x, z) => within(x, z, 1800, -1500, 9500) || within(x, z, 5200, -13500, 5200);
 
+function insideRing(x, z, ring) {
+  let inside = false;
+  for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
+    const [ax, az] = ring[i], [bx, bz] = ring[j];
+    if ((az > z) !== (bz > z) && x < ax + (bx - ax) * (z - az) / (bz - az)) inside = !inside;
+  }
+  return inside;
+}
+
+function airportBuilding(x, z) {
+  for (const airport of airports) {
+    const [west, north, width, depth] = airport.rect;
+    if (x < west || z < north || x > west + width || z > north + depth) continue;
+    return airport.buildings.find(({rings}) => insideRing(x, z, rings[0]) && !rings.slice(1).some(ring => insideRing(x,z,ring)));
+  }
+}
 /**
  * Choose a building type for a surveyed volume.
  * @param {{height:number, area:number, x:number, z:number, random:number, random2:number}} volume
@@ -102,7 +120,9 @@ export function chooseStyle({ height, area, x, z, random, random2 }) {
     return table.at(-1)[0];
   };
   let style;
-  if (height < 9.5) {
+  const airport = airportBuilding(x, z);
+  if (airport) style = airport.terminal ? s.curtain : s.industrial;
+  else if (height < 9.5) {
     if (area > 1100) style = s.industrial;
     else if (area > 320 && business + (lofts ? .5 : 0) < .2) style = pick([[s.industrial, 2], [s.house, 1]]);
     else style = attachedHousing(x, z) ? pick([[s.rowhouse, 3], [s.house, 1]]) : s.house;
