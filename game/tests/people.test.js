@@ -8,7 +8,7 @@ const file = readFileSync(new URL('../dist/people.bin', import.meta.url)), poses
 
 test('the baked figures are a man and a woman who stand on the ground and stride on the spot', () => {
   assert.deepEqual(meta.figures.map(figure => figure.id), ['man', 'woman']);
-  assert.equal(meta.source.licence, 'CC0 1.0'); assert.equal(meta.frames, meta.walkFrames + 1);
+  assert.equal(meta.source.licence, 'CC0 1.0'); assert.deepEqual([meta.frames, meta.sitFrame], [meta.walkFrames + 2, meta.walkFrames + 1], 'the stride, then standing, then sitting');
   assert.equal(poses.length, meta.figures.reduce((sum, figure) => sum + figure.vertices, 0) * meta.frames * 3);
   let offset = 0;
   for (const figure of meta.figures) {
@@ -18,7 +18,9 @@ test('the baked figures are a man and a woman who stand on the ground and stride
     for (let f = 0; f < meta.frames; f++) {
       let low = Infinity, high = -Infinity, back = Infinity, front = -Infinity, side = 0;
       for (let i = 0; i < figure.vertices; i++) { const o = offset + (f * figure.vertices + i) * 3, x = poses[o] / 16000, y = poses[o + 1] / 16000, z = poses[o + 2] / 16000; low = Math.min(low, y); high = Math.max(high, y); back = Math.min(back, z); front = Math.max(front, z); side = Math.max(side, Math.abs(x)); }
-      assert.ok(low > -.03 && low < .12 && Math.abs(high - figure.height) < .08, `${figure.id} frame ${f}: feet at ${low.toFixed(2)}, head at ${high.toFixed(2)}`);
+      // Sitting, the head is about a foot lower and the feet are still on the ground.
+      const tall = f === meta.sitFrame ? figure.height - .34 : figure.height;
+      assert.ok(low > -.03 && low < .12 && Math.abs(high - tall) < .08, `${figure.id} frame ${f}: feet at ${low.toFixed(2)}, head at ${high.toFixed(2)}`);
       assert.ok(side < .6 && back > -.7 && front < .8, 'it stays over its own feet');
     }
     offset += figure.vertices * meta.frames * 3;
@@ -48,6 +50,12 @@ test('the crowd takes the modelled figures in place of the blocked-out ones', ()
   crowd.setExtras([{ x: 0, y: 0, z: 0, look: { ...look, kit: 0 } }, { x: 1, y: 0, z: 0, look: { ...look, kit: KIT.woman } }, { x: 2, y: 0, z: 0, look: { ...look, kit: KIT.woman | KIT.longHair } }]);
   crowd.update(.016, { walks: [], focus: { x: 0, z: 0 }, hours: 12, time: 0, junctions: [], cars: [] });
   assert.deepEqual([men.count, women.count], [1, 2]);
+  // Someone sitting is told to the shader as a stride of less than nothing.
+  crowd.setExtras([{ x: 0, y: 0, z: 0, sitting: true, look: { ...look, kit: 0 } }]);
+  crowd.update(.016, { walks: [], focus: { x: 0, z: 0 }, hours: 12, time: 0, junctions: [], cars: [] });
+  assert.equal(men.geometry.getAttribute('aGait').getY(0), -1);
+  crowd.setExtras([{ x: 0, y: 0, z: 0, look: { ...look, kit: 0 } }, { x: 1, y: 0, z: 0, look: { ...look, kit: KIT.woman } }, { x: 2, y: 0, z: 0, look: { ...look, kit: KIT.woman | KIT.longHair } }]);
+  crowd.update(.016, { walks: [], focus: { x: 0, z: 0 }, hours: 12, time: 0, junctions: [], cars: [] });
   assert.equal(women.geometry.getAttribute('aGait').getW(1), KIT.woman | KIT.longHair);
   crowd.dispose();
 });

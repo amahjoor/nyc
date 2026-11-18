@@ -37,7 +37,7 @@ import { planRoom, buildRoom, roomKind } from '../dist/interiors.js';
 import { createDemographics } from '../dist/demographics.js';
 import { createBuses, createBusStops } from '../dist/bus.js';
 import { createSheds, planSheds, createShedMesh } from '../dist/sheds.js';
-import { createDining, planDining, createDiningMesh } from '../dist/dining.js';
+import { createDining, planDining, createDiningMesh, seatsOf } from '../dist/dining.js';
 import { menuFor } from '../dist/menu.js';
 import { createSubway, createSubwayEntrances, FARE } from '../dist/subway.js';
 import { indexKerbs, snapToKerb } from '../dist/street-props.js';
@@ -270,7 +270,7 @@ async function bootHarness({ stored = null, displayStored = null, unavailableSto
     },
     updateChaseHeight, createCityGround, worldToGeographic, createRoadStream, nearestStreet, localDestinations, createCityNavigation,
     createStreetDetail:(manifest,options)=>createStreetDetail(manifest,{...options,now:()=>timestamp}),
-    Landscape, RoadPilot, AbortSignal, createGraphics, createStreetLife, createWater, setVehicleLamps, createCityLife, manhattanCore, createStreetSigns, createCrowd, dress, seeded, KIT, createStreetProps, createPlaceSource, joinPlaceSources, indexFootprints, solveFrontages, createStorefronts, createPhone, describePlace, createFleet, offersAt, planRoom, buildRoom, roomKind, createDemographics, characterAt, createBuses, createBusStops, createSheds, planSheds, createShedMesh, createDining, planDining, createDiningMesh, menuFor, createSubway, createSubwayEntrances, FARE, indexKerbs, snapToKerb, formatDistance,
+    Landscape, RoadPilot, AbortSignal, createGraphics, createStreetLife, createWater, setVehicleLamps, createCityLife, manhattanCore, createStreetSigns, createCrowd, dress, seeded, KIT, createStreetProps, createPlaceSource, joinPlaceSources, indexFootprints, solveFrontages, createStorefronts, createPhone, describePlace, createFleet, offersAt, planRoom, buildRoom, roomKind, createDemographics, characterAt, createBuses, createBusStops, createSheds, planSheds, createShedMesh, createDining, planDining, createDiningMesh, seatsOf, menuFor, createSubway, createSubwayEntrances, FARE, indexKerbs, snapToKerb, formatDistance,
     // Bundled survey cells only: these tests stay offline.
     createStreetscape:options=>createStreetscape({...options,live:false,now:()=>timestamp}),
     console: { error: error => errors.push(error), warn: () => {}, log: () => {} },

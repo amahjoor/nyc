@@ -200,7 +200,7 @@ export function createFigures(meta, poses) {
       data[to] = poses[from] / 16000; data[to + 1] = poses[from + 1] / 16000; data[to + 2] = poses[from + 2] / 16000; data[to + 3] = 1;
     }
     for (let i = 0; i < figure.vertices; i++) {
-      const standing = ((frames - 1) * total + column + i) * 4;
+      const standing = (meta.walkFrames * total + column + i) * 4;
       position.push(data[standing], data[standing + 1], data[standing + 2]); body.push(figure.paint[i], 0, which + 1, figure.bare[i]); vertex.push(column + i);
     }
     for (const i of figure.faces) index.push(column + i);
@@ -225,6 +225,8 @@ export function createFigures(meta, poses) {
 		int nycColumn = int( aVertex + 0.5 ), nycFrame = int( nycLoop );
 		vec3 nycStep = mix( texelFetch( uPeoplePose, ivec2( nycColumn, nycFrame ), 0 ).xyz, texelFetch( uPeoplePose, ivec2( nycColumn, ( nycFrame + 1 ) % ${meta.walkFrames} ), 0 ).xyz, fract( nycLoop ) );
 		transformed = mix( texelFetch( uPeoplePose, ivec2( nycColumn, ${meta.walkFrames} ), 0 ).xyz, nycStep, clamp( aGait.y, 0.0, 1.0 ) );
+		// A stride of less than nothing is someone sitting down.
+		if ( aGait.y < -0.5 ) transformed = texelFetch( uPeoplePose, ivec2( nycColumn, ${meta.sitFrame ?? meta.walkFrames} ), 0 ).xyz;
 		bool nycBareArm = mod( floor( nycKit / 16.0 ), 2.0 ) > 0.5, nycBareLeg = mod( floor( nycKit / 32.0 ), 2.0 ) > 0.5, nycWoman = mod( floor( nycKit / 64.0 ), 2.0 ) > 0.5;
 		vPerson = aBody.x < 0.5 ? aSkin : aBody.x < 1.5 ? aTop : aBody.x < 2.5 ? aBottom : aBody.x < 3.5 ? aHair : vec3( 0.03, 0.03, 0.032 );
 		if ( ( aBody.w > 0.5 && aBody.w < 1.5 && nycBareArm ) || ( aBody.w > 1.5 && nycBareLeg ) ) vPerson = aSkin;
@@ -518,14 +520,14 @@ export function createCrowd({ scene = null, life, heightAt = () => 0, isRoad = (
         colour.setHex(look.hair); to.hairs.setXYZ(at, colour.r, colour.g, colour.b);
         to.tops.needsUpdate = to.bottoms.needsUpdate = to.skins.needsUpdate = to.hairs.needsUpdate = true;
         // They keep their own stride: the shader's clock does not move them.
-        to.gaits.setXYZW(at, extra.phase || 0, extra.stride || 0, 0, look.kit || 0);
+        to.gaits.setXYZW(at, extra.phase || 0, extra.sitting ? -1 : extra.stride || 0, 0, look.kit || 0);
       }
       for (const to of sinks) { to.mesh.count = to.count; to.mesh.instanceMatrix.needsUpdate = true; to.gaits.needsUpdate = true; }
     },
     /**
      * Draw these with the crowd, after it: each { x, y, z, heading, phase, stride, look }, where `look` is
      * { top, bottom, skin, hair, kit, height }, `phase` is where in its stride the figure is, in radians,
-     * and `stride` how much it is striding, from 0 standing to 1.
+     * and `stride` how much it is striding, from 0 standing to 1; `sitting` seats the figure instead.
      */
     setExtras(list) { extras = list || []; },
     /** Draw the crowd with the modelled figures in place of the blocked-out ones. */

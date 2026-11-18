@@ -31,7 +31,7 @@ import { planRoom, buildRoom, roomKind } from './interiors.js';
 import { createDemographics } from './demographics.js';
 import { createBuses, createBusStops } from './bus.js';
 import { createSheds, planSheds, createShedMesh } from './sheds.js';
-import { createDining, planDining, createDiningMesh } from './dining.js';
+import { createDining, planDining, createDiningMesh, seatsOf } from './dining.js';
 import { menuFor } from './menu.js';
 import { createSubway, createSubwayEntrances, FARE } from './subway.js';
 import { indexKerbs, snapToKerb } from './street-props.js';
@@ -68,7 +68,7 @@ let buses=null, busStops=null, stopHere=null;
 // Sidewalk sheds: the buildings permitted one, and those standing nearby.
 let sheds=null, shedMesh=null;
 // Sidewalk cafes: the addresses licensed for one, and the tables set out nearby.
-let dining=null, diningMesh=null;
+let dining=null, diningMesh=null, diners=[];
 let subway=null, subwayStairs=null, stairHere=null, kerbIndex=null, kerbsFor=null;
 // Which cars are registered where (fleet.js): the whole city's mix until the counts by ZIP code have loaded.
 let fleet=createFleet(null);
@@ -361,7 +361,9 @@ function syncScene(dt,controls) {
   const modelled=Boolean(crowd?.modelled),pace=Math.abs(p.speed);
   playerStride+=pace*Math.min(.1,Math.max(0,elapsed-strideClock))*3.3;strideClock=elapsed;
   if(modelled){
+    // Diners sit out from late morning until the kitchens close.
     const extras=roomStaff.map(person=>person.userData.figure);
+    if(gfx.hours>=11&&gfx.hours<23&&!sim.room)for(const diner of diners)extras.push(diner);
     if(p.mode==='walk')extras.push({x:p.x,y:p.y||0,z:p.z,heading:p.angle,phase:playerStride,stride:Math.min(1,pace/1.2),look:PLAYER_LOOK});
     crowd.setExtras(extras);
   }
@@ -580,7 +582,19 @@ function frame(now) {
       fronts=solveFrontages(placeSource.near(lit.x,lit.z,250),footprints,(x,z)=>Boolean(streetscape?.surfaceAt(x,z)));
       // Sheds stand along the street walls of the buildings permitted one.
       if(sheds&&shedMesh)shedMesh.update(planSheds(sheds.near(lit.x,lit.z,220),footprints,(x,z)=>Boolean(streetscape?.surfaceAt(x,z))));
-      if(dining&&diningMesh)diningMesh.update(planDining(dining.near(lit.x,lit.z,200),footprints,(x,z)=>Boolean(streetscape?.surfaceAt(x,z))));
+      if(dining&&diningMesh){
+        const rows=planDining(dining.near(lit.x,lit.z,200),footprints,(x,z)=>Boolean(streetscape?.surfaceAt(x,z)));
+        diningMesh.update(rows);
+        // Who is at the tables: the same people at the same chairs each time, with the faces of the neighbourhood. About half the chairs are taken.
+        diners=[];
+        for(const row of rows)for(const seat of seatsOf(row)){
+          const random=seeded((Math.round(seat.x*31+seat.z*17)>>>0)||1);
+          if(random()>.55)continue;
+          const look=dress('casual',random,demographics.tracts?demographics.tonesAt(seat.x,seat.z,.5):null);
+          look.kit=(look.kit&(KIT.longHair|KIT.shortSleeves))|(random()<.5?KIT.woman:0);look.height=1.72;
+          diners.push({x:seat.x,y:groundHeight(seat.x,seat.z)+.02,z:seat.z,heading:seat.heading,sitting:true,look});
+        }
+      }
       // A sign also says what the place is in a language a quarter or more of its neighbours speak at home.
       if(demographics.tracts)for(const front of fronts){const [language,share]=demographics.languagesAt(front.x,front.z).find(([name])=>name!=='english')||[];front.language=share>=.25?language:null;}
       // A delivery can be sent to any place with a name over its door: the drop is on the sidewalk in front.

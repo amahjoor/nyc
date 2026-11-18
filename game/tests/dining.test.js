@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import * as THREE from '../dist/vendor/three.module.min.js';
 import { indexFootprints } from '../dist/places.js';
-import { createDining, planDining, createDiningMesh, CAFE } from '../dist/dining.js';
+import { createDining, planDining, createDiningMesh, seatsOf, CAFE } from '../dist/dining.js';
 
 const data = JSON.parse(readFileSync(new URL('../dist/dining.json', import.meta.url), 'utf8'));
 
@@ -52,4 +52,17 @@ test('each table has a top, a leg and two chairs, all over the sidewalk, with a 
   assert.equal(small.update([row, row]), 1);
   assert.equal(cafes.update([]), 0); assert.equal(mesh.count, 0);
   cafes.dispose(); small.dispose(); assert.equal(scene.children.length, 0);
+});
+
+test('two chairs to a table, each facing it across the table from the other', () => {
+  const seats = seatsOf({ x: 6, z: 0, tx: 1, tz: 0, nx: 0, nz: 1, tables: 2 });
+  assert.equal(seats.length, 4);
+  for (const seat of seats) assert.ok(Math.abs(seat.z - CAFE.out) < 1e-9, 'in line with the tables');
+  const tables = [6 - CAFE.pitch / 2, 6 + CAFE.pitch / 2];
+  seats.forEach((seat, i) => {
+    const table = tables[Math.floor(i / 2)], toward = Math.sign(table - seat.x);
+    assert.ok(Math.abs(Math.abs(seat.x - table) - .58) < 1e-9);
+    // Heading 0 faces +z; a quarter turn faces +x.
+    assert.ok(Math.abs(Math.sin(seat.heading) - toward) < 1e-9 && Math.abs(Math.cos(seat.heading)) < 1e-9, 'facing the table');
+  });
 });

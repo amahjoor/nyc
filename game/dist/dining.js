@@ -56,6 +56,19 @@ export function planDining(points, footprints, isStreet) {
   return rows;
 }
 
+/**
+ * The chairs of a row: where someone sitting on each is, and the way they face,
+ * as { x, z, heading }. Two to a table, facing each other across it.
+ */
+export function seatsOf(row) {
+  const seats = [];
+  for (let i = 0; i < row.tables; i++) for (const side of [-1, 1]) {
+    const along = (i - (row.tables - 1) / 2) * CAFE.pitch + side * .58;
+    seats.push({ x: row.x + row.tx * along + row.nx * CAFE.out, z: row.z + row.tz * along + row.nz * CAFE.out, heading: Math.atan2(-row.tx * side, -row.tz * side) });
+  }
+  return seats;
+}
+
 /** Draw the rows of planDining(): every part a box. */
 export function createDiningMesh({ scene = null, heightAt = () => 0, capacity = 4000 } = {}) {
   const box = new THREE.BoxGeometry(1, 1, 1);

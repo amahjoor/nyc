@@ -61,7 +61,7 @@ function clip(name) {
   const at = (track, time, rotation) => { const { times, values } = track; let i = 0; while (i + 1 < times.length && times[i + 1] <= time) i++; if (i + 1 >= times.length) return values[i]; const t = (time - times[i]) / (times[i + 1] - times[i] || 1); return rotation ? slerp(values[i], values[i + 1], t) : values[i].map((value, k) => value + (values[i + 1][k] - value) * t); };
   return { duration, pose: (bone, path, time) => { const track = tracks.get(bone)?.[path]; return track ? at(track, time, path === 'rotation') : null; } };
 }
-const walk = clip('Walk_Loop'), idle = clip('Idle_Loop');
+const walk = clip('Walk_Loop'), idle = clip('Idle_Loop'), sitting = clip('Sitting_Idle_Loop');
 
 // What each bone's skin is painted as: 0 skin, 1 top, 2 bottom, 3 hair, 4 shoe; and which part goes bare in short sleeves (1) or shorts (2).
 const paintOf = bone => /^(foot|ball)/.test(bone) ? [4, 0] : /^calf/.test(bone) ? [2, 2] : /^(pelvis|thigh)/.test(bone) ? [2, 0] : /^lowerarm/.test(bone) ? [1, 1] : /^(spine|clavicle|upperarm|root)/.test(bone) ? [1, 0] : [0, 0];
@@ -81,10 +81,10 @@ for (const body of BODIES) {
   // Thin it: vertices that share a cell of the bind pose become the first of them.
   const cells = new Map(), kept = [], remap = vertices.map(vertex => { const key = vertex.p.map(value => Math.round(value / CELL)).join(','); if (!cells.has(key)) { cells.set(key, kept.length); kept.push(vertex); } return cells.get(key); });
   const faces = triangles.map(face => face.map(i => remap[i])).filter(([a, b, c]) => a !== b && b !== c && a !== c);
-  const skinned = time => {
+  const skinned = (time, still = idle) => {
     const world = new Map(), matrix = node => {
       if (world.has(node)) return world.get(node);
-      const { name, translation = [0, 0, 0], rotation = [0, 0, 0, 1], scale = [1, 1, 1] } = json.nodes[node], motion = time === null ? idle : walk, at = time === null ? 0 : time;
+      const { name, translation = [0, 0, 0], rotation = [0, 0, 0, 1], scale = [1, 1, 1] } = json.nodes[node], motion = time === null ? still : walk, at = time === null ? 0 : time;
       // The walk is on the spot: the root stays where it is.
       const t = name === 'root' ? translation : motion.pose(name, 'translation', at) || translation, local = compose(t, motion.pose(name, 'rotation', at) || rotation, motion.pose(name, 'scale', at) || scale);
       const result = parent.has(node) ? multiply(matrix(parent.get(node)), local) : local; world.set(node, result); return result;
@@ -92,18 +92,19 @@ for (const body of BODIES) {
     const palette = skin.joints.map((node, i) => multiply(matrix(node), inverse[i]));
     return kept.map(({ p, joints, weights }) => { const out = [0, 0, 0]; let total = 0; for (let k = 0; k < 4; k++) if (weights[k] > 0) { const moved = apply(palette[joints[k]], p); out[0] += moved[0] * weights[k]; out[1] += moved[1] * weights[k]; out[2] += moved[2] * weights[k]; total += weights[k]; } return out.map(value => value / (total || 1)); });
   };
-  const frames = [...Array.from({ length: FRAMES }, (_, i) => skinned(walk.duration * i / FRAMES)), skinned(null)];
+  // The stride, then standing, then sitting on a chair.
+  const frames = [...Array.from({ length: FRAMES }, (_, i) => skinned(walk.duration * i / FRAMES)), skinned(null), skinned(null, sitting)];
   // Stand it on the ground at its height, facing +Z.
-  const standing = frames.at(-1), low = Math.min(...standing.map(p => p[1])), high = Math.max(...standing.map(p => p[1])), scale = body.height / (high - low);
+  const standing = frames[FRAMES], low = Math.min(...standing.map(p => p[1])), high = Math.max(...standing.map(p => p[1])), scale = body.height / (high - low);
   const middle = [0, 2].map(axis => standing.reduce((sum, p) => sum + p[axis], 0) / standing.length);
   for (const frame of frames) { const floor = Math.min(...frame.map(p => p[1])); for (const p of frame) { p[0] = (p[0] - middle[0]) * scale; p[1] = (p[1] - Math.min(floor, low)) * scale; p[2] = (p[2] - middle[1]) * scale; } }
   // Paint by the bone that moves each vertex most; the crown and back of the head is hair.
   const headTop = body.height, tags = kept.map(({ joints, weights }, i) => {
-    const bone = bones[joints[weights.indexOf(Math.max(...weights))]], [paint, bare] = paintOf(bone), [, y, z] = frames.at(-1)[i];
+    const bone = bones[joints[weights.indexOf(Math.max(...weights))]], [paint, bare] = paintOf(bone), [, y, z] = frames[FRAMES][i];
     const hair = paint === 0 && /^(Head|neck)/.test(bone) && y > headTop - .2 && (y > headTop - .075 || z < -.005 * (headTop - y) * 40);
     return [hair ? 3 : paint, bare];
   });
-  figures.push({ id: body.id, height: body.height, vertices: kept.length, faces: faces.flat(), paint: tags.map(tag => tag[0]), bare: tags.map(tag => tag[1]), first: poses.length / 3 / (FRAMES + 1) });
+  figures.push({ id: body.id, height: body.height, vertices: kept.length, faces: faces.flat(), paint: tags.map(tag => tag[0]), bare: tags.map(tag => tag[1]), first: poses.length / 3 / (FRAMES + 2) });
   for (const frame of frames) for (const p of frame) poses.push(...p);
   console.log(`${body.id}: ${vertices.length} vertices thinned to ${kept.length}, ${faces.length} triangles, ${(high - low).toFixed(2)} m tall as modelled`);
 }
@@ -111,6 +112,6 @@ for (const body of BODIES) {
 const packed = new Int16Array(poses.length);
 for (let i = 0; i < poses.length; i++) packed[i] = Math.max(-32767, Math.min(32767, Math.round(poses[i] * 16000)));
 writeFileSync(new URL('../dist/people.bin', import.meta.url), Buffer.from(packed.buffer));
-writeFileSync(new URL('../dist/people.json', import.meta.url), JSON.stringify({ version: 1, generated: new Date().toISOString().slice(0, 10), units: 'poses are x, y, z per vertex per frame, 16000 to the metre; the last frame of each figure is standing',
-  source: { name: 'Universal Base Characters and Universal Animation Library', author: 'Quaternius', licence: 'CC0 1.0', url: 'https://quaternius.com' }, walkFrames: FRAMES, frames: FRAMES + 1, strideSeconds: walk.duration, figures }));
+writeFileSync(new URL('../dist/people.json', import.meta.url), JSON.stringify({ version: 1, generated: new Date().toISOString().slice(0, 10), units: 'poses are x, y, z per vertex per frame, 16000 to the metre; the frame after the stride of each figure is standing',
+  source: { name: 'Universal Base Characters and Universal Animation Library', author: 'Quaternius', licence: 'CC0 1.0', url: 'https://quaternius.com' }, walkFrames: FRAMES, sitFrame: FRAMES + 1, frames: FRAMES + 2, strideSeconds: walk.duration, figures }));
 console.log(`walk ${walk.duration.toFixed(2)} s in ${FRAMES} frames; ${(packed.byteLength / 1024).toFixed(0)} KB of poses`);
