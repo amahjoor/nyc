@@ -4,6 +4,7 @@ import importlib.util
 import json
 import math
 from pathlib import Path
+import struct
 import tempfile
 import unittest
 from unittest.mock import patch
@@ -88,15 +89,33 @@ class LandscapeImportTests(unittest.TestCase):
             self.skipTest("Landscape import has not run")
         manifest = json.loads(manifest_path.read_text())
         self.assertEqual(manifest["origin"], landscape.ORIGIN)
-        self.assertEqual(manifest["regions"][0]["id"], "central-park-south")
+        self.assertEqual(manifest["regions"][0]["id"], "central-park")
         self.assertEqual(len({region["borough"] for region in manifest["regions"]}), 5)
         for region in manifest["regions"]:
-            grid = json.loads((ROOT / "dist" / region["terrainUrl"]).read_text())
+            grid_path = ROOT / "dist" / region["terrainUrl"]
+            grid = json.loads(grid_path.read_text())
             features = json.loads((ROOT / "dist" / region["featuresUrl"]).read_text())
-            self.assertEqual(len(grid["heights"]), grid["width"] * grid["height"])
             self.assertEqual(grid["sourceId"], "nyc-dem-2017")
-            self.assertTrue(all(value is None or -100 < value < 300 for value in grid["heights"]))
-            self.assertGreater(len(features["canopies"]), 0)
+            if region["id"] == "central-park":
+                encoding = grid["heightEncoding"]
+                self.assertEqual(encoding["type"], "uint16")
+                raw = (grid_path.parent / grid["heightsUrl"]).read_bytes()
+                self.assertEqual(len(raw), 2 * grid["width"] * grid["height"])
+                heights = (value * encoding["scale"] + encoding["offset"] for value, in struct.iter_unpack("<H", raw))
+                park_dir = ROOT / "dist/central-park"
+                park = json.loads((park_dir / "park.json").read_text())
+                self.assertIn("citation", park["sources"]["crowns"])
+                trees = park["trees"]
+                self.assertGreater(trees["count"], 0)
+                self.assertEqual(trees["count"], region["stats"]["trees"])
+                self.assertEqual((park_dir / trees["url"]).stat().st_size, 2 * len(trees["record"]) * trees["count"])
+                minimum_water_samples = 1  # Small ponds use a single interior DEM sample.
+            else:
+                heights = grid["heights"]
+                self.assertEqual(len(heights), grid["width"] * grid["height"])
+                self.assertGreater(len(features["canopies"]), 0)
+                minimum_water_samples = 3
+            self.assertTrue(all(value is None or -100 < value < 300 for value in heights))
             ids = set()
             for crown in features["canopies"]:
                 self.assertNotIn(crown["id"], ids)
@@ -109,7 +128,7 @@ class LandscapeImportTests(unittest.TestCase):
                 self.assertTrue(crown["individualTree"])
             for water in features["water"]:
                 if water["elevation"] is not None:
-                    self.assertGreaterEqual(water["elevationSamples"], 3)
+                    self.assertGreaterEqual(water["elevationSamples"], minimum_water_samples)
                 self.assertIn(water["featureCode"], [2600, 2610])
 
 
