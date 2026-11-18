@@ -1,3 +1,6 @@
+import { formatMoney } from './money.js';
+import { vehicleName } from './fleet.js';
+
 const $ = id => document.getElementById(id);
 const metersToMiles = .000621371;
 export class HUD {
@@ -16,25 +19,42 @@ export class HUD {
     $('map-button').setAttribute('aria-label', this.expanded ? 'Close expanded map' : 'Expand map');
     this.map.width = this.map.height = this.expanded ? 1000 : 440;
   }
+  showCash(balance) {
+    const display = $('cash-display');
+    this.text('cash', formatMoney(balance));
+    display.hidden = false;
+    clearTimeout(this.cashTimer);
+    this.cashTimer = setTimeout(() => { display.hidden = true; }, 4000);
+  }
   update(sim) {
     const p=sim.player, driving=p.mode==='drive', mission=sim.mission;
     this.text('speed', String(Math.round(Math.abs(p.speed)*2.23694)).padStart(2,'0'));
     this.text('speed-unit', driving?'MPH':'ON FOOT');
     this.text('gear', driving ? p.speed < -.3 ? 'REVERSE' : Math.abs(p.speed) < .2 ? 'IDLE' : 'DRIVE' : 'FREE ROAM');
-    this.text('cash', '$'+Math.round(sim.cash).toLocaleString('en-US'));
+    if (!$('cash-display').hidden) this.text('cash', formatMoney(sim.cash));
     this.text('deliveries', sim.deliveries+' DELIVERIES');
     this.text('distance', (sim.distanceTravelled*metersToMiles).toFixed(1)+' MI');
     this.text('health-number', String(Math.round(sim.health)));
     $('health-bar').style.width = Math.max(0,sim.health)+'%';
     this.text('street-name', sim.getStreet().toUpperCase());
-    const stars = Math.min(3,Math.ceil(sim.heat));
-    this.text('wanted-stars', '★'.repeat(stars)+'☆'.repeat(3-stars));
-    this.text('wanted-label', stars ? 'LOSE THE POLICE' : 'KEEP IT CLEAN');
-    // The stars are shown when the police are interested, and the job card only while there is something to say.
+    const police = sim.police, stars = Math.min(5, Math.ceil(sim.heat - 1e-9)), searching = Boolean(stars && police?.state === 'search');
+    this.text('wanted-stars', '★'.repeat(stars) + '☆'.repeat(5 - stars));
+    this.text('wanted-label', police?.arrest > .15 ? 'HANDS UP' : searching ? (police.cornered ? 'THEY KNOW WHERE YOU ARE' : 'STAY OUT OF SIGHT') : stars > 1 ? 'LOSE THE COPS' : 'WANTED');
+    // Stars show only while the police care. They are steady while you are seen
+    // and flash while the police are searching; the bar is how long until they give up.
     $('wanted').classList?.toggle('calm', !stars);
+    $('wanted').classList?.toggle('spotted', Boolean(stars && sim.spotted));
+    $('wanted').classList?.toggle('searching', searching);
+    const evade = $('wanted-evade');
+    if (evade?.style) evade.style.width = searching && police.evadeTotal ? Math.round(100 * (1 - Math.max(0, police.evade) / police.evadeTotal)) + '%' : '0%';
     const near = sim.getNearbyCar();
-    $('interact-prompt').hidden = !driving && !near;
-    $('interact-prompt').querySelector('span').textContent = driving ? Math.abs(p.speed)>4 ? 'SLOW DOWN TO EXIT' : 'EXIT VEHICLE' : near?.type==='taxi' ? 'GET IN THE CAB' : 'ENTER VEHICLE';
+    const moving = Math.hypot(p.velocityX || 0, p.velocityZ || 0) > 4;
+    const punching = !driving && !near && sim.melee;
+    const prompt = $('interact-prompt');
+    prompt.hidden = !driving && !near && !punching;
+    prompt.querySelector('kbd').textContent = punching ? 'F' : 'E';
+    const enterLabel = near?.identity ? 'ENTER ' + vehicleName(near.identity).toUpperCase() : 'ENTER VEHICLE';
+    prompt.querySelector('span').textContent = driving ? (moving ? 'BAIL OUT' : 'EXIT VEHICLE') : near ? (near.type === 'taxi' ? 'GET IN THE CAB' : enterLabel) : 'PUNCH';
     $('toast').textContent = sim.notice || '';
     $('toast').classList.toggle('visible', Boolean(sim.notice && sim.noticeTime>0));
     const active=mission.phase==='active' && mission.target;
@@ -51,7 +71,6 @@ export class HUD {
       this.text('mission-description',mission.phase==='complete'?'Your payment is in. Keep exploring or pick up another delivery.':'Find a car and take a delivery job. The city is yours to explore.');
       this.text('mission-distance','FREE ROAM'); this.text('mission-timer','NO RUSH');
     }
-    $('job-button').hidden=Boolean(active);
     $('mission-panel').classList?.toggle('idle', !active && mission.phase !== 'complete' && mission.phase !== 'failed');
     this.text('mission-number',String(sim.deliveries+1).padStart(2,'0'));
     this.drawMap(sim);
@@ -103,9 +122,18 @@ export class HUD {
       const cx=Math.max(12,Math.min(size-12,tx)),cy=Math.max(12,Math.min(size-12,ty));
       if(cx!==tx||cy!==ty){c.beginPath();c.arc(cx,cy,6,0,Math.PI*2);c.fill();}
     }
-    for(const car of sim.cars) {
-      if(car.id===sim.player.vehicleId||car._kerb) continue;
-      const [x,y]=xy(car.x,car.z);c.fillStyle=car.type==='police'&&sim.heat>0?'#7dc3eb':'#eac877';c.fillRect(x-2,y-2,4,4);
+    if (sim.heat > 0) {
+      for (const car of sim.cars) {
+        if (car.type !== 'police') continue;
+        const [x, y] = xy(car.x, car.z);
+        const px = Math.max(10, Math.min(size - 10, x)), py = Math.max(10, Math.min(size - 10, y));
+        c.fillStyle = '#7ec8ff'; c.beginPath(); c.moveTo(px, py - 6); c.lineTo(px - 4.5, py + 4); c.lineTo(px + 4.5, py + 4); c.closePath(); c.fill();
+      }
+      for (const officer of sim.police?.officers || []) { const [x, y] = xy(officer.x, officer.z); c.fillStyle = '#7ec8ff'; c.beginPath(); c.arc(x, y, 3, 0, Math.PI * 2); c.fill(); }
+    }
+    for (const mark of sim.threats || []) {
+      const [x, y] = xy(mark.x, mark.z);
+      c.fillStyle = mark.kind === 'down' ? '#8d928a' : '#ff5d3c'; c.fillRect(x - 3, y - 3, 6, 6);
     }
     const [px,py]=xy(sim.player.x,sim.player.z);c.translate(px,py);c.rotate(-sim.player.angle);c.fillStyle='#f8f2df';c.strokeStyle='#101918';c.lineWidth=3;c.beginPath();c.moveTo(0,11);c.lineTo(-7,-7);c.lineTo(0,-3);c.lineTo(7,-7);c.closePath();c.fill();c.stroke();
     c.restore();
