@@ -1,7 +1,7 @@
 import { resetVehicleDynamics, stepVehicleDynamics, stopVehicleRotation, vehicleTravelSpeed } from './vehicle-dynamics.js';
 import { planJunction, junctionArms, vehicleAspect, stopDistance } from './signal-plan.js';
 import { laneLayout } from './lanes.js';
-import { drawBody, drawPaint, bodyShape } from './fleet.js';
+import { drawVehicle, drawPaint, bodyShape } from './fleet.js';
 import { walkRoom, roomPoint } from './room.js';
 import { PEP, scratch } from './menu.js';
 import { handlingFor, repairCost, offersAt, PARTS, RESPRAY_PRICE, RESPRAYS, CALL_OUT, DELIVERY } from './garage.js';
@@ -401,8 +401,8 @@ export class Simulation {
     car.id = `traffic-${this._trafficSerial = (this._trafficSerial || 100) + 1}`;
     car.type = taxi ? 'taxi' : 'sedan';
     // A cab is a cab. Any other car is one of those registered round here, or a van or a pickup at work.
-    const fleet = taxi ? null : this._fleet;
-    car.shape = fleet ? drawBody(fleet, this._random(), true) : undefined;
+    const fleet = taxi ? null : this._fleetAt(car);
+    Object.assign(car, fleet ? drawVehicle(fleet, this._random(), true) : { shape: undefined, identity: null });
     car.color = taxi ? (this._trafficMix.green ? GREEN_CAB : YELLOW_CAB) : fleet ? drawPaint(fleet, this._random()) : TRAFFIC_PAINT[Math.floor(this._random() * TRAFFIC_PAINT.length)];
   }
 
@@ -509,7 +509,28 @@ export class Simulation {
    * The cars registered where the player is: a mix from fleet.js. Cars that
    * join the traffic or are found at the kerb from now on are drawn from it.
    */
-  setFleet(mix = null) { this._fleet = mix && Array.isArray(mix.bodies) ? mix : null; }
+  setFleet(source = null) {
+    if (this._fleet === source) return;
+    this._fleet = typeof source?.at === 'function' || Array.isArray(source?.bodies) ? source : null;
+    // Counts may arrive after the initial cars. Use the same stable draw as
+    // a fresh spawn, including for kerb spaces already occupied at load time.
+    if (this._fleet?.at) for (const car of this.cars) {
+      if (car.type === 'sedan' && !car.controlled && (car._kerb || car._edge)) this._registeredAppearance(car, !car._kerb);
+    }
+  }
+
+  _fleetAt(point) { return this._fleet?.at ? this._fleet.at(point.x, point.z) : this._fleet; }
+
+  _registeredAppearance(car, moving = false) {
+    let hash = 0;
+    for (const character of String(car.id)) hash = (hash * 33 + character.charCodeAt(0)) >>> 0;
+    const mix = this._fleetAt(car);
+    if (!mix) { car.color = KERB_PAINT[hash % KERB_PAINT.length]; return; }
+    // Mix adjacent space IDs before sampling a catalog with thousands of rows.
+    const shuffled = Math.imul(hash ^ hash >>> 16, 0x85ebca6b) >>> 0;
+    Object.assign(car, drawVehicle(mix, shuffled / 4294967296, moving));
+    car.color = drawPaint(mix, (Math.imul(hash, 2654435761) >>> 0) / 4294967296);
+  }
 
   /**
    * Which way the player is looking, as [x, z] on the ground. Traffic joins
@@ -930,6 +951,7 @@ export class Simulation {
         const point = this._lanePoint(edge, 0.15 + this._random() * 0.7);
         if (distance(point, spawn) < (police ? 50 : 16) || this._carContact(point.x, point.z, edge.angle) || this._nearCar(point.x, point.z, 5)) continue;
         const car = this._makeCar(`${police ? 'police' : 'traffic'}-${i}`, police ? 'police' : i % 4 === 0 ? 'taxi' : 'sedan', point, edge.angle, edge);
+        if (car.type === 'sedan' && this._fleet) this._registeredAppearance(car, true);
         resetVehicleDynamics(car, car._cruise * 0.65);
         this.cars.push(car);
         break;
@@ -974,11 +996,7 @@ export class Simulation {
       // Bumper to bumper is fine; overlapping is not.
       if (distance(space, this.player) < 7 || this._carContact(space.x, space.z, space.angle) || this._nearCar(space.x, space.z, 3.6)) continue;
       const car = this._makeCar(space.id, 'sedan', space, space.angle);
-      let hash = 0;
-      for (const character of String(space.id)) hash = (hash * 33 + character.charCodeAt(0)) >>> 0;
-      // The same space always holds the same car: one of those registered round here, if the game has said which they are.
-      if (this._fleet) { car.shape = drawBody(this._fleet, (hash % 9973) / 9973); car.color = drawPaint(this._fleet, (Math.imul(hash, 2654435761) >>> 0) / 4294967296); }
-      else car.color = KERB_PAINT[hash % KERB_PAINT.length];
+      this._registeredAppearance(car);
       car._kerb = true; this.cars.push(car); ids.add(space.id); present++; changed = true;
     }
     this._rngState = sequence;
