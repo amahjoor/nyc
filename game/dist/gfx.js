@@ -217,7 +217,7 @@ export class Graphics {
       exposure: state.exposure, night: state.night, time: this.elapsed,
       bloom: THREE.MathUtils.lerp(.06, .13, state.night),
       // Indoors the contact shading meant for streets blots a room's furniture: most of it is let go.
-      occlusion: this.overview ? 0 : this.indoors ? .3 : 1,
+      occlusion: this.overview ? 0 : 1 - .7 * (this.indoorDepth || 0),
       sunDirection: state.keyIsMoon ? null : this._sunDirection, shafts: this.overview ? 0 : .5 * lowSun,
     });
   }

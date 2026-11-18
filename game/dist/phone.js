@@ -21,20 +21,20 @@ export const ROWS = 6;
 export const formatDistance = metres => metres < 160 ? `${Math.max(10, Math.round(metres * 3.28084 / 10) * 10)} FT` : `${(metres / 1609.344).toFixed(1)} MI`;
 
 /** What the phone says about a place: its name, what it is, whether it is open now and any inspection grade. */
-export function describePlace(place, hours) {
-  return { name: placeName(place), kind: (KIND[place.kind]?.label || 'Place').toUpperCase(), status: isOpen(place.kind, hours) ? 'OPEN' : 'CLOSED', grade: place.grade ? `GRADE ${place.grade}` : '' };
+export function describePlace(place, hours, isClosed = () => false) {
+  return { name: placeName(place), kind: (KIND[place.kind]?.label || 'Place').toUpperCase(), status: isClosed(place) ? 'TEMPORARILY CLOSED' : isOpen(place.kind, hours) ? 'OPEN' : 'CLOSED', grade: place.grade ? `GRADE ${place.grade}` : '' };
 }
 
 /**
  * The places to list: those of a category whose name or kind contains
  * `query`, nearest first. Each row is { place, name, note, distance }.
  */
-export function listPlaces(places, { category = 'all', query = '', x = 0, z = 0, hours = 12 } = {}) {
+export function listPlaces(places, { category = 'all', query = '', x = 0, z = 0, hours = 12, isClosed } = {}) {
   const groups = CATEGORIES.find(item => item.id === category)?.groups, wanted = String(query || '').trim().toUpperCase();
   const rows = [];
   for (const place of places) {
     if (groups && !groups.includes(place.group)) continue;
-    const about = describePlace(place, hours);
+    const about = describePlace(place, hours, isClosed);
     if (wanted && !about.name.includes(wanted) && !about.kind.includes(wanted)) continue;
     const distance = Math.hypot(place.x - x, place.z - z);
     rows.push({ place, name: about.name, distance, note: [about.kind === about.name ? '' : about.kind, formatDistance(distance), about.status, about.grade].filter(Boolean).join(' · ') });
@@ -47,7 +47,7 @@ export function listPlaces(places, { category = 'all', query = '', x = 0, z = 0,
  * the places within reach; `state()` gives { x, z, hours, clock, cash, fares,
  * miles, redLights }. The rest are what its buttons do.
  */
-export function createPhone({ $, places = () => [], state = () => ({}), onDirections = () => {}, onTransport = () => {}, onJob = () => {}, onWork = () => {}, onMap = () => {}, onOpenChange = () => {}, onMechanic = () => {}, onCab = () => {} } = {}) {
+export function createPhone({ $, isClosed, places = () => [], state = () => ({}), onDirections = () => {}, onTransport = () => {}, onJob = () => {}, onWork = () => {}, onMap = () => {}, onOpenChange = () => {}, onMechanic = () => {}, onCab = () => {} } = {}) {
   const SCREENS = ['home', 'nearby', 'place', 'contacts', 'wallet', 'list'], TITLES = { home: 'PHONE', nearby: 'NEARBY', place: 'PLACE', contacts: 'CONTACTS', wallet: 'WALLET' };
   let listing = null, listPage = 0;
   let open = false, screen = 'home', category = 'all', page = 0, rows = [], chosen = null, listed = -Infinity;
@@ -131,7 +131,7 @@ export function createPhone({ $, places = () => [], state = () => ({}), onDirect
   }
   function list() {
     const now = state();
-    rows = listPlaces(places(), { category, query: $('phone-search').value, x: now.x, z: now.z, hours: now.hours });
+    rows = listPlaces(places(), { category, query: $('phone-search').value, x: now.x, z: now.z, hours: now.hours, isClosed });
     page = Math.max(0, Math.min(page, Math.ceil(rows.length / ROWS) - 1));
   }
   function render() {
@@ -157,7 +157,7 @@ export function createPhone({ $, places = () => [], state = () => ({}), onDirect
       $('phone-prev').disabled = page <= 0; $('phone-next').disabled = page >= pages - 1;
     }
     if (screen === 'place' && chosen) {
-      const about = describePlace(chosen, now.hours);
+      const about = describePlace(chosen, now.hours, isClosed);
       $('phone-place-name').textContent = about.name; $('phone-place-kind').textContent = about.kind === about.name ? '' : about.kind;
       $('phone-place-note').textContent = [formatDistance(Math.hypot(chosen.x - now.x, chosen.z - now.z)), about.status, about.grade].filter(Boolean).join(' · ');
     }

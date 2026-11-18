@@ -68,8 +68,26 @@ test('coffee uses working capital and inventory, and a pedestrian can transact o
 test('street donations, wallet theft and till theft have different consequences', () => {
   const f = fixture();f.work.street();assert.equal(f.screen().inPerson, true);f.choose('Ask for spare change');assert.equal(f.sim.cash, 4);assert.equal(f.sim.heat, 0);
   const g = fixture();g.work.street();g.choose('Steal wallet');assert.equal(g.sim.heat, 1);assert.equal(g.person.state, 'flee');
-  g.work.street();g.choose('Rob the till');assert.equal(g.sim.heat, 3);const balance = g.sim.cash;
+  g.work.rob(g.shop);assert.equal(g.sim.heat, 2);const balance = g.sim.cash;
   g.work.restore(JSON.parse(JSON.stringify(g.work.record)));g.work.rob(g.shop);assert.equal(g.sim.cash, balance);
   g.restock();g.work.rob(g.shop);assert.ok(g.sim.cash > balance);
-  const h = fixture();h.work.street();h.leaveCounter();h.choose('Rob the till');assert.equal(h.sim.cash, 0);
+  const h = fixture();h.work.street();h.leaveCounter();h.work.rob(h.shop);assert.equal(h.sim.cash, 0);
+});
+
+test('tills use the shop category and its own completed sales, including after reload', () => {
+  const payout=(kind,sales=[])=>{
+    const f=fixture();f.shop.kind=kind;
+    for(const price of sales)f.work.sale(f.shop,price);
+    f.work.sale({id:'elsewhere'},500);
+    f.work.restore(structuredClone(f.work.record));
+    f.work.rob(f.shop);return f.sim.cash;
+  };
+  assert.ok(payout('jewelry')>payout('clothes'));assert.ok(payout('clothes')>payout('pizza'));
+  assert.equal(payout('pizza',[4,8]),payout('pizza')+12);
+  const f=fixture();f.work.rob(f.shop);const before=f.sim.cash;
+  assert.ok(f.work.isClosed(f.shop));assert.equal(f.work.isClosed({id:'elsewhere'}),false);
+  f.work.sale(f.shop,3.5);f.work.rob(f.shop);assert.equal(f.sim.cash,before);
+  const {closures,...olderSave}=f.work.record;f.work.restore(olderSave);assert.ok(f.work.isClosed(f.shop));
+  f.restock();assert.equal(f.work.isClosed(f.shop),false);f.work.sale(f.shop,3.5);
+  assert.equal(f.work.balance(f.shop),before+3.5);
 });

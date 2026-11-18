@@ -32,3 +32,54 @@ export function roomLocal(room, x, z) {
   const b = -dx * room.nx - dz * room.nz;
   return { a: dx * room.tx + dz * room.tz - (room.skew || 0) * b, b };
 }
+
+// Segment against the footprint of a room fixture, optionally widened for a walking body.
+export function crossesFixture(at, to, fixture, padding = 0) {
+  let low = 0, high = 1;
+  for (const [axis, size] of [['a', 'w'], ['b', 'd']]) {
+    const delta = to[axis] - at[axis], offset = fixture[axis] - at[axis], half = fixture[size] / 2 + padding;
+    if (Math.abs(delta) < .00001) {
+      if (Math.abs(offset) > half) return false;
+    } else {
+      const u = (offset - half) / delta, v = (offset + half) / delta;
+      low = Math.max(low, Math.min(u, v)); high = Math.min(high, Math.max(u, v));
+    }
+  }
+  return low <= high;
+}
+
+// A two-way hinge with a damped closer. Resolve disk contact against the
+// swinging leaf by turning it around the hinge, preserving the walker's step.
+export class ShopDoor {
+  angle = 0;
+  velocity = 0;
+  step(dt) {
+    for (let remaining = Math.min(dt, .12); remaining > 0; remaining -= 1 / 120) {
+      const h = Math.min(remaining, 1 / 120);
+      this.velocity += (-8 * this.angle - 3.8 * this.velocity) * h;
+      this.angle += this.velocity * h;
+      if (Math.abs(this.angle) > 1.65) {
+        this.angle = Math.sign(this.angle) * 1.65;
+        this.velocity *= -.18;
+      }
+    }
+  }
+  push(a, b, nextA, nextB, radius, dt) {
+    const x = nextA + DOOR / 2, r = Math.hypot(x, nextB);
+    if (r > DOOR + radius || x <= 0 || !dt) return;
+    const sin = Math.sin(this.angle), cos = Math.cos(this.angle);
+    const along = x * cos + nextB * sin;
+    if (along < 0 || along > DOOR + radius) return;
+    const before = b * cos - (a + DOOR / 2) * sin;
+    const side = Math.sign(before) || -Math.sign(nextB - b) || 1;
+    const clearance = side * (nextB * cos - x * sin);
+    if (clearance >= radius) return;
+    const contact = Math.atan2(nextB, x) - side * Math.asin(Math.min(.99, radius / Math.max(radius, r)));
+    const angle = Math.max(-1.65, Math.min(1.65, contact));
+    const change = angle - this.angle;
+    if (change * side >= 0) return;
+    this.angle = angle;
+    const impulse = Math.min(4, Math.abs(change) / dt);
+    this.velocity = -side * Math.max(-side * this.velocity, impulse);
+  }
+}

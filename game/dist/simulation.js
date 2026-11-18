@@ -6,7 +6,8 @@ import { laneLayout } from './lanes.js';
 import { StreetObjects } from './street-objects.js';
 import { roadLevelAt, trafficAtHeight } from './road-level.js';
 import { drawVehicle, drawPaint, drawTaxi, WHEEL } from './fleet.js';
-import { walkRoom, roomPoint } from './room.js';
+import { walkRoom, roomPoint, roomLocal, DOOR } from './room.js';
+import { seatApproach, seatClip, stepSeating } from './seating.js';
 import { PEP, scratch } from './menu.js';
 import { Police, MAX_STARS } from './police.js';
 import { vehicleHandling, repairCost, offersAt, PARTS, RESPRAY_PRICE, RESPRAYS, CALL_OUT, DELIVERY } from './garage.js';
@@ -464,20 +465,36 @@ export class Simulation {
   }
 
   /** Walk in through the door of a room laid out by planRoom(). On foot only. */
-  enterRoom(room) {
-    if (!room || this.player.mode !== 'walk') return false;
-    this.room = { ...room, a: 0, b: 1.1 };
-    const [x, z] = roomPoint(room, 0, 1.1);
-    Object.assign(this.player, { x, z, velocityX: 0, velocityZ: 0, speed: 0, vy: 0, grounded: true, slide: 0, angle: Math.atan2(-room.nx, -room.nz) });
+  enterRoom(room, at) {
+    if (!room || this.player.mode !== 'walk' || this.room || (this.doorway?.closed && this.doorway.plan.place.id === room.place?.id)) return false;
+    at ??= roomLocal(room, this.player.x, this.player.z);
+    if (Math.abs(at.a) > DOOR / 2 || Math.abs(at.b) > .8) return false;
+    this.room = { ...room, a: at.a, b: at.b };
     this._say(room.name, 3);
     return true;
   }
-  /** Back out onto the sidewalk in front of the door. */
+
   leaveRoom() {
-    const room = this.room;
-    if (!room) return false;
+    if (!this.room || this.room.b > 0 || Math.abs(this.room.a) > DOOR / 2) return false;
     this.room = null;
-    Object.assign(this.player, { x: room.x + room.nx * 1.2, z: room.z + room.nz * 1.2, velocityX: 0, velocityZ: 0, speed: 0, vy: 0, grounded: true, slide: 0, angle: Math.atan2(room.nx, room.nz) });
+    return true;
+  }
+
+  sit(seat) {
+    const p = this.player;
+    if (!seat || this.seat || this.ending || p.mode !== 'walk' || p.move || p.swing > .08 || p.grounded === false) return false;
+    const distance = Math.hypot(seat.x - p.x, seat.z - p.z), y = seat.y ?? p.y;
+    if (!(distance <= 1.45 && Math.abs(y - p.y) <= 1.2 && Number.isFinite(seat.heading))) return false;
+    const path=seat.path??seatApproach(p,seat);
+    if (!path) return false;
+    this.seat = { ...seat, y, path, clip: seatClip(seat), fromX: p.x, fromY: p.y, fromZ: p.z, fromAngle: p.angle,
+      turn: turnDelta(p.angle, seat.heading), duration: .8 + path.length * .42, progress: 0, weight: 0, leaving: false };
+    Object.assign(p, { velocityX: 0, velocityZ: 0, vy: 0, speed: 0, slide: 0, guard: 0, standing: null });
+    return true;
+  }
+  stand() {
+    if (!this.seat || this.seat.leaving) return false;
+    this.seat.leaving = true;
     return true;
   }
 
@@ -727,6 +744,7 @@ export class Simulation {
     const target = this._travelSpawn(spawn);
     this.transport?.abandon();
     this.bike = null;
+    this.room = null; this.seat = null; this.doorway = null;
     const previousCab = this.cars.find(car => car.id === 'player-taxi');
     this.city = { ...this.city, spawn: target };
     this.cars = [];
@@ -873,6 +891,12 @@ export class Simulation {
     if (this.player.grounded === false || this.player.standing) return;
     const surface = this._sampleSurface?.(this.player.x, this.player.z, options);
     this.player.y = finite(surface?.elevation);
+    if (this.doorway && this.player.mode === 'walk' && Math.abs(this.player.y - this.doorway.floor) < 1.6) {
+      const at = roomLocal(this.doorway.plan, this.player.x, this.player.z);
+      if (at.b < 0 && at.b > -1 && Math.abs(at.a) < DOOR / 2) {
+        this.player.y += (this.doorway.floor - this.player.y) * (1 + at.b);
+      }
+    }
     this.player.transportId = surface?.transportId || null;
     this.player.grounded = true;
     this.player.vy = 0;
@@ -1229,7 +1253,8 @@ export class Simulation {
     if (player.mode === 'transport') return this.transport.leave();
     if (player.mode === 'bike') return this._dismountBike();
     if (player.mode === 'walk') {
-      if (this.room) return this.leaveRoom();
+      if (this.seat) return this.stand();
+      if (this.room) return false;
       const ride = this._entering ? null : this.transport?.nearby();
       if (ride) return this.transport.board(ride);
       const car = this._entering || this.getNearbyCar();
@@ -1608,6 +1633,12 @@ export class Simulation {
   _walk(input, dt, jumping = false) {
     const player = this.player;
     // A kick, a vault, a climb or a car door owns the player until it is done.
+    if (this.seat) {
+      stepSeating(player, this.seat, dt);
+      if (this.room) Object.assign(this.room, roomLocal(this.room, player.x, player.z));
+      if (this.seat.leaving && this.seat.progress === 0) this.seat = null;
+      return;
+    }
     if (stepMove(this, dt) || player.mode !== 'walk') return;
     if (jumping && this.moves && tryVault(this)) return;
     // Standing on a car, the player goes where it goes.
@@ -1637,16 +1668,35 @@ export class Simulation {
       player.velocityZ += (desiredZ - player.velocityZ) * blend;
     }
     if (magnitude > 0.02 && !sliding) player.angle += turnDelta(player.angle, Math.atan2(desiredX, desiredZ)) * (1 - Math.exp(-16 * dt));
-    if (this.room) {
-      // Indoors the walls and the furniture are the room's, not the city's.
-      player.vy = 0; player.grounded = true; player.slide = 0;
-      const room = this.room, dx = player.velocityX * dt, dz = player.velocityZ * dt;
-      const moved = walkRoom(room, room.a, room.b, dx * room.tx + dz * room.tz, -(dx * room.nx + dz * room.nz), PLAYER_RADIUS);
-      if (moved.out) { this.leaveRoom(); return; }
-      const [x, z] = roomPoint(room, moved.a, moved.b);
-      player.speed = Math.hypot(x - player.x, z - player.z) / dt;
-      room.a = moved.a; room.b = moved.b; player.x = x; player.z = z;
-      return;
+    const view = this.doorway, room = this.room || view?.plan;
+    if (room) {
+      const at = roomLocal(room, player.x, player.z);
+      const db = -(player.velocityX * room.nx + player.velocityZ * room.nz) * dt;
+      const skew = room.skew || 0;
+      const da = (player.velocityX * room.tx + player.velocityZ * room.tz) * dt - skew * db;
+      const b = at.b + db, a = at.a + da;
+      const passage = Math.abs(a) <= DOOR / 2 - .10 && at.b >= -1.1 && b > -1.1 && b < .65;
+      if (this.room || passage && (player.grounded !== false && Math.abs(player.y - view.floor) < 1.6)) {
+        const moved = passage ? { a, b } : walkRoom(room, at.a, at.b, da, db, PLAYER_RADIUS);
+        if (!this.room && view?.closed) moved.b=Math.min(moved.b,-.01);
+        if (passage && Math.abs(b) < PLAYER_RADIUS) {
+          const gap = DOOR / 2 - Math.sqrt(PLAYER_RADIUS ** 2 - b ** 2);
+          moved.a = clamp(a + skew * b, -gap, gap) - skew * b;
+        }
+        if (view) {
+          view.door.push(at.a + skew * at.b, at.b, moved.a + skew * moved.b, moved.b, PLAYER_RADIUS, dt);
+          if (moved.b >= 0) player.y = view.floor;
+        }
+        const [x, z] = roomPoint(room, moved.a, moved.b);
+        player.speed = Math.hypot(x - player.x, z - player.z) / dt;
+        Object.assign(player, { x, z, vy: 0, grounded: true, slide: 0 });
+        if (!this.room && moved.b >= 0) this.enterRoom(room, moved);
+        if (this.room) {
+          this.room.a = moved.a; this.room.b = moved.b;
+          if (moved.b < 0) this.leaveRoom();
+        }
+        return;
+      }
     }
     let next = this._resolvePosition(player.x + player.velocityX * dt, player.z + player.velocityZ * dt, PLAYER_RADIUS, null, player, true, dt);
     const carHit = this._nearCar(next.x, next.z, PLAYER_RADIUS, null, player.y);

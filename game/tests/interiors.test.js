@@ -1,10 +1,12 @@
 import test from 'node:test';
 import { readFileSync } from 'node:fs';
 import assert from 'node:assert/strict';
+import * as THREE from '../dist/vendor/three.module.min.js';
 import { KIND } from '../dist/places.js';
 import { planRoom, buildRoom, roomKind, roomStyle, STYLE_OF, CEILING } from '../dist/interiors.js';
 import { KINDS } from '../dist/places.js';
-import { walkRoom, roomPoint, DOOR } from '../dist/room.js';
+import { walkRoom, roomPoint, DOOR, ShopDoor } from '../dist/room.js';
+import { fleeShop, inviteCustomer, populateShop, stepEscape } from '../dist/shop-life.js';
 import { Simulation } from '../dist/simulation.js';
 
 const place = (kind, name = 'X') => ({ id: name, kind, group: KIND[kind].group, name, x: 0, z: 0, bin: 0, area: 0, grade: '' });
@@ -33,6 +35,33 @@ test('a room is as deep as its building allows and furnished for the kind of pla
   built.userData.dispose();
 });
 
+test('both storefront windings show the inside of the walls and the tops of furniture', () => {
+  for (const nz of [-1, 1]) {
+    const room = planRoom({ ...front('bar'), nz });
+    room.things = [
+      { a: -1, b: 3, w: 1, d: 1, h: 1, y: 0, color: '#888888' },
+      { a: 1, b: 3, w: .5, d: .5, h: .75, y: 0, color: '#888888', shape: 'stool' },
+    ];
+    const group = buildRoom(room), mesh = group.children[0];
+    const hit = (a, b, y, direction) => {
+      const [x, z] = roomPoint(room, a, b);
+      const ray = new THREE.Raycaster(new THREE.Vector3(x, y, z), new THREE.Vector3(...direction));
+      return ray.intersectObject(mesh)[0]?.distance ?? Infinity;
+    };
+    for (const sign of [-1, 1]) {
+      assert.ok(Math.abs(hit(0, 6, 2.8, [sign, 0, 0]) - room.width / 2) < .001);
+      // The back wall is where the room ends; the front one, with its doorway and windows, stands just inside the building's own.
+      assert.ok(Math.abs(hit(0, 6, 2.8, [0, 0, sign]) - 6) < .09);
+    }
+    assert.ok(Math.abs(hit(-1, 3, 2, [0, -1, 0]) - 1) < .001);
+    assert.ok(Math.abs(hit(1, 3, 2, [0, -1, 0]) - 1.25) < .001);
+    // The street is seen through the doorway and the windows: nothing of the room is in the way there.
+    const out = [0, 0, room.nz];
+    assert.equal(hit(0, 6, 1.5, out), Infinity, 'the doorway'); assert.equal(hit(room.width / 4 + .2, 6, 1.5, out), Infinity, 'a window'); assert.ok(hit(room.width / 4 + .2, 6, .4, out) < 6.1, 'the wall under it');
+    group.userData.dispose();
+  }
+});
+
 test('walking about a room: walls and furniture stop you, the door lets you out', () => {
   const room = planRoom(front('bodega', 9), building(30));
   assert.deepEqual(roomPoint(room, 2, 3), [12, -3]);
@@ -53,23 +82,36 @@ test('the player goes in on foot, is kept in the room, and comes out on the side
   const sim = new Simulation({ bounds: { minX: -500, maxX: 500, minZ: -500, maxZ: 500 }, roads: [], buildings: [{ id: 'b', polygon: [[-20, -30], [40, -30], [40, 0], [-20, 0]], holes: [] }], spawn: { x: 10, z: 2, angle: 0 }, missionPoints: [] });
   const room = planRoom(front('pizza'), building(30));
   assert.equal(sim.enterRoom(null), false);
-  assert.equal(sim.enterRoom(room), true);
+  assert.equal(sim.enterRoom(room), false, 'cannot enter from a distance');
+  const door = new ShopDoor(); sim.doorway = { plan: room, door, floor: 0 };
+  Object.assign(sim.player, { x: 10, y: 0, z: 1.5, angle: Math.PI });
+  let maximumStep = 0;
+  for (let i = 0; i < 60 && !sim.room; i++) {
+    const z = sim.player.z;
+    door.step(1/60); sim.step({moveZ:-1},1/60);
+    maximumStep = Math.max(maximumStep, Math.abs(z-sim.player.z));
+  }
+  assert.ok(door.angle > .55 && maximumStep < .075, 'the body pushes the door and crosses in ordinary walking steps');
   assert.ok(sim.room && sim.player.z < 0, 'inside the building, where the city would not let anyone walk');
   for (let i = 0; i < 600; i++) sim.step({ moveX: 0, moveZ: -1 }, 1 / 60);
   assert.ok(sim.room && sim.player.z > -room.depth && sim.player.z < -1, `walked to ${sim.player.z.toFixed(1)} and no further`);
   for (let i = 0; i < 600 && sim.room; i++) sim.step({ moveX: (10 - sim.player.x) * 2, moveZ: 1 }, 1 / 60);
   assert.equal(sim.room, null); assert.ok(sim.player.z > 0 && sim.player.z < 2.5, 'back out through the door');
-  sim.enterRoom(room); assert.equal(sim.interact(), true); assert.equal(sim.room, null, 'E leaves too');
+  for(let i=0;i<50&&!sim.room;i++)sim.step({moveZ:-1},1/60);
+  assert.ok(sim.room,'can turn straight back without a cooldown');
 });
 
 test('there is somewhere for customers to sit: at tables, at the bar and in the barber chairs, each on a seat and facing what they came for', () => {
   const eat = planRoom(front('pizza')), bar = planRoom(front('bar')), barber = planRoom(front('barber')), shop = planRoom(front('bodega'));
   assert.ok(eat.seats.length >= 4 && eat.seats.length % 2 === 0, `${eat.seats.length} seats at tables`);
   assert.ok(bar.seats.some(seat => seat.lift > 0) && barber.seats.length >= 2);
+  assert.ok(eat.seats.some(s => s.seatKind === 'chair') && bar.seats.some(s => s.seatKind === 'stool'));
+  assert.ok(barber.seats.some(s => s.seatKind === 'lounge'));
+  assert.ok(planRoom(front('american')).seats.some(s => s.seatKind === 'booth'));
   assert.deepEqual(shop.seats, [], 'nobody sits in a deli');
   for (const room of [eat, bar, barber]) for (const seat of room.seats) {
     // On a piece of furniture low enough to sit on, inside the room, and facing square along or across it.
-    assert.ok(room.things.some(thing => thing.solid && thing.h <= .8 && Math.abs(thing.a - seat.a) < .01 && Math.abs(thing.b - seat.b) < .01), 'on a seat');
+    assert.ok(room.things.some(thing => thing.solid && thing.h === seat.seatHeight && Math.abs(thing.a - seat.a) < .01 && Math.abs(thing.b - seat.b) < .01), 'on the seat surface');
     assert.ok(Math.abs(seat.a) < room.width / 2 && seat.b > 0 && seat.b < room.depth && Math.abs(seat.da) + Math.abs(seat.db) === 1);
   }
   // At a table the two face each other.
@@ -110,4 +152,54 @@ test('whatever the size of the room, it can be walked into and whoever serves ca
     assert.ok(reached.length > 30, `${label}: there is room to walk`);
     assert.ok(room.staff.some(spot => reached.some(([a, b]) => Math.hypot(a - spot.a, b - spot.b) < 2.4)), `${label}: someone serving can be reached`);
   }
+});
+
+test('a two-way closer responds on contact, clears the body, then settles', () => {
+  for (const side of [1,-1]) {
+    const door = new ShopDoor(), dt=1/60;
+    let b=-side*.6, contact=false;
+    for(let i=0;i<40;i++){
+      const next=b+side*.045;
+      door.step(dt);door.push(0,b,0,next,.4,dt);b=next;
+      if(!contact && Math.abs(b)<.4){assert.ok(door.angle*side>0);contact=true;}
+      if(Math.abs(b)<.02)assert.ok(door.angle*side>.7);
+    }
+    assert.ok(contact);
+    for(let i=0;i<360;i++)door.step(dt);
+    assert.ok(Math.abs(door.angle)<.002);assert.ok(Math.abs(door.velocity)<.002);
+  }
+});
+
+test('a diner keeps their seat occupied until they have risen into the aisle', () => {
+  const plan=planRoom(front('pizza')), spot=plan.seats[0], [x,z]=roomPoint(plan,spot.a,spot.b);
+  const view={plan,floor:0,occupied:new Set([spot])}, actor={x,z,heading:0,sitting:true,spot,seat:spot};
+  fleeShop(view,actor);
+  assert.ok(actor.seat.leaving);
+  stepEscape(view,actor,.2);
+  assert.ok(actor.sitting && actor.seat.weight<1 && view.occupied.has(spot));
+  stepEscape(view,actor,.5);
+  assert.ok(!actor.sitting && !view.occupied.has(spot));
+  assert.equal(actor.clip,'jog');
+});
+
+test('a sidewalk customer walks through the door, orders once and resumes their route', () => {
+  const plan=planRoom(front('coffee')), view={plan,floor:3,door:new ShopDoor(),actors:[],occupied:new Set()};
+  populateShop(view);
+  const person={state:'walk',run:{},age:4,look:{pace:1.5},x:plan.x+1,z:plan.z+2};
+  const sales=[];
+  inviteCustomer(view,[person],20,(shop,price)=>sales.push([shop,price]));
+  assert.strictEqual(view.visitor,person);
+  const menuItem=person.visit.item;
+  let waited=false,inside=false,opened=false;
+  for(let i=0;i<5000&&person.visit;i++){
+    const before={x:person.x,z:person.z};
+    view.door.step(1/60);person.visit.step(person,1/60,20+i/60);
+    assert.ok(Math.hypot(before.x-person.x,before.z-person.z)<=1.5/60+.0001);
+    if(person.visit?.wait>0)waited=true;
+    if(person.z<plan.z){inside=true;assert.equal(person.y,3);}
+    if(view.door.angle>.2)opened=true;
+  }
+  assert.ok(inside&&waited&&opened);assert.deepEqual(sales,[[plan.place,menuItem.price]]);
+  assert.equal(person.state,'walk');assert.equal(view.visitor,null);
+  assert.ok(Math.hypot(person.x-plan.x-1,person.z-plan.z-2)<.001);
 });

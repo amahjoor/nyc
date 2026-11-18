@@ -400,7 +400,7 @@ const OWN = {
     r.floor = '#4a4a4e'; r.wall = '#d9d4c6';
     caseRows(r, 2.0, r.depth - 2.6, ['watches', 'chains', 'phones', 'rings']);
     // The counter is behind a grille: what hangs on the wall can still be seen through it.
-    r.add(0, r.depth - 1.7, r.width - .6, .7, 1.1, '#2a2c30'); for (let a = -r.half + .45; a < r.half - .3; a += .32) r.add(a, r.depth - 1.4, .03, .03, 1.1, STEEL, 1.1, false); r.add(0, r.depth - 1.4, r.width - .6, .04, .04, STEEL, 2.2, false); r.staff(0, r.depth - .9, 0, -1);
+    r.add(-.35, r.depth - 1.7, r.width - 1.3, .7, 1.1, '#2a2c30'); for (let a = -r.half + .45; a < r.half - 1; a += .32) r.add(a, r.depth - 1.4, .03, .03, 1.1, STEEL, 1.1, false); r.add(-.35, r.depth - 1.4, r.width - 1.3, .04, .04, STEEL, 2.2, false); r.staff(0, r.depth - .9, 0, -1);
     for (let a = -r.half + .8, i = 0; a < r.half - .5; a += .7, i++) i % 3 === 1 ? prop(r, 'tv', a + .1, r.depth - .06, .9, .1, .52, BLACK, { y: 1.55, solid: false }) : prop(r, 'guitar', a, r.depth - .06, .4, .1, 1.05, WOOD, { y: 1.35, solid: false });
     for (const side of [-1, 1]) prop(r, 'pegboard', side * (r.half - .05), 3.2, .1, 1.6, 2.0, '#3a3a3e', { solid: false, face: [-side, 0] });
     r.panel(0, 0, Math.min(2.6, r.width - 2), .5, 2.3, '#c9a23f', .08);
@@ -427,7 +427,7 @@ const OWN = {
     r.floor = '#7a8078'; r.wall = '#eef0e4'; r.light = { color: 0xfffaf0, power: 70 };
     for (const side of [-1, 1]) for (let b = 1.9; b + 1.7 < r.depth - 2.8; b += 1.9) prop(r, 'flowers', side * (r.half - .5), b + .85, .9, 1.7, 1.2, '#5a4632', { face: [-side, 0] });
     prop(r, 'cooler', -r.half + 1.3, r.depth - .4, 2.2, .7, 2.05, '#e9edf0', { stock: ['#d23a2a', '#f2c230', '#e0559a', '#f4f1e6', '#3f8a45', '#8a4b9e'] });
-    r.add(Math.min(1.4, r.half - 1.4), r.depth - 1.5, 2.0, .8, .95, WOOD); r.add(Math.min(1.4, r.half - 1.4), r.depth - 1.5, .5, .3, .06, '#d9c9a8', .95, false); r.staff(Math.min(1.4, r.half - 1.4), r.depth - .7, 0, -1);
+    r.add(Math.min(1.4, r.half - 1.4), r.depth - 1.5, Math.min(2, r.width - 3.65), .8, .95, WOOD); r.add(Math.min(1.4, r.half - 1.4), r.depth - 1.5, .5, .3, .06, '#d9c9a8', .95, false); r.staff(Math.min(1.4, r.half - 1.4), r.depth - .7, 0, -1);
     prop(r, 'register', Math.min(2.1, r.half - .7), r.depth - 1.5, .5, .5, .35, DARK, { y: .95, solid: false, face: [0, 1] });
   },
   // Bicycles: a row of them nose to tail each side, wheels and helmets on the wall, the stand where they are mended.

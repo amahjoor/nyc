@@ -12,8 +12,11 @@
 // the street is not seen: the front is a wall with a lit door.
 import * as THREE from './vendor/three.module.min.js';
 import { KIND, placeName } from './places.js';
-import { CEILING, roomPoint, DOOR } from './room.js';
+import { CEILING, roomPoint, DOOR, ShopDoor } from './room.js';
 import { roomProps, furnishRoom, OWN_STYLE_OF } from './room-props.js';
+import { planRegister } from './register.js';
+import { SHOP_WINDOW_GLSL } from './shop-window.js';
+import { buildRoomFinish } from './room-finish.js';
 
 /** Kinds of place with a room to walk into, by group. */
 const ROOMS = { bodega: 'shop', market: 'shop', liquor: 'shop', shop: 'shop', food: 'eat', cafe: 'eat', dining: 'eat', bar: 'bar', beauty: 'chairs', barber: 'chairs', hotel: 'lobby', public: 'lobby' };
@@ -102,14 +105,14 @@ const STYLES = {
     for (let b = 3.2; b < r.depth - 3.4; b += 2.4) { r.add(0, b, 1.5, .9, .78, '#d8d2c4'); for (let i = 0; i < 3; i++) r.add(-.45 + i * .45, b, .36, .5, .14 + (i % 2) * .08, CLOTH[(r.seed + i + Math.round(b)) % CLOTH.length], .78, false); }
     for (const side of [-1, 1]) { const a = side * (r.half - 1.0); if (r.half > 2.6) { r.add(a, 1.0, .35, .25, 1.15, '#d9d2c0'); r.add(a, 1.0, .45, .3, .55, CLOTH[(r.seed + (side > 0 ? 1 : 4)) % CLOTH.length], .8, false); r.add(a, 1.0, .2, .2, .25, '#d9d2c0', 1.38, false); } }
     for (const side of [-1, 1]) r.add(side * (r.half - .7), r.depth - .7, 1.2, 1.3, 2.2, '#8a7a66');
-    r.add(0, r.depth - 1.3, Math.min(2.0, r.width - 3.2), .6, 1.0, BLACK); r.staff(0, r.depth - .65, 0, -1);
+    r.add(0, r.depth - 1.3, Math.min(2.0, r.width - 4.15), .6, 1.0, BLACK); r.staff(0, r.depth - .65, 0, -1);
     r.panel(0, 0, 1.2, .6, 2.2, '#17191b');
   },
   // A pawnbroker, a jeweller, a buy-and-sell: glass cases round three sides, what is too big for them on the wall behind.
   cases(r) {
     r.floor = '#4a4a4e'; r.wall = '#d9d4c6';
     const run = Math.max(2, r.depth - 3.6);
-    for (const side of [-1, 1]) { r.add(side * (r.half - 1.2), 2.2 + run / 2, .6, run, .85, '#2a2c30'); r.add(side * (r.half - 1.2), 2.2 + run / 2, .56, run - .1, .3, GLASS, .85, false); r.shelves(side, 2.2, 2.2 + run, '#3a3a3e', ['#c9a23f', '#b8bcc0', '#2f5f9e', '#7a1f2a']); }
+    for (const side of [-1, 1]) { r.add(side * (r.half - 1.45), 2.2 + run / 2, .6, run, .85, '#2a2c30'); r.add(side * (r.half - 1.45), 2.2 + run / 2, .56, run - .1, .3, GLASS, .85, false); r.shelves(side, 2.2, 2.2 + run, '#3a3a3e', ['#c9a23f', '#b8bcc0', '#2f5f9e', '#7a1f2a']); }
     r.add(0, r.depth - 1.5, r.width - 3.4, .6, .85, '#2a2c30'); r.add(0, r.depth - 1.5, r.width - 3.5, .56, .3, GLASS, .85, false);
     r.staff(0, r.depth - .8, 0, -1); r.staff(-(r.half - .65), 2.2 + run / 2, 1, 0);
     r.panel(0, 0, r.width - 2, .9, 1.7, '#c9a23f');
@@ -119,7 +122,7 @@ const STYLES = {
     r.floor = '#8f8a7c'; r.wall = '#e6e2d6';
     for (let i = 0; i < 2; i++) { r.add(r.half - .4, 1.6 + i * 1.1, .6, .8, 1.5, '#2f3f5a'); r.add(r.half - .72, 1.6 + i * 1.1, .04, .5, .4, '#9fd0e0', .95, false); }
     for (let b = 3.2; b < r.depth - 3.4; b += 1.3) for (const a of [-.9, .9]) r.add(a, b, .08, .08, .95, '#c9a23f');
-    r.add(0, r.depth - 1.9, r.width - .4, .7, 1.1, '#5a4636'); r.add(0, r.depth - 1.6, r.width - .4, .05, 1.1, GLASS, 1.1, false);
+    r.add(-.35, r.depth - 1.9, r.width - 1.3, .7, 1.1, '#5a4636'); r.add(-.35, r.depth - 1.6, r.width - 1.3, .05, 1.1, GLASS, 1.1, false);
     for (let i = 0; i < 3 && -r.half + 1.2 + i * 2.2 < r.half - .8; i++) r.staff(-r.half + 1.2 + i * 2.2, r.depth - 1.0, 0, -1);
     if (r.half > 3) { r.add(-r.half + 1.1, 2.6, 1.4, .8, .76, WOOD); r.seat(-r.half + 1.1, 3.6, 0, -1, 0, '#3f4a5a'); }
     r.panel(0, 0, r.width - 1.5, .5, 2.4, '#0f2d5c');
@@ -347,7 +350,7 @@ const STYLES = {
 /** How many metres of building lie straight in from a front's door, up to 13. `inside(x, z)` says whether a point is within its building. */
 export function roomDepth(front, inside = () => true) {
   let depth = 0;
-  while (depth < 13 && inside(front.x - front.nx * (depth + 1), front.z - front.nz * (depth + 1))) depth++;
+  while (depth < 13 && inside(...roomPoint(front, 0, depth + 1))) depth++;
   return depth;
 }
 /** Whether a street front has a room to walk into: a kind of place that has one, with four metres of building behind its door. */
@@ -374,14 +377,19 @@ export function planRoom(front, inside = () => true) {
   const width = Math.max(5, Math.min(9, front.width)), half = width / 2, seed = hashOf(`${placeName(place)}|${place.x}|${place.z}`), style = roomStyle(place);
   const r = { width, half, depth, seed, place, things: [], people: [], seats: [], wall: '#d8d2c4', floor: '#8a8378', light: { color: 0xfff1dc, power: 60 } };
   // `shape` says how a thing is drawn where it is more than a box: 'table', 'chair', 'bench', 'stool'; `face` is the way a seat faces.
-  r.add = (a, b, w, d, h, color, y = 0, solid = true, shape = null, face = null) => { const thing = { a, b, w, d, h, y, color, solid }; if (shape) thing.shape = shape; if (face) thing.face = face; r.things.push(thing); };
+  r.add = (a, b, w, d, h, color, y = 0, solid = true, shape = null, face = null) => { const thing = { a, b, w, d, h, y, color, solid }; if (color === GLASS && !solid) thing.glass = true; if (shape) thing.shape = shape; if (face) thing.face = face; r.things.push(thing); };
   r.staff = (a, b, da, db) => { r.people.push({ a, b, da, db, facing: db < 0 ? 0 : db > 0 ? 2 : da > 0 ? 3 : 1 }); };
   /** Something to sit on, w by d and `top` high, with someone perhaps on it facing (da, db). */
-  r.seat = (a, b, da, db, lift = 0, color = DARK, w = .4, d = .4, top = .45) => { r.add(a, b, w, d, top, color, 0, true, top >= .7 ? 'stool' : w > .62 || d > .62 ? 'bench' : 'chair', [da, db]); r.seats.push({ a, b, da, db, lift }); };
+  r.seat = (a, b, da, db, lift = 0, color = DARK, w = .4, d = .4, top = .45, kind) => {
+    const shape = top >= .7 ? 'stool' : w > .62 || d > .62 ? 'bench' : 'chair';
+    const seatKind = kind ?? (shape === 'bench' && (da ? w : d) >= .64 ? 'lounge' : shape);
+    r.add(a, b, w, d, top, color, 0, true, shape, [da, db]);
+    r.seats.push({ a, b, da, db, lift, seatKind, seatHeight: top, seatWidth: da ? d : w, seatDepth: da ? w : d });
+  };
   /** A table for two: its chairs to either side along the wall, facing each other. */
   r.table = (a, b, top = WOOD, chair = DARK) => { r.add(a, b, .8, .8, .74, top, 0, true, 'table'); r.seat(a - .65, b, 1, 0, 0, chair); r.seat(a + .65, b, -1, 0, 0, chair); };
   /** A booth against a side wall at a: two benches with a table between them, facing each other along the wall. */
-  r.booth = (a, b, color) => { r.add(a, b, 1.2, .7, .74, '#d9d2c0', 0, true, 'table'); for (const way of [-1, 1]) r.seat(a, b + way * .75, 0, -way, 0, color, 1.2, .5); };
+  r.booth = (a, b, color) => { r.add(a, b, 1.2, .7, .74, '#d9d2c0', 0, true, 'table'); for (const way of [-1, 1]) r.seat(a, b + way * .75, 0, -way, 0, color, 1.2, .5, .45, 'booth'); };
   /** Something flat on a wall: side -1 or 1 for a side wall (from b = `from`, `along` wide), 0 for the back wall (centred at a = `from`); `inset` brings it out in front of what stands there. */
   r.panel = (side, from, along, high, up, color, inset = 0) => { if (side) r.add(side * (half - .03 - inset), from + along / 2, .04, along, high, color, up, false); else r.add(from, depth - .03 - inset, along, .04, high, color, up, false); };
   /** Shelving down a side wall from b = from to b = to, its goods in bands of colour. */
@@ -407,42 +415,78 @@ export function planRoom(front, inside = () => true) {
     staff = [{ a: 0, b: depth - .75, da: 0, db: -1, facing: 0 }];
   }
   seats = seats.filter(spot => things.some(thing => thing.solid && thing.h <= .8 && thing.a === spot.a && thing.b === spot.b));
-  return { name: placeName(place), kind, style, place, x: front.x, z: front.z, tx: front.tx, tz: front.tz, nx: front.nx, nz: front.nz, width, depth, things, staff, seats, wall: r.wall, floor: r.floor, light: r.light };
+  const returns = (front.returns || []).map(({ side, length }) => ({ side, length: Math.min(depth, length) }));
+  const room = { name: placeName(place), kind, style, place, returns, skew: front.skew || 0, x: front.x, z: front.z, tx: front.tx, tz: front.tz, nx: front.nx, nz: front.nz, width, depth, things, staff, seats, wall: r.wall, floor: r.floor, light: r.light };
+  if (r.finish) room.finish = { ...r.finish, seed };
+  room.register = planRegister(room);
+  return room;
 }
 
 /** Build a room as it stands in the world, its floor at height `y`. Returns a group; dispose() frees it. */
-export function buildRoom(room, y = 0) {
+export function buildRoom(room, y = 0, { streetView = false } = {}) {
   const group = new THREE.Group(); group.name = `Inside ${room.name}`;
   const position = [], color = [], tone = new THREE.Color();
+  // The footprint ring can run either way. Mapping local depth to the
+  // inward normal reflects the triangles for one of those two windings.
+  const mirrored = room.tx * room.nz - room.tz * room.nx > 0;
+  const outwardOrder = mirrored ? [0, 2, 1] : [0, 1, 2];
+  const inwardOrder = mirrored ? [0, 1, 2] : [0, 2, 1];
   // Boxes are shaded by which way each face looks: there is no sun indoors.
-  const box = (a, b, w, d, h, y0, hex, inward = false) => {
-    const geometry = new THREE.BoxGeometry(w, h, d).toNonIndexed(), p = geometry.attributes.position, n = geometry.attributes.normal;
+  const unitBox = new THREE.BoxGeometry(1, 1, 1).toNonIndexed();
+  const box = (a, b, w, d, h, y0, hex, inward = false, da = 0, db = 1) => {
+    const p = unitBox.attributes.position, n = unitBox.attributes.normal;
     tone.set(hex);
-    const order = inward ? [0, 2, 1] : [0, 1, 2];
+    const order = inward ? inwardOrder : outwardOrder;
     for (let i = 0; i < p.count; i += 3) for (const k of order) {
-      const la = a + p.getX(i + k), lb = b + p.getZ(i + k), [x, z] = roomPoint(room, la, lb), ny = n.getY(i + k) * (inward ? -1 : 1), shade = ny > .5 ? 1.08 : ny < -.5 ? .7 : Math.abs(n.getX(i + k)) > .5 ? .86 : .96;
-      position.push(x, y + y0 + h / 2 + p.getY(i + k), z); color.push(tone.r * shade, tone.g * shade, tone.b * shade);
+      const u=w*p.getX(i+k), v=d*p.getZ(i+k);
+      const la = a + u*db + v*da, lb = b - u*da + v*db, [x, z] = roomPoint(room, la, lb), ny = n.getY(i + k) * (inward ? -1 : 1), shade = ny > .5 ? 1.08 : ny < -.5 ? .7 : Math.abs(n.getX(i + k)) > .5 ? .86 : .96;
+      position.push(x, y + y0 + h / 2 + h * p.getY(i + k), z); color.push(tone.r * shade, tone.g * shade, tone.b * shade);
     }
-    geometry.dispose();
   };
-  // The shell, seen from inside: floor, ceiling and four walls; then a lit doorway in the front one.
-  box(0, room.depth / 2, room.width, room.depth, CEILING, 0, room.wall, true);
-  box(0, room.depth / 2, room.width - .02, room.depth - .02, .03, 0, room.floor); box(0, room.depth / 2, room.width - .02, room.depth - .02, .03, CEILING - .04, '#f2efe6');
-  box(0, .03, DOOR, .04, 2.15, 0, '#cfe3ee'); box(-room.width / 4 - .4, .03, room.width / 2 - 1.6, .04, 1.5, .8, '#bcd6e4'); box(room.width / 4 + .4, .03, room.width / 2 - 1.6, .04, 1.5, .8, '#bcd6e4');
-  for (let b = 1.5; b < room.depth; b += 3) box(0, b, room.width * .5, .5, .05, CEILING - .1, '#fffbe8');
+  const half = room.width / 2, wall = .055, sill = .64, head = 2.27, dark = '#303638';
+  box(0, room.depth + wall / 2, room.width, wall, CEILING, 0, room.wall);
+  for (const side of [-1, 1]) {
+    const a = side * (half + wall / 2), length = room.returns?.find(edge => edge.side === side)?.length || 0;
+    if (length) {
+      box(a, length / 2, wall, length, sill, 0, room.wall);
+      box(a, length / 2, wall, length, CEILING - head, head, room.wall);
+      for (const b of [.11, length - .11]) box(a, b, wall, .22, head - sill, sill, room.wall);
+      box(a, length / 2, wall, .05, head - sill, sill, dark);
+    }
+    if (length < room.depth) box(a, (length + room.depth) / 2, wall, room.depth - length, CEILING, 0, room.wall);
+    const mid = side * (half + DOOR / 2) / 2, width = half - DOOR / 2;
+    box(mid, .04, width, wall, sill, 0, room.wall);
+    box(mid, .04, width, wall, CEILING - head, head, room.wall);
+    box(side * (.7 + DOOR / 2) / 2, .04, .7 - DOOR / 2, wall, head - sill, sill, dark);
+    box(side * (half - .11), .04, .22, wall, head - sill, sill, room.wall);
+    if (half > 3) box(side * (half + .48) / 2, .04, .05, wall, head - sill, sill, dark);
+  }
+  box(0, .04, DOOR, wall, CEILING - 2.22, 2.22, room.wall);
+  box(0, room.depth / 2, room.width - .02, room.depth - .02, .03, 0, room.floor); box(0, room.depth / 2, room.width - .02, room.depth - .02, .03, CEILING - .04, room.light?.ceiling || '#f2efe6');
+  if (room.light?.strip) {
+    for (const side of [-1, 1]) {
+      const a = side * room.width * .26, length = room.depth - .8;
+      box(a, room.depth / 2, .14, length, .06, CEILING - .13, '#676967');
+      box(a, room.depth / 2, .084, length - .07, .022, CEILING - .15, room.light.strip);
+    }
+  } else {
+    for (let b = 1.5; b < room.depth; b += 3) box(0, b, room.width * .5, .5, .05, CEILING - .1, '#fffbe8');
+  }
   // A cylinder standing on end, shaded like the boxes.
   const post = (a, b, radius, h, y0, hex, sides = 10) => {
     const geometry = new THREE.CylinderGeometry(radius, radius, h, sides).toNonIndexed(), p = geometry.attributes.position, n = geometry.attributes.normal;
     tone.set(hex);
-    for (let i = 0; i < p.count; i++) {
-      const [x, z] = roomPoint(room, a + p.getX(i), b + p.getZ(i)), ny = n.getY(i), shade = ny > .5 ? 1.08 : ny < -.5 ? .7 : .84 + .14 * Math.abs(n.getX(i));
-      position.push(x, y + y0 + h / 2 + p.getY(i), z); color.push(tone.r * shade, tone.g * shade, tone.b * shade);
+    for (let i = 0; i < p.count; i += 3) for (const k of outwardOrder) {
+      const [x, z] = roomPoint(room, a + p.getX(i + k), b + p.getZ(i + k)), ny = n.getY(i + k), shade = ny > .5 ? 1.08 : ny < -.5 ? .7 : .84 + .14 * Math.abs(n.getX(i + k));
+      position.push(x, y + y0 + h / 2 + p.getY(i + k), z); color.push(tone.r * shade, tone.g * shade, tone.b * shade);
     }
     geometry.dispose();
   };
   const LEG = '#2a2c30', props = roomProps(room, y, position, color);
   for (const thing of room.things) {
     const { a, b, w, d, h, y: up, color: hex, shape, face } = thing;
+    // The working checkout below replaces the decorative register in the layout.
+    if (shape==='register' && room.register) continue;
     // What marks the trade is drawn as itself (room-props.js): an oven, a dressed figure, a case of watches.
     if (props.draw(thing)) continue;
     if (shape === 'table') {
@@ -468,12 +512,138 @@ export function buildRoom(room, y = 0) {
       box(a, b, w - .06, d - .06, .1, 0, '#1b1d20'); box(a, b, w, d, h - .14, .1, hex); box(a, b, w + .06, d + .06, .04, h - .04, '#d9d4c8');
     } else box(a, b, w, d, h, up, hex);
   }
+  let drawer, notes, takeArm;
+  const till=room.register;
+  if (till) {
+    const part=(u,v,w,d,h,up,color)=>box(till.a+u*till.db+v*till.da,till.b-u*till.da+v*till.db,w,d,h,till.up+up,color,false,till.da,till.db);
+    if(till.mounted)part(0,0,.43,.37,.05,-.05,'#656766');
+    part(0,0,.38,.32,.12,0,'#303437');
+    part(0,-.055,.06,.05,.09,.12,'#555b5e');
+    part(0,-.055,.29,.055,.18,.21,'#263338');
+    part(0,-.024,.25,.01,.14,.23,'#76bcb8');
+    part(0,.085,.19,.09,.018,.12,'#828b89');
+  }
   const geometry = new THREE.BufferGeometry();
   geometry.setAttribute('position', new THREE.Float32BufferAttribute(position, 3)); geometry.setAttribute('color', new THREE.Float32BufferAttribute(color, 3));
   const material = new THREE.MeshBasicMaterial({ vertexColors: true, fog: false }); material.name = 'Room';
-  const mesh = new THREE.Mesh(geometry, material); mesh.frustumCulled = false; group.add(mesh);
-  const lamp = new THREE.PointLight(room.light?.color ?? 0xfff1dc, room.light?.power ?? 60, room.depth * 2.5, 1.6), [lx, lz] = roomPoint(room, 0, room.depth / 2);
-  lamp.position.set(lx, y + CEILING - .5, lz); group.add(lamp);
-  group.userData.dispose = () => { geometry.dispose(); material.dispose(); group.removeFromParent(); };
+  const mesh = new THREE.Mesh(geometry, material); mesh.frustumCulled = streetView; group.add(mesh);
+  const finish = buildRoomFinish(room, y);
+  if (finish) group.add(finish);
+  if (streetView) {
+    group.name = 'Through the windows of ' + room.name;
+    // Each exterior sightline must enter through a pane belonging to this
+    // room. A customer already inside sees the whole room in the same mesh.
+    const indoors = { value: 0 };
+    group.userData.indoors = indoors;
+    material.onBeforeCompile = shader => {
+      shader.uniforms.shopInside = indoors;
+      shader.uniforms.shopSkew = { value: room.skew || 0 };
+      shader.uniforms.shopFront = { value: new THREE.Vector4(room.x, y, room.z, half) };
+      shader.uniforms.shopAxes = { value: new THREE.Vector4(room.tx, room.tz, room.nx, room.nz) };
+      shader.uniforms.shopReturns = { value: new THREE.Vector2(...[-1, 1].map(side => room.returns?.find(r => r.side === side)?.length || 0)) };
+      const vars = 'varying vec3 vShopPoint; flat varying vec3 vShopEye; uniform vec4 shopFront;\n';
+      shader.vertexShader = vars + 'uniform vec4 shopAxes; uniform float shopSkew;\n' + shader.vertexShader.replace('#include <begin_vertex>', `#include <begin_vertex>
+        vec3 local = position - shopFront.xyz;
+        vec3 eye = cameraPosition - ( modelMatrix * vec4( shopFront.xyz, 1.0 ) ).xyz;
+        vShopPoint = vec3( dot( local.xz, shopAxes.xy ), local.y, dot( local.xz, shopAxes.zw ) );
+        vShopEye = vec3( dot( eye.xz, shopAxes.xy ), eye.y, dot( eye.xz, shopAxes.zw ) );
+        vShopPoint.x += shopSkew * vShopPoint.z; vShopEye.x += shopSkew * vShopEye.z;`);
+      shader.fragmentShader = vars + 'uniform float shopInside; uniform vec2 shopReturns;\n' + SHOP_WINDOW_GLSL + shader.fragmentShader.replace('#include <color_fragment>', `#include <color_fragment>
+        bool insideEye = vShopEye.z <= 0.035 && abs(vShopEye.x) <= shopFront.w + 0.06;
+        if (shopInside < 0.5 || !insideEye) {
+          vec3 ray = vShopEye - vShopPoint;
+          float edge = -1.0;
+          if (vShopEye.z > 0.0 && ray.z > 0.001) {
+            vec2 pane = vShopPoint.xy - ray.xy * (vShopPoint.z / ray.z);
+            edge = nycShopPane(pane, shopFront.w);
+          }
+          float signX = sign(vShopEye.x);
+          float span = signX < 0.0 ? shopReturns.x : shopReturns.y;
+          if (span > 0.0 && abs(vShopEye.x) > shopFront.w && ray.x * signX > 0.001) {
+            vec3 hit = vShopPoint + ray * ((signX * shopFront.w - vShopPoint.x) / ray.x);
+            edge = max(edge, nycShopPane(vec2(-hit.z - span * 0.5, hit.y), -span * 0.5));
+          }
+          if (edge <= 0.0) discard;
+        }
+        diffuseColor.rgb *= mix(0.94, 0.72, uNycNight);`);
+    };
+    if (finish) finish.material.onBeforeCompile = material.onBeforeCompile;
+  } else {
+    const lamp = new THREE.PointLight(room.light?.color ?? 0xfff1dc, room.light?.power ?? 60, room.depth * 2.5, 1.6), [lx, lz] = roomPoint(room, 0, room.depth / 2);
+    lamp.position.set(lx, y + CEILING - .5, lz); group.add(lamp);
+  }
+  // Origin at the jamb. The rotation sign follows the footprint winding.
+  const hinge = new THREE.Group(), leaf = new THREE.Group(), [hx, hz] = roomPoint(room, -DOOR / 2, 0);
+  hinge.position.set(hx, y, hz); hinge.rotation.y = Math.atan2(-room.tz, room.tx); hinge.add(leaf); group.add(hinge);
+  const frame = new THREE.MeshBasicMaterial({ color: 0x39434a });
+  const glass = new THREE.MeshBasicMaterial({ color: 0x9fc8d5, transparent: true, opacity: .13, depthWrite: false });
+  // One draw for the moving frame, one for its glass.
+  const frameVertices = [];
+  const block = (x, up, w, h, d) => {
+    const pos = unitBox.attributes.position;
+    for (let i=0; i<pos.count; i++) frameVertices.push(x+w*pos.getX(i), up+h*pos.getY(i), d*pos.getZ(i));
+  };
+  block(.026, 1.09, .052, 2.18, .045); block(DOOR - .026, 1.09, .052, 2.18, .045);
+  block(DOOR / 2, .105, DOOR - .1, .21, .045); block(DOOR / 2, 2.145, DOOR - .1, .07, .045);
+  block(DOOR - .13, 1.05, .035, .27, .14); unitBox.dispose();
+  const frameGeometry = new THREE.BufferGeometry();
+  frameGeometry.setAttribute('position', new THREE.Float32BufferAttribute(frameVertices, 3));
+  leaf.add(new THREE.Mesh(frameGeometry, frame));
+  const pane = new THREE.Mesh(new THREE.BoxGeometry(DOOR - .1, 1.9, .018), glass);
+  pane.position.set(DOOR / 2,1.16,0); leaf.add(pane);
+  const door = new ShopDoor();
+  group.userData.door = door;
+  group.userData.updateDoor = () => { leaf.rotation.y = (mirrored ? 1 : -1) * door.angle; };
+  if (till) {
+    const movingPart=(w,h,d,color)=>{
+      const part=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),new THREE.MeshBasicMaterial({color}));
+      group.add(part);return part;
+    };
+    drawer=movingPart(.32,.055,.25,0x22272a);drawer.name='Register drawer';
+    notes=movingPart(.158,.028,.073,0x92aa83);notes.name='Cash from clerk';
+    const band=new THREE.Mesh(new THREE.BoxGeometry(.034,.029,.075),new THREE.MeshBasicMaterial({color:0xe7dcc1}));
+    notes.add(band);
+    const [x,z]=roomPoint(room,till.a,till.b);
+    const [tx,tz]=roomPoint(room,till.a+till.da,till.b+till.db);
+    const heading=Math.atan2(tx-x,tz-z);
+    drawer.rotation.y=notes.rotation.y=heading;
+    let slide=0;
+    group.userData.updateTill=(open,cash,dt,hand,player)=>{
+      slide=THREE.MathUtils.damp(slide,open ? .25 : 0,12,dt);
+      drawer.position.set(x+(.06+slide)*Math.sin(heading),y+till.up+.045,z+(.06+slide)*Math.cos(heading));
+      notes.visible=Boolean(cash);
+      if (cash) notes.position.set(cash.x,y+cash.y,cash.z);
+      if (hand) {
+        if (!takeArm) {
+          takeArm=new THREE.Group(); takeArm.name='Reaching hand'; group.add(takeArm);
+          const skin=new THREE.MeshBasicMaterial({color:0xae8064});
+          const finger=(sx,sy,sz,dx,dy,dz)=>{
+            const mesh=new THREE.Mesh(new THREE.SphereGeometry(1,10,7),skin);
+            mesh.scale.set(sx,sy,sz);mesh.position.set(dx,dy,dz);takeArm.add(mesh);
+          };
+          finger(.049,.027,.065,0,0,-.025);
+          for (let i=0;i<4;i++) finger(.011,.013,.035,(i-1.5)*.023,-.005,.031-Math.abs(i-1)*.005);
+          finger(.015,.018,.036,-.047,.006,-.007);
+          const sleeve=new THREE.Mesh(new THREE.CylinderGeometry(.042,.069,1,10),new THREE.MeshBasicMaterial({color:0x4b5558}));
+          group.add(sleeve);takeArm.userData.sleeve=sleeve;
+        }
+        const sleeve=takeArm.userData.sleeve, angle=Math.atan2(x-player.x,z-player.z);
+        takeArm.position.set(hand.x,y+hand.y+.018,hand.z); takeArm.rotation.y=angle;
+        const wrist=takeArm.position.clone().add(new THREE.Vector3(-.075*Math.sin(angle),0,-.075*Math.cos(angle)));
+        const elbow=new THREE.Vector3(player.x+.23*Math.cos(angle),y+1.07,player.z-.23*Math.sin(angle));
+        const towards=wrist.clone().sub(elbow);
+        sleeve.scale.y=towards.length(); sleeve.position.copy(elbow).lerp(wrist,.5);
+        sleeve.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0),towards.normalize());
+      }
+      if (takeArm) takeArm.visible=takeArm.userData.sleeve.visible=Boolean(hand);
+    };
+    group.userData.updateTill(false,false,0);
+  }
+  group.userData.dispose = () => {
+    for(const root of [drawer,notes,takeArm,takeArm?.userData.sleeve])root?.traverse(part=>{part.geometry?.dispose();part.material?.dispose();});
+    for (const part of leaf.children) part.geometry.dispose();
+    if (finish) { finish.material.map.dispose(); finish.material.dispose(); finish.geometry.dispose(); }
+    frame.dispose(); glass.dispose(); geometry.dispose(); material.dispose(); group.removeFromParent();
+  };
   return group;
 }

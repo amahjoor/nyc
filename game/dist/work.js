@@ -42,15 +42,37 @@ export class Work {
 
   restore(record = {}) {
     record = record || {};
-    this.record = { shifts: count(record.shifts, 1e7), cart: record.cart === true, cups: 0, shift: null, tills: {} };
+    this.record = { shifts: count(record.shifts, 1e7), cart: record.cart === true, cups: 0, shift: null, tills: {}, sales: {}, closures: {} };
     if (this.record.cart) this.record.cups = count(record.cups, 12);
     const s = record.shift;
     if (s && Object.hasOwn(EMPLOYERS, s.job) && Number.isInteger(s.block) && s.block >= 0 && s.block < BLOCKS.length) {
       this.record.shift = { job: s.job, seed: count(s.seed, 0xffffffff), block: s.block, correct: count(s.correct, s.block) };
     }
+    for (const [id, amount] of Object.entries(record.sales || {})) if (Number.isFinite(amount) && amount > 0) this.record.sales[id] = Math.min(500, amount);
     for (const [id, until] of Object.entries(record.tills || {})) {
       if (Number.isFinite(until) && until > this.now()) this.record.tills[id] = until;
     }
+    for (const [id, until] of Object.entries({...this.record.tills, ...record.closures})) {
+      if (Number.isFinite(until) && until > this.now()) this.record.closures[id] = until;
+    }
+    this.updateClosures();
+  }
+
+  updateClosures() {
+    const now = this.now(), closures = this.record.closures;
+    for (const id of Object.keys(closures)) if (closures[id] <= now) delete closures[id];
+    this.nextReopening = Math.min(Infinity, ...Object.values(closures));
+    this.closureRevision = (this.closureRevision || 0) + 1;
+  }
+
+  isClosed(shop) {
+    return this.record.closures[shop.id] > this.now();
+  }
+
+  closeShop(shop, until) {
+    if (this.record.closures[shop.id] >= until) return;
+    this.record.closures[shop.id] = until;
+    this.updateClosures();
   }
 
   list(title, message, rows) {
@@ -105,7 +127,7 @@ export class Work {
 
   food() {
     if (this.sim.mission.phase === 'active') return this.board('Finish the current delivery first.');
-    const candidates = this.fronts().filter(f => ['food', 'dining', 'cafe'].includes(f.place.group) && isOpen(f.place.kind, this.hours()))
+    const candidates = this.fronts().filter(f => ['food', 'dining', 'cafe'].includes(f.place.group) && !this.isClosed(f.place) && isOpen(f.place.kind, this.hours()))
       .sort((a, b) => distance(a, this.sim.player) - distance(b, this.sim.player));
     const front = candidates[0];
     const pickup = front ? { name: placeName(front.place), x: front.x + front.nx * 3.2, z: front.z + front.nz * 3.2 } : { ...EMPLOYERS.kitchen };
@@ -132,17 +154,15 @@ export class Work {
   }
 
   street() {
-    const person = this.pedestrian(), shop = this.counter();
+    const person = this.pedestrian();
     const rows = [];
     if (person) {
       rows.push(option('Ask for spare change', 'They can say no.', () => this.trade(person, 'ask')));
       if (this.record.cart) rows.push(option('Sell a coffee', `$5 · ${this.record.cups} cups left`, () => this.trade(person, 'sell')));
       rows.push(option('Steal wallet', 'Reported crime · one wanted star', () => this.trade(person, 'steal')));
     }
-    if (shop) rows.push(option('Rob the till', 'Reported crime · two wanted stars', () => this.rob(shop)));
-    if (!rows.length) return this.board('Walk up to a pedestrian or shop counter and press G.');
-    this.meet(shop ? placeName(shop) : 'Passerby', '', rows,
-      () => Boolean((person && this.pedestrian() === person) || (shop && this.counter()?.id === shop.id)));
+    if (!rows.length) return this.board('Walk up to a pedestrian and press G.');
+    this.meet('Passerby', '', rows, () => this.pedestrian() === person);
   }
 
   trade(person, action) {
@@ -156,19 +176,54 @@ export class Work {
     else {
       amount = 6 + Math.floor(this.random() * 20);
       person.state = 'flee'; person.mad = 5;
-      this.sim.crime(1, 'Wallet theft reported.');
+      // Whoever it was taken from tells the police themselves.
+      this.sim.offence('theft', { seen: true, message: 'Wallet theft reported.' });
     }
     this.sim.cash += amount; this.save();
     this.sim._say(action === 'steal' ? `Wallet +$${amount}. Theft reported.` : action === 'sell' ? 'Coffee sold. +$5.' : amount ? `They gave you $${amount}.` : 'They shake their head and keep walking.');
   }
 
+  sale(shop, price) {
+    if (!shop?.id || !(price > 0) || !Number.isFinite(price) || this.isClosed(shop)) return;
+    this.record.sales[shop.id] = Math.min(500, (this.record.sales[shop.id] || 0) + price);
+  }
+
+  balance(shop, now = this.now()) {
+    const stocked = !(this.record.tills[shop.id] > now);
+    let amount = this.record.sales[shop.id] || 0;
+    if (stocked) {
+      // An opening float is game currency assigned to this particular branch.
+      const base = { jewelry: 240, clothes: 110, shoes: 95, pizza: 28, coffee: 25 }[shop.kind] || 45;
+      let seed = 2166136261;
+      for (const c of String(shop.id)) seed = Math.imul(seed ^ c.charCodeAt(0), 16777619);
+      amount += base + (seed >>> 0) % (1 + Math.floor(base / 2));
+    }
+    return Math.round(amount * 100) / 100;
+  }
+
+  alarm(view,message) {
+    if (view && this.sim.elapsed < view.alarmUntil) { this.sim._say(message); return; }
+    this.sim.offence('robbery',{seen:true,message});
+    if (view) view.alarmUntil=this.sim.elapsed+12;
+  }
+
   rob(shop) {
-    if (!shop || this.counter()?.id !== shop.id) return this.sim._say('Go to the shop counter first.');
-    const now = this.now(), tills = this.record.tills;
-    if (tills[shop.id] > now) return this.sim._say('The register is empty.');
+    if (!shop || this.counter()?.id !== shop.id || this.isClosed(shop)) return 0;
+    const now=this.now(), tills=this.record.tills, amount=this.balance(shop,now);
+    if (!amount) { this.sim._say('The register is empty.'); return 0; }
     for (const id of Object.keys(tills)) if (tills[id] <= now) delete tills[id];
-    tills[shop.id] = now + 600000;
-    const amount = 35 + Math.floor(this.random() * 46);
-    this.sim.cash += amount; this.sim.crime(2, `Till +$${amount}. Store alarm reported.`); this.save();
+    if (!(tills[shop.id]>now)) tills[shop.id]=now+600000;
+    this.closeShop(shop,tills[shop.id]);
+    delete this.record.sales[shop.id];
+    this.sim.cash += amount;
+    const view=this.sim.doorway;
+    const message='Till +'+formatMoney(amount)+'. Shop closed after the robbery.';
+    if (view?.handoff) this.sim._say(message);
+    else this.alarm(view,message);
+    if (view) {
+      view.handoff={phase:'alarmed',age:0,safeTime:0};
+    }
+    this.save();
+    return amount;
   }
 }

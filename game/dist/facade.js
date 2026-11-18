@@ -11,6 +11,7 @@
 import { airports } from './airport-data.js';
 import { lotStyle } from './lots.js';
 import { landmarkStyle, paletteFor } from './landmarks.js';
+import { SHOP_WINDOW_GLSL } from './shop-window.js';
 
 export const MATERIAL = { BRICK: 0, STONE: 1, CONCRETE: 2, GLASS: 3, IRON: 4, BROWNSTONE: 5, SIDING: 6 };
 
@@ -312,6 +313,25 @@ flat varying vec2 vFacadeWall;
 flat varying vec4 vStyle;
 // Where in the world the fragment is, for looking up whose shop front this is.
 vec3 nycFacadeWorld = vec3( 0.0 );
+${SHOP_WINDOW_GLSL}
+// The place map identifies the tenant at this pixel. The last table texel
+// gives a window its outward normal, measured floor height and half width.
+float nycShopOpening( vec3 point, vec3 normal ) {
+	if ( uNycPlaceRect.w < 1.5 ) return -1.0;
+	vec2 uv = ( point.xz - uNycPlaceRect.xy ) * uNycPlaceRect.z;
+	if ( any( lessThan( uv, vec2( 0.0 ) ) ) || any( greaterThanEqual( uv, vec2( 1.0 ) ) ) ) return -1.0;
+	ivec2 bytes = ivec2( textureLod( uNycPlaceMap, uv, 0.0 ).rg * 255.0 + 0.5 );
+	int row = bytes.x + 256 * bytes.y;
+	vec4 pane = texelFetch( uNycPlaceTable, ivec2( 4, row ), 0 );
+	if ( pane.w == 0.0 || abs( dot( normal.xz, pane.xy ) ) < 0.94 ) return -1.0;
+	vec2 center = texelFetch( uNycPlaceTable, ivec2( 3, row ), 0 ).xy;
+	float outwards = dot( point.xz - center, pane.xy );
+	vec3 ray = cameraPosition - point;
+	float towardEye = dot( ray.xz, pane.xy );
+	if ( abs( outwards ) > 0.85 || abs( towardEye ) <= 0.001 ) return -1.0;
+	vec3 atPane = point - ray * ( outwards / towardEye );
+	return nycShopPane( vec2( dot( atPane.xz - center, vec2( pane.y, -pane.x ) ), atPane.y - pane.z ), pane.w );
+}
 ${STYLE_TABLES}
 #define NYC_MAT_BRICK ${MATERIAL.BRICK}
 #define NYC_MAT_STONE ${MATERIAL.STONE}
@@ -329,6 +349,7 @@ struct NycFacade {
 	vec3 lean;      // world-space push on the shading normal
 	float sun;      // share of direct sun that reaches the surface
 	float shade;    // ambient occlusion from the facade's own relief
+	float windowTrim; // signs, grade cards and fixtures mounted in front of the glass
 };
 
 // Area under a train of unit-period pulses of width 'duty', from 0 to x.
@@ -488,7 +509,7 @@ NycFacade nycFacade( vec4 facade, vec4 styleIn, vec3 wallNormal, float facing, v
 	float roughness;
 	vec3 wall = nycWall( material, wallColor, vec2( u, v ), pixel, seed, roughness );
 	result.albedo = wall; result.roughness = roughness; result.metalness = 0.0;
-	result.emissive = vec3( 0.0 ); result.lean = vec3( 0.0 ); result.sun = 1.0; result.shade = 1.0;
+	result.emissive = vec3( 0.0 ); result.lean = vec3( 0.0 ); result.sun = 1.0; result.shade = 1.0; result.windowTrim = 0.0;
 
 	// --- Glazing shared by windows, shop fronts and curtain walls ---------------
 	float glass = 0.0;       // share of this pixel that is glass
@@ -669,6 +690,7 @@ NycFacade nycFacade( vec4 facade, vec4 styleIn, vec3 wallNormal, float facing, v
 			glass *= 1.0 - shutter;
 			// What hangs in the window is in front of the glass, and gone behind a shutter.
 			card *= 1.0 - shutter; cardInk *= 1.0 - shutter;
+			result.windowTrim = max( max( card, neon ), max( pole, signBand ) );
 			vec3 gradeColor = tenantInk.a < 1.5 ? vec3( 0.03, 0.12, 0.5 ) : tenantInk.a < 2.5 ? vec3( 0.04, 0.3, 0.07 ) : vec3( 0.6, 0.2, 0.02 );
 			result.albedo = mix( result.albedo, mix( vec3( 0.86 ), gradeColor, cardInk ), card );
 			float stripe = fract( ( height * storeyHeight * 2.2 + across * shopWidth * 6.0 ) - uNycTime * 0.6 );
@@ -837,19 +859,34 @@ NycFacade nycFacade( vec4 facade, vec4 styleIn, vec3 wallNormal, float facing, v
 `;
 
 export const FACADE_FRAGMENT = /* glsl */`
+if ( uNycRoom.w > 0.5 ) {
+	// Standing in a room, the wall between it and the street is the room's own (interiors.js), with a doorway and windows in it.
+	vec3 nycFromRoom = cameraPosition - vViewPosition * mat3( viewMatrix ) - uNycRoom.xyz;
+	if ( abs( dot( nycFromRoom.xz, uNycRoomSide.xy ) ) < 0.7 && abs( dot( nycFromRoom.xz, vec2( uNycRoomSide.y, - uNycRoomSide.x ) ) ) < uNycRoomSide.z && nycFromRoom.y > -0.4 && nycFromRoom.y < 3.25 ) discard;
+}
 if ( vFacadeWall.x > 0.004 ) {
 	vec3 nycWallNormal = inverseTransformDirection( vNormal, viewMatrix );
 	vec3 nycToEye = inverseTransformDirection( vViewPosition, viewMatrix );
 	#ifdef USE_FOG
 	nycFacadeWorld = cameraPosition + vNycFogRay;
 	#endif
+	float paneEdge = -1.0;
+	#ifdef USE_FOG
+	if ( vFacade.y < 8.0 ) paneEdge = nycShopOpening( nycFacadeWorld, nycWallNormal );
+	#endif
 	NycFacade nycSurface = nycFacade( vec4( vFacade.x, max( vFacade.y, 0.0 ), vFacadeWall ), vStyle, nycWallNormal, faceDirection, nycToEye );
+	// A furnished storefront has its own door and mullions at the surveyed wall.
+	if ( paneEdge > 0.0 ) discard;
 	if ( vFacade.y < 0.0 ) {
 		// Below the measured base: poured concrete, down to wherever the ground is.
 		float nycPour = texture2D( uNycNoise, vec2( vFacade.x, vFacade.y ) * 0.23 ).r, nycForm = step( 0.93, fract( vFacade.y / 1.2 ) );
 		nycSurface.albedo = vec3( 0.2, 0.197, 0.19 ) * ( 0.78 + 0.34 * nycPour ) * ( 1.0 - 0.25 * nycForm );
 		nycSurface.shade = 1.0; nycSurface.roughness = 0.93; nycSurface.metalness = 0.0;
 		nycSurface.emissive = vec3( 0.0 ); nycSurface.lean = vec3( 0.0 ); nycSurface.sun = 1.0;
+	}
+	if ( paneEdge > -0.045 ) {
+		nycSurface.albedo = vec3( 0.09, 0.10, 0.11 ); nycSurface.emissive = vec3( 0.0 );
+		nycSurface.metalness = 0.55; nycSurface.roughness = 0.38;
 	}
 	diffuseColor.rgb = nycSurface.albedo * nycSurface.shade;
 	roughnessFactor = nycSurface.roughness;

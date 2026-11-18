@@ -41,6 +41,12 @@ export const shared = {
   uNycPlaceTable: { value: null },
   uNycPlaceAtlas: { value: null },
   uNycPlaceGlyphs: { value: new THREE.Vector4(0, 0, 0, 0) },
+  // The room the player is standing in, so that its building's street wall
+  // can be left out in front of it and the street seen from indoors. Room:
+  // the middle of its front at floor level (x, y, z), then 1 while indoors.
+  // Side: the way out (x, z), and half the room's width.
+  uNycRoom: { value: new THREE.Vector4(0, 0, 0, 0) },
+  uNycRoomSide: { value: new THREE.Vector4(0, 1, 0, 0) },
 };
 
 export const CASCADES = 3;
@@ -89,6 +95,8 @@ uniform vec4 uNycPlaceRect;
 uniform sampler2D uNycPlaceTable;
 uniform sampler2D uNycPlaceAtlas;
 uniform vec4 uNycPlaceGlyphs;
+uniform vec4 uNycRoom;
+uniform vec4 uNycRoomSide;
 // 1 on dry land, 0 over open water. Everything is land until a shoreline is supplied.
 float nycLand( vec2 xz ) {
 	if ( uNycLandRect.w < 0.5 ) return 1.0;

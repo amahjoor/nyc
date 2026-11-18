@@ -44,7 +44,11 @@ import { writeMovements } from './body-moves.js';
 import { createFigures } from './people-figures.js';
 import { CAST } from './body-designs.js';
 import { createStreetProps } from './street-props.js';
-import { createPlaceSource, placeName, joinPlaceSources, indexFootprints, solveFrontages } from './places.js';
+import { createPlaceSource, placeName, isOpen, joinPlaceSources, indexFootprints, solveFrontages } from './places.js';
+import { roomPoint, roomLocal, crossesFixture } from './room.js';
+import { seatApproach, seatEyeOffset, seatHeight } from './seating.js';
+import { beginRegisterTake, updateClerk, registerAction } from './register.js';
+import { inviteCustomer, populateShop } from './shop-life.js';
 import { createStorefronts } from './storefronts.js';
 import { Work } from './work.js';
 import { createInteraction } from './interaction.js';
@@ -53,7 +57,7 @@ import { createFleet } from './fleet.js';
 import { createVehicleMeshLibrary } from './vehicle-assets.js';
 import { designFor } from './vehicle-designs.js';
 import { offersAt, shopRows, vehicleHandling } from './garage.js';
-import { planRoom, buildRoom, roomKind, hasRoom } from './interiors.js';
+import { planRoom, roomKind, hasRoom } from './interiors.js';
 import { doorBlips } from './map-blips.js';
 import { createDemographics } from './demographics.js';
 import { createBuses, createBusStops } from './bus.js';
@@ -101,9 +105,10 @@ const playerSeen={swing:0,move:null,grounded:true,vy:0,fired:0,reloading:0}, pla
 const OFFICER_CAST=CAST.findIndex(member=>member.suits.has('officer'));
 const officerModels=new Map();
 const PLAYER_LOOK={top:0xd7774e,bottom:0x1c1d22,skin:0xb98563,hair:0x14110f,kit:0,height:1.76};
-let doorAgain=0;
-let doorHere=null, roomGroup=null, roomStaff=[], roomGuests=[], counterHere=false;
+let doorHere=null, roomGroup=null, counterHere=false;
+const ROOM_LAYER=1;
 const VIEW_PISTOL_LAYER=2;
+const roomSightline=new THREE.Ray(),roomBounds=new THREE.Box3(),roomHit=new THREE.Vector3();
 // The subway: its stations, the stair entrances drawn nearby, the one the player is standing at, and the kerbs they line up with.
 // Who lives where (demographics.js): one even range of faces until the survey has loaded.
 let demographics=createDemographics(null);
@@ -112,7 +117,7 @@ let buses=null, busStops=null, stopHere=null;
 // Sidewalk sheds: the buildings permitted one, and those standing nearby.
 let sheds=null, shedMesh=null;
 // Sidewalk cafes: the addresses licensed for one, and the tables set out nearby.
-let dining=null, diningMesh=null, diners=[];
+let dining=null, diningMesh=null, diners=[], patioSeats=[];
 // Newsstands and fruit stands at the kerb, and whoever minds each.
 let standMesh=null, vendors=[], standHere=null;
 // Citi Bike: the stations, and the docks drawn nearby.
@@ -185,6 +190,8 @@ function focusedAim(){return input.aiming && !sim.room && !sim.seat;}
 function updatePerspectiveButton(){
   $('first-person-button').textContent=firstPersonActive()?'THIRD PERSON':'FIRST PERSON';
 }
+const closedAfterIncident = place => work.isClosed(place);
+const shopOpen = place => !closedAfterIncident(place) && isOpen(place.kind,gfx.hours);
 function atShopCounter(){
   return Boolean(sim.room)&&sim.room.staff.some(spot=>Math.hypot(spot.a-sim.room.a,spot.b-sim.room.b)<2.6);
 }
@@ -222,15 +229,16 @@ function action(name,event) {
     // Indoors, at the counter: what the place sells.
     const menu=menuFor(sim.room.place);
     if(!menu.length)announce('Nothing is sold over the counter here.');
+    else if(closedAfterIncident(sim.room.place))announce('This shop is temporarily closed.');
+    else if(sim.doorway?.handoff||sim.player.armed)announce('The counter is closed while the clerk is on alert.');
     else if(!atShopCounter())announce('Go up to whoever is serving.');
     else {
       const shop=sim.room.place;
       const rows=menu.map(item=>({item,name:item.name.toUpperCase(),note:'$'+item.price.toFixed(2)}));
-      rows.push({name:'Rob the till', note:'Reported crime · two wanted stars'});
       interaction.openList(sim.room.name,rows,({item})=>{
-        if (!item) { work.rob(shop); return; }
-        if(sim.buy(item))saveProgress();
-      },{cash:sim.cash,available:()=>sim.room?.place===shop&&atShopCounter()});
+        if(sim.room?.place!==shop||closedAfterIncident(shop)||sim.doorway?.handoff||sim.player.armed)return;
+        if(sim.buy(item)){work.sale(shop,item.price);saveProgress();}
+      },{cash:sim.cash,available:()=>sim.room?.place===shop&&atShopCounter()&&!closedAfterIncident(shop)&&!sim.doorway?.handoff&&!sim.player.armed});
     }
     return;
   }
@@ -256,6 +264,7 @@ function action(name,event) {
     return;
   }
   if(name==='fight') {
+    if(sim.doorway?.take)return;
     if(!started||paused||traveling||!bootReady||cityView||mapOpen||phone?.open||sim.player.mode!=='walk')return;
     if(!sim.fight())return;
     // An officer in reach takes the punch before a passer-by does.
@@ -282,7 +291,7 @@ function action(name,event) {
     if(cityView||aerialView)setView('street');
     else{
       const p=sim.player;
-      headAnchor=p.mode==='walk'?(sim.room??null):undefined;
+      headAnchor=p.mode==='walk'?null:undefined;
       if(firstPerson&&p.mode==='walk'){
         camera.getWorldDirection(cameraForward);
         yaw=Math.atan2(cameraForward.x,cameraForward.z);
@@ -298,6 +307,14 @@ function action(name,event) {
   if(name==='cash'){if(!phone?.open)hud.showCash(sim.cash);return;}
   if(name==='interact'){
     if(phone?.open)return;
+    if(sim.seat){sim.stand();return;}
+    if(beginRegisterTake(sim,work))return;
+    const seat=nearestSeat();
+    if(seat&&sim.sit(seat))return;
+    if(sim.room){
+      if(sim.doorway && Math.hypot(sim.room.a,sim.room.b)<1.6)sim.doorway.door.velocity=-2.8;
+      return;
+    }
     if(sim.player.mode==='transport'||sim.transport.nearby()||sim.player.mode==='bike'||sim.getNearbyBike()){
       if(sim.interact()){yaw=sim.player.angle;snapChase=true;headAnchor=undefined;}
       return;
@@ -564,6 +581,7 @@ function createGun(body) {
   up.crossVectors(forward,side);
   gun.quaternion.setFromRotationMatrix(new THREE.Matrix4().makeBasis(side,up,forward));
   gun.position.copy(forward).multiplyScalar(.1).addScaledVector(up,.075);
+  gun.traverse(object=>object.layers.enable(ROOM_LAYER));
   gun.visible=false;hand.add(gun);
   return gun;
 }
@@ -596,7 +614,7 @@ function dressPlayer() {
   bodyShop(design,'close').then(built=>{
     if(key!==playerDesign)return;
     if(playerBody){scene.remove(playerBody.mesh);playerBody.dispose();}
-    playerBody=createHumanMesh(built,built.look);scene.add(playerBody.mesh);
+    playerBody=createHumanMesh(built,built.look);playerBody.mesh.traverse(object=>object.layers.enable(ROOM_LAYER));scene.add(playerBody.mesh);
     playerGun=createGun(playerBody);
   }).catch(error=>console.warn('The player could not be drawn:',error));
 }
@@ -627,6 +645,12 @@ function showPlayer(dt,p,floor,eyeView,riding) {
   if(!mesh.visible)return;
   mesh.position.set(p.x,floor+(p.lift||0)+(riding?.25:0),p.z);mesh.rotation.y=p.angle;
   playerBody.pose(fitPose(moves,playerBody.rig,take?.hand ? moves.sample('pickUp',take.clipTime,pose) : pose,playerFitted,seat));
+  if(take?.hand) {
+    const {bones,rig}=playerBody, hand=bones[rig.index.get('hand_l')];
+    cashTarget.set(take.hand.x,floor+take.hand.y,take.hand.z);
+    const elbow=bones[rig.index.get('lowerarm_l')], shoulder=bones[rig.index.get('upperarm_l')];
+    for(let i=0;i<3;i++){aimLimb(elbow,hand,gripOffset,cashTarget);aimLimb(shoulder,hand,gripOffset,cashTarget);}
+  }
 }
 
 /** WASTED or BUSTED: the picture drains and the word comes up while the world runs slow, and both go when the player is put back. */
@@ -650,6 +674,16 @@ function animatePerson(mesh,moving,time,speed=1) {
   arms.forEach((arm,i)=>{if(arm?.rotation)arm.rotation.x=swing*(i%2?1:-1)*.7;});
 }
 
+// Turn a posed limb towards a checkout target in the joint's own frame.
+const gripHere=new THREE.Vector3(), gripGoal=new THREE.Vector3(), gripTurn=new THREE.Quaternion();
+function aimLimb(joint, tip, offset, target){
+  joint.worldToLocal(tip.localToWorld(gripHere.copy(offset)));
+  joint.worldToLocal(gripGoal.copy(target));
+  if(gripHere.lengthSq()>.00001 && gripGoal.lengthSq()>.00001)
+    joint.quaternion.multiply(gripTurn.setFromUnitVectors(gripHere.normalize(),gripGoal.normalize()));
+}
+const gripOffset=new THREE.Vector3(0,.075,0), simpleGrip=new THREE.Vector3(0,-.62,.008), cashTarget=new THREE.Vector3();
+
 function syncScene(dt,controls) {
   const p=sim.player, eyeView=firstPersonActive() || focusedAim();
   const cycling=p.mode==='bike';
@@ -665,6 +699,12 @@ function syncScene(dt,controls) {
       bikeDocks.rental.position.set(at.x,at.y,at.z);bikeDocks.rental.rotation.y=at.angle;
     }
   }
+  if(sim.room&&!sim.seat&&sim.doorway?.take?.heading!=null)p.angle=sim.doorway.take.heading;
+  else if(sim.room&&p.armed&&!sim.seat&&!aerialView&&!cityView)p.angle=yaw;
+  const occupiedRoom=sim.room&&sim.doorway;
+  storefronts?.setActive(occupiedRoom||null);
+  roomGroup=occupiedRoom?.group||null;
+  if(roomGroup)roomGroup.userData.floorY=occupiedRoom.floor;
   if(driverCabin)driverCabin.group.visible=eyeView&&p.mode==='drive';
   // Kerbside cars are drawn together, and so is traffic more than a few car
   // lengths off. The player's car, a patrol, a car left standing in the road
@@ -682,20 +722,51 @@ function syncScene(dt,controls) {
   for(const [id,mesh] of carModels)if(!activeCars.has(id)){scene.remove(mesh);carModels.delete(id);}
   parkedCars?.update(batchedParked);
   distantTraffic?.update(distantCars);
-  // Walking into the door of an open place goes in: no key needed. Having just come out, a moment passes first.
-  if(doorHere&&!sim.room&&sim.player.mode==='walk'&&elapsed>doorAgain){
-    const p=sim.player,f=doorHere,dx=p.x-f.x,dz=p.z-f.z,inward=-((p.velocityX||0)*f.nx+(p.velocityZ||0)*f.nz);
-    if(dx*f.nx+dz*f.nz<1.25&&Math.abs(dx*f.tx+dz*f.tz)<Math.min(1.8,f.width/2)&&inward>.8&&goIn(f))doorHere=null;
-  }
   // Once the modelled figures are in, the player and whoever is serving are drawn as two of them.
   const modelled=Boolean(crowd?.modelled),pace=Math.abs(p.speed);
+  const playerFloor=roomGroup?.userData.floorY??p.y??0;
+  const extras=[];
+  if(storefronts)for(const view of storefronts.rooms){
+    view.door.step(dt);view.group.userData.updateDoor();
+    if(!mapOpen&&!paused&&!phone?.open&&!interaction?.open&&!aerialView&&!cityView&&!viewOverride&&!traveling&&started){
+      updateClerk(view,sim,yaw,eyeView?headPitch:0,dt,work,{
+        outside:actor=>crowd.fleeOntoStreet(actor),palm:actor=>crowd.palm(actor),firstPerson:eyeView,
+        playerHand:()=>{
+          const hand=playerBody?.bones[playerBody.rig.index.get('hand_l')];
+          const joint=hand || (avatar.visible && avatar.userData.arms?.[1]);
+          if(!joint)return null;
+          const point=joint.localToWorld(gripHere.copy(hand?gripOffset:simpleGrip));
+          return {x:point.x,y:point.y-view.floor,z:point.z};
+        }
+      });
+    }
+    for (const actor of view.actors) {
+      if (actor.gone) continue;
+      if (actor.spot.treadmill && !actor.escape) {
+        actor.time = sim.elapsed * actor.spot.cadence + actor.spot.offset;
+        actor.clip = 'jog'; actor.stride = 1; actor.phase = actor.time * 7;
+      }
+      actor.y = view.floor + (actor.sitting ? 0 : actor.lift);
+      extras.push(actor);
+    }
+    if(dt&&started&&!cityView&&!aerialView&&shopOpen(view.plan.place))inviteCustomer(view,crowd.people,sim.elapsed,(shop,price)=>work.sale(shop,price));
+  }
   playerStride+=pace*Math.min(.1,Math.max(0,elapsed-strideClock))*3.3;strideClock=elapsed;
+  {
+    // Diners sit out from late morning until the kitchens close.
+    const bystanders=sim.bystanders;
+    bystanders.length=0;
+    if(gfx.hours>=11&&gfx.hours<23)for(const diner of diners)if(!(diner.absentUntil>sim.elapsed) && (!sim.seat||Math.hypot(sim.seat.x-diner.x,sim.seat.z-diner.z)>.2))bystanders.push(diner);
+    // A newsstand is minded from before dawn; a fruit cart through the day.
+    for(const vendor of vendors)if(!(vendor.absentUntil>sim.elapsed) && (vendor.fruit?gfx.hours>=7&&gfx.hours<20:gfx.hours>=5&&gfx.hours<23))bystanders.push(vendor);
+    extras.push(...bystanders);
+  }
   if(modelled){
     if(p.mode==='walk'&&!eyeView&&!playerBody){
       const lunging=(p.swing||0)>0;
-      extras.push({x:p.x+Math.sin(p.angle)*(lunging?0.45:0),y:p.y||0,z:p.z+Math.cos(p.angle)*(lunging?0.45:0),heading:p.angle,phase:lunging?1.2:playerStride,stride:lunging?0.2:Math.min(1,pace/1.2),look:PLAYER_LOOK});
+      extras.push({x:p.x+Math.sin(p.angle)*(lunging?0.45:0),y:playerFloor,z:p.z+Math.cos(p.angle)*(lunging?0.45:0),heading:p.angle,phase:lunging?1.2:playerStride,stride:lunging?0.2:Math.min(1,pace/1.2),sitting:Boolean(sim.seat),seat:sim.seat,clip:sim.doorway?.take?'pickUp':null,time:sim.doorway?.take?.clipTime,look:PLAYER_LOOK});
     }
-    if(cycling&&!eyeView&&!playerBody)extras.push({x:p.x-.28*Math.sin(p.angle),y:(p.y||0)+.52,z:p.z-.28*Math.cos(p.angle),heading:p.angle,cycling:true,phase:playerStride*.42,look:PLAYER_LOOK});
+    if(cycling&&!eyeView&&!playerBody)extras.push({x:p.x-.28*Math.sin(p.angle),y:playerFloor+.52,z:p.z-.28*Math.cos(p.angle),heading:p.angle,cycling:true,phase:playerStride*.42,look:PLAYER_LOOK});
     if(openRide&&!eyeView&&!playerBody){
       const offset=type==='motorcycle'?-.38:type==='kayak'?-.24:0;
       extras.push({x:p.x+Math.sin(p.angle)*offset,z:p.z+Math.cos(p.angle)*offset,
@@ -704,6 +775,8 @@ function syncScene(dt,controls) {
     // Officers out of their cars are drawn the same way, in uniform.
     for(const officer of sim.police.officers){const cuffing=(sim.police.arrest||0)>.5&&Math.hypot(officer.x-p.x,officer.z-p.z)<2.2;extras.push({x:officer.x,y:officer.y||0,z:officer.z,heading:officer.angle,phase:officer.phase,stride:officer.stride,look:OFFICER_LOOK,member:OFFICER_CAST<0?undefined:OFFICER_CAST,clip:cuffing?'cuffing':officer.aiming?'aim':(officer.stride||0)>.6?'jog':undefined,time:cuffing||officer.aiming?elapsed:(officer.phase||0)/6.2832*.93});}
   }
+  if(!modelled&&sim.seat&&!eyeView&&!playerBody)extras.push({x:p.x,y:playerFloor,z:p.z,heading:p.angle,sitting:true,seat:sim.seat,look:PLAYER_LOOK});
+  crowd?.setExtras(extras);
   // Until the modelled figures are in, officers are drawn as the plain figure the player is.
   for(const [id,mesh] of officerModels)if(modelled||!sim.police.officers.some(officer=>officer.id===id)){scene.remove(mesh);officerModels.delete(id);}
   if(!modelled)for(const officer of sim.police.officers){
@@ -712,10 +785,15 @@ function syncScene(dt,controls) {
     mesh.position.set(officer.x,officer.y||0,officer.z);mesh.rotation.y=officer.angle;animatePerson(mesh,officer.speed>.1,elapsed,officer.speed/3);
   }
   policeScene.update(sim.police,elapsed,started&&!cityView);
-  for(const person of roomStaff)person.visible=!modelled;
-  avatar.visible=(p.mode==='walk'||cycling||openRide)&&!sim.seat&&!modelled&&!eyeView;avatar.position.set(p.x,p.y||0,p.z);avatar.rotation.y=p.angle;
+  avatar.visible=(p.mode==='walk'||cycling||openRide)&&!sim.seat&&!modelled&&!eyeView;avatar.position.set(p.x,playerFloor,p.z);avatar.rotation.y=p.angle;
   animatePerson(avatar,Math.abs(p.speed)>.1,elapsed,Math.abs(p.speed)/3);
-  if(playerBody&&animator){avatar.visible=false;showPlayer(dt,p,p.y||0,eyeView,cycling||openRide);}
+  const take=sim.room && !sim.seat && sim.doorway?.take;
+  if(avatar.visible && avatar.userData.arms?.[1]){
+    const arm=avatar.userData.arms[1];
+    arm.rotation.y=0; arm.rotation.z=.07;
+    if(take?.hand)aimLimb(arm,arm,simpleGrip,cashTarget.set(take.hand.x,playerFloor+take.hand.y,take.hand.z));
+  }
+  if(playerBody&&animator){avatar.visible=false;showPlayer(dt,p,playerFloor,eyeView,cycling||openRide);}
   if(cycling&&!modelled){
     avatar.position.x-=.28*Math.sin(p.angle);avatar.position.z-=.28*Math.cos(p.angle);avatar.position.y+=.1;
     avatar.userData.legs.forEach((leg,i)=>{leg.rotation.x=-.52+Math.sin(playerStride+i*Math.PI)*.3;});
@@ -773,7 +851,9 @@ function updateFirstPerson(look,vertical){
   const p=sim.player, driving=p.mode==='drive';
   const ride=sim.transport.active, anchor=ride??(driving?p.vehicleId:p.mode==='bike'?sim.bike:sim.seat??null);
   if(headAnchor!==anchor){
-    headAnchor=anchor;yaw=p.angle;headTurn=0;headPitch=0;
+    if(sim.seat||headAnchor?.seatKind){headTurn=clamp(angleDifference(yaw,p.angle),-1.95,1.95);}
+    else{yaw=p.angle;headTurn=0;headPitch=0;}
+    headAnchor=anchor;
   }
   if(paused||traveling){look=0;vertical=0;}
   headPitch=clamp(headPitch+vertical,driving?-.9:-1.4,driving?1.05:1.4);
@@ -790,9 +870,17 @@ function updateFirstPerson(look,vertical){
   }else{
     if(p.mode==='bike'||sim.seat){headTurn=clamp(headTurn+look,-1.95,1.95);yaw=p.angle+headTurn;}
     else{yaw+=look;if(!sim.seat)p.angle=yaw;}
+    const take=sim.room&&!sim.seat&&sim.doorway?.take;
+    if(take && !look && !vertical){
+      const dx=take.source.x-p.x,dz=take.source.z-p.z;
+      const align=1-Math.exp(-8*Math.max(0,take.age-(take.cameraAge||0)));
+      yaw+=align*angleDifference(Math.atan2(dx,dz),yaw);
+      headPitch+=align*(Math.atan2(1.64-take.source.y,Math.hypot(dx,dz))-headPitch);
+      p.angle=yaw;take.cameraAge=take.age;
+    }
     const floor=sim.room&&roomGroup?roomGroup.userData.floorY:p.y;
     const height=playerBody?.rig.height??PLAYER_LOOK.height;
-    camera.position.set(p.x,(floor??0)+height-.12,p.z);
+    camera.position.set(p.x,(floor??0)+height-.12+seatEyeOffset(sim.seat,height),p.z);
     camera.rotation.set(-headPitch,Math.PI+yaw,0,'YXZ');
   }
   camera.near=.07;camera.fov=70;camera.updateProjectionMatrix();
@@ -801,6 +889,11 @@ function updateFirstPerson(look,vertical){
 
 function updateCamera(dt) {
   const p=sim.player,driving=p.mode==='drive';
+  const indoorView=started&&sim.room&&!aerialView&&!cityView;
+  // Indoors the room is drawn, and the street with it: it is there to be seen through the doorway and the windows.
+  camera.layers.set(indoorView?ROOM_LAYER:0);if(indoorView)camera.layers.enable(0);
+  // And the building's own wall is left out where the room's front is.
+  if(indoorView&&roomGroup){const room=sim.room;shared.uNycRoom.value.set(room.x,roomGroup.userData.floorY,room.z,1);shared.uNycRoomSide.value.set(room.nx,room.nz,room.width/2,0);}else shared.uNycRoom.value.w=0;
   if(viewOverride){
     // A fixed camera for photographs and visual checks. Play continues.
     const v=viewOverride;chaseHeight=null;chaseEyeOffset=null;input.lookDelta=0;input.lookVertical=0;
@@ -859,6 +952,33 @@ function updateCamera(dt) {
   }
   if(firstPerson){updateFirstPerson(look,vertical);return;}
   yaw+=look;pitch=clamp(pitch+vertical,.17,.85);lookIdle=look||vertical?0:lookIdle+dt;
+  if(indoorView){
+    const room=sim.room,floor=roomGroup?.userData.floorY??p.y??0;
+    const targetHeight=1.45+seatEyeOffset(sim.seat,PLAYER_LOOK.height);
+    const sin=Math.sin(yaw),cos=Math.cos(yaw);
+    const db=sin*room.nx+cos*room.nz,da=-(sin*room.tx+cos*room.tz)-(room.skew||0)*db;
+    // Follow the sightline back from the player until a wall or tall fixture
+    // would cover the camera. Keep a little space for the near plane.
+    const pad=.16,b=Math.max(pad,room.b);
+    roomSightline.origin.set(room.a,targetHeight,b);
+    roomSightline.direction.set(da,.45/2.3,db).normalize();
+    roomBounds.min.set(-room.width/2+pad,0,pad);
+    roomBounds.max.set(room.width/2-pad,3,room.depth-pad);
+    const reach=()=>Math.hypot(roomHit.x-room.a,roomHit.z-b);
+    let back=roomSightline.intersectBox(roomBounds,roomHit)?Math.min(2.3,reach(),Math.max(.03,Math.hypot(room.a,room.b)*1.4)):0;
+    for(const t of room.things){
+      if(t.y+t.h<targetHeight-pad||t.y>targetHeight+.45+pad)continue;
+      roomBounds.min.set(t.a-t.w/2-pad,t.y-pad,t.b-t.d/2-pad);
+      roomBounds.max.set(t.a+t.w/2+pad,t.y+t.h+pad,t.b+t.d/2+pad);
+      if(roomBounds.containsPoint(roomSightline.origin)){back=0;break;}
+      if(roomSightline.intersectBox(roomBounds,roomHit))back=Math.min(back,reach());
+    }
+    const x=p.x-room.nx*(b-room.b),z=p.z-room.nz*(b-room.b);
+    camera.position.set(x-sin*back,floor+targetHeight+.45*back/2.3,z-cos*back);
+    camera.lookAt(x+sin*.25,floor+targetHeight,z+cos*.25);
+    camera.near=.025;camera.fov=57;camera.updateProjectionMatrix();
+    chaseHeight=null;chaseEyeOffset=null;snapChase=false;return;
+  }
   // A manual orbit owns the view for 1.1 seconds. Ease assistance back in so
   // releasing the mouse does not abruptly pull the camera behind the car.
   const chaseAssist=clamp((lookIdle-1.1)/.65,0,1), speed=Math.abs(p.speed);
@@ -888,8 +1008,9 @@ function updateCamera(dt) {
       }
     }
   }else chaseLookAhead.set(0,0,0);
-  const distance=ride?ride.spec.view*(farCamera?1.48:1):driving?(farCamera?14:9.3):(farCamera?10:6.5);
-  const aimHeight=ride?Math.max(.8,ride.spec.eye[0]*.75):driving?1.1:1.45;
+  const doorwayDistance=sim.doorway?Math.hypot(p.x-sim.doorway.plan.x,p.z-sim.doorway.plan.z):Infinity;
+  const distance=ride?ride.spec.view*(farCamera?1.48:1):driving?(farCamera?14:9.3):Math.min(farCamera?10:6.5,Math.max(.03,doorwayDistance-.15)*1.4);
+  const aimHeight=ride?Math.max(.8,ride.spec.eye[0]*.75):driving?1.1:1.45+seatEyeOffset(sim.seat,PLAYER_LOOK.height);
   const cameraContact=(x,z,d)=>sim.isBlocked(x,z,.2,{ignoreWater:true,baseHeight:ride?p.y+aimHeight+Math.sin(pitch)*d:undefined});
   let safeDistance=distance;
   // Pull the chase camera forward before its sightline crosses a facade.
@@ -900,7 +1021,7 @@ function updateCamera(dt) {
   }
   const previousHeight=chaseHeight;
   chaseHeight=updateChaseHeight(chaseHeight,p,dt,ride?ride.home.id:driving?'car:'+p.vehicleId:'walk');
-  const eyeOffset=(ride?aimHeight+.5:1.55)+Math.sin(pitch)*safeDistance;
+  const eyeOffset=(ride?aimHeight+.5:Math.min(1.55,aimHeight+.015*doorwayDistance))+Math.sin(pitch)*safeDistance;
   if(chaseHeight!==previousHeight||chaseEyeOffset===null)chaseEyeOffset=eyeOffset;
   else chaseEyeOffset=THREE.MathUtils.damp(chaseEyeOffset,eyeOffset,safeDistance<3?22:driving?13:8,dt);
   // Eye and aim share the same smoothed elevation. Filtering only the eye
@@ -910,6 +1031,10 @@ function updateCamera(dt) {
   if(snapChase){camera.position.copy(desiredCamera);snapChase=false;}
   else camera.position.lerp(desiredCamera,1-Math.exp(-dt*(safeDistance<3?22:driving?13:8)));
   camera.position.y=height;
+  if(!driving&&!ride&&doorwayDistance<2.5){
+    const dx=camera.position.x-p.x,dz=camera.position.z-p.z,reach=Math.hypot(dx,dz);
+    if(reach>safeDistance){camera.position.x=p.x+dx*safeDistance/reach;camera.position.z=p.z+dz*safeDistance/reach;}
+  }
   // A smoothed camera can cut across a corner even when its destination is safe.
   // Clamp inward immediately, then ease back out once the sightline clears.
   const dx=camera.position.x-p.x,dz=camera.position.z-p.z,actualDistance=Math.hypot(dx,dz);
@@ -921,12 +1046,6 @@ function updateCamera(dt) {
     }
   }
   camera.position.y=Math.max(camera.position.y,terrainHeight(camera.position.x,camera.position.z)+.6);
-  if(sim.room){
-    // Indoors the camera stays in the room, close behind the player.
-    const room=sim.room,back=2.3,cx=p.x-Math.sin(yaw)*back,cz=p.z-Math.cos(yaw)*back;
-    const a=Math.max(-room.width/2+.3,Math.min(room.width/2-.3,(cx-room.x)*room.tx+(cz-room.z)*room.tz)),b=Math.max(.3,Math.min(room.depth-.3,-((cx-room.x)*room.nx+(cz-room.z)*room.nz)));
-    camera.position.set(room.x+room.tx*a-room.nx*b,chaseHeight.height+1.9,room.z+room.tz*a-room.nz*b);camera.near=.08;
-  }
   cameraTarget.set(p.x,chaseHeight.height+aimHeight,p.z);
   if(driving)cameraTarget.add(chaseLookAhead);
   camera.lookAt(cameraTarget);
@@ -949,7 +1068,7 @@ function frame(now) {
     // Nobody steers a player they cannot see: they stand where they were put until the shot comes down.
     if(switchShot.active)controls={forward:0,turn:0,brake:false,run:false,moveX:0,moveZ:0};
     if(switchShot.active!==switchShotLive){switchShotLive=switchShot.active;for(const id of ['hud','mission-panel','wanted','touch-controls'])$(id).classList.toggle('switch-shot',switchShotLive);}
-    if(!paused&&!traveling&&!cityView&&!mapOpen&&bootReady){sim.step(controls,dt);elapsed+=dt;}
+    if(!paused&&!traveling&&!cityView&&!mapOpen&&bootReady){selectDoorway();sim.step(controls,dt);elapsed+=dt;}
     showEnding();
   }else{elapsed+=dt;introTime+=dt;}
   if(landscapeDirty){
@@ -990,7 +1109,7 @@ function frame(now) {
     if(!routePlanner&&gameMap.roads!==sim.city.roads)gameMap.setRoads(sim.city.roads);
     sim.melee=Boolean(!cityView&&sim.player.mode==='walk'&&crowd?.closest(sim.player.x,sim.player.z));
     sim.threats=crowd?.threats||[];
-    hud.city=sim.city;hud.update(sim,false,null,focusedAim());updateDirections();saveProgress();updateLocation();updateTimeButton();hudTime=0;
+    hud.city=sim.city;hud.update(sim,Boolean(nearestSeat()),sim.doorway?.take?null:registerAction(sim),focusedAim());updateDirections();saveProgress();updateLocation();updateTimeButton();hudTime=0;
   }
   water.update(lit,{overview:cityView&&!viewOverride});
   // Lamps and headlights are gathered before the frame that they light.
@@ -1071,15 +1190,17 @@ function frame(now) {
       }
       if(dining&&diningMesh){
         const rows=planDining(dining.near(lit.x,lit.z,200),footprints,(x,z)=>Boolean(streetscape?.surfaceAt(x,z)));
-        diningMesh.update(rows);
+        const drawn=diningMesh.update(rows);
         // Who is at the tables: the same people at the same chairs each time, with the faces of the neighbourhood. About half the chairs are taken.
-        diners=[];
-        for(const row of rows)for(const seat of seatsOf(row)){
+        const lastDiners=new Map(diners.map(d=>[d.x+','+d.z,d.absentUntil]));
+        diners=[];patioSeats=[];
+        for(const row of rows.slice(0,drawn))for(const seat of seatsOf(row)){
+          patioSeats.push(seat);
           const random=seeded((Math.round(seat.x*31+seat.z*17)>>>0)||1);
           if(random()>.55)continue;
           const look=dress('casual',random,demographics.tracts?demographics.tonesAt(seat.x,seat.z,.5):null);
           look.kit=(look.kit&(KIT.longHair|KIT.shortSleeves))|(random()<.5?KIT.woman:0);look.height=1.72;
-          diners.push({x:seat.x,y:groundHeight(seat.x,seat.z)+.02,z:seat.z,heading:seat.heading,sitting:true,look});
+          diners.push({x:seat.x,y:groundHeight(seat.x,seat.z),seat,z:seat.z,heading:seat.heading,sitting:true,look,absentUntil:lastDiners.get(seat.x+','+seat.z)});
         }
       }
       // A sign also says what the place is in a language a quarter or more of its neighbours speak at home.
@@ -1091,21 +1212,21 @@ function frame(now) {
     // Standing at a shop front, the player is told what it is.
     let facing=null;
     // On foot that is any front within a few steps; in a car, an auto shop it has stopped outside.
-    const driving=sim.player.mode==='drive',reach=driving?14:7;
-    if(started&&!cityView&&!mapOpen)for(const front of fronts){
+    const driving=sim.player.mode==='drive',onFoot=sim.player.mode==='walk',reach=driving?14:7;
+    if(started&&!sim.room&&!cityView&&!mapOpen&&(driving||onFoot))for(const front of fronts){
       if(driving&&!offersAt(front.place.kind))continue;
       const dx=sim.player.x-front.x,dz=sim.player.z-front.z,out=dx*front.nx+dz*front.nz;
       if(out>-1&&out<reach&&Math.abs(dx*front.tx+dz*front.tz)<front.width/2+(driving?5:1)&&(!facing||out<facing.out))facing={front,out};
     }
     // The head of a subway stair within a few steps.
     stairHere=null;
-    if(started&&!cityView&&!mapOpen&&!driving&&!sim.room&&subwayStairs)for(const entrance of subwayStairs.entrances){if(Math.hypot(entrance.x-sim.player.x,entrance.z-sim.player.z)<4.5){stairHere=entrance;break;}}
+    if(started&&!cityView&&!mapOpen&&onFoot&&!sim.room&&subwayStairs)for(const entrance of subwayStairs.entrances){if(Math.hypot(entrance.x-sim.player.x,entrance.z-sim.player.z)<4.5){stairHere=entrance;break;}}
     // A bus stop within a couple of steps.
     stopHere=null;
-    if(started&&!cityView&&!mapOpen&&!driving&&!sim.room&&!stairHere&&busStops)for(const stop of busStops.stops){if(Math.hypot(stop.x-sim.player.x,stop.z-sim.player.z)<3){stopHere=stop;break;}}
+    if(started&&!cityView&&!mapOpen&&onFoot&&!sim.room&&!stairHere&&busStops)for(const stop of busStops.stops){if(Math.hypot(stop.x-sim.player.x,stop.z-sim.player.z)<3){stopHere=stop;break;}}
     // A stand that someone is minding, within a couple of steps of its counter.
     standHere=null;
-    if(started&&!cityView&&!mapOpen&&!driving&&!sim.room&&!stairHere&&!stopHere)for(const vendor of vendors){
+    if(started&&!cityView&&!mapOpen&&onFoot&&!sim.room&&!stairHere&&!stopHere)for(const vendor of vendors){
       const open=vendor.fruit?gfx.hours>=7&&gfx.hours<20:gfx.hours>=5&&gfx.hours<23;
       if(open&&!sim.player.armed&&!(vendor.absentUntil>sim.elapsed)&&!(vendor.downUntil>sim.elapsed)&&Math.hypot(vendor.x-sim.player.x,vendor.z-sim.player.z)<3.2){standHere=vendor.stand;break;}
     }
@@ -1118,18 +1239,31 @@ function frame(now) {
       $('place-hint').hidden=false;$('place-hint').textContent='G TO TALK';
     }
     shopHere=null;doorHere=null;
-    if(!sim.room&&roomGroup){roomGroup.userData.dispose();roomGroup=null;roomStaff=[];roomGuests=[];doorAgain=elapsed+1.2;}
     // Indoors, within reach of whoever is serving.
     counterHere=atShopCounter();
-    if(sim.room){$('place-hint').hidden=!counterHere||!menuFor(sim.room.place).length;$('place-hint').textContent=sim.room.name+' · G TO ORDER';}
+    if(sim.room){
+      const visit=sim.doorway?.visitor?.visit;
+      const hints=[sim.room.name];
+      if(visit?.wait>0)hints.push('Customer ordering '+visit.item.name.toLowerCase());
+      const phase=sim.doorway?.handoff?.phase;
+      if(sim.doorway?.take)hints.push('Taking the cash');
+      else if(sim.doorway?.closed)hints.push('Temporarily closed');
+      else if(phase==='giving')hints.push('The clerk reaches across the counter');
+      else if(phase==='startled')hints.push('The clerk raises their hands');
+      else if(phase==='opening')hints.push('The clerk is opening the drawer');
+      else if(phase==='offered')hints.push('The clerk is holding out the cash');
+      else if(!phase&&!sim.player.armed&&counterHere&&menuFor(sim.room.place).length)hints.push('G TO ORDER');
+      $('place-hint').hidden=false;$('place-hint').textContent=hints.join(' · ');
+    }
     if(facing){
-      const about=describePlace(facing.front.place,gfx.hours),open=about.status==='OPEN';
+      const about=describePlace(facing.front.place,gfx.hours,closedAfterIncident),open=about.status==='OPEN';
       if(driving&&open&&Math.abs(sim.player.speed)<1)shopHere=facing.front.place;
-      if(!driving&&open&&facing.out<3.5&&roomKind(facing.front.place))doorHere=facing.front;
+      if(onFoot&&open&&facing.out<3.5&&roomKind(facing.front.place))doorHere=facing.front;
       $('place-hint').textContent=[about.name,about.kind===about.name?'':about.kind,about.grade,about.status,driving&&open?(shopHere?'G FOR THE COUNTER':'STOP HERE FOR THE SHOP'):doorHere?'WALK IN':''].filter(Boolean).join(' · ');
     }
   }
-  gfx.indoors=Boolean(sim.room);
+  gfx.indoors=camera.layers.isEnabled(ROOM_LAYER);
+  gfx.indoorDepth=gfx.indoors?clamp(sim.room.b/1.8,0,1):0;
   // Subway stairs stand where the MTA lists them, running along the kerb beside them.
   if(subway&&subwayStairs){
     const walks=streetscape?.walks()||noStreetFurniture;
@@ -1143,7 +1277,8 @@ function frame(now) {
     busStops.group.visible=!cityView||Boolean(viewOverride);if(shedMesh)shedMesh.mesh.visible=busStops.group.visible;if(diningMesh)diningMesh.mesh.visible=busStops.group.visible;if(standMesh)standMesh.mesh.visible=busStops.group.visible;if(bikeDocks)bikeDocks.group.visible=busStops.group.visible;
     busStops.update(buses,lit,kerbIndex);
   }
-  storefronts?.update(fronts,lit,gfx.hours);
+  if(work && work.now()>=work.nextReopening)work.updateClosures();
+  storefronts?.update(fronts,lit,gfx.hours,Boolean(viewOverride)||started&&!cityView&&!aerialView,landscapeRevision,work?.closureRevision);
   interaction?.update();
   phone?.update(elapsed);
   // A red-light camera's flash: the frame blows out for a tenth of a second.
@@ -1200,6 +1335,19 @@ async function loadLogos(){
   })));
   return logos;
 }
+function insideShopBuilding(front,x,z){
+  const building=footprints.at(x,z);
+  return Boolean(building&&(!front.building||front.building===building||front.building.id!=null&&front.building.id===building.id));
+}
+function roomFor(front){
+  return planRoom(front,(x,z)=>insideShopBuilding(front,x,z));
+}
+function floorFor(room){
+  // Keep the furnishings above the sidewalk and the ground under the room.
+  let floor=groundHeight(room.x+room.nx*1.5,room.z+room.nz*1.5);
+  for(const along of [-.5,0,.5])for(const deep of [0,.5,1]){const h=groundHeight(...roomPoint(room,room.width*along,room.depth*deep));if(Number.isFinite(h)&&h>floor&&h<floor+1.2)floor=h;}
+  return floor+.06;
+}
 // Mark the doors that can be walked through on the radar and the map (map-blips.js): the fronts with a room behind
 // them and the subway's stairs. The open map looks further than the street does, so for it fronts are worked out as
 // far as places are loaded. Past 300 m fewer of the streets are known, and fewer doors are found than are there.
@@ -1208,38 +1356,71 @@ function markDoors(){
   const stairs=subwayStairs?.entrances;
   if(!doorsFor||doorsFor.fronts!==fronts||doorsFor.stairs!==stairs||doorsFor.wide!==mapOpen){
     doorsFor={fronts,stairs,wide:mapOpen};
-    const inside=(x,z)=>Boolean(footprints.at(x,z)),at=frontsFor||sim.player;
+    const at=frontsFor||sim.player;
     const beyond=mapOpen?solveFrontages(placeSource.near(at.x,at.z,700).filter(place=>Math.hypot(place.x-at.x,place.z-at.z)>250),footprints,(x,z)=>Boolean(streetscape?.surfaceAt(x,z))):[];
-    doors=doorBlips([...fronts,...beyond].filter(front=>hasRoom(front,inside)),mapOpen&&subway?subway.entrancesNear(at.x,at.z,700).filter(entrance=>entrance.kind===0):stairs);
+    doors=doorBlips([...fronts,...beyond].filter(front=>hasRoom(front,(x,z)=>insideShopBuilding(front,x,z))),mapOpen&&subway?subway.entrancesNear(at.x,at.z,700).filter(entrance=>entrance.kind===0):stairs);
+  }
+  if(doorsFor.closures!==work.closureRevision){
+    doorsFor.closures=work.closureRevision;
+    doors=doors.map(door=>({...door,closed:closedAfterIncident(door)}));
   }
   gameMap.setDoors(doors,gfx.hours);
 }
-// Through the door of a place and into its room. Returns whether there was a room to go into.
+// Door contact is sampled every movement frame, independent of the slower sign/HUD lookup.
+function selectDoorway(){
+  if(sim.room||!storefronts)return;
+  let nearest=null, best=5;
+  if(sim.player.mode==='walk')for(const view of storefronts.rooms){
+    const distance=Math.hypot(sim.player.x-view.plan.x,sim.player.z-view.plan.z);
+    if(distance<best&&(shopOpen(view.plan.place)||storefronts.closingDoor===view)){best=distance;nearest=view;}
+  }
+  if(doorHere&&Math.hypot(sim.player.x-doorHere.x,sim.player.z-doorHere.z)<Math.min(best,2)&&shopOpen(doorHere.place))nearest=storefronts.prepare(doorHere);
+  sim.doorway=nearest;
+}
 function goIn(front){
-    const room=planRoom(front,(x,z)=>Boolean(footprints.at(x,z)));
-    if(room&&sim.enterRoom(room)){
-      // The floor is laid just above the highest ground under the room, so no ground shows through it.
-      let floor=groundHeight(room.x+room.nx*1.5,room.z+room.nz*1.5);
-      for(const along of [-.5,0,.5])for(const deep of [0,.5,1]){const h=groundHeight(room.x+room.tx*room.width*along-room.nx*room.depth*deep,room.z+room.tz*room.width*along-room.nz*room.depth*deep);if(Number.isFinite(h)&&h>floor&&h<floor+1.2)floor=h;}
-      floor+=.06;
-      roomGroup=buildRoom(room,floor);roomGroup.userData.floorY=floor;scene.add(roomGroup);
-      roomStaff=room.staff.map((spot,i)=>{const person=createPerson([0x2f4a5a,0x7a2f2f,0x3f5a3a,0x4a3a5a][i%4]);const x=room.x+room.tx*spot.a-room.nx*spot.b,z=room.z+room.tz*spot.a-room.nz*spot.b;person.position.set(x,floor,z);person.rotation.y=Math.atan2(room.tx*spot.da-room.nx*spot.db,room.tz*spot.da-room.nz*spot.db);roomGroup.add(person);
-        // The same person each visit: drawn from the place's own number, with the faces of the neighbourhood.
-        const random=seeded((Math.round(room.x*7+room.z*13)^(i*7919))>>>0||1),look=dress('casual',random,demographics.tracts?demographics.tonesAt(x,z,.2):null);
-        look.kit=(look.kit&(KIT.longHair|KIT.shortSleeves))|(random()<.5?KIT.woman:0);
-        person.userData.figure={x,y:floor,z,heading:person.rotation.y,phase:0,stride:0,look};return person;});
-      // Customers: about four seats in ten are taken, by the same people each visit.
-      roomGuests=[];
-      room.seats.forEach((spot,i)=>{
-        const random=seeded((Math.round(room.x*11+room.z*5)^(i*104729))>>>0||1);
-        if(random()>.42)return;
-        const x=room.x+room.tx*spot.a-room.nx*spot.b,z=room.z+room.tz*spot.a-room.nz*spot.b,look=dress('casual',random,demographics.tracts?demographics.tonesAt(x,z,.5):null);
-        look.kit=(look.kit&(KIT.longHair|KIT.shortSleeves))|(random()<.5?KIT.woman:0);look.height=1.72;
-        roomGuests.push({x,y:floor+spot.lift,z,heading:Math.atan2(room.tx*spot.da-room.nx*spot.db,room.tz*spot.da-room.nz*spot.db),sitting:true,look});
+  if(sim.player.mode!=='walk'||sim.room||!shopOpen(front.place))return false;
+  const at=roomLocal(front,sim.player.x,sim.player.z);
+  if(Math.abs(at.a)>1.1||at.b>0||at.b < -1.65)return false;
+  const view=storefronts.prepare(front);
+  if(!view)return false;
+  sim.doorway=view;view.door.velocity=2.8;
+  return true;
+}
+function nearestSeat(){
+  if(sim.player.mode!=='walk'||sim.seat||sim.player.move||sim.player.grounded===false)return null;
+  const p=sim.player;
+  let best=1.45, choice=null;
+  const consider=(seat,clear)=>{
+    const distance=Math.hypot(seat.x-p.x,seat.z-p.z);
+    if(distance>=best)return;
+    const y=seat.y??groundHeight(seat.x,seat.z);
+    if(Math.abs(y-p.y)>1.2)return;
+    const path=seatApproach(p,seat,clear);
+    if(path){best=distance;choice={...seat,y,path};}
+  };
+  if(sim.room){
+    for(const spot of sim.room.seats||[]){
+      if(sim.doorway?.occupied.has(spot))continue;
+      const [x,z]=roomPoint(sim.room,spot.a,spot.b);
+      const [fx,fz]=roomPoint(sim.room,spot.a+spot.da,spot.b+spot.db);
+      if(Math.hypot(x-p.x,z-p.z)>=best)continue;
+      consider({...spot,x,z,y:sim.doorway?.floor??p.y,seatHeight:seatHeight(spot),heading:Math.atan2(fx-x,fz-z)},(from,to)=>{
+        const a=roomLocal(sim.room,from.x,from.z), b=roomLocal(sim.room,to.x,to.z);
+        if(Math.abs(b.a)>sim.room.width/2-.1||b.b<.1||b.b>sim.room.depth-.1)return false;
+        return !sim.room.things.some(t=>t.solid&&(t.a!==spot.a||t.b!==spot.b)&&crossesFixture(a,b,t,.08));
       });
-      yaw=sim.player.angle;return true;
     }
-  return false;
+  }else {
+    for(const seat of props?.seats||[])consider(seat);
+    for(const seat of patioSeats){
+      if(Math.abs(seat.x-p.x)>best||Math.abs(seat.z-p.z)>best)continue;
+      if(gfx.hours>=11&&gfx.hours<23&&diners.some(d=>!(d.absentUntil>sim.elapsed)&&d.x===seat.x&&d.z===seat.z))continue;
+      const sin=Math.sin(seat.heading), cos=Math.cos(seat.heading);
+      const local=pt=>({a:(pt.x-seat.x)*cos-(pt.z-seat.z)*sin,b:(pt.x-seat.x)*sin+(pt.z-seat.z)*cos});
+      consider(seat,(from,to)=>!crossesFixture(local(from),local(to),{a:0,b:.58,w:.62,d:.62},.06));
+    }
+  }
+  return choice;
 }
 // Corners and businesses, found in the game's own data. The street index is made from the route planner's roads the
 // first time something is searched for, and the list of place names is fetched then too.
@@ -1476,7 +1657,7 @@ async function boot() {
     image.onload=()=>water.setContext(image,manifest);
     image.src=manifest.url;
   }).catch(()=>{});
-  gfx.passes.push((renderer,scene,camera)=>water.renderMirror(renderer,scene,camera,{enabled:Boolean(viewOverride)||!cityView,scale:highQuality?.75:.5}));
+  gfx.passes.push((renderer,scene,camera)=>water.renderMirror(renderer,scene,camera,{enabled:!gfx.indoors&&(Boolean(viewOverride)||!cityView),scale:highQuality?.75:.5}));
   sim.moves=true;
   // The crowd answers for itself when a car hits it, and a death or an arrest is watched before what follows.
   sim.peopleReact=true;sim.endingSeconds=2;
@@ -1492,20 +1673,21 @@ async function boot() {
     interaction.openList(title,rows,row=>row.choose(),{message,available});
   },fronts:()=>fronts,hours:()=>gfx.hours,save:saveProgress,
     guide:site=>{gameMap.setOpen(true);gameMap.showCity();gameMap.setPin(site);},
-    pedestrian:()=>sim.player.mode==='walk'&&!sim.room?crowd?.closest(sim.player.x,sim.player.z,4):null,
-    counter:()=>atShopCounter()&&sim.room.place.id&&menuFor(sim.room.place).length?sim.room.place:null});
+    pedestrian:()=>sim.player.mode==='walk'&&!sim.room&&!sim.player.armed?crowd?.closest(sim.player.x,sim.player.z,4,true):null,
+    counter:()=>registerAction(sim)?sim.room.place:null});
   restoreProgress();yaw=sim.player.angle;
   signs=createStreetSigns({scene,heightAt:groundHeight,raised:(x,z)=>(streetscape?.offsetAt(x,z)||0)>.1});
   crowd=createCrowd({scene,heightAt:groundHeight,blocked:(x,z,y)=>sim.isBlocked(x,z,.2,{baseHeight:y}),isRoad:(x,z)=>streetscape?.surfaceAt(x,z)==='road',
     life:{crowding:(x,z,hours)=>cityLife.crowding(x,z,hours),wardrobe:(x,z,hours)=>cityLife.wardrobe(x,z,hours),
       // Offices, shops and sights fill a street with people from all over the city; at home, and at night, it is the neighbours.
       tones:(x,z,hours)=>{if(!demographics.tracts)return null;const c=characterAt(x,z),day=hours>7&&hours<20?1:.35;return demographics.tonesAt(x,z,Math.min(.85,Math.max(c.business,c.visited,c.shopping*.7)*day));}}});
+  crowd.mesh.traverse(object=>object.layers.enable(ROOM_LAYER));
   // The city's own lists: sidewalk counts, and the signals that favour people
   // on foot. Without them the model answers alone and nothing is lost but detail.
   const signalHints=(x,z)=>({...cityLife.hintsAt(x,z),core:manhattanCore(x,z)});
   sim.setActiveCity({signalHints});
   props=createStreetProps({scene,physics:sim.streetObjects,heightAt:groundHeight});
-  storefronts=createStorefronts();
+  storefronts=createStorefronts({scene,roomFor,floorFor,isClosed:closedAfterIncident,populate:view=>populateShop(view,(x,z)=>demographics.tracts?demographics.tonesAt(x,z,.35):null)});
   loadLogos().then(logos=>{if(logos.size)storefronts.setLogos(logos);}).catch(()=>{});
   // The registers' places, and the shops they do not list (OpenStreetMap), read as one.
   const registerPlaces=createPlaceSource({load:url=>loadData(url.replace(/^\.\//,''))}),otherShops=createPlaceSource({load:url=>loadData(url.replace(/^\.\//,'')),prefix:'o'});
@@ -1535,7 +1717,7 @@ async function boot() {
     // The character page saves a design in this browser; coming back from it, the player is drawn afresh.
     addEventListener('storage',dressPlayer);addEventListener('focus',dressPlayer);
   }).catch(error=>console.warn('People could not be loaded:',error));
-  phone=createPhone({$,places:()=>placeSource.near(sim.player.x,sim.player.z,700),
+  phone=createPhone({$,isClosed:closedAfterIncident,places:()=>placeSource.near(sim.player.x,sim.player.z,700),
     state:()=>({x:sim.player.x,z:sim.player.z,hours:gfx.hours,clock:gfx.clock,cash:sim.cash,jobActive:sim.mission.phase==='active',fares:sim.deliveries,miles:sim.distanceTravelled/1609.344,redLights:sim.redLights||0}),
     onMechanic:()=>sim.callMechanic(),onCab:()=>sim.summonCab(),
     onDirections:place=>{const name=place.name||describePlace(place,gfx.hours).name;requestDirections({x:place.x,z:place.z}).then(found=>announce(found?'Directions to '+name+'. Follow the highlighted streets.':'No way to '+name+' along mapped streets.'));},
@@ -1596,7 +1778,7 @@ async function boot() {
     $('road-reconstruction-status').textContent=report.summary.accepted+' of '+report.summary.candidates+
       ' road and parking masks passed source checks. Rejected masks create no game geometry.';
   }).catch(()=>{$('road-reconstruction-status').textContent='Road image review unavailable. Surveyed surfaces remain active.';});
-  avatar=createPerson(0xd7774e,{courier:true});scene.add(avatar);marker=createMissionMarker();enterHint=createEnterHint();policeScene=createPoliceScene(scene,(x,z)=>groundHeight(x,z));carSmoke=createCarSmoke(scene);doorDebris=createDoorDebris(scene);
+  avatar=createPerson(0xd7774e,{courier:true});avatar.traverse(object=>object.layers.enable(ROOM_LAYER));scene.add(avatar);marker=createMissionMarker();enterHint=createEnterHint();policeScene=createPoliceScene(scene,(x,z)=>groundHeight(x,z));carSmoke=createCarSmoke(scene);doorDebris=createDoorDebris(scene);
   hud=new HUD(city);applyQuality();
   gameMap=new GameMap({city,searchLocal:findLocally,onPlacesWanted:loadPlaceNames,onPin:requestDirections,
     onSpawn:pin=>travel({...pin,exact:true}),
@@ -1609,7 +1791,7 @@ async function boot() {
   }).catch(()=>null);
   const b=city.bounds;camera.position.set((b.minX+b.maxX)/2-14000,44000,(b.minZ+b.maxZ)/2+32000);
   navigation=createCityNavigation({canvas,camera,input,bounds:city.bounds,heightAt:terrainHeight,onTravel:travel,onDestinationSelected:focusCityDestination,getPresets:cityPresets,searchLocal:findLocally});
-  window.nycGame={graphics:gfx,get playerBody(){return playerBody;},get streetscape(){return streetscape;},get streetLife(){return streetLife;},get parkedCars(){return parkedCars;},get distantTraffic(){return distantTraffic;},get world(){return world;},get simulation(){return sim;},get signs(){return signs;},get crowd(){return crowd;},get props(){return props;},get places(){return placeSource;},get storefronts(){return storefronts;},get fronts(){return fronts;},get phone(){return phone;},get fleet(){return fleet;},get subway(){return subway;},get buses(){return buses;},get sheds(){return sheds;},get dining(){return dining;},get standMesh(){return standMesh;},get map(){return gameMap;},findLocally,get bikeShare(){return bikeShare;},get bikeDocks(){return bikeDocks;},get diningMesh(){return diningMesh;},get shedMesh(){return shedMesh;},get busStops(){return busStops;},get demographics(){return demographics;},get subwayStairs(){return subwayStairs;},get cityLife(){return cityLife;},heightAt:(x,z)=>terrainHeight(x,z),travel:place=>travel(place),get streetDetail(){return streetDetail;},get landscape(){return landscape;},get centralPark(){return centralPark;},setView:view=>{viewOverride=view&&Array.isArray(view.position)&&Array.isArray(view.target)?view:null;},getState:()=>({time:gfx.clock,switching:switchShot.active,player:{...sim.player},heat:sim.heat,health:sim.health,mission:{...sim.mission},cash:sim.cash,deliveries:sim.deliveries,cars:sim.cars.length,parkedCars:sim.cars.filter(car=>car._kerb).length,buildings:buildings.length,totalBuildings:cityIndex.stats.buildingFeatures,stream:world.getStatus(),ground:ground.getStatus(),streetDetail:streetDetail?.getStatus()||null,streetscape:streetscape?.getStatus()||null,landscape:landscape?.getStatus()||null,reconstruction:reconstructionReview?{model:reconstructionReview.model,summary:reconstructionReview.summary}:null,roadReconstruction:roadReconstructionReview?{model:roadReconstructionReview.model,summary:roadReconstructionReview.summary}:null,roadPilot:roadPilot?roadPilot.getStatus():{ready:false,loading:Boolean(roadPilotLoading),error:roadPilotError},navigation:navigation.getState(),map:gameMap.getState(),routeGuidance,cityView,aerialView,firstPersonView:firstPersonActive(),traveling,bootReady,shadows:{enabled:shadowsEnabled,active:renderer.shadowMap.enabled},drawCalls:renderer.info.render.calls,triangles:renderer.info.render.triangles,started,paused})};
+  window.nycGame={graphics:gfx,get playerBody(){return playerBody;},enter:front=>goIn(front),get streetscape(){return streetscape;},get streetLife(){return streetLife;},get parkedCars(){return parkedCars;},get distantTraffic(){return distantTraffic;},get world(){return world;},get simulation(){return sim;},get signs(){return signs;},get crowd(){return crowd;},get props(){return props;},get places(){return placeSource;},get storefronts(){return storefronts;},get fronts(){return fronts;},get phone(){return phone;},get fleet(){return fleet;},get subway(){return subway;},get buses(){return buses;},get sheds(){return sheds;},get dining(){return dining;},get standMesh(){return standMesh;},get map(){return gameMap;},findLocally,get bikeShare(){return bikeShare;},get bikeDocks(){return bikeDocks;},get diningMesh(){return diningMesh;},get shedMesh(){return shedMesh;},get busStops(){return busStops;},get demographics(){return demographics;},get subwayStairs(){return subwayStairs;},get cityLife(){return cityLife;},heightAt:(x,z)=>terrainHeight(x,z),travel:place=>travel(place),get streetDetail(){return streetDetail;},get landscape(){return landscape;},get centralPark(){return centralPark;},setView:view=>{viewOverride=view&&Array.isArray(view.position)&&Array.isArray(view.target)?view:null;},getState:()=>({time:gfx.clock,switching:switchShot.active,player:{...sim.player},heat:sim.heat,health:sim.health,mission:{...sim.mission},cash:sim.cash,deliveries:sim.deliveries,cars:sim.cars.length,parkedCars:sim.cars.filter(car=>car._kerb).length,buildings:buildings.length,totalBuildings:cityIndex.stats.buildingFeatures,stream:world.getStatus(),ground:ground.getStatus(),streetDetail:streetDetail?.getStatus()||null,streetscape:streetscape?.getStatus()||null,landscape:landscape?.getStatus()||null,reconstruction:reconstructionReview?{model:reconstructionReview.model,summary:reconstructionReview.summary}:null,roadReconstruction:roadReconstructionReview?{model:roadReconstructionReview.model,summary:roadReconstructionReview.summary}:null,roadPilot:roadPilot?roadPilot.getStatus():{ready:false,loading:Boolean(roadPilotLoading),error:roadPilotError},navigation:navigation.getState(),map:gameMap.getState(),routeGuidance,cityView,aerialView,firstPersonView:firstPersonActive(),traveling,bootReady,shadows:{enabled:shadowsEnabled,active:renderer.shadowMap.enabled},drawCalls:renderer.info.render.calls,triangles:renderer.info.render.triangles,started,paused})};
   requestAnimationFrame(frame);
   const [roads]=await Promise.all([roadStream.loadAround(seed.spawn),world.prepareAt(seed.spawn,300),landscapeReady]);
   sim.setActiveCity({roads,buildings,isReadyAt:(x,z,radius)=>world.isReadyAt(x,z,radius),missionPoints:destinationsFor(roads,seed.spawn)},{spawn:seed.spawn});city=sim.city;yaw=sim.player.angle;

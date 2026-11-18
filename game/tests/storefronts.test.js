@@ -3,7 +3,8 @@ import assert from 'node:assert/strict';
 import * as THREE from '../dist/vendor/three.module.min.js';
 import { shared, NYC_COMMON_GLSL } from '../dist/gfx-common.js';
 import { FACADE_FRAGMENT_PARS, FACADE_FRAGMENT, ATLAS_CELL_HEIGHT } from '../dist/facade.js';
-import { KIND } from '../dist/places.js';
+import { planRoom } from '../dist/interiors.js';
+import { indexFootprints, solveFrontages, KIND } from '../dist/places.js';
 import { drawLogo, LOGO_TRIM, createStorefronts, rasterFronts, drawSign, MAP_SPAN, TABLE_ROWS, ATLAS } from '../dist/storefronts.js';
 
 // A canvas that records the lettering drawn on it.
@@ -67,14 +68,15 @@ test('the three textures follow the fronts, the player and the hour', () => {
   const rect = shared.uNycPlaceRect.value, table = store.textures.table.image.data, map = store.textures.map.image.data;
   assert.deepEqual([rect.x, rect.y, rect.z, rect.w], [-256, -256, 1 / MAP_SPAN, 1]);
   assert.equal(rowAt(map, rect.x, rect.y, 3, 0.5), 1); assert.equal(rowAt(map, rect.x, rect.y, -20, 0.5), 2); assert.equal(rowAt(map, rect.x, rect.y, 200, 0.5), 0);
-  const row = n => Array.from(table.slice(n * 16, n * 16 + 16));
+  const stride = 4 * store.textures.table.image.width;
+  const row = n => Array.from(table.slice(n * stride, (n + 1) * stride));
   // Row 1, the cafe: sign colours, open at lunch, grade B, lettering in a cell of its own, where its middle is and its trim.
   const cafe = row(1);
   assert.ok(cafe.slice(0, 3).every(c => c >= 0 && c <= 1) && cafe.slice(4, 7).every(c => c >= 0 && c <= 1) && cafe.slice(0, 3).join() !== cafe.slice(4, 7).join());
   assert.deepEqual([cafe[3], cafe[7], cafe[12], cafe[13], cafe[14], cafe[15]], [1, 2, 3, 0, 3.5, 0]);
   assert.ok(cafe[10] > 0 && Math.abs(cafe[10] - ATLAS.cellWidth / ATLAS.width) < 1e-6 && Math.abs(cafe[11] - ATLAS.cellHeight / ATLAS.height) < 1e-6);
   assert.deepEqual([row(2)[15], row(4)[15], row(3)[15]], [1, 2, 0], 'a pole for the barber, neon for the pub');
-  assert.deepEqual(row(0), new Array(16).fill(0), 'row 0 is nobody');
+  assert.deepEqual(row(0), new Array(stride).fill(0), 'row 0 is nobody');
   const cells = [1, 2, 3, 4].map(n => row(n).slice(8, 10).join());
   assert.equal(new Set(cells).size, 4, 'every sign has its own lettering');
   assert.ok(surface.drawn.some(item => item.text === 'CAFE') && surface.drawn.some(item => item.text === 'HAIRCUTS  SHAVES  FADES'));
@@ -100,13 +102,36 @@ test('the three textures follow the fronts, the player and the hour', () => {
   assert.equal(shared.uNycPlaceMap.value, null);
 });
 
+test('only a loaded, open, enterable room opens panes on its own wall', () => {
+  const scene = new THREE.Scene();
+  let floor = 2;
+  const store = createStorefronts({ scene, createCanvas: canvas, roomFor: front => planRoom(front, () => front.place.id !== 'shallow'), floorFor: () => floor });
+  const fronts = [front('deli', 'bodega', 0), front('bank', 'bank', 10), front('shallow', 'coffee', 20), front('garage', 'repair', 30), front('far', 'bodega', 130)];
+  const tick = (hours, revision = 0, focus = fronts[0]) => store.update(fronts, focus, hours, true, revision);
+  const pane = row => Array.from(store.textures.table.image.data.slice(row * 20 + 16, row * 20 + 20));
+  tick(12);
+  assert.deepEqual(pane(1), [0, 1, 2, 3.5]); assert.equal(pane(2)[3], 0);
+  const deli = scene.children[0];
+  tick(12);
+  assert.deepEqual(pane(2), [0, 1, 2, 3.5]); assert.equal(scene.children.length, 2);
+  assert.ok(scene.children.every(group => group.children[0].isMesh && group.userData.door));
+  assert.ok([3, 4, 5].every(row => pane(row)[3] === 0));
+  floor = 3; tick(23, 1);
+  assert.deepEqual(scene.children, [deli]); assert.equal(deli.position.y, 3);
+  assert.equal(pane(1)[2], 3); assert.equal(pane(2)[3], 0, 'the bank closes');
+  tick(23, 1, fronts[4]);
+  assert.equal(deli.parent, null); assert.equal(scene.children[0].name, 'Through the windows of FAR');
+  store.dispose(); assert.equal(scene.children.length, 0);
+});
+
 test('more fronts than there is lettering for: the nearest are lettered, the rest keep their colours', () => {
   const surface = canvas(), store = createStorefronts({ createCanvas: () => surface });
   const fronts = Array.from({ length: 200 }, (_, i) => front(`shop ${i}`, 'bodega', i * 2 - 200));
   store.update(fronts, { x: 0, z: 0 }, 12);
   const lettering = ATLAS.columns * ATLAS.rows - 1, table = store.textures.table.image.data;
   assert.deepEqual(store.counts, { fronts: 200, lettered: lettering });
-  for (let n = 1; n <= 200; n++) { assert.ok(table[n * 16] + table[n * 16 + 1] + table[n * 16 + 2] > 0, 'every front has its colours'); assert.equal(table[n * 16 + 10] > 0, n <= lettering); }
+  const stride = 4 * store.textures.table.image.width;
+  for (let n = 1; n <= 200; n++) { assert.ok(table[n * stride] + table[n * stride + 1] + table[n * stride + 2] > 0, 'every front has its colours'); assert.equal(table[n * stride + 10] > 0, n <= lettering); }
   store.dispose();
 });
 
@@ -128,7 +153,8 @@ test('a chain whose logo has been fetched is signed with it, in its own colours;
   const surface = canvas(), store = createStorefronts({ createCanvas: () => surface });
   const fronts = [front('STARBUCKS', 'coffee', -10), front('FANELLI CAFE', 'american', 10)];
   store.update(fronts, { x: 0, z: 0 }, 12);
-  const table = store.textures.table.image.data, trim = n => table[n * 16 + 15], ground = n => [table[n * 16], table[n * 16 + 1], table[n * 16 + 2]].map(value => Math.round(value * 100) / 100);
+  const table = store.textures.table.image.data, stride = 4 * store.textures.table.image.width;
+  const trim = n => table[n * stride + 15], ground = n => [table[n * stride], table[n * stride + 1], table[n * stride + 2]].map(value => Math.round(value * 100) / 100);
   assert.ok(trim(1) < LOGO_TRIM && trim(2) < LOGO_TRIM, 'no logos on this machine: names');
   const greenGround = ground(1);
   // The logo arrives: the sign is drawn again as an image on its own ground, and the table says so.
@@ -143,4 +169,27 @@ test('a chain whose logo has been fetched is signed with it, in its own colours;
   store.setLogos(null); store.update(fronts, { x: 0, z: 0 }, 12);
   assert.ok(trim(1) < LOGO_TRIM, 'and without it, the name again');
   store.dispose();
+});
+
+test('a corner carries one tenant and one room around both street faces', () => {
+  const building = { id:'corner', polygon:[[0,0],[24,0],[24,18],[0,18]] };
+  for (const polygon of [building.polygon, [...building.polygon].reverse(), [[0,0],[24,0],[29,18],[5,18]]]) {
+    const footprints = indexFootprints([{...building, polygon}]);
+    const [front] = solveFrontages([{kind:'coffee',group:'cafe',name:'Corner Coffee',id:'coffee',x:.2,z:.1}], footprints, (x,z)=>x<(polygon[3][0]===5?5*z/18:0) || z<0);
+    assert.equal(front.returns.length, 1);
+    const scene = new THREE.Scene(), store = createStorefronts({scene,createCanvas:canvas,roomFor:f=>planRoom(f,(x,z)=>footprints.at(x,z)),floorFor:()=>0});
+    store.update([front],front,12);
+    const view=store.get('coffee'), data=store.textures.table.image.data;
+    assert.equal(scene.children.length,1);assert.ok(data[39]>0 && data[59]<0);
+    const rect=shared.uNycPlaceRect.value;
+    assert.equal(rowAt(store.textures.map.image.data,rect.x,rect.y,data[52],data[53]),2);
+    assert.deepEqual([...data.slice(28,32)],[...data.slice(48,52)],'both signs use the same lettering');
+    store.setActive(view);store.update([front],front,23);
+    assert.strictEqual(store.get('coffee'),view,'closing time keeps an occupied shop in place');
+    store.setActive(null);store.update([front],front,23);
+    assert.strictEqual(store.closingDoor,view,'a closing door stays until the player clears the jamb');
+    store.update([front],{x:front.x+front.nx*2,z:front.z+front.nz*2},23);
+    assert.equal(store.get('coffee'),undefined);
+    store.dispose();
+  }
 });

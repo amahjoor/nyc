@@ -11,7 +11,7 @@ import { wallFinder } from './places.js';
 
 const CELL = 256;
 /** How far apart tables stand along the wall, how far out from it, and the most in one row. */
-export const CAFE = { pitch: 1.9, out: 1.05, most: 5 };
+export const CAFE = { pitch: 1.9, out: 1.05, most: 5, seatHeight: .47 };
 
 /** The licensed addresses, from dining.json. */
 export function createDining(data = null) {
@@ -64,7 +64,7 @@ export function seatsOf(row) {
   const seats = [];
   for (let i = 0; i < row.tables; i++) for (const side of [-1, 1]) {
     const along = (i - (row.tables - 1) / 2) * CAFE.pitch + side * .58;
-    seats.push({ x: row.x + row.tx * along + row.nx * CAFE.out, z: row.z + row.tz * along + row.nz * CAFE.out, heading: Math.atan2(-row.tx * side, -row.tz * side) });
+    seats.push({ x: row.x + row.tx * along + row.nx * CAFE.out, z: row.z + row.tz * along + row.nz * CAFE.out, heading: Math.atan2(-row.tx * side, -row.tz * side), seatKind: 'chair', seatHeight: CAFE.seatHeight });
   }
   return seats;
 }
@@ -100,7 +100,7 @@ export function createDiningMesh({ scene = null, heightAt = () => 0, capacity = 
           // A chair to either side along the wall, each facing the table: seat, back and legs.
           for (const side of [-1, 1]) {
             const seat = along + side * .58;
-            put(seat, CAFE.out, .45, .38, .04, .38, chair); put(seat + side * .19, CAFE.out, .68, .38, .42, .04, chair);
+            put(seat, CAFE.out, CAFE.seatHeight - .02, .38, .04, .38, chair); put(seat + side * .19, CAFE.out, .68, .38, .42, .04, chair);
             put(seat - .15, CAFE.out, .22, .34, .44, .04, 0x2a2c30); put(seat + .15, CAFE.out, .22, .34, .44, .04, 0x2a2c30);
           }
         }

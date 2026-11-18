@@ -121,7 +121,7 @@ export function doorBlips(fronts = [], stairs = []) {
 }
 
 /** Whether the door behind a badge is open at `hours`: the subway never shuts. */
-export const blipOpen = (blip, hours) => blip.kind === 'subway' || isOpen(blip.kind, hours);
+export const blipOpen = (blip, hours) => blip.kind === 'subway' || (!blip.closed && isOpen(blip.kind, hours));
 
 /**
  * Those of `blips` that can be drawn `spacing` metres apart without one

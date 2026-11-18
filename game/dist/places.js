@@ -311,7 +311,7 @@ export function wallFinder(footprints, isStreet) {
  *   (x, z) the middle of the front on the wall line, (tx, tz) along the wall, (nx, nz) out toward the street
  */
 export function solveFrontages(places, footprints, isStreet, { reach = 28 } = {}) {
-  const claims = new Map(), streetWalls = wallFinder(footprints, isStreet);
+  const claims = new Map(), primaryWalls = new Map(), streetWalls = wallFinder(footprints, isStreet);
   for (const place of places) {
     if (NO_FRONT.has(place.kind)) continue;
     let building = footprints.at(place.x, place.z), nearest = reach;
@@ -326,10 +326,11 @@ export function solveFrontages(places, footprints, isStreet, { reach = 28 } = {}
       if (!best || distance < best.distance - .5 || (distance < best.distance + .5 && wall.length > best.wall.length)) best = { wall, t, distance };
     }
     if (!best) continue;
-    const width = frontWidth(place), { wall } = best, half = Math.min(width, wall.length) / 2;
+    const width = frontWidth(place), { wall } = best, half = Math.min(width, wall.length, 9) / 2;
     // Keep the front on its wall where the wall is long enough to hold it.
     const along = Math.max(half, Math.min(wall.length - half, best.t * wall.length));
     const front = { place, building, x: wall.a[0] + wall.tx * along, z: wall.a[1] + wall.tz * along, tx: wall.tx, tz: wall.tz, nx: wall.nx, nz: wall.nz, width };
+    primaryWalls.set(front, wall);
     if (!claims.has(building)) claims.set(building, []);
     claims.get(building).push(front);
   }
@@ -347,6 +348,34 @@ export function solveFrontages(places, footprints, isStreet, { reach = 28 } = {}
       if (Math.abs(gap) >= need) continue;
       const push = (need - Math.abs(gap)) / 2, way = gap >= 0 ? 1 : -1;
       a.x -= a.tx * push * way; a.z -= a.tz * push * way; b.x += a.tx * push * way; b.z += a.tz * push * way;
+    }
+    // A street-facing return belongs to the same tenant up to the next shop.
+    for (const front of kept) {
+      const wall = primaryWalls.get(front), half = Math.min(front.width, 9, wall.length) / 2;
+      let along = (front.x - wall.a[0]) * wall.tx + (front.z - wall.a[1]) * wall.tz;
+      along = Math.max(half, Math.min(wall.length - half, along));
+      front.x = wall.a[0] + wall.tx * along; front.z = wall.a[1] + wall.tz * along;
+      for (const side of [-1, 1]) {
+        const end = side < 0 ? wall.a : wall.b;
+        const gap = side < 0 ? along : wall.length - along;
+        if (Math.abs(gap - half) > .85 || wall.length < 5) continue;
+        const other = streetWalls(building).find(edge => edge !== wall &&
+          (edge.a === end || edge.b === end) && (edge.nx * front.tx + edge.nz * front.tz) * side > .87);
+        if (!other) continue;
+        const skew = (other.nx * front.nx + other.nz * front.nz) / (other.nx * front.tx + other.nz * front.tz);
+        if (front.returns && Math.abs(front.skew - skew) > .04) continue;
+        let length = Math.min(12 * Math.hypot(1,skew), other.length);
+        for (const neighbor of kept) if (primaryWalls.get(neighbor) === other) {
+          length = Math.min(length, Math.hypot(neighbor.x - end[0], neighbor.z - end[1]) - neighbor.width / 2);
+        }
+        if (length >= 2) {
+          if (!front.returns) {
+            front.x = end[0] - side * half * front.tx; front.z = end[1] - side * half * front.tz;
+            front.skew = skew;
+          }
+          (front.returns ??= []).push({ side, length: length / Math.hypot(1,skew) });
+        }
+      }
     }
     fronts.push(...kept);
   }

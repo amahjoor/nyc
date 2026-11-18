@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { Simulation, YELLOW_CAB, GREEN_CAB } from '../dist/simulation.js';
+import { seatApproach } from '../dist/seating.js';
 import { vehicleAspect, stopDistance } from '../dist/signal-plan.js';
 
 function city(overrides = {}) {
@@ -18,6 +19,37 @@ function city(overrides = {}) {
 function advance(simulation, seconds, input = {}, fps = 60) {
   for (let i = 0; i < Math.round(seconds * fps); i++) simulation.step(input, 1 / fps);
 }
+
+test('a seat owns the approach, hold and exit, including an interrupted descent', () => {
+  for (const fps of [20, 120]) {
+    const sim = new Simulation(city()), p = sim.player;
+    Object.assign(p, { angle: Math.PI - .12, x: 4, y: 0, z: 3 });
+    const seat = { x: 5, y: 0, z: 3, heading: -Math.PI + .12, seatKind: 'stool', seatHeight: .75 };
+    assert.ok(sim.sit(seat));
+    assert.equal(p.x, 4);
+    advance(sim, .4, { moveZ: 1 }, fps);
+    assert.ok(p.x > 4 && p.x < 5 && p.z === 3 && p.angle > Math.PI - .12);
+    const mid = p.x;
+    assert.ok(sim.stand()); assert.equal(sim.stand(), false);
+    assert.equal(p.x, mid);
+    advance(sim, .6, {}, fps);
+    assert.equal(sim.seat, null); assert.equal(p.x, 4);
+    assert.ok(sim.sit(seat)); advance(sim, 1.5, { moveX: 1, handbrake: true }, fps);
+    assert.equal(sim.seat.weight, 1); assert.equal(p.x, 5); assert.equal(p.z, 3);
+    assert.equal(sim.kick(), false); assert.equal(sim.fight(), false);
+    assert.ok(sim.interact()); advance(sim, 1.5, {}, fps); assert.equal(p.x, 4);
+    assert.equal(sim.seat, null); assert.equal(sim.draw(), true);
+  }
+});
+
+test('approaching a backrest uses a clear side and rejects a seat behind shelter glass', () => {
+  const seat = {x:0,z:0,heading:0,seatKind:'chair'}, player = {x:.05,z:-.9};
+  const path = seatApproach(player, seat, (from,to)=>to.x<=.1);
+  assert.equal(path.points.length,2);
+  assert.ok(path.points.every(p=>p.x<-.3));
+  assert.equal(seatApproach(player,seat,()=>false),null);
+  assert.equal(seatApproach(player,{...seat,shelter:true}),null);
+});
 
 test('spawn leaves room beside a nearby driveable taxi', () => {
   const sim = new Simulation(city());

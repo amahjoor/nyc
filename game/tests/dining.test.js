@@ -60,6 +60,7 @@ test('two chairs to a table, each facing it across the table from the other', ()
   for (const seat of seats) assert.ok(Math.abs(seat.z - CAFE.out) < 1e-9, 'in line with the tables');
   const tables = [6 - CAFE.pitch / 2, 6 + CAFE.pitch / 2];
   seats.forEach((seat, i) => {
+    assert.equal(seat.seatKind, 'chair'); assert.ok(Math.abs(seat.seatHeight - (.45 + .04 / 2)) < 1e-6);
     const table = tables[Math.floor(i / 2)], toward = Math.sign(table - seat.x);
     assert.ok(Math.abs(Math.abs(seat.x - table) - .58) < 1e-9);
     // Heading 0 faces +z; a quarter turn faces +x.
