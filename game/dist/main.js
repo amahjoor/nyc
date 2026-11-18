@@ -156,6 +156,7 @@ function action(name,event) {
     else togglePause();
     return;
   }
+  if(name==='shop'&&(!started||paused||traveling||!bootReady||cityView||mapOpen||phone?.open))return;
   if(name==='shop'&&sim.room) {
     // Indoors, at the counter: what the place sells.
     const menu=menuFor(sim.room.place);
@@ -172,17 +173,15 @@ function action(name,event) {
     }
     return;
   }
-  if(name==='shop'&&standHere&&started&&!paused&&!traveling&&bootReady&&!cityView&&!mapOpen&&sim.player.mode==='walk') {
+  if(name==='shop'&&standHere&&sim.player.mode==='walk') {
     // At a stand on the sidewalk: what it sells.
     const place=standHere.place;
     phone.openList(placeName(place),menuFor(place).map(item=>({item,name:item.name.toUpperCase(),note:'$'+item.price.toFixed(2)})),({item})=>{if(sim.buy(item,{street:true}))saveProgress();});
     return;
   }
   if(name==='shop') {
-    if(started&&!paused&&!traveling&&bootReady&&!cityView&&!mapOpen&&!phone?.open){
-      if(shopHere)phone?.openShop(shopHere);
-      else if(work.pedestrian())work.street();
-    }
+    if(shopHere)phone?.openShop(shopHere);
+    else if(work.pedestrian())work.street();
     return;
   }
   if(name==='phone') { if(started&&!paused&&!traveling&&bootReady&&!cityView&&!mapOpen)phone?.toggle();return; }
@@ -1096,7 +1095,7 @@ async function boot() {
   distantTraffic=createDistantTraffic({library:vehicleMeshes});scene.add(distantTraffic.group);
   sim=new Simulation(city);
   work=new Work({sim,phone:()=>phone,fronts:()=>fronts,hours:()=>gfx.hours,save:saveProgress,
-    guide:site=>{gameMap.setPin(site);gameMap.setOpen(true);},
+    guide:site=>{gameMap.setOpen(true);gameMap.showCity();gameMap.setPin(site);},
     pedestrian:()=>sim.player.mode==='walk'&&!sim.room?crowd?.closest(sim.player.x,sim.player.z,4):null,
     counter:()=>sim.room&&counterHere&&sim.room.place.id&&menuFor(sim.room.place).length?sim.room.place:null});
   restoreProgress();yaw=sim.player.angle;
