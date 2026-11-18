@@ -149,6 +149,10 @@ Each place near the player is given a street front: the stretch of its building'
 
 Shop fronts that belong to no registered place stay as they were, anonymous. The registers do not cover clothes shops, banks, laundromats, pharmacies without a beer licence or offices, so most of Fifth Avenue is still unnamed.
 
+## Search
+
+The search box in the city view finds three kinds of thing at once. A **street corner** ("53rd st and 6th ave", "53 & 6", "Fifty-third Street at Sixth Avenue", "6th ave / w 53rd, manhattan") is found in the street centrelines the route planner already holds: `local-search.js` reduces every spelling of a street to a direction, a name with its numbers as digits, and a kind, so ordinals, number words, abbreviations, a missing "West" and "Avenue of the Americas" all meet the same street; one letter wrong is forgiven. Where the same corner exists in two boroughs both are offered, or name the borough. A **business** is found by name in `dist/place-names.json`, a list of the 82,023 named places from the bundles (`scripts/build-place-search.mjs`, no network), nearest branches first, each with the street it is on. A **building address** still goes to NYC Planning's GeoSearch. Corners and businesses work offline; a street on its own gives its midpoint in each borough. Streets that the centreline files under another name (the Grand Concourse) are not found by their common one.
+
 ## Shops the registers do not list
 
 No city or state register lists a clothes shop, a bank or a laundromat. `scripts/build-shops.mjs` takes 12,296 of them in 37 kinds from OpenStreetMap, inside the city's boundary: clothes, banks, laundromats, gyms, phone shops, dry cleaners, jewellers, opticians, post offices, cinemas and so on. They get a front, a sign, opening hours and a room like any other place, and the phone finds them under MORE. Kinds a register already covers (delis, pharmacies, restaurants) are not taken, so nothing is counted twice. OpenStreetMap is mapped by volunteers and is uneven: Manhattan is dense, parts of the other boroughs sparse.

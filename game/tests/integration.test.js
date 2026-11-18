@@ -20,6 +20,7 @@ import { Landscape } from '../dist/landscape.js';
 import { RoadPilot } from '../dist/road-pilot.js';
 import { GameMap } from '../dist/game-map.js';
 import { createRoutePlanner } from '../dist/route-planner.js';
+import { createStreetIndex, createPlaceIndex, searchLocal, title } from '../dist/local-search.js';
 import { createGraphics } from '../dist/gfx.js';
 import { createStreetscape, ROAD_LIFT, SIDEWALK_LIFT } from '../dist/streetscape.js';
 import { createStreetLife } from '../dist/streetlife.js';
@@ -265,7 +266,7 @@ async function bootHarness({ stored = null, displayStored = null, unavailableSto
   const context = vm.createContext({
     ...globals,
     THREE: { ...THREE, WebGLRenderer: RendererStub },
-    createCar, createParkedCars, createDistantTraffic, createPerson, updateCarVisuals, Simulation, TRAFFIC_SIGHT, Input, HUD, CityAudio, GameMap, createRoutePlanner,
+    createCar, createParkedCars, createDistantTraffic, createPerson, updateCarVisuals, Simulation, TRAFFIC_SIGHT, Input, HUD, CityAudio, GameMap, createStreetIndex, createPlaceIndex, searchLocal, title, createRoutePlanner,
     createCityStream:(fullIndex,options)=>{
       assert.equal(fullIndex.stats.buildingFeatures,index.stats.buildingFeatures);
       return createCityStream(geometryIndex,options);

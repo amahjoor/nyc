@@ -1,6 +1,7 @@
 import * as THREE from './vendor/three.module.min.js';
 import { worldToGeographic } from './city-ground.js';
 import { searchAddresses } from './geocoder.js';
+import { parseQuery } from './local-search.js';
 
 const flatHeight = () => 0;
 const finiteHeight = (heightAt, x, z) => { const height=heightAt(x,z);return Number.isFinite(height)?height:0; };
@@ -34,7 +35,7 @@ export function intersectTerrainRay(ray, heightAt = flatHeight, maxDistance = 20
 }
 
 /** Address and map selections share the game's existing street-safe travel path. */
-export function createCityNavigation({ canvas, camera, input, bounds, onTravel, heightAt = flatHeight, onAddressSelected = () => {} }) {
+export function createCityNavigation({ canvas, camera, input, bounds, onTravel, heightAt = flatHeight, onAddressSelected = () => {}, searchLocal = () => [] }) {
   const $ = id => document.getElementById(id);
   let visible=false, traveling=false, picking=false, selected=null, dragging=null;
   let searching=false, searchEpoch=0, searchController=null;
@@ -110,22 +111,30 @@ export function createCityNavigation({ canvas, camera, input, bounds, onTravel, 
     cancelSearch();setPicking(false);clearSelection();
     $('address-results').replaceChildren();
     const epoch=searchEpoch, controller=new AbortController();searchController=controller;
-    searching=true;controls();$('address-status').textContent='Searching NYC addresses…';
+    searching=true;controls();$('address-status').textContent='Searching New York…';
     try{
-      const places=await searchAddresses($('address-input').value,{signal:controller.signal});
+      // Corners and businesses are found in the game's own data; building addresses by the city's search. Either may fail without the other.
+      const query=$('address-input').value;
+      const [local,remote]=await Promise.allSettled([Promise.resolve().then(()=>searchLocal(query)),searchAddresses(query,{signal:controller.signal})]);
+      if(epoch!==searchEpoch||!visible)return;
+      const found=local.status==='fulfilled'&&Array.isArray(local.value)?local.value:[],addresses=remote.status==='fulfilled'?remote.value:[];
+      if(remote.status==='rejected'&&!found.length)throw remote.reason;
+      // A corner is what was asked for when one was; a numbered address is a building first.
+      const corner=found.some(place=>place.kind==='corner'),first=corner?found:parseQuery(query).numbered?addresses:found,second=first===found?(corner?[]:addresses):found;
+      const places=[...first,...second].slice(0,8);
       // Aborting fetch alone cannot prevent a late or already parsed response
       // from replacing a newer search or a manual map selection.
       if(epoch!==searchEpoch||!visible)return;
-      $('address-status').textContent=places.length?'Choose the matching address and borough.':'No NYC address found. Include a building number and borough, or pick on the map.';
+      $('address-status').textContent=places.length?'Choose the one you mean.':'Nothing found. Try a corner (53rd & 6th), a business name, or an address with its borough.';
       for(const place of places){
         const button=document.createElement('button');button.type='button';button.className='address-result';
-        button.textContent=place.name+' · '+place.borough;
+        button.textContent=[place.name,place.what,place.detail,place.borough].filter(Boolean).join(' · ');
         button.addEventListener('click',()=>{
           if(traveling||!visible)return;
           setPicking(false);
           if(!select(place))return;
           onAddressSelected(place);updatePin();
-          $('address-results').replaceChildren();$('address-status').textContent='Address selected. Check the pin, then choose SPAWN HERE.';
+          $('address-results').replaceChildren();$('address-status').textContent='Selected. Check the pin, then choose SPAWN HERE.';
         });
         $('address-results').append(button);
       }
