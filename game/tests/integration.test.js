@@ -268,6 +268,7 @@ async function bootHarness({ stored = null, displayStored = null, unavailableSto
     ...globals,
     THREE: { ...THREE, WebGLRenderer: RendererStub },
     createCar, createParkedCars, createDistantTraffic, createPerson, updateCarVisuals, Simulation, TRAFFIC_SIGHT, Input, HUD, CityAudio, GameMap, createStreetIndex, createPlaceIndex, searchLocal, title, createPlaceLayer, createRoutePlanner,
+    lotsReady:async()=>false,
     createCityStream:(fullIndex,options)=>{
       assert.equal(fullIndex.stats.buildingFeatures,index.stats.buildingFeatures);
       return createCityStream(geometryIndex,options);

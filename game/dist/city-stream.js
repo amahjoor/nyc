@@ -1,6 +1,18 @@
 import * as THREE from './vendor/three.module.min.js';
 import { mercatorCoefficients, atlasProjectionGLSL } from './imagery-projection.js';
-import { chooseStyle, featureRandom, writeFacade, createFacadeScratch, applyFacadeShader, HEIGHT_UNIT } from './facade.js';
+import { chooseStyle, featureRandom, writeFacade, createFacadeScratch, applyFacadeShader, HEIGHT_UNIT, setLots } from './facade.js';
+import { createLots } from './lots.js';
+
+/**
+ * The tax-lot grid facades are chosen from, fetched once wherever buildings
+ * are decoded: on the page and in each background decoder. Resolves when it
+ * is in, or has failed, in which case facades go by size and place alone.
+ */
+let lotsLoading = null;
+export function lotsReady() {
+  if (typeof fetch !== 'function' || !/^https?:/.test(import.meta.url)) return Promise.resolve(false);
+  return lotsLoading ||= fetch(new URL('./lots.bin', import.meta.url)).then(response => response.ok ? response.arrayBuffer() : null).then(buffer => { setLots(createLots(buffer)); return Boolean(buffer); }).catch(() => false);
+}
 
 const EARTH_RADIUS = 6371008.8;
 const DEG = Math.PI / 180;

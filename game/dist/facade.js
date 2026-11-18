@@ -8,6 +8,8 @@
 // and fire escapes are drawn there, not modelled, so a million buildings cost
 // no extra triangles. Shapes stay surveyed; the dressing is an interpretation.
 
+import { lotStyle } from './lots.js';
+
 export const MATERIAL = { BRICK: 0, STONE: 1, CONCRETE: 2, GLASS: 3, IRON: 4, BROWNSTONE: 5, SIDING: 6 };
 
 const srgb = hex => {
@@ -89,6 +91,11 @@ export function timesSquare(x, z) {
 /** Dense attached housing, as opposed to free-standing houses. */
 const attachedHousing = (x, z) => within(x, z, 1800, -1500, 9500) || within(x, z, 5200, -13500, 5200);
 
+// When each building was built and what it is, where the city's tax lots say (lots.js). Until it is set, and
+// wherever nothing is recorded, a building's facade is chosen from its size and where it stands alone.
+let lots = null;
+export function setLots(next) { lots = next?.cells ? next : null; }
+
 /**
  * Choose a building type for a surveyed volume.
  * @param {{height:number, area:number, x:number, z:number, random:number, random2:number}} volume
@@ -102,7 +109,11 @@ export function chooseStyle({ height, area, x, z, random, random2 }) {
     return table.at(-1)[0];
   };
   let style;
-  if (height < 9.5) {
+  const lot = lots ? lots.at(x, z) : null;
+  // The old loft districts are lofts whatever the assessor now calls them: offices, shops and apartments have moved in.
+  const known = lot && lots && lofts && lot.era >= 1 && lot.era <= 3 && lot.use !== 1 && lot.use !== 9 && height >= 12 && height < 62 && random < .78 ? 'loft' : lotStyle(lot, { height, area, random });
+  if (known) style = s[known];
+  else if (height < 9.5) {
     if (area > 1100) style = s.industrial;
     else if (area > 320 && business + (lofts ? .5 : 0) < .2) style = pick([[s.industrial, 2], [s.house, 1]]);
     else style = attachedHousing(x, z) ? pick([[s.rowhouse, 3], [s.house, 1]]) : s.house;

@@ -5,7 +5,7 @@ import { Simulation, TRAFFIC_SIGHT } from './simulation.js';
 import { Input } from './input.js';
 import { HUD } from './hud.js';
 import { CityAudio } from './audio.js';
-import { createCityStream } from './city-stream.js';
+import { lotsReady, createCityStream } from './city-stream.js';
 import { createCityGround, worldToGeographic } from './city-ground.js';
 import { createStreetDetail } from './street-detail.js';
 import { Landscape } from './landscape.js';
@@ -915,6 +915,8 @@ function updateDirections(){
 async function boot() {
   const loadData=async file=>{const response=await fetch('./'+file,{signal:AbortSignal.timeout(20000)});if(!response.ok)throw new Error('The city data could not load. Reload to try again.');return response.json();};
   const [seed,index,streets,land]=await Promise.all(['city.json','city-index.json','road-index.json','boroughs.json'].map(loadData));
+  // What stands where, for dressing buildings decoded on the page itself; the background decoders fetch their own.
+  await lotsReady();
   cityIndex=index;roadIndex=streets;boroughs=land.boroughs;roadStream=createRoadStream(roadIndex);
   city={...seed,bounds:roadIndex.bounds,buildings:[],roads:[],boroughs,missionPoints:[],sampleSurface:(x,z,options)=>roadPilot?.sampleSurface(x,z,{...options,kind:'bridge'})??streetDetail?.sampleSurface(x,z,options)??roadPilot?.sampleSurface(x,z,{...options,kind:'ground'})??groundSurface(x,z),landscapeContact:(x,z,radius)=>landscape?.contactAt(x,z,radius)};
   $('load-text').textContent='CONNECTING TO NEW YORK…';
