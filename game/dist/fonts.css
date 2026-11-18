@@ -1,0 +1,53 @@
+/* Full and PostScript names let an installed face serve its original game role. */
+@font-face {
+  font-family: "Chalet Menu";
+  src: local("Chalet London Nineteen Sixty"), local("Chalet-LondonNineteenSixty");
+  font-weight: 400 500;
+}
+@font-face {
+  font-family: "Chalet Heading";
+  src: local("Chalet Comprime Cologne Sixty Scale"), local("ChaletComprime-CologneSixtyScale"),
+       local("Chalet Comprime Cologne Sixty"), local("ChaletComprime-CologneSixty");
+}
+@font-face {
+  font-family: "Jost";
+  src: url("./assets/fonts/jost.woff2") format("woff2");
+  font-weight: 100 900;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Barlow Condensed";
+  src: url("./assets/fonts/barlow-condensed-500.woff2") format("woff2");
+  font-weight: 400 500;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Barlow Condensed";
+  src: url("./assets/fonts/barlow-condensed-700.woff2") format("woff2");
+  font-weight: 600 900;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Passion One";
+  src: url("./assets/fonts/passion-one-black.woff2") format("woff2");
+  font-weight: 900;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Yellowtail";
+  src: url("./assets/fonts/yellowtail.woff2") format("woff2");
+  font-display: swap;
+}
+@font-face {
+  font-family: "Rye";
+  src: url("./assets/fonts/rye.woff2") format("woff2");
+  font-display: swap;
+}
+
+:root {
+  --ui: "Chalet Menu", Jost, Arial, sans-serif;
+  --heading: "Chalet Heading", "Barlow Condensed", "Arial Narrow", sans-serif;
+  --display: "Pricedown Black", "Pricedown", "Passion One", Impact, sans-serif;
+  --script: "SignPainter HouseScript", "SignPainter-HouseScript", "SignPainter", Yellowtail, cursive;
+  --title: "Legal Tender", Rye, Georgia, serif;
+}
