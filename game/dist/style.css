@@ -280,6 +280,13 @@
   .start-button { transition: none; }
 }
 
+/* The street map's layers: what kinds of place to show. */
+.game-map-layers{display:flex;align-items:center;gap:10px;margin:8px 0 10px}.game-map-places{display:flex;flex-wrap:wrap;gap:5px}
+.game-map-chip{border:1px solid #ffffff2e;background:#17252f;color:#d2d9d2;padding:6px 9px 6px 22px;font-size:8px;letter-spacing:1px;position:relative;cursor:pointer}
+.game-map-chip::before{content:"";position:absolute;left:8px;top:50%;width:8px;height:8px;margin-top:-4px;border-radius:50%;background:var(--chip,#fff);opacity:.45}
+.game-map-chip[aria-pressed="true"]{border-color:var(--chip,#fff);background:#0f171c;color:#fff}.game-map-chip[aria-pressed="true"]::before{opacity:1}
+.game-map-places-note{position:absolute;left:64px;top:9px;background:#17252fdb;padding:6px 8px;font-size:9px;color:#d2d9d2;pointer-events:none;max-width:70%}.game-map-places-note:empty{display:none}
+
 /* Type. Two faces, both under the SIL Open Font License (see assets/fonts):
    a heavy display face for titles, money and the speedometer, and a condensed
    one for everything else. The interface was sized for Arial, which is wider

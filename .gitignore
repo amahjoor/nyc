@@ -8,3 +8,6 @@ output/
 
 # Downloaded source assets (baked into game/dist by scripts; too large to commit)
 game/assets-src/
+
+# Chain logos fetched for a local build (scripts/build-logos.mjs): trademarks of their owners, not redistributed.
+game/dist/logos/

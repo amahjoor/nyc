@@ -9,6 +9,8 @@
 // no extra triangles. Shapes stay surveyed; the dressing is an interpretation.
 
 import { airports } from './airport-data.js';
+import { lotStyle } from './lots.js';
+import { landmarkStyle, paletteFor } from './landmarks.js';
 
 export const MATERIAL = { BRICK: 0, STONE: 1, CONCRETE: 2, GLASS: 3, IRON: 4, BROWNSTONE: 5, SIDING: 6 };
 
@@ -107,6 +109,14 @@ function airportBuilding(x, z) {
     return airport.buildings.find(({rings}) => insideRing(x, z, rings[0]) && !rings.slice(1).some(ring => insideRing(x,z,ring)));
   }
 }
+// When each building was built and what it is, where the city's tax lots say (lots.js). Until it is set, and
+// wherever nothing is recorded, a building's facade is chosen from its size and where it stands alone.
+let lots = null;
+export function setLots(next) { lots = next?.cells ? next : null; }
+// The buildings the Landmarks Commission records, each with its type and what it is faced with (landmarks.js).
+let landmarks = null;
+export function setLandmarks(next) { landmarks = next?.count ? next : null; }
+
 /**
  * Choose a building type for a surveyed volume.
  * @param {{height:number, area:number, x:number, z:number, random:number, random2:number}} volume
@@ -120,8 +130,14 @@ export function chooseStyle({ height, area, x, z, random, random2 }) {
     return table.at(-1)[0];
   };
   let style;
+  const lot = lots ? lots.at(x, z) : null;
+  // The old loft districts are lofts whatever the assessor now calls them: offices, shops and apartments have moved in.
+  // A building in the Landmarks Commission's record is what the record says it is.
+  const record = landmarks ? landmarks.at(x, z) : null;
+  const known = landmarkStyle(record, { height }) || (lot && lots && lofts && lot.era >= 1 && lot.era <= 3 && lot.use !== 1 && lot.use !== 9 && height >= 12 && height < 62 && random < .78 ? 'loft' : lotStyle(lot, { height, area, random }));
   const airport = airportBuilding(x, z);
   if (airport) style = airport.terminal ? s.curtain : s.industrial;
+  else if (known) style = s[known];
   else if (height < 9.5) {
     if (area > 1100) style = s.industrial;
     else if (area > 320 && business + (lofts ? .5 : 0) < .2) style = pick([[s.industrial, 2], [s.house, 1]]);
@@ -145,7 +161,9 @@ export function chooseStyle({ height, area, x, z, random, random2 }) {
     style = pick([[s.curtain, 5], [s.deco, business > .3 ? 3 : 1], [s.slab, 3], [s.supertall, 1]]);
   } else style = pick([[s.supertall, 6], [s.curtain, 2], [s.deco, height < 330 ? 2.5 : 0]]);
   const definition = STYLES[style];
-  let flags = Math.floor(random2 * 4) & FLAG.PALETTE;
+  // Its walls are the colour of what the record says it is faced with; otherwise one of the style's four.
+  const faced = record ? paletteFor(definition.palettes, record.facing) : -1;
+  let flags = (faced >= 0 ? faced : Math.floor(random2 * 4)) & FLAG.PALETTE;
   // Derive independent draws from the second number.
   const third = (random2 * 37.719) % 1, fourth = (random2 * 91.337) % 1;
   // Shops line busy streets; quiet residential blocks have few.
@@ -604,7 +622,8 @@ NycFacade nycFacade( vec4 facade, vec4 styleIn, vec3 wallNormal, float facing, v
 			float open = step( fract( shopSeed * 13.0 ), 0.72 );
 			// Across the shop from its left as seen from the street, and up its sign band.
 			float across = 1.0 - fract( ( cellU + shopShift ) * 0.5 ), shopWidth = 2.0 * bayWidth, bandHeight = 0.18 * storeyHeight;
-			float ink = 0.0, card = 0.0, cardInk = 0.0, neon = 0.0, pole = 0.0;
+			float ink = 0.0, card = 0.0, cardInk = 0.0, neon = 0.0, pole = 0.0, logo = 0.0;
+			vec3 logoColor = vec3( 0.0 );
 			if ( tenanted ) {
 				signColor = tenantSign.rgb; open = tenantSign.a;
 				// The lettering keeps its proportions whatever the shape of the band.
@@ -613,7 +632,12 @@ NycFacade nycFacade( vec4 facade, vec4 styleIn, vec3 wallNormal, float facing, v
 				vec2 q = ( vec2( across, ( height - 0.77 ) / 0.18 ) - 0.5 ) * stretch + 0.5;
 				vec2 spread = vec2( pixel.x / shopWidth, pixel.y / bandHeight ) * stretch * tenantLabel.zw;
 				float lettered = step( 0.0, q.x ) * step( q.x, 1.0 ) * step( 0.0, q.y ) * step( q.y, 1.0 ) * step( 0.0001, tenantLabel.z );
-				ink = textureGrad( uNycPlaceAtlas, tenantLabel.xy + clamp( q, 0.0, 1.0 ) * tenantLabel.zw, vec2( spread.x, 0.0 ), vec2( 0.0, spread.y ) ).r * lettered * tenantMiddle * signBand;
+				vec4 lettering = textureGrad( uNycPlaceAtlas, tenantLabel.xy + clamp( q, 0.015, 0.985 ) * tenantLabel.zw, vec2( spread.x, 0.0 ), vec2( 0.0, spread.y ) );
+				// A chain's logo is kept in its own colours; anything else is ink, coloured as the sign's lettering.
+				float isLogo = step( 7.5, tenantAt.w );
+				tenantAt.w = mod( tenantAt.w, 8.0 );
+				ink = lettering.r * lettered * tenantMiddle * signBand * ( 1.0 - isLogo );
+				logo = isLogo * lettered * tenantMiddle * signBand; logoColor = pow( lettering.rgb, vec3( 2.2 ) );
 				// In the window: the health department's grade card, and OPEN in neon where there is a bar.
 				vec2 glyph = uNycPlaceGlyphs.zw * vec2( 0.25, 1.0 );
 				vec2 cardAt = vec2( ( across - 0.075 ) / 0.05, ( height - 0.42 ) / ( 0.36 / storeyHeight ) );
@@ -628,7 +652,7 @@ NycFacade nycFacade( vec4 facade, vec4 styleIn, vec3 wallNormal, float facing, v
 				float poleAt = ( across - 0.012 ) / 0.03;
 				pole = step( 0.5, tenantAt.w ) * step( tenantAt.w, 1.5 ) * tenantMiddle * step( 0.0, poleAt ) * step( poleAt, 1.0 ) * nycBox( height, 0.3, 0.68, pixel.y / storeyHeight ) * close;
 			}
-			vec3 bandColor = mix( signColor, tenantInk.rgb, ink );
+			vec3 bandColor = mix( mix( signColor, tenantInk.rgb, ink ), logoColor, logo );
 			vec3 base = mix( wall * 0.55, vec3( 0.07, 0.075, 0.08 ), 0.6 );
 			result.albedo = mix( base, bandColor, signBand );
 			result.roughness = mix( 0.55, 0.7, signBand );
@@ -653,7 +677,18 @@ NycFacade nycFacade( vec4 facade, vec4 styleIn, vec3 wallNormal, float facing, v
 			result.emissive += poleColor * ( pole * lights * 0.5 ) + vec3( 1.0, 0.08, 0.06 ) * ( neon * mix( 0.5, 1.6, lights ) );
 			result.albedo = mix( result.albedo, vec3( 0.5, 0.03, 0.03 ), neon );
 			glass *= ( 1.0 - card ) * ( 1.0 - pole );
-			frame = ( 1.0 - nycPulse( cellU * 2.0, 0.02, 0.96, cellPixel.x * 2.0 ) ) * close;
+			// The way in: a glazed door in a dark frame where the place's front is, which is where walking into it goes inside.
+			float doorway = 0.0;
+			if ( tenanted ) {
+				float doorOff = dot( nycFacadeWorld.xz - tenantAt.xy, along.xz );
+				doorway = step( abs( doorOff ), 0.62 ) * step( v, 2.3 ) * close;
+				float leaf = step( abs( doorOff ), 0.5 ) * step( 0.1, v ) * step( v, 2.16 );
+				float handle = step( 0.3, doorOff ) * step( doorOff, 0.36 ) * step( 0.92, v ) * step( v, 1.28 );
+				result.albedo = mix( result.albedo, mix( vec3( 0.045, 0.045, 0.05 ), vec3( 0.6, 0.6, 0.58 ), handle ), doorway );
+				result.metalness = mix( result.metalness, 0.6, doorway * handle );
+				glass = mix( glass, leaf * ( 1.0 - handle ) * ( 1.0 - shutter ), doorway );
+			}
+			frame = ( 1.0 - nycPulse( cellU * 2.0, 0.02, 0.96, cellPixel.x * 2.0 ) ) * close * ( 1.0 - doorway );
 			pane = vec2( shopIndex, -1.0 ); roomAt = vec2( fract( ( cellU + shopShift ) * 0.5 ), seen.y / 0.78 );
 			roomDepth = 9.0; roomHeight = storeyHeight * 0.78;
 			litChance = open; litBoost = 1.0; warmth = mix( 0.35, 0.8, fract( shopSeed * 5.0 ) );

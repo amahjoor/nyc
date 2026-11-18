@@ -23,18 +23,20 @@ export const MAP_CATEGORIES = [
   { id: 'stay', label: 'HOTELS & SHOWS', colour: '#ffd27a', groups: ['hotel'] },
   { id: 'public', label: 'SCHOOLS & PUBLIC', colour: '#8fa0ff', groups: ['public'] },
   { id: 'shops', label: 'OTHER SHOPS', colour: '#d0d9d5', groups: ['shop', 'stand'] },
+  // Not a kind of business: the city's individual landmarks, by name (landmarks.json).
+  { id: 'landmark', label: 'LANDMARKS', colour: '#ffffff' },
 ];
 // Each kind of place belongs to the first category that names it, or its group.
 const CATEGORY_OF = KINDS.map(kind => { const found = MAP_CATEGORIES.findIndex(category => category.kinds?.includes(kind.id)); return found >= 0 ? found : MAP_CATEGORIES.findIndex(category => category.groups?.includes(kind.group)); });
 /** The category a kind of place is shown under, by the kind's id. */
 export const categoryOf = kind => { const index = KINDS.findIndex(entry => entry.id === kind); return index >= 0 && CATEGORY_OF[index] >= 0 ? MAP_CATEGORIES[CATEGORY_OF[index]].id : null; };
 
-const CELL = 250;
+const CELL = 250, LANDMARK = MAP_CATEGORIES.findIndex(category => category.id === 'landmark');
 /** `data` is place-names.json: { kinds, places: [[name, x, z, kind, borough]] }. */
 export function createPlaceLayer(data = null) {
   const grid = new Map(), totals = new Array(MAP_CATEGORIES.length).fill(0), places = [];
   for (const [name, x, z, kind] of data?.places || []) {
-    const category = CATEGORY_OF[kind];
+    const category = data.kinds[kind] === 'Landmark' ? LANDMARK : CATEGORY_OF[kind];
     if (category === undefined || category < 0) continue;
     const place = { name, x, z, kind: data.kinds[kind] || '', category };
     places.push(place); totals[category]++;
@@ -62,19 +64,19 @@ export function createPlaceLayer(data = null) {
     },
     /**
      * The same places gathered into squares `size` metres across: one
-     * { x, z, count, category } per square that holds any, placed at the
-     * middle of its places and coloured by the commonest category in it.
+     * { x, z, count, category } for each category in each square that holds
+     * any of it, placed at the middle of those places.
      */
     gathered(bounds, size, categories = null) {
       const show = wanted(categories), squares = new Map();
       each(bounds, place => {
         if (!show[place.category]) return;
-        const key = `${Math.floor(place.x / size)},${Math.floor(place.z / size)}`;
+        const key = `${Math.floor(place.x / size)},${Math.floor(place.z / size)},${place.category}`;
         let square = squares.get(key);
-        if (!square) squares.set(key, square = { x: 0, z: 0, count: 0, by: new Array(MAP_CATEGORIES.length).fill(0) });
-        square.x += place.x; square.z += place.z; square.count++; square.by[place.category]++;
+        if (!square) squares.set(key, square = { x: 0, z: 0, count: 0, category: place.category });
+        square.x += place.x; square.z += place.z; square.count++;
       });
-      return [...squares.values()].map(square => ({ x: square.x / square.count, z: square.z / square.count, count: square.count, category: MAP_CATEGORIES[square.by.indexOf(Math.max(...square.by))].id }));
+      return [...squares.values()].map(square => ({ x: square.x / square.count, z: square.z / square.count, count: square.count, category: MAP_CATEGORIES[square.category].id }));
     },
     /** The place of the chosen categories nearest `point`, within `radius` metres, or null. */
     nearest(point, radius = 40, categories = null) {
@@ -98,13 +100,17 @@ export function placeMarks(layer, view, categories = null) {
   const scale = view.width / view.span, halfZ = view.span * view.height / view.width / 2;
   const bounds = { minX: view.x - view.span / 2, maxX: view.x + view.span / 2, minZ: view.z - halfZ, maxZ: view.z + halfZ };
   const at = place => ({ px: (place.x - view.x) * scale + view.width / 2, py: (place.z - view.z) * scale + view.height / 2 });
-  if (view.span > 1400) {
+  // Few enough to tell apart, they are shown one by one however far off; otherwise wide views gather them.
+  const few = view.span <= 9000 ? layer.within(bounds, categories, 351) : null;
+  if (view.span > 1400 && !(few && few.length <= 350)) {
     // About forty squares across the map, never finer than the grid the places are kept in.
-    const size = Math.max(CELL, Math.ceil(view.span / 40 / CELL) * CELL), squares = layer.gathered(bounds, size, categories), most = squares.reduce((max, square) => Math.max(max, square.count), 1);
-    return { mode: 'gathered', marks: squares.map(square => ({ ...at(square), radius: Math.max(2, Math.sqrt(square.count / most) * size * scale * .55), colour: COLOUR[square.category], label: '', count: square.count })) };
+    const size = Math.max(CELL, Math.ceil(view.span / 40 / CELL) * CELL), squares = layer.gathered(bounds, size, categories), most = {};
+    // Each kind is sized against its own busiest square, so where barbers gather shows beside where restaurants do; the bigger discs are drawn first.
+    for (const square of squares) most[square.category] = Math.max(most[square.category] || 1, square.count);
+    return { mode: 'gathered', marks: squares.sort((a, b) => b.count / most[b.category] - a.count / most[a.category]).map(square => ({ ...at(square), radius: Math.max(2, Math.min(Math.sqrt(square.count / most[square.category]) * size * scale * .55, 3 + 2.4 * Math.sqrt(square.count))), colour: COLOUR[square.category], label: '', count: square.count })) };
   }
   const named = view.span <= 450;
-  return { mode: 'places', marks: layer.within(bounds, categories, 2500).map(place => ({ ...at(place), radius: named ? 4 : 3, colour: COLOUR[place.category], label: named ? place.name : '', count: 1 })) };
+  return { mode: 'places', marks: (few && few.length <= 350 ? few : layer.within(bounds, categories, 2500)).map(place => ({ ...at(place), radius: named ? 4 : 3, colour: COLOUR[place.category], label: named ? place.name : '', count: 1 })) };
 }
 
 /** Draw placeMarks() on a 2D canvas context. */
@@ -114,7 +120,7 @@ export function drawPlaceMarks(context, { mode, marks }) {
     context.globalAlpha = mode === 'gathered' ? .55 : .95; context.fillStyle = mark.colour;
     context.beginPath(); context.arc(mark.px, mark.py, mark.radius, 0, Math.PI * 2); context.fill();
   }
-  context.globalAlpha = 1; context.font = '600 10px "Barlow Condensed", Arial, sans-serif'; context.textBaseline = 'middle';
+  context.globalAlpha = 1; context.font = '600 10px "Barlow Condensed", Arial, sans-serif'; context.textBaseline = 'middle'; context.textAlign = 'left';
   // Names are written where there is room: one that would run over another already written is left out.
   const written = [];
   for (const mark of marks) {

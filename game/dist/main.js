@@ -8,7 +8,7 @@ import { createPoliceScene } from './police-scene.js';
 import { Input } from './input.js';
 import { HUD } from './hud.js';
 import { CityAudio } from './audio.js';
-import { createCityStream } from './city-stream.js';
+import { lotsReady, createCityStream } from './city-stream.js';
 import { createCityGround, worldToGeographic } from './city-ground.js';
 import { createStreetDetail } from './street-detail.js';
 import { Landscape } from './landscape.js';
@@ -18,6 +18,7 @@ import { createCityNavigation } from './city-navigation.js';
 import { GameMap } from './game-map.js';
 import { createRoutePlanner } from './route-planner.js';
 import { createStreetIndex, createPlaceIndex, searchLocal, title } from './local-search.js';
+import { createPlaceLayer } from './map-places.js';
 import { createGraphics } from './gfx.js';
 import { createStreetscape } from './streetscape.js';
 import { createStreetLife } from './streetlife.js';
@@ -818,6 +819,29 @@ function setView(mode){
   $('touch-controls').hidden=cityView||!started||!matchMedia('(pointer:coarse)').matches;
   updateStreaming(world.getStatus());
 }
+// Chain logos, where they have been fetched to this machine (scripts/build-logos.mjs); they are not part of the game.
+// Each is given the plain ground it reads on: its own, if it has no clear parts; white, or near-black for a pale logo.
+async function loadLogos(){
+  const logos=new Map(),response=await fetch('./logos/index.json').catch(()=>null);
+  if(!response?.ok)return logos;
+  const index=await response.json(),scratch=document.createElement('canvas'),context=scratch.getContext('2d',{willReadFrequently:true});
+  await Promise.all(Object.entries(index.logos||{}).map(([key,entry])=>new Promise(resolve=>{
+    const image=new Image();
+    image.onload=()=>{
+      try{
+        const w=scratch.width=64,h=scratch.height=Math.max(1,Math.round(64*image.height/image.width));
+        context.clearRect(0,0,w,h);context.drawImage(image,0,0,w,h);
+        const pixels=context.getImageData(0,0,w,h).data;let light=0,solid=0,clear=0;
+        for(let i=0;i<pixels.length;i+=4){if(pixels[i+3]<40){clear++;continue;}solid++;light+=(pixels[i]*.299+pixels[i+1]*.587+pixels[i+2]*.114)/255;}
+        const hex=i=>'#'+[0,1,2].map(k=>pixels[i+k].toString(16).padStart(2,'0')).join('');
+        logos.set(key,{image,width:image.width,height:image.height,background:clear<pixels.length/4*.02?hex(0):light/Math.max(1,solid)>.72?'#17191b':'#ffffff'});
+      }catch{}
+      resolve();
+    };
+    image.onerror=resolve;image.src='./logos/'+entry.file;
+  })));
+  return logos;
+}
 // Through the door of a place and into its room. Returns whether there was a room to go into.
 function goIn(front){
     const room=planRoom(front,(x,z)=>Boolean(footprints.at(x,z)));
@@ -848,11 +872,20 @@ function goIn(front){
 // Corners and businesses, found in the game's own data. The street index is made from the route planner's roads the
 // first time something is searched for, and the list of place names is fetched then too.
 let streetIndex=null, placeIndex=null, placeIndexReady=null;
+// The citywide list of place names is fetched once, the first time a search or the map's layers ask for it.
+function loadPlaceNames(){
+  const read=file=>fetch('./'+file,{signal:AbortSignal.timeout(30000)}).then(response=>response.ok?response.json():null);
+  placeIndexReady||=Promise.all([read('place-names.json'),read('landmarks.json').catch(()=>null)]).then(([data,named])=>{
+    // The city's individual landmarks are searched and mapped by name with everything else.
+    if(data&&named){const kind=data.kinds.length;data.kinds.push('Landmark');for(const [name,x,z] of named.landmarks)data.places.push([name,x,z,kind,0]);}
+    placeIndex=createPlaceIndex(data);gameMap?.setPlaces(createPlaceLayer(data));
+  }).catch(()=>{placeIndexReady=null;});
+  return placeIndexReady;
+}
 async function findLocally(query){
   const planner=await plannerReady;
   if(planner&&!streetIndex)streetIndex=createStreetIndex(planner.roads);
-  placeIndexReady||=fetch('./place-names.json',{signal:AbortSignal.timeout(30000)}).then(response=>response.ok?response.json():null).then(data=>{placeIndex=createPlaceIndex(data);}).catch(()=>{placeIndexReady=null;});
-  await placeIndexReady;
+  await loadPlaceNames();
   const found=searchLocal(query,{streets:streetIndex,places:placeIndex,near:sim?{x:sim.player.x,z:sim.player.z}:null});
   // Several branches of one name are told apart by the street each is on.
   for(const place of found)if(place.kind==='place'&&planner){const road=planner.snap({x:place.x,z:place.z},{maxSnapDistance:300});if(road)place.detail=title(road.name);}
@@ -1017,6 +1050,8 @@ function updateDirections(){
 async function boot() {
   const loadData=async file=>{const response=await fetch('./'+file,{signal:AbortSignal.timeout(20000)});if(!response.ok)throw new Error('The city data could not load. Reload to try again.');return response.json();};
   const [seed,index,streets,land]=await Promise.all(['city.json','city-index.json','road-index.json','boroughs.json'].map(loadData));
+  // What stands where, for dressing buildings decoded on the page itself; the background decoders fetch their own.
+  await lotsReady();
   cityIndex=index;roadIndex=streets;boroughs=land.boroughs;roadStream=createRoadStream(roadIndex);
   city={...seed,bounds:roadIndex.bounds,buildings:[],roads:[],boroughs,missionPoints:[],sampleSurface:(x,z,options)=>roadPilot?.sampleSurface(x,z,{...options,kind:'bridge'})??streetDetail?.sampleSurface(x,z,options)??roadPilot?.sampleSurface(x,z,{...options,kind:'ground'})??groundSurface(x,z),landscapeContact:(x,z,radius)=>landscape?.contactAt(x,z,radius)};
   $('load-text').textContent='CONNECTING TO NEW YORK…';
@@ -1050,6 +1085,7 @@ async function boot() {
   sim.setActiveCity({signalHints});
   props=createStreetProps({scene,heightAt:groundHeight});
   storefronts=createStorefronts();
+  loadLogos().then(logos=>{if(logos.size)storefronts.setLogos(logos);}).catch(()=>{});
   // The registers' places, and the shops they do not list (OpenStreetMap), read as one.
   const registerPlaces=createPlaceSource({load:url=>loadData(url.replace(/^\.\//,''))}),otherShops=createPlaceSource({load:url=>loadData(url.replace(/^\.\//,'')),prefix:'o'});
   placeSource=joinPlaceSources(registerPlaces,otherShops);
@@ -1131,7 +1167,7 @@ async function boot() {
   }).catch(()=>{$('road-reconstruction-status').textContent='Road image review unavailable. Surveyed surfaces remain active.';});
   avatar=createPerson(0xd7774e,{courier:true});scene.add(avatar);marker=createMissionMarker();enterHint=createEnterHint();policeScene=createPoliceScene(scene,(x,z)=>groundHeight(x,z));
   hud=new HUD(city);applyQuality();
-  gameMap=new GameMap({city,searchLocal:findLocally,onPin:clearDirections,onRoute:requestDirections,
+  gameMap=new GameMap({city,searchLocal:findLocally,onPlacesWanted:loadPlaceNames,onPin:clearDirections,onRoute:requestDirections,
     onSpawn:pin=>travel({...pin,exact:true}),
     onOpenChange:open=>{mapOpen=open;input.clear();input.lookDelta=0;input.lookVertical=0;if(!open)canvas.focus();}});
   hud.attachMap(gameMap);
@@ -1142,7 +1178,7 @@ async function boot() {
   }).catch(()=>null);
   const b=city.bounds;camera.position.set((b.minX+b.maxX)/2-14000,44000,(b.minZ+b.maxZ)/2+32000);
   navigation=createCityNavigation({canvas,camera,input,bounds:city.bounds,heightAt:terrainHeight,onTravel:travel,onDestinationSelected:focusCityDestination,getPresets:cityPresets,searchLocal:findLocally});
-  window.nycGame={graphics:gfx,get streetscape(){return streetscape;},get streetLife(){return streetLife;},get parkedCars(){return parkedCars;},get distantTraffic(){return distantTraffic;},get world(){return world;},get simulation(){return sim;},get signs(){return signs;},get crowd(){return crowd;},get props(){return props;},get places(){return placeSource;},get storefronts(){return storefronts;},get fronts(){return fronts;},get phone(){return phone;},get fleet(){return fleet;},get subway(){return subway;},get buses(){return buses;},get sheds(){return sheds;},get dining(){return dining;},get standMesh(){return standMesh;},findLocally,get bikeShare(){return bikeShare;},get bikeDocks(){return bikeDocks;},get diningMesh(){return diningMesh;},get shedMesh(){return shedMesh;},get busStops(){return busStops;},get demographics(){return demographics;},get subwayStairs(){return subwayStairs;},get cityLife(){return cityLife;},heightAt:(x,z)=>terrainHeight(x,z),setView:view=>{viewOverride=view&&Array.isArray(view.position)&&Array.isArray(view.target)?view:null;},getState:()=>({time:gfx.clock,player:{...sim.player},heat:sim.heat,health:sim.health,mission:{...sim.mission},cash:sim.cash,deliveries:sim.deliveries,cars:sim.cars.length,parkedCars:sim.cars.filter(car=>car._kerb).length,buildings:buildings.length,totalBuildings:cityIndex.stats.buildingFeatures,stream:world.getStatus(),ground:ground.getStatus(),streetDetail:streetDetail?.getStatus()||null,streetscape:streetscape?.getStatus()||null,landscape:landscape?.getStatus()||null,reconstruction:reconstructionReview?{model:reconstructionReview.model,summary:reconstructionReview.summary}:null,roadReconstruction:roadReconstructionReview?{model:roadReconstructionReview.model,summary:roadReconstructionReview.summary}:null,roadPilot:roadPilot?roadPilot.getStatus():{ready:false,loading:Boolean(roadPilotLoading),error:roadPilotError},navigation:navigation.getState(),map:gameMap.getState(),routeGuidance,cityView,aerialView,firstPersonView:firstPersonActive(),traveling,bootReady,shadows:{enabled:shadowsEnabled,active:renderer.shadowMap.enabled},drawCalls:renderer.info.render.calls,triangles:renderer.info.render.triangles,started,paused})};
+  window.nycGame={graphics:gfx,get streetscape(){return streetscape;},get streetLife(){return streetLife;},get parkedCars(){return parkedCars;},get distantTraffic(){return distantTraffic;},get world(){return world;},get simulation(){return sim;},get signs(){return signs;},get crowd(){return crowd;},get props(){return props;},get places(){return placeSource;},get storefronts(){return storefronts;},get fronts(){return fronts;},get phone(){return phone;},get fleet(){return fleet;},get subway(){return subway;},get buses(){return buses;},get sheds(){return sheds;},get dining(){return dining;},get standMesh(){return standMesh;},get map(){return gameMap;},findLocally,get bikeShare(){return bikeShare;},get bikeDocks(){return bikeDocks;},get diningMesh(){return diningMesh;},get shedMesh(){return shedMesh;},get busStops(){return busStops;},get demographics(){return demographics;},get subwayStairs(){return subwayStairs;},get cityLife(){return cityLife;},heightAt:(x,z)=>terrainHeight(x,z),setView:view=>{viewOverride=view&&Array.isArray(view.position)&&Array.isArray(view.target)?view:null;},getState:()=>({time:gfx.clock,player:{...sim.player},heat:sim.heat,health:sim.health,mission:{...sim.mission},cash:sim.cash,deliveries:sim.deliveries,cars:sim.cars.length,parkedCars:sim.cars.filter(car=>car._kerb).length,buildings:buildings.length,totalBuildings:cityIndex.stats.buildingFeatures,stream:world.getStatus(),ground:ground.getStatus(),streetDetail:streetDetail?.getStatus()||null,streetscape:streetscape?.getStatus()||null,landscape:landscape?.getStatus()||null,reconstruction:reconstructionReview?{model:reconstructionReview.model,summary:reconstructionReview.summary}:null,roadReconstruction:roadReconstructionReview?{model:roadReconstructionReview.model,summary:roadReconstructionReview.summary}:null,roadPilot:roadPilot?roadPilot.getStatus():{ready:false,loading:Boolean(roadPilotLoading),error:roadPilotError},navigation:navigation.getState(),map:gameMap.getState(),routeGuidance,cityView,aerialView,firstPersonView:firstPersonActive(),traveling,bootReady,shadows:{enabled:shadowsEnabled,active:renderer.shadowMap.enabled},drawCalls:renderer.info.render.calls,triangles:renderer.info.render.triangles,started,paused})};
   requestAnimationFrame(frame);
   const [roads]=await Promise.all([roadStream.loadAround(seed.spawn),world.prepareAt(seed.spawn,300),landscapeReady]);
   sim.setActiveCity({roads,buildings,isReadyAt:(x,z,radius)=>world.isReadyAt(x,z,radius),missionPoints:destinationsFor(roads,seed.spawn)},{spawn:seed.spawn});city=sim.city;yaw=sim.player.angle;
