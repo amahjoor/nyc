@@ -290,3 +290,7 @@ body.ending-wasted #hud, body.ending-wasted #mission-panel, body.ending-wasted #
 @keyframes ending-band { from { opacity: 0 } to { opacity: 1 } }
 @keyframes ending-word { from { opacity: 0; transform: scale(1.7); filter: blur(10px) } to { opacity: 1; transform: none; filter: none } }
 @media (prefers-reduced-motion: reduce) { .ending, .ending span { animation-duration: .01s !important; animation-delay: 0s !important } #world { transition: none } }
+
+#aim-dot{position:fixed;z-index:3;top:50%;left:50%;width:5px;height:5px;transform:translate(-50%,-50%);border-radius:50%;background:#fff;box-shadow:0 0 0 1px #16191c;pointer-events:none}
+.touch-actions{flex-wrap:wrap;justify-content:flex-end;max-width:165px}
+.touch-actions button[aria-pressed="true"]{border-color:var(--orange);color:var(--orange)}

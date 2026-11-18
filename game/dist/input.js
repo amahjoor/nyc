@@ -1,6 +1,6 @@
 /** Input is sampled each physics frame; one-shot actions run on key-down edges. */
 export class Input {
-  constructor(canvas, action, handleInterfaceKey = () => false) {
+  constructor(canvas, action, handleInterfaceKey = () => false, weaponControls = () => false) {
     this.keys = new Set();
     this.touch = new Set();
     this.lookDelta = 0;
@@ -9,7 +9,8 @@ export class Input {
     this._pointerLookEnabled = true;
     this.padButtons = [];
     this.action = action;
-    const actions = {KeyE:'interact',KeyN:'job',KeyZ:'cash',KeyR:'recover',KeyC:'camera',KeyB:'perspective',KeyV:'view',KeyM:'map',ArrowUp:'phone',KeyF:'fight',KeyG:'shop',KeyH:'horn',KeyT:'time',Escape:'pause'};
+    this.weaponControls = weaponControls;
+    const actions = {KeyE:'interact',KeyN:'job',KeyZ:'cash',KeyR:'reloadOrRecover',KeyC:'camera',KeyB:'perspective',KeyV:'view',KeyM:'map',ArrowUp:'phone',KeyF:'fight',KeyQ:'kick',KeyX:'draw',KeyG:'shop',KeyH:'horn',KeyT:'time',Escape:'pause'};
     window.addEventListener('keydown', e => {
       const interfaceHandled = handleInterfaceKey(e);
       if (['INPUT','TEXTAREA','SELECT'].includes(e.target.tagName)) return;
@@ -24,15 +25,25 @@ export class Input {
     canvas.addEventListener('pointerdown', e => {
       if (!this.pointerLookEnabled) return;
       this.dragging = true;
-      this._press = { id: e.pointerId, x: e.clientX, y: e.clientY };
+      this._press = (e.button??0)===0 ? { id:e.pointerId, x:e.clientX, y:e.clientY } : null;
       this.pointerX = e.clientX;
       this.pointerY = e.clientY;
       canvas.setPointerCapture(e.pointerId);
     });
+    // Pointer events describe the whole mouse. Mouse button events also fire
+    // when the primary button is pressed while the secondary one is held.
+    canvas.addEventListener('mousedown', e => {
+      if (!this.pointerLookEnabled || !weaponControls()) return;
+      if (e.button===2) {this.mouseAim=true;this._press=null;}
+      if (e.button===0 && this.mouseAim) {this._press=null;action('fire');}
+    });
+    window.addEventListener('mouseup', e => {if(e.button===2)this.mouseAim=false;});
+    canvas.addEventListener('contextmenu', e => {if(this.pointerLookEnabled && weaponControls())e.preventDefault();});
     canvas.addEventListener('pointermove', e => {
       if (!this.pointerLookEnabled || !this.dragging) return;
       this.lookDelta -= (e.clientX - this.pointerX) * .005;
       this.lookVertical += (e.clientY - this.pointerY) * .003;
+      if (this._press && Math.hypot(e.clientX-this._press.x,e.clientY-this._press.y)>=7) this._press=null;
       this.pointerX = e.clientX;
       this.pointerY = e.clientY;
     });
@@ -44,13 +55,14 @@ export class Input {
       if (!this._pointerLookEnabled || !press || e.pointerId !== press.id) return;
       if (Math.hypot(e.clientX - press.x, e.clientY - press.y) < 7) this.action('fight');
     });
-    for (const event of ['pointercancel','lostpointercapture']) canvas.addEventListener(event, () => { this.dragging = false; this._press = null; });
+    for (const event of ['pointercancel','lostpointercapture']) canvas.addEventListener(event, () => { this.dragging = false; this._press = null; this.mouseAim=false; });
     for (const button of document.querySelectorAll('[data-control]')) {
       const name = button.dataset.control;
       button.addEventListener('pointerdown', e => { e.preventDefault(); button.setPointerCapture(e.pointerId); this.touch.add(name); button.classList.add('pressed'); });
       for (const event of ['pointerup','pointercancel','lostpointercapture']) button.addEventListener(event, () => { this.touch.delete(name); button.classList.remove('pressed'); });
     }
   }
+  get aiming() { return this.weaponControls() && Boolean(this.mouseAim || this.padAim || this.touch.has('aim')); }
   get pointerLookEnabled() { return this._pointerLookEnabled; }
   set pointerLookEnabled(enabled) {
     enabled = Boolean(enabled);
@@ -60,12 +72,13 @@ export class Input {
       // Map selection can take ownership mid-drag. Discard queued pointer
       // movement so returning to the street cannot rotate the camera later.
       this.dragging = false;
+      this.mouseAim = false;
       this._press = null;
       this.lookDelta = 0;
       this.lookVertical = 0;
     }
   }
-  clear() { this.keys.clear(); this.touch.clear(); this.dragging = false; this._press = null; }
+  clear() { this.keys.clear(); this.touch.clear(); this.dragging = false; this._press = null; this.mouseAim=false;this.padAim=false; }
   sample(cameraYaw, dt) {
     const has = (...keys) => keys.some(key => this.keys.has(key));
     // Arrows belong to the phone and map. WASD controls walking and vehicles.
@@ -76,6 +89,7 @@ export class Input {
     let run = has('ShiftLeft','ShiftRight');
     let climb = has('Space') || this.touch.has('climb'), descend = run || this.touch.has('descend');
     const pad = Array.from(navigator.getGamepads?.() || []).find(Boolean);
+    this.padAim=false;
     if (pad) {
       // Remap the usable stick range continuously. Returning the raw axis
       // after the deadzone used to jump straight from zero to 16% steering.
@@ -84,9 +98,14 @@ export class Input {
       turn = dead(pad.axes[0]) || turn;
       walkForward = -dead(pad.axes[1]) || walkForward;
       const accelerator = trigger(pad.buttons[7]), reverse = trigger(pad.buttons[6]);
+      this.padAim=reverse>.25 || Boolean(pad.buttons[6]?.pressed);
+      for (const [index,name,pressed] of [[7,'fire',accelerator>.25 || Boolean(pad.buttons[7]?.pressed)],[12,'reload',Boolean(pad.buttons[12]?.pressed)]]) {
+        if (pressed && !this.padButtons[index] && this.weaponControls()) this.action(name);
+        this.padButtons[index]=pressed;
+      }
       // Equal trigger pressure means neutral; it must not fall through to
       // accidental left-stick acceleration while the player is steering.
-      forward = accelerator || reverse ? accelerator - reverse : walkForward;
+      forward = !this.weaponControls() && (accelerator || reverse) ? accelerator - reverse : walkForward;
       handbrake ||= Boolean(pad.buttons[2]?.pressed);
       climb ||= Boolean(pad.buttons[2]?.pressed);
       descend ||= Boolean(pad.buttons[4]?.pressed);
@@ -95,7 +114,7 @@ export class Input {
       this.lookVertical += dead(pad.axes[3]) * dt;
       // Right bumper also exits the initial city overview, so a controller
       // can reach walking/driving without needing a keyboard camera shortcut.
-      for (const [index, name] of [[0,'interact'],[1,'fight'],[3,'job'],[5,'view'],[9,'pause'],[8,'map'],[11,'perspective'],[13,'cash']]) {
+      for (const [index, name] of [[0,'interact'],[1,'fight'],[15,'kick'],[14,'draw'],[3,'job'],[5,'view'],[9,'pause'],[8,'map'],[11,'perspective'],[13,'cash']]) {
         const pressed = Boolean(pad.buttons[index]?.pressed);
         if (pressed && !this.padButtons[index]) this.action(name);
         this.padButtons[index] = pressed;

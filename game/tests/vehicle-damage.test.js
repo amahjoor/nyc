@@ -7,6 +7,7 @@ import { createCar, updateCarVisuals } from '../dist/world.js';
 import { designFor } from '../dist/vehicle-designs.js';
 import { generateVehicle } from '../dist/vehicle-generator.js';
 import { Simulation } from '../dist/simulation.js';
+import { beginEntry, stepMove, lockedAt } from '../dist/player-moves.js';
 
 const fresh = () => ({ id: 'test', x: 0, y: 0, z: 0, speed: 0, angle: 0, parked: true });
 const town = () => new Simulation({ bounds: { minX:-500, maxX:500, minZ:-500, maxZ:500 },
@@ -38,6 +39,29 @@ test('local impacts bend only the hit car, break glass, tear open doors and repa
   repairVehicle(car); updateCarVisuals(mesh,car,0);
   assert.equal(detail.pieces.body.geometry, original); assert.ok(detail.doors.every(door => door.visible));
   assert.equal(detail.pieces.windshield.material,twin.userData.detail.pieces.windshield.material);
+});
+
+test('entry opens the door, breaks the locked pane or ejects an occupied driver at the animation cue', () => {
+  for (const occupied of [false,true]) {
+    const sim = town(), car = sim.cars.find(c => c.id === 'player-taxi');
+    car.id = 'kerb-1'; while (!lockedAt(car)) car.id += 'a';
+    car._edge = occupied ? {} : null; car.parked = !occupied;
+    sim.cars = [car]; sim.moves = true;
+    Object.assign(sim.player, { x:car.x+1.6, z:car.z, y:car.y });
+    const mesh = createCar();
+    assert.ok(beginEntry(sim,car));
+    updateCarVisuals(mesh,car,0);
+    assert.equal(Boolean(mesh.userData.detail.driver.visible), occupied);
+    assert.equal(sim.player.move.kind, occupied ? 'carjack' : 'breakIn');
+    for (let i=0; i<90; i++) stepMove(sim,1/120);
+    updateCarVisuals(mesh,car,0);
+    assert.ok(car.doorOpen > .9 && !mesh.userData.detail.driver.visible);
+    assert.ok(sim.moveEvents.some(e=>e.kind === (occupied ? 'thrown' : 'glass')));
+    if (!occupied) assert.ok(car.brokenGlass & PANEL.left);
+    for (let i=0; i<120; i++) stepMove(sim,1/120);
+    assert.equal(sim.vehicle,car);
+    updateCarVisuals(mesh,car,0); assert.ok(mesh.userData.detail.driver.visible);
+  }
 });
 
 test('a burning car loses propulsion, allows escape, explodes once and can be recovered by the mechanic', () => {

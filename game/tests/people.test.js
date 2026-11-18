@@ -8,7 +8,8 @@ import { createHuman } from '../dist/human.js';
 import { footHeight, previewSeats, sheetSeats } from '../dist/seating.js';
 import { CAST, castFor, FIELDS, DEFAULT_DESIGN, tidy, randomDesign, loadDesign, saveDesign } from '../dist/body-designs.js';
 import { createFigures, STREET_CLIPS, paletteOf } from '../dist/people-figures.js';
-import { createCrowd, dress, seeded, KIT } from '../dist/crowd.js';
+import { createCrowd, dress, seeded, memberOf, KIT } from '../dist/crowd.js';
+import { MOVE, startKick, tryVault, beginEntry, stepMove, lockedAt, carTop, carUnder, toggleGun, fireGun, reloadGun, GUN } from '../dist/player-moves.js';
 
 const meta = JSON.parse(readFileSync(new URL('../dist/motion.json', import.meta.url), 'utf8'));
 const file = readFileSync(new URL('../dist/motion.bin', import.meta.url)), words = new Int16Array(file.buffer, file.byteOffset, file.byteLength / 2);
@@ -115,6 +116,7 @@ test('the movements nobody recorded are written out, and all of them leave the b
     const clip = motion.clip(id); assert.ok(clip.written && clip.seconds > .3, id);
     for (let t = 0; t <= clip.seconds; t += clip.seconds / 6) { const pose = motion.sample(id, t); assert.ok(pose.q.every(Number.isFinite) && pose.pelvis.every(Number.isFinite)); for (let i = 0; i < motion.count; i++) assert.ok(Math.abs(Math.hypot(...pose.q.subarray(i * 4, i * 4 + 4)) - 1) < 1e-3, `${id}: a turn is a turn`); }
   }
+  for (const [move, seconds] of Object.entries(MOVE)) assert.equal(motion.clip(move).seconds, seconds, `${move} is drawn for as long as it takes`);
   // Where a bone ends up: follow the turns down from the root.
   const rig = createRig(meta, {}), fitted = { q: [], pelvis: [0, 0, 0] };
   const where = (id, time, name) => {
@@ -180,63 +182,149 @@ test('the cast covers the street, and each is grown once and drawn many times in
   figures.dispose();
 });
 
-
-import { createFigures as bakedFigures } from '../dist/crowd.js';
-{
-const meta = JSON.parse(readFileSync(new URL('../dist/people.json', import.meta.url), 'utf8'));
-const file = readFileSync(new URL('../dist/people.bin', import.meta.url)), poses = new Int16Array(file.buffer, file.byteOffset, file.byteLength / 2);
-
-test('the baked figures are a man and a woman who stand on the ground and stride on the spot', () => {
-  assert.deepEqual(meta.figures.map(figure => figure.id), ['man', 'woman']);
-  assert.equal(meta.source.licence, 'CC0 1.0'); assert.deepEqual([meta.frames, meta.sitFrame], [meta.walkFrames + 2, meta.walkFrames + 1], 'the stride, then standing, then sitting');
-  assert.equal(poses.length, meta.figures.reduce((sum, figure) => sum + figure.vertices, 0) * meta.frames * 3);
-  let offset = 0;
-  for (const figure of meta.figures) {
-    assert.ok(figure.vertices > 800 && figure.vertices < 3000 && figure.faces.length % 3 === 0 && figure.faces.every(i => i >= 0 && i < figure.vertices), `${figure.id}: ${figure.vertices} vertices`);
-    assert.ok(figure.paint.length === figure.vertices && [0, 1, 2, 3, 4].every(paint => figure.paint.includes(paint)), 'skin, top, bottom, hair and shoes are all there');
-    assert.ok(figure.bare.includes(1) && figure.bare.includes(2), 'forearms and shins can go bare');
-    for (let f = 0; f < meta.frames; f++) {
-      let low = Infinity, high = -Infinity, back = Infinity, front = -Infinity, side = 0;
-      for (let i = 0; i < figure.vertices; i++) { const o = offset + (f * figure.vertices + i) * 3, x = poses[o] / 16000, y = poses[o + 1] / 16000, z = poses[o + 2] / 16000; low = Math.min(low, y); high = Math.max(high, y); back = Math.min(back, z); front = Math.max(front, z); side = Math.max(side, Math.abs(x)); }
-      // Sitting, the head is about a foot lower and the feet are still on the ground.
-      const tall = f === meta.sitFrame ? figure.height - .34 : figure.height;
-      assert.ok(low > -.03 && low < .12 && Math.abs(high - tall) < .08, `${figure.id} frame ${f}: feet at ${low.toFixed(2)}, head at ${high.toFixed(2)}`);
-      assert.ok(side < .6 && back > -.7 && front < .8, 'it stays over its own feet');
-    }
-    offset += figure.vertices * meta.frames * 3;
-  }
+test('a look made elsewhere is given one of the cast, the same one each time', () => {
+  const man = { top: 0x112233, bottom: 0x445566, hair: 0x101010, skin: 0xb98563, kit: 0 }, woman = { ...man, kit: KIT.woman };
+  assert.equal(CAST[memberOf(man)].woman, false); assert.equal(CAST[memberOf(woman)].woman, true); assert.equal(memberOf(man), memberOf({ ...man }));
+  assert.ok(!CAST[memberOf(man)].child);
 });
 
-test('the crowd takes the modelled figures in place of the blocked-out ones', () => {
-  const figures = bakedFigures(meta, poses), total = meta.figures.reduce((sum, figure) => sum + figure.vertices, 0);
-  assert.equal(figures.geometry.getAttribute('position').count, total); assert.equal(figures.geometry.getAttribute('aVertex').getX(total - 1), total - 1);
-  assert.deepEqual([figures.texture.image.width, figures.texture.image.height], [total, meta.frames]);
-  const body = figures.geometry.getAttribute('aBody');
-  assert.deepEqual([body.getZ(0), body.getZ(total - 1)], [1, 2], 'each vertex says whose body it is');
-  assert.equal(figures.material.flatShading, true);
-  figures.geometry.dispose(); figures.material.dispose(); figures.texture.dispose();
-  const crowd = createCrowd({ life: { crowding: () => 0, wardrobe: () => ({}) }, capacity: 8 });
-  assert.equal(crowd.modelled, false);
-  const gait = crowd.mesh.geometry.getAttribute('aGait');
-  crowd.setFigures(meta, poses);
-  assert.equal(crowd.modelled, true); assert.equal(crowd.mesh.geometry.getAttribute('aGait'), gait, 'each person keeps their colours and stride');
-  assert.equal(crowd.mesh.material.name, 'People, modelled'); assert.equal(KIT.woman, 64);
-  // Each person is drawn with one body, not both: the man's in one draw, the woman's in another.
-  const [men, women] = [crowd.mesh, crowd.mesh.children[0]], faces = meta.figures.map(figure => figure.faces.length);
-  assert.deepEqual([men.geometry.index.count, women.geometry.index.count], faces);
-  assert.equal(men.geometry.getAttribute('position'), women.geometry.getAttribute('position'), 'over the same vertices');
-  assert.notEqual(men.geometry.getAttribute('aGait'), women.geometry.getAttribute('aGait'));
-  const look = { top: 1, bottom: 2, skin: 3, hair: 4, height: 1.72 };
-  crowd.setExtras([{ x: 0, y: 0, z: 0, look: { ...look, kit: 0 } }, { x: 1, y: 0, z: 0, look: { ...look, kit: KIT.woman } }, { x: 2, y: 0, z: 0, look: { ...look, kit: KIT.woman | KIT.longHair } }]);
-  crowd.update(.016, { walks: [], focus: { x: 0, z: 0 }, hours: 12, time: 0, junctions: [], cars: [] });
-  assert.deepEqual([men.count, women.count], [1, 2]);
-  // Someone sitting is told to the shader as a stride of less than nothing.
-  crowd.setExtras([{ x: 0, y: 0, z: 0, sitting: true, look: { ...look, kit: 0 } }]);
-  crowd.update(.016, { walks: [], focus: { x: 0, z: 0 }, hours: 12, time: 0, junctions: [], cars: [] });
-  assert.equal(men.geometry.getAttribute('aGait').getY(0), -1);
-  crowd.setExtras([{ x: 0, y: 0, z: 0, look: { ...look, kit: 0 } }, { x: 1, y: 0, z: 0, look: { ...look, kit: KIT.woman } }, { x: 2, y: 0, z: 0, look: { ...look, kit: KIT.woman | KIT.longHair } }]);
-  crowd.update(.016, { walks: [], focus: { x: 0, z: 0 }, hours: 12, time: 0, junctions: [], cars: [] });
-  assert.equal(women.geometry.getAttribute('aGait').getW(1), KIT.woman | KIT.longHair);
+const street = () => { const points = [[-40, 3], [40, 3]]; return [{ id: 'walk', points, lengths: [0, 80], normals: [[0, 1]], length: 80, depth: 3 }]; };
+const someone = (x, z, extra = {}) => ({ run: null, s: 40, way: 1, lane: 1, look: dress('casual', seeded(3)), state: 'walk', hop: null, wait: 0, bold: false, phase: 0, y: 0, sample: 1, age: 5, shove: [0, 0], x, z, heading: 0, ...extra });
+
+test('street witnesses react to the gun from their own line of sight', () => {
+  const crowd=createCrowd({life:{crowding:()=>0,wardrobe:()=>({})},random:()=>.9});
+  try {
+    const facing=someone(0,12,{heading:Math.PI}), turned=someone(2,12), hidden=someone(1,1), upstairs=someone(1,1,{y:8});
+    const near=someone(0,2), vendor=someone(-3,1);
+    crowd.people.push(facing,turned,hidden,upstairs,near);
+    const visible={angle:0,calm:true,y:0,sight:person=>person!==hidden,bystanders:[vendor],time:5};
+    assert.equal(crowd.alarm(0,0,20,0,visible),3);
+    assert.equal(facing.state,'cower');assert.equal(near.state,'cower');assert.equal(vendor.absentUntil,65);
+    for (const person of [turned,hidden,upstairs]) assert.equal(person.state,'walk');
+    assert.equal(crowd.alarm(0,0,20,1,{...visible,angle:Math.PI}),0);
+    assert.equal(near.state,'flee');assert.equal(facing.state,'flee');
+    assert.equal(crowd.people.length,6,'the vendor joined the crowd once');
+  } finally { crowd.dispose(); }
+});
+test('a car that hits someone knocks them down, one that nearly does makes them start back, and being barged into staggers them', () => {
+  const life = { crowding: () => 0, wardrobe: () => ({ casual: 1 }) }, walks = street();
+  const crowd = createCrowd({ life, capacity: 8, range: 60, random: seeded(4) }), context = cars => ({ walks, focus: { x: 0, z: 0 }, hours: 12, time: 0, junctions: [], cars, player: null });
+  const person = someone(0, 2, { run: walks[0] }); crowd.people.push(person);
+  // Fast, and straight into them.
+  crowd.update(.016, context([{ id: 'a', x: 0, z: 1.2, angle: 0, speed: 9, velocityX: 0, velocityZ: 9, controlled: true }]));
+  assert.equal(person.state, 'down'); assert.equal(person.clip, 'knocked'); assert.ok(person.vz > 4, 'thrown the way the car was going');
+  assert.deepEqual(crowd.struck.map(hit => [hit.player, hit.speed]), [[true, 9]]);
+  const z = person.z; crowd.update(.1, context([])); assert.ok(person.z > z + .3 && crowd.struck.length === 0);
+  for (let i = 0; i < 120 && person.state === 'down'; i++) crowd.update(.1, context([]));
+  assert.notEqual(person.state, 'down', 'at that speed they get up again');
+  // Faster still, and they do not.
+  const other = someone(10, 3, { run: walks[0] }); crowd.people.push(other);
+  crowd.update(.016, context([{ id: 'b', x: 10, z: 2.5, angle: 0, speed: 16, velocityX: 0, velocityZ: 16, controlled: true }]));
+  for (let i = 0; i < 300; i++) crowd.update(.1, context([]));
+  assert.equal(other.state, 'down'); assert.equal(other.out, true);
+  // Bearing down from twelve metres off: a start, and a step aside.
+  const third = someone(-20, 3, { run: walks[0], s: 20 }); crowd.people.push(third);
+  crowd.update(.016, context([{ id: 'c', x: -20.4, z: -9, angle: 0, speed: 12, velocityX: 0, velocityZ: 12, controlled: true }]));
+  assert.equal(third.clip, 'flinch'); assert.equal(crowd.scares, 1); assert.ok(third.shove[0] > .5, 'away from the car\'s line'); assert.equal(third.state, 'flee');
+  // Traffic passing in its lane does not make the sidewalk jump.
+  const fourth = someone(-30, 3, { run: walks[0], s: 10 }); crowd.people.push(fourth);
+  crowd.update(.016, context([{ id: 'd', x: -30.4, z: -9, angle: 0, speed: 12, velocityX: 0, velocityZ: 12, _edge: {} }]));
+  assert.notEqual(fourth.clip, 'flinch');
+  // On foot: walking into someone staggers them, running into them puts them on the ground for a moment.
+  const fifth = someone(30, 3, { run: walks[0], s: 70 }); crowd.people.push(fifth);
+  crowd.update(.016, { ...context([]), player: { mode: 'walk', x: 30, z: 2.6, velocityX: 0, velocityZ: 4 } });
+  assert.equal(fifth.clip, 'stumble'); assert.equal(fifth.state, 'walk'); assert.deepEqual(crowd.bumps, [{ hard: false }]);
+  fifth.bumped = 0;
+  crowd.update(.016, { ...context([]), player: { mode: 'walk', x: fifth.x + fifth.shove[0], z: fifth.z + fifth.shove[1] - .4, velocityX: 0, velocityZ: 8 } });
+  assert.equal(fifth.state, 'down'); assert.equal(fifth.calm, true);
+  for (let i = 0; i < 50 && fifth.state === 'down'; i++) crowd.update(.1, context([]));
+  assert.equal(fifth.state, 'walk', 'up again and on their way, not running');
   crowd.dispose();
 });
-}
+
+test('a kick lands harder than a punch, a driver can be thrown out, and a street takes fright', () => {
+  const life = { crowding: () => 0, wardrobe: () => ({ casual: 1 }) }, walks = street(), crowd = createCrowd({ life, capacity: 16, range: 60, random: seeded(8) });
+  const person = someone(0, 1.6, { run: walks[0] }); crowd.people.push(person);
+  assert.equal(crowd.strike(0, 0, 0, { reach: 2.1, power: 2 }), person); assert.equal(person.hp, 1); assert.equal(person.clip, 'stumble');
+  crowd.strike(0, 0, 0, { reach: 2.1, power: 2 }); assert.equal(person.state, 'down'); assert.equal(person.clip, 'knocked');
+  const driver = crowd.throwOut(5, 0, 1, 12); assert.equal(driver.state, 'down'); assert.equal(driver.clip, 'thrown'); assert.equal(crowd.count, 2);
+  const context = { walks, focus: { x: 0, z: 0 }, hours: 12, time: 0, junctions: [], cars: [], player: { mode: 'drive', x: 0, z: 0 } };
+  for (let i = 0; i < 60 && driver.state === 'down'; i++) crowd.update(.1, context);
+  assert.equal(driver.state, 'flee', 'and runs');
+  for (let i = 0; i < 60 && driver.state === 'flee'; i++) crowd.update(.1, context);
+  assert.equal(driver.run, walks[0], 'onto the nearest sidewalk'); assert.equal(driver.state, 'walk');
+  for (let i = 0; i < 6; i++) crowd.people.push(someone(i * 2 - 6, 3, { run: walks[0], s: 34 + i * 2 }));
+  assert.ok(crowd.alarm(0, 3, 9) >= 6);
+  assert.ok(crowd.people.some(p => p.state === 'flee') && crowd.people.filter(p => p.state === 'cower' || p.state === 'flee').length >= 6);
+  crowd.dispose();
+});
+
+test('the player kicks, vaults a car, and takes a moment over a car door', () => {
+  const car = { id: 'car-7', x: 0, z: 3, angle: Math.PI / 2, parked: true, _kerb: true, type: 'sedan' };
+  const sim = { player: { mode: 'walk', x: 0, z: 0, y: 0, angle: 0, grounded: true, speed: 3 }, cars: [car], room: null, moveEvents: [],
+    _nearCar: (x, z) => Math.abs(z - 3) < 1.3 && Math.abs(x) < 2.6 ? { car } : null, isBlocked: () => false, _sampleSurface: () => ({ elevation: 0 }), entered: 0,
+    interact() { if (this._entering === car) { this.entered++; this.player.mode = 'drive'; } return true; } };
+  assert.ok(startKick(sim)); assert.equal(sim.player.move.kind, 'kick'); assert.equal(startKick(sim), false, 'one at a time');
+  let ticks = 0; while (stepMove(sim, .05)) ticks++;
+  assert.ok(Math.abs(ticks * .05 - MOVE.kick) < .11); assert.deepEqual(sim.moveEvents.map(event => event.kind), ['kick']); assert.ok(sim.player.guard > 3, 'squared up afterwards');
+  // Walked up to the side of a car a pace away: up onto it.
+  sim.player.z = 1; sim.moveEvents.length = 0; car.y = 0;
+  assert.ok(tryVault(sim)); assert.equal(sim.player.move.kind, 'climb'); while (stepMove(sim, .05));
+  assert.ok(Math.abs(sim.player.y - carTop(car, sim.player.x, sim.player.z)) < 1e-6 && sim.player.y > .9, 'standing on the car');
+  assert.equal(carUnder(sim, sim.player.x, sim.player.z, sim.player.y).car, car); assert.equal(carUnder(sim, 0, 0, 0), null, 'beside it is not on it');
+  // Run at it: over it.
+  Object.assign(sim.player, { z: 1, y: 0, velocityZ: 7 }); sim.moveEvents.length = 0;
+  assert.ok(tryVault(sim)); assert.equal(sim.player.move.kind, 'vault');
+  // A van stands too tall to go over: run at it and it is still climbed.
+  sim.player.move = null; car.shape = 'van'; sim.player.velocityZ = 7;
+  assert.ok(tryVault(sim)); assert.equal(sim.player.move.kind, 'climb'); assert.ok(sim.player.move.to.y > 1.9);
+  sim.player.move = null; car.shape = undefined; sim.player.velocityZ = 7; assert.ok(tryVault(sim)); assert.equal(sim.player.move.kind, 'vault');
+  let highest = 0; while (stepMove(sim, .05)) highest = Math.max(highest, sim.player.lift);
+  assert.ok(sim.player.z > 4.3 && highest > .5 && sim.player.lift === 0, `landed at ${sim.player.z.toFixed(1)}`);
+  // Nothing in the way: an ordinary jump.
+  assert.equal(tryVault(sim), false);
+  // A ledge at head height is climbed.
+  sim._sampleSurface = (x, z) => ({ elevation: z > 5.2 ? 1.8 : 0 }); sim.player.z = 4.8;
+  assert.ok(tryVault(sim)); assert.equal(sim.player.move.kind, 'climb'); while (stepMove(sim, .05));
+  assert.ok(Math.abs(sim.player.y - 1.8) < 1e-6 && sim.player.z > 5.2);
+  // A car left at the kerb: locked or not is the same each time, and getting in takes as long as the movement does.
+  assert.equal(lockedAt(car), lockedAt({ id: 'car-7' })); assert.ok([...Array(200)].filter((_, i) => lockedAt({ id: 'car-' + i })).length > 70);
+  Object.assign(sim.player, { x: -1.5, z: 1.2, y: 0 }); sim._sampleSurface = () => ({ elevation: 0 }); sim.moveEvents.length = 0;
+  assert.ok(beginEntry(sim, car)); const kind = sim.player.move.kind; assert.equal(kind, lockedAt(car) ? 'breakIn' : 'door');
+  let seconds = 0; while (stepMove(sim, .05)) seconds += .05;
+  assert.equal(sim.entered, 1); assert.ok(Math.abs(seconds - MOVE[kind]) < .11); assert.equal(car._driven, true);
+  sim.player.mode = 'walk'; assert.ok(beginEntry(sim, car)); assert.equal(sim.player.move.kind, 'door', 'a car already driven is just opened');
+  while (stepMove(sim, .05));
+  // Somebody is driving this one.
+  const taxi = { id: 'taxi-1', x: 0, z: 3, angle: Math.PI / 2, parked: false, _edge: {}, speed: 2, type: 'taxi' }; sim.cars.push(taxi); sim.player.mode = 'walk'; sim.moveEvents.length = 0;
+  sim.interact = function () { this.entered++; this.player.mode = 'drive'; return true; };
+  assert.ok(beginEntry(sim, taxi)); assert.equal(sim.player.move.kind, 'carjack'); assert.equal(taxi.speed, 0); while (stepMove(sim, .05));
+  assert.deepEqual(sim.moveEvents.map(event => event.kind), ['thrown', 'entered']);
+});
+
+test('the pistol comes out, fires a round at a time, and takes a moment over a new magazine', () => {
+  const sim = { player: { mode: 'walk', x: 0, z: 0, y: 0, angle: 0, grounded: true }, cars: [], room: null, moveEvents: [], elapsed: 0 };
+  assert.equal(fireGun(sim), false, 'not while it is put away');
+  assert.ok(toggleGun(sim)); assert.equal(sim.player.armed, true); assert.equal(sim.player.rounds, GUN.rounds);
+  assert.ok(fireGun(sim)); assert.equal(fireGun(sim), false, 'not twice in the same instant');
+  assert.deepEqual(sim.moveEvents.map(event => event.kind), ['shot']); assert.ok(sim.moveEvents[0].y > 1);
+  let shots = 1;
+  for (let t = 0; t < 6 && shots < GUN.rounds; t += .05) { stepMove(sim, .05); if (fireGun(sim)) shots++; }
+  assert.equal(shots, GUN.rounds); assert.ok(sim.player.reloading > 0);
+  stepMove(sim, .4); assert.equal(fireGun(sim), false, 'empty');
+  for (let t = 0; t < GUN.reload; t += .05) stepMove(sim, .05);
+  assert.equal(sim.player.rounds, GUN.rounds); assert.ok(fireGun(sim));
+  assert.ok(toggleGun(sim)); assert.equal(sim.player.armed, false);
+});
+
+test('reloading early and holstering preserve the remaining game ammo',()=>{
+  const sim={player:{mode:'walk'},elapsed:1};
+  toggleGun(sim);assert.equal(reloadGun(sim),false);
+  fireGun(sim);assert.equal(reloadGun(sim),true);assert.equal(reloadGun(sim),false);
+  stepMove(sim,.2);toggleGun(sim);stepMove(sim,3);toggleGun(sim);
+  assert.equal(sim.player.rounds,GUN.rounds-1);
+  sim.player.rounds=1;assert.equal(fireGun(sim),true);
+  toggleGun(sim);toggleGun(sim);assert.equal(sim.player.rounds,0);
+  assert.equal(fireGun(sim),false);stepMove(sim,GUN.reload);
+  assert.equal(sim.player.rounds,GUN.rounds);
+});

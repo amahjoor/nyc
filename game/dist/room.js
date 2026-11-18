@@ -5,7 +5,7 @@ export const DOOR = 1.1;
 export const CEILING = 3.1;
 
 /** Where a point of the room is in the world: (a, b) to [x, z]. */
-export const roomPoint = (room, a, b) => [room.x + room.tx * a - room.nx * b, room.z + room.tz * a - room.nz * b];
+export const roomPoint = (room, a, b) => [room.x + room.tx * (a + (room.skew || 0) * b) - room.nx * b, room.z + room.tz * (a + (room.skew || 0) * b) - room.nz * b];
 
 /**
  * Move someone of `radius` about the room: from (a, b) by (da, db), kept
@@ -25,4 +25,10 @@ export function walkRoom(room, a, b, da, db, radius = .35) {
     if (pa < pb) na += Math.sign(na - thing.a || 1) * pa; else nb += Math.sign(nb - thing.b || 1) * pb;
   }
   return { a: na, b: nb, out: false };
+}
+
+export function roomLocal(room, x, z) {
+  const dx = x - room.x, dz = z - room.z;
+  const b = -dx * room.nx - dz * room.nz;
+  return { a: dx * room.tx + dz * room.tz - (room.skew || 0) * b, b };
 }

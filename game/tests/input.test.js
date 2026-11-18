@@ -37,7 +37,7 @@ test('right bumper emits camera changes on press edges, including from city over
   }
 });
 
-function movementInput(t, handleInterfaceKey){
+function movementInput(t, handleInterfaceKey, weaponControls){
   const original=new Map(['window','document','navigator'].map(name=>[name,Object.getOwnPropertyDescriptor(globalThis,name)]));
   const listeners=new Map(),actions=[];
   const target={captures:[],addEventListener(name,handler){if(!listeners.has(name))listeners.set(name,[]);listeners.get(name).push(handler);},
@@ -46,7 +46,7 @@ function movementInput(t, handleInterfaceKey){
   const globals={window:target,document:{querySelectorAll:()=>[]},navigator:{getGamepads:()=>[pad]}};
   for(const [name,value] of Object.entries(globals))Object.defineProperty(globalThis,name,{value,configurable:true});
   t.after(()=>{for(const [name,descriptor] of original){if(descriptor)Object.defineProperty(globalThis,name,descriptor);else delete globalThis[name];}});
-  return {input:new Input(target,action=>actions.push(action),handleInterfaceKey),pad,target,actions};
+  return {input:new Input(target,action=>actions.push(action),handleInterfaceKey,weaponControls),pad,target,actions};
 }
 
 test('keyboard, touch and controller movement follow the actual camera screen axes',t=>{
@@ -230,4 +230,27 @@ test('typing an address does not trigger actions, movement, or browser-key suppr
   input.keys.add('KeyW');
   target.emit('keyup',{code:'KeyW',target:{tagName:'INPUT'}});
   assert.equal(input.keys.has('KeyW'),false,'releasing a movement key after focusing search cannot leave it stuck');
+});
+
+test('aim and fire use independent mouse buttons and controller trigger edges',t=>{
+  let equipped=true;
+  const {input,pad,actions,target}=movementInput(t,undefined,()=>equipped);
+  target.emit('pointerdown',{button:2,pointerId:1,clientX:5,clientY:5});
+  target.emit('mousedown',{button:2});
+  assert.equal(input.aiming,true);
+  target.emit('mousedown',{button:0});target.emit('mouseup',{button:0});
+  assert.equal(input.aiming,true);assert.deepEqual(actions,['fire']);
+  target.emit('mouseup',{button:2});target.emit('pointerup',{pointerId:1,clientX:5,clientY:5});
+  assert.equal(input.aiming,false);assert.deepEqual(actions,['fire']);
+  target.emit('pointerdown',{pointerId:2,clientX:0,clientY:0});
+  target.emit('pointermove',{pointerId:2,clientX:18,clientY:0});
+  target.emit('pointerup',{pointerId:2,clientX:0,clientY:0});
+  assert.deepEqual(actions,['fire'],'a camera drag can finish where it started');
+  pad.buttons[7].value=1;pad.buttons[6].value=.4;
+  assert.equal(input.sample(0,.02).forward,0);input.sample(0,.02);
+  assert.equal(input.aiming,true);assert.deepEqual(actions,['fire','fire']);
+  equipped=false;assert.equal(input.sample(0,.02).forward,.6);
+  pad.buttons[6].value=0;pad.buttons[7].value=0;input.sample(0,.02);
+  equipped=true;pad.buttons[12]={pressed:true,value:1};input.sample(0,.02);input.sample(0,.02);
+  assert.deepEqual(actions,['fire','fire','reload']);
 });

@@ -13,9 +13,14 @@
 // Yorkers, cross against it when nothing is coming. They are drawn as one
 // instanced mesh whose walk cycle runs in the vertex shader.
 import * as THREE from './vendor/three.module.min.js';
+import { seatClip, seatHeight } from './seating.js';
 import { crossingAspect } from './signal-plan.js';
+import { trafficAtHeight } from './road-level.js';
+import { roomLocal } from './room.js';
 import { OUTFITS } from './citylife.js';
 import { drawTone } from './demographics.js';
+import { CAST, castFor } from './body-designs.js';
+import { heightOf } from './body.js';
 
 const TAU = Math.PI * 2;
 const clamp = (value, low, high) => Math.max(low, Math.min(high, value));
@@ -42,6 +47,7 @@ const CLOTH = {
   dark: [0x101114, 0x17181c, 0x1f1c22, 0x2a1418, 0x14202a, 0x1c241c, 0x3a0f1c],
   vest: [0xe6e21f, 0xf28a1c, 0xe6e21f], scrubs: [0x2e8c8c, 0x2f6fb0, 0x4a7fa0],
 };
+const SHOE = [0x1a1a1c, 0xe8e6e0, 0x5a4632, 0x2a3a5a, 0x8a8a8a, 0x1a1a1c, 0xe8e6e0], HARD_HAT = [0xf2c230, 0xf4f4f0, 0xf07a2c];
 const pick = (list, random) => list[Math.floor(random() * list.length) % list.length];
 
 /** Kit an instance may carry or wear, as bits. */
@@ -68,7 +74,23 @@ export function dress(outfit, random = Math.random, tones = null) {
     case 'worker': if (chance(.6)) { look.top = pick(CLOTH.vest, random); look.bottom = pick(CLOTH.jeans, random); wear(KIT.cap); } else { look.top = pick(CLOTH.scrubs, random); look.bottom = look.top; wear(KIT.shortSleeves); } break;
     default: look.top = pick(CLOTH.tee, random); look.bottom = pick(CLOTH.jeans, random); if (chance(.7)) wear(KIT.shortSleeves); if (chance(.18)) wear(KIT.backpack); if (chance(.15)) wear(KIT.bag); if (chance(.1)) wear(KIT.cap);
   }
+  // Which of the cast (body-designs.js) this is: a body and a way of dressing that suits the outfit, worn in these colours.
+  const woman = chance(.5), member = castFor(outfit === 'worker' && look.top === look.bottom ? 'scrubs' : outfit, random, woman), cast = CAST[member];
+  if (woman) wear(KIT.woman);
+  look.member = member; look.height = heightOf(cast.design) * (.95 + random() * .1);
+  // What is under a jacket, and on the feet and the head.
+  if (cast.coat) look.under = pick(outfit === 'suit' || outfit === 'office' ? CLOTH.shirt : CLOTH.tee, random);
+  look.shoe = pick(SHOE, random); look.hat = outfit === 'worker' ? pick(HARD_HAT, random) : pick(chance(.5) ? CLOTH.dark : CLOTH.tee, random);
+  if (cast.old && !tones) look.hair = pick([0x9a9a98, 0xd8d6d0, 0xb9b6b0], random);
   return look;
+}
+/** Which of the cast a look is drawn as: its own, or for a look made elsewhere one that suits it, the same each time. */
+export function memberOf(look) {
+  const woman = Boolean(look.kit & KIT.woman);
+  if (look.member !== undefined && CAST[look.member] && (look.outfit || CAST[look.member].woman === woman)) return look.member;
+  const fits = CAST.filter(member => member.woman === woman && !member.child && !member.old && member.suits.has(look.outfit || 'casual') && !member.hat);
+  look.member = (fits.length ? fits : CAST)[Math.abs((look.top ^ (look.bottom * 7) ^ (look.hair * 13)) | 0) % (fits.length || CAST.length)].id;
+  return look.member;
 }
 
 /** Draw an outfit from shares such as citylife's wardrobe(). */
@@ -166,78 +188,32 @@ export function createPersonMaterial() {
 		if ( ( aBody.w > 0.5 && aBody.w < 1.5 && nycBareArm ) || ( aBody.w > 1.5 && nycBareLeg ) ) vPerson = aSkin;
 		// Kit this person does not carry is folded away inside the body.
 		if ( aBody.z > 0.5 && mod( floor( nycKit / exp2( aBody.z - 1.0 ) ), 2.0 ) < 0.5 ) transformed = vec3( 0.0, 1.2, 0.0 );
+		if ( aGait.y < -0.5 && aGait.y > -1.5 ) {
+			vec3 standing = transformed;
+			float thigh = ${HIP.toFixed(2)} - 0.50;
+			if ( aBody.y > 0.5 && aBody.y < 2.5 ) {
+				if ( aBody.w > 1.5 || aBody.x > 3.5 ) transformed.z += thigh;
+				else transformed.yz = vec2( 0.50 + transformed.z, ${HIP.toFixed(2)} - transformed.y );
+			} else transformed.y -= thigh;
+			transformed = mix( standing, transformed, aGait.z );
+		}
 		// Legs swing from the hip and arms from the shoulder, opposite arm to leg.
-		if ( aBody.y > 0.5 ) {
+		else if ( aBody.y > 0.5 ) {
 			bool nycArm = aBody.y > 2.5;
 			float nycSide = ( aBody.y < 1.5 || ( aBody.y > 3.5 ) ) ? 1.0 : -1.0, nycPivot = nycArm ? ${SHOULDER.toFixed(2)} : ${HIP.toFixed(2)};
-			float nycTurn = nycSwing * nycSide * ( nycArm ? 0.5 : 0.62 ), nycCos = cos( nycTurn ), nycSin = sin( nycTurn );
+			float nycTurn = nycSwing * nycSide * ( nycArm ? 0.5 : 0.62 ), nycCos, nycSin;
+			if (nycArm && aGait.y < -2.5) nycTurn = aGait.y < -3.5 ? -1.35 : -2.8;
+			nycCos = cos(nycTurn); nycSin = sin(nycTurn);
 			vec2 nycArmYZ = vec2( transformed.y - nycPivot, transformed.z );
 			transformed.y = nycPivot + nycArmYZ.x * nycCos - nycArmYZ.y * nycSin;
 			transformed.z = nycArmYZ.x * nycSin + nycArmYZ.y * nycCos;
 		}
 		// The body rises a little at each footfall.
-		transformed.y += ( 1.0 - cos( 2.0 * nycStride ) ) * 0.011 * aGait.y;
+		transformed.y += ( 1.0 - cos( 2.0 * nycStride ) ) * 0.011 * max( aGait.y, 0.0 );
 	}`);
     shader.fragmentShader = `varying vec3 vPerson;\n${shader.fragmentShader}`.replace('#include <color_fragment>', '#include <color_fragment>\ndiffuseColor.rgb *= vPerson;');
   };
   return material;
-}
-
-/**
- * The modelled figures (scripts/build-people.mjs): a man and a woman, each a
- * few thousand triangles, with where every vertex is at every frame of a
- * walk. `meta` is people.json and `poses` the Int16Array of people.bin.
- * Both bodies are in the one geometry; each person shows theirs and folds
- * the other away. Returns { geometry, material, texture }.
- */
-export function createFigures(meta, poses) {
-  const total = meta.figures.reduce((sum, figure) => sum + figure.vertices, 0), frames = meta.frames;
-  const data = new Float32Array(total * frames * 4), position = [], body = [], vertex = [], index = [], faces = [];
-  let column = 0, offset = 0;
-  meta.figures.forEach((figure, which) => {
-    for (let f = 0; f < frames; f++) for (let i = 0; i < figure.vertices; i++) {
-      const from = offset + (f * figure.vertices + i) * 3, to = (f * total + column + i) * 4;
-      data[to] = poses[from] / 16000; data[to + 1] = poses[from + 1] / 16000; data[to + 2] = poses[from + 2] / 16000; data[to + 3] = 1;
-    }
-    for (let i = 0; i < figure.vertices; i++) {
-      const standing = (meta.walkFrames * total + column + i) * 4;
-      position.push(data[standing], data[standing + 1], data[standing + 2]); body.push(figure.paint[i], 0, which + 1, figure.bare[i]); vertex.push(column + i);
-    }
-    for (const i of figure.faces) index.push(column + i);
-    faces.push(figure.faces.map(i => column + i));
-    column += figure.vertices; offset += figure.vertices * frames * 3;
-  });
-  const texture = new THREE.DataTexture(data, total, frames, THREE.RGBAFormat, THREE.FloatType);
-  texture.name = 'Where each vertex of the figures is through a stride'; texture.magFilter = texture.minFilter = THREE.NearestFilter; texture.generateMipmaps = false; texture.needsUpdate = true;
-  const geometry = new THREE.BufferGeometry();
-  geometry.setAttribute('position', new THREE.Float32BufferAttribute(position, 3)); geometry.setAttribute('aBody', new THREE.Float32BufferAttribute(body, 4)); geometry.setAttribute('aVertex', new THREE.Float32BufferAttribute(vertex, 1));
-  geometry.setIndex(index); geometry.computeVertexNormals(); geometry.computeBoundingSphere();
-  // Faceted shading from the surface as it is posed: the stored normals are the standing figure's.
-  const material = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: .86, metalness: 0, flatShading: true });
-  material.name = 'People, modelled';
-  material.onBeforeCompile = shader => {
-    shader.uniforms.uPeoplePose = { value: texture };
-    shader.vertexShader = `attribute vec4 aBody;\nattribute float aVertex;\nattribute vec3 aTop;\nattribute vec3 aBottom;\nattribute vec3 aSkin;\nattribute vec3 aHair;\nattribute vec4 aGait;\nuniform sampler2D uPeoplePose;\nvarying vec3 vPerson;\n${shader.vertexShader}`
-      .replace('#include <begin_vertex>', /* glsl */`#include <begin_vertex>
-	{
-		// aGait: where in its stride this person is, how much it is striding, how fast, and its kit.
-		float nycKit = aGait.w, nycLoop = fract( ( aGait.x + uNycTime * aGait.z ) / 6.2831853 ) * ${meta.walkFrames}.0;
-		int nycColumn = int( aVertex + 0.5 ), nycFrame = int( nycLoop );
-		vec3 nycStep = mix( texelFetch( uPeoplePose, ivec2( nycColumn, nycFrame ), 0 ).xyz, texelFetch( uPeoplePose, ivec2( nycColumn, ( nycFrame + 1 ) % ${meta.walkFrames} ), 0 ).xyz, fract( nycLoop ) );
-		transformed = mix( texelFetch( uPeoplePose, ivec2( nycColumn, ${meta.walkFrames} ), 0 ).xyz, nycStep, clamp( aGait.y, 0.0, 1.0 ) );
-		// A stride of less than nothing is someone sitting down.
-		if ( aGait.y < -0.5 ) transformed = texelFetch( uPeoplePose, ivec2( nycColumn, ${meta.sitFrame ?? meta.walkFrames} ), 0 ).xyz;
-		bool nycBareArm = mod( floor( nycKit / 16.0 ), 2.0 ) > 0.5, nycBareLeg = mod( floor( nycKit / 32.0 ), 2.0 ) > 0.5, nycWoman = mod( floor( nycKit / 64.0 ), 2.0 ) > 0.5;
-		vPerson = aBody.x < 0.5 ? aSkin : aBody.x < 1.5 ? aTop : aBody.x < 2.5 ? aBottom : aBody.x < 3.5 ? aHair : vec3( 0.03, 0.03, 0.032 );
-		if ( ( aBody.w > 0.5 && aBody.w < 1.5 && nycBareArm ) || ( aBody.w > 1.5 && nycBareLeg ) ) vPerson = aSkin;
-		// The body this person is not is folded away inside the one they are.
-		if ( ( aBody.z < 1.5 ) == nycWoman ) transformed = vec3( 0.0, 1.0, 0.0 );
-	}`);
-    shader.fragmentShader = `varying vec3 vPerson;\n${shader.fragmentShader}`.replace('#include <color_fragment>', '#include <color_fragment>\ndiffuseColor.rgb *= vPerson;');
-  };
-  // Each body on its own, over the same vertices: a person is drawn with one of them, not both.
-  const bodies = faces.map(list => { const one = new THREE.BufferGeometry(); for (const [name, attribute] of Object.entries(geometry.attributes)) one.setAttribute(name, attribute); one.setIndex(list); one.boundingSphere = geometry.boundingSphere.clone(); return one; });
-  return { geometry, bodies, material, texture };
 }
 
 // --- Where they walk ------------------------------------------------------------------
@@ -304,33 +280,34 @@ export function createWalkNetwork(walks, { isRoad = () => true } = {}) {
  * `life` is citylife's lookup (crowding and wardrobe); `heightAt(x, z)` the
  * surface a person stands on; `isRoad(x, z)` whether a point is carriageway.
  */
-export function createCrowd({ scene = null, life, heightAt = () => 0, isRoad = () => true, capacity = 240, range = 120, random = seeded(20260712) } = {}) {
-  let geometry = personGeometry(), material = createPersonMaterial(), figures = null;
+export function createCrowd({ scene = null, life, heightAt = () => 0, isRoad = () => true, blocked = () => false, capacity = 240, range = 120, random = seeded(20260712) } = {}) {
+  let geometry = personGeometry(), material = createPersonMaterial(), figures = null, grown = false;
   // Two draws: the modelled figures have a man's body and a woman's, and each person is drawn with their own.
   // Until the figures arrive everyone is in the first.
   const INSTANCED = [['aTop', 3], ['aBottom', 3], ['aSkin', 3], ['aHair', 3], ['aGait', 4]];
   const sink = (shape, name) => {
-    const mesh = new THREE.InstancedMesh(shape, material, capacity);
+    const mesh = new THREE.InstancedMesh(shape, material, capacity + 160);
     mesh.name = name; mesh.count = 0; mesh.frustumCulled = false; mesh.castShadow = true; mesh.receiveShadow = true;
     const made = {};
-    for (const [attribute, size] of INSTANCED) { const a = new THREE.InstancedBufferAttribute(new Float32Array(capacity * size), size); a.setUsage(THREE.DynamicDrawUsage); shape.setAttribute(attribute, a); made[attribute] = a; }
+    for (const [attribute, size] of INSTANCED) { const a = new THREE.InstancedBufferAttribute(new Float32Array((capacity + 160) * size), size); a.setUsage(THREE.DynamicDrawUsage); shape.setAttribute(attribute, a); made[attribute] = a; }
     return { mesh, tops: made.aTop, bottoms: made.aBottom, skins: made.aSkin, hairs: made.aHair, gaits: made.aGait, count: 0 };
   };
   let other = geometry.clone();
   const sinks = [sink(geometry, 'People'), sink(other, 'People, the other body')], mesh = sinks[0].mesh;
   mesh.add(sinks[1].mesh);
   scene?.add(mesh);
-  const people = [], crossing = [], threats = [];
-  let damage = 0;
+  const people = [], crossing = [], threats = [], struck = [], bumps = [];
+  let damage = 0, scares = 0;
   // Figures that are not of the crowd but are drawn with it: the player, and whoever serves in a shop.
   let extras = [];
   let network = null, source = null, balanceTimer = 0, filled = false, lastFocus = null;
   const matrix = new THREE.Matrix4(), place = new THREE.Vector3(), turn = new THREE.Quaternion(), size = new THREE.Vector3(), up = new THREE.Vector3(0, 1, 0), colour = new THREE.Color();
+  const fallenPose = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1, 0, 0), -Math.PI / 2);
 
   function spawn(run, hours, s = random() * run.length) {
     const at = along(run, s), look = dress(chooseOutfit(life.wardrobe(at.x, at.z, hours), random), random, life.tones?.(at.x, at.z, hours) || null);
     const person = { run, s, way: random() < .5 ? 1 : -1, lane: clamp(.55 + random() * Math.max(.2, run.depth - .9), .5, Math.max(.55, run.depth - .25)), look,
-      state: 'walk', hop: null, wait: 0, bold: random() < .6, phase: random() * TAU, y: null, sample: random() * .25, age: 0, shove: [0, 0], x: at.x, z: at.z, heading: 0 };
+      state: 'walk', hop: null, wait: 0, bold: random() < .6, phase: random() * TAU, clip: null, time: random() * 3, fade: 0, once: false, y: null, sample: random() * .25, age: 0, shove: [0, 0], x: at.x, z: at.z, heading: 0 };
     people.push(person);
     return person;
   }
@@ -375,7 +352,7 @@ export function createCrowd({ scene = null, life, heightAt = () => 0, isRoad = (
         if (aspect !== null && !person.bold) return;
         const mx = (hop.from[0] + hop.to[0]) / 2, mz = (hop.from[1] + hop.to[1]) / 2;
         for (const car of cars) {
-          if (car._kerb || car.parked) continue;
+          if (car._kerb || car.parked || !trafficAtHeight(car, person.y)) continue;
           // Nobody steps out in front of a moving car, or of one standing at
           // the crossing: it is waiting to go, and would wait for ever if
           // people kept taking its standing still for a gap.
@@ -413,23 +390,39 @@ export function createCrowd({ scene = null, life, heightAt = () => 0, isRoad = (
     person.stun = Math.max(0, (person.stun || 0) - dt);
     if (!person.shove) person.shove = [0, 0];
     if (person.state === 'down') {
-      person.down = (person.down || 0) - dt;
-      if (person.down <= 0) { person.state = 'flee'; person.mad = 3; person.hp = 3; }
+      // Whatever threw them carries them a little way before they lie still.
+      if (person.vx || person.vz) { person.x += person.vx * dt; person.z += person.vz * dt; const drag = Math.exp(-dt * 3.2); person.vx *= drag; person.vz *= drag; if (Math.hypot(person.vx, person.vz) < .05) person.vx = person.vz = 0; }
+      if (person.out) return;
+      const before = person.down || 0; person.down = before - dt;
+      if (before > 1.5 && person.down <= 1.5) show(person, 'getUp', true);
+      if (person.down <= 0) { if (person.calm) { person.calm = false; rejoin(person); } else { person.state = 'flee'; person.mad = 3; } person.hp = 3; }
       return;
     }
-    const away = player ? { x: person.x - player.x, z: person.z - player.z } : { x: Math.sin(person.heading || 0), z: Math.cos(person.heading || 0) };
-    const dist = Math.hypot(away.x, away.z) || 1;
+    if (person.state === 'cower') {
+      if (person.held && player && !player.armed) {
+        person.state='flee'; person.held=false; person.mad=4; return;
+      }
+      person.mad = (person.mad || 0) - dt;
+      if (player && person.held) person.heading = Math.atan2(player.x-person.x,player.z-person.z);
+      if (person.mad <= 0) { person.held=false; rejoin(person); }
+      return;
+    }
+    const threat = person.fireOrigin || player;
+    const away = threat ? { x: person.x - threat.x, z: person.z - threat.z } : { x: Math.sin(person.heading || 0), z: Math.cos(person.heading || 0) };
     if (person.state === 'flee') {
       person.mad = (person.mad || 0) - dt;
-      person.heading = Math.atan2(away.x, away.z);
-      person.x += away.x / dist * 3.8 * dt;
-      person.z += away.z / dist * 3.8 * dt;
-      if (person.mad <= 0) person.state = 'walk';
+      const awayAngle=Math.hypot(away.x,away.z)>.01?Math.atan2(away.x,away.z):person.heading;
+      for (const angle of [awayAngle,person.heading,awayAngle+Math.PI/2,awayAngle-Math.PI/2]) {
+        const x=person.x+Math.sin(angle)*3.8*dt, z=person.z+Math.cos(angle)*3.8*dt;
+        if (blocked(x,z,person.y)) continue;
+        person.heading=angle; person.x=x; person.z=z; break;
+      }
+      if (person.mad <= 0) { person.fireOrigin = null; rejoin(person); }
       return;
     }
     person.mad = (person.mad || 0) - dt;
     if (!player || person.stun > 0) {
-      if (person.mad <= 0) person.state = 'walk';
+      if (person.mad <= 0) rejoin(person);
       return;
     }
     const dx = player.x - person.x, dz = player.z - person.z, gap = Math.hypot(dx, dz) || 1;
@@ -441,15 +434,112 @@ export function createCrowd({ scene = null, life, heightAt = () => 0, isRoad = (
     } else if (dt > 0 && player.mode === 'walk' && (person.attack || 0) <= 0) {
       person.attack = 0.9;
       damage += 12;
+      show(person, random() < .5 ? 'jab' : 'cross', true);
     } else person.attack = Math.max(0, (person.attack || 0) - dt);
-    if (person.mad <= 0) person.state = 'walk';
+    if (person.mad <= 0) rejoin(person);
+  }
+
+  // --- What they are seen doing ---------------------------------------------------------
+  /** Change the movement a person is shown in; `once` plays it through before anything else is shown. */
+  function show(person, clip, once = false) {
+    if (person.clip === clip && !once) return;
+    person.from = person.clip; person.fromTime = person.time; person.fade = person.clip ? 1 : 0;
+    person.clip = clip; person.time = 0; person.once = once;
+  }
+  const lengthOf = clip => figures ? figures.seconds(clip) : 1;
+  function animate(person, dt) {
+    person.fade = Math.max(0, (person.fade || 0) - dt * 5.5);
+    if (person.once) { person.time += dt; if (person.time < lengthOf(person.clip) - .02) return; person.once = false; }
+    let clip = 'walk', rate = person.look.pace / 1.45;
+    if (person.state === 'down') { clip = 'lying'; rate = 1; }
+    else if (person.state === 'flee' || person.visit?.interrupted) { clip = 'jog'; rate = 1.2; }
+    else if (person.state === 'fight') { clip = 'guard'; rate = 1; }
+    else if (person.state === 'cower') { clip = person.held ? 'handsUp' : 'cower'; rate = 1; }
+    else if (person.state === 'wait' || person.visit?.wait > 0) { clip = 'idle'; rate = 1; }
+    else if (person.look.pace > 2.1) { clip = 'jog'; rate = person.look.pace / 3; }
+    const keep = person.clip === clip ? person.time : person.clip === 'walk' || person.clip === 'jog' || !person.clip ? person.time : 0;
+    if (person.clip !== clip) { show(person, clip); person.time = keep; }
+    person.time += dt * rate;
+  }
+  /** Back to walking where they were going, from wherever they have ended up: they drift back to their side of the sidewalk. */
+  function rejoin(person) {
+    const run = person.run || nearestRun(person.x, person.z); let best = Infinity, s = person.s;
+    person.run = run;
+    for (let i = 0; run && i + 1 < run.points.length; i++) {
+      const a = run.points[i], b = run.points[i + 1], dx = b[0] - a[0], dz = b[1] - a[1], t = clamp(((person.x - a[0]) * dx + (person.z - a[1]) * dz) / (dx * dx + dz * dz || 1), 0, 1), d = Math.hypot(person.x - a[0] - dx * t, person.z - a[1] - dz * t);
+      if (d < best) { best = d; s = run.lengths[i] + (run.lengths[i + 1] - run.lengths[i]) * t; }
+    }
+    if (!run) { person.gone = true; return; }
+    const from = { x: person.x, z: person.z };
+    person.s = s; person.state = 'walk'; person.hop = null; locate(person);
+    person.shove[0] += from.x - person.x; person.shove[1] += from.z - person.z;
+  }
+
+  const nearestRun = (x, z) => { let best = null, near = 60; for (const run of source || []) { const a = run.points[0], d = Math.hypot(a[0] - x, a[1] - z); if (d < near) { near = d; best = run; } } return best; };
+
+  // --- Cars, and people in a hurry ---------------------------------------------------------
+  /**
+   * What a moving car does to someone: hit at speed they are thrown down, nudged
+   * they stagger, and when one bears down on them they start back from it.
+   */
+  function traffic(person, dt, cars, player) {
+    person.scare = Math.max(0, (person.scare || 0) - dt);
+    if (person.state === 'down') return;
+    for (const car of cars) {
+      // A car somebody is driving, or one that has got loose, counts whatever it was doing before.
+      if (!car.controlled && !(car._loose > 0) && (car._kerb || car.parked)) continue;
+      const vx = car.velocityX || Math.sin(car.angle || 0) * (car.speed || 0), vz = car.velocityZ || Math.cos(car.angle || 0) * (car.speed || 0), v = Math.hypot(vx, vz);
+      if (v < 1) continue;
+      const dx = person.x + person.shove[0] - car.x, dz = person.z + person.shove[1] - car.z;
+      if (Math.abs(dx) > 30 || Math.abs(dz) > 30 || !trafficAtHeight(car, person.y)) continue;
+      const fx = Math.sin(car.angle || 0), fz = Math.cos(car.angle || 0), along = dx * fx + dz * fz, across = dx * fz - dz * fx, ux = vx / v, uz = vz / v;
+      if (Math.abs(along) < 2.55 && Math.abs(across) < 1.2) {
+        if ((person.struck || 0) > 0) continue;
+        person.struck = 1;
+        // Above about thirty miles an hour nobody gets up; below twenty nearly everybody does.
+        const dead = v > 3.5 && random() < clamp((v - 8) / 6, 0, 1);
+        struck.push({ speed: v, player: Boolean(car.controlled), x: person.x, z: person.z, dead, person });
+        if (v > 3.5) {
+          // Thrown the way the car was going and a little aside; hard enough, and they do not get up.
+          person.x += person.shove[0]; person.z += person.shove[1]; person.shove[0] = person.shove[1] = 0;
+          person.state = 'down'; person.hop = null; person.out = dead; person.dead = dead; person.down = 5 + v * .35; person.calm = false; person.mad = 0;
+          person.vx = ux * v * .7 + (across > 0 ? fz : -fz) * 1.2; person.vz = uz * v * .7 - (across > 0 ? fx : -fx) * 1.2; person.heading = Math.atan2(-ux, -uz);
+          show(person, 'knocked', true);
+        } else {
+          person.shove[0] += (across > 0 ? fz : -fz) * 1.1 + ux * .5; person.shove[1] += (across > 0 ? -fx : fx) * 1.1 + uz * .5;
+          show(person, 'stumble', true);
+        }
+        continue;
+      }
+      // Bearing down on them: only a car somebody is driving badly, or one that has got loose, or any car for someone in the roadway.
+      if (person.scare > 0 || !(car.controlled || car._loose > 0 || person.state === 'cross')) continue;
+      const ahead = dx * ux + dz * uz, aside = dx * uz - dz * ux;
+      if (ahead > 0 && ahead < 3 + v * .85 && Math.abs(aside) < (person.state === 'cross' ? 2.2 : 1.5) && v > 3) {
+        person.scare = 3;
+        person.shove[0] += (aside > 0 ? uz : -uz) * 1.3; person.shove[1] += (aside > 0 ? -ux : ux) * 1.3;
+        if (person.state === 'fight') continue;
+        show(person, 'flinch', true); scares++;
+        if (v > 9 && car.controlled && person.state !== 'cross') { person.x += 0; person.state = 'flee'; person.mad = 2.2; person.hop = null; }
+      }
+    }
+    person.struck = Math.max(0, (person.struck || 0) - dt);
+    // Somebody on foot barging into them.
+    if (player && player.mode === 'walk' && (person.bumped || 0) <= 0 && person.state !== 'fight') {
+      const dx = person.x + person.shove[0] - player.x, dz = person.z + person.shove[1] - player.z, d = Math.hypot(dx, dz), pace = Math.hypot(player.velocityX || 0, player.velocityZ || 0);
+      if (d < .62 && d > .001 && pace > 1.2 && (dx * (player.velocityX || 0) + dz * (player.velocityZ || 0)) / (d * pace) > .3) {
+        person.bumped = 1.4;
+        if (pace > 6.5) { person.x += person.shove[0]; person.z += person.shove[1]; person.shove[0] = person.shove[1] = 0; person.state = 'down'; person.hop = null; person.out = false; person.calm = true; person.down = 3; person.vx = (player.velocityX || 0) * .45; person.vz = (player.velocityZ || 0) * .45; person.heading = Math.atan2(-dx, -dz); show(person, 'knocked', true); bumps.push({ hard: true }); }
+        else { person.shove[0] += dx / d * (pace > 3 ? 1.1 : .5); person.shove[1] += dz / d * (pace > 3 ? 1.1 : .5); if (pace > 3) { show(person, 'stumble', true); bumps.push({ hard: false }); } }
+      }
+    }
+    person.bumped = Math.max(0, (person.bumped || 0) - dt);
   }
 
   /** The nearest person still on their feet, within arm's reach of a punch. */
-  function closest(x, z, reach = 2.2) {
+  function closest(x, z, reach = 2.2, available = false) {
     let best = null, bestD = reach;
     for (const person of people) {
-      if (person.state === 'down') continue;
+      if (person.state === 'down' || (available && !['walk','wait'].includes(person.state))) continue;
       const dist = Math.hypot(person.x - x, person.z - z);
       if (dist < bestD) { best = person; bestD = dist; }
     }
@@ -460,26 +550,66 @@ export function createCrowd({ scene = null, life, heightAt = () => 0, isRoad = (
    * Swing from (x, z) facing `angle`. Someone in front takes the hit, stumbles,
    * and swings back. A third clean punch puts them down.
    */
-  function strike(x, z, angle) {
+  function strike(x, z, angle, { reach = 1.85, power = 1 } = {}) {
+    return land(inFront(x, z, angle, reach, .2), x, z, power);
+  }
+  /** Whoever is nearest in front of (x, z) along `angle` and still standing. */
+  function inFront(x, z, angle, reach, cone) {
     const fx = Math.sin(angle), fz = Math.cos(angle);
-    let best = null, bestD = 1.85;
+    let best = null, bestD = reach;
     for (const person of people) {
       if (person.state === 'down') continue;
       const dx = person.x - x, dz = person.z - z, dist = Math.hypot(dx, dz);
       if (dist > bestD || dist < 0.01) continue;
-      if (dist > 0.75 && (dx * fx + dz * fz) / dist < 0.2) continue;
+      if (dist > 0.75 && (dx * fx + dz * fz) / dist < cone) continue;
       best = person; bestD = dist;
     }
+    return best;
+  }
+  /**
+   * A blow lands. Hurt, most people get away from whoever did it and a few
+   * square up; out of strength they go down, and a beating that goes on can
+   * be the end of them (`person.dead`).
+   */
+  function land(best, x, z, power) {
     if (!best) return null;
     if (!best.shove) best.shove = [0, 0];
-    best.hp = (best.hp ?? 3) - 1;
+    best.hp = (best.hp ?? 3) - power;
     best.stun = 0.45;
     const dx = best.x - x, dz = best.z - z, dist = Math.hypot(dx, dz) || 1;
-    best.shove[0] += dx / dist * 1.5;
-    best.shove[1] += dz / dist * 1.5;
-    if (best.hp <= 0) { best.state = 'down'; best.down = 6; best.mad = 0; }
-    else { best.state = 'fight'; best.mad = 8; }
+    best.shove[0] += dx / dist * 1.5 * power;
+    best.shove[1] += dz / dist * 1.5 * power;
+    if (best.hp <= 0) {
+      const dead = random() < (power > 1 ? .22 : .08) - best.hp * .12;
+      best.state = 'down'; best.down = 9; best.mad = 0; best.out = dead; best.dead = dead; best.calm = false; best.vx = dx / dist * 1.6; best.vz = dz / dist * 1.6; best.heading = Math.atan2(-dx, -dz); show(best, 'knocked', true);
+    } else {
+      // Who stands their ground is settled the first time they are hit: the bold, and not the old or the small.
+      if (best.fights === undefined) best.fights = best.bold && (best.look.height || 1.7) > 1.5 && random() < .55;
+      if (best.fights) { best.state = 'fight'; best.mad = 8; } else { best.state = 'flee'; best.mad = 5; best.hop = null; }
+      show(best, power > 1 ? 'stumble' : best.hp === 1 ? 'hitChest' : 'hitHead', true);
+    }
     return best;
+  }
+
+  /**
+   * A shot from (x, z) along `angle`: whoever is first in its line within
+   * `range` is hit, and goes down, most of them for good. Returns
+   * { person, distance, dead } or null.
+   */
+  function shoot(x, z, angle, range = 60) {
+    const fx = Math.sin(angle), fz = Math.cos(angle); let best = null, near = range;
+    for (const person of people) {
+      if (person.state === 'down') continue;
+      const dx = person.x + person.shove[0] - x, dz = person.z + person.shove[1] - z, along = dx * fx + dz * fz;
+      if (along < .3 || along > near || Math.abs(dx * fz - dz * fx) > .42) continue;
+      best = person; near = along;
+    }
+    if (!best) return null;
+    const dead = random() < .65;
+    best.x += best.shove[0]; best.z += best.shove[1]; best.shove[0] = best.shove[1] = 0;
+    best.state = 'down'; best.hop = null; best.down = 12; best.mad = 0; best.out = dead; best.dead = dead; best.calm = false; best.hp = 0;
+    best.vx = fx * 1.2; best.vz = fz * 1.2; best.heading = Math.atan2(-fx, -fz); show(best, 'knocked', true);
+    return { person: best, distance: near, dead };
   }
 
   return {
@@ -496,7 +626,10 @@ export function createCrowd({ scene = null, life, heightAt = () => 0, isRoad = (
         source = walks; network = createWalkNetwork(walks, { isRoad });
         // People on stretches that are no longer loaded go with them.
         const kept = new Set(walks);
-        for (let i = people.length - 1; i >= 0; i--) if (!kept.has(people[i].run) || (people[i].hop && !kept.has(people[i].hop.run))) people.splice(i, 1);
+        for (let i = people.length - 1; i >= 0; i--) if ((people[i].run && !kept.has(people[i].run)) || (people[i].hop && !kept.has(people[i].hop.run))) {
+          if (people[i].visit) people[i].run = null;
+          else people.splice(i, 1);
+        }
       }
       // A jump across the city starts a new crowd rather than marching the old one over.
       if (lastFocus && Math.hypot(focus.x - lastFocus.x, focus.z - lastFocus.z) > 150) { people.length = 0; filled = false; }
@@ -537,7 +670,7 @@ export function createCrowd({ scene = null, life, heightAt = () => 0, isRoad = (
         // Those who have walked out of range, and those a quieter hour no longer calls for, leave.
         for (let i = people.length - 1; i >= 0; i--) {
           const person = people[i], d = Math.hypot(person.x - focus.x, person.z - focus.z);
-          if (person.age > 1 && d > range + 25 && person.state !== 'fight' && person.state !== 'down' && person.state !== 'flee') people.splice(i, 1);
+          if (person.age > 1 && d > range + 25 && person.state !== 'fight' && person.state !== 'flee' && (person.state !== 'down' || d > range + 70)) people.splice(i, 1);
         }
         if (people.length > wanted * scale + 6) {
           for (let i = people.length - 1, drop = Math.ceil((people.length - wanted * scale) * .1); i >= 0 && drop > 0; i--) {
@@ -548,12 +681,21 @@ export function createCrowd({ scene = null, life, heightAt = () => 0, isRoad = (
         filled = true;
       }
       crossing.length = 0; sinks[0].count = sinks[1].count = 0;
-      damage = 0; threats.length = 0;
-      const driving = player && player.mode === 'drive' && Math.hypot(player.velocityX || 0, player.velocityZ || 0) > 2;
+      damage = 0; threats.length = 0; struck.length = 0; bumps.length = 0; scares = 0; grown = Boolean(figures?.anyReady); if (grown) figures.begin(); else if (figures) for (const person of people) figures.ask(person.look.member ?? memberOf(person.look));
+      // A car creeping past is stepped back from. One coming fast is another matter: there is no time, and they are hit or they jump (traffic()).
+      const pace = player ? Math.hypot(player.velocityX || 0, player.velocityZ || 0) : 0, driving = player && player.mode === 'drive' && pace > 2 && pace < 5.5;
+      for (let i = people.length - 1; i >= 0; i--) if (people[i].gone) people.splice(i, 1);
       for (let i = 0; i < people.length; i++) {
         const person = people[i];
-        const fighting = person.state === 'fight' || person.state === 'down' || person.state === 'flee';
-        if (fighting) {
+        if (person.y == null) person.y = heightAt(person.x, person.z);
+        if (dt > 0 && !person.visit) traffic(person, dt, context.cars || [], player);
+        if (person.visit && person.state !== 'shopping') { person.visit.view.visitor = null; person.visit = null; }
+        const fighting = person.state === 'fight' || person.state === 'down' || person.state === 'flee' || person.state === 'cower';
+        if (person.visit) {
+          person.visit.step(person, dt, context.time);
+          if (!person.visit && !person.run) { if (nearestRun(person.x, person.z)) rejoin(person); else person.gone = true; }
+        }
+        else if (fighting) {
           combat(person, dt, player);
           if (person.state === 'fight' || person.state === 'down') threats.push({ x: person.x, z: person.z, kind: person.state === 'down' ? 'down' : 'fight' });
         } else {
@@ -562,19 +704,30 @@ export function createCrowd({ scene = null, life, heightAt = () => 0, isRoad = (
         }
         if (person.state === 'cross') crossing.push(person);
         // Step back from a car that is about to brush past.
-        if (driving) {
+        if (driving && trafficAtHeight(player, person.y) && !(person.trafficHitUntil > context.time) && person.state !== 'down') {
           const dx = person.x - player.x, dz = person.z - player.z, d = Math.hypot(dx, dz);
           if (d < 3.6 && d > .01) { person.shove[0] = dx / d * (3.6 - d) * .7; person.shove[1] = dz / d * (3.6 - d) * .7; }
         }
         person.shove[0] *= Math.exp(-dt * 2.2); person.shove[1] *= Math.exp(-dt * 2.2);
         // The ground is read a few times a second; a sidewalk does not change underfoot.
         person.sample -= dt;
-        if (person.y === null || person.sample <= 0) { const y = heightAt(person.x, person.z); person.y = person.y === null ? y : person.y + (y - person.y) * .6; person.sample = .22; }
-        const look = person.look, moving = person.state === 'wait' || person.state === 'down' ? 0 : 1, grow = Math.min(1, person.age * 3);
+        if ((!person.visit || person.visit.path[person.visit.at]?.b < 0) && (person.y === null || person.sample <= 0)) { const y = heightAt(person.x, person.z); person.y = person.y === null ? y : person.y + (y - person.y) * .6; person.sample = .22; }
+        const look = person.look, moving = person.state === 'wait' || person.state === 'down' || person.visit?.wait > 0 ? 0 : 1, grow = Math.min(1, person.age * 3);
+        if (grown) {
+          animate(person, dt);
+          const px = person.x + person.shove[0], pz = person.z + person.shove[1];
+          figures.add(look.member ?? memberOf(look), px, person.y, pz, person.heading, look.height * grow, look, Math.hypot(px - focus.x, pz - focus.z), person.clip, person.time, person.from, person.fromTime, person.fade);
+          continue;
+        }
         // Half are drawn with the woman's figure: which, is fixed by where in their stride they began.
-        const woman = Math.floor(person.phase * 997) % 2 === 1, to = sinks[figures && woman ? 1 : 0], at = to.count++, slot = (to === sinks[1] ? capacity : 0) + at;
+        const woman = Math.floor(person.phase * 997) % 2 === 1, to = sinks[figures && woman ? 1 : 0];
+        if (to.count >= to.mesh.instanceMatrix.count) continue;
+        const at = to.count++, slot = (to === sinks[1] ? capacity : 0) + at;
         place.set(person.x + person.shove[0], person.y, person.z + person.shove[1]);
         turn.setFromAxisAngle(up, person.heading);
+        if (person.state === 'down') {
+          turn.multiply(fallenPose); place.y += .24;
+        }
         size.set(look.build * look.height / 1.72 * grow, look.height / 1.72 * grow, look.build * look.height / 1.72 * grow);
         matrix.compose(place, turn, size); to.mesh.setMatrixAt(at, matrix);
         if (person.drawn !== slot) {
@@ -589,11 +742,27 @@ export function createCrowd({ scene = null, life, heightAt = () => 0, isRoad = (
         // Stride rate follows pace: about two steps a second at a brisk walk.
         to.gaits.setXYZW(at, person.phase, moving, look.pace * 4.6, look.kit | (woman ? KIT.woman : 0));
       }
+      if (grown) {
+        // Whoever else is drawn with the crowd: sitting, standing, walking at their own pace, or in a movement they name.
+        const walk = figures.seconds('walk');
+        for (const extra of extras) {
+          const seat = extra.sitting && !extra.clip && extra.seat, weight = seat?.weight ?? 1;
+          const look = extra.look, clip = extra.clip || (seat ? seatClip(seat) : extra.sitting ? 'sit' : (extra.stride || 0) > .05 ? 'walk' : 'idle');
+          const time = extra.clip ? extra.time || 0 : extra.sitting ? (extra.x * 7.3 + extra.z * 3.1) % 1.6 + context.time : clip === 'walk' ? (extra.phase || 0) / TAU * walk : context.time + (extra.x + extra.z) % 2;
+          const height = seat ? extra.y + seatHeight(seat) * weight : extra.y;
+          figures.add(extra.member ?? memberOf(look), extra.x, height, extra.z, extra.heading || 0, look.height || 0, look, Math.hypot(extra.x - focus.x, extra.z - focus.z), clip, time, seat && weight < 1 ? 'idle' : extra.from || null, extra.fromTime || 0, seat ? 1 - weight : extra.fade || 0);
+        }
+        figures.end(); sinks[0].mesh.count = sinks[1].mesh.count = 0;
+        return;
+      }
       for (const extra of extras) {
         const look = extra.look, scale = (look.height || 1.72) / 1.72, to = sinks[figures && (look.kit & KIT.woman) ? 1 : 0];
-        if (to.count >= capacity) continue;
+        if (to.count >= to.mesh.instanceMatrix.count) continue;
         const at = to.count++;
         place.set(extra.x, extra.y, extra.z); turn.setFromAxisAngle(up, extra.heading || 0); size.set(scale, scale, scale);
+        const seat = extra.sitting && extra.seat, weight = seat?.weight ?? 1;
+        if (seat) place.y += (seatHeight(seat) - .45 * scale) * weight;
+        if (extra.downUntil > context.time) { turn.multiply(fallenPose); place.y += .24; }
         matrix.compose(place, turn, size); to.mesh.setMatrixAt(at, matrix);
         colour.setHex(look.top); to.tops.setXYZ(at, colour.r, colour.g, colour.b);
         colour.setHex(look.bottom); to.bottoms.setXYZ(at, colour.r, colour.g, colour.b);
@@ -601,7 +770,7 @@ export function createCrowd({ scene = null, life, heightAt = () => 0, isRoad = (
         colour.setHex(look.hair); to.hairs.setXYZ(at, colour.r, colour.g, colour.b);
         to.tops.needsUpdate = to.bottoms.needsUpdate = to.skins.needsUpdate = to.hairs.needsUpdate = true;
         // They keep their own stride: the shader's clock does not move them.
-        to.gaits.setXYZW(at, extra.phase || 0, extra.sitting ? -1 : extra.stride || 0, 0, look.kit || 0);
+        to.gaits.setXYZW(at, extra.phase || 0, extra.clip === 'handsUp' || extra.clip === 'cower' ? -3 : extra.clip === 'reach' || extra.clip === 'pickUp' ? -4 : extra.cycling ? -2 : extra.sitting ? -1 : extra.stride || 0, extra.sitting ? weight : 0, look.kit || 0);
       }
       for (const to of sinks) { to.mesh.count = to.count; to.mesh.instanceMatrix.needsUpdate = true; to.gaits.needsUpdate = true; }
     },
@@ -611,18 +780,62 @@ export function createCrowd({ scene = null, life, heightAt = () => 0, isRoad = (
      * and `stride` how much it is striding, from 0 standing to 1; `sitting` seats the figure instead.
      */
     setExtras(list) { extras = list || []; },
-    strike, closest,
+    palm(actor) { return figures?.palm?.(actor.look.member ?? memberOf(actor.look),actor); },
+    fleeOntoStreet(actor) {
+      people.push({x:actor.x,z:actor.z,y:actor.y,heading:actor.heading,look:actor.look,state:'flee',mad:5,
+        run:nearestRun(actor.x,actor.z),way:1,lane:.65,s:0,shove:[0,0],age:1,phase:actor.phase||0,time:0,sample:0});
+    },
+    strike, closest, shoot,
     get damage() { return damage; },
     get threats() { return threats; },
-    /** Draw the crowd with the modelled figures in place of the blocked-out ones. */
-    setFigures(meta, poses) {
-      const next = createFigures(meta, poses);
-      sinks.forEach((to, which) => { for (const [name] of INSTANCED) next.bodies[which].setAttribute(name, to.mesh.geometry.getAttribute(name)); });
-      geometry.dispose(); other.dispose(); material.dispose(); figures?.texture.dispose(); figures?.geometry.dispose();
-      geometry = sinks[0].mesh.geometry = next.bodies[0]; other = sinks[1].mesh.geometry = next.bodies[1];
-      material = sinks[0].mesh.material = sinks[1].mesh.material = next.material; figures = next;
+    /** People a car hit in this update ({ speed, player, x, z }), people the player barged into, and how many started back from a car. */
+    get struck() { return struck; },
+    get bumps() { return bumps; },
+    get scares() { return scares; },
+    /** Make everyone near a point shrink from it or run: a shot, a fight, a gun pointed their way. */
+    alarm(x, z, reach = 9, run = .6, { angle = null, near = 5, calm = false, y, sight, bystanders = [], time = 0 } = {}) {
+      let count = 0;
+      const notices = (person,dx,dz,d) => d<=reach && (!Number.isFinite(y) || trafficAtHeight(person,y)) &&
+        (angle===null || d<=near || dx*Math.sin(person.heading)+dz*Math.cos(person.heading)>=-.2*d) &&
+        (!sight || sight(person));
+      for (const person of people) {
+        if (person.state === 'down' || (person.state === 'fight' && !calm)) continue;
+        const dx=x-person.x, dz=z-person.z, d=Math.hypot(dx,dz);
+        if (!notices(person,dx,dz,d)) continue;
+        const aimed=angle!==null && -dx*Math.sin(angle)-dz*Math.cos(angle)>.55*d;
+        if (person.visit) {
+          if (angle!==null && roomLocal(person.visit.room,person.x,person.z).b>0) continue;
+          if (!person.visit.scared) count++;
+          person.visit.scared=true; continue;
+        }
+        // Somebody already running or with their hands up stays as they are, a little longer.
+        if (calm && (person.state === 'flee' || person.state === 'cower')) {
+          if (person.state==='cower' && !aimed) { person.state='flee'; person.held=false; }
+          person.mad = Math.max(person.mad || 0, 2.5); continue;
+        }
+        person.x += person.shove[0]; person.z += person.shove[1]; person.shove[0] = person.shove[1] = 0; person.hop = null; count++;
+        // Close to it they freeze, hands up if it is held on them; further off they run.
+        if ((angle!==null && !aimed) || random() < run || d > reach * .6) { person.state = 'flee'; person.mad = 3 + random() * 2; person.held = false; } else { person.state = 'cower'; person.mad = 4 + random() * 3; person.held = aimed; }
+      }
+      for (const person of bystanders) {
+        const dx=x-person.x, dz=z-person.z;
+        if (person.absentUntil>time || person.downUntil>time || !notices(person,dx,dz,Math.hypot(dx,dz))) continue;
+        person.absentUntil=time+60;
+        this.fleeOntoStreet(person); count++;
+      }
+      return count;
     },
-    get modelled() { return Boolean(figures); },
-    dispose() { geometry.dispose(); other.dispose(); material.dispose(); figures?.texture.dispose(); figures?.geometry.dispose(); for (const to of sinks) to.mesh.dispose(); mesh.removeFromParent(); people.length = 0; },
+    /** Somebody hauled out of a car and thrown down at (x, z): they lie there a few seconds, get up and run. */
+    throwOut(x, z, heading, hours = 12) {
+      const look = dress(chooseOutfit(life.wardrobe(x, z, hours), random), random, life.tones?.(x, z, hours) || null);
+      const person = { run: null, s: 0, way: 1, lane: .6, look, state: 'down', hop: null, wait: 0, bold: true, phase: 0, clip: null, time: 0, fade: 0, once: false, y: null, sample: 0, age: 1, shove: [0, 0], x, z, heading, down: 4.5, out: false, calm: false, hp: 3 };
+      people.push(person); show(person, 'thrown', true);
+      return person;
+    },
+    /** Draw the crowd with grown figures (people-figures.js) in place of the blocked-out ones. */
+    setFigures(set) { figures = set; if (set && !set.group.parent) mesh.parent?.add(set.group); },
+    get figures() { return figures; },
+    get modelled() { return Boolean(figures?.anyReady); },
+    dispose() { geometry.dispose(); other.dispose(); material.dispose(); figures?.dispose(); for (const to of sinks) to.mesh.dispose(); mesh.removeFromParent(); people.length = 0; },
   };
 }

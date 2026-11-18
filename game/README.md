@@ -51,7 +51,13 @@ Choose **Meadow Lake road reconstruction** in the city picker and select **Spawn
 | City orbit / zoom | Drag / scroll in city view | |
 | Travel to a mapped street | Double-click in city view | |
 | Horn | H | |
-| Recover to starting street | R | |
+| Kick (on foot) | Q | D-pad right |
+| Equip / holster pistol | X | D-pad left |
+| Hold focused aim on foot | Right mouse | Left trigger |
+| Fire equipped pistol | Left click or F | Right trigger or B |
+| Reload equipped pistol | R | D-pad up |
+| Climb onto a car or a ledge; vault a car | Space, facing it; Space at a run | X |
+| Recover to starting street | R when unarmed, or Recover in the pause menu | |
 
 First person puts you at eye level on foot and in the driver's seat when you enter a car. Drag to look around or use the right stick. You can also switch perspective in the pause menu.
 
@@ -142,7 +148,7 @@ Simulated traffic stops at red lights and stop signs; patrols with their sirens 
 
 `street-signs.js` draws the hardware: a galvanised pole on the far right of each approach with a mast arm over the roadway, yellow three-lamp heads with twelve-inch lenses, pedestrian heads showing an orange hand or a white walking figure, green street-name signs parallel to the street they name, black ONE WAY arrows and red stop signs. The lamps of distant signals are drawn to 800 m.
 
-**People.** `citylife.js` estimates how many people pass a point in an hour. Near one of DOT's 114 counted sidewalks the count leads; a kilometre away a model has taken over: a handful of named districts (offices, sights, shopping streets, evenings out, and homes for everything else), each with its own shape of day. `crowd.js` turns that into people on the surveyed sidewalks, up to 240 around the player: about 45 to a hundred metres of Times Square sidewalk at half past five, two or three on a residential block. They walk the kerb side, turn corners, wait for the walk signal and, if nothing is coming, cross against it. Traffic stops for anyone in the roadway. What they wear follows the district and the hour: jackets and shirts round the offices at lunch, shorts and backpacks where the visitors are, dark clothes on a street of bars at night. Skin and hair are drawn from one wide range everywhere. They cannot be collided with; they step back from a car that passes close.
+**People.** `citylife.js` estimates how many people pass a point in an hour. Near one of DOT's 114 counted sidewalks the count leads; a kilometre away a model has taken over: a handful of named districts (offices, sights, shopping streets, evenings out, and homes for everything else), each with its own shape of day. `crowd.js` turns that into people on the surveyed sidewalks, up to 240 around the player: about 45 to a hundred metres of Times Square sidewalk at half past five, two or three on a residential block. They walk the kerb side, turn corners, wait for the walk signal and, if nothing is coming, cross against it. Traffic stops for anyone in the roadway. What they wear follows the district and the hour: jackets and shirts round the offices at lunch, shorts and backpacks where the visitors are, dark clothes on a street of bars at night. Skin and hair are drawn from one wide range everywhere. A car that hits one at speed throws them down (hard enough, and they stay down), one that bears down on them makes them start back and step aside, and the player running into one staggers them or puts them on the ground for a moment; running someone down is a crime.
 
 **Traffic.** Moving traffic is kept within about 400 m of the player: some 15 cars on residential streets in the small hours, 47 there in the rush, and 62 in Midtown. A car joins on a street that leads toward the player, most often an avenue or a street the player can see down, and only where it will not be seen to appear: no nearer than 150 m behind the camera or 330 m in front of it, where a car is a few pixels wide. Cars that stray further are brought back the same way. In the Manhattan core about a third of the cars are yellow cabs by day and more than half after midnight; elsewhere cabs are few and apple green.
 
@@ -226,7 +232,7 @@ The city's business licences, already bundled with the other places, include 263
 
 ## The figures
 
-The crowd is drawn with two modelled figures, a man and a woman, from Quaternius's Universal Base Characters with the walk from his Universal Animation Library (both CC0). `scripts/build-people.mjs` poses each body at 24 frames of the walk and standing still, thins it to about two thousand vertices, and writes where each vertex is at each frame (`dist/people.bin`, 620 KB), with one more frame for sitting on a chair; the crowd's vertex shader looks positions up from that, so a few hundred people cost one draw. The packs are not in the repository: download the free versions into `game/assets-src/characters/` to run the script again. The free packs have one build of body, and no clothes: shirts, trousers and shoes are colours painted on by which bone moves each part of the skin, so everyone is the same athletic shape in close-fitting clothes. The player and the people who mind shops are drawn with the same figures, in the same draw as the crowd; someone behind a counter is the same person each visit. Until the figures have loaded the older blocked-out figure is used.
+People are grown in the game, not downloaded: see [People](docs/people.md). `body.js` makes a body from a design (sex, age, height, weight, muscle, forty-odd measures of frame and face, hair, clothes), so the street has thin people and heavy ones, children and the old, and nobody is an athlete unless the design says so. The sidewalks are peopled from a cast of 48 such designs (`body-designs.js`), each worn in a person's own colours, and all of them drawn skinned on the graphics card (`people-figures.js`) so that anyone can walk, run, stand, sit, start back from a car, be knocked down and get up. The skeleton and the recorded movements are Quaternius's Universal Animation Library (CC0), baked by `scripts/build-motion.mjs` into `dist/motion.json` and `dist/motion.bin` (530 KB); kicks, vaults, climbs, car doors, arrests and the rest are written by hand in `body-moves.js`. The player is one more design, set on the [character page](dist/character.html) and kept in the browser. The library is not in the repository: download the free version into `game/assets-src/characters/` to run the script again. Until bodies have been grown, a moment after loading, the older blocked-out figure is used.
 
 ## Going inside
 
@@ -277,7 +283,15 @@ The helicopter circles over you during a chase and over the search area afterwar
 
 The map and the minimap show patrol cars, officers and the helicopter while you are wanted. During a search they also show the area being searched, around the place you were last seen, and what each unit can see.
 
-Not done: officers have no drawn weapon or aiming pose, there are no roadblocks or spike strips, patrol cars cannot be taken, and the player has no gun.
+## Violence and its consequences
+
+- **Fists and feet.** Somebody hit mostly gets away from you; the bolder ones square up and hit back. Three punches or two kicks put a person down, and a beating can kill. People near by scatter.
+- **The pistol.** **X** takes it out or puts it away; with it out, **F** fires (twelve rounds, then a new magazine). Whoever it is pointed at puts their hands up or runs, and somebody may report it. A shot stops at the first person in its line or at a wall, and is heard a long way off.
+- **Cars and people.** A car coming fast gives people time to start back or run, not always enough. Hit above walking pace they are thrown down; above about twenty miles an hour some do not get up, and above thirty none do. A car creeping past is stepped back from.
+- **Cars and cars.** A car you drive into is dented by how hard, shoved off its line and turned, and rolls to a stop where it will. Its driver sits a while and then goes on; a car hit too often stays where it is. Damaged cars smoke, yours included.
+- **On top of things.** Walk up to a car and press **Space** to climb onto it; run at it to go over it. Vans, pickups and SUVs stand too tall to go over and are always climbed. A car under your feet carries you with it.
+
+Not done: there are no roadblocks or spike strips, patrol cars cannot be taken, bystanders never carry weapons, and nobody but the player and the police shoots.
 
 ## Cars and garages
 

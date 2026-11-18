@@ -14,6 +14,7 @@ import { Simulation, TRAFFIC_SIGHT } from '../dist/simulation.js';
 import { OFFICER_LOOK } from '../dist/police.js';
 import { createPoliceScene } from '../dist/police-scene.js';
 import { createCarSmoke } from '../dist/car-smoke.js';
+import { GUN } from '../dist/player-moves.js';
 import { resetVehicleDynamics } from '../dist/vehicle-dynamics.js';
 import { Input } from '../dist/input.js';
 import { HUD } from '../dist/hud.js';
@@ -40,6 +41,12 @@ import { createTransportScene } from '../dist/transport-models.js';
 import { createCityLife, manhattanCore, characterAt } from '../dist/citylife.js';
 import { createStreetSigns } from '../dist/street-signs.js';
 import { createCrowd, dress, seeded, KIT } from '../dist/crowd.js';
+import { createBodyShop } from '../dist/body.js';
+import { createBodyMesh } from '../dist/body-mesh.js';
+import { createMotion, createAnimator, fitPose } from '../dist/body-motion.js';
+import { writeMovements } from '../dist/body-moves.js';
+import { createFigures } from '../dist/people-figures.js';
+import { loadDesign, CAST } from '../dist/body-designs.js';
 import { createStreetProps } from '../dist/street-props.js';
 import { createPlaceSource, placeName, joinPlaceSources, indexFootprints, solveFrontages } from '../dist/places.js';
 import { createStorefronts } from '../dist/storefronts.js';
@@ -297,7 +304,8 @@ async function bootHarness({ stored = null, displayStored = null, unavailableSto
     },
     updateChaseHeight, createDriverCabin, createCityGround, worldToGeographic, createRoadStream, nearestStreet, localDestinations, createCityNavigation,
     createStreetDetail:(manifest,options)=>createStreetDetail(manifest,{...options,now:()=>timestamp}),
-    renderStats, performanceName, vehicleHandling, createDoorDebris, carCondition, createCarSmoke, createCentralPark,
+    renderStats, performanceName, vehicleHandling, createDoorDebris, carCondition, createCarSmoke, createCentralPark, GUN,
+    createBodyShop, createBodyMesh, createMotion, createAnimator, fitPose, writeMovements, createFigures, loadDesign, CAST,
     Landscape, RoadPilot, AbortSignal, createGraphics, createStreetLife, createWater, WATER_LEVEL, BOARDINGS, TRANSPORT, transportDestination, TransportFleet, createTransportScene, setVehicleLamps, OFFICER_LOOK, createPoliceScene, createCityLife, manhattanCore, createStreetSigns, createCrowd, dress, seeded, KIT, createStreetProps, createPlaceSource, placeName, joinPlaceSources, indexFootprints, solveFrontages, createStorefronts, createInteraction, createPhone, describePlace, createFleet, createVehicleMeshLibrary, designFor, createSwitchShot, offersAt, shopRows, planRoom, buildRoom, roomKind, hasRoom, doorBlips, createDemographics, characterAt, createBuses, createBusStops, createSheds, planSheds, createShedMesh, createDining, planDining, createDiningMesh, seatsOf, planStands, vendorOf, createStandMesh, createBikeShare, planBikeDocks, createBikeDocks, menuFor, createSubway, createSubwayEntrances, FARE, indexKerbs, snapToKerb, formatDistance,
     // Bundled survey cells only: these tests stay offline.
     createStreetscape:options=>createStreetscape({...options,live:false,now:()=>timestamp}),
@@ -329,7 +337,10 @@ async function bootHarness({ stored = null, displayStored = null, unavailableSto
       assert.fail(message);
     }
     await until(()=>vm.runInContext('bootReady',context)||!elements.get('load-error').hidden,'production boot did not finish');
-    vm.runInContext('if(sim)sim.endingSeconds=0;',context);
+    // Getting into a car takes as long as the movement drawn for it (player-moves.js, tested in people.test.js).
+    // These flows press the key and go straight on, so here it is immediate. So is what follows a death or an
+    // arrest: the pause in which it is watched (Simulation.end) is tested in police.test.js.
+    vm.runInContext('if(sim){sim.moves=false;sim.endingSeconds=0;}',context);
     return {
       close, errors, elements, storage, pads, window, document, rendererInstances, requests, imageRequests, until,
       setStreetFailure:value=>{streetFailure=value;},
@@ -367,7 +378,7 @@ async function bootHarness({ stored = null, displayStored = null, unavailableSto
       press: key => window.dispatch('keydown', { key, code: '', repeat: false, target: elements.get('world') }),
       frames(count = 1) {
         for (let i = 0; i < count; i++) {
-          assert.equal(frames.length, 1, 'one animation loop should be scheduled');
+          assert.equal(frames.length, 1, errors[0]?.stack || 'one animation loop should be scheduled');
           timestamp += 1000 / 60;
           frames.shift()(timestamp);
         }
@@ -1860,4 +1871,46 @@ test('subway steps support the walking player after street travel and E opens th
     assert.match(app.elements.get('interaction-title').textContent,/Prince St/);
     assert.equal(app.errors.length,0,app.errors[0]?.stack);
   } finally { app.close(); }
+});
+
+test('the equipped pistol can be aimed, fired and reloaded through the on-foot controls',async()=>{
+  const app=await bootHarness({coarsePointer:true});
+  try {
+    app.click('start-button');app.click('view-button');app.frames(2);
+    const sim=app.simulation(),p=sim.player,canvas=app.elements.get('world');
+    const press=code=>{app.key(code);app.key(code,false);};
+    const rounds=GUN.rounds;
+    press('KeyX');app.frames(6);assert.equal(p.rounds,rounds);
+    canvas.dispatch('pointerdown',{button:2,pointerId:1,clientX:60,clientY:60});
+    canvas.dispatch('mousedown',{button:2});app.frames();
+    const prop=app.renderState().scene.getObjectByName('First-person pistol');
+    assert.ok(prop?.visible);
+    assert.equal(app.camera().fov,54);
+    assert.equal(app.elements.get('aim-dot').hidden,false);
+    const before=sim.police.shotsFired;
+    canvas.dispatch('mousedown',{button:0});app.frames();
+    assert.equal(p.rounds,rounds-1);assert.ok(sim.police.shotsFired>before);
+    app.window.dispatch('mouseup',{button:2});canvas.dispatch('pointerup',{pointerId:1,clientX:60,clientY:60});app.frames(6);
+    assert.equal(app.elements.get('aim-dot').hidden,true);
+    assert.equal(prop.visible,false);
+    const initial={x:p.x,z:p.z};
+    press('KeyR');assert.ok(p.reloading>0);assert.equal(p.rounds,rounds-1);
+    app.click('touch-fire');assert.equal(p.rounds,rounds-1);
+    for(let i=0;i<140&&p.reloading>0;i++)app.frames();
+    assert.equal(p.rounds,rounds);assert.ok(Math.hypot(p.x-initial.x,p.z-initial.z)<.15);
+    app.click('touch-aim');app.frames();assert.equal(prop.visible,true);
+    app.click('touch-fire');assert.equal(p.rounds,rounds-1);
+    app.click('touch-aim');app.frames(7);app.click('touch-reload');assert.ok(p.reloading>0);
+    press('KeyX');app.frames(2);assert.equal(prop.visible,false);
+    const pad={axes:[0,0,0,0],buttons:Array.from({length:16},()=>({value:0,pressed:false}))};
+    app.pads.push(pad);
+    pad.buttons[14].pressed=true;app.frames();pad.buttons[14].pressed=false;
+    pad.buttons[6].value=1;app.frames(24);
+    assert.equal(app.elements.get('aim-dot').hidden,false);
+    const remaining=p.rounds;
+    pad.buttons[7].value=1;app.frames(28);assert.equal(p.rounds,remaining-1);
+    pad.buttons[7].value=0;pad.buttons[12].pressed=true;app.frames();assert.ok(p.reloading>0);
+    pad.buttons[6].value=0;app.frames();assert.equal(prop.visible,false);
+    assert.equal(app.errors.length,0,app.errors[0]?.stack);
+  }finally{app.close();}
 });

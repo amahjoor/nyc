@@ -27,7 +27,8 @@ test('people are dressed for the outfit they are given, from one wide range of s
   for (const outfit of OUTFITS) looks[outfit] = Array.from({ length: 300 }, () => dress(outfit, random));
   for (const [outfit, list] of Object.entries(looks)) for (const look of list) {
     assert.equal(look.outfit, outfit);
-    assert.ok(look.height >= 1.5 && look.height <= 1.95 && look.build >= .9 && look.build <= 1.15 && look.pace > .9 && look.pace < 2.7);
+    // Children are among them now: the shortest of the cast is a nine-year-old.
+    assert.ok(look.height >= 1.1 && look.height <= 1.95 && look.build >= .9 && look.build <= 1.15 && look.pace > .9 && look.pace < 2.7);
     for (const key of ['top', 'bottom', 'skin', 'hair']) assert.ok(Number.isInteger(look[key]) && look[key] >= 0 && look[key] <= 0xffffff, key);
   }
   const luminance = hex => { const c = new THREE.Color(hex); return .2126 * c.r + .7152 * c.g + .0722 * c.b; };
@@ -188,7 +189,7 @@ test('with no signal, or a bold New Yorker, the gap in traffic decides', () => {
   assert.ok(from(car(0)) > 14 && from(car(0)) < 24 && from(car(0, middle[1], middle[0] + 8)) < 14);
   // A car bearing down: wait. The same car standing down the block at the light, or parked: go.
   // A car standing at the crossing itself is waiting to go: nobody steps out in front of it, unless it has been left there.
-  const cases = [[[car(9)], false, 'a car coming'], [[car(0)], true, 'a car standing down the block'], [[{ ...car(9), _kerb: true }], true, 'a car at the kerb'], [[car(9, 400)], true, 'a car far away'], [[], true, 'an empty street'],
+  const cases = [[[car(9)], false, 'a car coming'], [[car(0)], true, 'a car standing down the block'], [[{ ...car(9), _kerb: true }], true, 'a car at the kerb'], [[car(9, 400)], true, 'a car far away'], [[{ ...car(9), y: 6 }], true, 'traffic on the bridge above the crossing'], [[], true, 'an empty street'],
     [[car(0, middle[1], middle[0] + 8)], false, 'a car standing at the crossing'], [[{ ...car(0, middle[1], middle[0] + 8), parked: true }], true, 'a car left standing at the crossing']];
   for (const [cars, goes, what] of cases) {
     const crowd = start(), person = waiting(crowd);
@@ -205,13 +206,40 @@ test('with no signal, or a bold New Yorker, the gap in traffic decides', () => {
   }
 });
 
+test('cars only strike, startle or nudge pedestrians on the same road level', () => {
+  for (const [floor, road] of [[0, 6], [6, 0], [6, 6]]) {
+    for (const [speed, offset, response] of [[12, 0, 'hit'], [8, 6, 'flinch'], [4, 0, 'step back']]) {
+      const walks = corner(), crowd = createCrowd({ life: life(.1), range: 150, heightAt: () => floor, random: seeded(9) });
+      const frame = { walks, junctions: [], cars: [], hours: 13, time: 1, focus: { x: 0, z: 0 } };
+      crowd.update(0, frame);
+      const person = crowd.people.find(p => p.s > 10 && p.s < p.run.length - 10);
+      crowd.people.splice(0, crowd.people.length, person);
+      // Exercise a newly placed person's first frame before their height sample.
+      person.y = null;
+      const car = { x: person.x - (response === 'step back' ? 2 : 0), y: road, z: person.z - offset,
+        angle: 0, speed, velocityZ: speed, mode: 'drive', controlled: true };
+      crowd.update(1/60, { ...frame, cars: [car], player: car });
+      const together = floor === road;
+      assert.equal(crowd.struck.length, Number(together && response === 'hit'), response);
+      assert.equal(crowd.scares, Number(together && response === 'flinch'), response);
+      assert.equal(person.state === 'down', together && response === 'hit', response);
+      if (response === 'step back') assert.equal(Math.hypot(...person.shove) > .1, together);
+      if (!together) {
+        assert.equal(crowd.alarm(person.x, person.z, 14, .9, { y: road }), 0, 'a collision on another deck does not scatter the crowd');
+        assert.equal(Math.hypot(...person.shove), 0);
+      }
+      crowd.dispose();
+    }
+  }
+});
+
 test('people leave with the streets they were on, and step back from a passing car', () => {
   const walks = corner(), crowd = createCrowd({ scene: new THREE.Scene(), life: life(.1), capacity: 200, range: 150, random: seeded(9) });
   crowd.update(.016, { walks, focus: { x: 0, z: 0 }, hours: 13, time: 0, junctions: [], cars: [] });
   assert.ok(crowd.count > 30);
-  // A car driven along the kerb: those within reach are pushed aside, the rest untouched.
+  // A car creeping along the kerb: those within reach are pushed aside, the rest untouched.
   const victim = crowd.people.find(p => p.run.id === 'ne-ave' && p.state === 'walk');
-  crowd.update(.016, { walks, focus: { x: 0, z: 0 }, hours: 13, time: 0, junctions: [], cars: [], player: { mode: 'drive', x: victim.x - 1.5, z: victim.z, velocityX: 0, velocityZ: 8 } });
+  crowd.update(.016, { walks, focus: { x: 0, z: 0 }, hours: 13, time: 0, junctions: [], cars: [], player: { mode: 'drive', x: victim.x - 1.5, z: victim.z, velocityX: 0, velocityZ: 4 } });
   assert.ok(victim.shove[0] > .5, 'pushed away from the car');
   assert.ok(crowd.people.filter(p => Math.hypot(p.shove[0], p.shove[1]) > .01).length < 6);
   // Half the streets unload.
@@ -246,7 +274,7 @@ test('the player and shop staff are drawn after the crowd, with their own stride
 test('a punch staggers the person in front, and they swing back', () => {
   const crowd = createCrowd({ life: life(0), capacity: 8, range: 40, random: seeded(4) });
   const walks = corner();
-  crowd.people.push({ run: walks[0], s: 10, way: 1, lane: 1, look: dress('casual', seeded(3)), state: 'walk', hop: null, wait: 0, bold: false, phase: 0, y: 0, sample: 1, age: 5, shove: [0, 0], x: 0.2, z: 1.2, heading: 0 });
+  crowd.people.push({ run: walks[0], s: 10, way: 1, lane: 1, look: dress('casual', seeded(3)), state: 'walk', hop: null, wait: 0, bold: true, fights: true, phase: 0, y: 0, sample: 1, age: 5, shove: [0, 0], x: 0.2, z: 1.2, heading: 0 });
   const hit = crowd.strike(0, 0, 0);
   assert.equal(hit, crowd.people[0]);
   assert.equal(hit.state, 'fight');

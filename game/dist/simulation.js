@@ -1,5 +1,6 @@
 import { carCondition, collisionLoad, impactVehicle, repairVehicle, stepVehicleFire, doorPanel, tearDoor } from './vehicle-damage.js';
 import { resetVehicleDynamics, stepVehicleDynamics, stopVehicleRotation, vehicleTravelSpeed } from './vehicle-dynamics.js';
+import { startKick, tryVault, beginEntry, stepMove, fireGun, reloadGun, toggleGun, carUnder } from './player-moves.js';
 import { planJunction, junctionArms, vehicleAspect, stopDistance } from './signal-plan.js';
 import { laneLayout } from './lanes.js';
 import { StreetObjects } from './street-objects.js';
@@ -869,7 +870,7 @@ export class Simulation {
       return;
     }
     // A jump or a fall owns its height until the feet meet a surface again.
-    if (this.player.grounded === false) return;
+    if (this.player.grounded === false || this.player.standing) return;
     const surface = this._sampleSurface?.(this.player.x, this.player.z, options);
     this.player.y = finite(surface?.elevation);
     this.player.transportId = surface?.transportId || null;
@@ -1163,10 +1164,19 @@ export class Simulation {
   /** A swing on foot. Returns whether the punch comes out; a caller resolves who it hits. */
   fight() {
     const player = this.player;
-    if (player.mode !== 'walk' || this.room || this.ending || (player.swing || 0) > 0.08) return false;
+    if (player.mode !== 'walk' || this.room || this.seat || this.ending || player.move || (player.swing || 0) > 0.08) return false;
+    if (player.armed) return fireGun(this);
     player.swing = 0.34;
+    player.guard = 4;
     return true;
   }
+
+  /** Take the pistol out or put it away (player-moves.js). */
+  draw() { return toggleGun(this); }
+  reload() { return reloadGun(this); }
+
+  /** A kick on foot (player-moves.js): slower than a punch, and it lands harder. */
+  kick() { return startKick(this); }
 
   /** Punching someone is a crime. Heat climbs the same way a collision with a patrol does. */
   assault(x, z) {
@@ -1233,7 +1243,9 @@ export class Simulation {
       if (!car) { this._say('Move closer to a taxi or parked car.'); return false; }
       if (car.destroyed || car.burningSince != null) { this._say(car.destroyed ? 'This car is burned out.' : 'The car is on fire.'); return false; }
       if (vehicleTravelSpeed(car) > 4) { this._say('Wait for the car to slow down.'); return false; }
-      car.controlled = true;
+      // With moves on, getting in takes a moment: a door opened, a window broken or a driver hauled out (player-moves.js).
+      if (this.moves && this._entering !== car) return beginEntry(this, car);
+      car.controlled = car._driven = true;
       car.parked = true;
       car._loose = 0;
       car._kerb = false;
@@ -1290,6 +1302,12 @@ export class Simulation {
       car._loose = 0;
       resetVehicleDynamics(car);
       Object.assign(player, { x: spot.x, z: spot.z, mode: 'walk', vehicleId: null, transportId: car.transportId || null, speed: 0, velocityX: 0, velocityZ: 0, vy: 0, grounded: true, slide: 0, swing: 0 });
+      if (this.moves) {
+        const from = { x:car.x+.38*Math.cos(car.angle), z:car.z-.38*Math.sin(car.angle) };
+        player.move = { kind:'getOut', t:0, T:.55, car:car.id, from, to:{ x:spot.x,z:spot.z } };
+        Object.assign(player,from);
+        player.angle = Math.atan2(spot.x-from.x,spot.z-from.z);
+      }
       this._say('On foot. Shift runs. Space jumps. F punches.');
     }
     this.updateGrounding();
@@ -1589,6 +1607,16 @@ export class Simulation {
 
   _walk(input, dt, jumping = false) {
     const player = this.player;
+    // A kick, a vault, a climb or a car door owns the player until it is done.
+    if (stepMove(this, dt) || player.mode !== 'walk') return;
+    if (jumping && this.moves && tryVault(this)) return;
+    // Standing on a car, the player goes where it goes.
+    const stood = player.standing;
+    if (stood) {
+      const car = player.grounded !== false && this.cars.find(item => item.id === stood.id);
+      if (car) { player.x += car.x - stood.x; player.z += car.z - stood.z; stood.x = car.x; stood.z = car.z; }
+      else player.standing = null;
+    }
     const magnitude = Math.hypot(input.moveX, input.moveZ);
     const divisor = Math.max(1, magnitude);
     // Fed or with a coffee inside them, the player walks and runs a little faster.
@@ -1622,7 +1650,8 @@ export class Simulation {
     }
     let next = this._resolvePosition(player.x + player.velocityX * dt, player.z + player.velocityZ * dt, PLAYER_RADIUS, null, player, true, dt);
     const carHit = this._nearCar(next.x, next.z, PLAYER_RADIUS, null, player.y);
-    if (carHit) {
+    // High enough to be on it or over it, a car is not in the way.
+    if (carHit && !(player.y > carHit.car.y + .8)) {
       next = this._resolvePosition(next.x + carHit.nx * (carHit.depth + 0.001), next.z + carHit.nz * (carHit.depth + 0.001), PLAYER_RADIUS, null, player, true);
     }
     player.speed = Math.hypot(next.x - player.x, next.z - player.z) / dt;
@@ -1642,8 +1671,16 @@ export class Simulation {
       mode: 'walk',
       transportId: player.transportId || null,
     });
-    const ground = Number.isFinite(surface?.elevation) ? surface.elevation : (this._sampleSurface ? null : 0);
+    let ground = Number.isFinite(surface?.elevation) ? surface.elevation : (this._sampleSurface ? null : 0);
+    // A car underfoot is ground too.
+    const under = this.moves && Number.isFinite(player.y) ? carUnder(this, player.x, player.z, player.y) : null;
+    if (under && (ground === null || under.top > ground)) ground = under.top;
+    else if (player.grounded !== false) player.standing = null;
     if (player.grounded !== false) {
+      if (under && ground === under.top && !jumping && Math.abs(ground - player.y) <= STEP_DROP) {
+        player.y = ground;
+        if (player.standing?.id !== under.car.id) player.standing = { id: under.car.id, x: under.car.x, z: under.car.z };
+      }
       if (jumping) {
         player.vy = JUMP_SPEED;
         player.grounded = false;
@@ -1666,6 +1703,7 @@ export class Simulation {
     player.vy = 0;
     player.grounded = true;
     player.transportId = surface?.transportId || null;
+    player.standing = under && ground === under.top ? { id: under.car.id, x: under.car.x, z: under.car.z } : null;
     if (impact > FALL_HURT) {
       this.health = Math.max(0, this.health - (impact - (FALL_HURT - 1)) * 3.5);
       if (this.health <= 0) this._downed = 'fall';

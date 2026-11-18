@@ -1,3 +1,4 @@
+import { GUN } from './player-moves.js';
 import {carCondition} from './vehicle-damage.js';
 import { formatMoney } from './money.js';
 import { title } from './local-search.js';
@@ -37,16 +38,21 @@ export class HUD {
     clearTimeout(this.cashTimer);
     this.cashTimer = setTimeout(() => { display.hidden = true; }, 4000);
   }
-  update(sim) {
+  update(sim, canSit = false, register = null, aiming = false) {
     const p=sim.player, driving=p.mode==='drive', mission=sim.mission;
     const ride=sim.transport?.active, boarding=sim.transport?.nearby(), flying=isAircraft(ride?.spec);
     const knots=flying||ride?.spec.kind==='boat';
     this.text('speed', String(Math.round(Math.abs(p.speed)*(knots?1.94384:2.23694))).padStart(2,'0'));
     const cycling=p.mode==='bike';
     this.text('speed-unit', knots?'KT':ride||driving||cycling?'MPH':'ON FOOT');
-    this.text('gear', flying ? Math.round(Math.max(0,p.y)*3.28084)+' FT' : ride ? ride.spec.name.toUpperCase() : cycling?'CITI BIKE':driving ? p.speed < -.3 ? 'REVERSE' : Math.abs(p.speed) < .2 ? 'IDLE' : 'DRIVE' : 'FREE ROAM');
+    this.text('gear', flying ? Math.round(Math.max(0,p.y)*3.28084)+' FT' : ride ? ride.spec.name.toUpperCase() : cycling?'CITI BIKE':driving ? p.speed < -.3 ? 'REVERSE' : Math.abs(p.speed) < .2 ? 'IDLE' : 'DRIVE' : p.armed ? (p.reloading > 0 ? 'RELOADING' : 'PISTOL ' + (p.rounds ?? GUN.rounds)) : 'FREE ROAM');
     $('touch-climb').hidden=$('touch-descend').hidden=!flying;
-    $('touch-brake').hidden=Boolean(flying);
+    const equipped=p.mode==='walk' && p.armed && !sim.seat && !sim.ending;
+    $('touch-brake').hidden=Boolean(flying || equipped);
+    $('touch-fire').hidden=$('touch-aim').hidden=!equipped || Boolean(sim.room);
+    $('touch-aim').setAttribute('aria-pressed',String(aiming));
+    $('touch-reload').hidden=!equipped;
+    $('touch-reload').disabled=Boolean(p.reloading>0 || !(p.rounds<GUN.rounds));
     if (!$('cash-display').hidden) this.text('cash', formatMoney(sim.cash));
     this.text('deliveries', sim.deliveries+' DELIVERIES');
     this.text('distance', (sim.distanceTravelled*metersToMiles).toFixed(1)+' MI');
@@ -72,7 +78,9 @@ export class HUD {
     const moving = Math.hypot(p.velocityX || 0, p.velocityZ || 0) > 4;
     const punching = p.mode==='walk' && !sim.room && !boarding && !bike && !near && (sim.melee || p.armed);
     const prompt = $('interact-prompt');
-    const interactLabel = null;
+    const interactLabel = sim.seat ? 'STAND' : register==='collect' ? 'COLLECT CASH' : register==='drawer' ? 'TAKE TILL CASH' : canSit ? 'SIT' : null;
+    $('touch-equip').hidden = p.mode!=='walk' || Boolean(sim.seat);
+    this.text('touch-equip',p.armed?'HOLSTER':'EQUIP');
     prompt.hidden = !interactLabel && !ride && !boarding && !driving && !cycling && !bike && !near && !punching;
     prompt.querySelector('kbd').textContent = punching && !interactLabel ? 'F' : 'E';
     const enterLabel = near?.identity ? 'ENTER ' + vehicleName(near.identity).toUpperCase() : 'ENTER VEHICLE';
