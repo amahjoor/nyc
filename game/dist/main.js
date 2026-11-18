@@ -59,7 +59,7 @@ let phone=null, roadDestinations=[], placeDestinations=[], shopHere=null;
 // The player and shop staff as the crowd's modelled figures, once those have loaded: where in their stride the player is.
 let playerStride=0, strideClock=0;
 const PLAYER_LOOK={top:0xd7774e,bottom:0x1c1d22,skin:0xb98563,hair:0x14110f,kit:0,height:1.76};
-let doorHere=null, roomGroup=null, roomStaff=[], counterHere=false;
+let doorHere=null, roomGroup=null, roomStaff=[], roomGuests=[], counterHere=false;
 // The subway: its stations, the stair entrances drawn nearby, the one the player is standing at, and the kerbs they line up with.
 // Who lives where (demographics.js): one even range of faces until the survey has loaded.
 let demographics=createDemographics(null);
@@ -155,6 +155,15 @@ function action(name) {
           const random=seeded((Math.round(room.x*7+room.z*13)^(i*7919))>>>0||1),look=dress('casual',random,demographics.tracts?demographics.tonesAt(x,z,.2):null);
           look.kit=(look.kit&(KIT.longHair|KIT.shortSleeves))|(random()<.5?KIT.woman:0);
           person.userData.figure={x,y:floor,z,heading:person.rotation.y,phase:0,stride:0,look};return person;});
+        // Customers: about four seats in ten are taken, by the same people each visit.
+        roomGuests=[];
+        room.seats.forEach((spot,i)=>{
+          const random=seeded((Math.round(room.x*11+room.z*5)^(i*104729))>>>0||1);
+          if(random()>.42)return;
+          const x=room.x+room.tx*spot.a-room.nx*spot.b,z=room.z+room.tz*spot.a-room.nz*spot.b,look=dress('casual',random,demographics.tracts?demographics.tonesAt(x,z,.5):null);
+          look.kit=(look.kit&(KIT.longHair|KIT.shortSleeves))|(random()<.5?KIT.woman:0);look.height=1.72;
+          roomGuests.push({x,y:floor+spot.lift,z,heading:Math.atan2(room.tx*spot.da-room.nx*spot.db,room.tz*spot.da-room.nz*spot.db),sitting:true,look});
+        });
         yaw=sim.player.angle;return;
       }
     }
@@ -363,6 +372,7 @@ function syncScene(dt,controls) {
   if(modelled){
     // Diners sit out from late morning until the kitchens close.
     const extras=roomStaff.map(person=>person.userData.figure);
+    for(const guest of roomGuests)extras.push(guest);
     if(gfx.hours>=11&&gfx.hours<23&&!sim.room)for(const diner of diners)extras.push(diner);
     if(p.mode==='walk')extras.push({x:p.x,y:p.y||0,z:p.z,heading:p.angle,phase:playerStride,stride:Math.min(1,pace/1.2),look:PLAYER_LOOK});
     crowd.setExtras(extras);
@@ -621,7 +631,7 @@ function frame(now) {
     if(stopHere)$('place-hint').textContent=stopHere.stop.name+' · '+stopHere.stop.lines.slice(0,5).join(' ')+' · E FOR THE BUS';
     if(stairHere)$('place-hint').textContent=stairHere.station.name.toUpperCase()+' · '+stairHere.station.routes+' · E FOR THE SUBWAY';
     shopHere=null;doorHere=null;
-    if(!sim.room&&roomGroup){roomGroup.userData.dispose();roomGroup=null;roomStaff=[];}
+    if(!sim.room&&roomGroup){roomGroup.userData.dispose();roomGroup=null;roomStaff=[];roomGuests=[];}
     // Indoors, within reach of whoever is serving.
     counterHere=Boolean(sim.room)&&sim.room.staff.some(spot=>Math.hypot(spot.a-sim.room.a,spot.b-sim.room.b)<2.6);
     if(sim.room){$('place-hint').hidden=!counterHere||!menuFor(sim.room.place).length;$('place-hint').textContent=sim.room.name+' · G TO ORDER';}

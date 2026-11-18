@@ -36,6 +36,8 @@ export function planRoom(front, inside = () => true) {
   depth = Math.min(12, depth - .4);
   const width = Math.max(5, Math.min(9, front.width)), half = width / 2, seed = hashOf(`${placeName(place)}|${place.x}|${place.z}`), things = [], staff = [];
   const add = (a, b, w, d, h, color, y = 0, solid = true) => things.push({ a, b, w, d, h, y, color, solid });
+  // Where a customer may be sitting: at (a, b), facing (da, db) across the room and into it, `lift` above the floor.
+  const seats = [], seat = (a, b, da, db, lift = 0) => seats.push({ a, b, da, db, lift });
   const WOOD = '#6b4a32', STEEL = '#8d9498', DARK = '#23272b', WHITE = '#e6e3da';
   let wall = '#d8d2c4', floor = '#8a8378';
   if (kind === 'shop') {
@@ -54,7 +56,7 @@ export function planRoom(front, inside = () => true) {
     if (kind === 'bar') {
       // The bar down one side, stools along it, bottles behind.
       add(-half + 1.1, depth / 2 + .6, .7, depth - 3.2, 1.1, '#2b1a12'); add(-half + .25, depth / 2 + .6, .3, depth - 3.2, 1.6, '#1a1210', .9, false);
-      for (let b = 2.6; b < depth - 1.2; b += 1.1) add(-half + 1.9, b, .38, .38, .75, DARK);
+      for (let b = 2.6; b < depth - 1.2; b += 1.1) { add(-half + 1.9, b, .38, .38, .75, DARK); seat(-half + 1.9, b, -1, 0, .3); }
       staff.push({ a: -half + .62, b: depth / 2, facing: 0 });
     } else {
       // The counter across the back, the kitchen behind it.
@@ -63,6 +65,7 @@ export function planRoom(front, inside = () => true) {
     // Tables, each with its chairs.
     for (let b = 2.4; b < depth - 3.4; b += 2.2) for (let a = kind === 'bar' ? -half + 3.6 : -half + 1.4; a < half - .9; a += 2.3) {
       add(a, b, .8, .8, .74, WOOD); add(a - .65, b, .4, .4, .45, DARK); add(a + .65, b, .4, .4, .45, DARK);
+      seat(a - .65, b, 1, 0); seat(a + .65, b, -1, 0);
     }
   } else if (kind === 'chairs') {
     wall = place.kind === 'barber' ? '#e8e4da' : '#f1dfe6'; floor = '#b8b2a8';
@@ -71,6 +74,7 @@ export function planRoom(front, inside = () => true) {
     for (let b = 3.2; b < depth - 1.2; b += 1.9) for (const side of [-1, 1]) {
       add(side * (half - 1.1), b, .65, .65, .55, place.kind === 'barber' ? '#7a1f1f' : '#2b2b30'); add(side * (half - 1.1), b + .28, .6, .12, .6, '#2b2b30', .55, false);
       add(side * (half - .12), b, .06, 1.0, 1.1, '#bcd3da', 1.0, false);
+      seat(side * (half - 1.1), b, side, 0, .1);
     }
     staff.push({ a: -half + 1.9, b: 3.2, facing: 3 });
   } else {
@@ -79,7 +83,7 @@ export function planRoom(front, inside = () => true) {
     add(0, depth - 1.6, Math.min(4, width - 2), .8, 1.1, WOOD); staff.push({ a: 0, b: depth - .9, facing: 2 });
     add(-half + .9, 2.6, .9, 2.0, .45, '#3f4a5a'); add(half - .9, 2.6, .9, 2.0, .45, '#3f4a5a');
   }
-  return { name: placeName(place), kind, place, x: front.x, z: front.z, tx: front.tx, tz: front.tz, nx: front.nx, nz: front.nz, width, depth, things, staff, wall, floor };
+  return { name: placeName(place), kind, place, x: front.x, z: front.z, tx: front.tx, tz: front.tz, nx: front.nx, nz: front.nz, width, depth, things, staff, seats, wall, floor };
 }
 
 /** Build a room as it stands in the world, its floor at height `y`. Returns a group; dispose() frees it. */

@@ -59,3 +59,18 @@ test('the player goes in on foot, is kept in the room, and comes out on the side
   assert.equal(sim.room, null); assert.ok(sim.player.z > 0 && sim.player.z < 2.5, 'back out through the door');
   sim.enterRoom(room); assert.equal(sim.interact(), true); assert.equal(sim.room, null, 'E leaves too');
 });
+
+test('there is somewhere for customers to sit: at tables, at the bar and in the barber chairs, each on a seat and facing what they came for', () => {
+  const eat = planRoom(front('pizza')), bar = planRoom(front('bar')), barber = planRoom(front('barber')), shop = planRoom(front('bodega'));
+  assert.ok(eat.seats.length >= 4 && eat.seats.length % 2 === 0, `${eat.seats.length} seats at tables`);
+  assert.ok(bar.seats.some(seat => seat.lift > 0) && barber.seats.length >= 2);
+  assert.deepEqual(shop.seats, [], 'nobody sits in a deli');
+  for (const room of [eat, bar, barber]) for (const seat of room.seats) {
+    // On a piece of furniture low enough to sit on, inside the room, and facing square across it.
+    assert.ok(room.things.some(thing => thing.solid && thing.h <= .8 && Math.abs(thing.a - seat.a) < .01 && Math.abs(thing.b - seat.b) < .01), 'on a seat');
+    assert.ok(Math.abs(seat.a) < room.width / 2 && seat.b > 0 && seat.b < room.depth && Math.abs(seat.da) === 1 && seat.db === 0);
+  }
+  // At a table the two face each other.
+  const [left, right] = eat.seats;
+  assert.ok(left.b === right.b && left.a < right.a && left.da === 1 && right.da === -1);
+});
