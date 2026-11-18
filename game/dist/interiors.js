@@ -13,6 +13,7 @@ import { roomProps, furnishRoom, OWN_STYLE_OF } from './room-props.js';
 import { planRegister } from './register.js';
 import { SHOP_WINDOW_GLSL } from './shop-window.js';
 import { buildRoomFinish } from './room-finish.js';
+import { menuFor } from './menu.js';
 
 /** Kinds of place with a room to walk into, by group. */
 const ROOMS = { bodega: 'shop', market: 'shop', liquor: 'shop', shop: 'shop', food: 'eat', cafe: 'eat', dining: 'eat', bar: 'bar', beauty: 'chairs', barber: 'chairs', hotel: 'lobby', public: 'lobby' };
@@ -172,7 +173,7 @@ const STYLES = {
     const back = Math.min(r.depth - 2.2, 5.2), tone = ['#c81e1e', '#e07b12', '#0b6b2f', '#b01515'][r.seed % 4];
     r.add(0, back, r.width - 1.4, .7, 1.1, tone); r.add(0, back, r.width - 1.3, .8, .05, STEEL, 1.1, false); r.add(r.half - 1.6, back - .1, .5, .4, .32, DARK, 1.15, false);
     r.staff(Math.min(1, r.half - 1.6), back + .75, 0, -1);
-    for (let i = 0; i < 3; i++) r.add(-(r.width - 2.2) / 3 + i * (r.width - 2.2) / 3, back + .1, (r.width - 2.6) / 3, .06, .7, ['#fff3c4', '#ffe9a8', '#fff3c4'][i], 2.15, false);
+    r.boardAt = back + .1;
     r.add(0, r.depth - .3, r.width - .4, .5, 2.0, '#b9bec2'); r.add(-.8, r.depth - 1.0, 1.6, .7, .9, STEEL); r.add(1.1, r.depth - 1.0, .9, .7, .9, '#2a2c30');
     r.add(r.half - .4, 2.2, .7, 1.1, 1.9, '#d7dde0'); r.add(r.half - .76, 2.2, .04, .95, 1.5, '#7fb0c9', .3, false);
     for (let b = 1.8; b < back - 1.4; b += 1.5) r.table(-r.half + 1.25, b, '#d9d2c0', tone);
@@ -206,7 +207,7 @@ const STYLES = {
     const back = Math.min(r.depth - 2.2, 5.0);
     r.add(0, back, r.width - 1.4, .7, 1.1, '#f2c400'); r.add(0, back, r.width - 1.3, .8, .05, STEEL, 1.1, false); r.staff(0, back + .75, 0, -1);
     r.add(-r.half + 1.1, r.depth - .8, 1.6, .8, .9, STEEL); r.add(r.half - 1.0, r.depth - .7, .45, .45, 1.0, STEEL); r.add(r.half - 1.0, r.depth - .7, .34, .34, .8, '#8a4a2a', 1.0, false);
-    for (let i = 0; i < 3; i++) r.add(-(r.width - 2.2) / 3 + i * (r.width - 2.2) / 3, back + .1, (r.width - 2.6) / 3, .06, .7, ['#0b5d2a', '#f2c400', '#0b5d2a'][i], 2.15, false);
+    r.boardAt = back + .1;
     r.add(0, r.depth - .2, r.width - .4, .3, 2.0, '#b9bec2');
     r.add(r.half - .35, 2.6, .5, 2.4, .05, WOOD, 1.02); for (let b = 1.8; b < 3.6; b += .8) r.seat(r.half - .95, b, 1, 0, .28, DARK, .36, .36, .73);
     r.table(-r.half + 1.25, 2.2, '#d9d2c0', '#0b5d2a');
@@ -239,7 +240,7 @@ const STYLES = {
     const back = Math.min(r.depth - 2.0, 4.8);
     r.add(0, back, r.width - 1.6, .8, 1.15, '#e9e4d6'); r.add(0, back - .2, r.width - 1.7, .45, .5, GLASS, .55, false);
     for (let a = -r.half + 1.3; a < r.half - 1.2; a += .5) r.add(a, back - .22, .4, .36, .12, ['#c9772a', '#e0a23a', '#8a4a2a', '#e8b8c8', '#f1e3c0'][(r.seed + Math.round(a * 2)) % 5], .7, false);
-    r.staff(Math.min(.8, r.half - 1.4), back + .8, 0, -1);
+    r.staff(Math.min(.8, r.half - 1.4), back + .8, 0, -1); r.boardAt = back + .15;
     r.add(0, r.depth - .3, r.width - .6, .5, 2.0, '#b8a888'); for (let y = .5; y < 1.9; y += .45) r.add(0, r.depth - .5, r.width - .9, .3, .14, ['#c9772a', '#e0a23a', '#8a4a2a'][Math.round(y * 2) % 3], y, false);
     for (let b = 1.7; b < back - 1.3; b += 1.5) r.table(-r.half + 1.2, b, '#f1e3c0', '#8a4a2a');
   },
@@ -393,8 +394,11 @@ export function planRoom(front, inside = () => true) {
     staff = [{ a: 0, b: depth - .75, da: 0, db: -1, facing: 0 }];
   }
   seats = seats.filter(spot => things.some(thing => thing.solid && thing.h <= .8 && thing.a === spot.a && thing.b === spot.b));
+  // What is sold is written up where it can be read from the door: over the counter a manner of room has in its
+  // middle, or else on the back wall, in front of whatever stands against it.
+  const menu = menuFor(place), board = menu.length ? { a: 0, b: r.boardAt != null ? r.boardAt - .06 : depth - .62, w: Math.min(3.4, width - 1.4), h: .78, up: 2.12, lines: menu.map(item => [item.name, item.price]) } : null;
   const returns = (front.returns || []).map(({ side, length }) => ({ side, length: Math.min(depth, length) }));
-  const room = { name: placeName(place), kind, style, place, returns, skew: front.skew || 0, x: front.x, z: front.z, tx: front.tx, tz: front.tz, nx: front.nx, nz: front.nz, width, depth, things, staff, seats, wall: r.wall, floor: r.floor, light: r.light };
+  const room = { name: placeName(place), kind, style, board, place, returns, skew: front.skew || 0, x: front.x, z: front.z, tx: front.tx, tz: front.tz, nx: front.nx, nz: front.nz, width, depth, things, staff, seats, wall: r.wall, floor: r.floor, light: r.light };
   if (r.finish) room.finish = { ...r.finish, seed };
   room.register = planRegister(room);
   return room;
@@ -440,7 +444,9 @@ export function buildRoom(room, y = 0, { streetView = false } = {}) {
     if (half > 3) box(side * (half + .48) / 2, .04, .05, wall, head - sill, sill, dark);
   }
   box(0, .04, DOOR, wall, CEILING - 2.22, 2.22, room.wall);
-  box(0, room.depth / 2, room.width - .02, room.depth - .02, .03, 0, room.floor); box(0, room.depth / 2, room.width - .02, room.depth - .02, .03, CEILING - .04, room.light?.ceiling || '#f2efe6');
+  // A dim room has a dark ceiling and its lights turned low.
+  const dim = (room.light?.power ?? 60) < 45, above = dim ? tone.set(room.wall).multiplyScalar(.55).getHexString() : 'f2efe6';
+  box(0, room.depth / 2, room.width - .02, room.depth - .02, .03, 0, room.floor); box(0, room.depth / 2, room.width - .02, room.depth - .02, .03, CEILING - .04, room.light?.ceiling || '#' + above);
   if (room.light?.strip) {
     for (const side of [-1, 1]) {
       const a = side * room.width * .26, length = room.depth - .8;
@@ -448,7 +454,7 @@ export function buildRoom(room, y = 0, { streetView = false } = {}) {
       box(a, room.depth / 2, .084, length - .07, .022, CEILING - .15, room.light.strip);
     }
   } else {
-    for (let b = 1.5; b < room.depth; b += 3) box(0, b, room.width * .5, .5, .05, CEILING - .1, '#fffbe8');
+    for (let b = 1.5; b < room.depth; b += 3) box(0, b, room.width * (dim ? .12 : .5), dim ? .12 : .5, .05, CEILING - .1, dim ? '#ffd9a0' : '#fffbe8');
   }
   // A cylinder standing on end, shaded like the boxes.
   const post = (a, b, radius, h, y0, hex, sides = 10) => {
@@ -505,6 +511,31 @@ export function buildRoom(room, y = 0, { streetView = false } = {}) {
   geometry.setAttribute('position', new THREE.Float32BufferAttribute(position, 3)); geometry.setAttribute('color', new THREE.Float32BufferAttribute(color, 3));
   const material = new THREE.MeshBasicMaterial({ vertexColors: true, fog: false }); material.name = 'Room';
   const mesh = new THREE.Mesh(geometry, material); mesh.frustumCulled = streetView; group.add(mesh);
+  // The menu, lettered, where the plan puts it. Drawn only where there is a page to draw on.
+  let menuBoard = null;
+  if (room.board && typeof document !== 'undefined') {
+    const { a, b, w, h, up, lines } = room.board, canvas = document.createElement('canvas'), scale = 256;
+    canvas.width = Math.round(w * scale); canvas.height = Math.round(h * scale);
+    const context = canvas.getContext('2d');
+    context.fillStyle = '#16181a'; context.fillRect(0, 0, canvas.width, canvas.height);
+    context.textBaseline = 'middle'; context.fillStyle = '#f2c230'; context.font = `800 ${Math.round(canvas.height * .15)}px Arial, sans-serif`; context.textAlign = 'center';
+    context.fillText(room.name.slice(0, 34), canvas.width / 2, canvas.height * .12, canvas.width * .94);
+    // Two columns where there is much to list.
+    const columns = lines.length > 4 ? 2 : 1, rows = Math.ceil(lines.length / columns), rowHeight = canvas.height * .74 / rows, size = Math.min(canvas.height * .13, rowHeight * .72), columnWidth = canvas.width / columns;
+    context.font = `600 ${Math.round(size)}px Arial, sans-serif`;
+    lines.forEach(([name, price], i) => {
+      const column = Math.floor(i / rows), x0 = column * columnWidth + canvas.width * .03, x1 = (column + 1) * columnWidth - canvas.width * .03, yy = canvas.height * .26 + (i % rows + .5) * rowHeight;
+      context.textAlign = 'left'; context.fillStyle = '#f4f1e6'; context.fillText(name, x0, yy, (x1 - x0) * .76);
+      context.textAlign = 'right'; context.fillStyle = '#f2c230'; context.fillText(`$${price.toFixed(2)}`, x1, yy);
+    });
+    const lettering = new THREE.CanvasTexture(canvas); lettering.colorSpace = THREE.SRGBColorSpace; lettering.anisotropy = 4;
+    // Read from the door, the room's `a` runs to the right or to the left according to which way round its wall was drawn.
+    const right = Math.sign(room.tx * room.nz - room.tz * room.nx) || 1, corner = (u, v) => { const [x, z] = roomPoint(room, a + (u - .5) * w * right, b); return [x, y + up + v * h, z]; };
+    const plane = new THREE.BufferGeometry();
+    plane.setAttribute('position', new THREE.Float32BufferAttribute([...corner(0, 0), ...corner(1, 0), ...corner(1, 1), ...corner(0, 0), ...corner(1, 1), ...corner(0, 1)], 3));
+    plane.setAttribute('uv', new THREE.Float32BufferAttribute([0, 0, 1, 0, 1, 1, 0, 0, 1, 1, 0, 1], 2));
+    menuBoard = new THREE.Mesh(plane, new THREE.MeshBasicMaterial({ map: lettering, side: THREE.DoubleSide, fog: false })); menuBoard.name = 'Menu board'; menuBoard.frustumCulled = streetView; group.add(menuBoard);
+  }
   const finish = buildRoomFinish(room, y);
   if (finish) group.add(finish);
   if (streetView) {
@@ -545,6 +576,7 @@ export function buildRoom(room, y = 0, { streetView = false } = {}) {
         }
         diffuseColor.rgb *= mix(0.94, 0.72, uNycNight);`);
     };
+    if (menuBoard) menuBoard.material.onBeforeCompile = material.onBeforeCompile;
     if (finish) finish.material.onBeforeCompile = material.onBeforeCompile;
   } else {
     const lamp = new THREE.PointLight(room.light?.color ?? 0xfff1dc, room.light?.power ?? 60, room.depth * 2.5, 1.6), [lx, lz] = roomPoint(room, 0, room.depth / 2);
@@ -620,6 +652,7 @@ export function buildRoom(room, y = 0, { streetView = false } = {}) {
   group.userData.dispose = () => {
     for(const root of [drawer,notes,takeArm,takeArm?.userData.sleeve])root?.traverse(part=>{part.geometry?.dispose();part.material?.dispose();});
     for (const part of leaf.children) part.geometry.dispose();
+    if (menuBoard) { menuBoard.geometry.dispose(); menuBoard.material.map.dispose(); menuBoard.material.dispose(); }
     if (finish) { finish.material.map.dispose(); finish.material.dispose(); finish.geometry.dispose(); }
     frame.dispose(); glass.dispose(); geometry.dispose(); material.dispose(); group.removeFromParent();
   };

@@ -3,6 +3,7 @@ import * as THREE from './vendor/three.module.min.js';
 import { mercatorCoefficients, atlasProjectionGLSL } from './imagery-projection.js';
 import { chooseStyle, featureRandom, writeFacade, createFacadeScratch, applyFacadeShader, HEIGHT_UNIT, setLots, setLandmarks } from './facade.js';
 import { createLots } from './lots.js';
+import { streamRanges, leadPoint } from './aloft.js';
 import { createLandmarkBuildings } from './landmarks.js';
 
 /**
@@ -10,11 +11,13 @@ import { createLandmarkBuildings } from './landmarks.js';
  * are decoded: on the page and in each background decoder. Resolves when it
  * is in, or has failed, in which case facades go by size and place alone.
  */
-let lotsLoading = null;
+let lotsLoading = null, lotGrid = null;
+/** The tax-lot grid once lotsReady() has fetched it, or null. */
+export const lots = () => lotGrid;
 export function lotsReady() {
   if (typeof fetch !== 'function' || !/^https?:/.test(import.meta.url)) return Promise.resolve(false);
   const bytes = file => fetch(new URL(file, import.meta.url)).then(response => response.ok ? response.arrayBuffer() : null).catch(() => null);
-  return lotsLoading ||= Promise.all([bytes('./lots.bin'), bytes('./landmark-buildings.bin')]).then(([lots, landmarks]) => { setLots(createLots(lots)); setLandmarks(createLandmarkBuildings(landmarks)); return Boolean(lots || landmarks); });
+  return lotsLoading ||= Promise.all([bytes('./lots.bin'), bytes('./landmark-buildings.bin')]).then(([lots, landmarks]) => { lotGrid = createLots(lots); setLots(lotGrid); setLandmarks(createLandmarkBuildings(landmarks)); return Boolean(lots || landmarks); });
 }
 
 const EARTH_RADIUS = 6371008.8;
@@ -501,8 +504,9 @@ class CityStream {
     return [...candidates.values()].filter(node => Math.hypot(node.x - point.x, node.z - point.z) <= radius + node.radius);
   }
 
-  isReadyAt(x, z, radius = 4) {
+  isReadyAt(x, z, radius = 4, altitude = 0) {
     if (this.disposed) return false;
+    if (altitude > 0 && !streamRanges(altitude).physics) return true;
     // A scenery cache hit alone does not mean the simulation has its walls.
     // Publish the region first, then allow movement into its cached geometry.
     return this.nearby({ x, z }, radius).every(node => this.cache.has(node.id) && this.collisionRecords.get(node.id) === this.cache.get(node.id));
@@ -525,28 +529,40 @@ class CityStream {
     }
   }
 
-  update(focus, camera, { overview = false } = {}) {
+  /**
+   * `altitude` is how high the view is above the ground. From the air the far city is kept in its coarse form
+   * however far off, full detail is asked for ahead of a fast aircraft as well as under it, and walls are made
+   * solid only when there is something near enough to fly into (aloft.js).
+   */
+  update(focus, camera, { overview = false, altitude = 0, collisionAltitude = altitude } = {}) {
     if (this.disposed) return;
     this.focus = { x: focus.x, z: focus.z };
     const now = Date.now();
     if (now - this.lastSelection < 350 && overview === this.lastOverview) return;
+    // How fast the focus is moving, from where it was at the last selection.
+    const elapsed = (now - this.lastSelection) / 1000, was = this.selectedAt;
+    const velocity = was && elapsed > 0 && elapsed < 2 ? { x: (focus.x - was.x) / elapsed, z: (focus.z - was.z) / elapsed } : { x: 0, z: 0 };
+    this.selectedAt = { x: focus.x, z: focus.z };
     this.lastSelection = now; this.lastOverview = overview;
+    const ranges = streamRanges(altitude), ahead = leadPoint(focus, velocity);
     const selected = [];
     const visit = node => {
-      const distance = Math.hypot(node.x - focus.x, node.z - focus.z) - node.radius;
-      if (!overview && distance > 2100) return;
-      if (!overview && node.children.length && distance < 850) {
+      const here = Math.hypot(node.x - focus.x, node.z - focus.z) - node.radius, distance = Math.min(here, Math.hypot(node.x - ahead.x, node.z - ahead.z) - node.radius);
+      if (!overview && here > ranges.cut) return;
+      if (!overview && node.children.length && distance < ranges.refine) {
         node.children.forEach(id => visit(this.nodes.get(id))); return;
       }
       if (node.resource !== null) selected.push(node);
     };
     indexRoots(this.index).forEach(id => visit(this.nodes.get(id)));
     this.desired = new Set(selected.map(node => node.id));
-    const physics = this.nearby(focus, overview ? 140 : 850);
+    // Keep the player's walls loaded even when the camera rises above the street.
+    const physicsRange = streamRanges(collisionAltitude).physics;
+    const physics = overview ? this.nearby(focus, 140) : physicsRange ? this.nearby(focus, physicsRange) : [];
     this.physicsDesired = new Set(physics.map(node => node.id));
     // Reuse already cached local walls in overview without requesting distant
     // scenery as physics. Completed travel preparations hand off here.
-    this.collisionDesired = new Set(this.nearby(focus, 850).map(node => node.id));
+    this.collisionDesired = new Set((overview || physicsRange ? this.nearby(focus, overview ? 850 : physicsRange) : []).map(node => node.id));
     this.preparedCollisions.clear();
     for (const node of physics) {
       const priority = Math.hypot(node.x - focus.x, node.z - focus.z) - node.radius - 10000;

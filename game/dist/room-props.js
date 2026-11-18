@@ -365,12 +365,10 @@ const DRESS = {
   halal(r) {
     const stand = take(r, thing => thing.color === '#8d9498' && thing.w === .45), meat = take(r, thing => thing.color === '#8a4a2a' && thing.y === 1.0);
     if (stand) prop(r, 'spit', stand.a, stand.b, .55, .5, 1.0, STEEL, { y: 1.0, solid: false, face: [0, -1] }), r.things.push(stand); else if (meat) r.things.push(meat);
-    const lit = takeAll(r, thing => thing.y === 2.15 && thing.h === .7);
-    if (lit.length) prop(r, 'menuboard', 0, lit[0].b, r.width - 2.2, .1, .75, '#0b5d2a', { y: 2.1, solid: false, lines: menuFor(r.place).length });
+    if (r.boardAt != null) prop(r, 'menuboard', 0, r.boardAt, r.width - 2.2, .1, .75, '#0b5d2a', { y: 2.1, solid: false, lines: menuFor(r.place).length });
   },
   takeout(r) {
-    const lit = takeAll(r, thing => thing.y === 2.15 && thing.h === .7);
-    if (lit.length) prop(r, 'menuboard', 0, lit[0].b, r.width - 2.2, .1, .75, pick(['#c81e1e', '#e07b12', '#0b6b2f', '#b01515'], r.seed), { y: 2.1, solid: false, lines: menuFor(r.place).length });
+    if (r.boardAt != null) prop(r, 'menuboard', 0, r.boardAt, r.width - 2.2, .1, .75, pick(['#c81e1e', '#e07b12', '#0b6b2f', '#b01515'], r.seed), { y: 2.1, solid: false, lines: menuFor(r.place).length });
     const till = take(r, thing => thing.color === '#23272b' && thing.y === 1.15);
     if (till) prop(r, 'register', till.a, till.b, .5, .5, .35, DARK, { y: 1.15, solid: false, face: [0, 1] });
     const fridge = take(r, thing => thing.color === '#d7dde0' && thing.h === 1.9); take(r, thing => thing.color === '#7fb0c9' && thing.h === 1.5);

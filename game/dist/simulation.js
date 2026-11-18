@@ -781,7 +781,7 @@ export class Simulation {
       if (z - radius < loaded.minZ) keep({ nx: 0, nz: 1, depth: loaded.minZ - z + radius, kind: 'loading' });
       if (z + radius > loaded.maxZ) keep({ nx: 0, nz: -1, depth: z + radius - loaded.maxZ, kind: 'loading' });
     }
-    if (this._isReadyAt && !this._isReadyAt(x, z, radius)) keep({ nx: 0, nz: 0, depth: radius, kind: 'loading' });
+    if (this._isReadyAt && !this._isReadyAt(x, z, radius, baseHeight)) keep({ nx: 0, nz: 0, depth: radius, kind: 'loading' });
     const landscape = this._landscapeContact?.(x, z, radius);
     if (landscape && !(ignoreWater && landscape.kind === 'water')) {
       // The measured road network can cross a mapped water polygon on a

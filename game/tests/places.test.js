@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { KINDS, KIND, cuisineKind, storeKind, tradeName, placeName, mergePlaces, packPlace, unpackPlace, placeCellKey, PLACE_CELL, createPlaceSource, indexFootprints, solveFrontages, frontWidth, isOpen, signFor, joinPlaceSources, osmKind, brandOf } from '../dist/places.js';
+import { KINDS, KIND, cuisineKind, storeKind, tradeName, placeName, mergePlaces, packPlace, unpackPlace, placeCellKey, PLACE_CELL, createPlaceSource, indexFootprints, solveFrontages, frontWidth, isOpen, signFor, joinPlaceSources, osmKind, brandOf, personalNames } from '../dist/places.js';
 
 const read = path => JSON.parse(readFileSync(new URL(`../dist/${path}`, import.meta.url), 'utf8'));
 
@@ -204,4 +204,18 @@ test('a chain is signed in its own colours with its name alone; a name that only
   for (const name of ['CHASE MANHATTAN PLAZA DELI', 'SUBWAY INN', 'TARGET MARGIN THEATER', 'CITIZEN PIZZA', "JOE'S PIZZA", 'FANELLI CAFE', '']) assert.equal(brandOf(name), null, name);
   assert.notEqual(sign('SUBWAY INN', 'bar').tagline === '' && sign('SUBWAY INN', 'bar').background === '#008c15', true);
   for (const name of ['SUBWAY', 'TARGET', 'NIKE', 'WHOLE FOODS MARKET', "TRADER JOE'S", 'CVS PHARMACY', 'DUANE READE', 'BANK OF AMERICA']) { const brand = brandOf(name); assert.ok(brand && brand.every(colour => /^#[0-9a-f]{6}$/.test(colour)) && brand[0] !== brand[1], name); }
+});
+
+test('a licence holder\u2019s own name is told from a trade name by its form, and is not in the bundles', () => {
+  const listed = [['pizza', "JOE'S PIZZA"], ['pizza', 'ANGELO PIZZA'], ['pizza', 'RAY PIZZA'], ['american', 'JOHN QUINATOAX'], ['salon', 'MARIA Q. ZUCCARELLOX'], ['american', 'ROSA MEXICANO'], ['latin', 'CASA MEXICANO'], ['latin', 'EL MEXICANO'],
+    ['american', 'HENRY PUBLIC'], ['bar', 'PUBLIC HOUSE'], ['bar', 'THE PUBLIC'], ['clothes', 'MICHAEL KORSX'], ['american', 'DAVID BURKEX'], ['american', 'DAVID BURKEX'], ['american', 'FANELLI CAFE'], ['bodega', '']].map(([kind, name]) => ({ kind, name }));
+  assert.deepEqual([...personalNames(listed)].sort(), ['JOHN QUINATOAX', 'MARIA Q. ZUCCARELLOX'],
+    'a given name and a word no other place uses; not a shop word, a name two places share, or a shop from the street map');
+  assert.deepEqual([...personalNames([])], []);
+  // The bundles as shipped have none left, and the list the search reads was made from them.
+  const index = JSON.parse(readFileSync(new URL('../dist/places-index.json', import.meta.url), 'utf8')), all = [];
+  for (const cell of Object.values(index.cells)) for (const row of JSON.parse(readFileSync(new URL(`../dist/${cell.url.slice(2)}`, import.meta.url), 'utf8')).places) all.push({ name: row[3], kind: index.kinds[row[2]] });
+  assert.equal(personalNames(all).size, 0);
+  const names = new Set(JSON.parse(readFileSync(new URL('../dist/place-names.json', import.meta.url), 'utf8')).places.map(row => row[0]));
+  assert.ok(names.has('ROSA MEXICANO') && names.has('FANELLI CAFE') && names.has('LOUIS VUITTON'), 'trade names are all still there');
 });

@@ -804,8 +804,7 @@ export function createStreetscape({ scene, index = null, origin = CITY_ORIGIN, h
   const source = createStreetSource({ index, origin, fetcher, cacheStorage, live }), size = source.size;
   const group = new THREE.Group(); group.name = 'Street surfaces'; scene?.add(group);
   const materials = { road: asphaltMaterial(), walk: pavementMaterial(), marks: paintMaterial() };
-  const walkDepth = stairOpenings && new THREE.MeshDepthMaterial({ depthPacking: THREE.RGBADepthPacking });
-  if (stairOpenings) for (const material of [...Object.values(materials), walkDepth]) stairOpenings.clip(material);
+  if (stairOpenings) for (const material of Object.values(materials)) stairOpenings.clip(material);
   const cells = new Map();
   let wanted = new Set(), disposed = false, serial = 0, terrainRevision = 0, selection = '', active = 0, replacement = null;
   let lampList = [], treeList = [], parkingList = [], walkList = [], lampsStale = true, treesStale = true, parkingStale = true, walksStale = true;
@@ -869,8 +868,9 @@ export function createStreetscape({ scene, index = null, origin = CITY_ORIGIN, h
     for (const [name, order] of [['road', 0], ['walk', 0], ['marks', 1]]) {
       if (!built.geometries[name]) continue;
       const mesh = new THREE.Mesh(built.geometries[name], materials[name]);
-      mesh.name = `Street ${name} ${cell.key}`; mesh.receiveShadow = true; mesh.castShadow = name === 'walk'; mesh.renderOrder = order;
-      if (name === 'walk' && walkDepth) mesh.customDepthMaterial = walkDepth;
+      // Nothing here casts a shadow: a sidewalk is fifteen centimetres of kerb, and sending four hundred thousand
+      // triangles of it through every shadow pass bought nothing that could be seen.
+      mesh.name = `Street ${name} ${cell.key}`; mesh.receiveShadow = true; mesh.castShadow = false; mesh.renderOrder = order;
       group.add(mesh); cell.meshes.push(mesh);
     }
     if (built.fences.length) installFence(cell,built.fences);
@@ -1027,7 +1027,6 @@ export function createStreetscape({ scene, index = null, origin = CITY_ORIGIN, h
       for (const cell of cells.values()) { cell.controller?.abort(); release(cell); }
       cells.clear(); wanted.clear();
       fenceGeometry?.dispose(); fenceMaterial.dispose();
-      walkDepth?.dispose();
       for (const material of Object.values(materials)) material.dispose();
       scene?.remove(group);
     },
