@@ -1,0 +1,7 @@
+.car-stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: .55rem; margin: .6rem 0; padding: .8rem 0; border-block: 1px solid #ffffff30; font-variant-numeric: tabular-nums; }
+.car-stats dt { font-size: .72rem; color: #bfcac8; }
+.car-stats dd { margin: .18rem 0 0; white-space: nowrap; color: #f5eee3; font-size: 1.13rem; font-weight: 650; }
+#stock-basis { color: #bfcac8; }
+#pause-car { margin-top: 1rem; }
+#pause-car h3 { margin: .35rem 0 .55rem; }
+@media (max-width: 440px) { .car-stats { grid-template-columns: repeat(2, 1fr); } }

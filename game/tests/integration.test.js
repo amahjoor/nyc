@@ -1,3 +1,4 @@
+import { renderStats, performanceName } from '../dist/vehicle-stats.js';
 import { updateChaseHeight } from '../dist/vehicle-presentation.js';
 import { createDriverCabin } from '../dist/driver-cabin.js';
 import test from 'node:test';
@@ -42,7 +43,7 @@ import { createFleet } from '../dist/fleet.js';
 import { createVehicleMeshLibrary } from '../dist/vehicle-assets.js';
 import { designFor } from '../dist/vehicle-designs.js';
 import { createSwitchShot } from '../dist/switch-shot.js';
-import { offersAt, shopRows } from '../dist/garage.js';
+import { offersAt, shopRows, vehicleHandling } from '../dist/garage.js';
 import { planRoom, buildRoom, roomKind, hasRoom } from '../dist/interiors.js';
 import { doorBlips } from '../dist/map-blips.js';
 import { createDemographics } from '../dist/demographics.js';
@@ -159,11 +160,12 @@ function makeDocument() {
     const control = attributes.match(/\bdata-control="([^"]+)"/)?.[1];
     if (!id && !control) continue;
     const element = new Element(tag, attributes);
+    element.ownerDocument = document;
     if (id) { assert.ok(!elements.has(id), `duplicate DOM id ${id}`); elements.set(id, element); }
     if (control) { element.dataset.control = control; touchButtons.push(element); }
   }
   document.getElementById = id => elements.get(id) || null;
-  document.createElement = tag => new Element(tag);
+  document.createElement = tag => Object.assign(new Element(tag), { ownerDocument: document });
   document.querySelectorAll = selector => {
     assert.equal(selector, '[data-control]');
     return touchButtons;
@@ -285,6 +287,7 @@ async function bootHarness({ stored = null, displayStored = null, unavailableSto
     },
     updateChaseHeight, createDriverCabin, createCityGround, worldToGeographic, createRoadStream, nearestStreet, localDestinations, createCityNavigation,
     createStreetDetail:(manifest,options)=>createStreetDetail(manifest,{...options,now:()=>timestamp}),
+    renderStats, performanceName, vehicleHandling,
     Landscape, RoadPilot, AbortSignal, createGraphics, createStreetLife, createWater, setVehicleLamps, OFFICER_LOOK, createPoliceScene, createCityLife, manhattanCore, createStreetSigns, createCrowd, dress, seeded, KIT, createStreetProps, createPlaceSource, placeName, joinPlaceSources, indexFootprints, solveFrontages, createStorefronts, createInteraction, createPhone, describePlace, createFleet, createVehicleMeshLibrary, designFor, createSwitchShot, offersAt, shopRows, planRoom, buildRoom, roomKind, hasRoom, doorBlips, createDemographics, characterAt, createBuses, createBusStops, createSheds, planSheds, createShedMesh, createDining, planDining, createDiningMesh, seatsOf, planStands, vendorOf, createStandMesh, createBikeShare, planBikeDocks, createBikeDocks, menuFor, createSubway, createSubwayEntrances, FARE, indexKerbs, snapToKerb, formatDistance,
     // Bundled survey cells only: these tests stay offline.
     createStreetscape:options=>createStreetscape({...options,live:false,now:()=>timestamp}),

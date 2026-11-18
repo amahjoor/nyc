@@ -269,7 +269,7 @@ Parked and passing passenger cars draw a make, model, year and body together fro
 
 Open **Browse the vehicle catalog** from the pause menu to check a model year’s count, rotate its car or inspect the artist credits. On foot, approach a named passenger car to see its year, make and model in the entry prompt. [Vehicle catalog and asset workflow](docs/vehicles.md)
 
-Each body drives differently (`garage.js`): a coupe pulls harder and tops out at 75 mph, a van at 57. Stop outside an auto repair shop or a body shop from the places register while it is open and press **G** for its counter. A repair shop mends the car and fits an engine, brakes and tyres in three stages each; a body shop mends and resprays. On the phone, the mechanic comes out to the car you are in for $90 on top of the repair, and your own cab can be brought to the nearest street for $60. The cab's parts and paint are saved with your earnings. Prices and handling figures are the game's.
+Cars have individual top speeds, 0–60 times, braking distances and cornering grip. Pause beside a car or while driving to see its figures. At an open auto repair shop, stop and press **G** to compare the next engine or motor, brake and tyre upgrades. Each stage changes the car you drive. Body shops offer repairs and resprays. Collision damage stays with the car. Heavy hits can crush bodywork, break glass and start a fire. An open door can be torn off. The phone mechanic repairs your current car or your nearby burned-out cab for $90 plus repairs. Cab delivery costs $60, and its upgrades and paint are saved with your earnings. [Vehicle physics, trim references and damage](docs/vehicles.md#how-each-car-goes)
 
 ## Landscape reconstruction
 

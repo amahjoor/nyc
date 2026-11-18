@@ -9,6 +9,7 @@
   <style>
     :root { color-scheme: dark; font: 16px/1.5 var(--ui); color: #eae9e2; background: #151b1d; }
     * { box-sizing: border-box }
+    [hidden] { display: none !important }
     body { margin: 0 }
     main { max-width: 1180px; margin: auto; padding: clamp(16px, 4vw, 50px) }
     header { border-bottom: 1px solid #435054; margin-bottom: 24px; padding-bottom: 18px }
@@ -47,14 +48,17 @@
     table button { border: 0; background: transparent; cursor: pointer; padding: 3px 0; color: #ffab8e; font: inherit; text-decoration: underline; text-underline-offset: .16em }
     @media(max-width: 720px) { .layout { display: flex; flex-direction: column; gap: 16px } aside { padding: 0; border: 0; display: grid; grid-template-columns: 1fr 1fr; gap: 0 12px } .shortcuts { margin: 0; padding: 0; border: 0 } figure { order: 2 } }
   </style>
+  <link rel="stylesheet" href="./vehicle-stats.css">
 </head>
 <body><main>
   <header><a href="./">← Back to the game</a><h1>NYC vehicle catalog</h1><p id="summary">Loading passenger registration counts…</p></header>
   <div class="layout">
     <figure>
       <div class="stage"><canvas id="preview" tabindex="0" aria-label="Vehicle preview. Drag or use the arrow keys to rotate."></canvas><span id="status" class="status" role="status"></span></div>
-      <figcaption>Drag the car or use the arrow keys to rotate.</figcaption>
-      <h2 id="name"></h2><p id="population"></p><p id="credit"></p>
+      <figcaption>Drag the vehicle or use the arrow keys to rotate.</figcaption>
+      <h2 id="name"></h2><p id="population"></p>
+      <section id="stock-specs" aria-label="Stock performance" hidden><dl id="stock-stats" class="car-stats"></dl>
+        <p id="stock-powertrain"></p><small id="stock-basis"></small></section><p id="credit"></p>
     </figure>
     <aside aria-label="Find a vehicle">
       <label>Make<select id="make"></select></label>

@@ -3,7 +3,8 @@ import { catalogVehicles, vehicleName } from './fleet.js';
 import { decodeVehicleMesh } from './vehicle-assets.js';
 import { generateVehicle } from './vehicle-generator.js';
 import { designFor } from './vehicle-designs.js';
-import { describePerformance } from './vehicle-performance.js';
+import { renderStats } from './vehicle-stats.js';
+import { carPerformance, describePowertrain } from './vehicle-performance.js';
 import { createCar } from './world.js';
 
 const el = id => document.getElementById(id);
@@ -27,32 +28,47 @@ function studio(canvas) {
   renderer.shadowMap.enabled = true;
   renderer.shadowMap.type = THREE.PCFSoftShadowMap;
   const scene = new THREE.Scene();
-  scene.background = new THREE.Color(0x829294);
-  scene.fog = new THREE.FogExp2(0x829294, .065);
-  const sky = document.createElement('canvas'); sky.width = 512; sky.height = 256;
-  const ctx = sky.getContext('2d'), light = ctx.createLinearGradient(0, 0, 0, 256);
-  for (const [stop, color] of [[0, '#8fa4bb'], [.42, '#fbfcf7'], [.54, '#4b5a61'], [1, '#333c3d']]) light.addColorStop(stop, color);
-  ctx.fillStyle = light; ctx.fillRect(0, 0, 512, 256);
-  for (const x of [40, 180, 340]) { ctx.fillStyle = '#f8faf5'; ctx.fillRect(x, 65, 68, 53); }
-  const reflection = new THREE.CanvasTexture(sky);
-  reflection.mapping = THREE.EquirectangularReflectionMapping; reflection.colorSpace = THREE.SRGBColorSpace;
-  scene.environment = reflection; scene.environmentIntensity = .85;
-  scene.add(new THREE.HemisphereLight(0xf3fbff, 0xb6aaa2, 1.65));
-  const sun = new THREE.DirectionalLight(0xfff4df, 2.4);
+  scene.background = new THREE.Color(0x374146);
+  scene.fog = new THREE.FogExp2(0x374146, .06);
+  // Long overhead softboxes give the roof and shoulder lines distinct
+  // reflections. HDR values preserve bright strips in the clear coat.
+  const width = 256, height = 128, pixels = new Uint16Array(width * height * 4);
+  for (let y = 0; y < height; y++) for (let x = 0; x < width; x++) {
+    const u = x / width, v = y / height;
+    const softbox = (cx, cy, sx, sy) => Math.exp(-(((u-cx)/sx)**8 + ((v-cy)/sy)**8));
+    const key = 5.5*softbox(.64,.70,.17,.034), strip = 3.2*softbox(.19,.53,.09,.017);
+    const fill = .12 + 1.1*softbox(.92,.68,.07,.16) + .30*v;
+    const i = (y*width+x)*4;
+    for (const [k, light] of [fill+key+strip*.77,fill+key*.95+strip*.9,fill+key*.85+strip].entries())
+      pixels[i+k] = THREE.DataUtils.toHalfFloat(light);
+    pixels[i+3] = THREE.DataUtils.toHalfFloat(1);
+  }
+  const reflection = new THREE.DataTexture(pixels,width,height,THREE.RGBAFormat,THREE.HalfFloatType);
+  reflection.mapping = THREE.EquirectangularReflectionMapping; reflection.needsUpdate = true;
+  scene.environment = reflection;
+  scene.add(new THREE.HemisphereLight(0xe2efff, 0x49423c, .85));
+  const sun = new THREE.DirectionalLight(0xfff1d9, 2.25);
   sun.position.set(3, 7, 4); sun.castShadow = true; sun.shadow.mapSize.set(1024, 1024);
   Object.assign(sun.shadow.camera, { left: -4, right: 4, top: 4, bottom: -4, near: .1, far: 18 });
-  sun.shadow.normalBias = .012; scene.add(sun);
-  const floor = new THREE.Mesh(new THREE.PlaneGeometry(140, 140), new THREE.MeshStandardMaterial({ color: 0x697778, roughness: .95 }));
+  sun.shadow.normalBias = .008; scene.add(sun);
+  const floor = new THREE.Mesh(new THREE.PlaneGeometry(140, 140), new THREE.MeshStandardMaterial({ color: 0x455055, roughness: .85 }));
   floor.rotation.x = -Math.PI / 2; floor.receiveShadow = true; scene.add(floor);
+  const contact = document.createElement('canvas'); contact.width = contact.height = 128;
+  const ctx = contact.getContext('2d'), shade = ctx.createRadialGradient(64,64,12,64,64,64);
+  shade.addColorStop(0,'rgba(0,0,0,.72)'); shade.addColorStop(.62,'rgba(0,0,0,.5)'); shade.addColorStop(1,'transparent');
+  ctx.fillStyle = shade; ctx.fillRect(0,0,128,128);
+  const shadow = new THREE.Mesh(new THREE.PlaneGeometry(2.8,5.8),new THREE.MeshBasicMaterial({
+    map:new THREE.CanvasTexture(contact),transparent:true,depthWrite:false }));
+  shadow.rotation.x = -Math.PI/2; shadow.position.y = .008; scene.add(shadow);
   const camera = new THREE.PerspectiveCamera(31, 1, .1, 120);
-  let yaw = .83, elevation = .25, car;
+  let yaw = .83, elevation = .25, car, focusY = .75;
   function render() {
     const w = canvas.clientWidth, h = canvas.clientHeight;
     if (!w || !h) return;
     renderer.setSize(w, h, false); camera.aspect = w / h; camera.updateProjectionMatrix();
     const radius = Math.max(7.25, 6.15 / camera.aspect);
-    camera.position.set(Math.sin(yaw) * Math.cos(elevation) * radius, .8 + Math.sin(elevation) * radius, Math.cos(yaw) * Math.cos(elevation) * radius);
-    camera.lookAt(0, .75, 0); renderer.render(scene, camera);
+    camera.position.set(Math.sin(yaw) * Math.cos(elevation) * radius, focusY+.05 + Math.sin(elevation) * radius, Math.cos(yaw) * Math.cos(elevation) * radius);
+    camera.lookAt(0, focusY, 0); renderer.render(scene, camera);
   }
   function rotate(dx, dy) { yaw -= dx; elevation = Math.max(.055, Math.min(1.05, elevation + dy)); render(); }
   let previous;
@@ -68,9 +84,9 @@ function studio(canvas) {
     if (delta) { e.preventDefault(); rotate(...delta); }
   };
   new ResizeObserver(render).observe(canvas);
-  return (identity, model) => {
+  return (mesh, aim = .75) => {
     if (car) scene.remove(car);
-    car = createCar({ shape: identity.shape, color: tint, model }); scene.add(car); render();
+    car = mesh; focusY = aim; scene.add(car); render();
   };
 }
 
@@ -85,12 +101,13 @@ async function preview(v) {
   const zip = el('area').value;
   el('population').textContent = zip ? count(areaWeights.get(v.index) || 0) + ' registrations in ZIP ' + zip + ' · ' + count(v.total) + ' citywide for this year and body.'
     : count(v.total) + ' NYC passenger registrations for this model year and body.';
+  el('stock-specs').hidden = !v.performance;
   if (v.performance) {
-    // What is on file for the cars registered, and what follows from it. A tilde marks what the game had to estimate.
-    const line = document.createElement('small'), to = v.performance.handling;
-    line.style.fontWeight = 'normal'; line.title = `Against the game's reference sedan: ${to.power}× the pull, ${to.top}× the top speed, ${to.brakes}× the brakes, ${to.grip}× the grip.`;
-    line.textContent = describePerformance(v.performance);
-    el('population').append(document.createElement('br'), line);
+    renderStats(el('stock-stats'),v.performance.handling);
+    el('stock-powertrain').textContent = describePowertrain(v.performance);
+    el('stock-basis').textContent = v.performance.reference
+      ? 'Stock top speed based on ' + v.performance.reference + '.'
+      : 'Estimated stock performance for this model year.';
   }
   const size = asset?.design && [asset.design.L, asset.design.W, asset.design.H].map(m => m.toFixed(2)).join(' × ') + ' m';
   el('credit').replaceChildren(...(!asset ? ['The game represents this model year with its shared ' + shapes[v.shape] + ' body.']
@@ -98,7 +115,7 @@ async function preview(v) {
       : 'Drawn by the game as a typical ' + shapes[v.shape] + ' with the make’s grille and lamps of its years. This model’s own dimensions are not in the game yet.']
     : ['Exterior for ' + asset.years.join('–') + '. ', link(asset.title, asset.source), ' by ' + asset.author + '. ', link(asset.license, asset.licenseUrl)]));
   if (!display) return;
-  function show(mesh, status) { if (request === token) { display(v, mesh); el('status').textContent = status; } }
+  function show(mesh, status) { if (request === token) { display(createCar({ shape:v.shape,color:tint,model:mesh })); el('status').textContent = status; } }
   if (!asset) { show(null, ''); return; }
   try {
     if (!cache.has(asset.id)) {
@@ -118,8 +135,12 @@ function options(id, entries, current) {
 }
 
 async function start() {
-  const [data, art, performance] = await Promise.all(['./vehicle-catalog.json', './assets/vehicles/index.json', './vehicle-performance.json'].map(async url => (await getFile(url)).json()));
-  const vehicles = catalogVehicles(data, art.models, designFor, performance.variants.length === data.variants.length ? performance : null);
+  const json = async url => (await getFile(url)).json();
+  const [data, art, performance] = await Promise.all([
+    json('./vehicle-catalog.json'), json('./assets/vehicles/index.json'), json('./vehicle-performance.json').catch(() => null),
+  ]);
+  const vehicles = catalogVehicles(data, art.models, designFor, performance?.variants?.length === data.variants.length ? performance : null);
+  for (const car of vehicles) car.performance ??= carPerformance(car, null, car.asset?.design);
   for (let i = 0; i < data.city.length; i += 2) {
     const v = vehicles[data.city[i]];
     if (v) { v.total = data.city[i + 1]; v.index = data.city[i]; }

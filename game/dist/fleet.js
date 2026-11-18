@@ -149,7 +149,7 @@ function workingFleet(data, design, paints, performance) {
     paint: paints.length === PAINTS.length && shares.some(Boolean) ? cumulative(shares) : null,
     // The hybrid Interceptor's combined 318 hp and 2,250 kg are Ford's published figures.
     patrol: design ? { make: 'Ford', model: 'Police Interceptor Utility', year: 2021, shape: 'suv', asset: design('Ford', 'Police Interceptor Utility', 2021, 'suv', 'police'),
-      ...(performance ? { performance: carPerformance({ make: 'Ford', year: 2021, shape: 'suv' }, [318, 2250, 'A', 'G'], design('Ford', 'Police Interceptor Utility', 2021, 'suv').design) } : null) } : null,
+      ...(performance ? { performance: carPerformance({ make: 'Ford', model: 'Police Interceptor Utility', year: 2021, shape: 'suv' }, [null, 2250, 'A', 'H'], design('Ford', 'Police Interceptor Utility', 2021, 'suv').design) } : null) } : null,
   };
 }
 

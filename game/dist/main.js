@@ -1,3 +1,4 @@
+import { renderStats, performanceName } from './vehicle-stats.js';
 import { updateChaseHeight } from './vehicle-presentation.js';
 import { createDriverCabin } from './driver-cabin.js';
 import { createSwitchShot } from './switch-shot.js';
@@ -36,7 +37,7 @@ import { createPhone, describePlace } from './phone.js';
 import { createFleet } from './fleet.js';
 import { createVehicleMeshLibrary } from './vehicle-assets.js';
 import { designFor } from './vehicle-designs.js';
-import { offersAt, shopRows } from './garage.js';
+import { offersAt, shopRows, vehicleHandling } from './garage.js';
 import { planRoom, buildRoom, roomKind, hasRoom } from './interiors.js';
 import { doorBlips } from './map-blips.js';
 import { createDemographics } from './demographics.js';
@@ -154,7 +155,7 @@ function atShopCounter(){
 }
 
 function openGarage(place, index=0) {
-  const rows=shopRows(place.kind,{health:sim.health,mods:sim.vehicle.mods,color:sim.vehicle.color});
+  const rows=shopRows(place.kind,{...sim.vehicle,health:sim.health});
   for(const row of rows)row.disabled=row.price===null;
   interaction.openList(placeName(place),rows,(row,i)=>{
     if(sim.garage(place.kind,row.job,row.color))saveProgress();
@@ -294,7 +295,15 @@ function togglePause(force) {
   if(paused)interaction?.close();
   if(paused&&mapOpen)gameMap.setOpen(false);
   input.clear();
-  if(paused && !$('pause-dialog').open && !$('help-dialog').open && !$('sources-dialog').open)$('pause-dialog').showModal();
+  if(paused && !$('pause-dialog').open && !$('help-dialog').open && !$('sources-dialog').open) {
+    const car = sim.vehicle || sim.getNearbyCar();
+    $('pause-car').hidden = !car;
+    if (car) {
+      $('pause-car-name').textContent = performanceName(car);
+      renderStats($('pause-car-stats'), vehicleHandling(car));
+    }
+    $('pause-dialog').showModal();
+  }
   if(!paused&&$('pause-dialog').open)$('pause-dialog').close();
 }
 

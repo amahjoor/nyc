@@ -84,7 +84,7 @@ test('brake overrides either accelerator and holds a stationary vehicle still', 
     assert.equal(sim.player.speed, 0);
     assert.equal(sim.player.x, initial.x);assert.equal(sim.player.z, initial.z);
     const car = sim.cars.find(car => car.controlled);car.speed = forward * 15;
-    advance(sim, 1, { forward, brake: true });
+    advance(sim, 2, { forward, brake: true });
     assert.equal(sim.player.speed, 0, 'a held throttle cannot weaken braking or cause creep');
   }
 });
@@ -94,7 +94,7 @@ test('opposing throttle stops before engaging the other direction', () => {
     const sim = new Simulation(city());sim.interact();
     const car = sim.cars.find(car => car.controlled);car.speed = direction * initialSpeed;
     let stopped = false, neutralSteps = 0;
-    for (let step = 0; step < 120; step++) {
+    for (let step = 0; step < 240; step++) {
       sim.step({ forward: -direction }, 1 / 120);
       if (car.speed === 0) { stopped = true;neutralSteps++; }
       if (car.speed * direction < 0) {
@@ -147,7 +147,7 @@ test('traffic lanes lie to each driver’s right on roads in every cardinal dire
 test('brakes stop without turning forward speed into reverse speed', () => {
   const sim = new Simulation(city());
   sim.interact();
-  advance(sim, 2, { forward: 1 });
+  advance(sim, 3, { forward: 1 });
   assert.ok(sim.player.speed > 10);
   advance(sim, 3, { brake: true });
   assert.equal(sim.player.speed, 0);

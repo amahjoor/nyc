@@ -1,3 +1,6 @@
+import { upgradePreview } from './vehicle-stats.js';
+import { carPerformance } from './vehicle-performance.js';
+import { bodyShape } from './fleet.js';
 // What a garage does to a car, and what it charges.
 //
 // Auto repair shops and body shops are real places (places.js). A repair
@@ -46,6 +49,13 @@ export function handlingFor(body, mods = {}, own = null) {
   return handling;
 }
 
+export function vehicleHandling(car, mods = car.mods) {
+  const body = car.identity?.shape || bodyShape(car.type, car.id, car.shape);
+  const identity = car.identity;
+  const stock = identity?.performance || (identity?.model && carPerformance(identity, null, identity.asset?.design));
+  return handlingFor(body, mods, stock?.handling);
+}
+
 /**
  * What a garage of `kind` puts on its counter for a car in this state
  * ({ health, mods, color }): rows of { job, name, note, price }, price null
@@ -58,7 +68,10 @@ export function shopRows(kind, car = {}) {
   rows.push({ job: 'repair', name: 'REPAIR', note: cost ? `$${cost}` : 'NOTHING TO MEND', price: cost || null });
   if (offers.parts) for (const [job, part] of Object.entries(PARTS)) {
     const stage = car.mods?.[job] || 0, price = part.prices[stage] ?? null;
-    rows.push({ job, name: part.label, note: price === null ? 'STAGE 3 · FULLY FITTED' : `STAGE ${stage} OF 3 · NEXT $${price}`, price });
+    const name = job === 'engine' && car.identity?.performance?.fuel === 'E' ? 'MOTOR' : part.label;
+    const next = { ...car.mods, [job]: stage + 1 };
+    const note = price === null ? 'STAGE 3 · FULLY FITTED' : `Stage ${stage+1} · $${price} · ${upgradePreview(vehicleHandling(car), vehicleHandling(car, next))}`;
+    rows.push({ job, name, note, price });
   }
   if (offers.respray) for (const [name, color] of RESPRAYS) {
     const current = color === car.color;

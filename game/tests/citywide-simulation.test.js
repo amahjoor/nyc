@@ -67,7 +67,7 @@ test('driving pauses at loaded coverage without heat or damage and continues as 
   assert.match(sim.notice, /Loading/);
   assert.equal(sim.bounds.maxZ, 40000);
   sim.setActiveCity({ loadedBounds: { ...loadedBounds, maxZ: 1000 } });
-  advance(sim, 3, { forward: 1 });
+  advance(sim, 5, { forward: 1 });
   assert.ok(sim.player.z > 60);
   assert.equal(sim.health, 100);
   assert.equal(sim.heat, 0);
@@ -82,7 +82,7 @@ test('irregular streaming coverage blocks walking and cars before missing geomet
   assert.equal(sim.health, 100);
   assert.equal(sim.heat, 0);
   readyLimit = 150;
-  advance(sim, 2, { forward: 1 });
+  advance(sim, 3, { forward: 1 });
   assert.ok(sim.player.z > 35);
   const walker = new Simulation(city({ isReadyAt: (x, z, radius) => z + radius < 12 }));
   walker.cars = [];

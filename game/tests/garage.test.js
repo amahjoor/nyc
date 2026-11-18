@@ -29,12 +29,12 @@ test('a car drives by its figures: a coupe pulls harder and tops out higher than
   assert.equal(plain.speed, sedan.speed, 'a car with no figures is a plain sedan');
   const coupe = run(handlingFor('coupe'), { forward: 1 }, 1.5), van = run(handlingFor('van'), { forward: 1 }, 1.5);
   assert.ok(coupe.speed > sedan.speed * 1.1 && van.speed < sedan.speed * .85, `${van.speed.toFixed(1)} < ${sedan.speed.toFixed(1)} < ${coupe.speed.toFixed(1)} m/s after a second and a half`);
-  const flat = body => run(handlingFor(body), { forward: 1 }, 40).speed;
-  assert.ok(Math.abs(flat('sedan') - 30) < .01 && Math.abs(flat('coupe') - 33.6) < .01 && Math.abs(flat('van') - 25.5) < .01, 'top speeds');
-  assert.ok(Math.abs(run(handlingFor('sedan', { engine: 3 }), { forward: 1 }, 40).speed - 34.5) < .01);
+  const flat = body => run(handlingFor(body), { forward: 1 }, 180).speed / .44704;
+  assert.ok(Math.abs(flat('sedan') - 130) < .01 && Math.abs(flat('coupe') - 145.6) < .01 && Math.abs(flat('van') - 110.5) < .01, 'top speeds');
+  assert.ok(Math.abs(run(handlingFor('sedan', { engine: 3 }), { forward: 1 }, 180).speed / .44704 - 149.5) < .01);
   // From 20 m/s on the brakes for a second.
-  const stop = handling => { const car = { angle: 0, speed: 20, handling }; resetVehicleDynamics(car, 20); for (let i = 0; i < 60; i++) stepVehicleDynamics(car, { forward: 0, turn: 0, brake: true }, 1 / 120); return car.speed; };
-  assert.ok(stop(handlingFor('sedan', { brakes: 3 })) < stop(handlingFor('sedan')) - 3 && stop(handlingFor('van')) > stop(handlingFor('sedan')) + 1);
+  const stop = handling => { const car = { angle: 0, speed: 20, handling }; resetVehicleDynamics(car, 20); for (let i = 0; i < 120; i++) stepVehicleDynamics(car, { forward: 0, turn: 0, brake: true }, 1 / 120); return car.speed; };
+  assert.ok(stop(handlingFor('sedan', { brakes: 3 })) < stop(handlingFor('sedan')) - 2.7 && stop(handlingFor('van')) > stop(handlingFor('sedan')) + 1);
 });
 
 test('a garage mends, resprays and fits parts for cash, to the car that is driven in', () => {
@@ -94,9 +94,9 @@ test('the mechanic comes out to the car, and the cab can be brought round', () =
 test('the counter lists what the shop does, and the page has a place for each', () => {
   assert.deepEqual(shopRows('pizza'), []);
   assert.deepEqual(shopRows('bodyshop', { health: 80 }).slice(0, 1), [{ job: 'repair', name: 'REPAIR', note: '$60', price: 60 }]);
-  assert.deepEqual(shopRows('repair', { health: 100, mods: { engine: 3, tyres: 1 } }), [
+  assert.deepEqual(shopRows('repair', { type: 'sedan', shape: 'sedan', health: 100, mods: { engine: 3, tyres: 1 } }), [
     { job: 'repair', name: 'REPAIR', note: 'NOTHING TO MEND', price: null }, { job: 'engine', name: 'ENGINE', note: 'STAGE 3 · FULLY FITTED', price: null },
-    { job: 'brakes', name: 'BRAKES', note: 'STAGE 0 OF 3 · NEXT $250', price: 250 }, { job: 'tyres', name: 'TYRES', note: 'STAGE 1 OF 3 · NEXT $600', price: 600 }]);
+    { job: 'brakes', name: 'BRAKES', note: 'Stage 1 · $250 · 60–0 mph 129 → 118 ft', price: 250 }, { job: 'tyres', name: 'TYRES', note: 'Stage 2 · $600 · Cornering grip 0.93 → 1.00 g', price: 600 }]);
   const elements = new Map(), $ = id => { if (!elements.has(id)) { const listeners = {}, attributes = {}; elements.set(id, { hidden: false, disabled: false, textContent: '', value: '', setAttribute: (k, v) => { attributes[k] = v; }, getAttribute: k => attributes[k], addEventListener: (n, f) => { (listeners[n] ||= []).push(f); }, fire: n => (listeners[n] || []).forEach(f => f({})) }); } return elements.get(id); };
   const paints = shopRows('bodyshop', { color: RESPRAYS[2][1] }).slice(1);
   assert.deepEqual(paints.map(row => row.color), RESPRAYS.map(([, color]) => color));

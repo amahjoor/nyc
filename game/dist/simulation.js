@@ -2,11 +2,11 @@ import { resetVehicleDynamics, stepVehicleDynamics, stopVehicleRotation, vehicle
 import { planJunction, junctionArms, vehicleAspect, stopDistance } from './signal-plan.js';
 import { laneLayout } from './lanes.js';
 import { roadLevelAt } from './road-level.js';
-import { drawVehicle, drawPaint, drawTaxi, bodyShape, WHEEL } from './fleet.js';
+import { drawVehicle, drawPaint, drawTaxi, WHEEL } from './fleet.js';
 import { walkRoom, roomPoint } from './room.js';
 import { PEP, scratch } from './menu.js';
 import { Police, MAX_STARS } from './police.js';
-import { handlingFor, repairCost, offersAt, PARTS, RESPRAY_PRICE, RESPRAYS, CALL_OUT, DELIVERY } from './garage.js';
+import { vehicleHandling, repairCost, offersAt, PARTS, RESPRAY_PRICE, RESPRAYS, CALL_OUT, DELIVERY } from './garage.js';
 
 // Simulation units are metres and seconds. A heading of zero points along +Z.
 // This module deliberately has no renderer or browser dependencies.
@@ -490,7 +490,7 @@ export class Simulation {
       if (price === undefined) { this._say('Nothing better to fit.'); return false; }
       if (!pay(price, `${PARTS[job].label[0]}${PARTS[job].label.slice(1).toLowerCase()} stage ${stage + 1} fitted. $${price}.`)) return false;
       car.mods = { ...car.mods, [job]: stage + 1 };
-      car.handling = handlingFor(bodyShape(car.type, car.id, car.shape), car.mods, car.identity?.performance?.handling); return true;
+      car.handling = vehicleHandling(car); return true;
     }
     this._say('They do not do that here.'); return false;
   }
@@ -535,6 +535,7 @@ export class Simulation {
     if (lookup) for (const car of this.cars) {
       if (car.type === 'sedan' && !car.controlled && (car._kerb || car._edge)) this._registeredAppearance(car, !car._kerb);
       else this._serviceIdentity(car);
+      if (car.controlled) car.handling = vehicleHandling(car);
     }
   }
 
@@ -1110,7 +1111,7 @@ export class Simulation {
       car._loose = 0;
       car._kerb = false;
       car._route = [];
-      car.handling = handlingFor(bodyShape(car.type, car.id, car.shape), car.mods, car.identity?.performance?.handling);
+      car.handling = vehicleHandling(car);
       resetVehicleDynamics(car, car.speed);
       Object.assign(player, { mode: 'drive', vehicleId: car.id, x: car.x, z: car.z, angle: car.angle, speed: car.speed, velocityX: car.velocityX, velocityZ: car.velocityZ, vy: 0, grounded: true, slide: 0, swing: 0 });
       this.updateGrounding();
