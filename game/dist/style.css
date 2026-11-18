@@ -101,3 +101,16 @@
 .phone-paints div{display:grid;grid-template-columns:repeat(8,1fr);gap:5px}
 .phone-paints button{aspect-ratio:1;border:2px solid #ffffff2e;border-radius:8px}
 .phone-paints button[aria-pressed="true"]{border-color:var(--orange)}
+
+/* A quieter screen: the options fold into a menu, and the cards shrink to what is in use. */
+.top-actions{position:relative}.top-actions[hidden]{display:none}
+.more-actions{position:absolute;top:calc(100% + 8px);right:0;display:flex;flex-direction:column;gap:5px;min-width:190px;padding:8px;background:#151a1df2;border:1px solid #ffffff26;border-top:2px solid var(--orange);z-index:8}
+.more-actions[hidden]{display:none}.more-actions button{text-align:left;width:100%}
+.wanted.calm{display:none}
+.mission-panel.idle{width:auto;padding:0;background:none;border:0;backdrop-filter:none}.mission-panel.idle>:not(.job-button){display:none}.mission-panel.idle .job-button{margin:0;background:#151a1de0;backdrop-filter:blur(12px)}
+.drive-panel .trip{display:none}
+.credits[hidden],.stream-status[hidden]{display:none}
+.city-navigation{max-height:calc(100vh - 150px);overflow-y:auto}.city-navigation h2{margin-top:0}
+.city-navigation .more-destinations{margin-top:14px;border-top:1px solid #ffffff1f;padding-top:12px}.city-navigation .more-destinations>summary{cursor:pointer;font-size:11px;color:#c9cfcb}
+.city-navigation .spawn-note:empty,.city-navigation #travel-note:empty,.city-navigation .address-status:empty{display:none}
+.more-actions #help-button{font-size:8px;padding:10px 11px}

@@ -30,6 +30,8 @@ export class HUD {
     const stars = Math.min(3,Math.ceil(sim.heat));
     this.text('wanted-stars', '★'.repeat(stars)+'☆'.repeat(3-stars));
     this.text('wanted-label', stars ? 'LOSE THE POLICE' : 'KEEP IT CLEAN');
+    // The stars are shown when the police are interested, and the job card only while there is something to say.
+    $('wanted').classList?.toggle('calm', !stars);
     const near = sim.getNearbyCar();
     $('interact-prompt').hidden = !driving && !near;
     $('interact-prompt').querySelector('span').textContent = driving ? Math.abs(p.speed)>4 ? 'SLOW DOWN TO EXIT' : 'EXIT VEHICLE' : near?.type==='taxi' ? 'GET IN THE CAB' : 'ENTER VEHICLE';
@@ -50,6 +52,7 @@ export class HUD {
       this.text('mission-distance','FREE ROAM'); this.text('mission-timer','NO RUSH');
     }
     $('job-button').hidden=Boolean(active);
+    $('mission-panel').classList?.toggle('idle', !active && mission.phase !== 'complete' && mission.phase !== 'failed');
     this.text('mission-number',String(sim.deliveries+1).padStart(2,'0'));
     this.drawMap(sim);
   }

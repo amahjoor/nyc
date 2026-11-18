@@ -210,6 +210,7 @@ $('start-button').addEventListener('click',()=>{
   if(!sim||!bootReady)return;
   started=true;paused=false;setView('city');$('intro').hidden=true;
   for(const id of ['hud','mission-panel','wanted'])$(id).hidden=cityView;
+  syncChrome();
   $('touch-controls').hidden=true;
   announce('Choose a neighborhood to start exploring New York.');
   canvas.focus();
@@ -251,6 +252,7 @@ $('road-pilot-mode-button').addEventListener('click',()=>{
   updateRoadPilotControls();
 });
 canvas.addEventListener('wheel',event=>{if(cityView){event.preventDefault();cityZoom=clamp(cityZoom*Math.exp(event.deltaY*.001),.07,1.8);}},{passive:false});
+$('menu-button').addEventListener('click',()=>{const open=$('more-actions').hidden;$('more-actions').hidden=!open;$('menu-button').setAttribute('aria-expanded',String(open));});
 $('sources-button').addEventListener('click',()=>{pausedBeforeSources=paused;if(started)paused=true;input.clear();$('sources-dialog').showModal();});
 $('sources-dialog').addEventListener('close',()=>{paused=pausedBeforeSources;input.clear();});
 $('pause-dialog').addEventListener('cancel',e=>{e.preventDefault();togglePause(false);});
@@ -716,6 +718,12 @@ function setView(mode){
   navigation?.setVisible(cityView);
   if(started)for(const id of ['hud','mission-panel','wanted'])$(id).hidden=cityView;
   $('touch-controls').hidden=cityView||!started||!matchMedia('(pointer:coarse)').matches;
+  syncChrome();
+}
+// What frames the screen: nothing but the title before play; while playing at street level, three buttons and a menu.
+function syncChrome(){
+  $('top-actions').hidden=!started;$('more-actions').hidden=true;$('menu-button').setAttribute('aria-expanded','false');
+  $('credits').hidden=started&&!cityView;
 }
 // Corners and businesses, found in the game's own data. The street index is made from the route planner's roads the
 // first time something is searched for, and the list of place names is fetched then too.
@@ -746,6 +754,8 @@ function updateLocation(){
 }
 function updateStreaming(status){
   $('stream-status').textContent=traveling?'LOADING DESTINATION…':status.error?'SOME CITY DETAIL UNAVAILABLE · RETRYING':status.loading?'LOADING NYC · '+status.visibleChunks+' AREAS VISIBLE':status.visibleChunks+' AREAS VISIBLE · CITY READY';
+  // Once the city around the player is in, the note goes away until something is loading again.
+  $('stream-status').hidden=started&&!cityView&&!traveling&&!status.error&&!status.loading;
 }
 function updateLandscapeStatus(status){
   $('landscape-status').textContent=status.error
@@ -842,7 +852,7 @@ async function travel(place){
     city=sim.city;yaw=sim.player.angle;roadCell='';chaseHeight=null;chaseEyeOffset=null;
     camera.position.set(sim.player.x-Math.sin(yaw)*12,(sim.player.y||0)+9,sim.player.z-Math.cos(yaw)*12);
     if(!started)$('start-button').click();
-    setView('street');$('travel-note').textContent='Choose a neighborhood, or double-click a street in the city view.';
+    setView('street');$('travel-note').textContent='';
     clearDirections();gameMap?.setStatus('Spawned at the selected location.');return true;
   }catch(error){
     // The stream can publish additional colliders while a destination loads.

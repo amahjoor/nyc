@@ -51,7 +51,7 @@ export function createCityNavigation({ canvas, camera, input, bounds, onTravel, 
     $('place-select').disabled=traveling;
     $('address-form').setAttribute('aria-busy',String(searching));
     $('pick-spawn-button').setAttribute('aria-pressed',String(picking));
-    $('pick-spawn-button').textContent=picking?'DONE PICKING':'PICK SPAWN LOCATION';
+    $('pick-spawn-button').textContent=picking?'DONE PICKING':'PICK A SPOT ON THE MAP';
     $('city-navigation').classList.toggle('is-picking',picking);
     $('city-navigation').classList.toggle('has-spawn',Boolean(selected));
     canvas.style.cursor=picking?'crosshair':'';
@@ -67,7 +67,7 @@ export function createCityNavigation({ canvas, camera, input, bounds, onTravel, 
   }
   function clearSelection() {
     selected=null;$('spawn-pin').hidden=true;
-    $('spawn-note').textContent='Search an address or pick a spot on the map. Arrivals use a nearby street.';
+    $('spawn-note').textContent='';
     controls();
   }
   function select(place) {
@@ -149,7 +149,7 @@ export function createCityNavigation({ canvas, camera, input, bounds, onTravel, 
     cancelSearch();$('address-results').replaceChildren();$('address-status').textContent='';
     setPicking(!picking);
     if(picking)$('spawn-note').textContent='Click or drag on the city to place your spawn pin, then choose SPAWN HERE.';
-    else $('spawn-note').textContent=selected?selectionLabel()+'. Spawn on the nearest mapped street.':'Drag to orbit. Scroll to zoom. Choose PICK SPAWN LOCATION to place a pin.';
+    else $('spawn-note').textContent=selected?selectionLabel()+'. Spawn on the nearest mapped street.':'';
   });
   $('clear-spawn-button').addEventListener('click',()=>{
     if(traveling)return;
