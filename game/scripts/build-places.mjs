@@ -9,7 +9,7 @@
 import { mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { projectPoint } from '../dist/streetscape.js';
-import { KINDS, cuisineKind, storeKind, tradeName, mergePlaces, packPlace, placeCellKey, PLACE_CELL } from '../dist/places.js';
+import { KINDS, cuisineKind, storeKind, tradeName, mergePlaces, personalNames, packPlace, placeCellKey, PLACE_CELL } from '../dist/places.js';
 
 const CITY = 'https://data.cityofnewyork.us/resource', STATE = 'https://data.ny.gov/resource';
 // The five boroughs, for registers that cover the whole state.
@@ -128,6 +128,10 @@ console.log('public buildings');
 }
 
 const places = mergePlaces(entries);
+// A licence holder's own name, where a register gives one for a trade name, is not kept: the place is known by its kind.
+const personal = personalNames(places);
+for (const place of places) if (personal.has(place.name)) place.name = '';
+console.log(`${personal.size} names left out as a person's own`);
 const cells = new Map();
 for (const place of places) {
   const key = placeCellKey(place.x, place.z);

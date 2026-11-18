@@ -109,6 +109,33 @@ export function tradeName(raw, { owner = '', trading = false } = {}) {
 }
 
 /** What a place is called: its trade name, or the plain name of its kind. */
+// A register sometimes gives the licence holder's own name where a trade name should be. A sign, a map or a search
+// result is no place for it, so when the places are bundled such names are left out and the place is known by its
+// kind (scripts/build-places.mjs, scripts/scrub-place-names.mjs). Only the form of a name can be judged: two or
+// three plain words, the first a common given name, the last a word hardly any other place has in its name, which
+// is what a surname is and what "PIZZA", "PLAZA" or "MEXICANO" is not. Shops from OpenStreetMap are left alone:
+// its names are what is over the door, and many a shop a person's name really is over (Louis Vuitton) comes from it.
+const GIVEN = new Set(`JAMES JOHN ROBERT MICHAEL WILLIAM DAVID RICHARD JOSEPH THOMAS CHARLES CHRISTOPHER DANIEL MATTHEW ANTHONY MARK DONALD STEVEN PAUL ANDREW JOSHUA KENNETH KEVIN BRIAN GEORGE EDWARD RONALD TIMOTHY JASON JEFFREY RYAN JACOB GARY NICHOLAS ERIC JONATHAN STEPHEN LARRY JUSTIN SCOTT BRANDON BENJAMIN SAMUEL GREGORY FRANK ALEXANDER RAYMOND PATRICK JACK DENNIS JERRY TYLER AARON JOSE ADAM HENRY NATHAN DOUGLAS ZACHARY PETER KYLE WALTER ETHAN JEREMY HAROLD KEITH ROGER GERALD CARL TERRY SEAN ARTHUR LAWRENCE JESSE BRYAN BRUCE ALBERT GABRIEL ALAN JUAN WAYNE ROY RALPH RANDY EUGENE VINCENT RUSSELL LOUIS PHILIP MARY PATRICIA JENNIFER LINDA ELIZABETH BARBARA SUSAN JESSICA SARAH KAREN NANCY LISA BETTY MARGARET SANDRA ASHLEY KIMBERLY EMILY DONNA MICHELLE DOROTHY CAROL AMANDA MELISSA DEBORAH STEPHANIE REBECCA SHARON LAURA CYNTHIA KATHLEEN AMY SHIRLEY ANGELA HELEN ANNA BRENDA PAMELA NICOLE SAMANTHA KATHERINE CHRISTINE DEBRA RACHEL CATHERINE CAROLYN JANET RUTH MARIA HEATHER DIANE JULIE JOYCE KELLY CHRISTINA LAUREN JOAN EVELYN JUDITH MEGAN CHERYL ANDREA MARTHA JACQUELINE FRANCES GLORIA ANN TERESA KATHRYN SARA JANICE ALICE DORIS JULIA JUDY DENISE MARILYN BEVERLY DANIELLE THERESA DIANA NATALIE LUIS CARLOS MIGUEL PEDRO RAFAEL MANUEL FRANCISCO ANTONIO JORGE RICARDO ROBERTO FERNANDO HECTOR RAMON JULIO OSCAR SERGIO EDUARDO ANA ROSA CARMEN JUANA ELENA MOHAMMED MOHAMMAD MUHAMMAD AHMED ALI HASSAN IBRAHIM ABDUL OMAR YUSUF IVAN SERGEY DMITRY VLADIMIR OLGA NATALIA SVETLANA TATIANA STEVE MIKE BILL DAN DAVE CHRIS MATT SIMON GLENN HOWARD STANLEY LEONARD NORMAN MARVIN MELVIN IRVING SIDNEY MURRAY SHELDON BERNARD MORRIS ABRAHAM ISAAC MOSHE YOSEF CHAIM SHLOMO`.split(/\s+/));
+/**
+ * Which of these places' names read as a person's own: `places` are { name, kind }, and the answer is the set of
+ * such names. A name two places share is a business. `rare` is how few names a word may be in to count as a surname.
+ */
+export function personalNames(places, rare = 2) {
+  const fromMap = new Set(Object.values(OSM_KINDS)), inNames = new Map(), times = new Map();
+  for (const { name } of places) { if (!name) continue; times.set(name, (times.get(name) || 0) + 1); for (const word of new Set(name.split(/[^A-Z]+/).filter(Boolean))) inNames.set(word, (inNames.get(word) || 0) + 1); }
+  const found = new Set();
+  for (const { name, kind } of places) {
+    if (!name || fromMap.has(kind) || times.get(name) > 1) continue;
+    const words = name.split(' ');
+    if (words.length < 2 || words.length > 3 || !words.every(word => /^[A-Z]+\.?$/.test(word)) || !GIVEN.has(words[0])) continue;
+    // A middle name or initial, if there is one.
+    if (words.length === 3 && words[1].replace('.', '').length > 1 && !GIVEN.has(words[1])) continue;
+    const last = words.at(-1).replace('.', '');
+    if (last.length > 1 && !GIVEN.has(last) && (inNames.get(last) || 0) <= rare) found.add(name);
+  }
+  return found;
+}
+/** What a place is called on a sign, on the map and on the phone: its trade name, or failing that the kind of place it is. */
 export const placeName = place => place.name || KIND[place.kind]?.label.toUpperCase() || 'SHOP';
 
 /** Places are bundled by the square kilometre. */
