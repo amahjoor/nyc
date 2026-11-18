@@ -1,7 +1,6 @@
 import * as THREE from './vendor/three.module.min.js';
 
-// Cockpit controls follow the chassis. The windscreen uses the exterior's
-// actual glazing so a driver's view follows each crack or missing pane.
+// Cockpit controls and glazing share the same frame as the driver's seat.
 export function createDriverCabin(scene) {
   const group = new THREE.Group();
   group.name = 'Driver cabin';
@@ -26,6 +25,7 @@ export function createDriverCabin(scene) {
   panel(rubber, 0, .32, -.23, 1.73, .10, 2.16);
   panel(trim, 0, 1.53, -.52, 1.48, .06, 1.46);
   const doors = [];
+  const glassCorners = [];
   for (const side of [1, -1]) {
     const door = new THREE.Group();
     door.position.set(side * .86, 0, .75);
@@ -34,7 +34,9 @@ export function createDriverCabin(scene) {
     panel(trim, side * .86, .63, -1.02, .07, .58, .58);
     const foot = new THREE.Vector3(side * .84, .95, .94);
     const top = new THREE.Vector3(side * .71, 1.52, .17);
+    glassCorners.push(...foot.toArray(), ...top.toArray());
     const pillar = panel(trim, 0, 0, 0, .055, foot.distanceTo(top), .07);
+    pillar.name = side > 0 ? 'Left windshield pillar' : 'Right windshield pillar';
     pillar.position.lerpVectors(foot, top, .5);
     pillar.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), top.sub(foot).normalize());
   }
@@ -45,8 +47,14 @@ export function createDriverCabin(scene) {
   panel(trim, 0, 0, 0, .32, .035, .035, wheel);
   panel(trim, 0, -.085, 0, .035, .16, .035, wheel);
   panel(rubber, 0, 0, 0, .13, .10, .055, wheel);
-  const windshield = new THREE.Mesh();
+  const glazing = new THREE.BufferGeometry();
+  glazing.setAttribute('position', new THREE.Float32BufferAttribute(glassCorners, 3));
+  glazing.setIndex([0, 2, 1, 2, 3, 1]);
+  glazing.computeVertexNormals();
+  const windshield = new THREE.Mesh(glazing);
+  windshield.name = 'Cabin windshield';
   group.add(windshield);
+  const insideGlass = new WeakMap();
 
   let fittedCar = null, frontWheel;
   function placeCamera(camera, carMesh, turn, pitch) {
@@ -64,9 +72,15 @@ export function createDriverCabin(scene) {
     }
     const pane = detail.pieces.windshield;
     windshield.visible = !!pane?.visible;
-    if (pane) {
-      windshield.geometry = pane.geometry; windshield.material = pane.material;
-      windshield.scale.set(1/group.scale.x, 1/group.scale.y, 1/group.scale.z);
+    if (windshield.visible) {
+      if (!insideGlass.has(pane.material)) {
+        const material = pane.material.clone();
+        material.opacity = .04;
+        // Three.js does not copy the exterior's crack shader when cloning.
+        material.onBeforeCompile = pane.material.onBeforeCompile;
+        insideGlass.set(pane.material, material);
+      }
+      windshield.material = insideGlass.get(pane.material);
     }
     hood.rotation.x = .08 + detail.hood.rotation.x;
     hood.rotation.z = detail.hood.rotation.z;

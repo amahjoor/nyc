@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import * as THREE from '../dist/vendor/three.module.min.js';
 import { PANEL, impactVehicle, repairVehicle, stepVehicleFire } from '../dist/vehicle-damage.js';
 import { createDoorDebris } from '../dist/vehicle-detail.js';
+import { createDriverCabin } from '../dist/driver-cabin.js';
 import { createCar, updateCarVisuals } from '../dist/world.js';
 import { designFor } from '../dist/vehicle-designs.js';
 import { generateVehicle } from '../dist/vehicle-generator.js';
@@ -12,6 +13,44 @@ import { beginEntry, stepMove, lockedAt } from '../dist/player-moves.js';
 const fresh = () => ({ id: 'test', x: 0, y: 0, z: 0, speed: 0, angle: 0, parked: true });
 const town = () => new Simulation({ bounds: { minX:-500, maxX:500, minZ:-500, maxZ:500 },
   roads: [], buildings: [], missionPoints: [], spawn: { x:0, z:0, angle:0 } });
+
+test('the driver sees glass from pillar to pillar through damage, repair and vehicle changes', () => {
+  const scene = new THREE.Scene(), camera = new THREE.PerspectiveCamera();
+  const cabin = createDriverCabin(scene);
+  const pane = cabin.group.getObjectByName('Cabin windshield');
+  const pillars = ['Left', 'Right'].map(side => cabin.group.getObjectByName(side + ' windshield pillar'));
+  const van = generateVehicle(designFor('Toyota','Sienna',2015,'minivan'));
+  for (const mesh of [createCar({type:'taxi'}), createCar({model:van})]) {
+    const car = fresh();
+    function update() {
+      updateCarVisuals(mesh, car, 0);
+      cabin.placeCamera(camera, mesh, .3, 0);
+      cabin.group.updateMatrixWorld(true);
+    }
+    update();
+    const clear = pane.material;
+    assert.ok(clear.opacity < mesh.userData.detail.pieces.windshield.material.opacity);
+    for (const height of [-.45, 0, .45]) {
+      const [left, right] = pillars.map(pillar => pillar.localToWorld(new THREE.Vector3(0, height, 0)));
+      for (const across of [-.04, .04, .5, .96, 1.04]) {
+        const target = left.clone().lerp(right, across);
+        const ray = new THREE.Raycaster(camera.position, target.sub(camera.position).normalize());
+        assert.equal(ray.intersectObject(pane).length > 0, across > 0 && across < 1);
+      }
+    }
+    impactVehicle(car, 16, 0, -1, 2);
+    update();
+    assert.ok(pane.visible);
+    assert.notEqual(pane.material.onBeforeCompile, clear.onBeforeCompile);
+    car.brokenGlass = PANEL.front;
+    update();
+    assert.equal(pane.visible, false);
+    repairVehicle(car);
+    update();
+    assert.ok(pane.visible);
+    assert.equal(pane.material, clear);
+  }
+});
 
 test('local impacts bend only the hit car, break glass, tear open doors and repair back to the shared mesh', () => {
   const model = generateVehicle(designFor('Toyota','Sienna',2015,'minivan'));
