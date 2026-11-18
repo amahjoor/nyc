@@ -90,6 +90,59 @@ export function catalogVehicles(data, assets = [], design = null) {
   });
 }
 
+/**
+ * The city's cabs and its trades' vans and pickups (working-vehicles.json):
+ * which model years carry the medallions and boro permits, and which are
+ * registered commercially. These are citywide: a cab works wherever the fare
+ * goes. A cab's identity keeps the same car out of livery as `plain`.
+ */
+function workingFleet(data, design, paints) {
+  if (data?.version !== 1) return null;
+  const roster = (entry, livery = null) => {
+    const rows = entry?.variants || [], ends = new Uint32Array(rows.length);
+    let named = 0;
+    const cars = rows.map(([make, model, year, shape, count], i) => {
+      ends[i] = named += count;
+      // A van registered commercially is a cargo van: panelled in behind the cab.
+      const plain = { make, model, year, shape, asset: design?.(make, model, year, shape, !livery && shape === 'van' ? 'cargo' : null) || null };
+      return livery ? { make, model, year, shape, asset: design?.(make, model, year, shape, livery) || null, plain } : plain;
+    });
+    const all = Math.max(named, entry?.vehicles || 0);
+    // The car a number from 0 to 1 falls on, or null for one of those the source could not name.
+    return { rows, named, all, pick(r) {
+      const spot = Math.min(Math.floor(r * all), all - 1);
+      if (spot >= named) return null;
+      let lo = 0, hi = ends.length - 1;
+      while (lo < hi) { const mid = (lo + hi) >>> 1; if (spot < ends[mid]) hi = mid; else lo = mid + 1; }
+      return cars[lo];
+    } };
+  };
+  const yellow = roster(data.taxis, 'taxi'), green = roster(data.boroTaxis, 'taxi'), work = roster(data.work);
+  // Of the vans and pickups nobody could name, how many are vans.
+  const count = shape => work.rows.reduce((sum, row) => sum + (row[3] === shape ? row[4] : 0), 0);
+  const spare = { van: Math.max(0, (data.work?.bodies?.van || 0) - count('van')), pickup: Math.max(0, (data.work?.bodies?.pickup || 0) - count('pickup')) };
+  const vans = spare.van + spare.pickup ? spare.van / (spare.van + spare.pickup) : .6;
+  // Their paint, in the register's codes: the grey it lists is half silver, as for any car.
+  const shares = paints.map(() => 0);
+  for (const [code, n] of Object.entries(data.work?.colors || {})) {
+    const index = paintIndex(code);
+    if (index < 0 || index >= shares.length) continue;
+    if (PAINTS[index][0] === 'GY' && PAINT_INDEX.SL < shares.length) { shares[index] += n * (1 - SILVER_SHARE); shares[PAINT_INDEX.SL] += n * SILVER_SHARE; }
+    else shares[index] += n;
+  }
+  return {
+    taxi: yellow.all || green.all ? (r, boro = false) => ({ identity: (boro && green.all ? green : yellow.all ? yellow : green).pick(r), shape: undefined }) : null,
+    work: work.all ? r => {
+      const identity = work.pick(r);
+      if (identity) return { identity, shape: identity.shape, working: true };
+      const left = (r * work.all - work.named) / Math.max(1, work.all - work.named);
+      return { identity: null, shape: left < vans ? 'van' : 'pickup', working: true };
+    } : null,
+    paint: paints.length === PAINTS.length && shares.some(Boolean) ? cumulative(shares) : null,
+    patrol: design ? { make: 'Ford', model: 'Police Interceptor Utility', year: 2021, shape: 'suv', asset: design('Ford', 'Police Interceptor Utility', 2021, 'suv', 'police') } : null,
+  };
+}
+
 function registrationCatalog(data, assets, design) {
   if (data?.version !== 1 || !data.city?.length || !Array.isArray(data.variants)) return null;
   const catalog = { variants: catalogVehicles(data, assets, design), fallbacks: data.fallbacks };
@@ -107,9 +160,10 @@ function registrationCatalog(data, assets, design) {
  * The fleet for the whole city. `data` is fleet.json; without it every
  * place has the same plain mix.
  */
-export function createFleet(data = null, registrations = null, assets = [], design = null) {
+export function createFleet(data = null, registrations = null, assets = [], design = null, working = null) {
   const catalog = registrationCatalog(registrations, assets, design);
   const bodies = data?.bodies || BODIES, paints = data?.paints || PAINTS.map(([, hex]) => hex);
+  const atWork = workingFleet(working, design, paints);
   const normal = shares => { const total = shares.reduce((sum, share) => sum + share, 0) || 1; return shares.map(share => share / total); };
   const cityBodies = normal(data?.city?.bodies || [26, 39, 12, 7, 10, 3, 2, 1]), cityPaints = normal(data?.city?.paints || [26, 22, 20, 14, 8, 5, 2, 1, 1, 1, 0, 0, 0, 0]);
   // Colours are counted for the city as a whole; a ZIP code may carry its own.
@@ -125,11 +179,14 @@ export function createFleet(data = null, registrations = null, assets = [], desi
     const result = { zip: entry?.zip || null, cars: entry?.cars || 0, bodies, paints, bodyShares, paintShares,
       parked: cumulative(bodyShares), moving: cumulative(bodyShares.map((share, i) => share * (1 - AT_WORK) + working[i] * AT_WORK)), paint: cumulative(paintShares) };
     if (catalog) result.registration = catalog(result.zip);
+    if (atWork) Object.assign(result, { taxi: atWork.taxi, work: atWork.work, workPaint: atWork.paint });
     mixes.set(entry, result);
     return result;
   };
   return {
     zips: zips.length,
+    /** The patrol car the police drive, or null when no designer draws it. */
+    patrol: atWork?.patrol || null,
     /** The mix for the ZIP code whose middle is nearest (x, z). */
     at(x, z) {
       let nearest = null, best = Infinity;
@@ -141,15 +198,18 @@ export function createFleet(data = null, registrations = null, assets = [], desi
 
 /** A body for a parked car (`moving` false) or one in traffic, from a mix and a number from 0 to 1. */
 export const drawBody = (mix, r, moving = false) => drawFrom(mix.bodies, moving ? mix.moving : mix.parked, r);
-/** Paint from a mix and a number from 0 to 1. */
-export const drawPaint = (mix, r) => drawFrom(mix.paints, mix.paint, r);
+/** Paint from a mix and a number from 0 to 1: a working van's or pickup's own colours if `working`. */
+export const drawPaint = (mix, r, working = false) => drawFrom(mix.paints, (working && mix.workPaint) || mix.paint, r);
 
 /** One registration supplies the make, model, year and body together. */
 export function drawVehicle(mix, r, moving = false) {
   if (!mix.registration) return { identity: null, shape: drawBody(mix, r, moving) };
-  if (moving && r < AT_WORK) return { identity: null, shape: r < AT_WORK * .6 ? 'van' : 'pickup' };
+  if (moving && r < AT_WORK) return mix.work ? mix.work(r / AT_WORK) : { identity: null, shape: r < AT_WORK * .6 ? 'van' : 'pickup' };
   return mix.registration(moving ? (r - AT_WORK) / (1 - AT_WORK) : r);
 }
+
+/** Which cab this is: one of the medallion fleet, or with `boro` one of the green cabs. Its identity is null where the fleet is not known. */
+export const drawTaxi = (mix, r, boro = false) => mix?.taxi?.(r, boro) || { identity: null, shape: undefined };
 
 export const vehicleName = identity => identity ? `${identity.year} ${identity.make} ${identity.model}` : '';
 

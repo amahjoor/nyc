@@ -376,8 +376,9 @@ function createCarSet({ name, label, capacity, lit, select, library }) {
   const ids = [], looks = [], colors = [], wheelScale = new THREE.Vector3();
   let count = -1;
   const styleOf = car => {
-    if (lit && car.type === 'taxi') return styles.get(color.set(car.color || '#f3ba31').getHex() === GREEN_CAB ? 'boro cab' : 'cab');
-    const model = car.type === 'sedan' && library?.get(car.identity?.asset);
+    // A cab or a patrol car wears its own model once that is drawn: its livery is part of the exterior.
+    const model = (car.type === 'sedan' || car.identity?.asset?.livery) && library?.get(car.identity?.asset);
+    if (!model && lit && car.type === 'taxi') return styles.get(color.set(car.color || '#f3ba31').getHex() === GREEN_CAB ? 'boro cab' : 'cab');
     if (model) {
       if (!styles.has(model.id)) style(model.id, car.type, car.shape, 0xffffff, model);
       return styles.get(model.id);

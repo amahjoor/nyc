@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
-import { BODIES, catalogVehicles, createFleet, drawVehicle, vehicleName } from '../dist/fleet.js';
+import { BODIES, catalogVehicles, createFleet, drawVehicle, drawTaxi, drawPaint, vehicleName } from '../dist/fleet.js';
 import { createVehicleMeshLibrary, decodeVehicleMesh } from '../dist/vehicle-assets.js';
 import { createCar, createDistantTraffic, createParkedCars } from '../dist/world.js';
 import { Simulation } from '../dist/simulation.js';
@@ -213,4 +213,129 @@ test('a drawn exterior is built off the frame, then shared by the kerb, the traf
   assert.equal(driven.getObjectByName('Car body').geometry, mesh.body);
   assert.equal(driven.userData.wheels[1].position.z, spec.wheels.front);
   parked.dispose();
+});
+
+test('every drawn exterior has a windscreen widest at its foot and a window in its tail, however upright', () => {
+  const specs = new Map();
+  for (const [make, model, year, shape] of data.variants) { const spec = designFor(make, model, year, shape); specs.set(spec.id, spec); }
+  const sample = [...specs.values()].filter((spec, i) => i % 7 === 0 || /wrangler|g-class|transit|sienna|express|soul|defender/.test(spec.id));
+  sample.push(designFor('Ford', 'Transit', 2019, 'van', 'cargo'), designFor('Nissan', 'NV200', 2016, 'van', 'taxi'));
+  assert.ok(sample.length > 130);
+  for (const spec of sample) {
+    const mesh = generateVehicle(spec), pos = mesh.body.getAttribute('position'), normal = mesh.body.getAttribute('normal'), finish = mesh.body.getAttribute('aFinish');
+    const ahead = [], behind = [];
+    // Glass is the one finish this smooth and this reflective.
+    for (let i = 0; i < pos.count; i++) if (Math.abs(finish.getX(i) - .06) < .001 && Math.abs(finish.getY(i) - .9) < .001) {
+      if (normal.getZ(i) > .25) ahead.push([Math.abs(pos.getX(i)), pos.getY(i)]);
+      // A fastback's rear window lies nearly flat; it still faces backwards, behind the middle of the car.
+      if (normal.getZ(i) < -.12 && pos.getZ(i) < -.2) behind.push([Math.abs(pos.getX(i)), pos.getY(i)]);
+    }
+    assert.ok(ahead.length > 12, `${spec.id} has a windscreen`);
+    const low = Math.min(...ahead.map(p => p[1])), high = Math.max(...ahead.map(p => p[1])), widest = (list, from, to) => Math.max(...list.filter(p => p[1] >= from && p[1] <= to).map(p => p[0]));
+    const foot = widest(ahead, low, low + (high - low) * .25), head = widest(ahead, high - (high - low) * .25, high);
+    assert.ok(high - low > .3 && foot >= head - .005 && foot > spec.design.W / 2 * .68, `${spec.id}: its windscreen is ${foot.toFixed(2)} m to a side at the foot and ${head.toFixed(2)} at the roof`);
+    assert.ok(behind.length >= 4, `${spec.id} has a rear window`);
+    const span = Math.max(...behind.map(p => p[1])) - Math.min(...behind.map(p => p[1]));
+    assert.ok(span > .12 && Math.max(...behind.map(p => p[0])) > spec.design.W / 2 * (spec.design.cargo ? .4 : .5), `${spec.id}: its rear window is ${span.toFixed(2)} m tall`);
+  }
+  // A van carries people unless it is registered to a trade: then nothing is glazed behind the cab.
+  const side = spec => { const m = generateVehicle(spec), p = m.body.getAttribute('position'), n = m.body.getAttribute('normal'), f = m.body.getAttribute('aFinish'); let rear = 0; for (let i = 0; i < p.count; i++) if (Math.abs(f.getX(i) - .06) < .001 && Math.abs(n.getX(i)) > .7 && p.getZ(i) < -.6) rear++; return rear; };
+  assert.ok(side(designFor('Ford', 'Transit', 2019, 'van')) > 8); assert.equal(side(designFor('Ford', 'Transit', 2019, 'van', 'cargo')), 0);
+});
+
+test('cabs, patrol cars and working vans are the models the city licenses and registers', () => {
+  const working = json('working-vehicles.json');
+  assert.equal(working.version, 1); assert.ok(working.decoder.decoder_version);
+  for (const [name, least] of [['taxis', 8000], ['boroTaxis', 300], ['work', 30000]]) {
+    const entry = working[name];
+    assert.ok(/^https:\/\/data\.(cityofnewyork\.us|ny\.gov)\/d\//.test(entry.source) && entry.snapshot.date && entry.filter);
+    assert.ok(entry.vehicles > least && entry.represented <= entry.vehicles && entry.represented > entry.vehicles * .6, name);
+    assert.equal(entry.variants.reduce((sum, row) => sum + row[4], 0), entry.represented);
+    for (const [k, [make, model, year, shape, count]] of entry.variants.entries()) {
+      assert.ok(make && model && year > 1985 && year < 2030 && BODIES.includes(shape) && Number.isInteger(count) && count >= entry.minimumCount, `${name} ${make} ${model}`);
+      if (k) assert.ok(count <= entry.variants[k - 1][4]);
+      if (name === 'work') assert.ok(shape === 'van' || shape === 'pickup');
+      assert.ok(designFor(make, model, year, shape).design, `${make} ${model}`);
+    }
+  }
+  assert.equal(working.work.bodies.van + working.work.bodies.pickup, working.work.vehicles);
+  const drawnShare = entry => entry.variants.reduce((sum, [make, model, year, shape, count]) => sum + (designFor(make, model, year, shape).known ? count : 0), 0) / entry.represented;
+  assert.ok(drawnShare(working.taxis) > .99 && drawnShare(working.work) > .97, 'nearly every named one has its own dimensions');
+
+  const fleet = createFleet(base, data, art, designFor, working), mix = fleet.at(0, 0), plain = createFleet(base, data, art, designFor).at(0, 0);
+  assert.deepEqual(drawTaxi(plain, .3), { identity: null, shape: undefined }, 'without the roster a cab is just a cab');
+  assert.equal(drawVehicle(plain, 0, true).identity, null);
+  // Cabs: the commonest medallion car first, each in livery, and the same car out of it.
+  const [make, model, year, shape] = working.taxis.variants[0], first = drawTaxi(mix, 0).identity;
+  assert.deepEqual([first.make, first.model, first.year, first.shape], [make, model, year, shape]);
+  assert.equal(first.asset, designFor(make, model, year, shape, 'taxi')); assert.equal(first.asset.livery, 'taxi'); assert.equal(first.asset.design.livery, 'taxi');
+  assert.equal(first.plain.asset, designFor(make, model, year, shape)); assert.equal(first.plain.asset.livery, undefined);
+  assert.deepEqual(first.asset.wheels, first.plain.asset.wheels);
+  assert.equal(drawTaxi(mix, .99999).identity, null, 'the few the TLC lists that no decoder names stay plain cabs');
+  const tally = (draw, n = 4000) => { const seen = new Map(); for (let i = 0; i < n; i++) { const car = draw((i + .5) / n); const key = car.identity ? car.identity.make + ' ' + car.identity.model : car.shape; seen.set(key, (seen.get(key) || 0) + 1 / n); } return seen; };
+  const share = (entry, name) => entry.variants.reduce((sum, row) => sum + (row[0] + ' ' + row[1] === name ? row[4] : 0), 0) / entry.vehicles;
+  const yellow = tally(r => drawTaxi(mix, r)), green = tally(r => drawTaxi(mix, r, true));
+  for (const name of ['Toyota Sienna', 'Toyota RAV4', 'Ford Transit Connect']) assert.ok(Math.abs(yellow.get(name) - share(working.taxis, name)) < .01, name);
+  assert.ok(Math.abs(green.get('Toyota Camry') - share(working.boroTaxis, 'Toyota Camry')) < .01 && green.get('Toyota Camry') > yellow.get('Toyota Camry') * 3, 'boro cabs are their own fleet');
+  // Work traffic: named vans and pickups in their own colours, and the unnamed remainder as plain ones.
+  const AT_WORK = .14, work = tally(r => drawVehicle(mix, r * AT_WORK * .99999, true));
+  assert.ok(Math.abs(work.get('Ford Transit') - share(working.work, 'Ford Transit')) < .01);
+  assert.ok(work.get('van') > .15 && work.get('pickup') > .005 && work.get('van') > work.get('pickup') * 3);
+  const van = drawVehicle(mix, 0, true);
+  assert.equal(van.working, true); assert.equal(van.shape, 'van'); assert.equal(van.identity.asset.design.cargo, true); assert.equal(van.identity.asset.livery, 'cargo');
+  assert.equal(drawVehicle(mix, .5, true).working, undefined); assert.equal(drawVehicle(mix, 0).working, undefined, 'nobody parks a work van at the kerb for the night');
+  let white = 0, whiteCar = 0;
+  for (let i = 0; i < 1000; i++) { if (drawPaint(mix, (i + .5) / 1000, true) === '#e8e9e6') white++; if (drawPaint(mix, (i + .5) / 1000) === '#e8e9e6') whiteCar++; }
+  assert.ok(white > 600 && white < 800 && white > whiteCar * 2, `${white / 10}% of working vans are white`);
+  // The patrol car.
+  assert.deepEqual([fleet.patrol.make, fleet.patrol.model, fleet.patrol.asset.livery, fleet.patrol.asset.known], ['Ford', 'Police Interceptor Utility', 'police', true]);
+  assert.equal(createFleet(base, data, art).patrol, null);
+
+  // What the liveries add.
+  const cab = generateVehicle(first.asset), bare = generateVehicle(first.plain.asset), patrol = generateVehicle(fleet.patrol.asset);
+  const top = g => Math.max(...[...g.getAttribute('position').array].filter((_, i) => i % 3 === 1));
+  assert.ok(top(cab.lamps) > first.asset.design.H + .05 && top(bare.lamps) < first.asset.design.H, 'a cab has a lit roof light');
+  assert.ok(cab.body.index.count > bare.body.index.count);
+  assert.ok(patrol.roof > 1.6 && patrol.roof <= fleet.patrol.asset.design.H + .001 && top(patrol.body) > patrol.roof + .1, 'the light bar stands on the roof where the beacons flash');
+  const lights = createCar({ type: 'police', model: patrol }).userData.lights;
+  assert.equal(lights.length, 2); assert.ok(Math.abs(lights[0].position.y - patrol.roof - .15) < 1e-9);
+});
+
+test('traffic cabs and patrol cars keep one model, in the simulation and in what draws them', async () => {
+  const working = json('working-vehicles.json'), fleet = createFleet(base, data, art, designFor, working);
+  const sim = new Simulation({ bounds: { minX: -400, maxX: 400, minZ: -400, maxZ: 400 }, buildings: [], roads: [], spawn: { x: 0, z: 0, angle: 0 }, missionPoints: [] });
+  const cab = sim._makeCar('traffic-7', 'taxi', { x: 10, z: 0 }, 0), police = sim._makeCar('police-1', 'police', { x: 30, z: 0 }, 0);
+  assert.equal(cab.identity, null); assert.equal(police.identity, null);
+  sim.cars.push(cab, police); sim.setFleet(fleet);
+  assert.equal(cab.identity.asset.livery, 'taxi'); assert.equal(cab.shape, undefined); assert.equal(police.identity, fleet.patrol);
+  const kept = cab.identity;
+  sim.setFleet(createFleet(base, data, art, designFor, working));
+  assert.deepEqual([cab.identity.make, cab.identity.model, cab.identity.year], [kept.make, kept.model, kept.year], 'the same cab is the same model when the fleet arrives again');
+  assert.equal(sim._makeCar('police-r9', 'police', { x: 0, z: 50 }, 0).identity.asset.livery, 'police');
+  // Recycled into traffic: a cab draws from the cabs, anything else from the block or the trades.
+  sim.setTraffic({ taxis: 1 });
+  const recycled = { id: 'x', type: 'sedan', identity: null, x: 0, z: 0 };
+  sim._styleTraffic(recycled);
+  assert.equal(recycled.type, 'taxi'); assert.equal(recycled.identity.asset.livery, 'taxi'); assert.equal(recycled.shape, undefined); assert.equal(recycled.color, '#f2b91c');
+  sim.setTraffic({ taxis: 1, green: true }); sim._styleTraffic(recycled);
+  assert.equal(recycled.color, '#74b541'); assert.ok(working.boroTaxis.variants.some(([make, model, year]) => make === recycled.identity.make && model === recycled.identity.model && year === recycled.identity.year));
+  sim.setTraffic({ taxis: 0 });
+  let vans = 0, white = 0;
+  for (let i = 0; i < 400; i++) { sim._styleTraffic(recycled); assert.equal(recycled.type, 'sedan'); if (recycled.identity?.asset?.livery === 'cargo' || (!recycled.identity && recycled.shape === 'van')) { vans++; if (recycled.color === '#e8e9e6') white++; } }
+  assert.ok(vans > 20 && vans < 90 && white > vans * .5, `${vans} of 400 are vans at work, ${white} of them white`);
+
+  // Drawn: its own model once that is built, the shared cab until then.
+  const library = createVehicleMeshLibrary(async () => { throw Error('nothing is fetched'); });
+  const distant = createDistantTraffic({ capacity: 3, library });
+  const cars = [{ ...cab, color: '#f2b91c' }, { ...police, color: '#f1f2e9' }];
+  distant.update(cars);
+  assert.equal(distant.group.getObjectByName('Distant cab bodies').count, 1);
+  await new Promise(resolve => setTimeout(resolve, 5)); await new Promise(resolve => setTimeout(resolve, 5));
+  assert.equal(distant.update(cars), true);
+  assert.equal(distant.group.getObjectByName('Distant cab bodies').count, 0);
+  assert.equal(distant.group.getObjectByName('Distant ' + cab.identity.asset.id + ' bodies').count, 1);
+  assert.equal(distant.group.getObjectByName('Distant ' + fleet.patrol.asset.id + ' bodies').count, 1);
+  const tint = distant.group.getObjectByName('Distant ' + cab.identity.asset.id + ' bodies').geometry.getAttribute('aPaint');
+  assert.ok(tint.getX(0) > .8 && tint.getZ(0) < .1, 'the cab is painted yellow, not built yellow');
+  distant.dispose();
 });

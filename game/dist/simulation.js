@@ -1,7 +1,7 @@
 import { resetVehicleDynamics, stepVehicleDynamics, stopVehicleRotation, vehicleTravelSpeed } from './vehicle-dynamics.js';
 import { planJunction, junctionArms, vehicleAspect, stopDistance } from './signal-plan.js';
 import { laneLayout } from './lanes.js';
-import { drawVehicle, drawPaint, bodyShape, WHEEL } from './fleet.js';
+import { drawVehicle, drawPaint, drawTaxi, bodyShape, WHEEL } from './fleet.js';
 import { walkRoom, roomPoint } from './room.js';
 import { PEP, scratch } from './menu.js';
 import { Police, MAX_STARS } from './police.js';
@@ -404,10 +404,21 @@ export class Simulation {
     const taxi = this._random() < this._trafficMix.taxis;
     car.id = `traffic-${this._trafficSerial = (this._trafficSerial || 100) + 1}`;
     car.type = taxi ? 'taxi' : 'sedan';
-    // A cab is a cab. Any other car is one of those registered round here, or a van or a pickup at work.
+    // A cab is one of the city's cabs. Any other car is one of those registered round here, or a van or a pickup at work.
     const fleet = taxi ? null : this._fleetAt(car);
-    Object.assign(car, fleet ? drawVehicle(fleet, this._random(), true) : { shape: undefined, identity: null });
-    car.color = taxi ? (this._trafficMix.green ? GREEN_CAB : YELLOW_CAB) : fleet ? drawPaint(fleet, this._random()) : TRAFFIC_PAINT[Math.floor(this._random() * TRAFFIC_PAINT.length)];
+    const drawn = fleet ? drawVehicle(fleet, this._random(), true) : { shape: undefined, identity: null };
+    car.shape = drawn.shape; car.identity = drawn.identity;
+    car.color = taxi ? (this._trafficMix.green ? GREEN_CAB : YELLOW_CAB) : fleet ? drawPaint(fleet, this._random(), drawn.working) : TRAFFIC_PAINT[Math.floor(this._random() * TRAFFIC_PAINT.length)];
+    if (taxi) this._serviceIdentity(car);
+  }
+
+  /** Which model a cab or a patrol car is. Drawn from its name, so the same car is the same model whenever the fleet arrives. */
+  _serviceIdentity(car) {
+    if (car.type === 'police') { car.identity = this._fleet?.patrol || null; return; }
+    if (car.type !== 'taxi') return;
+    let hash = 0;
+    for (const character of String(car.id)) hash = (hash * 33 + character.charCodeAt(0)) >>> 0;
+    car.identity = drawTaxi(this._fleetAt(car), (Math.imul(hash ^ hash >>> 16, 0x85ebca6b) >>> 0) / 4294967296, car.color === GREEN_CAB).identity;
   }
 
   /**
@@ -468,8 +479,9 @@ export class Simulation {
     if (job === 'respray' && offers.respray && RESPRAYS.some(([, colour]) => colour === choice)) {
       if (car.color === choice) { this._say('It is that colour already.'); return false; }
       if (!pay(RESPRAY_PRICE, `Resprayed. $${RESPRAY_PRICE}.`)) return false;
-      // A cab out of its livery is a car like any other.
-      car.color = choice; if (car.type === 'taxi') { car.type = 'sedan'; car.shape = 'sedan'; }
+      // A cab out of its livery is a car like any other: the same model without the roof light.
+      car.color = choice;
+      if (car.type === 'taxi') { car.type = 'sedan'; car.identity = car.identity?.plain || null; car.shape = car.identity?.shape || 'sedan'; }
       car.resprays = (car.resprays || 0) + 1; return true;
     }
     if (PARTS[job] && offers.parts) {
@@ -521,6 +533,7 @@ export class Simulation {
     // a fresh spawn, including for kerb spaces already occupied at load time.
     if (lookup) for (const car of this.cars) {
       if (car.type === 'sedan' && !car.controlled && (car._kerb || car._edge)) this._registeredAppearance(car, !car._kerb);
+      else this._serviceIdentity(car);
     }
   }
 
@@ -533,8 +546,9 @@ export class Simulation {
     if (!mix) { car.color = KERB_PAINT[hash % KERB_PAINT.length]; return; }
     // Mix adjacent space IDs before sampling a catalog with thousands of rows.
     const shuffled = Math.imul(hash ^ hash >>> 16, 0x85ebca6b) >>> 0;
-    Object.assign(car, drawVehicle(mix, shuffled / 4294967296, moving));
-    car.color = drawPaint(mix, (Math.imul(hash, 2654435761) >>> 0) / 4294967296);
+    const drawn = drawVehicle(mix, shuffled / 4294967296, moving);
+    car.shape = drawn.shape; car.identity = drawn.identity;
+    car.color = drawPaint(mix, (Math.imul(hash, 2654435761) >>> 0) / 4294967296, drawn.working);
   }
 
   /**
@@ -905,6 +919,7 @@ export class Simulation {
     const palette = TRAFFIC_PAINT;
     const car = { id, type, x: point.x, z: point.z, angle, speed: 0, color: type === 'taxi' ? YELLOW_CAB : type === 'police' ? '#f1f2e9' : palette[Math.floor(this._random() * palette.length)], parked: !edge, controlled: false, radius: CAR_RADIUS, siren: false, _edge: edge, _route: [], _stuckTime: 0, _cruise: 6 + this._random() * 3, _wait: 0, _steering: 0, _shiftHold: 0 };
     resetVehicleDynamics(car);
+    this._serviceIdentity(car);
     return car;
   }
 

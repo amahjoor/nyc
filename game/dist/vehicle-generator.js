@@ -13,9 +13,11 @@ import * as THREE from './vendor/three.module.min.js';
 // length. The result has the form of an imported exterior (vehicle-assets.js).
 
 const FINISH = { paint: [.34, .22, 1], glass: [.06, .9, 1], gloss: [.1, .35, 1], trim: [.64, .09, 0], chrome: [.22, 1, 0], dark: [.9, 0, 0], plate: [.5, .1, 0],
-  lens: [.07, .85, 1], reflector: [.2, .95, 1], redlens: [.14, .25, 1], silver: [.4, .7, 0] };
+  lens: [.07, .85, 1], reflector: [.2, .95, 1], redlens: [.14, .25, 1], silver: [.4, .7, 0],
+  check: [.3, .1, 1], stripe: [.3, .2, 1], blue: [.15, .2, 1], red: [.15, .2, 1] };
 const TONE = { paint: [1, 1, 1], glass: [.1, .135, .155], gloss: [.02, .022, .025], trim: [.04, .042, .046], chrome: [.66, .68, .7], dark: [.012, .012, .014], plate: [.8, .78, .6],
-  silver: [.42, .44, .46], lens: [.05, .056, .064], reflector: [.5, .52, .55], redlens: [.2, .014, .012], head: [1, .76, .37], day: [.9, .93, 1], tail: [.46, .053, .03], amber: [1, .35, .03] };
+  silver: [.42, .44, .46], lens: [.05, .056, .064], reflector: [.5, .52, .55], redlens: [.2, .014, .012], head: [1, .76, .37], day: [.9, .93, 1], tail: [.46, .053, .03], amber: [1, .35, .03],
+  cab: [1, .78, .42], check: [.02, .02, .022], stripe: [.018, .06, .165], blue: [.03, .14, .85], red: [.75, .04, .03] };
 
 const lerp = (a, b, t) => a + (b - a) * t;
 const clamp = (v, lo = 0, hi = 1) => Math.min(hi, Math.max(lo, v));
@@ -48,7 +50,9 @@ function sample(path, d) {
 // car are metres back from the nose or forward from the tail; a K is a share
 // of the car's height.
 const COMMON = { nose: .54, noseLow: .3, faceRun: .08, cowlAft: .5, cowlK: .675, screen: .78, peak: .5, rearDrop: .06, tailRun: .06, rearBumper: .58, rearLow: .33, beltRise: .06,
-  tumble: .74, noseW: .76, noseR: .46, tailW: .84, tailR: .3, bow: .07, sternBow: .04, doors: 4, flare: .014, tuck: .06, crown: .035 };
+  tumble: .74, noseW: .76, noseR: .46, tailW: .84, tailR: .3, bow: .07, sternBow: .04, doors: 4, flare: .014, tuck: .06, crown: .035,
+  // How far the glass bows across the car: the windscreen forward at its foot, a saloon's rear window back.
+  screenBow: .07, rearBow: .05 };
 const STYLE = {
   sedan: { clear: .16, hoodK: .525, cowlK: .69, rearHeader: 1.02, deck: .46, deckK: .735 },
   coupe: { clear: .15, hoodK: .53, cowlK: .69, cowlAft: .6, rearHeader: 1.12, rearDrop: .1, deck: .4, deckK: .73, doors: 2, tumble: .7 },
@@ -56,8 +60,8 @@ const STYLE = {
   wagon: { clear: .16, hoodK: .52, cowlK: .68, rearHeader: .34, rearDrop: .05, glassRun: .24, rails: true },
   suv: { clear: .21, nose: .64, noseLow: .36, hoodK: .6, cowlK: .7, cowlAft: .46, screen: .64, rearHeader: .3, rearDrop: .05, glassRun: .17, rearBumper: .68, rearLow: .4, tumble: .78, cladding: true, rails: true, flare: .022 },
   minivan: { clear: .18, nose: .56, noseLow: .3, hoodK: .5, cowlAft: .26, cowlK: .63, screen: .95, rearHeader: .26, rearDrop: .04, glassRun: .13, rearBumper: .62, rearLow: .36, tumble: .82 },
-  pickup: { clear: .25, nose: .7, noseLow: .42, hoodK: .6, faceRun: .05, cowlAft: .5, cowlK: .68, screen: .5, bed: 1.75, rearBumper: .7, rearLow: .46, tumble: .8, noseW: .86, noseR: .3, tailW: .95, tailR: .12, bow: .04, sternBow: .01, flare: .03 },
-  van: { clear: .2, nose: .62, noseLow: .34, hoodK: .5, faceRun: .06, cowlAft: .12, cowlK: .57, screen: .62, rearHeader: .07, rearDrop: .02, glassRun: .03, rearBumper: .6, rearLow: .4, tumble: .9, noseW: .84, noseR: .34, tailW: .95, tailR: .1, sternBow: .01, doors: 2, cargo: true },
+  pickup: { screenBow: .04, clear: .25, nose: .7, noseLow: .42, hoodK: .6, faceRun: .05, cowlAft: .5, cowlK: .68, screen: .5, bed: 1.75, rearBumper: .7, rearLow: .46, tumble: .8, noseW: .86, noseR: .3, tailW: .95, tailR: .12, bow: .04, sternBow: .01, flare: .03 },
+  van: { clear: .2, nose: .62, noseLow: .34, hoodK: .5, faceRun: .06, cowlAft: .12, cowlK: .57, screen: .62, rearHeader: .07, rearDrop: .02, glassRun: .03, rearBumper: .6, rearLow: .4, tumble: .9, noseW: .84, noseR: .34, tailW: .95, tailR: .1, sternBow: .01, screenBow: .04 },
 };
 const TWO_BOX = new Set(['hatch', 'wagon', 'suv', 'minivan', 'van']);
 export const GENERATED_SHAPES = Object.keys(STYLE);
@@ -156,11 +160,16 @@ function loft(d) {
   for (const c of cuts) hard.push(c - .006, c + .006);
   const pillarB = d.doors === 2 ? [cuts[1] - .02, cuts[1] + .06] : [cuts[1] - .05, cuts[1] + .05];
   const glass = { screen: [d.cowl + .03, d.header - .03], dlo: [d.cowl + .02, d.cargo ? cuts.at(-1) - .04 : d.twoBox ? d.rearD - .06 : d.shape === 'pickup' ? d.cabEnd - .2 : d.rearD + (L - d.deck - d.rearD) * .42] };
-  glass.rear = d.shape === 'pickup' ? [d.rearD + .02, d.cabEnd - .01] : d.cargo ? [9, 9] : d.twoBox ? [d.rearD + .04, Math.min(d.rearD + d.glassRun, L - d.tailRun - .02) - .02] : [d.rearD + .05, L - d.deck - .04];
+  // Where the rear window meets the body, and how high that is.
+  const foot = d.shape === 'pickup' ? d.cabEnd : d.twoBox ? Math.min(d.rearD + d.glassRun, L - d.tailRun - .02) : L - d.deck, footY = d.shape === 'pickup' ? d.bedY : d.twoBox ? d.tailY : d.deckY;
+  glass.rear = d.shape === 'pickup' ? [d.rearD + .02, d.cabEnd - .01] : d.twoBox ? [d.rearD + .04, foot - .02] : [d.rearD + .05, foot - .04];
+  // An upright tail has no length to give a window: there it is wrapped on, like the lamps (rearFace).
+  const upright = d.twoBox && glass.rear[1] - glass.rear[0] < .08;
+  if (upright) glass.rear = [9, 9];
   const pillars = [pillarB];
   if (d.doors === 4 && d.twoBox && !d.cargo) pillars.push([cuts[2] - .01, cuts[2] + .08]);
   if (d.doors === 4 && !d.twoBox && d.shape !== 'pickup') pillars.push([cuts[2] - .1, cuts[2] - .04]);
-  hard.push(...glass.screen, ...glass.dlo, ...glass.rear.filter(x => x < L), ...pillars.flat());
+  hard.push(...glass.screen, ...glass.dlo, ...glass.rear.filter(x => x < L), ...pillars.flat(), d.cowl - .03, foot - .03, foot + .03);
   if (d.shape === 'pickup') hard.push(d.cabEnd + .02, d.cabEnd + .1, L - .09, L - .05);
   if (d.sunroof) hard.push(d.header + .12, d.header + .12 + d.sunroof);
   for (const [x] of up) soft.push(x);
@@ -171,11 +180,15 @@ function loft(d) {
   for (const x of soft.sort((a, b) => a - b)) if (x >= 0 && x <= L && stations.every(s => Math.abs(s - x) > .045)) stations.push(x);
   stations.sort((a, b) => a - b);
 
+  // How far out the flank stands at each height, `x` metres from the nose: widest at the shoulder, tucked under at the sill.
+  const flank = x => {
+    const w = width(x), y0 = floor(x), yBelt = Math.max(belt(x), y0 + .06), line = Math.max(beltLine(x), yBelt), shoulder = y0 + .6 * (line - y0);
+    const flared = Math.min(Math.max(y0, archAt(x)), yBelt - .07) > y0 + .01 || archAt(x + .08) || archAt(x - .08) ? 1 : .6;
+    return y => (y < shoulder ? w * (1 - d.tuck * ((shoulder - y) / (shoulder - y0)) ** 2) : w * (1 - .035 * ((y - shoulder) / Math.max(.05, line - shoulder)) ** 2)) + flareAt(x, y) * flared;
+  };
   const rings = stations.map(x => {
-    const w = width(x), y0 = floor(x), yTop = top(x), yBelt = Math.max(belt(x), y0 + .06), line = Math.max(beltLine(x), yBelt);
-    const yLow = Math.min(Math.max(y0, archAt(x)), yBelt - .07), span = yBelt - yLow, cabin = yTop - yBelt;
-    const shoulder = y0 + .6 * (line - y0);
-    const side = y => (y < shoulder ? w * (1 - d.tuck * ((shoulder - y) / (shoulder - y0)) ** 2) : w * (1 - .035 * ((y - shoulder) / Math.max(.05, line - shoulder)) ** 2)) + (yLow > y0 + .01 || archAt(x + .08) || archAt(x - .08) ? flareAt(x, y) : flareAt(x, y) * .6);
+    const w = width(x), y0 = floor(x), yTop = top(x), yBelt = Math.max(belt(x), y0 + .06);
+    const yLow = Math.min(Math.max(y0, archAt(x)), yBelt - .07), span = yBelt - yLow, cabin = yTop - yBelt, side = flank(x);
     const ys = [yLow, yLow + Math.min(.05, span * .1), yLow + Math.min(.15, span * .25), yLow + span * .46, yLow + span * .72, yBelt - Math.min(.035, span * .08), yBelt];
     const half = [[0, y0], [w * .52, y0], [w * .52, yLow], [side(ys[0]) - .012, ys[0]]];
     for (let k = 1; k < 7; k++) half.push([side(ys[k]), ys[k]]);
@@ -185,16 +198,25 @@ function loft(d) {
       const closed = x > L - .07, floorY = closed ? yBelt : Math.min(yBelt - .02, d.bedFloor ?? d.clear + .62);
       half.push([xb - .02, yBelt + .012], [xb - .075, yBelt + .012], [xb - .09, floorY], [xb * .45, floorY], [0, floorY]);
     } else {
-      const g = smooth(.07, .32, cabin), n = roofWidth(x), rail = Math.min(.105, cabin * .3);
+      // The cabin stands on the body from the windscreen's foot to the rear window's. Its pillars lean
+      // in from the belt to the roof, so each window is widest at its foot.
+      const g = smooth(d.cowl - .03, d.cowl + .03, x) * (1 - smooth(foot - .03, foot + .03, x));
+      const rise = clamp(x < d.peakD ? (yTop - d.cowlY) / Math.max(.1, H - .04 - d.cowlY) : (yTop - footY) / Math.max(.1, H - d.rearDrop - footY));
+      const n = lerp(xb * .98, roofWidth(x), rise ** .7), fit = Math.min(1, cabin / .22), rail = Math.min(.105, cabin * .3);
       const hood = [[w * .9, yBelt + cabin * .5], [w * .76, yBelt + cabin * .84], [w * .52, yTop - cabin * .05], [w * .26, yTop], [0, yTop]];
-      const roof = [[lerp(xb, n, .86), yTop - rail], [n * .985, yTop - .046], [n * .87, yTop - .014], [n * .45, yTop - .003], [0, yTop]];
+      const roof = [[lerp(xb, n, .86), yTop - rail], [n * .985, yTop - .046 * fit], [n * .87, yTop - .014 * fit], [n * .45, yTop - .003 * fit], [0, yTop]];
       for (let k = 0; k < 5; k++) half.push([lerp(hood[k][0], roof[k][0], g), lerp(hood[k][1], roof[k][1], g)]);
     }
     const bow = d.bow * (1 - smooth(0, .5, x)) - d.sternBow * (1 - smooth(0, .4, L - x));
-    const z = L / 2 - x, point = ([px, py], s) => [s * px, py, z - bow * (px / hw) ** 2];
-    return [...half.map(p => point(p, 1)), ...half.slice(1, -1).reverse().map(p => point(p, -1))];
+    // Glass is curved across the car. Everything above the belt bows with it, the hood ahead of the
+    // windscreen and the deck behind the rear window included, so the panels stay in one sheet.
+    const sweep = bedZone(x) ? 0 : d.screenBow * smooth(d.cowl - .5, d.cowl, x) * (1 - smooth(d.cowl, d.header + .15, x))
+      - (d.twoBox || d.shape === 'pickup' ? 0 : d.rearBow * smooth(d.rearD - .15, foot, x) * (1 - smooth(foot, foot + .3, x)));
+    const edge = half[11][0] || 1;
+    const z = L / 2 - x, point = ([px, py], s, j) => [s * px, py, z - bow * (px / hw) ** 2 + (j > 10 ? sweep * Math.max(0, 1 - (px / edge) ** 2) : 0)];
+    return [...half.map((p, j) => point(p, 1, j)), ...half.slice(1, -1).map((p, j) => point(p, -1, j + 1)).reverse()];
   });
-  return { stations, rings, glass, pillars, cuts, top, belt, beltLine, width, roofWidth, floor, axles };
+  return { stations, rings, glass, pillars, cuts, top, belt, beltLine, width, roofWidth, floor, axles, upright, sideAt: (x, y) => flank(x)(y) };
 }
 
 /** Which surface the panel between ring points `j` and `j + 1` is, at `x` metres from the nose. */
@@ -374,10 +396,11 @@ function wrapper(d, triangles, end, body, lamps) {
   };
 }
 
-/** A box, or a low ball, of one finish: mirrors, handles, rails. */
-function solid(body, geometry, kind, matrix) {
+/** A box, or a low ball, of one finish: mirrors, handles, rails, a roof light. */
+function solid(target, geometry, kind, matrix) {
   const g = geometry.toNonIndexed().applyMatrix4(matrix), p = g.attributes.position.array, n = g.attributes.normal.array;
-  for (let i = 0; i < p.length; i += 3) body.vertex([p[i], p[i + 1], p[i + 2]], [n[i], n[i + 1], n[i + 2]], TONE[kind], FINISH[kind], kind === 'paint' ? 1 : 0);
+  // A finish makes it part of the body; without one it is lit, and goes with the lamps.
+  for (let i = 0; i < p.length; i += 3) target.vertex([p[i], p[i + 1], p[i + 2]], [n[i], n[i + 1], n[i + 2]], TONE[kind], FINISH[kind], kind === 'paint' ? 1 : 0);
   g.dispose(); geometry.dispose();
 }
 const place = (x, y, z, sx, sy, sz, ry = 0) => new THREE.Matrix4().compose(new THREE.Vector3(x, y, z), new THREE.Quaternion().setFromEuler(new THREE.Euler(0, ry, 0)), new THREE.Vector3(sx, sy, sz));
@@ -491,8 +514,17 @@ function frontFace(d, wrap) {
 }
 
 // The tail: lamps under the deck or up the pillars, the plate, a dark valance.
-function rearFace(d, wrap) {
+function rearFace(d, wrap, shell) {
   const r = { lamp: d.twoBox ? 'tall' : 'wrap', ...d.rear };
+  if (shell.upright) {
+    // The window of an upright tail, narrower toward the roof; a cargo van has a pane in each door.
+    const y0 = d.tailY + .05, y1 = d.H - d.rearDrop - .12, half = r.glassHalf ?? 38;
+    if (y1 - y0 > .12) for (const [a0, a1] of d.cargo ? [[3, half - 6]] : [[-half, half]]) {
+      const pane = { a0, a1, y0: d.cargo ? lerp(y0, y1, .3) : y0, y1, wide: d.cargo ? null : [1, .9], rows: 3 };
+      wrap({ ...pane, a0: a0 - 1.2, a1: a1 + 1.2, y0: pane.y0 - .016, y1: y1 + .016, kind: 'gloss', off: .004 });
+      wrap({ ...pane, kind: 'glass', off: .008 });
+    }
+  }
   const pickup = d.shape === 'pickup', deck = pickup ? d.bedY : d.twoBox ? d.tailY : d.deckY - .035, low = d.rearLow + .04;
   // A red lens with the lit part inside it.
   const unit = (s, lit = [.12, .88, .25, .75]) => {
@@ -527,7 +559,7 @@ export function buildVehicle(design) {
   const body = mesh(['position', 'normal', 'color', 'aFinish', 'aPaintWeight']), lamps = mesh(['position', 'normal', 'color']);
   const triangles = skin(d, shell, body);
   frontFace(d, wrapper(d, triangles, 'front', body, lamps));
-  rearFace(d, wrapper(d, triangles, 'rear', body, lamps));
+  rearFace(d, wrapper(d, triangles, 'rear', body, lamps), shell);
   const z = x => d.L / 2 - x, { width, belt, top, roofWidth } = shell;
   for (const side of [-1, 1]) {
     // Door mirrors, on a short arm from the corner of the glass.
@@ -545,11 +577,35 @@ export function buildVehicle(design) {
       }
     }
   }
-  return { design: d, shell, body, lamps };
+  // Where a patrol car's light bar sits, and anything else that stands on the roof amidships.
+  const barAt = d.L / 2 + .2, roof = top(barAt);
+  if (d.livery === 'taxi') {
+    // The roof light over the front seats, and the band of squares along the doors.
+    const at = Math.min(d.header + .32, d.rearD - .2), y = top(at);
+    solid(body, new THREE.BoxGeometry(.66, .05, .32), 'check', place(0, y + .018, z(at), 1, 1, 1));
+    solid(lamps, new THREE.BoxGeometry(.58, .11, .26), 'cab', place(0, y + .095, z(at), 1, 1, 1));
+    const from = shell.cuts[0] + .1, to = shell.cuts.at(-1) - .06, squares = Math.max(4, Math.round((to - from) / .13));
+    for (const side of [-1, 1]) for (let k = 0; k < squares; k += 2) {
+      const at2 = lerp(from, to, (k + .5) / squares), y2 = lerp(shell.floor(at2), belt(at2), .55);
+      solid(body, new THREE.BoxGeometry(.012, .1, (to - from) / squares), 'check', place(side * (shell.sideAt(at2, y2) + .002), y2, z(at2), 1, 1, 1));
+    }
+  }
+  if (d.livery === 'police') {
+    // Two blue stripes from wheel to wheel, and the bar the beacons stand on.
+    const from = d.FO + d.arch + .06, to = d.FO + d.WB - d.arch - .06, pieces = Math.ceil((to - from) / .3);
+    for (const side of [-1, 1]) for (let k = 0; k < pieces; k++) for (const [drop, tall] of [[.2, .055], [.29, .03]]) {
+      const at = lerp(from, to, (k + .5) / pieces), y = belt(at) - drop;
+      solid(body, new THREE.BoxGeometry(.01, tall, (to - from) / pieces + .004), 'stripe', place(side * (shell.sideAt(at, y) + .002), y, z(at), 1, 1, 1));
+    }
+    solid(body, new THREE.BoxGeometry(1.16, .05, .27), 'check', place(0, roof + .035, z(barAt), 1, 1, 1));
+    // Unlit lenses: a car near enough to flash carries its own lights over these (world.js).
+    for (const [side, kind] of [[-1, 'blue'], [1, 'red']]) solid(body, new THREE.BoxGeometry(.4, .12, .22), kind, place(side * .38, roof + .13, z(barAt), 1, 1, 1));
+  }
+  return { design: d, shell, body, lamps, roof };
 }
 
 /** A design as the game draws it: the same form as a decoded exterior file. */
 export function generateVehicle(spec) {
   const built = buildVehicle(spec.design);
-  return { id: spec.id, body: built.body.geometry(), lamps: built.lamps.geometry(), wheels: spec.wheels || designWheels(built.design), roof: built.design.H };
+  return { id: spec.id, body: built.body.geometry(), lamps: built.lamps.geometry(), wheels: spec.wheels || designWheels(built.design), roof: built.roof };
 }

@@ -38,6 +38,7 @@ const ROWS = [
   ['Toyota', 'COROLLA CROSS', 'suv', [[2022, 2030, 4460, 1825, 1645, 2640]]],
   ['Toyota', '4Runner', 'suv', [[1996, 2002, 4540, 1730, 1715, 2675, BOXY], [2003, 2009, 4800, 1875, 1740, 2790], [2010, 2024, 4830, 1925, 1780, 2790, { ...BOXY, screen: .5 }], [2025, 2030, 4950, 1975, 1800, 2850, BOXY]], { rear: BLOCK }],
   ['Toyota', 'PRIUS', 'hatch', [[2004, 2009, 4450, 1725, 1490, 2700], [2010, 2015, 4480, 1745, 1490, 2700], [2016, 2022, 4540, 1760, 1470, 2700], [2023, 2030, 4600, 1780, 1430, 2750, { rear: BAR }]], { cowlAft: .22, screen: 1.05, peak: .47, rearHeader: 1.0, glassRun: .82, rearDrop: .2, tailY: null, hoodK: .5, rear: TALL }],
+  ['Toyota', 'Prius V', 'wagon', [[2012, 2017, 4615, 1775, 1575, 2780, { cowlAft: .22, screen: 1.0, rear: TALL }]]],
   ['Toyota', 'Tacoma', 'pickup', [[1995, 2004, 5130, 1790, 1700, 3100], [2005, 2015, 5285, 1895, 1780, 3245], [2016, 2023, 5390, 1890, 1795, 3235], [2024, 2030, 5410, 1955, 1890, 3350]], { bed: 1.55 }],
   ['Toyota', 'Tundra', 'pickup', [[2000, 2006, 5525, 1910, 1800, 3260], [2007, 2021, 5810, 2030, 1930, 3700], [2022, 2030, 5930, 2035, 1980, 3700]]],
   ['Toyota', 'Avalon', 'sedan', [[1995, 1999, 4875, 1790, 1440, 2720], [2000, 2004, 4875, 1820, 1465, 2720], [2005, 2012, 5010, 1850, 1485, 2820], [2013, 2018, 4960, 1835, 1460, 2820], [2019, 2022, 4975, 1850, 1435, 2870]]],
@@ -178,7 +179,7 @@ const ROWS = [
   ['Chevrolet', 'Trailblazer', 'suv', [[2002, 2009, 4870, 1895, 1825, 2870, BOXY], [2021, 2030, 4410, 1810, 1660, 2640, { face: { lamp: 'split' } }]]],
   ['Chevrolet', 'Blazer', 'suv', [[1995, 2005, 4650, 1725, 1640, 2720, BOXY], [2019, 2030, 4860, 1950, 1705, 2865, { face: { lamp: 'split' } }]]],
   ['Chevrolet', 'Express', 'van', [[1996, 2030, 5690, 2010, 2130, 3430, { cowlAft: .32, hoodK: .5, screen: .5, face: { lamp: 'block', lampH: .22, lampIn: 30, grille: 'split', grilleHalf: 26 } }]]],
-  ['Chevrolet', 'Astro Van', 'van', [[1985, 2005, 4820, 1960, 1930, 2825, { cargo: false, doors: 4 }]]],
+  ['Chevrolet', 'Astro Van', 'van', [[1985, 2005, 4820, 1960, 1930, 2825]]],
   ['Chevrolet', 'Tahoe', 'suv', [[1995, 1999, 5055, 1955, 1830, 2985], [2000, 2006, 5050, 2005, 1950, 2945], [2007, 2014, 5130, 2010, 1955, 2945], [2015, 2020, 5180, 2045, 1890, 2945], [2021, 2030, 5350, 2060, 1925, 3070]], BOXY],
   ['Chevrolet', 'Suburban', 'suv', [[1992, 1999, 5575, 1950, 1820, 3340], [2000, 2006, 5570, 2005, 1905, 3300], [2007, 2014, 5650, 2010, 1950, 3300], [2015, 2020, 5700, 2045, 1890, 3300], [2021, 2030, 5730, 2060, 1925, 3405]], BOXY],
   ['Chevrolet', 'Silverado', 'pickup', [[1999, 2006, 5645, 1995, 1870, 3645], [2007, 2013, 5845, 2030, 1875, 3645], [2014, 2018, 5845, 2030, 1880, 3645], [2019, 2030, 5885, 2065, 1920, 3745]]],
@@ -479,7 +480,7 @@ function period(year, shape, make) {
 // The register spells a model as its maker's paperwork did: "COROLLA CROSS", "Fortwo", "Golf GTI".
 const plain = text => text.toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
 const ALIAS = { 'dodge/ram': 'ram/1500', 'subaru/xv crosstrek': 'subaru/crosstrek', 'volkswagen/golf gti': 'volkswagen/gti', 'mini/cooper': 'mini/hardtop', 'mini/cooper convertible': 'mini/hardtop', 'dodge/caravan grand caravan': 'dodge/grand caravan',
-  'toyota/corolla matrix': 'toyota/matrix', 'ram/promaster 2500': 'ram/promaster', 'ram/promaster 1500': 'ram/promaster', 'ram/promaster 3500': 'ram/promaster', 'mercury/mountaineer': 'ford/explorer', 'toyota/prius': 'toyota/prius',
+  'toyota/corolla matrix': 'toyota/matrix', 'ford/police interceptor utility': 'ford/explorer', 'dodge/sprinter': 'mercedes benz/sprinter', 'freightliner/sprinter': 'mercedes benz/sprinter', 'chevrolet/city express': 'nissan/nv200', 'ford/f 350': 'ford/f 250', 'ford/f 450': 'ford/f 250', 'ram/3500': 'ram/2500', 'chevrolet/silverado 2500': 'chevrolet/silverado', 'gmc/sierra 2500': 'gmc/sierra', 'ram/promaster 2500': 'ram/promaster', 'ram/promaster 1500': 'ram/promaster', 'ram/promaster 3500': 'ram/promaster', 'mercury/mountaineer': 'ford/explorer', 'toyota/prius': 'toyota/prius',
   'chevrolet/silverado 1500': 'chevrolet/silverado', 'gmc/sierra 1500': 'gmc/sierra', 'mercury/mariner': 'ford/escape', 'mercury/milan': 'ford/fusion', 'mercury/sable': 'ford/taurus', 'saturn/outlook': 'gmc/acadia', 'pontiac/g6': 'chevrolet/malibu' };
 const models = new Map();
 for (const [make, model, shape, generations, shared = {}] of ROWS) models.set(plain(make) + '/' + plain(model), { shape, shared, generations });
@@ -501,8 +502,16 @@ const cache = new Map();
 /**
  * The design for a registered car, in the form of an exterior: `{ id, make, model, shape, years, design, wheels }`.
  * The same generation of a model in the same body is one design, whoever asks.
+ * `livery` dresses it for work: 'taxi' adds the roof light and door band, 'police' the stripes and light bar,
+ * and 'cargo' panels in a van behind its cab.
  */
-export function designFor(make, model, year, shape) {
+export function designFor(make, model, year, shape, livery = null) {
+  if (livery) {
+    // The same car in working dress. A van registered to a trade has no windows behind the cab.
+    const plain = designFor(make, model, year, shape), id = plain.id + '-' + livery;
+    if (!cache.has(id)) cache.set(id, { ...plain, id, livery, design: { ...plain.design, livery, ...(livery === 'cargo' ? { cargo: true, doors: 2 } : {}) } });
+    return cache.get(id);
+  }
   const entry = rowsFor(make, model);
   let span, size, own = {}, known = false;
   if (entry) {

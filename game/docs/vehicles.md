@@ -8,7 +8,7 @@ The November 3, 2026 NYS DMV snapshot contains 1,784,663 active passenger-class 
 
 There are 1,676,954 registrations in named groups, or 94.0% of the eligible total. They cover 44 makes, 516 make/model pairs and 4,243 make/model/year combinations. A year with multiple body styles has separate counts for each. The catalog retains a named group once it has 50 registrations of that make, model, year and body citywide. Rarer groups, ambiguous decodes and older vehicles retain their weight in the shared body classes.
 
-Each kerb space and each incoming civilian passenger car samples the ZIP centroid nearest its own position. A ZIP with fewer than 400 registrations blends with the citywide counts in proportion to its sample size. The 182 mapped ZIPs account for 1,769,255 records. The citywide distribution includes every eligible registration. Paint uses the existing citywide paint distribution, and the game assigns half the DMV’s grey cars silver paint. Taxi demand, police vehicles and the 14% allowance for working vans and pickups have their own simulation rules. Registration counts measure where cars are registered. Actual passing traffic also includes commuters, visitors and commercial vehicles.
+Each kerb space and each incoming civilian passenger car samples the ZIP centroid nearest its own position. A ZIP with fewer than 400 registrations blends with the citywide counts in proportion to its sample size. The 182 mapped ZIPs account for 1,769,255 records. The citywide distribution includes every eligible registration. Paint uses the existing citywide paint distribution, and the game assigns half the DMV’s grey cars silver paint. How many cabs are out, where the police patrol and the 14% of traffic that is a van or pickup at work are the simulation's rules; which models those are comes from the city's own lists, below. Registration counts measure where cars are registered. Actual passing traffic also includes commuters, visitors and commercial vehicles.
 
 ## Licensed exteriors in the game
 
@@ -32,9 +32,23 @@ Model-year coverage follows recognizable exterior changes. The CR-V scan shows t
 
 ## Exteriors the game draws
 
-Every other named registration gets an exterior the game generates: 930 of them, one for each generation of each model in each body style. A generation is a row of model years with the car's published length, width, height and wheelbase, rounded to 5 mm. The make's grille and lamps of the period, and the body style, supply the rest. A row can override any of it, so a Wrangler stands upright on round lamps and a Prius keeps its one-line roof. 99.5% of named registrations fall on a row of their own. The remainder are models with no row yet: they are drawn as a typical car of their style with their make's face. [Design rows and makes' faces](../dist/vehicle-designs.js) · [Generator](../dist/vehicle-generator.js)
+Every other named registration gets an exterior the game generates: 929 of them, one for each generation of each model in each body style. A generation is a row of model years with the car's published length, width, height and wheelbase, rounded to 5 mm. The make's grille and lamps of the period, and the body style, supply the rest. A row can override any of it, so a Wrangler stands upright on round lamps and a Prius keeps its one-line roof. 99.5% of named registrations fall on a row of their own. The remainder are models with no row yet: they are drawn as a typical car of their style with their make's face. [Design rows and makes' faces](../dist/vehicle-designs.js) · [Generator](../dist/vehicle-generator.js)
 
-These are likenesses, not surveys. Proportions, wheel positions and overall size follow the real car; panel surfaces, lamp outlines and trim are drawn from a small vocabulary of shapes. Each body is built in the browser the first time a car of that kind comes into view (about 10 ms, 3,600–5,500 triangles) and is shared by parked cars, traffic and the car the player drives. Nothing is downloaded for them. Taxis, patrol cars, working vans and pickups in traffic, and the 6% of registrations with no decoded model still use the eight shared bodies.
+These are likenesses, not surveys. Proportions, wheel positions and overall size follow the real car; panel surfaces, lamp outlines and trim are drawn from a small vocabulary of shapes. Each body is built in the browser the first time a car of that kind comes into view (about 10 ms, 3,600–5,500 triangles) and is shared by parked cars, traffic and the car the player drives. Nothing is downloaded for them. The 6% of registrations with no decoded model still use the eight shared bodies.
+
+## Cabs, patrol cars and work vans
+
+Cabs and working vehicles are not in the passenger registrations, so they have a list of their own. [Fleet mix](../dist/working-vehicles.json)
+
+| Fleet | Source | Vehicles | Named model years | Most common |
+| --- | --- | ---: | ---: | --- |
+| Yellow cabs | [TLC authorized medallion vehicles](https://data.cityofnewyork.us/d/rhe8-mgbb), 17 November 2026 | 10,270 | 10,204 | Toyota Sienna 40%, Toyota RAV4 28%, Ford Transit Connect 16%, Nissan NV200 6% |
+| Boro cabs | [TLC street hail livery permits](https://data.cityofnewyork.us/d/yhuu-4pt3), 17 November 2026 | 609 | 442 | Toyota RAV4, Toyota Camry, Ford Escape |
+| Vans and pickups at work | [NYS DMV register](https://data.ny.gov/d/w4pv-hbkt), commercial class, 3 November 2026 | 42,619 | 29,564 | Ford Transit 22%, Mercedes-Benz Sprinter 7%, Chevrolet Express 6% |
+
+Each source is asked only for counts by partial VIN, as for passenger cars: no licence, plate or owner is requested. A cab is the generated exterior of its model with a roof light and the band of squares along its doors, painted yellow or green by the game. A van registered to a trade is panelled in behind the cab; the same van registered as a passenger car has windows. Working vans and pickups take their colours from the same register: 70% are white. The commercial vehicles the decoder names as chassis cabs and cutaways are box trucks, which the game does not draw: they keep their weight as plain vans.
+
+Patrol cars are drawn as the Ford Police Interceptor Utility, the Explorer-based car that makes up most of the NYPD's marked fleet, in white with two blue stripes. That choice is the game's; no fleet list is behind it. For-hire cars (about 100,000 TLC-plated vehicles, mostly Uber and Lyft) are not in traffic yet.
 
 To add or correct a car, edit its row in `ROWS`: `[make, model, body, [[first year, last year, length, width, height, wheelbase, {overrides}], …]]`, with the make and model spelled as the catalog page shows them. Then look at it in the catalog and run `node --test tests/vehicle-catalog.test.js`.
 
@@ -55,6 +69,7 @@ Use Python 3.11 or later in a virtual environment. These tools are needed only f
 ```sh
 python -m pip install ultravin==3.0.2
 python scripts/build-vehicle-catalog.py --cache /tmp/nyc-dmv
+python scripts/build-working-vehicles.py --cache /tmp/nyc-working
 
 python -m pip install numpy==2.4.6 scipy==1.17.1 trimesh==5.2.1 fast-simplification==0.2.0 Pillow==13.0.0
 python scripts/build-vehicle-meshes.py --cache /tmp/nyc-vehicle-sources
@@ -62,6 +77,6 @@ python scripts/build-vehicle-meshes.py --cache /tmp/nyc-vehicle-sources
 
 With the local fleet in place, pass `--only honda-civic-2016` or another recipe ID to rebuild a single exterior. The same option adds a newly specified model to the existing fleet.
 
-The DMV build reuses a completed five-county cache. An empty directory requests the current register. The checked-in catalog records the DMV revision, query, decoder version and vPIC data month. The November build uses the October 2026 decoding database. The separate `node scripts/build-fleet.mjs` rebuilds the ZIP centroids, shared body mix and paint counts.
+The second command rebuilds the cab and work-van mix from the TLC and the register's commercial class. The DMV build reuses a completed five-county cache. An empty directory requests the current register. The checked-in catalog records the DMV revision, query, decoder version and vPIC data month. The November build uses the October 2026 decoding database. The separate `node scripts/build-fleet.mjs` rebuilds the ZIP centroids, shared body mix and paint counts.
 
 To add art, find the exact catalog spelling and body in the viewer. Add one recipe with the artist, license, original URL, download URL, source SHA-256, supported US years and the materials or engineering part IDs used for its exterior. The importer keeps paint, glass, trim, chrome and lamps, derives the wheel positions and writes a local glTF plus its manifest entry. Registration weights stay independent of art availability. Run `node --test tests/vehicle-catalog.test.js` and inspect the result in the catalog. [Model recipes](../data/vehicle-models.json) · [Mesh importer](../scripts/build-vehicle-meshes.py) · [Registration importer](../scripts/build-vehicle-catalog.py)
