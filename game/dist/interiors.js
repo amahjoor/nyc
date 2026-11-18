@@ -13,6 +13,7 @@
 import * as THREE from './vendor/three.module.min.js';
 import { KIND, placeName } from './places.js';
 import { roomPoint, DOOR } from './room.js';
+import { roomProps, furnishRoom, OWN_STYLE_OF } from './room-props.js';
 
 /** Kinds of place with a room to walk into, by group. */
 const ROOMS = { bodega: 'shop', market: 'shop', liquor: 'shop', shop: 'shop', food: 'eat', cafe: 'eat', dining: 'eat', bar: 'bar', beauty: 'chairs', barber: 'chairs', hotel: 'lobby', public: 'lobby' };
@@ -33,6 +34,8 @@ export const STYLE_OF = {
   salon: 'salon', nails: 'nails', barber: 'barber', tattoo: 'barber',
   hotel: 'hotel', cinema: 'cinema', theatre: 'cinema',
 };
+// Trades with fittings of their own (room-props.js): a jeweller is not a pawnbroker, nor a butcher a supermarket.
+Object.assign(STYLE_OF, OWN_STYLE_OF);
 const PLAIN = { shop: 'store', eat: 'diner', bar: 'bar', chairs: 'salon', lobby: 'lobby' };
 /** The manner of room a place has, or null if it has none. */
 export const roomStyle = place => { const kind = roomKind(place); return kind ? STYLE_OF[place.kind] || PLAIN[kind] : null; };
@@ -379,7 +382,7 @@ export function planRoom(front, inside = () => true) {
   r.aisles = (from, to, near, far, pitch) => { if (far - near < 1.2) return; for (let a = from, i = 0; a <= to; a += pitch, i++) { r.add(a, (near + far) / 2, .55, far - near, 1.7, STEEL); for (let shelf = 0; shelf < 4; shelf++) r.add(a, (near + far) / 2, .62, far - near - .2, .22, GOODS[(seed + i * 3 + shelf) % GOODS.length], .25 + shelf * .4, false); } };
   /** Bottles along the back of a bar. */
   r.bottles = (a, b, along) => { for (let x = -along / 2 + .2; x < along / 2; x += .32) r.add(a + x, b, .14, .14, .32, ['#2f5a3a', '#c9a23f', '#7a1f2a', '#d9d2c0', '#3a2a1e'][(seed + Math.round(x * 5)) % 5], 1.72, false); };
-  STYLES[style](r);
+  furnishRoom(STYLES, style, r);
   // Whatever a manner of room asks for, the room is the size it is: anything that would stand in the doorway,
   // poke through a wall or reach the ceiling is left out, and so is anyone who would then be standing in the furniture.
   const fits = thing => Math.abs(thing.a) + thing.w / 2 <= half + .005 && thing.b - thing.d / 2 >= -.005 && thing.b + thing.d / 2 <= depth + .005 && thing.y >= 0 && thing.y + thing.h <= CEILING && thing.w > 0 && thing.d > 0 && thing.h > 0;
@@ -429,9 +432,11 @@ export function buildRoom(room, y = 0) {
     }
     geometry.dispose();
   };
-  const LEG = '#2a2c30';
+  const LEG = '#2a2c30', props = roomProps(room, y, position, color);
   for (const thing of room.things) {
     const { a, b, w, d, h, y: up, color: hex, shape, face } = thing;
+    // What marks the trade is drawn as itself (room-props.js): an oven, a dressed figure, a case of watches.
+    if (props.draw(thing)) continue;
     if (shape === 'table') {
       // A top on a pedestal, or on four legs if it is long.
       box(a, b, w, d, .05, up + h - .05, hex);
