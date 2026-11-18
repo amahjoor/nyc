@@ -22,7 +22,7 @@ const CLIPS = [
   ['drive', 'Driving_Loop', true], ['sit', 'Sitting_Idle_Loop', true], ['sitTalk', 'Sitting_Talking_Loop', true], ['talk', 'Idle_Talking_Loop', true],
   ['crouch', 'Crouch_Idle_Loop', true], ['crouchWalk', 'Crouch_Fwd_Loop', true], ['push', 'Push_Loop', true],
   ['reach', 'Interact', false], ['pickUp', 'PickUp_Table', false], ['dance', 'Dance_Loop', true],
-  ['aim', 'Pistol_Idle_Loop', true],
+  ['aim', 'Pistol_Idle_Loop', true], ['shoot', 'Pistol_Shoot', false], ['reload', 'Pistol_Reload', false],
 ];
 const FPS = 30;
 

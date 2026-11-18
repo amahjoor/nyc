@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="icon" href="data:,">
+  <title>Your character · GTA NYC</title>
+  <style>
+    :root { color-scheme: dark; font: 15px/1.45 Arial, Helvetica, sans-serif; color: #eae9e2; background: #151b1d; }
+    * { box-sizing: border-box }
+    html, body { margin: 0; height: 100% }
+    body { display: grid; grid-template-columns: minmax(0, 1fr) minmax(300px, 380px); }
+    .stage { position: relative; min-height: 0; background: #59696b }
+    canvas { display: block; width: 100%; height: 100%; touch-action: none; cursor: grab }
+    canvas:active { cursor: grabbing }
+    .status { position: absolute; left: 14px; top: 12px; background: #172024db; padding: 3px 10px; border-radius: 3px; pointer-events: none; font-size: 13px }
+    .status:empty { display: none }
+    .bar { position: absolute; left: 14px; right: 14px; bottom: 12px; display: flex; flex-wrap: wrap; gap: 8px; align-items: center }
+    aside { overflow-y: auto; border-left: 1px solid #435054; padding: 18px 18px 40px }
+    h1 { margin: 0 0 4px; font-size: 26px; letter-spacing: -.03em }
+    p { margin: 4px 0 12px; color: #b7c2c1; font-size: 13px }
+    a { color: #ffab8e }
+    details { border-top: 1px solid #435054; padding: 8px 0 }
+    summary { cursor: pointer; font-weight: bold; padding: 4px 0 }
+    label { display: grid; grid-template-columns: 9.5em 1fr 3.2em; gap: 8px; align-items: center; font-size: 13px; color: #c8d3d2; margin: 5px 0 }
+    label.pick { grid-template-columns: 9.5em 1fr }
+    output { text-align: right; font-variant-numeric: tabular-nums; color: #9fb0af }
+    input[type=range] { width: 100%; accent-color: #ffab8e }
+    select, button { font: inherit; color: #f0eee6; background: #253035; border: 1px solid #526066; border-radius: 4px; padding: 6px 9px }
+    button { cursor: pointer }
+    button:hover, select:hover { border-color: #ffab8e }
+    button.primary { background: #b9573a; border-color: #b9573a; font-weight: bold }
+    .swatches { display: flex; flex-wrap: wrap; gap: 4px; margin: 2px 0 8px }
+    .swatches span { font-size: 13px; color: #c8d3d2; width: 100%; }
+    .swatches button { width: 24px; height: 24px; padding: 0; border-radius: 50%; border: 2px solid #0000; outline: 1px solid #aaa6; background: var(--c) }
+    .swatches button[aria-pressed=true] { border-color: #ffab8e; outline-color: #ffab8e }
+    .swatches input { width: 28px; height: 24px; padding: 0; border: 0; background: none }
+    .actions { display: flex; flex-wrap: wrap; gap: 8px; margin: 12px 0 }
+    @media (max-width: 760px) { body { grid-template-columns: 1fr; grid-template-rows: 55vh auto } aside { border-left: 0; border-top: 1px solid #435054 } }
+  </style>
+</head>
+<body>
+  <div class="stage">
+    <canvas id="view" tabindex="0" aria-label="Your character. Drag to turn, scroll to move closer."></canvas>
+    <div class="status" id="status" role="status"></div>
+    <div class="bar">
+      <button id="view-body">Whole body</button><button id="view-face">Face</button>
+      <select id="movement" aria-label="Movement to preview"></select>
+    </div>
+  </div>
+  <aside>
+    <h1>Your character</h1>
+    <p>Everybody in the city is grown from a design like this one. Yours is kept in this browser and is who you are the next time you are on foot. <a href="./index.html">Back to the city</a></p>
+    <div class="actions"><button id="random">Somebody else</button><button id="reset">Start over</button><button id="save" class="primary">Saved</button></div>
+    <div id="fields"></div>
+  </aside>
+  <script type="module" src="./character.js"></script>
+</body>
+</html>
