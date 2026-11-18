@@ -167,12 +167,12 @@ test('keyboard closing restores focus and disposing removes all event listeners'
   assert.equal([...canvas.listeners.values()].reduce((n, list) => n + list.size, 0), 0);
 });
 
-test('city overview caches every source road, reuses the bitmap, and keeps route geometry live', t => {
+test('city overview keeps every source road in one layer, reuses it, and keeps route geometry live', t => {
   const { map, canvas } = fixture(t);
   const roads = Array.from({ length: 2000 }, (_, i) => ({ name: `Road ${i}`, points: [[i * 10 - 10000, -4000], [i * 10 - 10000, 4000]] }));
   map.setRoads(roads);map.setOpen(true);map.showCity();
-  const cache = map.overviewCache, calls = cache.canvas.calls;
-  assert.ok(cache.canvas.width <= 2048 && cache.canvas.height <= 2048);
+  const cache = map.sharpRoads, calls = cache.canvas.calls;
+  assert.ok(Math.abs(cache.scale - map.view.width / map.view.span) < 1e-12, 'kept at the scale on screen');
   assert.equal(calls.filter(call => call.key === 'moveTo').length, roads.length);
   assert.equal(calls.filter(call => call.key === 'lineTo').length, roads.length);
   assert.equal(calls.filter(call => call.key === 'stroke').length, 1);
@@ -182,7 +182,7 @@ test('city overview caches every source road, reuses the bitmap, and keeps route
   assert.ok(canvas.calls.some(call => call.key === 'stroke' && call.strokeStyle === '#ba8cff'));
   map.recenter();canvas.calls.length = 0;map.draw();
   assert.ok(!canvas.calls.some(call => call.key === 'drawImage' && call.args[0] === cache.canvas), 'local streets stay vector geometry');
-  map.setRoads(roads.slice(0, 1200));map.showCity();assert.notEqual(map.overviewCache, cache);
+  map.setRoads(roads.slice(0, 1200));map.showCity();assert.notEqual(map.sharpRoads, cache);
 });
 
 test('local land uses only intersecting polygons and reuses its precise buffer until the player leaves it', t => {
@@ -196,22 +196,43 @@ test('local land uses only intersecting polygons and reuses its precise buffer u
   map.update({ player: { x: 350, z: 40 } });assert.notEqual(map.miniLandCache, cache);
 });
 
-test('zoomed-out streets are redrawn at screen resolution once the view rests', async t => {
+test('zoomed-out streets stay at screen resolution through every zoom and pan', async t => {
   const f = fixture(t), roads = [];
-  for (let i = 0; i < 1200; i++) roads.push({ id: `r${i}`, width: 8, points: [[-15000 + i * 30, -20000], [-15000 + i * 30, 30000]] });
+  for (let i = 0; i < 1200; i++) roads.push({ id: `r${i}`, width: 8, kind: i % 100 ? 'street' : 'highway', points: [[-15000 + i * 30, -20000], [-15000 + i * 30, 30000]] });
   f.map.setRoads(roads);f.map.setOpen(true);f.map.zoom(12);
   assert.equal(f.map.view.span, 12000);
-  const blits = () => f.canvas.calls.filter(call => call.key === 'drawImage'), city = f.map.overviewCache.canvas;
-  // While the view moves, the citywide picture stands in: here one of its
-  // pixels covers more than two of the screen's.
-  assert.equal(blits().at(-1).args[0], city);assert.ok(city.width / 50000 < 900 / 12000 / 2);
-  await new Promise(resolve => setTimeout(resolve, 150));
-  const sharp = f.map.sharpRoads, last = blits().at(-1).args;
-  assert.equal(last[0], sharp.canvas);assert.notEqual(sharp.canvas, city);
-  assert.ok(Math.abs(sharp.canvas.width / sharp.view.span - 900 / 12000) < 1e-9, 'one kept pixel per screen pixel');
-  assert.deepEqual(last.slice(3), [sharp.view.width, sharp.view.height], 'copied at its own size, not stretched');
-  // A pan inside what is kept reuses it without another pass over the streets.
+  const blit = () => f.canvas.calls.filter(call => call.key === 'drawImage').at(-1).args;
+  const exact = () => {
+    const sharp = f.map.sharpRoads;assert.equal(blit()[0], sharp.canvas);
+    assert.ok(Math.abs(sharp.canvas.width / sharp.view.span - 900 / f.map.view.span) < 1e-9, 'one kept pixel per screen pixel');
+    assert.deepEqual(blit().slice(3), [sharp.view.width, sharp.view.height], 'copied at its own size, not stretched');
+    assert.equal(f.map.sharpTimer, null);return sharp;
+  };
+  // The very first frame past 10 km is already drawn for this scale.
+  let sharp = exact();
+  // A pan inside what is kept copies it without another pass over the streets.
   const strokes = sharp.canvas.calls.length;f.map.view.x += 1000;f.map.draw();
-  assert.equal(blits().at(-1).args[0], sharp.canvas);assert.equal(sharp.canvas.calls.length, strokes);assert.equal(f.map.sharpTimer, null);
+  assert.equal(exact(), sharp);assert.equal(sharp.canvas.calls.length, strokes);
+  // A whole notch of the wheel is redrawn in the same frame.
+  f.map.zoom(1.16);assert.notEqual(exact(), sharp);sharp = f.map.sharpRoads;
+  // A small step of a pinch rescales what is kept, by under 8%, until it rests.
+  f.map.zoom(1 / 1.05);assert.equal(f.map.sharpRoads, sharp);
+  assert.ok(Math.abs(blit()[3] / sharp.view.width - 1.05) < 1e-9);assert.notEqual(f.map.sharpTimer, null);
+  await new Promise(resolve => setTimeout(resolve, 130));
+  assert.notEqual(exact(), sharp);
   f.map.setOpen(false);assert.equal(f.map.sharpRoads, null);
+});
+
+test('zoomed-out streets are stroked from paths built once, only where in sight', t => {
+  class Path { constructor() { this.points = 0; } moveTo() { this.points++; } lineTo() { this.points++; } }
+  globalThis.Path2D = Path;t.after(() => { delete globalThis.Path2D; });
+  const f = fixture(t), roads = [];
+  for (let i = 0; i < 1200; i++) roads.push({ id: `r${i}`, width: 8, kind: i % 100 ? 'street' : 'highway', points: [[-15000 + i * 30, -2000], [-15000 + i * 30, 2000]] });
+  f.map.setRoads(roads);f.map.setOpen(true);f.map.zoom(12);
+  const chunks = f.map.roadChunks(), strokes = () => f.map.sharpRoads.canvas.calls.filter(call => call.key === 'stroke');
+  assert.equal(chunks.reduce((sum, chunk) => sum + chunk.path.points, 0), 2400, 'no street is left out');
+  assert.ok(chunks.findIndex(chunk => chunk.major) > chunks.findLastIndex(chunk => !chunk.major), 'highways are drawn over streets');
+  const seen = strokes().length;assert.ok(seen > 0 && seen < chunks.length, 'squares out of sight are skipped');
+  f.map.zoom(1.5);assert.equal(f.map.roadChunks(), chunks);assert.ok(strokes().length > seen);
+  f.map.setRoads(roads.slice(0, 1100));assert.notEqual(f.map.roadChunks(), chunks);
 });

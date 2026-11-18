@@ -45,6 +45,7 @@ Choose **Explore road pilot** in the city view to visit the reconstructed Meadow
 | Change chase camera | C | |
 | Skip to the next time of day | T | |
 | Street / aerial / city view | V | Right bumper |
+| Aerial zoom | Scroll or + / − in aerial view | |
 | City orbit / zoom | Drag / scroll in city view | |
 | Travel to a mapped street | Double-click in city view | |
 | Horn | H | |

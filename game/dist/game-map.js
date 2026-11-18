@@ -33,7 +33,7 @@ export class GameMap {
     this.mini = document.getElementById('minimap');this.open = false;this.pin = null;this.route = null;this.progress = null;this.busy = false;
     this.player = { x: city.spawn?.x || 0, z: city.spawn?.z || 0, angle: 0 };
     this.view = { ...this.player, span: 1000, width: 1000, height: 700 };this.listeners = [];this.dirty = true;this.following = true;
-    this.roadGrid = new Map();this.longRoads = [];this.roads = [];this.overviewCache = null;this.sharpRoads = null;this.sharpTimer = null;this.ratio = 1;this.sim = null;this.disposed = false;
+    this.roadGrid = new Map();this.longRoads = [];this.roads = [];this.chunks = null;this.sharpRoads = null;this.sharpTimer = null;this.ratio = 1;this.sim = null;this.disposed = false;
     const byId = id => document.getElementById(id);this.byId = byId;
     const listen = (target, type, callback, options) => { target.addEventListener(type, callback, options);this.listeners.push(() => target.removeEventListener(type, callback, options)); };
     this.searchLocal = searchLocal;
@@ -199,8 +199,6 @@ export class GameMap {
   setCity(city) {
     if (!city) return;
     if (this.city !== city) { this.city = city;this.dirty = true; }
-    const b = city.bounds, key = `${b.minX}:${b.maxX}:${b.minZ}:${b.maxZ}`;
-    if (key !== this.boundsKey) { this.boundsKey = key;this.overviewCache = null; }
     if (this.boroughSource !== city.boroughs || !this.landPolygons) {
       this.boroughSource = city.boroughs;this.landPolygons = (city.boroughs || []).flatMap(borough => (borough.polygons || []).map(polygon => ({ polygon, bounds: shapeBounds(polygon.outer) })));
       this.miniLandCache = null;
@@ -218,7 +216,7 @@ export class GameMap {
     this.dirty = true;if (this.open) this.draw();
   }
   setRoads(roads) {
-    this.roads = roads || [];this.roadGrid.clear();this.longRoads = [];this.overviewCache = null;this.dropSharpRoads();
+    this.roads = roads || [];this.roadGrid.clear();this.longRoads = [];this.chunks = null;this.dropSharpRoads();
     for (const road of this.roads) {
       if (!Array.isArray(road.points) || road.points.length < 2) continue;
       const bounds = shapeBounds(road.points), entry = { road, bounds };
@@ -281,54 +279,65 @@ export class GameMap {
       context.stroke();
     }
   }
+  roadChunks() {
+    // Every street once, as paths in the game's own metres, in 4 km squares:
+    // a redraw then strokes only the squares in sight and builds nothing.
+    if (!this.chunks) {
+      const chunks = new Map();
+      for (const road of this.roads) {
+        const points = road.points;if (!(points?.length > 1)) continue;
+        const major = ['highway','motorway','bridge','ramp'].includes(road.kind), width = road.width || (major ? 16 : 8);
+        const key = `${major ? 1 : 0}:${width}:${Math.floor(points[0][0] / 4000)}:${Math.floor(points[0][1] / 4000)}`;
+        let chunk = chunks.get(key);
+        if (!chunk) chunks.set(key, chunk = { path: new Path2D(), major, width, minX: Infinity, maxX: -Infinity, minZ: Infinity, maxZ: -Infinity });
+        for (let i = 0; i < points.length; i++) {
+          const x = points[i][0], z = points[i][1];i ? chunk.path.lineTo(x, z) : chunk.path.moveTo(x, z);
+          if (x < chunk.minX) chunk.minX = x;if (x > chunk.maxX) chunk.maxX = x;if (z < chunk.minZ) chunk.minZ = z;if (z > chunk.maxZ) chunk.maxZ = z;
+        }
+      }
+      this.chunks = [...chunks.values()].sort((a, b) => a.major - b.major);
+    }
+    return this.chunks;
+  }
   paintOverviewRoads(context, view) {
-    if (!this.overviewCache) {
-      // Keep the complete source network in one bounded bitmap at city scale.
-      // Panning and pin changes reuse it; neighborhood streets and routes are
-      // always drawn as full-resolution vectors. No roads are sampled away.
-      const b = this.city.bounds, span = b.maxX - b.minX, height = b.maxZ - b.minZ;
-      const factor = 2048 / Math.max(span, height), canvas = this.document.createElement('canvas');
-      canvas.width = Math.max(1, Math.round(span * factor));canvas.height = Math.max(1, Math.round(height * factor));
-      const cacheView = { x: (b.minX + b.maxX) / 2, z: (b.minZ + b.maxZ) / 2, width: canvas.width, height: canvas.height, span };
-      this.paintRoads(canvas.getContext('2d'), cacheView, this.roads.filter(road => road.points?.length > 1), 1);
-      this.overviewCache = { canvas, view: cacheView };
+    // Above 10 km across, stroking every street costs tens of milliseconds:
+    // too slow for each frame of a zoom. The streets are kept instead as one
+    // layer at the screen's own resolution, a little wider than the view. A
+    // pan copies it. A zoom redraws it at once at the new scale, so a notch of
+    // the wheel never shows stretched streets; only the small steps of a pinch,
+    // under 8% in all, rescale it between redraws, and once the view rests it
+    // is redrawn at exactly the scale shown.
+    const ratio = this.ratio, scale = view.width / view.span, want = viewBounds(view);
+    let sharp = this.sharpRoads, have = sharp && viewBounds(sharp.view);
+    if (!sharp || sharp.ratio !== ratio || Math.abs(Math.log(scale / sharp.scale)) > .077 || have.minX > want.minX || have.maxX < want.maxX || have.minZ > want.minZ || have.maxZ < want.maxZ) {
+      this.sharpenRoads(view);sharp = this.sharpRoads;have = viewBounds(sharp.view);
     }
-    // That bitmap is about 23 m to the pixel, so on its own it turns to blocks
-    // well before the whole city is in view. It only stands in while the view
-    // is moving: once the view rests, the streets in sight are stroked again
-    // at the screen's own resolution and kept for panning.
-    const cache = this.overviewCache, scale = view.width / view.span, ratio = this.ratio;
-    const soft = () => {
-      const b = viewBounds(cache.view), corner = mapWorldToScreen({ x: b.minX, z: b.minZ }, view);
-      context.drawImage(cache.canvas, corner.x, corner.y, cache.view.span * scale, cache.view.span * cache.view.height / cache.view.width * scale);
-    };
-    const sharp = this.sharpRoads, fresh = Boolean(sharp) && sharp.ratio === ratio && Math.abs(sharp.scale / scale - 1) < 1e-9;
-    if (!fresh) { soft();this.sharpenSoon(true);return; }
-    const have = viewBounds(sharp.view), want = viewBounds(view), corner = mapWorldToScreen({ x: have.minX, z: have.minZ }, view);
-    // Whole device pixels, so the kept streets are copied and not resampled.
-    const x = Math.round(corner.x * ratio) / ratio, y = Math.round(corner.y * ratio) / ratio;
-    if (have.minX > want.minX || have.maxX < want.maxX || have.minZ > want.minZ || have.maxZ < want.maxZ) {
-      // Panned past what is kept: the strip beyond it is soft until the redraw.
-      context.save();context.beginPath();context.rect(0, 0, view.width, view.height);context.rect(x, y, sharp.view.width, sharp.view.height);
-      context.clip('evenodd');soft();context.restore();this.sharpenSoon(false);
-    }
-    context.drawImage(sharp.canvas, x, y, sharp.view.width, sharp.view.height);
+    const grown = scale / sharp.scale, exact = Math.abs(grown - 1) < 1e-9, corner = mapWorldToScreen({ x: have.minX, z: have.minZ }, view);
+    // At rest, whole device pixels: the layer is copied and not resampled.
+    const x = exact ? Math.round(corner.x * ratio) / ratio : corner.x, y = exact ? Math.round(corner.y * ratio) / ratio : corner.y;
+    context.imageSmoothingQuality = 'high';
+    context.drawImage(sharp.canvas, x, y, sharp.view.width * grown, sharp.view.height * grown);
+    if (this.sharpTimer != null) clearTimeout(this.sharpTimer);this.sharpTimer = null;
+    if (!exact) this.sharpTimer = setTimeout(() => { this.sharpTimer = null;if (!this.open || this.disposed) return;this.sharpenRoads(this.view);this.draw(); }, 80);
   }
-  sharpenSoon(restart) {
-    // A zoom restarts the wait so a turning wheel is not redrawn at every
-    // notch; a pan keeps the wait already running so its edge fills in.
-    if (this.sharpTimer != null) { if (!restart) return;clearTimeout(this.sharpTimer); }
-    this.sharpTimer = setTimeout(() => { this.sharpTimer = null;if (!this.open || this.disposed) return;this.sharpenRoads();this.draw(); }, 90);
-  }
-  sharpenRoads() {
-    const view = this.view, ratio = this.ratio, scale = view.width / view.span, margin = 1.5;
+  sharpenRoads(view) {
+    const ratio = this.ratio, scale = view.width / view.span, margin = 1.4;
     const canvas = this.sharpRoads?.canvas || this.document.createElement('canvas');
     const w = Math.ceil(view.width * margin * ratio), h = Math.ceil(view.height * margin * ratio);
     if (canvas.width !== w || canvas.height !== h) { canvas.width = w;canvas.height = h; }
-    const cacheView = { x: view.x, z: view.z, width: w / ratio, height: h / ratio, span: w / ratio / scale };
-    const context = canvas.getContext('2d');context.setTransform(1, 0, 0, 1, 0, 0);context.clearRect(0, 0, w, h);context.setTransform(ratio, 0, 0, ratio, 0, 0);
-    this.paintRoads(context, cacheView, this.visibleRoads(viewBounds(cacheView)), .65);
-    this.sharpRoads = { canvas, view: cacheView, scale, ratio };
+    const kept = { x: view.x, z: view.z, width: w / ratio, height: h / ratio, span: w / ratio / scale }, bounds = viewBounds(kept);
+    const context = canvas.getContext('2d');context.setTransform(1, 0, 0, 1, 0, 0);context.clearRect(0, 0, w, h);
+    if (typeof Path2D === 'function') {
+      const k = scale * ratio;context.setTransform(k, 0, 0, k, (kept.width / 2 - kept.x * scale) * ratio, (kept.height / 2 - kept.z * scale) * ratio);
+      context.lineCap = 'round';context.lineJoin = 'round';
+      for (const chunk of this.roadChunks()) {
+        if (!overlaps(bounds, chunk)) continue;
+        // The same widths and colours as paintRoads, in metres under the transform.
+        context.strokeStyle = chunk.major ? '#adaca0' : '#8c9890';
+        context.lineWidth = Math.round(clamp(chunk.width * scale * .55, .65, 14) * 2) / 2 / scale;context.stroke(chunk.path);
+      }
+    } else { context.setTransform(ratio, 0, 0, ratio, 0, 0);this.paintRoads(context, kept, this.visibleRoads(bounds), .65); }
+    this.sharpRoads = { canvas, view: kept, scale, ratio };
   }
   dropSharpRoads() { if (this.sharpTimer != null) clearTimeout(this.sharpTimer);this.sharpTimer = null;this.sharpRoads = null; }
   setPin(point) {
@@ -422,5 +431,5 @@ export class GameMap {
     const p = mapWorldToScreen(this.player, view);context.translate(p.x, p.y);context.rotate(-(this.player.angle || 0));context.fillStyle = '#f8f2df';context.strokeStyle = '#172127';context.lineWidth = 3;context.beginPath();context.moveTo(0, 12);context.lineTo(-8, -8);context.lineTo(0, -4);context.lineTo(8, -8);context.closePath();context.fill();context.stroke();context.restore();
   }
   getState() { return { open: this.open, pin: this.pin && { ...this.pin }, view: { ...this.view }, busy: this.busy, route: this.route && { distance: this.route.distance, points: pointsOf(this.route).map(point => [...point]) } }; }
-  dispose() { if (this.disposed) return;this.setOpen(false);this.disposed = true;for (const remove of this.listeners) remove();this.listeners = [];this.roadGrid.clear();this.overviewCache = null;this.dropSharpRoads();this.miniLandCache = null;this.drag = null; }
+  dispose() { if (this.disposed) return;this.setOpen(false);this.disposed = true;for (const remove of this.listeners) remove();this.listeners = [];this.roadGrid.clear();this.chunks = null;this.dropSharpRoads();this.miniLandCache = null;this.drag = null; }
 }

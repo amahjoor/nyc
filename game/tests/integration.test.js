@@ -339,6 +339,8 @@ async function bootHarness({ stored = null, displayStored = null, unavailableSto
       },
       click: id => elements.get(id).click(),
       key: (code, down = true) => window.dispatch(down ? 'keydown' : 'keyup', { code, repeat: false, target: elements.get('world') }),
+      wheel: deltaY => elements.get('world').dispatch('wheel', { deltaY, deltaMode: 0 }),
+      press: key => window.dispatch('keydown', { key, code: '', repeat: false, target: elements.get('world') }),
       frames(count = 1) {
         for (let i = 0; i < count; i++) {
           assert.equal(frames.length, 1, 'one animation loop should be scheduled');
@@ -756,6 +758,32 @@ test('aerial movement and stopping translate a fixed view with sufficient ground
     assert.ok(Math.hypot(sim.player.x-before.x,sim.player.z-before.z)>.4,'the fixed-view assertions must exercise actual player movement');
     assert.ok(aerialPose(app).position.distanceTo(baseline.position)>.25,'the camera still follows the moving player');
     assert.equal(app.errors.length,0,app.errors[0]?.stack);
+  }finally{app.close();}
+});
+
+test('the aerial camera zooms in and out over the same ground, within limits, by wheel or keys',async()=>{
+  const app=await bootHarness();
+  try{
+    app.click('start-button');app.click('view-button');app.frames(2);
+    await app.until(()=>app.state().stream.loading===0);
+    app.key('KeyV');app.key('KeyV',false);app.frames(3);
+    const sim=app.simulation(),height=()=>app.camera().position.y-(sim.player.y||0);
+    const start=aerialPose(app),base=height();
+    const same=pose=>{assert.ok(pose.focus.distanceTo(start.focus)<.01,'zoom keeps the ground point');assert.ok(pose.quaternion.angleTo(start.quaternion)<1e-6,'zoom keeps the angle');};
+    app.wheel(400);app.frames();
+    assert.ok(height()>base&&height()<base*1.4,'the camera eases out instead of jumping');
+    app.frames(240);assert.ok(Math.abs(height()/base-Math.exp(.6))<.01);same(aerialPose(app));
+    for(let i=0;i<12;i++)app.wheel(900);app.frames(300);
+    assert.ok(Math.abs(height()/base-3)<.01,'three times as far is the widest');same(aerialPose(app));
+    for(let i=0;i<24;i++)app.wheel(-900);app.frames(300);
+    assert.ok(Math.abs(height()/base-.3)<.01,'and three tenths the closest');same(aerialPose(app));
+    app.press('-');app.frames(300);assert.ok(Math.abs(height()/base-.375)<.01);
+    app.press('=');app.frames(300);assert.ok(Math.abs(height()/base-.3)<.01);
+    // Out of aerial view the wheel and keys leave the setting alone.
+    app.key('KeyV');app.key('KeyV',false);app.key('KeyV');app.key('KeyV',false);app.frames(2);
+    app.wheel(900);app.press('-');
+    app.key('KeyV');app.key('KeyV',false);app.frames(300);
+    assert.ok(Math.abs(height()/base-.3)<.01);
   }finally{app.close();}
 });
 

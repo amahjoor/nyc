@@ -108,6 +108,11 @@ const canvas=$('world');
 const input=new Input(canvas, action);
 const cameraTarget=new THREE.Vector3(), desiredCamera=new THREE.Vector3(), cameraForward=new THREE.Vector3();
 const aerialTarget=new THREE.Vector3(), aerialOffset=new THREE.Vector3(-95,240,180);
+// How far back the aerial camera stands, as a multiple of that offset: 1 is
+// the view V opens on. The wheel sets the goal and the camera eases to it.
+const AERIAL_ZOOM_MIN=.3, AERIAL_ZOOM_MAX=3;
+let aerialZoom=1, aerialZoomGoal=1;
+const zoomAerial=factor=>{aerialZoomGoal=clamp(aerialZoomGoal*factor,AERIAL_ZOOM_MIN,AERIAL_ZOOM_MAX);};
 const chaseLookAhead=new THREE.Vector3(), desiredLookAhead=new THREE.Vector3();
 
 function announce(text) { if(sim){sim.notice=text;sim.noticeTime=4;} }
@@ -232,7 +237,15 @@ $('road-pilot-mode-button').addEventListener('click',()=>{
   roadPilot.setMode(roadPilot.getStatus().mode==='reconstructed'?'aerial':'reconstructed');
   updateRoadPilotControls();
 });
-canvas.addEventListener('wheel',event=>{if(cityView){event.preventDefault();cityZoom=clamp(cityZoom*Math.exp(event.deltaY*.001),.07,1.8);}},{passive:false});
+canvas.addEventListener('wheel',event=>{
+  if(cityView){event.preventDefault();cityZoom=clamp(cityZoom*Math.exp(event.deltaY*.001),.07,1.8);}
+  else if(aerialView&&started&&!paused){event.preventDefault();zoomAerial(Math.exp(clamp(event.deltaY*(event.deltaMode===1?16:1),-500,500)*.0015));}
+},{passive:false});
+// Plus and minus do the same from the keyboard.
+window.addEventListener('keydown',event=>{
+  if(!aerialView||!started||paused||mapOpen||phone?.open||event.ctrlKey||event.metaKey||event.altKey||event.target?.closest?.('input,textarea,select'))return;
+  if(event.key==='+'||event.key==='=')zoomAerial(.8);else if(event.key==='-'||event.key==='_')zoomAerial(1.25);
+});
 $('menu-button').addEventListener('click',()=>{const open=$('more-actions').hidden;$('more-actions').hidden=!open;$('menu-button').setAttribute('aria-expanded',String(open));});
 $('sources-button').addEventListener('click',()=>{pausedBeforeSources=paused;if(started)paused=true;input.clear();$('sources-dialog').showModal();});
 $('sources-dialog').addEventListener('close',()=>{paused=pausedBeforeSources;input.clear();});
@@ -439,7 +452,8 @@ function updateCamera(dt) {
     if(!aerialTracking||aerialTarget.distanceToSquared(cameraTarget)>200*200){
       aerialTarget.copy(cameraTarget);aerialTracking=true;
     }else aerialTarget.lerp(cameraTarget,1-Math.exp(-dt*4));
-    camera.position.copy(aerialTarget).add(aerialOffset);
+    aerialZoom+=(aerialZoomGoal-aerialZoom)*(1-Math.exp(-dt*9));
+    camera.position.copy(aerialTarget).addScaledVector(aerialOffset,aerialZoom);
     // At this altitude a street-level near plane wastes depth precision and
     // makes closely spaced ground surfaces flicker.
     camera.near=5;camera.lookAt(aerialTarget);camera.fov=52;camera.updateProjectionMatrix();return;
