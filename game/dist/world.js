@@ -319,6 +319,7 @@ const tireMaterial = new THREE.MeshStandardMaterial({ color: 0x17191a, roughness
 const hubMaterial = new THREE.MeshStandardMaterial({ color: 0xa9afb0, metalness: .85, roughness: .32 });
 const { tyre: wheelTyre, rim: wheelRim } = wheelGeometry();
 const bodies = new Map();
+const modelPaints = new Map();
 /** The colour of a boro taxi, as the simulation names it. */
 export const GREEN_CAB = 0x74b541;
 
@@ -335,34 +336,52 @@ export const carShape = bodyShape;
  * road, but nothing turns: this is for cars at rest, and for cars too far off
  * for a turning wheel to be seen.
  */
-function createCarSet({ name, label, capacity, lit, select }) {
+// The same vertices under a geometry of its own: each set of cars adds its own
+// instance paint without copying, or overwriting, the exterior they share.
+function shareGeometry(source) {
+  const geometry = new THREE.BufferGeometry();
+  for (const [name, attribute] of Object.entries(source.attributes)) geometry.setAttribute(name, attribute);
+  geometry.setIndex(source.index); geometry.boundingSphere = source.boundingSphere; geometry.boundingBox = source.boundingBox;
+  return geometry;
+}
+
+function createCarSet({ name, label, capacity, lit, select, library }) {
   const group = new THREE.Group(); group.name = name;
   const paint = createCarMaterial({ instancedPaint: true }); paint.name = `${label} car paint, glass and trim`;
+  const exteriorPaint = createCarMaterial({ instancedPaint: true, doubleSided: true });
   // Traffic shows the lamps every moving car shows. Nobody leaves their lights on at the kerb.
   const lens = lit ? carGlow : createLampMaterial();
   if (!lit) { lens.name = `${label} car lamps`; lens.emissiveIntensity = .02; }
-  const styles = new Map();
-  const style = (key, type, shape, tone) => {
-    const built = buildCar({ type, shape, paint: tone }), tint = new THREE.InstancedBufferAttribute(new Float32Array(capacity * 3), 3);
+  const styles = new Map(), meshes = [];
+  const add = mesh => { mesh.count = 0; mesh.frustumCulled = false; group.add(mesh); meshes.push(mesh); };
+  const style = (key, type, shape, tone, model = null) => {
+    // Instance tint belongs to this set. Near cars and the other set can
+    // share the source without overwriting each other's paint attributes.
+    const built = model ? { body: shareGeometry(model.body), lamps: shareGeometry(model.lamps) } : buildCar({ type, shape, paint: tone });
+    const tint = new THREE.InstancedBufferAttribute(new Float32Array(capacity * 3), 3);
     built.body.setAttribute('aPaint', tint);
-    const body = new THREE.InstancedMesh(built.body, paint, capacity); body.name = `${label} ${key} bodies`; body.castShadow = true; body.receiveShadow = true;
+    const body = new THREE.InstancedMesh(built.body, model ? exteriorPaint : paint, capacity); body.name = `${label} ${key} bodies`; body.castShadow = true; body.receiveShadow = true;
     const lamps = new THREE.InstancedMesh(built.lamps, lens, capacity); lamps.name = `${label} ${key} lamps`;
-    styles.set(key, { body, lamps, tint, used: 0, painted: tone !== 0xffffff });
+    add(body); add(lamps);
+    styles.set(key, { body, lamps, tint, used: 0, idle: 0, model, painted: tone !== 0xffffff, wheels: model?.wheels || WHEEL });
   };
   for (const shape of BODY_SHAPES) style(shape, 'sedan', shape, 0xffffff);
   // A cab has a roof light and a band along its doors, so it is built in its own colour.
   if (lit) { style('cab', 'taxi', 'sedan', 0xf3ba31); style('boro cab', 'taxi', 'sedan', GREEN_CAB); }
   const tyres = new THREE.InstancedMesh(wheelTyre, tireMaterial, capacity * 4); tyres.name = `${label} car tyres`; tyres.castShadow = true;
   const rims = new THREE.InstancedMesh(wheelRim, hubMaterial, capacity * 4); rims.name = `${label} car wheels`;
-  const meshes = [...[...styles.values()].flatMap(item => [item.body, item.lamps]), tyres, rims];
-  // The cars surround the player, so the set as a whole is always in view.
-  for (const mesh of meshes) { mesh.count = 0; mesh.frustumCulled = false; group.add(mesh); }
-  const FIELDS = 11, seen = new Float64Array(capacity * FIELDS), pose = new Float64Array(FIELDS);
+  add(tyres); add(rims);
+  const FIELDS = 10, seen = new Float64Array(capacity * FIELDS), pose = new Float64Array(FIELDS);
   const matrix = new THREE.Matrix4(), position = new THREE.Vector3(), quaternion = new THREE.Quaternion(), euler = new THREE.Euler(0, 0, 0, 'YXZ'), one = new THREE.Vector3(1, 1, 1), color = new THREE.Color();
-  const ids = [];
+  const ids = [], looks = [], colors = [], wheelScale = new THREE.Vector3();
   let count = -1;
   const styleOf = car => {
     if (lit && car.type === 'taxi') return styles.get(color.set(car.color || '#f3ba31').getHex() === GREEN_CAB ? 'boro cab' : 'cab');
+    const model = car.type === 'sedan' && library?.get(car.identity?.asset);
+    if (model) {
+      if (!styles.has(model.id)) style(model.id, car.type, car.shape, 0xffffff, model);
+      return styles.get(model.id);
+    }
     return styles.get(carShape(car.type, car.id, car.shape));
   };
   return {
@@ -376,19 +395,21 @@ function createCarSet({ name, label, capacity, lit, select }) {
         const wheels = car.wheelHeights || [];
         pose[0] = car.x; pose[1] = car.y || 0; pose[2] = car.z; pose[3] = car.angle || 0; pose[4] = car.pitch || 0; pose[5] = car.roll || 0;
         for (let i = 0; i < 4; i++) pose[6 + i] = Number.isFinite(wheels[i]) ? wheels[i] : pose[1];
-        pose[10] = ids[n] === car.id ? 0 : 1;
+        const look = styleOf(car);
+        if (ids[n] !== car.id || looks[n] !== look || colors[n] !== car.color) changed = true;
+        ids[n] = car.id; looks[n] = look; colors[n] = car.color;
         for (let i = 0; i < FIELDS; i++) if (seen[n * FIELDS + i] !== pose[i]) { changed = true; seen[n * FIELDS + i] = pose[i]; }
-        seen[n * FIELDS + 10] = 0; ids[n] = car.id; n++;
+        n++;
       }
       if (n !== count) changed = true;
       if (!changed) return false;
-      count = n; ids.length = n;
+      count = n; ids.length = looks.length = colors.length = n;
       for (const item of styles.values()) item.used = 0;
       let wheel = 0, slot = 0;
       for (const car of cars) {
         if (!select(car) || slot >= n) continue;
+        const item = looks[slot], i = item.used++, axle = item.wheels;
         const o = slot++ * FIELDS, x = seen[o], y = seen[o + 1], z = seen[o + 2], angle = seen[o + 3];
-        const item = styleOf(car), i = item.used++;
         // The same pose a driven car takes at rest: yaw at the root, tilt on the chassis.
         position.set(x, y + .025, z); euler.set(seen[o + 4], angle, seen[o + 5], 'YXZ'); quaternion.setFromEuler(euler);
         matrix.compose(position, quaternion, one); item.body.setMatrixAt(i, matrix); item.lamps.setMatrixAt(i, matrix);
@@ -397,17 +418,22 @@ function createCarSet({ name, label, capacity, lit, select }) {
         const sin = Math.sin(angle), cos = Math.cos(angle);
         euler.set(0, angle, 0, 'YXZ'); quaternion.setFromEuler(euler);
         let k = 0;
-        for (const side of [-WHEEL.x, WHEEL.x]) for (const reach of [WHEEL.rear, WHEEL.front]) {
+        wheelScale.setScalar(axle.radius / WHEEL.radius);
+        for (const side of [-axle.x, axle.x]) for (const reach of [axle.rear, axle.front]) {
           // Each tyre stands on its own measured patch of road.
-          position.set(x + cos * side + sin * reach, seen[o + 6 + k++] + .385, z - sin * side + cos * reach);
-          matrix.compose(position, quaternion, one); tyres.setMatrixAt(wheel, matrix); rims.setMatrixAt(wheel, matrix); wheel++;
+          position.set(x + cos * side + sin * reach, seen[o + 6 + k++] + axle.radius + .035, z - sin * side + cos * reach);
+          matrix.compose(position, quaternion, wheelScale); tyres.setMatrixAt(wheel, matrix); rims.setMatrixAt(wheel, matrix); wheel++;
         }
       }
-      for (const item of styles.values()) {
+      for (const [key, item] of styles) {
         item.body.count = item.lamps.count = item.used;
-        // A style nobody is using costs nothing.
+        // A style nobody is using costs nothing, and an exterior long out of sight gives its place back.
         item.body.visible = item.lamps.visible = item.used > 0;
-        item.body.instanceMatrix.needsUpdate = item.lamps.instanceMatrix.needsUpdate = item.tint.needsUpdate = true;
+        if (item.used) { item.idle = 0; item.body.instanceMatrix.needsUpdate = item.lamps.instanceMatrix.needsUpdate = item.tint.needsUpdate = true; }
+        else if (item.model && ++item.idle > 900) {
+          styles.delete(key);
+          for (const mesh of [item.body, item.lamps]) { mesh.removeFromParent(); meshes.splice(meshes.indexOf(mesh), 1); mesh.dispose(); }
+        }
       }
       tyres.count = rims.count = wheel; tyres.visible = rims.visible = wheel > 0; tyres.instanceMatrix.needsUpdate = rims.instanceMatrix.needsUpdate = true;
       return true;
@@ -415,14 +441,14 @@ function createCarSet({ name, label, capacity, lit, select }) {
     dispose() {
       for (const item of styles.values()) { item.body.geometry.dispose(); item.lamps.geometry.dispose(); }
       for (const mesh of meshes) mesh.dispose();
-      paint.dispose(); if (!lit) lens.dispose(); group.removeFromParent();
+      paint.dispose(); exteriorPaint.dispose(); if (!lit) lens.dispose(); group.removeFromParent();
     },
   };
 }
 
 /** Cars standing at the kerb. A car leaves this set when the player drives it away. */
-export function createParkedCars({ capacity = 160 } = {}) {
-  return createCarSet({ name: 'Parked cars', label: 'Parked', capacity, lit: false, select: car => car._kerb && !car.controlled });
+export function createParkedCars({ capacity = 160, library = null } = {}) {
+  return createCarSet({ name: 'Parked cars', label: 'Parked', capacity, library, lit: false, select: car => car._kerb && !car.controlled });
 }
 
 /**
@@ -430,12 +456,13 @@ export function createParkedCars({ capacity = 160 } = {}) {
  * car would cost fifteen draws apiece to show wheels nobody can see turning.
  * Give update() the cars to draw; those close by keep models of their own.
  */
-export function createDistantTraffic({ capacity = 96 } = {}) {
-  return createCarSet({ name: 'Distant traffic', label: 'Distant', capacity, lit: true, select: () => true });
+export function createDistantTraffic({ capacity = 96, library = null } = {}) {
+  return createCarSet({ name: 'Distant traffic', label: 'Distant', capacity, library, lit: true, select: () => true });
 }
 
-export function createCar({ type = 'sedan', color: tint = 0xbcc5bd, seed = '', shape: given = null } = {}) {
+export function createCar({ type = 'sedan', color: tint = 0xbcc5bd, seed = '', shape: given = null, model = null } = {}) {
   const group = new THREE.Group(); group.name = type;
+  Object.assign(group.userData, { model, tint, given });
   const taxi = type === 'taxi', police = type === 'police';
   // Yellow in the Manhattan core; apple green for the cabs that serve everywhere else.
   if (taxi) tint = new THREE.Color(tint).getHex() === GREEN_CAB ? GREEN_CAB : 0xf3ba31;
@@ -443,12 +470,13 @@ export function createCar({ type = 'sedan', color: tint = 0xbcc5bd, seed = '', s
   const shape = carShape(type, seed, given);
   const key = `${type}:${shape}:${new THREE.Color(tint).getHexString()}`;
   // Identical cars share one set of geometry.
-  if (!bodies.has(key)) bodies.set(key, buildCar({ type, shape, paint: tint }));
-  const built = bodies.get(key);
+  if (!model && !bodies.has(key)) bodies.set(key, buildCar({ type, shape, paint: tint }));
+  const built = model || bodies.get(key), axle = model?.wheels || WHEEL;
+  if (model && !modelPaints.has(tint)) modelPaints.set(tint, createCarMaterial({ bodyPaint: tint, doubleSided: true }));
   // The body rides above independent wheel pivots. Each tire can follow a
   // different measured height while the chassis absorbs terrain changes.
   const chassis = new THREE.Group();
-  const body = new THREE.Mesh(built.body, carPaint); body.castShadow = true; body.receiveShadow = true; body.name = 'Car body';
+  const body = new THREE.Mesh(built.body, model ? modelPaints.get(tint) : carPaint); body.castShadow = true; body.receiveShadow = true; body.name = 'Car body';
   const lamps = new THREE.Mesh(built.lamps, carGlow); lamps.name = 'Car lamps';
   chassis.add(body, lamps); group.add(chassis); group.userData.chassis = chassis; group.userData.shape = shape;
   group.userData.lights = [];
@@ -461,15 +489,16 @@ export function createCar({ type = 'sedan', color: tint = 0xbcc5bd, seed = '', s
     }
   }
   group.userData.wheels = [];
-  for (const x of [-WHEEL.x, WHEEL.x]) for (const z of [WHEEL.rear, WHEEL.front]) {
-    const wheel = new THREE.Group(); wheel.position.set(x, 0.36, z);
+  for (const x of [-axle.x, axle.x]) for (const z of [axle.rear, axle.front]) {
+    const wheel = new THREE.Group(); wheel.position.set(x, axle.radius + .01, z);
     const roll = new THREE.Group();
+    roll.scale.setScalar(axle.radius / WHEEL.radius);
     const tire = new THREE.Mesh(wheelTyre, tireMaterial); tire.castShadow = true;
     const hub = new THREE.Mesh(wheelRim, hubMaterial);
     // Steering turns the axle around Y; the child spins around that axle's X.
     // Mixing both rotations on one default Euler pivot would wobble the axle.
     roll.add(tire, hub); wheel.add(roll);
-    wheel.userData.front = z > 0; wheel.userData.roll = roll; wheel.userData.radius = WHEEL.radius;
+    wheel.userData.front = z > 0; wheel.userData.roll = roll; wheel.userData.radius = axle.radius;
     group.add(wheel); group.userData.wheels.push(wheel);
   }
   return group;
@@ -502,7 +531,7 @@ export function updateCarVisuals(mesh, car, dt) {
     const height=Number.isFinite(measured)?measured:(Number.isFinite(car.y)?car.y:0)
       +wheel.position.x*Math.tan(car.roll||0)-wheel.position.z*Math.tan(car.pitch||0);
     // Counter the body's filtered heave so tires stay at their source height.
-    wheel.position.y=.36+height-ride.height;
+    wheel.position.y=wheel.userData.radius+.01+height-ride.height;
     wheel.rotation.y = wheel.userData.front ? steering : 0;
     const roll = wheel.userData.roll;
     if (roll) {

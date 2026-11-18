@@ -1,4 +1,6 @@
 import * as THREE from './vendor/three.module.min.js';
+import { WHEEL } from './fleet.js';
+export { WHEEL };
 
 // Car bodies, lofted from a side profile.
 //
@@ -9,7 +11,6 @@ import * as THREE from './vendor/three.module.min.js';
 // All bodies face +Z, sit on y = 0 and share the wheel positions the
 // simulation drives.
 
-export const WHEEL = { radius: .35, x: .9, front: 1.3, rear: -1.37 };
 const FINISH = { paint: [.34, .22, 1], glass: [.06, .9, 1], trim: [.55, .1, 0], chrome: [.22, 1, 0], rubber: [.9, 0, 0] };
 const GLASS = [.11, .15, .17], TRIM = [.035, .037, .04], CHROME = [.62, .64, .66];
 
@@ -226,26 +227,36 @@ export function buildCar({ type = 'sedan', shape = 'sedan', paint = 0xbcc5bd } =
  * Paint, glass and trim in one material; the finish of each panel rides on a vertex attribute.
  * With `instancedPaint`, a body built in white takes each instance's colour from `aPaint`.
  */
-export function createCarMaterial({ instancedPaint = false } = {}) {
+export function createCarMaterial({ instancedPaint = false, bodyPaint = null, doubleSided = false } = {}) {
   const material = new THREE.MeshPhysicalMaterial({ vertexColors: true, roughness: .4, metalness: .2, clearcoat: 1, clearcoatRoughness: .07 });
+  if (doubleSided) material.side = THREE.DoubleSide;
   material.name = 'Car paint, glass and trim';
   if (instancedPaint) material.defines.NYC_INSTANCED_PAINT = '';
+  const tintWeight = doubleSided ? 'aPaintWeight' : 'step( .5, aFinish.z ) * step( .2, aFinish.x )';
   material.onBeforeCompile = shader => {
+    if (bodyPaint !== null) {
+      shader.uniforms.nycBodyPaint = { value: new THREE.Color(bodyPaint) };
+      shader.vertexShader = 'uniform vec3 nycBodyPaint;\n' + shader.vertexShader.replace('#include <color_vertex>',
+        `#include <color_vertex>\nvColor.rgb *= mix(vec3(1.0), nycBodyPaint, ${tintWeight});`);
+    }
     shader.vertexShader = `attribute vec3 aFinish;\nvarying vec3 vFinish;\n#ifdef NYC_INSTANCED_PAINT\nattribute vec3 aPaint;\n#endif\n${shader.vertexShader}`
       .replace('#include <begin_vertex>', '#include <begin_vertex>\nvFinish = aFinish;')
       // Lacquered and not mirror-smooth: that is the paint, and only the paint takes the colour.
-      .replace('#include <color_vertex>', '#include <color_vertex>\n#ifdef NYC_INSTANCED_PAINT\nvColor.rgb *= mix( vec3( 1.0 ), aPaint, step( .5, aFinish.z ) * step( .2, aFinish.x ) );\n#endif');
+      .replace('#include <color_vertex>', `#include <color_vertex>\n#ifdef NYC_INSTANCED_PAINT\nvColor.rgb *= mix( vec3( 1.0 ), aPaint, ${tintWeight} );\n#endif`);
+    if (doubleSided) shader.vertexShader = 'attribute float aPaintWeight;\n' + shader.vertexShader;
     shader.fragmentShader = `varying vec3 vFinish;\n${shader.fragmentShader}`
       .replace('#include <emissivemap_fragment>', '#include <emissivemap_fragment>\nroughnessFactor = vFinish.x; metalnessFactor = vFinish.y;')
       // Lacquer on the paint and glass only; trim and rubber stay matt.
       .replace('#include <lights_physical_fragment>', '#include <lights_physical_fragment>\nmaterial.clearcoat *= vFinish.z;');
   };
+  if (bodyPaint !== null) material.customProgramCacheKey = () => 'nyc-uniform-car-paint';
   return material;
 }
 
 /** Lamps glow in their own colour: amber-white ahead, red behind. */
 export function createLampMaterial() {
   const material = new THREE.MeshStandardMaterial({ vertexColors: true, color: 0xffffff, emissive: 0xffffff, emissiveIntensity: .55, roughness: .25 });
+  material.side = THREE.DoubleSide;
   material.name = 'Vehicle lamps';
   material.onBeforeCompile = shader => {
     shader.fragmentShader = shader.fragmentShader.replace('#include <emissivemap_fragment>', '#include <emissivemap_fragment>\n#ifdef USE_COLOR\ntotalEmissiveRadiance *= vColor.rgb;\n#endif');
@@ -255,8 +266,22 @@ export function createLampMaterial() {
 
 /** A tyre with a rounded shoulder and a dished alloy wheel, axle along X. */
 export function wheelGeometry() {
-  const r = WHEEL.radius, tyre = new THREE.LatheGeometry([[r * .58, -.12], [r * .9, -.125], [r, -.085], [r, .085], [r * .9, .125], [r * .58, .12]].map(([x, y]) => new THREE.Vector2(x, y)), 20);
-  tyre.rotateZ(Math.PI / 2);
-  const rim = new THREE.CylinderGeometry(r * .6, r * .6, .2, 16); rim.rotateZ(Math.PI / 2);
+  const r = WHEEL.radius;
+  const lathe = profile => new THREE.LatheGeometry(profile.map(([radius, depth]) => new THREE.Vector2(r * radius, depth)), 24).rotateZ(Math.PI / 2);
+  const tyre = lathe([[0, -.06], [.6, -.06], [.62, -.12], [.9, -.125], [1, -.085], [1, .085], [.9, .125], [.62, .12], [.6, .06], [0, .06]]);
+  // Both faces share the same instanced geometry. The recessed tyre surface
+  // shows through the spaces between the spokes while the wheel spins.
+  const alloy = [lathe([[.52, -.11], [.58, -.126], [.63, -.12], [.63, .12], [.58, .126], [.52, .11]]),
+    new THREE.CylinderGeometry(.052, .052, .242, 16).rotateZ(Math.PI / 2)];
+  for (const side of [-1, 1]) for (let i = 0; i < 5; i++) {
+    const spoke = new THREE.BoxGeometry(.018, .17, .034);
+    spoke.rotateX(side * .15).translate(side * .108, .116, 0).rotateX(i * Math.PI * 2 / 5);
+    alloy.push(spoke);
+  }
+  const rim = new THREE.BufferGeometry(), triangles = alloy.map(piece => piece.toNonIndexed());
+  for (const attr of ['position', 'normal']) {
+    const values = triangles.flatMap(piece => Array.from(piece.getAttribute(attr).array));
+    rim.setAttribute(attr, new THREE.Float32BufferAttribute(values, 3));
+  }
   return { tyre, rim };
 }
