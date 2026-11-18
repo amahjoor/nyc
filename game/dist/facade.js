@@ -644,7 +644,18 @@ NycFacade nycFacade( vec4 facade, vec4 styleIn, vec3 wallNormal, float facing, v
 			result.emissive += poleColor * ( pole * lights * 0.5 ) + vec3( 1.0, 0.08, 0.06 ) * ( neon * mix( 0.5, 1.6, lights ) );
 			result.albedo = mix( result.albedo, vec3( 0.5, 0.03, 0.03 ), neon );
 			glass *= ( 1.0 - card ) * ( 1.0 - pole );
-			frame = ( 1.0 - nycPulse( cellU * 2.0, 0.02, 0.96, cellPixel.x * 2.0 ) ) * close;
+			// The way in: a glazed door in a dark frame where the place's front is, which is where walking into it goes inside.
+			float doorway = 0.0;
+			if ( tenanted ) {
+				float doorOff = dot( nycFacadeWorld.xz - tenantAt.xy, along.xz );
+				doorway = step( abs( doorOff ), 0.62 ) * step( v, 2.3 ) * close;
+				float leaf = step( abs( doorOff ), 0.5 ) * step( 0.1, v ) * step( v, 2.16 );
+				float handle = step( 0.3, doorOff ) * step( doorOff, 0.36 ) * step( 0.92, v ) * step( v, 1.28 );
+				result.albedo = mix( result.albedo, mix( vec3( 0.045, 0.045, 0.05 ), vec3( 0.6, 0.6, 0.58 ), handle ), doorway );
+				result.metalness = mix( result.metalness, 0.6, doorway * handle );
+				glass = mix( glass, leaf * ( 1.0 - handle ) * ( 1.0 - shutter ), doorway );
+			}
+			frame = ( 1.0 - nycPulse( cellU * 2.0, 0.02, 0.96, cellPixel.x * 2.0 ) ) * close * ( 1.0 - doorway );
 			pane = vec2( shopIndex, -1.0 ); roomAt = vec2( fract( ( cellU + shopShift ) * 0.5 ), seen.y / 0.78 );
 			roomDepth = 9.0; roomHeight = storeyHeight * 0.78;
 			litChance = open; litBoost = 1.0; warmth = mix( 0.35, 0.8, fract( shopSeed * 5.0 ) );
