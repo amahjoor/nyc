@@ -813,7 +813,9 @@ export function createStreetscape({ scene, index = null, origin = CITY_ORIGIN, h
     for (const [name, order] of [['road', 0], ['walk', 0], ['marks', 1]]) {
       if (!built.geometries[name]) continue;
       const mesh = new THREE.Mesh(built.geometries[name], materials[name]);
-      mesh.name = `Street ${name} ${cell.key}`; mesh.receiveShadow = true; mesh.castShadow = name === 'walk'; mesh.renderOrder = order;
+      // Nothing here casts a shadow: a sidewalk is fifteen centimetres of kerb, and sending four hundred thousand
+      // triangles of it through every shadow pass bought nothing that could be seen.
+      mesh.name = `Street ${name} ${cell.key}`; mesh.receiveShadow = true; mesh.castShadow = false; mesh.renderOrder = order;
       group.add(mesh); cell.meshes.push(mesh);
     }
     cell.grid = built.grid; cell.lamps = built.lamps; cell.trees = built.trees; cell.parking = built.parking; cell.walks = built.walks; cell.surfaces = built.surfaces; cell.ready = true; cell.revision = terrainRevision;
