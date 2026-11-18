@@ -33,24 +33,24 @@ export function intersectTerrainRay(ray, heightAt = flatHeight, maxDistance = 20
   ray.at((low+high)/2,point);return point.clone();
 }
 
-/** Address and map selections share the game's existing street-safe travel path. */
-export function createCityNavigation({ canvas, camera, input, bounds, onTravel, heightAt = flatHeight, onAddressSelected = () => {}, searchLocal = () => [] }) {
+/** Presets, address results and map pins share the same travel confirmation. */
+export function createCityNavigation({ canvas, camera, input, bounds, onTravel, heightAt = flatHeight, onDestinationSelected = () => {}, getPresets = () => [], searchLocal = () => [] }) {
   const $ = id => document.getElementById(id);
+  const addressInput=$('address-input'), results=$('address-results');
   let visible=false, traveling=false, picking=false, selected=null, dragging=null;
-  let searching=false, searchEpoch=0, searchController=null;
+  let resultsMode=null, searching=false, searchEpoch=0, searchController=null;
   const ray=new THREE.Raycaster();
   const pinPoint=new THREE.Vector3();
 
   function controls() {
-    $('address-input').disabled=traveling;
+    addressInput.disabled=traveling;
     $('address-search-button').disabled=traveling;
     $('pick-spawn-button').disabled=traveling;
     $('clear-spawn-button').disabled=traveling;
     $('spawn-button').disabled=traveling||!selected;
-    $('place-select').disabled=traveling;
     $('address-form').setAttribute('aria-busy',String(searching));
     $('pick-spawn-button').setAttribute('aria-pressed',String(picking));
-    $('pick-spawn-button').textContent=picking?'DONE PICKING':'PICK A SPOT ON THE MAP';
+    $('pick-spawn-button').textContent=picking?'Done picking':'Pick on the map';
     $('city-navigation').classList.toggle('is-picking',picking);
     $('city-navigation').classList.toggle('has-spawn',Boolean(selected));
     canvas.style.cursor=picking?'crosshair':'';
@@ -74,10 +74,47 @@ export function createCityNavigation({ canvas, camera, input, bounds, onTravel, 
       clearSelection();$('spawn-note').textContent='Choose a location within New York City.';return false;
     }
     selected={...place};
-    $('spawn-note').textContent=selectionLabel()+'. Spawn on the nearest mapped street.';
+    $('spawn-note').textContent=selectionLabel();
     controls();updatePin();return true;
   }
   function selectionLabel() { return selected.name+(selected.borough?' · '+selected.borough:''); }
+  function closeResults() {
+    resultsMode=null;
+    results.replaceChildren();
+    results.hidden=true;
+    $('address-status').textContent='';
+  }
+  function showResults(places) {
+    results.replaceChildren();
+    results.hidden=places.length===0;
+    for(const place of places){
+      const button=document.createElement('button');button.type='button';button.className='address-result';
+      button.textContent=[place.name,place.what,place.detail,place.borough].filter(Boolean).join(' · ');
+      button.addEventListener('click',()=>{
+        if(traveling||!visible)return;
+        setPicking(false);
+        if(!select(place))return;
+        onDestinationSelected(place);updatePin();
+        closeResults();$('travel-note').textContent='';
+        $('spawn-button').focus();
+      });
+      results.append(button);
+    }
+  }
+  function refreshPresets() {
+    if(resultsMode!=='presets')return;
+    const words=addressInput.value.trim().toLowerCase().split(/\s+/);
+    const matches=getPresets().filter(place=>{
+      const label=place.name.toLowerCase()+' '+(place.borough||'').toLowerCase();
+      return words.every(word=>label.includes(word));
+    });
+    showResults(matches);
+  }
+  function openPresets() {
+    if(!visible||traveling||resultsMode)return;
+    resultsMode='presets';
+    refreshPresets();
+  }
   function pointFromPointer(event) {
     const rect=canvas.getBoundingClientRect();
     if(!rect.width||!rect.height)return null;
@@ -104,11 +141,24 @@ export function createCityNavigation({ canvas, camera, input, bounds, onTravel, 
     pin.style.top=(rect.top+(1-pinPoint.y)*rect.height/2)+'px';
   }
 
+  addressInput.addEventListener('focus',openPresets);
+  addressInput.addEventListener('click',openPresets);
+  addressInput.addEventListener('input',()=>{
+    if(!visible||traveling)return;
+    cancelSearch();closeResults();clearSelection();$('travel-note').textContent='';
+    openPresets();
+  });
+  $('destination-search').addEventListener('keydown',event=>{
+    if(event.code==='Escape'&&resultsMode){
+      event.stopPropagation();event.preventDefault();
+      cancelSearch();closeResults();canvas.focus();
+    }
+  });
   $('address-form').addEventListener('submit',async event=>{
     event.preventDefault();
     if(!visible||traveling)return;
     cancelSearch();setPicking(false);clearSelection();
-    $('address-results').replaceChildren();
+    closeResults();resultsMode='search';
     const epoch=searchEpoch, controller=new AbortController();searchController=controller;
     searching=true;controls();$('address-status').textContent='Searching New York…';
     try{
@@ -116,19 +166,8 @@ export function createCityNavigation({ canvas, camera, input, bounds, onTravel, 
       // Aborting fetch alone cannot prevent a late or already parsed response
       // from replacing a newer search or a manual map selection.
       if(epoch!==searchEpoch||!visible)return;
-      $('address-status').textContent=places.length?'Choose the one you mean.':'Nothing found. Try a corner (53rd & 6th), a business name, or an address with its borough.';
-      for(const place of places){
-        const button=document.createElement('button');button.type='button';button.className='address-result';
-        button.textContent=[place.name,place.what,place.detail,place.borough].filter(Boolean).join(' · ');
-        button.addEventListener('click',()=>{
-          if(traveling||!visible)return;
-          setPicking(false);
-          if(!select(place))return;
-          onAddressSelected(place);updatePin();
-          $('address-results').replaceChildren();$('address-status').textContent='Selected. Check the pin, then choose SPAWN HERE.';
-        });
-        $('address-results').append(button);
-      }
+      $('address-status').textContent=places.length?'Choose a result.':'Nothing found. Try a corner (53rd & 6th), a business name, or an address with its borough.';
+      showResults(places);
     }catch(error){
       if(epoch===searchEpoch&&visible)$('address-status').textContent=error.message;
     }finally{
@@ -137,20 +176,21 @@ export function createCityNavigation({ canvas, camera, input, bounds, onTravel, 
   });
   $('pick-spawn-button').addEventListener('click',()=>{
     if(!visible||traveling)return;
-    cancelSearch();$('address-results').replaceChildren();$('address-status').textContent='';
+    cancelSearch();closeResults();
     setPicking(!picking);
-    if(picking)$('spawn-note').textContent='Click or drag on the city to place your spawn pin, then choose SPAWN HERE.';
-    else $('spawn-note').textContent=selected?selectionLabel()+'. Spawn on the nearest mapped street.':'';
+    if(picking)$('spawn-note').textContent='Click or drag on the city to place your spawn pin.';
+    else $('spawn-note').textContent=selected?selectionLabel():'';
   });
   $('clear-spawn-button').addEventListener('click',()=>{
     if(traveling)return;
     cancelSearch();setPicking(false);clearSelection();
-    $('address-results').replaceChildren();$('address-status').textContent='';
+    closeResults();addressInput.value='';$('travel-note').textContent='';
   });
   $('spawn-button').addEventListener('click',()=>{
     if(visible&&!traveling&&selected)onTravel({...selected});
   });
   canvas.addEventListener('pointerdown',event=>{
+    if(resultsMode==='presets')closeResults();
     if(!visible||traveling||!picking||(event.button!==undefined&&event.button!==0))return;
     event.preventDefault();dragging=event.pointerId;canvas.setPointerCapture(event.pointerId);pick(event);
   });
@@ -169,14 +209,15 @@ export function createCityNavigation({ canvas, camera, input, bounds, onTravel, 
   controls();
   return {
     updatePin,
+    refreshPresets,
     setVisible(value){
       visible=value;
-      if(!visible){cancelSearch();setPicking(false);}
+      if(!visible){cancelSearch();closeResults();setPicking(false);clearSelection();addressInput.value='';}
       updatePin();
     },
     setTraveling(value){
       traveling=value;
-      if(value){cancelSearch();setPicking(false);}
+      if(value){cancelSearch();closeResults();setPicking(false);}
       controls();
     },
     getState:()=>({selected:selected?{...selected}:null,picking,searching}),
