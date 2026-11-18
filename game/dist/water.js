@@ -1,5 +1,6 @@
 import * as THREE from './vendor/three.module.min.js';
 import { shared, supportsFloatTargets } from './gfx-common.js';
+import { harborLimits } from './harbor-limits.js';
 
 // The harbor, the rivers and the sea.
 //
@@ -139,6 +140,37 @@ export function landPolygons(boroughs) {
   return polygons;
 }
 
+// A hull samples the shore at physics frequency. Only edges that cross its
+// latitude can change the point-in-polygon result. Index those in 64 m bands.
+export function shorelineQuery(polygons) {
+  const bands = new Map();
+  for (const polygon of polygons) {
+    for (const ring of [polygon.outer, ...(polygon.holes || [])]) {
+      for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
+        const [x, z] = ring[j], [ex, ez] = ring[i];
+        if (ez === z) continue;
+        const edge = { x, z, low: Math.min(z, ez), high: Math.max(z, ez), slope: (ex-x)/(ez-z) };
+        for (let row = Math.floor(edge.low/64); row <= Math.floor(edge.high/64); row++) {
+          if (!bands.has(row)) bands.set(row, new Map());
+          const groups = bands.get(row);
+          if (!groups.has(polygon)) groups.set(polygon, []);
+          groups.get(polygon).push(edge);
+        }
+      }
+    }
+  }
+  return (x, z) => {
+    const groups = bands.get(Math.floor(z/64));
+    if (!groups) return false;
+    for (const edges of groups.values()) {
+      let inside = false;
+      for (const e of edges) if (z >= e.low && z < e.high && x < e.x + (z-e.z)*e.slope) inside = !inside;
+      if (inside) return true;
+    }
+    return false;
+  };
+}
+
 /**
  * @param {object} options scene; borough outlines; the city's bounds; the sky panorama texture.
  */
@@ -177,11 +209,12 @@ export function createWater({ scene, boroughs, bounds, panorama = null, stairOpe
   let nearKey = '', mirrorTarget = null, disposed = false, waterNearby = false;
   const point = new THREE.Vector3(), eye = new THREE.Vector3(), look = new THREE.Vector3(), rotation = new THREE.Matrix4(), up = new THREE.Vector3(), size = new THREE.Vector2();
   const normal = new THREE.Vector3(0, 1, 0), plane = new THREE.Vector3(0, WATER_LEVEL, 0);
-  const inLand = (x, z) => polygons.some(({ outer, holes, bounds: b }) => x >= b.minX && x <= b.maxX && z >= b.minZ && z <= b.maxZ && inRing(x, z, outer) && !holes.some(hole => inRing(x, z, hole)));
+  const inLand = shorelineQuery(polygons), inCity = shorelineQuery(harborLimits);
   return {
     mesh, material,
     /** True where the shoreline says dry land. */
     isLand: inLand,
+    isNavigable: (x, z) => inCity(x, z) && !inLand(x, z),
     /**
      * Supply the land silhouette around the city: an image whose red channel is
      * zero over water, with the bounds and size from context-land.json.
@@ -253,15 +286,6 @@ export function createWater({ scene, boroughs, bounds, panorama = null, stairOpe
       if (shared.uNycLand.value === far.texture) { shared.uNycLand.value = null; shared.uNycLandRect.value.w = 0; shared.uNycLandNear.value = null; shared.uNycLandNearRect.value.w = 0; }
     },
   };
-}
-
-function inRing(x, z, ring) {
-  let inside = false;
-  for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
-    const a = ring[i], b = ring[j];
-    if ((a[1] > z) !== (b[1] > z) && x < (b[0] - a[0]) * (z - a[1]) / (b[1] - a[1]) + a[0]) inside = !inside;
-  }
-  return inside;
 }
 
 /** Ripples and a mirror finish for a stock material: used for lakes and ponds. */

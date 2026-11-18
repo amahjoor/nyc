@@ -173,3 +173,15 @@ test('ordinary traffic knocks a basket aside and slows to scrape around a mature
   assert.ok(slowest < 4 && clearance > 1.1);
   assert.ok(car.z > lane.z + 20, 'the AI can get moving again once clear of the tree');
 });
+
+test('a mounted Citi Bike stops against a streetlamp and leaves it standing', () => {
+  const sim = game();
+  sim.cars = [];
+  sim.dockedBikes = [{ id: 'rental', x: 0, y: 0, z: 0, angle: 0 }];
+  assert.ok(sim.interact());
+  assert.equal(sim.player.mode, 'bike');
+  sim.streetObjects.replace('lamp', [{ id: 'post', x: 0, y: 0, z: 5, nx: 1, nz: 0, height: 8.2, radius: .13 }]);
+  step(sim, 550, { forward: 1 });
+  assert.ok(sim.player.z > 4 && sim.player.z < 4.4);
+  assert.equal(sim.streetObjects.damage.size, 0);
+});

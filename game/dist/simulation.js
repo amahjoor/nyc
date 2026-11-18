@@ -724,6 +724,8 @@ export class Simulation {
   /** Call after destination collision/roads are loaded; active jobs survive. */
   travelTo(spawn) {
     const target = this._travelSpawn(spawn);
+    this.transport?.abandon();
+    this.bike = null;
     const previousCab = this.cars.find(car => car.id === 'player-taxi');
     this.city = { ...this.city, spawn: target };
     this.cars = [];
@@ -776,6 +778,8 @@ export class Simulation {
         for (const building of this._buildings.get(`${gx},${gz}`) || []) {
           if (checked.has(building)) continue;
           checked.add(building);
+          if (Number.isFinite(baseHeight) && Number.isFinite(building.height)
+              && baseHeight > this.groundHeight(x,z) + building.height + .6) continue;
           keep(circlePolygonContact(x, z, radius, building.polygon, building.holes));
         }
       }
@@ -854,6 +858,7 @@ export class Simulation {
       car.pitch = -Math.atan2((fl + fr - rl - rr) / 2, axle.front - axle.rear);
       car.roll = Math.atan2((fr + rr - fl - rl) / 2, axle.x * 2);
     }
+    if (this.player.mode === 'transport' || this.room || this.seat) return;
     const vehicle = this.player.mode === 'drive' && this.cars.find(car => car.id === this.player.vehicleId);
     const options = Number.isFinite(this.player.y) ? { referenceHeight: this.player.y, mode: 'walk', transportId: this.player.transportId } : undefined;
     if (vehicle) {
@@ -1112,7 +1117,7 @@ export class Simulation {
   }
 
   getNearbyCar() {
-    if (this.player.mode === 'drive') return null;
+    if (this.player.mode !== 'walk') return null;
     let nearest = null;
     let best = 5;
     for (const car of this.cars) {
@@ -1122,6 +1127,35 @@ export class Simulation {
       if (d < best) { nearest = car; best = d; }
     }
     return nearest;
+  }
+
+  getNearbyBike(car = this.getNearbyCar()) {
+    const p = this.player;
+    if (p.mode !== 'walk' || this.room || !p.grounded) return null;
+    let nearest = null, reach = Math.min(2.4, car ? distance(car, p) : Infinity);
+    const consider = bike => {
+      const d = distance(bike, p);
+      if (d < reach && Math.abs(p.y - bike.y) < 1.5 && !this.isBlocked(bike.x, bike.z, .5)
+          && !this._nearCar(bike.x, bike.z, .5, null, bike.y)) { nearest = bike; reach = d; }
+    };
+    if (this.bike) consider(this.bike);
+    for (const bike of this.dockedBikes || []) if (bike.id !== this.bike?.id) consider(bike);
+    return nearest;
+  }
+
+  _dismountBike() {
+    const p = this.player;
+    for (const side of [-1, 1]) {
+      const x = p.x + side * Math.cos(p.angle) * .85, z = p.z - side * Math.sin(p.angle) * .85;
+      if (this.isBlocked(x, z, PLAYER_RADIUS) || this._nearCar(x, z, PLAYER_RADIUS, null, p.y)
+          || this._unsupportedDeckExit(p, x, z, 'walk')) continue;
+      Object.assign(this.bike, { x: p.x, y: p.y, z: p.z, angle: p.angle });
+      Object.assign(p, { mode: 'walk', x, z, velocityX: 0, velocityZ: 0, speed: 0 });
+      this.updateGrounding();
+      return true;
+    }
+    this._say('Move the bike into an open space to get off.');
+    return false;
   }
 
   _say(message, seconds = 4) { this.notice = message; this.noticeTime = seconds; }
@@ -1182,9 +1216,20 @@ export class Simulation {
   interact() {
     const player = this.player;
     if (this.ending) return false;
+    if (player.mode === 'transport') return this.transport.leave();
+    if (player.mode === 'bike') return this._dismountBike();
     if (player.mode === 'walk') {
       if (this.room) return this.leaveRoom();
-      const car = this.getNearbyCar();
+      const ride = this._entering ? null : this.transport?.nearby();
+      if (ride) return this.transport.board(ride);
+      const car = this._entering || this.getNearbyCar();
+      const bike = this._entering ? null : this.getNearbyBike(car);
+      if (bike) {
+        this.bike = { ...bike };
+        Object.assign(player, { mode: 'bike', x: bike.x, y: bike.y, z: bike.z, angle: bike.angle, speed: 0, velocityX: 0, velocityZ: 0, vy: 0, slide: 0, swing: 0 });
+        this._say('W pedal · A / D steer · S or Space brake · E get off');
+        return true;
+      }
       if (!car) { this._say('Move closer to a taxi or parked car.'); return false; }
       if (car.destroyed || car.burningSince != null) { this._say(car.destroyed ? 'This car is burned out.' : 'The car is on fire.'); return false; }
       if (vehicleTravelSpeed(car) > 4) { this._say('Wait for the car to slow down.'); return false; }
@@ -1274,6 +1319,13 @@ export class Simulation {
   }
 
   reset() {
+    if (this.transport?.active) {
+      const stop = this.transport.active.home;
+      this._restoreCondition();
+      try { this.travelTo({ ...stop.board, name:stop.place, exact:true }); }
+      catch { this._say('Recovered aboard. Use the phone to travel to a boarding point.'); }
+      return;
+    }
     // Recovery must remain in the loaded neighborhood after driving away from
     // the last arrival point. Teleporting to an unloaded old spawn is unsafe.
     if ((this.loadedBounds || this._isReadyAt) && this.isBlocked(this.city.spawn.x, this.city.spawn.z, PLAYER_RADIUS)) {
@@ -1331,7 +1383,7 @@ export class Simulation {
     // A fixed accumulator makes handling independent of display refresh rate.
     // Capping a background-tab pause avoids simulating a long unattended chase.
     this._accumulator += clamp(finite(dt), 0, 0.25);
-    const normalized = { forward: clamp(finite(input.forward), -1, 1), turn: clamp(finite(input.turn), -1, 1), moveX: clamp(finite(input.moveX), -1, 1), moveZ: clamp(finite(input.moveZ), -1, 1), brake: Boolean(input.brake), handbrake: Boolean(input.handbrake), run: Boolean(input.run) };
+    const normalized = { forward: clamp(finite(input.forward), -1, 1), turn: clamp(finite(input.turn), -1, 1), lift: clamp(finite(input.lift), -1, 1), moveX: clamp(finite(input.moveX), -1, 1), moveZ: clamp(finite(input.moveZ), -1, 1), brake: Boolean(input.brake), handbrake: Boolean(input.handbrake), run: Boolean(input.run) };
     while (this._accumulator + 1e-10 >= FIXED_STEP) {
       this._accumulator -= FIXED_STEP;
       this._tick(normalized, FIXED_STEP);
@@ -1359,7 +1411,12 @@ export class Simulation {
       this._drive(input, dt);
       const vehicle = this.cars.find(car => car.id === this.player.vehicleId);
       if (vehicle) { this._watchSignals(vehicle); this._hitPeople(vehicle); }
-    } else { this._walk(input, dt, jumping); this._insideJunction = null; }
+    } else {
+      if (this.player.mode === 'transport') this.transport.step(input,dt);
+      else if (this.player.mode === 'bike') this._cycle(input, dt);
+      else this._walk(input, dt, jumping);
+      this._insideJunction = null;
+    }
     this.distanceTravelled += distance(before, this.player);
     this._trafficTimer = (this._trafficTimer || 0) - dt;
     if (this._trafficTimer <= 0) { this._trafficTimer = .5; this._balanceTraffic(); }
@@ -1513,6 +1570,21 @@ export class Simulation {
       car.parked = true;
       resetVehicleDynamics(car);
     }
+  }
+
+  _cycle(input, dt) {
+    const p = this.player;
+    const acceleration = input.brake || input.handbrake || input.forward < 0 ? -8 : input.forward * 3.5 - .4 - .035 * p.speed * p.speed;
+    p.speed = clamp(p.speed + acceleration * dt, 0, 10);
+    p.angle -= input.turn * clamp(p.speed * .7, .65, 2) * dt;
+    p.velocityX = Math.sin(p.angle) * p.speed;
+    p.velocityZ = Math.cos(p.angle) * p.speed;
+    const next = this._resolvePosition(p.x + p.velocityX * dt, p.z + p.velocityZ * dt, .55, null, p, false, dt);
+    if (next.hit || this._nearCar(next.x, next.z, .55, null, p.y)) {
+      p.speed = p.velocityX = p.velocityZ = 0;
+      return;
+    }
+    p.x = next.x; p.z = next.z;
   }
 
   _walk(input, dt, jumping = false) {
@@ -1981,6 +2053,7 @@ export class Simulation {
       this._say('Delivery timed out. Press N to try another job.', 6);
       return;
     }
+    if (this.player.mode === 'transport' && !this.player.grounded) return;
     if (distance(this.player, this.mission.target) < 10 && playerTravelSpeed(this.player) < 3) {
       if (this.mission.meal && this.room) return;
       if (this.mission.stage === 'pickup') {

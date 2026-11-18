@@ -50,9 +50,15 @@ export class CityAudio {
   update(sim, time, playing) {
     if (!this.ctx) return;
     const now = this.ctx.currentTime;
-    const driving = playing && sim.player.mode === 'drive' && !sim.vehicle?.destroyed && sim.vehicle?.burningSince == null;
-    this.engine.frequency.setTargetAtTime(34 + Math.abs(sim.player.speed)*3.4, now, .1);
-    this.engineGain.gain.setTargetAtTime(driving ? .13 : 0, now, .12);
+    const ride = sim.transport?.active, kind = ride?.spec.kind;
+    const motor = (sim.player.mode === 'drive' && !sim.vehicle?.destroyed && sim.vehicle?.burningSince == null) || kind === 'plane' || ride?.home.type === 'motorcycle' || ride?.home.type === 'bus' || (kind === 'boat' && ride.home.type !== 'kayak');
+    const electric = sim.vehicle?.identity?.performance?.fuel === 'E';
+    const base = kind === 'plane' ? 74 : kind === 'boat' ? 25 : electric ? 70 : 34;
+    const speed = Math.abs(sim.player.speed);
+    this.engine.type = electric ? 'sine' : 'sawtooth';
+    this.engine.frequency.setTargetAtTime(base + speed*(kind === 'plane' ? .95 : electric ? 5 : 3.4), now, .1);
+    const volume = electric ? .038*Math.min(1,speed/3) : .13;
+    this.engineGain.gain.setTargetAtTime(playing && motor ? volume : 0, now, .12);
     this.engineFilter.frequency.setTargetAtTime(180 + Math.abs(sim.player.speed)*13, now, .1);
     this.siren.frequency.setTargetAtTime(620 + Math.sin(time*4)*260, now, .04);
     this.sirenGain.gain.setTargetAtTime(playing && sim.heat > 0 ? (sim.spotted ? .045 : .02) : 0, now, .15);
@@ -60,7 +66,7 @@ export class CityAudio {
     // The helicopter is heard before it is seen, and louder overhead.
     if (this.rotorGain) {
       const away = helicopter ? Math.hypot(helicopter.x - sim.player.x, helicopter.z - sim.player.z) : Infinity;
-      this.rotorGain.gain.setTargetAtTime(playing && helicopter ? .22 * Math.max(0, 1 - away / 420) : 0, now, .2);
+      this.rotorGain.gain.setTargetAtTime(playing ? Math.max(kind === 'rotor' ? .3 : 0,.22 * Math.max(0, 1 - away / 420)) : 0, now, .2);
     }
     if (police && police.shotsFired !== this.shotsHeard) { if (playing && this.shotsHeard !== undefined) this.gunshot(); this.shotsHeard = police.shotsFired; }
     this.ambientGain.gain.setTargetAtTime(playing ? .075 : .02, now, .2);

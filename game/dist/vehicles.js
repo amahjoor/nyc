@@ -6,6 +6,8 @@ import { designFor } from './vehicle-designs.js';
 import { renderStats } from './vehicle-stats.js';
 import { carPerformance, describePowertrain } from './vehicle-performance.js';
 import { createCar } from './world.js';
+import { BOARDINGS, TRANSPORT } from './transport-catalog.js';
+import { createTransportModel } from './transport-models.js';
 
 const el = id => document.getElementById(id);
 const count = n => n.toLocaleString('en-US');
@@ -197,5 +199,29 @@ async function start() {
   try { display = studio(el('preview')); }
   catch { el('status').textContent = '3D preview needs WebGL.'; }
   select(byAsset.values().next().value || vehicles[0]);
+  const totals = el('summary').textContent;
+  options('city-transport',Object.entries(TRANSPORT).map(([id,spec]) => [id,spec.name]),'helicopter');
+  function collection() {
+    const transport = el('collection').value === 'transport';
+    el('transport-filter').hidden = !transport;
+    for (const id of ['passenger-filters','passenger-credits','passenger-ranking']) el(id).hidden = transport;
+    el('summary').textContent = transport ? 'Choose a vehicle to see its exterior, boarding points and controls.' : totals;
+    if (!transport) { preview(selected); return; }
+    ++request;
+    const type = el('city-transport').value, spec = TRANSPORT[type];
+    el('stock-specs').hidden = true;
+    el('name').textContent = spec.name;
+    el('population').textContent = BOARDINGS.filter(s=>s.type===type).map(s=>s.place).join(' / ');
+    el('credit').textContent = spec.controls;
+    if (!display) return;
+    const mesh = createTransportModel(type), bounds = new THREE.Box3().setFromObject(mesh);
+    const size = bounds.getSize(new THREE.Vector3()), center = bounds.getCenter(new THREE.Vector3());
+    const scale = Math.min(4.6/Math.max(size.x,size.z),2.7/size.y);
+    mesh.scale.setScalar(scale); mesh.position.set(-center.x*scale,-bounds.min.y*scale,-center.z*scale);
+    display(mesh,size.y*scale*.5); el('status').textContent = '';
+  }
+  el('collection').onchange = collection;
+  el('city-transport').onchange = collection;
+  if (location.hash === '#transport') { el('collection').value = 'transport'; collection(); }
 }
 start().catch(() => { el('summary').textContent = 'The vehicle catalog could not be loaded.'; });

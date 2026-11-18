@@ -29,6 +29,25 @@ test('spawn leaves room beside a nearby driveable taxi', () => {
   assert.equal(sim.player.vehicleId, 'player-taxi');
 });
 
+test('riding a docked bike, braking, parking beside it and remounting', () => {
+  const sim = new Simulation(city());
+  sim.cars = [];
+  sim.dockedBikes = [{ id: 'test/3', x: 1, y: 0, z: 0, angle: 0 }];
+  assert.equal(sim.interact(), true); assert.equal(sim.player.mode, 'bike');
+  advance(sim, 2, { forward: 1 });
+  assert.ok(sim.player.speed > 4 && sim.player.z > 4);
+  advance(sim, .4, { forward: 1, turn: 1 });
+  assert.ok(sim.player.x < 1);
+  advance(sim, 2, { handbrake: true });
+  assert.equal(sim.player.speed, 0);
+  const stop = { ...sim.player };
+  assert.equal(sim.interact(), true); assert.equal(sim.player.mode, 'walk');
+  assert.equal(sim.bike.x, stop.x); assert.equal(sim.bike.z, stop.z);
+  assert.equal(sim.getNearbyBike().id, 'test/3'); sim.interact();
+  assert.equal(sim.player.z, stop.z); assert.equal(sim.player.mode, 'bike');
+  sim.reset(); assert.equal(sim.bike, null);
+});
+
 test('a coasting car hits cross traffic side-on while the player is on foot', () => {
   const sim = new Simulation(city());
   const cross = sim._makeCar('cross', 'sedan', { x: 60, z: 0 }, Math.PI / 2);
@@ -66,6 +85,22 @@ test('player and unoccupied cars make physical contact with pedestrians at stree
     // Nothing is known to the police until the vendor who saw it has made the call.
     assert.equal(sim.heat, 0); assert.equal(sim.police.calls.length > 0, controlled);
     assert.ok(car.speed < 10);
+  }
+});
+
+test('a moving car pushes a walker or cyclist clear and inflicts one impact', () => {
+  for (const cycling of [false, true]) {
+    const sim = new Simulation(city());
+    const car = sim.cars[0];
+    Object.assign(car, { x: 0, z: -5, angle: 0, parked: false, _loose: 3, speed: 14, velocityZ: 14 });
+    if (cycling) {
+      sim.dockedBikes = [{ id: 'bike', x: 0, y: 0, z: 0, angle: 0 }];
+      assert.ok(sim.interact()); assert.equal(sim.player.mode, 'bike');
+    }
+    advance(sim, .35);
+    assert.ok(sim.player.z > .5 && sim.health < 100 && sim.health > 75);
+    assert.equal(sim._nearCar(sim.player.x, sim.player.z, .4, null, sim.player.y), null);
+    assert.equal(sim.heat, 0);
   }
 });
 

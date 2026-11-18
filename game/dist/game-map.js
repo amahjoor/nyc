@@ -2,6 +2,7 @@ import { airports } from './airport-data.js';
 import { searchDestinations } from './geocoder.js';
 import { MAP_CATEGORIES, placeMarks, drawPlaceMarks } from './map-places.js';
 import { thinBlips, drawBlips, blipOpen, blipLegend, blipSvg } from './map-blips.js';
+import { TRANSPORT, isWatercraft, isAircraft } from './transport-catalog.js';
 
 const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
 const finitePoint = point => point && Number.isFinite(point.x) && Number.isFinite(point.z);
@@ -521,6 +522,18 @@ export class GameMap {
       if (note) note.textContent = MAP_CATEGORIES.filter(category => this.placeKinds.has(category.id)).map(category => `${counted[category.id].toLocaleString('en-US')} ${category.label}`).join(' · ') + ' IN VIEW';
     } else if (!mini) { const note = this.byId('game-map-places-note');if (note) note.textContent = this.placeKinds.size ? 'LOADING PLACES…' : ''; }
     const route = pointsOf(this.route);
+    for (const stop of this.sim?.transport?.stops || []) {
+      const p = mapWorldToScreen(stop.board,view);
+      if (p.x < 0 || p.y < 0 || p.x > view.width || p.y > view.height) continue;
+      const spec = TRANSPORT[stop.type], dock = isWatercraft(spec);
+      context.fillStyle = '#153b46';context.strokeStyle = '#b8e4df';context.lineWidth = 1.4;
+      context.beginPath();context.arc(p.x,p.y,mini?8:9,0,Math.PI*2);context.fill();context.stroke();
+      context.textAlign = 'center';context.font = 'bold 12px sans-serif';context.fillStyle = '#effffa';
+      context.fillText(dock?'⚓':isAircraft(spec)?'✈':spec.kind==='cable'||spec.kind==='rail'?'T':'R',p.x,p.y+4);
+      if (!mini && view.span < 6500) {
+        context.fillStyle = '#f4f1e5';context.textAlign = 'left';context.fillText(stop.place,p.x+12,p.y+4);
+      }
+    }
     if (route.length > 1) { context.strokeStyle = '#131c24';context.lineWidth = mini ? 9 : 8;context.beginPath();chain(route);context.stroke();context.strokeStyle = '#ba8cff';context.lineWidth = mini ? 5 : 4;context.stroke(); }
     this.paintDoors(context, view, mini);
     const pin = this.drag?.preview || this.pin || (this.sim?.mission?.phase === 'active' ? this.sim.mission.target : null);

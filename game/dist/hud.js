@@ -2,9 +2,18 @@ import {carCondition} from './vehicle-damage.js';
 import { formatMoney } from './money.js';
 import { title } from './local-search.js';
 import { vehicleName } from './fleet.js';
+import { isAircraft } from './transport-catalog.js';
 
 const $ = id => document.getElementById(id);
 const metersToMiles = .000621371;
+function transportExitLabel(ride, dockDistance) {
+  if (ride.line) return ride.grounded ? 'GET OFF AT STATION' : 'EXIT AT NEXT STATION';
+  if (!ride.grounded) return 'LAND TO GET OUT';
+  if (dockDistance >= 29) return 'DOCK TO GET OUT';
+  if (Math.abs(ride.speed) > 1.2) return 'SLOW DOWN TO GET OUT';
+  return 'GET OUT';
+}
+
 export class HUD {
   constructor(city) {
     this.city = city;
@@ -30,9 +39,14 @@ export class HUD {
   }
   update(sim) {
     const p=sim.player, driving=p.mode==='drive', mission=sim.mission;
-    this.text('speed', String(Math.round(Math.abs(p.speed)*2.23694)).padStart(2,'0'));
-    this.text('speed-unit', driving?'MPH':'ON FOOT');
-    this.text('gear', driving ? p.speed < -.3 ? 'REVERSE' : Math.abs(p.speed) < .2 ? 'IDLE' : 'DRIVE' : 'FREE ROAM');
+    const ride=sim.transport?.active, boarding=sim.transport?.nearby(), flying=isAircraft(ride?.spec);
+    const knots=flying||ride?.spec.kind==='boat';
+    this.text('speed', String(Math.round(Math.abs(p.speed)*(knots?1.94384:2.23694))).padStart(2,'0'));
+    const cycling=p.mode==='bike';
+    this.text('speed-unit', knots?'KT':ride||driving||cycling?'MPH':'ON FOOT');
+    this.text('gear', flying ? Math.round(Math.max(0,p.y)*3.28084)+' FT' : ride ? ride.spec.name.toUpperCase() : cycling?'CITI BIKE':driving ? p.speed < -.3 ? 'REVERSE' : Math.abs(p.speed) < .2 ? 'IDLE' : 'DRIVE' : 'FREE ROAM');
+    $('touch-climb').hidden=$('touch-descend').hidden=!flying;
+    $('touch-brake').hidden=Boolean(flying);
     if (!$('cash-display').hidden) this.text('cash', formatMoney(sim.cash));
     this.text('deliveries', sim.deliveries+' DELIVERIES');
     this.text('distance', (sim.distanceTravelled*metersToMiles).toFixed(1)+' MI');
@@ -40,7 +54,9 @@ export class HUD {
     this.text('health-label', driving ? 'CAR CONDITION' : 'CONDITION');
     this.text('health-number', String(condition));
     $('health-bar').style.width = Math.max(0,condition)+'%';
-    this.text('street-name', title(sim.getStreet()));
+    const dock=ride?.grounded && (ride.spec.kind==='boat'||ride.spec.floats) ? sim.transport.nearestLanding(p) : null;
+    const dockDistance=dock ? Math.hypot(dock.berth.x-p.x,dock.berth.z-p.z) : 0;
+    this.text('street-name',dock ? dock.place+' · '+(dockDistance < 29 ? 'DOCK' : Math.round(dockDistance)+' m') : flying ? ride.spec.name : title(sim.getStreet()));
     const police = sim.police, stars = Math.min(5, Math.ceil(sim.heat - 1e-9)), searching = Boolean(stars && police?.state === 'search');
     this.text('wanted-stars', '★'.repeat(stars) + '☆'.repeat(5 - stars));
     this.text('wanted-label', police?.arrest > .15 ? 'HANDS UP' : searching ? (police.cornered ? 'THEY KNOW WHERE YOU ARE' : 'STAY OUT OF SIGHT') : stars > 1 ? 'LOSE THE COPS' : 'WANTED');
@@ -52,13 +68,16 @@ export class HUD {
     const evade = $('wanted-evade');
     if (evade?.style) evade.style.width = searching && police.evadeTotal ? Math.round(100 * (1 - Math.max(0, police.evade) / police.evadeTotal)) + '%' : '0%';
     const near = sim.getNearbyCar();
+    const bike = sim.getNearbyBike(near);
     const moving = Math.hypot(p.velocityX || 0, p.velocityZ || 0) > 4;
-    const punching = !driving && !near && sim.melee;
+    const punching = p.mode==='walk' && !sim.room && !boarding && !bike && !near && (sim.melee || p.armed);
     const prompt = $('interact-prompt');
-    prompt.hidden = !driving && !near && !punching;
-    prompt.querySelector('kbd').textContent = punching ? 'F' : 'E';
+    const interactLabel = null;
+    prompt.hidden = !interactLabel && !ride && !boarding && !driving && !cycling && !bike && !near && !punching;
+    prompt.querySelector('kbd').textContent = punching && !interactLabel ? 'F' : 'E';
     const enterLabel = near?.identity ? 'ENTER ' + vehicleName(near.identity).toUpperCase() : 'ENTER VEHICLE';
-    prompt.querySelector('span').textContent = driving ? (moving ? 'BAIL OUT' : 'EXIT VEHICLE') : near ? (near.type === 'taxi' ? 'GET IN THE CAB' : enterLabel) : 'PUNCH';
+    prompt.querySelector('span').textContent = interactLabel || (ride ? transportExitLabel(ride,dockDistance) : boarding ? 'BOARD '+boarding.spec.name.toUpperCase() : cycling ? 'GET OFF BIKE' : bike ? 'RIDE CITI BIKE' : driving ? (moving ? 'BAIL OUT' : 'EXIT VEHICLE') : near ? (near.type === 'taxi' ? 'GET IN THE CAB' : enterLabel) : p.armed ? 'SHOOT' : 'PUNCH');
+    this.text('touch-enter', interactLabel || (ride||driving||cycling?'EXIT':boarding?'BOARD':'ENTER'));
     $('toast').textContent = sim.notice || '';
     $('toast').classList.toggle('visible', Boolean(sim.notice && sim.noticeTime>0));
     const active=mission.phase==='active' && mission.target;

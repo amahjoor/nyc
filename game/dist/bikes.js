@@ -5,7 +5,7 @@
 // nearest kerb with a pay kiosk at one end and bikes in about six docks of
 // ten. Real stations mostly stand in the parking lane; here they are on the
 // sidewalk side of the kerb, because the game parks cars in that lane, and a
-// long station is cut to the docks that fit. The bikes cannot be ridden.
+// long station is cut to the docks that fit.
 import * as THREE from './vendor/three.module.min.js';
 
 const CELL = 256;
@@ -72,17 +72,21 @@ function bikeGeometry() {
 export function createBikeDocks({ scene = null, heightAt = () => 0, capacity = 240 } = {}) {
   const group = new THREE.Group(); group.name = 'Citi Bike stations'; scene?.add(group);
   const bike = bikeGeometry(), paint = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: .5, metalness: .3 }); paint.name = 'Citi Bike';
+  const rental = new THREE.Mesh(bike, paint); rental.name = 'Borrowed Citi Bike';
+  rental.visible = false; rental.castShadow = true; scene?.add(rental);
+  const available = [];
   const bikes = new THREE.InstancedMesh(bike, paint, capacity); bikes.name = 'Citi Bikes'; bikes.count = 0; bikes.frustumCulled = false; bikes.castShadow = true;
   const box = new THREE.BoxGeometry(1, 1, 1), steel = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: .6, metalness: .4 }); steel.name = 'Citi Bike docks';
   const posts = new THREE.InstancedMesh(box, steel, capacity * 2 + 64); posts.name = 'Citi Bike docks'; posts.count = 0; posts.frustumCulled = false; posts.castShadow = true;
   group.add(bikes, posts);
   const matrix = new THREE.Matrix4(), place = new THREE.Vector3(), turn = new THREE.Quaternion(), size = new THREE.Vector3(), one = new THREE.Vector3(1, 1, 1), up = new THREE.Vector3(0, 1, 0), colour = new THREE.Color();
   return {
-    group,
+    group, rental, available,
     get counts() { return { bikes: bikes.count, parts: posts.count }; },
     /** Returns how many stations were drawn whole. */
-    update(rows) {
+    update(rows, borrowedId = null) {
       let b = 0, p = 0, whole = 0;
+      available.length = 0;
       for (const row of rows) {
         if (b + row.docks > capacity) break;
         // A bike's front wheel, and its dock, are toward the roadway.
@@ -96,8 +100,12 @@ export function createBikeDocks({ scene = null, heightAt = () => 0, capacity = 2
           const along = (i - (row.docks - 1) / 2) * DOCKS.pitch;
           part(along, .78, .4, .16, .8, .22, 0x9da3a8); part(along, .78, .83, .2, .06, .26, 0x2a2c30);
           if (!row.bikes[i]) continue;
+          const id = `${row.station.x},${row.station.z}/${i}`;
+          if (id === borrowedId) continue;
           const x = row.x + row.tx * along, z = row.z + row.tz * along;
-          place.set(x, heightAt(x, z), z); turn.setFromAxisAngle(up, facing); matrix.compose(place, turn, one); bikes.setMatrixAt(b++, matrix);
+          const y = heightAt(x, z);
+          available.push({ id, x, y, z, angle: facing });
+          place.set(x, y, z); turn.setFromAxisAngle(up, facing); matrix.compose(place, turn, one); bikes.setMatrixAt(b++, matrix);
         }
         // The plate the docks stand on, and the pay kiosk at one end.
         part(0, .55, .03, row.docks * DOCKS.pitch + .3, .06, .7, 0x4a4e52);
@@ -108,6 +116,6 @@ export function createBikeDocks({ scene = null, heightAt = () => 0, capacity = 2
       bikes.count = b; posts.count = p; bikes.instanceMatrix.needsUpdate = posts.instanceMatrix.needsUpdate = true; if (posts.instanceColor) posts.instanceColor.needsUpdate = true;
       return whole;
     },
-    dispose() { bike.dispose(); box.dispose(); paint.dispose(); steel.dispose(); bikes.dispose(); posts.dispose(); group.removeFromParent(); },
+    dispose() { bike.dispose(); box.dispose(); paint.dispose(); steel.dispose(); bikes.dispose(); posts.dispose(); group.removeFromParent(); rental.removeFromParent(); },
   };
 }

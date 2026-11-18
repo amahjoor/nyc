@@ -46,6 +46,12 @@ test('bikes stand in their docks on the sidewalk side of the kerb, nose to the r
   for (let i = 0; i < posts.count; i++) { posts.getMatrixAt(i, matrix); at.setFromMatrixPosition(matrix); assert.ok(at.z < 0 && at.z > -DOCKS.setback); }
   const small = createBikeDocks({ capacity: 10 });
   assert.equal(small.update([row, row]), 1);
+  const [borrowed] = docks.available, original = docks.counts;
+  docks.update([row], borrowed.id);
+  assert.equal(docks.available.some(bike => bike.id === borrowed.id), false);
+  assert.deepEqual(docks.counts, { ...original, bikes: original.bikes - 1 });
+  docks.update([row]);
+  assert.deepEqual(docks.counts, original);
   assert.equal(docks.update([]), 0); assert.deepEqual(docks.counts, { bikes: 0, parts: 0 });
   docks.dispose(); small.dispose(); assert.equal(scene.children.length, 0);
 });

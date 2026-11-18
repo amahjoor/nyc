@@ -47,7 +47,7 @@ export function listPlaces(places, { category = 'all', query = '', x = 0, z = 0,
  * the places within reach; `state()` gives { x, z, hours, clock, cash, fares,
  * miles, redLights }. The rest are what its buttons do.
  */
-export function createPhone({ $, places = () => [], state = () => ({}), onDirections = () => {}, onJob = () => {}, onWork = () => {}, onMap = () => {}, onOpenChange = () => {}, onMechanic = () => {}, onCab = () => {} } = {}) {
+export function createPhone({ $, places = () => [], state = () => ({}), onDirections = () => {}, onTransport = () => {}, onJob = () => {}, onWork = () => {}, onMap = () => {}, onOpenChange = () => {}, onMechanic = () => {}, onCab = () => {} } = {}) {
   const SCREENS = ['home', 'nearby', 'place', 'contacts', 'wallet', 'list'], TITLES = { home: 'PHONE', nearby: 'NEARBY', place: 'PLACE', contacts: 'CONTACTS', wallet: 'WALLET' };
   let listing = null, listPage = 0;
   let open = false, screen = 'home', category = 'all', page = 0, rows = [], chosen = null, listed = -Infinity;
@@ -193,6 +193,7 @@ export function createPhone({ $, places = () => [], state = () => ({}), onDirect
   const click = (id, action) => $(id).addEventListener('click', action);
   click('phone-app-nearby', () => { page = 0; show('nearby'); }); click('phone-app-contacts', () => show('contacts')); click('phone-app-wallet', () => show('wallet'));
   click('phone-app-work', onWork);
+  click('phone-app-transport', onTransport);
   click('phone-app-map', () => { setOpen(false); onMap(); });
   for (const item of CATEGORIES) click(`phone-chip-${item.id}`, () => { category = item.id; page = 0; render(); });
   $('phone-search').addEventListener('input', () => { page = 0; render(); });

@@ -33,7 +33,10 @@ import { createPlaceLayer } from '../dist/map-places.js';
 import { createGraphics } from '../dist/gfx.js';
 import { createStreetscape, ROAD_LIFT, SIDEWALK_LIFT } from '../dist/streetscape.js';
 import { createStreetLife } from '../dist/streetlife.js';
-import { createWater } from '../dist/water.js';
+import { createWater, WATER_LEVEL } from '../dist/water.js';
+import { BOARDINGS, TRANSPORT, transportDestination } from '../dist/transport-catalog.js';
+import { TransportFleet } from '../dist/transport.js';
+import { createTransportScene } from '../dist/transport-models.js';
 import { createCityLife, manhattanCore, characterAt } from '../dist/citylife.js';
 import { createStreetSigns } from '../dist/street-signs.js';
 import { createCrowd, dress, seeded, KIT } from '../dist/crowd.js';
@@ -295,7 +298,7 @@ async function bootHarness({ stored = null, displayStored = null, unavailableSto
     updateChaseHeight, createDriverCabin, createCityGround, worldToGeographic, createRoadStream, nearestStreet, localDestinations, createCityNavigation,
     createStreetDetail:(manifest,options)=>createStreetDetail(manifest,{...options,now:()=>timestamp}),
     renderStats, performanceName, vehicleHandling, createDoorDebris, carCondition, createCarSmoke, createCentralPark,
-    Landscape, RoadPilot, AbortSignal, createGraphics, createStreetLife, createWater, setVehicleLamps, OFFICER_LOOK, createPoliceScene, createCityLife, manhattanCore, createStreetSigns, createCrowd, dress, seeded, KIT, createStreetProps, createPlaceSource, placeName, joinPlaceSources, indexFootprints, solveFrontages, createStorefronts, createInteraction, createPhone, describePlace, createFleet, createVehicleMeshLibrary, designFor, createSwitchShot, offersAt, shopRows, planRoom, buildRoom, roomKind, hasRoom, doorBlips, createDemographics, characterAt, createBuses, createBusStops, createSheds, planSheds, createShedMesh, createDining, planDining, createDiningMesh, seatsOf, planStands, vendorOf, createStandMesh, createBikeShare, planBikeDocks, createBikeDocks, menuFor, createSubway, createSubwayEntrances, FARE, indexKerbs, snapToKerb, formatDistance,
+    Landscape, RoadPilot, AbortSignal, createGraphics, createStreetLife, createWater, WATER_LEVEL, BOARDINGS, TRANSPORT, transportDestination, TransportFleet, createTransportScene, setVehicleLamps, OFFICER_LOOK, createPoliceScene, createCityLife, manhattanCore, createStreetSigns, createCrowd, dress, seeded, KIT, createStreetProps, createPlaceSource, placeName, joinPlaceSources, indexFootprints, solveFrontages, createStorefronts, createInteraction, createPhone, describePlace, createFleet, createVehicleMeshLibrary, designFor, createSwitchShot, offersAt, shopRows, planRoom, buildRoom, roomKind, hasRoom, doorBlips, createDemographics, characterAt, createBuses, createBusStops, createSheds, planSheds, createShedMesh, createDining, planDining, createDiningMesh, seatsOf, planStands, vendorOf, createStandMesh, createBikeShare, planBikeDocks, createBikeDocks, menuFor, createSubway, createSubwayEntrances, FARE, indexKerbs, snapToKerb, formatDistance,
     // Bundled survey cells only: these tests stay offline.
     createStreetscape:options=>createStreetscape({...options,live:false,now:()=>timestamp}),
     console: { error: error => errors.push(error), warn: () => {}, log: () => {} },
@@ -941,6 +944,29 @@ test('surveyed street furniture in the live scene uses the same positions for dr
     }
     assert.equal(app.errors.length, 0, app.errors[0]?.stack);
   } finally { app.close(); }
+});
+
+test('E takes a visible Citi Bike from its dock, rides it and leaves it available to remount',async()=>{
+  const app=await bootHarness();
+  try{
+    app.click('start-button');app.click('view-button');
+    const sim=app.simulation(),docks=app.window.nycGame.bikeDocks;
+    await app.until(()=>{app.frames();return docks.available.length>0;},'no bikes at the surveyed kerbs');
+    const bike=docks.available.find(at=>!sim.isBlocked(at.x,at.z,.55)&&!sim._nearCar(at.x,at.z,.55,null,at.y));
+    assert.ok(bike);Object.assign(sim.player,{x:bike.x,y:bike.y,z:bike.z});
+    app.key('KeyE');app.key('KeyE',false);app.frames();
+    assert.equal(sim.player.mode,'bike');assert.equal(sim.bike.id,bike.id);
+    assert.ok(docks.rental.visible&&!docks.available.some(at=>at.id===bike.id));
+    app.key('KeyW');app.frames(24);app.key('KeyW',false);
+    assert.ok(Math.hypot(sim.player.x-bike.x,sim.player.z-bike.z)>.1);
+    assert.equal(docks.rental.position.x,sim.player.x);
+    app.key('KeyE');app.key('KeyE',false);app.frames();
+    assert.equal(sim.player.mode,'walk');assert.ok(docks.rental.visible);
+    Object.assign(sim.player,{x:sim.bike.x,z:sim.bike.z});
+    app.key('KeyE');app.key('KeyE',false);app.frames();
+    assert.equal(sim.player.mode,'bike');assert.equal(sim.bike.id,bike.id);
+    assert.equal(app.errors.length,0,app.errors[0]?.stack);
+  }finally{app.close();}
 });
 
 test('first person follows the walker at eye level and keeps their heading while strafing',async()=>{
@@ -1775,6 +1801,42 @@ test('a player can clock in through the phone, finish a shift and spend the payc
     assert.equal(app.errors.length, 0);
   } finally { app.close(); }
 });
+
+test('the transport picker, touch flight controls, camera and phone all use the playable fleet',async()=>{
+  const app=await bootHarness({coarsePointer:true});
+  try {
+    app.click('start-button');app.click('transport-picker');
+    const options=app.elements.get('address-results').children;
+    assert.equal(options.length,BOARDINGS.length);
+    options.find(button=>button.textContent.startsWith('Tour helicopter')).click();
+    app.click('spawn-button');await app.until(()=>!app.state().traveling);
+    const sim=app.simulation();
+    for(let i=0;i<900 && app.state().switching;i++)app.frames();
+    app.frames(6);assert.match(app.elements.get('interact-prompt').querySelector('span').textContent,/BOARD TOUR HELICOPTER/);
+    app.key('KeyE');app.key('KeyE',false);app.frames(6);
+    assert.equal(sim.transport.active.home.id,'pier6');assert.equal(app.elements.get('touch-climb').hidden,false);
+    const climb=app.elements.get('touch-climb');
+    climb.dispatch('pointerdown',{pointerId:3});app.frames(48);climb.dispatch('pointerup',{pointerId:3});
+    assert.ok(sim.player.y>2);assert.equal(app.elements.get('speed-unit').textContent,'KT');
+    assert.equal(app.elements.get('interact-prompt').querySelector('span').textContent,'LAND TO GET OUT');
+    app.key('KeyB');app.key('KeyB',false);app.frames();assert.equal(app.state().firstPersonView,true);
+    assert.ok(app.camera().position.y>sim.player.y);
+    app.key('KeyE');app.key('KeyE',false);assert.equal(sim.player.mode,'transport');
+    app.key('ArrowUp');app.key('ArrowUp',false);app.click('phone-app-transport');
+    assert.match(app.elements.get('phone-title').textContent,/boarding point/i);
+    app.click('phone-ride-4');await app.until(()=>!app.state().traveling);
+    assert.equal(sim.player.mode,'walk');assert.equal(sim.transport.active,null);
+    for(let i=0;i<900 && app.state().switching;i++)app.frames();
+    app.key('KeyE');app.key('KeyE',false);app.frames(8);assert.equal(sim.transport.active.home.id,'pier11');
+    assert.equal(app.elements.get('touch-climb').hidden,true);
+    const start={...sim.player};app.key('KeyW');app.frames(50);app.key('KeyW',false);
+    assert.ok(Math.hypot(sim.player.x-start.x,sim.player.z-start.z)>.4);assert.equal(sim.player.y,WATER_LEVEL);
+    app.key('KeyR');app.key('KeyR',false);await app.until(()=>!app.state().traveling);
+    assert.equal(sim.player.mode,'walk');assert.equal(sim.transport.nearby().home.id,'pier11');
+    assert.equal(app.errors.length,0,app.errors[0]?.stack);
+  } finally {app.close();}
+});
+
 test('subway steps support the walking player after street travel and E opens the station',async()=>{
   const app=await bootHarness({terrainElevation:12});
   try {

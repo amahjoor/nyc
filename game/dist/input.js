@@ -74,6 +74,7 @@ export class Input {
     let walkForward = forward;
     let handbrake = has('Space') || this.touch.has('brake');
     let run = has('ShiftLeft','ShiftRight');
+    let climb = has('Space') || this.touch.has('climb'), descend = run || this.touch.has('descend');
     const pad = Array.from(navigator.getGamepads?.() || []).find(Boolean);
     if (pad) {
       // Remap the usable stick range continuously. Returning the raw axis
@@ -87,6 +88,8 @@ export class Input {
       // accidental left-stick acceleration while the player is steering.
       forward = accelerator || reverse ? accelerator - reverse : walkForward;
       handbrake ||= Boolean(pad.buttons[2]?.pressed);
+      climb ||= Boolean(pad.buttons[2]?.pressed);
+      descend ||= Boolean(pad.buttons[4]?.pressed);
       run ||= Boolean(pad.buttons[10]?.pressed);
       this.lookDelta -= dead(pad.axes[2]) * dt * 2;
       this.lookVertical += dead(pad.axes[3]) * dt;
@@ -99,7 +102,7 @@ export class Input {
       }
     } else this.padButtons = [];
     return {
-      forward, turn, brake: false, handbrake, run,
+      forward, turn, lift: Number(climb) - Number(descend), brake: false, handbrake, run,
       // The chase camera looks toward +Z at yaw zero. Its screen-right basis
       // is forward cross up = (-cos(yaw), 0, sin(yaw)), not world +X.
       moveX: Math.sin(cameraYaw) * walkForward - Math.cos(cameraYaw) * turn,

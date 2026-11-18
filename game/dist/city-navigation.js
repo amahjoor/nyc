@@ -46,6 +46,7 @@ export function createCityNavigation({ canvas, camera, input, bounds, onTravel, 
     addressInput.disabled=traveling;
     $('address-search-button').disabled=traveling;
     $('pick-spawn-button').disabled=traveling;
+    $('transport-picker').disabled=traveling;
     $('clear-spawn-button').disabled=traveling;
     $('spawn-button').disabled=traveling||!selected;
     $('address-form').setAttribute('aria-busy',String(searching));
@@ -102,10 +103,11 @@ export function createCityNavigation({ canvas, camera, input, bounds, onTravel, 
     }
   }
   function refreshPresets() {
+    if(resultsMode==='transport'){showResults(getPresets().filter(place=>place.boarding));return;}
     if(resultsMode!=='presets')return;
     const words=addressInput.value.trim().toLowerCase().split(/\s+/);
     const matches=getPresets().filter(place=>{
-      const label=place.name.toLowerCase()+' '+(place.borough||'').toLowerCase();
+      const label=[place.name,place.borough,place.keywords].filter(Boolean).join(' ').toLowerCase();
       return words.every(word=>label.includes(word));
     });
     showResults(matches);
@@ -142,6 +144,12 @@ export function createCityNavigation({ canvas, camera, input, bounds, onTravel, 
   }
 
   addressInput.addEventListener('focus',openPresets);
+  $('transport-picker').addEventListener('click',()=>{
+    if(!visible||traveling)return;
+    const wasOpen=resultsMode==='transport';
+    cancelSearch();closeResults();setPicking(false);
+    if(!wasOpen){resultsMode='transport';refreshPresets();}
+  });
   addressInput.addEventListener('click',openPresets);
   addressInput.addEventListener('input',()=>{
     if(!visible||traveling)return;
@@ -190,7 +198,7 @@ export function createCityNavigation({ canvas, camera, input, bounds, onTravel, 
     if(visible&&!traveling&&selected)onTravel({...selected});
   });
   canvas.addEventListener('pointerdown',event=>{
-    if(resultsMode==='presets')closeResults();
+    if(resultsMode==='presets'||resultsMode==='transport')closeResults();
     if(!visible||traveling||!picking||(event.button!==undefined&&event.button!==0))return;
     event.preventDefault();dragging=event.pointerId;canvas.setPointerCapture(event.pointerId);pick(event);
   });

@@ -5,7 +5,8 @@
 // sign at the kerb. Waiting at one, a ride is to any other stop a route from
 // here also calls at. The list does not say in what order a route makes its
 // stops, so there is no telling which way a bus is going: either way is
-// offered. The buses themselves are not modelled.
+// offered. Scheduled rides use a transfer. The Grand Concourse bus in the
+// transport fleet can also be boarded and driven.
 import * as THREE from './vendor/three.module.min.js';
 
 const CELL = 256;

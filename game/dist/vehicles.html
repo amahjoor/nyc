@@ -61,17 +61,21 @@
         <p id="stock-powertrain"></p><small id="stock-basis"></small></section><p id="credit"></p>
     </figure>
     <aside aria-label="Find a vehicle">
-      <label>Make<select id="make"></select></label>
-      <label>Model<select id="model"></select></label>
-      <label>Model year and body<select id="variant"></select></label>
-      <label class="shortcuts">Jump to a licensed exterior<select id="exteriors"></select></label>
-      <fieldset id="paints"><legend>Preview paint</legend></fieldset>
+      <label>Collection<select id="collection"><option value="cars">Passenger cars</option><option value="transport">City transport</option></select></label>
+      <div id="passenger-filters">
+        <label>Make<select id="make"></select></label>
+        <label>Model<select id="model"></select></label>
+        <label>Model year and body<select id="variant"></select></label>
+        <label class="shortcuts">Jump to a licensed exterior<select id="exteriors"></select></label>
+        <fieldset id="paints"><legend>Preview paint</legend></fieldset>
+      </div>
+      <label id="transport-filter" hidden>Vehicle<select id="city-transport"></select></label>
     </aside>
   </div>
-  <section class="ranking" aria-labelledby="ranking-title">
+  <section id="passenger-ranking" class="ranking" aria-labelledby="ranking-title">
     <div class="rank-head"><h2 id="ranking-title">Most registered model years</h2><label>Registration area<select id="area"></select></label></div>
     <table><thead><tr><th scope="col">Passenger vehicle</th><th scope="col">Registrations</th></tr></thead><tbody id="ranking"></tbody></table>
   </section>
-  <footer><p id="method"></p><p>Counts cover eligible passenger registrations across the five boroughs. The game uses the nearest registration ZIP to populate each street. <a href="https://data.ny.gov/d/w4pv-hbkt">NYS DMV register</a> · <a href="https://vpic.nhtsa.dot.gov/">NHTSA vehicle decoder</a> · <a href="./assets/vehicles/index.json">All vehicle credits and licenses</a></p></footer>
+  <footer id="passenger-credits"><p id="method"></p><p>Counts cover eligible passenger registrations across the five boroughs. The game uses the nearest registration ZIP to populate each street. <a href="https://data.ny.gov/d/w4pv-hbkt">NYS DMV register</a> · <a href="https://vpic.nhtsa.dot.gov/">NHTSA vehicle decoder</a> · <a href="./assets/vehicles/index.json">All vehicle credits and licenses</a></p></footer>
   <script type="module" src="./vehicles.js"></script>
 </main></body></html>

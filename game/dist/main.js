@@ -27,7 +27,10 @@ import { createPlaceLayer } from './map-places.js';
 import { createGraphics } from './gfx.js';
 import { createStreetscape } from './streetscape.js';
 import { createStreetLife } from './streetlife.js';
-import { createWater } from './water.js';
+import { createWater, WATER_LEVEL } from './water.js';
+import { BOARDINGS, TRANSPORT, transportDestination } from './transport-catalog.js';
+import { TransportFleet } from './transport.js';
+import { createTransportScene } from './transport-models.js';
 import { createCityLife, manhattanCore, characterAt } from './citylife.js';
 import { createStreetSigns } from './street-signs.js';
 import { createCrowd, dress, seeded, KIT } from './crowd.js';
@@ -70,6 +73,7 @@ let cityView=false, cityZoom=1, cityOrbit=0, cityFocus=null, roadCell='', roadEp
 let streetscape=null, streetLife=null, water=null, parkedCars=null, distantTraffic=null, signs=null, crowd=null, props=null, cityLife=createCityLife(null), lifeTimer=0;
 const noStreetFurniture=[], crowdAhead=new THREE.Vector3();
 let cameraFlashing=false;
+let transportScene;
 // What is at each address (places.js), and the street fronts of those near the player.
 let placeSource=null, storefronts=null, footprints=indexFootprints([]), fronts=[], frontsFor=null, placeTimer=0;
 // The doors that can be walked through near the player, as the radar and the map mark them: fronts with a room behind them, and the subway's stairs.
@@ -97,7 +101,7 @@ let dining=null, diningMesh=null, diners=[];
 // Newsstands and fruit stands at the kerb, and whoever minds each.
 let standMesh=null, vendors=[], standHere=null;
 // Citi Bike: the stations, and the docks drawn nearby.
-let bikeShare=null, bikeDocks=null;
+let bikeShare=null, bikeDocks=null, bikeRows=[], borrowedDock=null;
 let subway=null, subwayStairs=null, stairHere=null, kerbIndex=null, kerbsFor=null;
 // Which cars are registered where (fleet.js): the whole city's mix until the counts by ZIP code have loaded.
 let fleet=createFleet(null);
@@ -127,6 +131,7 @@ function cityPresets(){
   const streets=streetManifest?.coverageRegions.filter(region=>region.view)||[];
   const places=[
     ...roadIndex.places,
+    ...BOARDINGS.map(transportDestination),
     ...parks.map(region=>({...region.view,name:region.name})),
     ...streets.map(region=>({...region.view,name:region.exploreName||region.name})),
   ];
@@ -254,6 +259,11 @@ function action(name,event) {
   if(!started||paused||traveling||!bootReady||cityView)return;
   if(name==='cash'){if(!phone?.open)hud.showCash(sim.cash);return;}
   if(name==='interact'){
+    if(phone?.open)return;
+    if(sim.player.mode==='transport'||sim.transport.nearby()||sim.player.mode==='bike'||sim.getNearbyBike()){
+      if(sim.interact()){yaw=sim.player.angle;snapChase=true;headAnchor=undefined;}
+      return;
+    }
     // On foot at a bus stop: on to the next bus. A ride is to any stop a route from here also calls at.
     if(sim.player.mode==='walk'&&!sim.room&&!stairHere&&stopHere&&!sim.getNearbyCar()){
       const from=stopHere.stop,rides=buses.ridesFrom(from).map(ride=>({ride,name:ride.stop.name,note:ride.lines.slice(0,3).join(' ')+' · '+formatDistance(ride.distance)+' · $'+FARE.toFixed(2)}));
@@ -290,7 +300,13 @@ function action(name,event) {
     }
   }
   if(name==='job')sim.startMission();
-  if(name==='recover'){chaseHeight=null;chaseEyeOffset=null;headAnchor=undefined;sim.reset();yaw=sim.player.angle;aerialTracking=false;chaseLookAhead.set(0,0,0);announce('Recovered to a nearby street. Your next ride is waiting.');}
+  if(name==='recover'){
+    if(sim.transport.active){
+      travel(transportDestination(sim.transport.active.home)).then(arrived=>{if(arrived)sim._restoreCondition();});
+      return;
+    }
+    chaseHeight=null;chaseEyeOffset=null;headAnchor=undefined;sim.reset();yaw=sim.player.angle;aerialTracking=false;chaseLookAhead.set(0,0,0);announce('Recovered to a nearby street. Your next ride is waiting.');
+  }
   if(name==='camera'){
     if(firstPersonActive()){
       firstPerson=false;updatePerspectiveButton();
@@ -484,6 +500,19 @@ function animatePerson(mesh,moving,time,speed=1) {
 
 function syncScene(dt,controls) {
   const p=sim.player, eyeView=firstPersonActive();
+  const cycling=p.mode==='bike';
+  const ride=sim.transport.active, type=ride?.home.type;
+  const openRide=type==='scooter'||type==='motorcycle'||type==='kayak';
+  transportScene.update(p,elapsed,started&&!cityView,eyeView);
+  if(bikeDocks){
+    const id=sim.bike?.id??null;
+    if(id!==borrowedDock){borrowedDock=id;bikeDocks.update(bikeRows,id);}
+    bikeDocks.rental.visible=Boolean(sim.bike);
+    if(sim.bike){
+      const at=cycling?p:sim.bike;
+      bikeDocks.rental.position.set(at.x,at.y,at.z);bikeDocks.rental.rotation.y=at.angle;
+    }
+  }
   if(driverCabin)driverCabin.group.visible=eyeView&&p.mode==='drive';
   // Kerbside cars are drawn together, and so is traffic more than a few car
   // lengths off. The player's car, a patrol, a car left standing in the road
@@ -520,6 +549,12 @@ function syncScene(dt,controls) {
       const lunging=(p.swing||0)>0;
       extras.push({x:p.x+Math.sin(p.angle)*(lunging?0.45:0),y:p.y||0,z:p.z+Math.cos(p.angle)*(lunging?0.45:0),heading:p.angle,phase:lunging?1.2:playerStride,stride:lunging?0.2:Math.min(1,pace/1.2),look:PLAYER_LOOK});
     }
+    if(cycling&&!eyeView)extras.push({x:p.x-.28*Math.sin(p.angle),y:(p.y||0)+.52,z:p.z-.28*Math.cos(p.angle),heading:p.angle,cycling:true,phase:playerStride*.42,look:PLAYER_LOOK});
+    if(openRide&&!eyeView){
+      const offset=type==='motorcycle'?-.38:type==='kayak'?-.24:0;
+      extras.push({x:p.x+Math.sin(p.angle)*offset,z:p.z+Math.cos(p.angle)*offset,
+        y:p.y+(type==='kayak' ? -.20 : type==='motorcycle' ? .34 : .22),heading:p.angle,sitting:type!=='scooter',look:PLAYER_LOOK});
+    }
     // Officers out of their cars are drawn the same way, in uniform.
     for(const officer of sim.police.officers)extras.push({x:officer.x,y:officer.y||0,z:officer.z,heading:officer.angle,phase:officer.aiming?1.2:officer.phase,stride:officer.aiming?.2:officer.stride,look:OFFICER_LOOK});
     crowd.setExtras(extras);
@@ -533,8 +568,20 @@ function syncScene(dt,controls) {
   }
   policeScene.update(sim.police,elapsed,started&&!cityView);
   for(const person of roomStaff)person.visible=!modelled;
-  avatar.visible=p.mode==='walk'&&!modelled&&!eyeView;avatar.position.set(p.x,p.y||0,p.z);avatar.rotation.y=p.angle;
+  avatar.visible=(p.mode==='walk'||cycling||openRide)&&!sim.seat&&!modelled&&!eyeView;avatar.position.set(p.x,p.y||0,p.z);avatar.rotation.y=p.angle;
   animatePerson(avatar,Math.abs(p.speed)>.1,elapsed,Math.abs(p.speed)/3);
+  if(cycling&&!modelled){
+    avatar.position.x-=.28*Math.sin(p.angle);avatar.position.z-=.28*Math.cos(p.angle);avatar.position.y+=.1;
+    avatar.userData.legs.forEach((leg,i)=>{leg.rotation.x=-.52+Math.sin(playerStride+i*Math.PI)*.3;});
+    avatar.userData.arms.forEach(arm=>{arm.rotation.x=-.85;});
+  }
+  if(openRide&&!modelled){
+    const seated=type!=='scooter', offset=seated?-.26:0;
+    avatar.position.x+=offset*Math.sin(p.angle);avatar.position.z+=offset*Math.cos(p.angle);
+    avatar.position.y+=type==='kayak'?-.55:type==='motorcycle'?-.08:.20;
+    avatar.userData.legs.forEach(leg=>{leg.rotation.x=seated?-1.05:0;});
+    avatar.userData.arms.forEach(arm=>{arm.rotation.x=-.84;});
+  }
   for(const car of sim.cars){
     if(!activeCars.has(car.id))continue;
     let mesh=carModels.get(car.id);
@@ -570,14 +617,15 @@ function syncScene(dt,controls) {
   if(sim.mission.phase==='active'&&sim.mission.target){
     marker.visible=true;marker.position.set(sim.mission.target.x,groundHeight(sim.mission.target.x,sim.mission.target.z),sim.mission.target.z);markerDiamond.rotation.y=elapsed*.7;markerDiamond.position.y=5+Math.sin(elapsed*2)*.3;
   }else marker.visible=false;
-  const near=sim.getNearbyCar();enterHint.visible=p.mode==='walk'&&!!near&&started&&!eyeView;
-  if(near)enterHint.position.set(near.x,(near.y||0)+3+Math.sin(elapsed*2)*.15,near.z);
+  const nearCar=sim.getNearbyCar(),boarding=sim.transport.nearby(),near=boarding?.entrance||sim.getNearbyBike(nearCar)||nearCar;
+  enterHint.visible=p.mode==='walk'&&!!near&&started&&!eyeView;
+  if(near)enterHint.position.set(near.x,(near.y??groundHeight(near.x,near.z))+3+Math.sin(elapsed*2)*.15,near.z);
 
 }
 
 function updateFirstPerson(look,vertical){
   const p=sim.player, driving=p.mode==='drive';
-  const anchor=driving?p.vehicleId:(sim.room??null);
+  const ride=sim.transport.active, anchor=ride??(driving?p.vehicleId:p.mode==='bike'?sim.bike:sim.seat??null);
   if(headAnchor!==anchor){
     headAnchor=anchor;yaw=p.angle;headTurn=0;headPitch=0;
   }
@@ -588,8 +636,14 @@ function updateFirstPerson(look,vertical){
     yaw=p.angle+headTurn;
     driverCabin??=createDriverCabin(scene);
     driverCabin.placeCamera(camera,carModels.get(p.vehicleId),headTurn,headPitch);
+  }else if(ride){
+    const [height,forward]=ride.spec.eye;
+    headTurn=clamp(headTurn+look,-2.2,2.2);yaw=p.angle+headTurn;
+    camera.position.set(p.x+Math.sin(p.angle)*forward,p.y+height,p.z+Math.cos(p.angle)*forward);
+    camera.rotation.set(-headPitch-ride.pitch,Math.PI+yaw,-ride.roll*.5,'YXZ');
   }else{
-    yaw+=look;p.angle=yaw;
+    if(p.mode==='bike'||sim.seat){headTurn=clamp(headTurn+look,-1.95,1.95);yaw=p.angle+headTurn;}
+    else{yaw+=look;if(!sim.seat)p.angle=yaw;}
     const floor=sim.room&&roomGroup?roomGroup.userData.floorY:p.y;
     camera.position.set(p.x,(floor??0)+PLAYER_LOOK.height-.12,p.z);
     camera.rotation.set(-headPitch,Math.PI+yaw,0,'YXZ');
@@ -655,7 +709,8 @@ function updateCamera(dt) {
   // A manual orbit owns the view for 1.1 seconds. Ease assistance back in so
   // releasing the mouse does not abruptly pull the camera behind the car.
   const chaseAssist=clamp((lookIdle-1.1)/.65,0,1), speed=Math.abs(p.speed);
-  if(driving&&speed>.25){
+  const ride=sim.transport.active;
+  if((driving||p.mode==='bike'||ride)&&(speed>.25||ride?.spec.kind==='rotor')){
     const headingRate=7+4*clamp(speed/22,0,1);
     yaw+=angleDifference(p.angle,yaw)*(1-Math.exp(-dt*headingRate*chaseAssist));
   }
@@ -680,16 +735,19 @@ function updateCamera(dt) {
       }
     }
   }else chaseLookAhead.set(0,0,0);
-  const distance=!started?18:driving?(farCamera?14:9.3):(farCamera?10:6.5);
+  const distance=ride?ride.spec.view*(farCamera?1.48:1):driving?(farCamera?14:9.3):(farCamera?10:6.5);
+  const aimHeight=ride?Math.max(.8,ride.spec.eye[0]*.75):driving?1.1:1.45;
+  const cameraContact=(x,z,d)=>sim.isBlocked(x,z,.2,{ignoreWater:true,baseHeight:ride?p.y+aimHeight+Math.sin(pitch)*d:undefined});
   let safeDistance=distance;
   // Pull the chase camera forward before its sightline crosses a facade.
   // Checking the same collision geometry keeps narrow SoHo streets readable.
-  for(let d=1;d<=distance;d+=.6){
-    if(sim.isBlocked(p.x-Math.sin(yaw)*d,p.z-Math.cos(yaw)*d,.2,{ignoreWater:true})){safeDistance=Math.max(.9,d-.7);break;}
+  const sightStep=ride?Math.max(.6,distance/40):.6;
+  for(let d=1;d<=distance;d+=sightStep){
+    if(cameraContact(p.x-Math.sin(yaw)*d,p.z-Math.cos(yaw)*d,d)){safeDistance=Math.max(.9,d-sightStep-.1);break;}
   }
   const previousHeight=chaseHeight;
-  chaseHeight=updateChaseHeight(chaseHeight,p,dt,driving?'car:'+p.vehicleId:'walk');
-  const eyeOffset=1.55+Math.sin(pitch)*safeDistance;
+  chaseHeight=updateChaseHeight(chaseHeight,p,dt,ride?ride.home.id:driving?'car:'+p.vehicleId:'walk');
+  const eyeOffset=(ride?aimHeight+.5:1.55)+Math.sin(pitch)*safeDistance;
   if(chaseHeight!==previousHeight||chaseEyeOffset===null)chaseEyeOffset=eyeOffset;
   else chaseEyeOffset=THREE.MathUtils.damp(chaseEyeOffset,eyeOffset,safeDistance<3?22:driving?13:8,dt);
   // Eye and aim share the same smoothed elevation. Filtering only the eye
@@ -702,9 +760,10 @@ function updateCamera(dt) {
   // A smoothed camera can cut across a corner even when its destination is safe.
   // Clamp inward immediately, then ease back out once the sightline clears.
   const dx=camera.position.x-p.x,dz=camera.position.z-p.z,actualDistance=Math.hypot(dx,dz);
-  for(let d=.6;d<=actualDistance;d+=.4){
-    if(sim.isBlocked(p.x+dx*d/actualDistance,p.z+dz*d/actualDistance,.2,{ignoreWater:true})){
-      const ratio=Math.max(.15,d-.5)/actualDistance;
+  const eyeStep=ride?Math.max(.4,actualDistance/48):.4;
+  for(let d=.6;d<=actualDistance;d+=eyeStep){
+    if(cameraContact(p.x+dx*d/actualDistance,p.z+dz*d/actualDistance,d)){
+      const ratio=Math.max(.15,d-eyeStep-.1)/actualDistance;
       camera.position.x=p.x+dx*ratio;camera.position.z=p.z+dz*ratio;break;
     }
   }
@@ -715,7 +774,7 @@ function updateCamera(dt) {
     const a=Math.max(-room.width/2+.3,Math.min(room.width/2-.3,(cx-room.x)*room.tx+(cz-room.z)*room.tz)),b=Math.max(.3,Math.min(room.depth-.3,-((cx-room.x)*room.nx+(cz-room.z)*room.nz)));
     camera.position.set(room.x+room.tx*a-room.nx*b,chaseHeight.height+1.9,room.z+room.tz*a-room.nz*b);camera.near=.08;
   }
-  cameraTarget.set(p.x,chaseHeight.height+(driving?1.1:1.45),p.z);
+  cameraTarget.set(p.x,chaseHeight.height+aimHeight,p.z);
   if(driving)cameraTarget.add(chaseLookAhead);
   camera.lookAt(cameraTarget);
   const targetFov=driving?60+Math.min(9,Math.abs(p.speed)*.24):57;
@@ -827,7 +886,8 @@ function frame(now) {
       }
       if(bikeShare&&bikeDocks){
         if(walks!==kerbsFor){kerbsFor=walks;kerbIndex=indexKerbs(walks);}
-        bikeDocks.update(planBikeDocks(bikeShare.near(lit.x,lit.z,200),(x,z)=>snapToKerb(kerbIndex,x,z,14)));
+        bikeRows=planBikeDocks(bikeShare.near(lit.x,lit.z,200),(x,z)=>snapToKerb(kerbIndex,x,z,14));
+        bikeDocks.update(bikeRows,borrowedDock);
       }
       if(dining&&diningMesh){
         const rows=planDining(dining.near(lit.x,lit.z,200),footprints,(x,z)=>Boolean(streetscape?.surfaceAt(x,z)));
@@ -1016,13 +1076,15 @@ function loadPlaceNames(){
   return placeIndexReady;
 }
 async function findLocally(query){
+  const terms=query.trim().toLowerCase().split(/\s+/);
+  const boardings=BOARDINGS.map(transportDestination).filter(p=>terms.every(term=>(p.name+' '+p.borough+' '+p.keywords).toLowerCase().includes(term)));
   const planner=await plannerReady;
   if(planner&&!streetIndex)streetIndex=createStreetIndex(planner.roads);
   await loadPlaceNames();
   const found=searchLocal(query,{streets:streetIndex,places:placeIndex,near:sim?{x:sim.player.x,z:sim.player.z}:null});
   // Several branches of one name are told apart by the street each is on.
   for(const place of found)if(place.kind==='place'&&planner){const road=planner.snap({x:place.x,z:place.z},{maxSnapDistance:300});if(road)place.detail=title(road.name);}
-  return found;
+  return [...boardings,...found];
 }
 function focusCityDestination(place){
   cityFocus={x:place.x,z:place.z};cityZoom=.18;
@@ -1151,6 +1213,10 @@ async function travel(place,recovery=null){
     setView('street');$('travel-note').textContent='';
     switchShot.arrive({x:sim.player.x,y:sim.player.y||0,z:sim.player.z,angle:sim.player.angle});
     clearDirections();gameMap?.setStatus('Spawned at the selected location.');
+    if(place.boarding){
+      const stop=BOARDINGS.find(s=>s.id===place.boarding);
+      if(stop){sim.transport.recall(stop.id);sim._say(stop.place+' · Press E to board the '+TRANSPORT[stop.type].name+'.',8);}
+    }
     if(recovery){
       const release=recovery.facility==='hospital'?'Discharged from':'Released from';
       sim._say(`${recovery.message} ${release} ${title(place.name)}.`,7);
@@ -1232,6 +1298,8 @@ async function boot() {
   }).catch(()=>{});
   gfx.passes.push((renderer,scene,camera)=>water.renderMirror(renderer,scene,camera,{enabled:Boolean(viewOverride)||!cityView,scale:highQuality?.75:.5}));
   sim.endingSeconds=2;
+  sim.transport=new TransportFleet(sim,{isLand:(x,z)=>water.isLand(x,z)&&!landscape?.waterAt(x,z),isNavigable:water.isNavigable,waterLevel:WATER_LEVEL});
+  transportScene=createTransportScene(scene,sim.transport);
   streetLife=createStreetLife({scene,renderer,physics:sim.streetObjects,getLamps:()=>streetscape?.lamps()||noStreetFurniture,getTrees:()=>streetscape?.trees()||noStreetFurniture});
   parkedCars=createParkedCars({capacity:PARKED_LIMIT+8,library:vehicleMeshes});scene.add(parkedCars.group);
   distantTraffic=createDistantTraffic({library:vehicleMeshes});scene.add(distantTraffic.group);
@@ -1268,6 +1336,7 @@ async function boot() {
   diningMesh=createDiningMesh({scene,heightAt:groundHeight});standMesh=createStandMesh({scene,heightAt:groundHeight});
   loadData('dining.json').then(data=>{dining=createDining(data);frontsFor=null;}).catch(()=>{});
   bikeDocks=createBikeDocks({scene,heightAt:groundHeight});
+  sim.dockedBikes=bikeDocks.available;
   loadData('bikes.json').then(data=>{bikeShare=createBikeShare(data);frontsFor=null;}).catch(()=>{});
   loadData('sheds.json').then(data=>{sheds=createSheds(data);frontsFor=null;}).catch(()=>{});
   loadData('bus-stops.json').then(data=>{buses=createBuses(data);}).catch(()=>{});
@@ -1281,6 +1350,7 @@ async function boot() {
     state:()=>({x:sim.player.x,z:sim.player.z,hours:gfx.hours,clock:gfx.clock,cash:sim.cash,jobActive:sim.mission.phase==='active',fares:sim.deliveries,miles:sim.distanceTravelled/1609.344,redLights:sim.redLights||0}),
     onMechanic:()=>sim.callMechanic(),onCab:()=>sim.summonCab(),
     onDirections:place=>{const name=place.name||describePlace(place,gfx.hours).name;requestDirections({x:place.x,z:place.z}).then(found=>announce(found?'Directions to '+name+'. Follow the highlighted streets.':'No way to '+name+' along mapped streets.'));},
+    onTransport:()=>phone.openList('Travel to a boarding point',BOARDINGS.map(stop=>({stop,name:TRANSPORT[stop.type].name,note:stop.place+' · '+stop.borough})),row=>travel(transportDestination(row.stop))),
     onWork:()=>work.board(),onJob:()=>action('job'),onMap:()=>action('map'),
     onOpenChange:open=>{$('phone-button').setAttribute('aria-expanded',String(open));$('mission-panel').classList.toggle('behind-phone',open);if(!open)canvas.focus();}});
   loadData('street-life.json').then(data=>{cityLife=createCityLife(data);props.setData(data);sim.setActiveCity({signalHints});}).catch(()=>{});
