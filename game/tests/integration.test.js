@@ -1449,6 +1449,12 @@ test('road pilot loads on demand, arrives on measured pavement and toggles appea
     assert.deepEqual(sim.city.sampleSurface(sim.player.x,sim.player.z),surface);
     app.click('road-pilot-mode-button');
     const cab=sim.cars.find(car=>car.id==='player-taxi');assert.ok(cab,'a courtesy taxi waits on the actual street');
+    // The view comes down from the sky to the player, who stands still until it lands.
+    assert.equal(app.state().switching,true);assert.equal(app.elements.get('hud').classes.has('switch-shot'),true);
+    const landed={x:sim.player.x,z:sim.player.z};
+    app.key('KeyW');for(let i=0;i<900&&app.state().switching;i++)app.frames();app.key('KeyW',false);
+    assert.equal(app.state().switching,false);assert.deepEqual({x:sim.player.x,z:sim.player.z},landed);
+    app.frames();assert.equal(app.elements.get('hud').classes.has('switch-shot'),false);
     orbitWalkingCamera(app,Math.atan2(cab.x-sim.player.x,cab.z-sim.player.z));
     app.key('KeyW');for(let i=0;i<180&&!sim.getNearbyCar();i++)app.frames();app.key('KeyW',false);
     app.key('KeyE');app.key('KeyE',false);assert.equal(sim.player.mode,'drive');

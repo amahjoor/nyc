@@ -320,4 +320,4 @@ h2 { text-transform: uppercase; }
 }
 
 /* While the view travels between two places, only the picture shows. */
-body.switch-shot #hud, body.switch-shot #mission-panel, body.switch-shot #wanted, body.switch-shot #touch-controls { visibility: hidden }
+#hud.switch-shot, #mission-panel.switch-shot, #wanted.switch-shot, #touch-controls.switch-shot { visibility: hidden }
