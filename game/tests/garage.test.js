@@ -1,13 +1,11 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
-import { BODY_HANDLING, PARTS, RESPRAYS, RESPRAY_PRICE, CALL_OUT, DELIVERY, repairCost, offersAt, handlingFor } from '../dist/garage.js';
+import { BODY_HANDLING, PARTS, RESPRAYS, RESPRAY_PRICE, CALL_OUT, DELIVERY, repairCost, offersAt, handlingFor, shopRows } from '../dist/garage.js';
 import { BODIES, bodyShape } from '../dist/fleet.js';
 import { stepVehicleDynamics, resetVehicleDynamics } from '../dist/vehicle-dynamics.js';
 import { Simulation } from '../dist/simulation.js';
-import { shopRows, createPhone } from '../dist/phone.js';
+import { createPhone } from '../dist/phone.js';
 
-const html = readFileSync(new URL('../dist/index.html', import.meta.url), 'utf8');
 const town = () => ({ bounds: { minX: -500, maxX: 500, minZ: -500, maxZ: 500 }, roads: [{ id: 'a', name: 'A ST', points: [[-400, 30], [400, 30]], width: 10, oneway: false }], buildings: [], spawn: { x: 0, z: 0, angle: 0 }, missionPoints: [] });
 const run = (handling, input, seconds) => { const car = { angle: 0, speed: 0, handling }; resetVehicleDynamics(car); for (let i = 0; i < seconds * 120; i++) stepVehicleDynamics(car, { forward: 0, turn: 0, ...input }, 1 / 120); return car; };
 
@@ -95,27 +93,17 @@ test('the mechanic comes out to the car, and the cab can be brought round', () =
 
 test('the counter lists what the shop does, and the page has a place for each', () => {
   assert.deepEqual(shopRows('pizza'), []);
-  assert.deepEqual(shopRows('bodyshop', { health: 80 }), [{ job: 'repair', name: 'REPAIR', note: '$60', price: 60 }]);
+  assert.deepEqual(shopRows('bodyshop', { health: 80 }).slice(0, 1), [{ job: 'repair', name: 'REPAIR', note: '$60', price: 60 }]);
   assert.deepEqual(shopRows('repair', { health: 100, mods: { engine: 3, tyres: 1 } }), [
     { job: 'repair', name: 'REPAIR', note: 'NOTHING TO MEND', price: null }, { job: 'engine', name: 'ENGINE', note: 'STAGE 3 · FULLY FITTED', price: null },
     { job: 'brakes', name: 'BRAKES', note: 'STAGE 0 OF 3 · NEXT $250', price: 250 }, { job: 'tyres', name: 'TYRES', note: 'STAGE 1 OF 3 · NEXT $600', price: 600 }]);
-  const ids = ['phone-shop', 'phone-paints', 'phone-paints-note', 'phone-contact-mechanic', 'phone-contact-mechanic-note', 'phone-contact-cab', 'phone-contact-cab-note'];
-  for (let i = 0; i < 4; i++) ids.push(`phone-shop-${i}`, `phone-shop-${i}-name`, `phone-shop-${i}-note`);
-  RESPRAYS.forEach(([, colour], i) => { ids.push(`phone-paint-${i}`); assert.match(html, new RegExp(`id="phone-paint-${i}" style="background:${colour}"`)); });
-  for (const id of ids) assert.equal(html.split(`id="${id}"`).length, 2, `${id} appears once`);
-  // At the counter: the rows for this shop, and each button does its job.
   const elements = new Map(), $ = id => { if (!elements.has(id)) { const listeners = {}, attributes = {}; elements.set(id, { hidden: false, disabled: false, textContent: '', value: '', setAttribute: (k, v) => { attributes[k] = v; }, getAttribute: k => attributes[k], addEventListener: (n, f) => { (listeners[n] ||= []).push(f); }, fire: n => (listeners[n] || []).forEach(f => f({})) }); } return elements.get(id); };
-  const done = [], phone = createPhone({ $, state: () => ({ cash: 900, car: { health: 70, mods: {}, color: '#8a1f1f' } }), onGarage: (...job) => done.push(job), onMechanic: () => done.push('mechanic'), onCab: () => done.push('cab') });
-  phone.openShop({ kind: 'bodyshop', name: 'ZAID AUTO COLLISION' });
-  assert.deepEqual([phone.open, phone.screen, $('phone-title').textContent, $('phone-shop').hidden, $('phone-shop-0-note').textContent, $('phone-shop-1').hidden, $('phone-paints').hidden], [true, 'shop', 'ZAID AUTO COLLISION', false, '$90', true, false]);
-  assert.equal($('phone-paint-5').getAttribute('aria-pressed'), 'true', 'the colour the car is');
-  $('phone-shop-0').fire('click'); $('phone-paint-4').fire('click');
-  assert.deepEqual(done, [['bodyshop', 'repair'], ['bodyshop', 'respray', '#1f3a6a']]);
-  phone.openShop({ kind: 'repair', name: '' });
-  assert.deepEqual([$('phone-title').textContent, $('phone-shop-3').hidden, $('phone-paints').hidden, $('phone-shop-1-note').textContent], ['AUTO REPAIR', false, true, 'STAGE 0 OF 3 · NEXT $400']);
-  $('phone-shop-2').fire('click');
-  assert.deepEqual(done.at(-1), ['repair', 'brakes']);
-  $('phone-back').fire('click'); $('phone-app-contacts').fire('click');
+  const paints = shopRows('bodyshop', { color: RESPRAYS[2][1] }).slice(1);
+  assert.deepEqual(paints.map(row => row.color), RESPRAYS.map(([, color]) => color));
+  assert.equal(paints[2].price, null);
+  assert.equal(paints[3].price, RESPRAY_PRICE);
+  const done = [], phone = createPhone({ $, onMechanic: () => done.push('mechanic'), onCab: () => done.push('cab') });
+  phone.setOpen(true); $('phone-app-contacts').fire('click');
   assert.match($('phone-contact-mechanic-note').textContent, /\$90/);
   $('phone-contact-mechanic').fire('click'); phone.setOpen(true); $('phone-app-contacts').fire('click'); $('phone-contact-cab').fire('click');
   assert.deepEqual(done.slice(-2), ['mechanic', 'cab']);

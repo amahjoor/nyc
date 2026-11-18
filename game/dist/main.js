@@ -31,11 +31,12 @@ import { createStreetProps } from './street-props.js';
 import { createPlaceSource, placeName, joinPlaceSources, indexFootprints, solveFrontages } from './places.js';
 import { createStorefronts } from './storefronts.js';
 import { Work } from './work.js';
+import { createInteraction } from './interaction.js';
 import { createPhone, describePlace } from './phone.js';
 import { createFleet } from './fleet.js';
 import { createVehicleMeshLibrary } from './vehicle-assets.js';
 import { designFor } from './vehicle-designs.js';
-import { offersAt } from './garage.js';
+import { offersAt, shopRows } from './garage.js';
 import { planRoom, buildRoom, roomKind, hasRoom } from './interiors.js';
 import { doorBlips } from './map-blips.js';
 import { createDemographics } from './demographics.js';
@@ -70,7 +71,7 @@ let placeSource=null, storefronts=null, footprints=indexFootprints([]), fronts=[
 // The doors that can be walked through near the player, as the radar and the map mark them: fronts with a room behind them, and the subway's stairs.
 let doors=[], doorsFor=null;
 // The phone, and where a delivery can be sent: the streets around, and the places with a street front.
-let phone=null, work=null, roadDestinations=[], placeDestinations=[], shopHere=null;
+let phone=null, interaction=null, work=null, roadDestinations=[], placeDestinations=[], shopHere=null;
 // The front the player is standing at if it has a room to go into, and the room they are in.
 // The player and shop staff as the crowd's modelled figures, once those have loaded: where in their stride the player is.
 let playerStride=0, strideClock=0;
@@ -133,7 +134,7 @@ const carModels = new Map(), distantCars=[];
 const CAR_SIGHT=TRAFFIC_SIGHT, MODEL_RANGE=42, MODEL_KEPT=52;
 const audio = new CityAudio();
 const canvas=$('world');
-const input=new Input(canvas, action, event=>phone?.handleKey(event));
+const input=new Input(canvas, action, event=>interaction?.handleKey(event)||phone?.handleKey(event));
 const cameraTarget=new THREE.Vector3(), desiredCamera=new THREE.Vector3(), cameraForward=new THREE.Vector3();
 const aerialTarget=new THREE.Vector3(), aerialOffset=new THREE.Vector3(-95,240,180);
 // How far back the aerial camera stands, as a multiple of that offset: 1 is
@@ -148,8 +149,26 @@ function firstPersonActive(){return started&&firstPerson&&!aerialView&&!cityView
 function updatePerspectiveButton(){
   $('first-person-button').textContent=firstPersonActive()?'THIRD PERSON':'FIRST PERSON';
 }
+function atShopCounter(){
+  return Boolean(sim.room)&&sim.room.staff.some(spot=>Math.hypot(spot.a-sim.room.a,spot.b-sim.room.b)<2.6);
+}
+
+function openGarage(place, index=0) {
+  const rows=shopRows(place.kind,{health:sim.health,mods:sim.vehicle.mods,color:sim.vehicle.color});
+  for(const row of rows)row.disabled=row.price===null;
+  interaction.openList(placeName(place),rows,(row,i)=>{
+    if(sim.garage(place.kind,row.job,row.color))saveProgress();
+    openGarage(place,i);
+  },{cash:sim.cash,index,available:()=>shopHere===place&&Boolean(sim.vehicle)});
+}
+
 function action(name,event) {
   if(!sim)return;
+  if(interaction?.open){
+    if(name==='pause'||name==='shop'){interaction.close();return;}
+    if(name!=='map'&&name!=='phone')return;
+    interaction.close();
+  }
   if(name==='map') { if(started&&!paused&&!traveling&&bootReady){phone?.setOpen(false);gameMap?.toggle();}return; }
   if(name==='pause'){
     if(!started)return;
@@ -167,26 +186,26 @@ function action(name,event) {
     // Indoors, at the counter: what the place sells.
     const menu=menuFor(sim.room.place);
     if(!menu.length)announce('Nothing is sold over the counter here.');
-    else if(!counterHere)announce('Go up to whoever is serving.');
+    else if(!atShopCounter())announce('Go up to whoever is serving.');
     else {
       const shop=sim.room.place;
       const rows=menu.map(item=>({item,name:item.name.toUpperCase(),note:'$'+item.price.toFixed(2)}));
       rows.push({name:'Rob the till', note:'Reported crime · two wanted stars'});
-      phone.openList(sim.room.name,rows,({item})=>{
+      interaction.openList(sim.room.name,rows,({item})=>{
         if (!item) { work.rob(shop); return; }
         if(sim.buy(item))saveProgress();
-      });
+      },{cash:sim.cash,available:()=>sim.room?.place===shop&&atShopCounter()});
     }
     return;
   }
   if(name==='shop'&&standHere&&sim.player.mode==='walk') {
     // At a stand on the sidewalk: what it sells.
     const place=standHere.place;
-    phone.openList(placeName(place),menuFor(place).map(item=>({item,name:item.name.toUpperCase(),note:'$'+item.price.toFixed(2)})),({item})=>{if(sim.buy(item,{street:true}))saveProgress();});
+    interaction.openList(placeName(place),menuFor(place).map(item=>({item,name:item.name.toUpperCase(),note:'$'+item.price.toFixed(2)})),({item})=>{if(sim.buy(item,{street:true}))saveProgress();},{cash:sim.cash,available:()=>standHere?.place===place});
     return;
   }
   if(name==='shop') {
-    if(shopHere)phone?.openShop(shopHere);
+    if(shopHere&&sim.vehicle)openGarage(shopHere);
     else if(work.pedestrian())work.street();
     return;
   }
@@ -226,22 +245,22 @@ function action(name,event) {
     // On foot at a bus stop: on to the next bus. A ride is to any stop a route from here also calls at.
     if(sim.player.mode==='walk'&&!sim.room&&!stairHere&&stopHere&&!sim.getNearbyCar()){
       const from=stopHere.stop,rides=buses.ridesFrom(from).map(ride=>({ride,name:ride.stop.name,note:ride.lines.slice(0,3).join(' ')+' · '+formatDistance(ride.distance)+' · $'+FARE.toFixed(2)}));
-      phone.openList(from.name+' · '+from.lines.slice(0,4).join(' '),rides,({ride})=>{
+      interaction.openList(from.name+' · '+from.lines.slice(0,4).join(' '),rides,({ride})=>{
         // The driver waves a rider with no fare on more often than not; an inspector does not.
         const unpaid=sim.cash<FARE;if(unpaid)sim.heat=Math.min(5,sim.heat+.2);else sim.cash-=FARE;
         travel({x:ride.stop.x,z:ride.stop.z,name:ride.stop.name}).then(arrived=>arrived&&announce((unpaid?'You rode without paying. ':'')+'The '+ride.lines[0]+' to '+ride.stop.name+'.'));
-      });
+      },{cash:sim.cash,available:()=>stopHere?.stop===from});
       return;
     }
     // On foot at the head of a subway stair: down to the trains. A ride is to any station on a line that stops here.
     if(sim.player.mode==='walk'&&!sim.room&&stairHere&&!sim.getNearbyCar()){
       const from=stairHere.station,rides=subway.ridesFrom(from).map(ride=>({ride,name:ride.station.name,note:ride.lines.join(' ')+' · '+formatDistance(ride.distance)+' · $'+FARE.toFixed(2)}));
-      phone.openList(from.name+' · '+from.routes,rides,({ride})=>{
+      interaction.openList(from.name+' · '+from.routes,rides,({ride})=>{
         // No fare, no problem, until someone sees.
         const jumped=sim.cash<FARE;if(jumped)sim.heat=Math.min(5,sim.heat+.4);else sim.cash-=FARE;
         const exit=subway.exitOf(ride.station);
         travel({x:exit.x+2.5,z:exit.z+2.5,name:ride.station.name,exact:true}).then(arrived=>arrived&&announce((jumped?'You jumped the turnstile. ':'')+'The '+ride.lines[0]+' to '+ride.station.name+'.'));
-      });
+      },{cash:sim.cash,available:()=>stairHere?.station===from});
       return;
     }
     // On foot at an open door, with no car to get into: go in.
@@ -272,6 +291,7 @@ function action(name,event) {
 function togglePause(force) {
   if(!started)return;
   paused=force??!paused;
+  if(paused)interaction?.close();
   if(paused&&mapOpen)gameMap.setOpen(false);
   input.clear();
   if(paused && !$('pause-dialog').open && !$('help-dialog').open && !$('sources-dialog').open)$('pause-dialog').showModal();
@@ -804,7 +824,7 @@ function frame(now) {
     shopHere=null;doorHere=null;
     if(!sim.room&&roomGroup){roomGroup.userData.dispose();roomGroup=null;roomStaff=[];roomGuests=[];doorAgain=elapsed+1.2;}
     // Indoors, within reach of whoever is serving.
-    counterHere=Boolean(sim.room)&&sim.room.staff.some(spot=>Math.hypot(spot.a-sim.room.a,spot.b-sim.room.b)<2.6);
+    counterHere=atShopCounter();
     if(sim.room){$('place-hint').hidden=!counterHere||!menuFor(sim.room.place).length;$('place-hint').textContent=sim.room.name+' · G TO ORDER';}
     if(facing){
       const about=describePlace(facing.front.place,gfx.hours),open=about.status==='OPEN';
@@ -828,6 +848,7 @@ function frame(now) {
     busStops.update(buses,lit,kerbIndex);
   }
   storefronts?.update(fronts,lit,gfx.hours);
+  interaction?.update();
   phone?.update(elapsed);
   // A red-light camera's flash: the frame blows out for a tenth of a second.
   const flashed=sim.cameraFlash&&sim.elapsed-sim.cameraFlash.at<.11;
@@ -841,6 +862,7 @@ function frame(now) {
 }
 
 function setView(mode){
+  interaction?.close();
   if(mode!=='aerial'||!aerialView)aerialTracking=false;
   chaseLookAhead.set(0,0,0);
   if(mode==='city'&&!cityView){cityFocus=null;cityZoom=1;}
@@ -1035,6 +1057,7 @@ async function ensureRoadPilot(){
 }
 async function travel(place){
   if(!place||traveling||!bootReady)return false;
+  interaction?.close();
   traveling=true;roadEpoch++;input.clear();
   // Leave by the sky. From indoors, or from a map, there is no street on screen to rise from: hold the picture instead.
   camera.getWorldDirection(cameraForward);
@@ -1133,10 +1156,15 @@ async function boot() {
   parkedCars=createParkedCars({capacity:PARKED_LIMIT+8,library:vehicleMeshes});scene.add(parkedCars.group);
   distantTraffic=createDistantTraffic({library:vehicleMeshes});scene.add(distantTraffic.group);
   sim=new Simulation(city);
-  work=new Work({sim,phone:()=>phone,fronts:()=>fronts,hours:()=>gfx.hours,save:saveProgress,
+  interaction=createInteraction({$,onOpenChange:open=>{
+    if(open)phone?.setOpen(false);else canvas.focus();
+  }});
+  work=new Work({sim,phone:()=>phone,meet:(title,message,rows,available)=>{
+    interaction.openList(title,rows,row=>row.choose(),{message,available});
+  },fronts:()=>fronts,hours:()=>gfx.hours,save:saveProgress,
     guide:site=>{gameMap.setOpen(true);gameMap.showCity();gameMap.setPin(site);},
     pedestrian:()=>sim.player.mode==='walk'&&!sim.room?crowd?.closest(sim.player.x,sim.player.z,4):null,
-    counter:()=>sim.room&&counterHere&&sim.room.place.id&&menuFor(sim.room.place).length?sim.room.place:null});
+    counter:()=>atShopCounter()&&sim.room.place.id&&menuFor(sim.room.place).length?sim.room.place:null});
   restoreProgress();yaw=sim.player.angle;
   signs=createStreetSigns({scene,heightAt:groundHeight,raised:(x,z)=>(streetscape?.offsetAt(x,z)||0)>.1});
   crowd=createCrowd({scene,heightAt:groundHeight,isRoad:(x,z)=>streetscape?.surfaceAt(x,z)==='road',
@@ -1172,8 +1200,8 @@ async function boot() {
   // The modelled figures replace the blocked-out ones once they have loaded.
   Promise.all([loadData('people.json'),fetch('./people.bin').then(response=>{if(!response.ok)throw new Error('people');return response.arrayBuffer();})]).then(([meta,buffer])=>crowd.setFigures(meta,new Int16Array(buffer))).catch(()=>{});
   phone=createPhone({$,places:()=>placeSource.near(sim.player.x,sim.player.z,700),
-    state:()=>({x:sim.player.x,z:sim.player.z,hours:gfx.hours,clock:gfx.clock,cash:sim.cash,jobActive:sim.mission.phase==='active',fares:sim.deliveries,miles:sim.distanceTravelled/1609.344,redLights:sim.redLights||0,car:sim.vehicle?{health:sim.health,mods:sim.vehicle.mods,color:sim.vehicle.color}:null}),
-    onGarage:(kind,job,choice)=>{if(sim.garage(kind,job,choice))saveProgress();},onMechanic:()=>sim.callMechanic(),onCab:()=>sim.summonCab(),
+    state:()=>({x:sim.player.x,z:sim.player.z,hours:gfx.hours,clock:gfx.clock,cash:sim.cash,jobActive:sim.mission.phase==='active',fares:sim.deliveries,miles:sim.distanceTravelled/1609.344,redLights:sim.redLights||0}),
+    onMechanic:()=>sim.callMechanic(),onCab:()=>sim.summonCab(),
     onDirections:place=>{const name=place.name||describePlace(place,gfx.hours).name;requestDirections({x:place.x,z:place.z}).then(found=>announce(found?'Directions to '+name+'. Follow the highlighted streets.':'No way to '+name+' along mapped streets.'));},
     onWork:()=>work.board(),onJob:()=>action('job'),onMap:()=>action('map'),
     onOpenChange:open=>{$('phone-button').setAttribute('aria-expanded',String(open));$('mission-panel').classList.toggle('behind-phone',open);if(!open)canvas.focus();}});
@@ -1233,7 +1261,7 @@ async function boot() {
   hud=new HUD(city);applyQuality();
   gameMap=new GameMap({city,searchLocal:findLocally,onPlacesWanted:loadPlaceNames,onPin:requestDirections,
     onSpawn:pin=>travel({...pin,exact:true}),
-    onOpenChange:open=>{mapOpen=open;input.clear();input.lookDelta=0;input.lookVertical=0;if(!open)canvas.focus();markDoors();}});
+    onOpenChange:open=>{if(open)interaction?.close();mapOpen=open;input.clear();input.lookDelta=0;input.lookVertical=0;if(!open)canvas.focus();markDoors();}});
   hud.attachMap(gameMap);
   // The compact citywide graph is optional: a failed route download must not
   // prevent entering the game or using a measured, validated spawn point.

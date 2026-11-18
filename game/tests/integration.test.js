@@ -36,12 +36,13 @@ import { createStreetProps } from '../dist/street-props.js';
 import { createPlaceSource, placeName, joinPlaceSources, indexFootprints, solveFrontages } from '../dist/places.js';
 import { createStorefronts } from '../dist/storefronts.js';
 import { Work } from '../dist/work.js';
+import { createInteraction } from '../dist/interaction.js';
 import { createPhone, describePlace } from '../dist/phone.js';
 import { createFleet } from '../dist/fleet.js';
 import { createVehicleMeshLibrary } from '../dist/vehicle-assets.js';
 import { designFor } from '../dist/vehicle-designs.js';
 import { createSwitchShot } from '../dist/switch-shot.js';
-import { offersAt } from '../dist/garage.js';
+import { offersAt, shopRows } from '../dist/garage.js';
 import { planRoom, buildRoom, roomKind, hasRoom } from '../dist/interiors.js';
 import { doorBlips } from '../dist/map-blips.js';
 import { createDemographics } from '../dist/demographics.js';
@@ -284,7 +285,7 @@ async function bootHarness({ stored = null, displayStored = null, unavailableSto
     },
     updateChaseHeight, createDriverCabin, createCityGround, worldToGeographic, createRoadStream, nearestStreet, localDestinations, createCityNavigation,
     createStreetDetail:(manifest,options)=>createStreetDetail(manifest,{...options,now:()=>timestamp}),
-    Landscape, RoadPilot, AbortSignal, createGraphics, createStreetLife, createWater, setVehicleLamps, OFFICER_LOOK, createPoliceScene, createCityLife, manhattanCore, createStreetSigns, createCrowd, dress, seeded, KIT, createStreetProps, createPlaceSource, placeName, joinPlaceSources, indexFootprints, solveFrontages, createStorefronts, createPhone, describePlace, createFleet, createVehicleMeshLibrary, designFor, createSwitchShot, offersAt, planRoom, buildRoom, roomKind, hasRoom, doorBlips, createDemographics, characterAt, createBuses, createBusStops, createSheds, planSheds, createShedMesh, createDining, planDining, createDiningMesh, seatsOf, planStands, vendorOf, createStandMesh, createBikeShare, planBikeDocks, createBikeDocks, menuFor, createSubway, createSubwayEntrances, FARE, indexKerbs, snapToKerb, formatDistance,
+    Landscape, RoadPilot, AbortSignal, createGraphics, createStreetLife, createWater, setVehicleLamps, OFFICER_LOOK, createPoliceScene, createCityLife, manhattanCore, createStreetSigns, createCrowd, dress, seeded, KIT, createStreetProps, createPlaceSource, placeName, joinPlaceSources, indexFootprints, solveFrontages, createStorefronts, createInteraction, createPhone, describePlace, createFleet, createVehicleMeshLibrary, designFor, createSwitchShot, offersAt, shopRows, planRoom, buildRoom, roomKind, hasRoom, doorBlips, createDemographics, characterAt, createBuses, createBusStops, createSheds, planSheds, createShedMesh, createDining, planDining, createDiningMesh, seatsOf, planStands, vendorOf, createStandMesh, createBikeShare, planBikeDocks, createBikeDocks, menuFor, createSubway, createSubwayEntrances, FARE, indexKerbs, snapToKerb, formatDistance,
     // Bundled survey cells only: these tests stay offline.
     createStreetscape:options=>createStreetscape({...options,live:false,now:()=>timestamp}),
     console: { error: error => errors.push(error), warn: () => {}, log: () => {} },
@@ -1664,20 +1665,59 @@ test('pin spawning requires citywide water data even when measured ground has lo
   }finally{app.close();}
 });
 
+test('ordering at a store uses the interaction menu and leaving the counter cancels it', async () => {
+  const app = await bootHarness();
+  try {
+    app.click('start-button'); app.click('view-button'); app.frames(2);
+    const sim = app.simulation(), {x,z} = sim.player;
+    sim.cash = 25;
+    const place = {id:'corner-pizza',name:'Corner Pizza',kind:'pizza'};
+    sim.enterRoom({name:place.name,place,x,z,nx:1,nz:0,tx:0,tz:1,width:8,depth:10,things:[],staff:[{a:0,b:1}]});
+    sim.room.b = 1;
+    app.frames(12);
+    const panel = app.elements.get('interaction'), options = app.elements.get('interaction-options');
+    const press = code => { app.key(code); app.key(code,false); };
+    press('KeyG');
+    assert.equal(panel.hidden,false);
+    assert.equal(app.elements.get('phone').hidden,true);
+    assert.equal(app.elements.get('interaction-title').textContent,place.name);
+    assert.equal(options.children[1].children[1].textContent,'$8.00');
+    const cash = sim.cash, previous = options.children[1];
+    press('ArrowDown'); press('Enter');
+    assert.equal(sim.cash,cash-8);
+    assert.equal(panel.hidden,true);
+    previous.click();
+    assert.equal(sim.cash,cash-8,'an old option cannot charge twice');
+    press('KeyG'); press('Escape');
+    assert.equal(panel.hidden,true);
+    assert.equal(app.state().paused,false);
+    press('KeyG');
+    assert.equal(panel.hidden,false);
+    sim.room.b = 7; sim.player.x = x-7; app.frames(12);
+    assert.equal(panel.hidden,true);
+    assert.equal(sim.cash,cash-8);
+  } finally { app.close(); }
+});
+
 test('a player can clock in through the phone, finish a shift and spend the paycheck', async () => {
   const app = await bootHarness();
   try {
     app.click('start-button'); app.click('view-button'); app.click('phone-button');
     app.click('phone-app-work'); app.click('phone-ride-0');
-    assert.equal(app.elements.get('phone-ride-0-name').textContent, 'Clock in');
-    app.click('phone-ride-0');
+    const panel=app.elements.get('interaction'), options=app.elements.get('interaction-options');
+    assert.equal(app.elements.get('phone').hidden,true);
+    assert.equal(panel.hidden,false);
+    assert.equal(options.children[0].children[0].textContent,'Clock in');
+    app.key('Enter');app.key('Enter',false);
     const initial = app.state().cash;
     for (let block = 0; block < 4; block++) {
-      assert.match(app.elements.get('phone-list-message').textContent, /Which tray/);
-      app.click('phone-ride-0');
+      assert.match(app.elements.get('interaction-message').textContent, /Which tray/);
+      options.children[0].click();
     }
-    assert.match(app.elements.get('phone-list-message').textContent, /5 PM.*Paycheck/);
+    assert.equal(panel.hidden,true);
+    assert.match(app.simulation().notice, /5 PM.*Paycheck/);
     assert.ok(app.state().cash >= initial + 80);
+    app.click('phone-button'); app.click('phone-app-work');
     app.click('phone-ride-3'); app.click('phone-ride-0');
     assert.match(app.elements.get('phone-list-message').textContent, /6\/12 cups/);
     assert.equal(app.errors.length, 0);

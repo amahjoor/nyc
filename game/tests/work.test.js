@@ -12,7 +12,7 @@ function fixture() {
   let screen, guided, now = 10000, atCounter = true;
   const called = [];
   const phone = { openList(title, rows, pick, { message }) { screen = { title, rows, pick, message }; }, setOpen() { screen = null; } };
-  const work = new Work({ sim, phone: () => phone, pedestrian: () => person, counter: () => atCounter ? shop : null,
+  const work = new Work({ sim, phone: () => phone, meet: (title,message,rows) => { screen = {title,message,rows,pick: row => row.choose(), inPerson: true}; }, pedestrian: () => person, counter: () => atCounter ? shop : null,
     fronts: () => [], hours: () => 13, save: () => called.push(structuredClone(work.record)), random: () => .75,
     now: () => now, guide: site => { guided = site; } });
   const choose = name => {
@@ -66,7 +66,7 @@ test('coffee uses working capital and inventory, and a pedestrian can transact o
 });
 
 test('street donations, wallet theft and till theft have different consequences', () => {
-  const f = fixture();f.work.street();f.choose('Ask for spare change');assert.equal(f.sim.cash, 4);assert.equal(f.sim.heat, 0);
+  const f = fixture();f.work.street();assert.equal(f.screen().inPerson, true);f.choose('Ask for spare change');assert.equal(f.sim.cash, 4);assert.equal(f.sim.heat, 0);
   const g = fixture();g.work.street();g.choose('Steal wallet');assert.equal(g.sim.heat, 1);assert.equal(g.person.state, 'flee');
   g.work.street();g.choose('Rob the till');assert.equal(g.sim.heat, 3);const balance = g.sim.cash;
   g.work.restore(JSON.parse(JSON.stringify(g.work.record)));g.work.rob(g.shop);assert.equal(g.sim.cash, balance);

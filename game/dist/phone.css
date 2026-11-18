@@ -102,7 +102,7 @@
 }
 .phone-toolbar button { padding: 4px 8px; font-size: 12px; }
 .phone-screen:not(.phone-apps) { background: repeating-linear-gradient(90deg,#d4dae3 0 3px,#cdd5e0 3px 5px); }
-.phone-list, .phone-paints { display: grid; }
+.phone-list { display: grid; }
 .phone-row { display: grid; width: 100%; gap: 2px; padding: 8px 10px; min-height: 36px; text-align: left; border: 1px solid #adb7c4; border-radius: 5px; color: #192637; background: linear-gradient(white,#f1f3f6); }
 .phone-row + .phone-row { margin-top: 2px; }
 .phone-row:hover, .phone-app:hover { filter: brightness(1.07); }
@@ -123,10 +123,6 @@
 .phone-wallet dl { display: grid; grid-template-columns: 1fr auto; gap: 8px; padding: 10px; background: #fff; border: 1px solid #a9b3c1; border-radius: 7px; font-size: 12px; }
 .phone-wallet dd { margin: 0; font-weight: bold; }
 #phone-wallet-cash { font-size: 30px; }
-.phone-paints { gap: 5px; margin-top: 6px; font-size: 11px; }
-.phone-paints div { display: grid; grid-template-columns: repeat(8,1fr); gap: 3px; }
-.phone-paints button { aspect-ratio: 1; border: 2px solid #fff; border-radius: 4px; }
-.phone-paints button[aria-pressed="true"] { outline: 2px solid #275890; }
 .phone-home-key {
   position: absolute; bottom: 8px; left: 50%; transform: translateX(-50%);
   width: 41px; height: 41px; border: 1px solid #060606; border-radius: 50%;

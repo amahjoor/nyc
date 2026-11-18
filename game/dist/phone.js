@@ -6,7 +6,7 @@ import { formatMoney } from './money.js';
 // bodega" finds a real one, and directions to it use the game's own route
 // planner.
 import { KIND, placeName, isOpen } from './places.js';
-import { offersAt, repairCost, PARTS, RESPRAY_PRICE, RESPRAYS, CALL_OUT, DELIVERY } from './garage.js';
+import { CALL_OUT, DELIVERY } from './garage.js';
 
 /** What the Nearby list can be narrowed to, and the groups of kinds (places.js) each covers. */
 export const CATEGORIES = [
@@ -43,30 +43,13 @@ export function listPlaces(places, { category = 'all', query = '', x = 0, z = 0,
 }
 
 /**
- * What a garage of `kind` puts on its counter for a car in this state
- * ({ health, mods, color }): rows of { job, name, note, price }, price null
- * where there is nothing to buy.
- */
-export function shopRows(kind, car = {}) {
-  const offers = offersAt(kind), rows = [];
-  if (!offers) return rows;
-  const cost = repairCost(car.health ?? 100);
-  rows.push({ job: 'repair', name: 'REPAIR', note: cost ? `$${cost}` : 'NOTHING TO MEND', price: cost || null });
-  if (offers.parts) for (const [job, part] of Object.entries(PARTS)) {
-    const stage = car.mods?.[job] || 0, price = part.prices[stage] ?? null;
-    rows.push({ job, name: part.label, note: price === null ? 'STAGE 3 · FULLY FITTED' : `STAGE ${stage} OF 3 · NEXT $${price}`, price });
-  }
-  return rows;
-}
-
-/**
  * Run the phone. `$` finds an element of the page by id. `places()` gives
  * the places within reach; `state()` gives { x, z, hours, clock, cash, fares,
  * miles, redLights }. The rest are what its buttons do.
  */
-export function createPhone({ $, places = () => [], state = () => ({}), onDirections = () => {}, onJob = () => {}, onWork = () => {}, onMap = () => {}, onOpenChange = () => {}, onGarage = () => {}, onMechanic = () => {}, onCab = () => {} } = {}) {
-  const SCREENS = ['home', 'nearby', 'place', 'contacts', 'wallet', 'shop', 'list'], TITLES = { home: 'PHONE', nearby: 'NEARBY', place: 'PLACE', contacts: 'CONTACTS', wallet: 'WALLET', shop: 'AUTO SHOP' };
-  let shop = null, counter = [], listing = null, listPage = 0;
+export function createPhone({ $, places = () => [], state = () => ({}), onDirections = () => {}, onJob = () => {}, onWork = () => {}, onMap = () => {}, onOpenChange = () => {}, onMechanic = () => {}, onCab = () => {} } = {}) {
+  const SCREENS = ['home', 'nearby', 'place', 'contacts', 'wallet', 'list'], TITLES = { home: 'PHONE', nearby: 'NEARBY', place: 'PLACE', contacts: 'CONTACTS', wallet: 'WALLET' };
+  let listing = null, listPage = 0;
   let open = false, screen = 'home', category = 'all', page = 0, rows = [], chosen = null, listed = -Infinity;
   const handset = $('phone');
   function controls(panel) {
@@ -183,19 +166,6 @@ export function createPhone({ $, places = () => [], state = () => ({}), onDirect
       $('phone-contact-mechanic-note').textContent = `Comes out and mends the car you are in · $${CALL_OUT} + repair`;
       $('phone-contact-cab-note').textContent = `Brings your cab to the nearest street · $${DELIVERY}`;
     }
-    if (screen === 'shop' && shop) {
-      $('phone-title').textContent = shop.name;
-      counter = shopRows(shop.kind, now.car || {});
-      for (let i = 0; i < 4; i++) {
-        const row = counter[i];
-        $(`phone-shop-${i}`).hidden = !row;
-        if (row) { $(`phone-shop-${i}-name`).textContent = row.name; $(`phone-shop-${i}-note`).textContent = row.note; $(`phone-shop-${i}`).disabled = row.price === null; }
-      }
-      const paints = Boolean(offersAt(shop.kind)?.respray);
-      $('phone-paints').hidden = !paints;
-      $('phone-paints-note').textContent = `RESPRAY · $${RESPRAY_PRICE}`;
-      RESPRAYS.forEach(([name, colour], i) => { $(`phone-paint-${i}`).setAttribute('aria-pressed', String(now.car?.color === colour)); $(`phone-paint-${i}`).setAttribute('title', name); });
-    }
     if (screen === 'list' && listing) {
       $('phone-title').textContent = listing.title;
       $('phone-list-message').textContent = listing.message;
@@ -234,8 +204,6 @@ export function createPhone({ $, places = () => [], state = () => ({}), onDirect
   click('phone-contact-dispatch', () => { onJob(); setOpen(false); });
   click('phone-contact-mechanic', () => { onMechanic(); setOpen(false); });
   click('phone-contact-cab', () => { onCab(); setOpen(false); });
-  for (let i = 0; i < 4; i++) click(`phone-shop-${i}`, () => { const row = counter[i]; if (row && row.price !== null && shop) { onGarage(shop.kind, row.job); render(); } });
-  RESPRAYS.forEach(([, colour], i) => click(`phone-paint-${i}`, () => { if (shop) { onGarage(shop.kind, 'respray', colour); render(); } }));
   click('phone-back', back);
   click('phone-home-key', () => screen === 'home' ? setOpen(false) : show('home'));
   click('phone-close', () => setOpen(false));
@@ -245,8 +213,6 @@ export function createPhone({ $, places = () => [], state = () => ({}), onDirect
     setOpen, handleKey, toggle: () => setOpen(!open),
     /** Show a list to choose from: `rows` of { name, note }; `onPick(row)` is told which. */
     openList(title, rows, onPick, { message = '', keepOpen = false } = {}) { listing = { title, rows, onPick, message, keepOpen }; listPage = 0; setOpen(true); show('list'); },
-    /** Stand at a garage's counter: `place` is the auto shop the car is stopped at. */
-    openShop(place) { shop = { kind: place.kind, name: placeName(place) }; setOpen(true); show('shop'); },
     /** Keep the clock, the cash and the distances current while the phone is out. `time` is in seconds. */
     update(time = 0) { if (open && time - listed > 1) { listed = time; render(); } },
   };

@@ -9,6 +9,7 @@
   <link rel="stylesheet" href="fonts.css">
   <link rel="stylesheet" href="style.css">
   <link rel="stylesheet" href="phone.css">
+  <link rel="stylesheet" href="interaction.css">
 </head>
 <body>
   <canvas id="world" tabindex="-1" aria-label="Playable 3D New York City, all five boroughs"></canvas>
@@ -58,6 +59,12 @@
     <div id="cash-display" class="cash-display" hidden role="status"><span>Total money</span><strong id="cash">$0</strong></div>
     <section class="drive-panel" aria-label="Player status"><div class="speed"><strong id="speed">00</strong><div><span id="speed-unit">ON FOOT</span><span id="gear">FREE ROAM</span></div></div><div class="condition"><span id="health-label">CONDITION</span><div><i id="health-bar"></i></div><span id="health-number">100</span></div><div class="trip"><span id="deliveries">0 DELIVERIES</span><span id="distance">0.0 MI</span></div></section>
   </div>
+  <section id="interaction" class="interaction" hidden aria-labelledby="interaction-title">
+    <header><h2 id="interaction-title"></h2><strong id="interaction-balance" aria-label="Cash on hand" hidden></strong></header>
+    <p id="interaction-message" hidden></p>
+    <div id="interaction-options"></div>
+    <footer><span>↑ ↓ Choose · Enter Select</span><button type="button" id="interaction-close">Esc · Leave</button></footer>
+  </section>
   <section id="phone" class="phone" hidden aria-label="Phone">
     <div class="phone-glass">
       <header class="phone-status"><span class="phone-reception" aria-hidden="true"><i></i> NYC</span><time id="phone-clock"></time><span class="phone-battery" aria-hidden="true"></span></header>
@@ -95,16 +102,6 @@
       <button id="phone-contact-dispatch" class="phone-row"><b>DISPATCH</b><span>Take the next delivery</span></button>
       <button id="phone-contact-mechanic" class="phone-row"><b>MECHANIC</b><span id="phone-contact-mechanic-note"></span></button>
       <button id="phone-contact-cab" class="phone-row"><b>MY CAB</b><span id="phone-contact-cab-note"></span></button>
-    </div>
-    <div id="phone-shop" class="phone-screen" hidden>
-      <button id="phone-shop-0" class="phone-row" hidden><b id="phone-shop-0-name"></b><span id="phone-shop-0-note"></span></button>
-      <button id="phone-shop-1" class="phone-row" hidden><b id="phone-shop-1-name"></b><span id="phone-shop-1-note"></span></button>
-      <button id="phone-shop-2" class="phone-row" hidden><b id="phone-shop-2-name"></b><span id="phone-shop-2-note"></span></button>
-      <button id="phone-shop-3" class="phone-row" hidden><b id="phone-shop-3-name"></b><span id="phone-shop-3-note"></span></button>
-      <div id="phone-paints" class="phone-paints" hidden><span id="phone-paints-note"></span><div>
-        <button id="phone-paint-0" style="background:#15181b"></button><button id="phone-paint-1" style="background:#e8e9e6"></button><button id="phone-paint-2" style="background:#b4b9bd"></button><button id="phone-paint-3" style="background:#5b6166"></button>
-        <button id="phone-paint-4" style="background:#1f3a6a"></button><button id="phone-paint-5" style="background:#8a1f1f"></button><button id="phone-paint-6" style="background:#27402f"></button><button id="phone-paint-7" style="background:#c4601a"></button>
-      </div></div>
     </div>
     <div id="phone-list" class="phone-screen" hidden>
       <p id="phone-list-message" role="status" hidden></p>

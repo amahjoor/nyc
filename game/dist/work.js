@@ -34,8 +34,8 @@ function ticket(shift) {
 }
 
 export class Work {
-  constructor({ sim, phone, fronts, hours, guide, pedestrian, counter, save, random = Math.random, now = Date.now }) {
-    Object.assign(this, { sim, phone, fronts, hours, guide, pedestrian, counter, save, random, now });
+  constructor({ sim, phone, meet, fronts, hours, guide, pedestrian, counter, save, random = Math.random, now = Date.now }) {
+    Object.assign(this, { sim, phone, meet, fronts, hours, guide, pedestrian, counter, save, random, now });
     this.met = new WeakSet();
     this.restore();
   }
@@ -72,22 +72,24 @@ export class Work {
     if (current && current.job !== job) return this.board('Finish your current shift or quit it before taking a different job.');
     const onSite = () => this.sim.player.mode === 'walk' && distance(this.sim.player, site) <= 25 && !this.sim.heat;
     const quit = option('Quit shift', 'Leave without collecting this paycheck.', () => {
-      this.record.shift = null; this.save(); this.board('You clocked out early.');
+      this.record.shift = null; this.save();
+      if (onSite()) this.sim._say('You clocked out early.');
+      else this.board('You clocked out early.');
     });
     if (!onSite()) {
       const rows = [option('Show workplace on map', site.name, () => { this.phone().setOpen(false); this.guide(site); })];
       if (current) rows.push(quit);
       return this.list(site.name, 'Arrive on foot and clear any wanted level, then open Work here.', rows);
     }
-    if (!current) return this.list(site.name, `9 AM–5 PM in four playable rounds. Base pay ${formatMoney(site.wage)}, plus ${formatMoney(site.bonus)} per correct ticket.`, [
+    if (!current) return this.meet(site.name, `9 AM–5 PM in four playable rounds. Base pay ${formatMoney(site.wage)}, plus ${formatMoney(site.bonus)} per correct ticket.`, [
       option('Clock in', 'Start at 9 AM', () => {
         if (!onSite() || this.record.shift) return this.job(job);
         this.record.shift = { job, seed: Math.floor(this.random() * 0x100000000), block: 0, correct: 0 };
         this.save(); this.job(job);
       }),
-    ]);
+    ], onSite);
     const round = current.block, task = ticket(current);
-    this.list(`${site.name} · ${BLOCKS[round]}`, task.question, [...task.answers.map((answer, i) => option(answer, '', () => {
+    this.meet(`${site.name} · ${BLOCKS[round]}`, task.question, [...task.answers.map((answer, i) => option(answer, '', () => {
       if (this.record.shift !== current || current.block !== round || !onSite()) return this.job(job);
       if (i === task.correct) current.correct++;
       current.block++;
@@ -97,8 +99,8 @@ export class Work {
       }
       const pay = site.wage + current.correct * site.bonus;
       this.record.shift = null; this.record.shifts++; this.sim.cash += pay; this.save();
-      this.board(`5 PM · ${current.correct}/4 correct · Paycheck +${formatMoney(pay)}`);
-    })), quit]);
+      this.sim._say(`5 PM · ${current.correct}/4 correct · Paycheck +${formatMoney(pay)}`);
+    })), quit], onSite);
   }
 
   food() {
@@ -138,14 +140,15 @@ export class Work {
       rows.push(option('Steal wallet', 'Reported crime · one wanted star', () => this.trade(person, 'steal')));
     }
     if (shop) rows.push(option('Rob the till', 'Reported crime · two wanted stars', () => this.rob(shop)));
-    rows.push(option('Back to Work', '', () => this.board()));
-    this.list('Street interactions', shop ? placeName(shop) : person ? 'A passerby is within talking distance.' : 'On foot, approach a pedestrian or stand at a shop counter and open this screen.', rows);
+    if (!rows.length) return this.board('Walk up to a pedestrian or shop counter and press G.');
+    this.meet(shop ? placeName(shop) : 'Passerby', '', rows,
+      () => Boolean((person && this.pedestrian() === person) || (shop && this.counter()?.id === shop.id)));
   }
 
   trade(person, action) {
-    if (!person || this.pedestrian() !== person) return this.board('They have moved on.');
-    if (this.met.has(person)) return this.board('You already spoke to this person.');
-    if (action === 'sell' && (!this.record.cart || this.record.cups < 1)) return this.coffee();
+    if (!person || this.pedestrian() !== person) return this.sim._say('They have moved on.');
+    if (this.met.has(person)) return this.sim._say('You already spoke to this person.');
+    if (action === 'sell' && (!this.record.cart || this.record.cups < 1)) return this.sim._say('Restock your coffee cart first.');
     this.met.add(person);
     let amount;
     if (action === 'sell') { this.record.cups--; amount = 5; }
@@ -155,17 +158,17 @@ export class Work {
       person.state = 'flee'; person.mad = 5;
       this.sim.crime(1, 'Wallet theft reported.');
     }
-    this.sim.cash += amount; this.save(); this.phone().setOpen(false);
+    this.sim.cash += amount; this.save();
     this.sim._say(action === 'steal' ? `Wallet +$${amount}. Theft reported.` : action === 'sell' ? 'Coffee sold. +$5.' : amount ? `They gave you $${amount}.` : 'They shake their head and keep walking.');
   }
 
   rob(shop) {
-    if (!shop || this.counter()?.id !== shop.id) return this.board('Go to the shop counter first.');
+    if (!shop || this.counter()?.id !== shop.id) return this.sim._say('Go to the shop counter first.');
     const now = this.now(), tills = this.record.tills;
-    if (tills[shop.id] > now) return this.board('The register is empty.');
+    if (tills[shop.id] > now) return this.sim._say('The register is empty.');
     for (const id of Object.keys(tills)) if (tills[id] <= now) delete tills[id];
     tills[shop.id] = now + 600000;
     const amount = 35 + Math.floor(this.random() * 46);
-    this.sim.cash += amount; this.sim.crime(2, `Till +$${amount}. Store alarm reported.`); this.save(); this.phone().setOpen(false);
+    this.sim.cash += amount; this.sim.crime(2, `Till +$${amount}. Store alarm reported.`); this.save();
   }
 }

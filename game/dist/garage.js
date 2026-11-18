@@ -45,3 +45,24 @@ export function handlingFor(body, mods = {}, own = null) {
   }
   return handling;
 }
+
+/**
+ * What a garage of `kind` puts on its counter for a car in this state
+ * ({ health, mods, color }): rows of { job, name, note, price }, price null
+ * where there is nothing to buy.
+ */
+export function shopRows(kind, car = {}) {
+  const offers = offersAt(kind), rows = [];
+  if (!offers) return rows;
+  const cost = repairCost(car.health ?? 100);
+  rows.push({ job: 'repair', name: 'REPAIR', note: cost ? `$${cost}` : 'NOTHING TO MEND', price: cost || null });
+  if (offers.parts) for (const [job, part] of Object.entries(PARTS)) {
+    const stage = car.mods?.[job] || 0, price = part.prices[stage] ?? null;
+    rows.push({ job, name: part.label, note: price === null ? 'STAGE 3 · FULLY FITTED' : `STAGE ${stage} OF 3 · NEXT $${price}`, price });
+  }
+  if (offers.respray) for (const [name, color] of RESPRAYS) {
+    const current = color === car.color;
+    rows.push({ job: 'respray', color, name: 'Respray · ' + name, note: current ? 'CURRENT PAINT' : '$' + RESPRAY_PRICE, price: current ? null : RESPRAY_PRICE });
+  }
+  return rows;
+}
