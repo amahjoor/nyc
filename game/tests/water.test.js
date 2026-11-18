@@ -44,6 +44,8 @@ test('the water publishes shoreline masks, tracks the player and knows land from
   assert.equal(water.isLand(130, -100), true); assert.equal(water.isLand(-2000, -1000), false); assert.equal(water.isLand(-1500, 4500), false);
   const mesh = scene.getObjectByName('Harbor and river water');
   assert.equal(mesh.position.y, WATER_LEVEL); assert.ok(WATER_LEVEL < 0, 'the sheet lies below every street');
+  const { width, height, widthSegments, heightSegments } = mesh.geometry.parameters;
+  assert.ok(Math.hypot(width / widthSegments, height / heightSegments) < 6500, 'water triangles fit inside the street camera range for eye-level depth precision');
   assert.ok(mesh.renderOrder < 0, 'water is drawn before the land, so land wins a tie in depth');
   const draws = () => created[1].calls.filter(call => call[0] === 'fill').length;
   water.update({ x: 130, z: -100 });

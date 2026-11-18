@@ -166,7 +166,9 @@ export function createWater({ scene, boroughs, bounds, panorama = null, createCa
     tContext: { value: null }, uContextRect: { value: new THREE.Vector4(0, 0, 0, 0) }, uContextTexel: { value: new THREE.Vector2() }, uContextRelief: { value: 1 } };
   const material = new THREE.ShaderMaterial({ vertexShader: WATER_VERTEX, fragmentShader: WATER_FRAGMENT, uniforms, fog: true, toneMapped: false });
   material.name = 'Harbor and river water';
-  const geometry = new THREE.PlaneGeometry(260000, 260000, 1, 1); geometry.rotateX(-Math.PI / 2);
+  // A single harbor-wide quad can clip across the eye and write water depth
+  // in front of nearby streets. Keep each triangle within the street camera's range.
+  const geometry = new THREE.PlaneGeometry(260000, 260000, 64, 64); geometry.rotateX(-Math.PI / 2);
   const mesh = new THREE.Mesh(geometry, material);
   mesh.name = 'Harbor and river water'; mesh.position.set(centerX, WATER_LEVEL, centerZ); mesh.frustumCulled = false; mesh.renderOrder = -5;
   scene?.add(mesh);
