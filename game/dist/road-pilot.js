@@ -197,7 +197,7 @@ function markingGeometry(marking, surfaces) {
 /** Small, inspectable reconstruction pilot. AI supplies reviewed appearance;
  * surveyed triangles remain the authority for both rendering and collision. */
 export class RoadPilot {
-  constructor({ scene, data = {}, appearance = {}, orthophoto, mode = 'reconstructed' } = {}) {
+  constructor({ scene, data = {}, appearance = {}, orthophoto, mode = 'reconstructed', stairOpenings = null } = {}) {
     if (appearance.origin && (!data.origin || !Number.isFinite(appearance.origin.lat) || !Number.isFinite(appearance.origin.lon)
       || appearance.origin.lat !== data.origin.lat || appearance.origin.lon !== data.origin.lon)) {
       throw new Error('Road appearance and surveyed geometry use different coordinate origins.');
@@ -246,6 +246,7 @@ export class RoadPilot {
       bridgeSurfaces: this.surfaces.filter(part => part.kind === 'bridge').length,
       triangles: this.surfaces.reduce((sum, part) => sum + part.triangles.length, 0),
       rejectedFeatures, acceptedMarkings, rejectedMarkings, markingTriangles };
+    if (stairOpenings) for (const material of this.materials) stairOpenings.clip(material);
     this.setMode(mode);
   }
 

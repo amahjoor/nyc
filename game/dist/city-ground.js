@@ -79,7 +79,7 @@ function createAtlasPainter(renderer, grid) {
 }
 const canPaintOnGPU = renderer => Boolean(renderer?.capabilities?.isWebGL2 && typeof renderer.getContext === 'function' && typeof renderer.setRenderTarget === 'function');
 
-export function createCityGround({ scene, renderer = null, origin = CITY_ORIGIN, onStatus = () => {}, createImage = () => new Image(), now = () => performance.now() }) {
+export function createCityGround({ scene, renderer = null, origin = CITY_ORIGIN, stairOpenings = null, onStatus = () => {}, createImage = () => new Image(), now = () => performance.now() }) {
   const group = new THREE.Group();group.name = 'NYC 2024 aerial imagery';scene.add(group);
   const coarse = overviewTiles(), first = coarse[0], last = coarse.at(-1);
   const columns = last.column - first.column + 1, rows = last.row - first.row + 1;
@@ -101,6 +101,7 @@ export function createCityGround({ scene, renderer = null, origin = CITY_ORIGIN,
   // At aerial distances these nearly coplanar layers can occupy the same depth
   // value. Paint imagery in order without writing depth, before normal objects.
   const overviewMesh = new THREE.Mesh(atlas,new THREE.MeshBasicMaterial({ map: texture, side: THREE.DoubleSide, depthWrite: false }));
+  stairOpenings?.clip(overviewMesh.material);
   overviewMesh.renderOrder = -20;group.add(overviewMesh);
   // With a GPU the close atlas is painted there; without one (tests, a
   // software renderer) it is a canvas sent whole whenever it changes.
@@ -224,6 +225,7 @@ export function createCityGround({ scene, renderer = null, origin = CITY_ORIGIN,
       const map = new THREE.Texture(image);map.colorSpace = THREE.SRGBColorSpace;map.anisotropy = 4;map.needsUpdate = true;
       entry.mesh = plane(tileBounds(column, row, LOCAL_ZOOM, origin), -.035,
         new THREE.MeshStandardMaterial({ map, color: 0xffffff, roughness: 1, side: THREE.DoubleSide, depthWrite: false }));
+      stairOpenings?.clip(entry.mesh.material);
       entry.mesh.renderOrder = -10;entry.mesh.receiveShadow = true;
       entry.mesh.visible = desired.has(tileKey);group.add(entry.mesh);
       paintLocal(column, row, map);

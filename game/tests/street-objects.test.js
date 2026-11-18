@@ -98,6 +98,26 @@ test('a walker moves the visible litter basket, which settles against a solid ob
   props.dispose();
 });
 
+test('a car folds one subway rail broadside and the fallen panel can be crossed', () => {
+  const { sim, car } = driving(17);
+  const scene = new THREE.Scene(), stairs = createSubwayEntrances({ scene, physics: sim.streetObjects, facing: () => [1, 0] });
+  stairs.update({ entrancesNear: () => [{ x: 0, z: 5, kind: 0 }] }, car);
+  assert.ok(sim.isBlocked(-1.75, 4.22, .1));
+  assert.ok(!sim.isBlocked(-1.9, 5, .1), 'the mouth of the stair stays open');
+  const [first, second] = sim.streetObjects.groups.get('rail');
+  for (let i = 0; i < 60 && !sim.streetObjects.damage.size; i++) step(sim, 1);
+  assert.equal([first, second].filter(b => b.pose).length, 1);
+  // Freeze the car midway through the first impact to isolate the struck panel.
+  sim.cars = []; sim.player.mode = 'walk'; sim.player.x = 20;
+  step(sim, 240);
+  const folded = [first, second].find(b => b.pose), upright = folded === first ? second : first;
+  assert.ok(folded.pose.settled && !sim.isBlocked(folded.x, folded.z, .05));
+  assert.ok(sim.isBlocked(upright.x, upright.z, .05));
+  const mesh = scene.getObjectByName('Subway railing panels'), matrix = new THREE.Matrix4();
+  mesh.getMatrixAt(folded === first ? 0 : 1, matrix); assert.ok(Math.abs(matrix.elements[5]) < .001);
+  stairs.dispose();
+});
+
 test('mapped median panels have independent stable identities and a glancing strike leaves the section standing', async () => {
   const surface = { id: 'median/7', kind: 'median', subtype: 'fenced median', polygon: [[0,0],[10,0],[10,2],[0,2]] };
   const { fences } = await buildCell([surface], []);

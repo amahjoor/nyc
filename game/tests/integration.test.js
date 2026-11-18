@@ -1747,3 +1747,27 @@ test('a player can clock in through the phone, finish a shift and spend the payc
     assert.equal(app.errors.length, 0);
   } finally { app.close(); }
 });
+test('subway steps support the walking player after street travel and E opens the station',async()=>{
+  const app=await bootHarness({terrainElevation:12});
+  try {
+    app.click('start-button');
+    const game=app.window.nycGame, sim=app.simulation();
+    assert.ok(await game.travel({name:'Prince St stairs',x:306,z:-95,exact:true}));
+    app.frames(8);
+    const stairs=game.subwayStairs;
+    const entrance=stairs.entrances.find(e=>e.station.name==='Prince St' && Math.hypot(e.x-306,e.z+95)<4);
+    assert.ok(entrance);
+    const tread=stairs.surfaceAt(entrance.x,entrance.z);
+    const sidewalk=sim.groundHeight(entrance.x,entrance.z);
+    assert.ok(tread.elevation < sidewalk-.9);
+    assert.equal(sim.city.sampleSurface(entrance.x,entrance.z,{mode:'walk'}).elevation,tread.elevation);
+    assert.equal(sim.city.sampleSurface(entrance.x,entrance.z,{mode:'drive'}).elevation,sidewalk);
+    sim.travelTo({...entrance,exact:true});
+    app.frames(50);
+    assert.equal(sim.player.y,tread.elevation);
+    app.key('KeyE');app.key('KeyE',false);
+    assert.equal(app.elements.get('interaction').hidden,false);
+    assert.match(app.elements.get('interaction-title').textContent,/Prince St/);
+    assert.equal(app.errors.length,0,app.errors[0]?.stack);
+  } finally { app.close(); }
+});

@@ -110,6 +110,11 @@ function groundSurface(x,z){
   const surface=landscape?.sampleSurface(x,z),lift=streetscape?.offsetAt(x,z)||0;
   return surface&&lift?{...surface,elevation:surface.elevation+lift}:surface;
 }
+function streetSurface(x,z,options) {
+  return roadPilot?.sampleSurface(x,z,{...options,kind:'bridge'}) ?? streetDetail?.sampleSurface(x,z,options)
+    ?? (options?.mode === 'walk' ? subwayStairs?.surfaceAt(x,z) : null)
+    ?? roadPilot?.sampleSurface(x,z,{...options,kind:'ground'}) ?? groundSurface(x,z);
+}
 let roadPilot=null, roadPilotIndex=null, roadPilotLoading=null, roadPilotError=null, roadPilotRetryAt=0;
 function cityPresets(){
   const parks=landscape?.getStatus().baseReady?landscapeManifest.regions:[];
@@ -848,7 +853,7 @@ function frame(now) {
     const walks=streetscape?.walks()||noStreetFurniture;
     if(walks!==kerbsFor){kerbsFor=walks;kerbIndex=indexKerbs(walks);}
     subwayStairs.group.visible=!cityView||Boolean(viewOverride);
-    subwayStairs.update(subway,lit);
+    subwayStairs.update(subway,lit,walks,landscapeRevision);
   }
   if(buses&&busStops){
     const walks=streetscape?.walks()||noStreetFurniture;
@@ -1046,7 +1051,7 @@ async function ensureRoadPilot(){
         ||!terrain.alreadyBlended||!Array.isArray(data.terrain.requiredRegions))throw new Error('Road pilot assets do not describe the same measured location. Reload to retry.');
       // Build and validate before replacing older ground. A partial request
       // must never erase the playable baseline or leave half a road loaded.
-      candidate=new RoadPilot({scene,data,appearance,orthophoto:ground.orthophoto});
+      candidate=new RoadPilot({scene,data,appearance,orthophoto:ground.orthophoto,stairOpenings:subwayStairs.openings});
       if(!candidate.getStatus().surfaces)throw new Error('The road pilot contains no validated road surfaces.');
       candidate.setVisible(false);
       for(const id of data.terrain.requiredRegions)releaseBackground.push(await landscape.retainTerrainRegion(id));
@@ -1147,7 +1152,7 @@ async function boot() {
   // What stands where, for dressing buildings decoded on the page itself; the background decoders fetch their own.
   await lotsReady();
   cityIndex=index;roadIndex=streets;boroughs=land.boroughs;roadStream=createRoadStream(roadIndex);
-  city={...seed,bounds:roadIndex.bounds,buildings:[],roads:[],boroughs,missionPoints:[],sampleSurface:(x,z,options)=>roadPilot?.sampleSurface(x,z,{...options,kind:'bridge'})??streetDetail?.sampleSurface(x,z,options)??roadPilot?.sampleSurface(x,z,{...options,kind:'ground'})??groundSurface(x,z),landscapeContact:(x,z,radius)=>landscape?.contactAt(x,z,radius)};
+  city={...seed,bounds:roadIndex.bounds,buildings:[],roads:[],boroughs,missionPoints:[],sampleSurface:streetSurface,landscapeContact:(x,z,radius)=>landscape?.contactAt(x,z,radius)};
   $('load-text').textContent='CONNECTING TO NEW YORK…';
   // The frame is antialiased in its own multisampled target, not the canvas.
   renderer=new THREE.WebGLRenderer({canvas,antialias:false,powerPreference:'high-performance'});
@@ -1156,8 +1161,11 @@ async function boot() {
   // Sky, sun, haze and the screen-space finish share one time of day.
   gfx=createGraphics({renderer,scene,camera});
   sim=new Simulation(city);
+  subwayStairs=createSubwayEntrances({scene,physics:sim.streetObjects,heightAt:groundHeight,
+    kerbAt:(x,z)=>kerbIndex&&snapToKerb(kerbIndex,x,z,12)});
+  const stairOpenings=subwayStairs.openings;
   // Rivers, harbor and sea, bounded by the borough shorelines.
-  water=createWater({scene,boroughs,bounds:roadIndex.bounds,panorama:gfx.skyPanorama});
+  water=createWater({scene,boroughs,bounds:roadIndex.bounds,panorama:gfx.skyPanorama,stairOpenings});
   // The country around the city, as a silhouette. Optional: without it the city stands in open sea.
   loadData('context-land.json').then(manifest=>{
     const image=new Image();
@@ -1195,7 +1203,6 @@ async function boot() {
   placeSource=joinPlaceSources(registerPlaces,otherShops);
   loadData('places-index.json').then(index=>registerPlaces.setIndex(index)).catch(()=>{});
   loadData('shops-index.json').then(index=>otherShops.setIndex(index)).catch(()=>{});
-  subwayStairs=createSubwayEntrances({scene,heightAt:groundHeight,facing:(x,z)=>{const kerb=kerbIndex&&snapToKerb(kerbIndex,x,z,12);return kerb?[kerb.tx,kerb.tz]:null;}});
   loadData('demographics.json').then(data=>{demographics=createDemographics(data);}).catch(()=>{});
   busStops=createBusStops({scene,heightAt:groundHeight,kerb:(x,z)=>kerbIndex&&snapToKerb(kerbIndex,x,z,14)});
   shedMesh=createShedMesh({scene,heightAt:groundHeight});
@@ -1219,11 +1226,11 @@ async function boot() {
     onOpenChange:open=>{$('phone-button').setAttribute('aria-expanded',String(open));$('mission-panel').classList.toggle('behind-phone',open);if(!open)canvas.focus();}});
   loadData('street-life.json').then(data=>{cityLife=createCityLife(data);props.setData(data);sim.setActiveCity({signalHints});}).catch(()=>{});
   world=createCityStream(cityIndex,{scene,onCollisionChange:applyBuildings,onStatus:updateStreaming,heightAt:terrainHeight});
-  ground=createCityGround({scene,renderer,onStatus:status=>{if(status.failures)$('imagery-status').textContent='Some aerial tiles are unavailable. NYC imagery will retry as you explore; surveyed geometry loads separately.';}});
+  ground=createCityGround({scene,renderer,stairOpenings,onStatus:status=>{if(status.failures)$('imagery-status').textContent='Some aerial tiles are unavailable. NYC imagery will retry as you explore; surveyed geometry loads separately.';}});
   world.setOrthophoto(ground.orthophoto);
   const landscapeReady=loadData('landscape-index.json').then(async index=>{
     landscapeManifest=index;
-    landscape=new Landscape({scene,index,physics:sim.streetObjects,orthophoto:ground.orthophoto,onChange:()=>{landscapeDirty=true;},onStatus:updateLandscapeStatus});
+    landscape=new Landscape({scene,index,physics:sim.streetObjects,stairOpenings,orthophoto:ground.orthophoto,onChange:()=>{landscapeDirty=true;},onStatus:updateLandscapeStatus});
     await landscape.loadBase();
     // Measured terrain and the water sheet now cover everything the flat
     // photograph did; it stays loaded as the terrain's and the roofs' texture.
@@ -1242,7 +1249,7 @@ async function boot() {
   // Asphalt, sidewalks, kerbs and paint. Surveyed outlines ship for a few
   // neighbourhoods; elsewhere they stream from NYC Open Data around the player.
   const startStreetscape=index=>{
-    streetscape=createStreetscape({scene,index,physics:sim.streetObjects,heightAt:terrainHeight,onChange:()=>sim?.updateGrounding(),
+    streetscape=createStreetscape({scene,index,physics:sim.streetObjects,stairOpenings,heightAt:terrainHeight,onChange:()=>sim?.updateGrounding(),
       roadsFor:bounds=>roadStream.loadAround({x:(bounds.minX+bounds.maxX)/2,z:(bounds.minZ+bounds.maxZ)/2},320)});
     if(roadPilot)streetscape.setGroundReplacementBounds(roadPilotIndex.bounds);
   };
@@ -1282,7 +1289,7 @@ async function boot() {
   }).catch(()=>null);
   const b=city.bounds;camera.position.set((b.minX+b.maxX)/2-14000,44000,(b.minZ+b.maxZ)/2+32000);
   navigation=createCityNavigation({canvas,camera,input,bounds:city.bounds,heightAt:terrainHeight,onTravel:travel,onDestinationSelected:focusCityDestination,getPresets:cityPresets,searchLocal:findLocally});
-  window.nycGame={graphics:gfx,get streetscape(){return streetscape;},get streetLife(){return streetLife;},get parkedCars(){return parkedCars;},get distantTraffic(){return distantTraffic;},get world(){return world;},get simulation(){return sim;},get signs(){return signs;},get crowd(){return crowd;},get props(){return props;},get places(){return placeSource;},get storefronts(){return storefronts;},get fronts(){return fronts;},get phone(){return phone;},get fleet(){return fleet;},get subway(){return subway;},get buses(){return buses;},get sheds(){return sheds;},get dining(){return dining;},get standMesh(){return standMesh;},get map(){return gameMap;},findLocally,get bikeShare(){return bikeShare;},get bikeDocks(){return bikeDocks;},get diningMesh(){return diningMesh;},get shedMesh(){return shedMesh;},get busStops(){return busStops;},get demographics(){return demographics;},get subwayStairs(){return subwayStairs;},get cityLife(){return cityLife;},heightAt:(x,z)=>terrainHeight(x,z),setView:view=>{viewOverride=view&&Array.isArray(view.position)&&Array.isArray(view.target)?view:null;},getState:()=>({time:gfx.clock,switching:switchShot.active,player:{...sim.player},heat:sim.heat,health:sim.health,mission:{...sim.mission},cash:sim.cash,deliveries:sim.deliveries,cars:sim.cars.length,parkedCars:sim.cars.filter(car=>car._kerb).length,buildings:buildings.length,totalBuildings:cityIndex.stats.buildingFeatures,stream:world.getStatus(),ground:ground.getStatus(),streetDetail:streetDetail?.getStatus()||null,streetscape:streetscape?.getStatus()||null,landscape:landscape?.getStatus()||null,reconstruction:reconstructionReview?{model:reconstructionReview.model,summary:reconstructionReview.summary}:null,roadReconstruction:roadReconstructionReview?{model:roadReconstructionReview.model,summary:roadReconstructionReview.summary}:null,roadPilot:roadPilot?roadPilot.getStatus():{ready:false,loading:Boolean(roadPilotLoading),error:roadPilotError},navigation:navigation.getState(),map:gameMap.getState(),routeGuidance,cityView,aerialView,firstPersonView:firstPersonActive(),traveling,bootReady,shadows:{enabled:shadowsEnabled,active:renderer.shadowMap.enabled},drawCalls:renderer.info.render.calls,triangles:renderer.info.render.triangles,started,paused})};
+  window.nycGame={graphics:gfx,get streetscape(){return streetscape;},get streetLife(){return streetLife;},get parkedCars(){return parkedCars;},get distantTraffic(){return distantTraffic;},get world(){return world;},get simulation(){return sim;},get signs(){return signs;},get crowd(){return crowd;},get props(){return props;},get places(){return placeSource;},get storefronts(){return storefronts;},get fronts(){return fronts;},get phone(){return phone;},get fleet(){return fleet;},get subway(){return subway;},get buses(){return buses;},get sheds(){return sheds;},get dining(){return dining;},get standMesh(){return standMesh;},get map(){return gameMap;},findLocally,get bikeShare(){return bikeShare;},get bikeDocks(){return bikeDocks;},get diningMesh(){return diningMesh;},get shedMesh(){return shedMesh;},get busStops(){return busStops;},get demographics(){return demographics;},get subwayStairs(){return subwayStairs;},get cityLife(){return cityLife;},heightAt:(x,z)=>terrainHeight(x,z),travel:place=>travel(place),setView:view=>{viewOverride=view&&Array.isArray(view.position)&&Array.isArray(view.target)?view:null;},getState:()=>({time:gfx.clock,switching:switchShot.active,player:{...sim.player},heat:sim.heat,health:sim.health,mission:{...sim.mission},cash:sim.cash,deliveries:sim.deliveries,cars:sim.cars.length,parkedCars:sim.cars.filter(car=>car._kerb).length,buildings:buildings.length,totalBuildings:cityIndex.stats.buildingFeatures,stream:world.getStatus(),ground:ground.getStatus(),streetDetail:streetDetail?.getStatus()||null,streetscape:streetscape?.getStatus()||null,landscape:landscape?.getStatus()||null,reconstruction:reconstructionReview?{model:reconstructionReview.model,summary:reconstructionReview.summary}:null,roadReconstruction:roadReconstructionReview?{model:roadReconstructionReview.model,summary:roadReconstructionReview.summary}:null,roadPilot:roadPilot?roadPilot.getStatus():{ready:false,loading:Boolean(roadPilotLoading),error:roadPilotError},navigation:navigation.getState(),map:gameMap.getState(),routeGuidance,cityView,aerialView,firstPersonView:firstPersonActive(),traveling,bootReady,shadows:{enabled:shadowsEnabled,active:renderer.shadowMap.enabled},drawCalls:renderer.info.render.calls,triangles:renderer.info.render.triangles,started,paused})};
   requestAnimationFrame(frame);
   const [roads]=await Promise.all([roadStream.loadAround(seed.spawn),world.prepareAt(seed.spawn,300),landscapeReady]);
   sim.setActiveCity({roads,buildings,isReadyAt:(x,z,radius)=>world.isReadyAt(x,z,radius),missionPoints:destinationsFor(roads,seed.spawn)},{spawn:seed.spawn});city=sim.city;yaw=sim.player.angle;

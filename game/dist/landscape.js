@@ -425,12 +425,13 @@ export function reviewedWaterFeatures(report, official, origin) {
 
 /** A small bounded set of surveyed regions overlays the citywide measured DEM. */
 export class Landscape {
-  constructor({ scene, index, orthophoto, localOrthophoto, physics = null, fetcher = globalThis.fetch.bind(globalThis), onStatus = () => {}, onChange = () => {},
+  constructor({ scene, index, orthophoto, localOrthophoto, physics = null, stairOpenings = null, fetcher = globalThis.fetch.bind(globalThis), onStatus = () => {}, onChange = () => {},
     now = () => Date.now(), maxCache = 4, concurrency = 2, radius = 1800 } = {}) {
     if (index?.version !== 1 || !Array.isArray(index.regions)) throw new Error('Invalid NYC landscape index.');
     this.index = index;this.scene = scene;this.fetcher = fetcher;this.onStatus = onStatus;this.onChange = onChange;this.now = now;
     this.maxCache = clamp(maxCache, 1, 8);this.concurrency = clamp(concurrency, 1, 4);this.radius = radius;
     this.physics = physics;
+    this.stairOpenings = stairOpenings;
     this.orthophoto = orthophoto;this.localOrthophoto = localOrthophoto;
     this.group = new THREE.Group();this.group.name = 'Measured NYC landscape reconstruction';scene?.add(this.group);
     this.cache = new Map();this.pending = new Map();this.errors = new Map();this.wanted = new Map();this.preparing = new Map();this.serial = 0;this.disposed = false;
@@ -487,6 +488,7 @@ export class Landscape {
 
   _build(terrain, features, regionId = null) {
     const group = new THREE.Group(), material = createTerrainMaterial(this.airportTexture), mesh = new THREE.Mesh(buildTerrainGeometry(terrain), material);
+    this.stairOpenings?.clip(material);
     mesh.receiveShadow = true;mesh.name = 'Surveyed terrain';group.add(mesh);this.group.add(group);
     bindAtlas(material, this.orthophoto);bindAtlas(material, this.localOrthophoto, true);
     const entry = { terrain, group, mesh, material, regionId, used: ++this.serial, water: null, vegetation: null };

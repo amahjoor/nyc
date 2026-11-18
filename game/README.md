@@ -202,7 +202,7 @@ Where a quarter or more of a tract speaks one language other than English at hom
 
 ## The subway
 
-`scripts/build-transit.mjs` bundles the MTA's list of street entrances as 451 stations with the lines that stop at each and 2,067 entrances (`dist/transit.json`). The list's complex numbers put Herald Square and Union Square in one complex, so a station here is a name and its lines. Stair entrances are drawn where the list puts them, running along the kerb, with a green railing and globes. On foot at the head of one, **E** lists every station on a line that stops there, nearest first; choosing one puts you at the top of a stair at that station for the $2.90 fare. With less than the fare you jump the turnstile, which the police may notice. Platforms, tunnels and trains are not modelled, and a ride takes no time; elevators and entrances inside buildings are not drawn.
+`scripts/build-transit.mjs` bundles the MTA's list of street entrances as 451 stations with the lines that stop at each and 2,067 entrances (`dist/transit.json`). The list's complex numbers put Herald Square and Union Square in one complex, so a station here is a name and its lines. At each mapped stair entrance, green railings and globes mark an opening in the sidewalk. You can walk down the steps and back up. Pressing **E** at the entrance or on the steps lists every station on a line that stops there, nearest first. Choosing one puts you at the top of a stair at that station for the $2.90 fare. With less than the fare you jump the turnstile, which the police may notice. Platforms, tunnels and trains are not modelled, and a ride takes no time; elevators and entrances inside buildings are not drawn.
 
 ## The buses
 

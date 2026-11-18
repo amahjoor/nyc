@@ -142,7 +142,7 @@ export function landPolygons(boroughs) {
 /**
  * @param {object} options scene; borough outlines; the city's bounds; the sky panorama texture.
  */
-export function createWater({ scene, boroughs, bounds, panorama = null, createCanvas = () => document.createElement('canvas') } = {}) {
+export function createWater({ scene, boroughs, bounds, panorama = null, stairOpenings = null, createCanvas = () => document.createElement('canvas') } = {}) {
   const polygons = landPolygons(boroughs);
   const centerX = (bounds.minX + bounds.maxX) / 2, centerZ = (bounds.minZ + bounds.maxZ) / 2;
   const farRect = { size: Math.max(bounds.maxX - bounds.minX, bounds.maxZ - bounds.minZ) + 2400 };
@@ -166,6 +166,7 @@ export function createWater({ scene, boroughs, bounds, panorama = null, createCa
     tContext: { value: null }, uContextRect: { value: new THREE.Vector4(0, 0, 0, 0) }, uContextTexel: { value: new THREE.Vector2() }, uContextRelief: { value: 1 } };
   const material = new THREE.ShaderMaterial({ vertexShader: WATER_VERTEX, fragmentShader: WATER_FRAGMENT, uniforms, fog: true, toneMapped: false });
   material.name = 'Harbor and river water';
+  stairOpenings?.clip(material, 'vWaterWorld');
   // A single harbor-wide quad can clip across the eye and write water depth
   // in front of nearby streets. Keep each triangle within the street camera's range.
   const geometry = new THREE.PlaneGeometry(260000, 260000, 64, 64); geometry.rotateX(-Math.PI / 2);
