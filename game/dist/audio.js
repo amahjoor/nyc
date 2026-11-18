@@ -50,7 +50,7 @@ export class CityAudio {
   update(sim, time, playing) {
     if (!this.ctx) return;
     const now = this.ctx.currentTime;
-    const driving = playing && sim.player.mode === 'drive';
+    const driving = playing && sim.player.mode === 'drive' && !sim.vehicle?.destroyed && sim.vehicle?.burningSince == null;
     this.engine.frequency.setTargetAtTime(34 + Math.abs(sim.player.speed)*3.4, now, .1);
     this.engineGain.gain.setTargetAtTime(driving ? .13 : 0, now, .12);
     this.engineFilter.frequency.setTargetAtTime(180 + Math.abs(sim.player.speed)*13, now, .1);
@@ -64,6 +64,16 @@ export class CityAudio {
     }
     if (police && police.shotsFired !== this.shotsHeard) { if (playing && this.shotsHeard !== undefined) this.gunshot(); this.shotsHeard = police.shotsFired; }
     this.ambientGain.gain.setTargetAtTime(playing ? .075 : .02, now, .2);
+  }
+  explosion(distance) {
+    if (!this.ctx || !this.enabled) return;
+    const c = this.ctx, now = c.currentTime, gain = c.createGain(), rumble = c.createOscillator();
+    const amp = .65 / (1 + distance * .045);
+    rumble.frequency.setValueAtTime(105,now); rumble.frequency.exponentialRampToValueAtTime(34,now+.5);
+    gain.gain.setValueAtTime(amp,now); gain.gain.exponentialRampToValueAtTime(.001,now+.85);
+    const crack = c.createBufferSource(); crack.buffer = this.noise;
+    crack.connect(gain); rumble.connect(gain); gain.connect(this.master);
+    crack.start(now,0,.65); rumble.start(now); rumble.stop(now+.86);
   }
   horn() {
     if (!this.ctx || !this.enabled) return;

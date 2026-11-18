@@ -163,7 +163,7 @@ export function createPhone({ $, places = () => [], state = () => ({}), onDirect
     }
     if (screen === 'contacts') {
       $('phone-contact-dispatch').disabled = Boolean(now.jobActive);
-      $('phone-contact-mechanic-note').textContent = `Comes out and mends the car you are in · $${CALL_OUT} + repair`;
+      $('phone-contact-mechanic-note').textContent = `Repairs your current car or your nearby burned-out cab · $${CALL_OUT} + repair`;
       $('phone-contact-cab-note').textContent = `Brings your cab to the nearest street · $${DELIVERY}`;
     }
     if (screen === 'list' && listing) {

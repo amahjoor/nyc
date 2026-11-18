@@ -1,4 +1,5 @@
 import { renderStats, performanceName } from './vehicle-stats.js';
+import { createDoorDebris } from './vehicle-detail.js';
 import { updateChaseHeight } from './vehicle-presentation.js';
 import { createDriverCabin } from './driver-cabin.js';
 import { createSwitchShot } from './switch-shot.js';
@@ -7,6 +8,7 @@ import { createCar, createParkedCars, createDistantTraffic, createPerson, update
 import { Simulation, TRAFFIC_SIGHT } from './simulation.js';
 import { OFFICER_LOOK } from './police.js';
 import { createPoliceScene } from './police-scene.js';
+import { createCarSmoke } from './car-smoke.js';
 import { Input } from './input.js';
 import { HUD } from './hud.js';
 import { CityAudio } from './audio.js';
@@ -77,7 +79,8 @@ let phone=null, interaction=null, work=null, roadDestinations=[], placeDestinati
 // The front the player is standing at if it has a room to go into, and the room they are in.
 // The player and shop staff as the crowd's modelled figures, once those have loaded: where in their stride the player is.
 let playerStride=0, strideClock=0;
-let endingShown=null;
+let doorDebris=null, carSmoke=null, endingShown=null;
+const smoking=[], struckSeen=new Map(), blastSeen=new WeakMap();
 const officerModels=new Map();
 const PLAYER_LOOK={top:0xd7774e,bottom:0x1c1d22,skin:0xb98563,hair:0x14110f,kit:0,height:1.76};
 let doorAgain=0;
@@ -163,7 +166,7 @@ function atShopCounter(){
 }
 
 function openGarage(place, index=0) {
-  const rows=shopRows(place.kind,{...sim.vehicle,health:sim.health});
+  const rows=shopRows(place.kind,sim.vehicle);
   for(const row of rows)row.disabled=row.price===null;
   interaction.openList(placeName(place),rows,(row,i)=>{
     if(sim.garage(place.kind,row.job,row.color))saveProgress();
@@ -486,15 +489,17 @@ function syncScene(dt,controls) {
   // lengths off. The player's car, a patrol, a car left standing in the road
   // and whatever traffic is close by each have a model of their own, with
   // wheels that turn and steer.
-  const activeCars=new Set();distantCars.length=0;
+  const activeCars=new Set(), batchedParked=[];distantCars.length=0;
   for(const car of sim.cars){
-    if(car._kerb)continue;
     const away=Math.hypot(car.x-p.x,car.z-p.z);
+    if(car._kerb && away > (carModels.has(car.id) ? 14 : 10) && !(car.damage && away < MODEL_RANGE)){
+      batchedParked.push(car);continue;
+    }
     if(car.controlled||car.type==='police'||!car._edge||!distantTraffic||away<(carModels.has(car.id)?MODEL_KEPT:MODEL_RANGE))activeCars.add(car.id);
     else if(away<CAR_SIGHT)distantCars.push(car);
   }
   for(const [id,mesh] of carModels)if(!activeCars.has(id)){scene.remove(mesh);carModels.delete(id);}
-  parkedCars?.update(sim.cars);
+  parkedCars?.update(batchedParked);
   distantTraffic?.update(distantCars);
   // Walking into the door of an open place goes in: no key needed. Having just come out, a moment passes first.
   if(doorHere&&!sim.room&&sim.player.mode==='walk'&&elapsed>doorAgain){
@@ -540,10 +545,25 @@ function syncScene(dt,controls) {
       carModels.set(car.id,mesh);scene.add(mesh);
     }
     mesh.visible=Math.hypot(car.x-p.x,car.z-p.z)<CAR_SIGHT&&!(eyeView&&car.id===p.vehicleId);
+    const previousDoors = mesh.userData.missingDoors ?? car.missingDoors ?? 0;
+    for (const [i,bit] of [1,2].entries()) if ((car.missingDoors & bit) && !(previousDoors & bit)) {
+      doorDebris?.detach(mesh.userData.detail.doors[i],car,i === 0 ? 1 : -1);
+    }
+    mesh.userData.missingDoors = car.missingDoors || 0;
     updateCarVisuals(mesh,car,dt);
+    // A car that has been hit smokes, the more the worse it is, and throws bits off when it is hit.
+    const harm=car.damage||0;
+    if(car.destroyed && blastSeen.get(car)!==car.explodedAt && sim.elapsed-car.explodedAt < 1 && Math.hypot(car.x-p.x,car.z-p.z)<CAR_SIGHT) {
+      blastSeen.set(car,car.explodedAt);
+      carSmoke?.explosion(car.x,car.y||0,car.z);
+      audio.explosion(Math.hypot(car.x-p.x,car.z-p.z));
+    }
+    if(harm>.45 && (mesh.visible || car.controlled) && (!car.destroyed || sim.elapsed-car.explodedAt < 18))smoking.push({burning:car.burningSince!=null,id:car.id,x:car.x,y:car.y||0,z:car.z,angle:car.angle,amount:Math.min(1,(harm-.45)/.5),vx:car.velocityX||0,vz:car.velocityZ||0});
+    if(car.struckAt&&struckSeen.get(car.id)!==car.struckAt){struckSeen.set(car.id,car.struckAt);carSmoke?.burst(car.x,(car.y||0)+.7,car.z,9);}
     if(mesh.userData.update)mesh.userData.update(elapsed,car,sim.heat);
     // Scene factories may expose lamp meshes for a lightweight police flash.
     if(car.type==='police')for(const [i,light] of (mesh.userData.lights||[]).entries()){
+      light.visible=!car.destroyed;
       if(light.material)light.material.emissiveIntensity=sim.heat>.1?(Math.sin(elapsed*14+i*Math.PI)>0?3:.1):.15;
     }
   }
@@ -763,6 +783,9 @@ function frame(now) {
   water.update(lit,{overview:cityView&&!viewOverride});
   // Lamps and headlights are gathered before the frame that they light.
   streetLife.update(lit,{lights:gfx.state.lightsOn,cars:sim.cars,overview:overview&&!viewOverride,spots:policeScene.spots});
+  doorDebris?.update(paused||traveling?0:dt);
+  carSmoke?.update(paused||traveling?0:dt,smoking,renderer.domElement?.height||720,sim?.player);smoking.length=0;
+  if(struckSeen.size>200)struckSeen.clear();
   // Signals show what the simulation's traffic is obeying, on the same clock.
   signs.group.visible=!cityView||Boolean(viewOverride);
   if(signs.group.visible)signs.update(sim.junctions,lit,sim.elapsed);
@@ -1314,7 +1337,7 @@ async function boot() {
     $('road-reconstruction-status').textContent=report.summary.accepted+' of '+report.summary.candidates+
       ' road and parking masks passed source checks. Rejected masks create no game geometry.';
   }).catch(()=>{$('road-reconstruction-status').textContent='Road image review unavailable. Surveyed surfaces remain active.';});
-  avatar=createPerson(0xd7774e,{courier:true});scene.add(avatar);marker=createMissionMarker();enterHint=createEnterHint();policeScene=createPoliceScene(scene,(x,z)=>groundHeight(x,z));
+  avatar=createPerson(0xd7774e,{courier:true});scene.add(avatar);marker=createMissionMarker();enterHint=createEnterHint();policeScene=createPoliceScene(scene,(x,z)=>groundHeight(x,z));carSmoke=createCarSmoke(scene);doorDebris=createDoorDebris(scene);
   hud=new HUD(city);applyQuality();
   gameMap=new GameMap({city,searchLocal:findLocally,onPlacesWanted:loadPlaceNames,onPin:requestDirections,
     onSpawn:pin=>travel({...pin,exact:true}),

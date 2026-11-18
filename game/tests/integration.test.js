@@ -1,3 +1,5 @@
+import { carCondition } from '../dist/vehicle-damage.js';
+import { createDoorDebris } from '../dist/vehicle-detail.js';
 import { renderStats, performanceName } from '../dist/vehicle-stats.js';
 import { updateChaseHeight } from '../dist/vehicle-presentation.js';
 import { createDriverCabin } from '../dist/driver-cabin.js';
@@ -11,6 +13,7 @@ import { createCar, createParkedCars, createDistantTraffic, createPerson, update
 import { Simulation, TRAFFIC_SIGHT } from '../dist/simulation.js';
 import { OFFICER_LOOK } from '../dist/police.js';
 import { createPoliceScene } from '../dist/police-scene.js';
+import { createCarSmoke } from '../dist/car-smoke.js';
 import { resetVehicleDynamics } from '../dist/vehicle-dynamics.js';
 import { Input } from '../dist/input.js';
 import { HUD } from '../dist/hud.js';
@@ -96,7 +99,7 @@ class EventTarget {
 
 function canvasContext() {
   const context = {};
-  for (const method of ['setTransform', 'quadraticCurveTo', 'drawImage', 'fillRect', 'strokeRect', 'clearRect', 'beginPath', 'closePath', 'moveTo', 'lineTo', 'roundRect', 'arc', 'fill', 'stroke', 'fillText', 'save', 'restore', 'translate', 'rotate', 'scale', 'rect', 'setLineDash']) {
+  for (const method of ['setTransform', 'quadraticCurveTo', 'drawImage', 'fillRect', 'strokeRect', 'clearRect', 'beginPath', 'closePath', 'moveTo', 'lineTo', 'roundRect', 'arc', 'fill', 'stroke', 'fillText', 'save', 'restore', 'translate', 'rotate', 'scale', 'rect', 'clip', 'setLineDash']) {
     context[method] = () => {};
   }
   context.createLinearGradient = () => ({ addColorStop() {} });
@@ -291,7 +294,7 @@ async function bootHarness({ stored = null, displayStored = null, unavailableSto
     },
     updateChaseHeight, createDriverCabin, createCityGround, worldToGeographic, createRoadStream, nearestStreet, localDestinations, createCityNavigation,
     createStreetDetail:(manifest,options)=>createStreetDetail(manifest,{...options,now:()=>timestamp}),
-    renderStats, performanceName, vehicleHandling, createCentralPark,
+    renderStats, performanceName, vehicleHandling, createDoorDebris, carCondition, createCarSmoke, createCentralPark,
     Landscape, RoadPilot, AbortSignal, createGraphics, createStreetLife, createWater, setVehicleLamps, OFFICER_LOOK, createPoliceScene, createCityLife, manhattanCore, createStreetSigns, createCrowd, dress, seeded, KIT, createStreetProps, createPlaceSource, placeName, joinPlaceSources, indexFootprints, solveFrontages, createStorefronts, createInteraction, createPhone, describePlace, createFleet, createVehicleMeshLibrary, designFor, createSwitchShot, offersAt, shopRows, planRoom, buildRoom, roomKind, hasRoom, doorBlips, createDemographics, characterAt, createBuses, createBusStops, createSheds, planSheds, createShedMesh, createDining, planDining, createDiningMesh, seatsOf, planStands, vendorOf, createStandMesh, createBikeShare, planBikeDocks, createBikeDocks, menuFor, createSubway, createSubwayEntrances, FARE, indexKerbs, snapToKerb, formatDistance,
     // Bundled survey cells only: these tests stay offline.
     createStreetscape:options=>createStreetscape({...options,live:false,now:()=>timestamp}),

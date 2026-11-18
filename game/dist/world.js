@@ -1,3 +1,4 @@
+import { fitExterior, poseExterior, releaseCrumple } from './vehicle-detail.js';
 import { updateRide } from './vehicle-presentation.js';
 import { bodyShape } from './fleet.js';
 import { buildCar, createCarMaterial, createLampMaterial, wheelGeometry, WHEEL, BODY_SHAPES } from './vehicle-model.js';
@@ -318,6 +319,33 @@ const carPaint = createCarMaterial(), carGlow = createLampMaterial();
 const tireMaterial = new THREE.MeshStandardMaterial({ color: 0x17191a, roughness: .9 });
 const hubMaterial = new THREE.MeshStandardMaterial({ color: 0xa9afb0, metalness: .85, roughness: .32 });
 const { tyre: wheelTyre, rim: wheelRim } = wheelGeometry();
+// Close-up wheels have a recessed brake rotor, machined spokes and lug bolts.
+const wheelFinish = new THREE.MeshStandardMaterial({ vertexColors: true, metalness: .72, roughness: .31 });
+function roadWheel(spokes = 5, aero = false) {
+  const batch = new Batches(), group = new THREE.Group(), radius = WHEEL.radius;
+  const lathe = profile => new THREE.LatheGeometry(profile.map(([r,x]) => new THREE.Vector2(r*radius,x)),48).rotateZ(Math.PI/2);
+  const rotor = lathe([[.24,-.085],[.50,-.085],[.50,.085],[.24,.085]]);
+  batch.add(rotor,wheelFinish,null,0x777a7b);
+  batch.add(lathe([[.55,-.12],[.61,-.131],[.65,-.122],[.65,.122],[.61,.131],[.55,.12]]),wheelFinish,null,0xc4cbd0);
+  const spoke = new THREE.BoxGeometry(.024,.154,aero ? .058 : .020);
+  const lug = new THREE.CylinderGeometry(.008,.009,.012,6).rotateZ(Math.PI/2);
+  const hub = new THREE.CylinderGeometry(.049,.049,.246,32).rotateZ(Math.PI/2);
+  batch.add(hub,wheelFinish,null,0x888e93);
+  for (const side of [-1,1]) for (let i=0;i<spokes;i++) {
+    const angle = i*TAU/spokes, rotorMatrix = new THREE.Matrix4().makeRotationX(angle);
+    for (const fork of [-1,1]) {
+      const local = new THREE.Matrix4().makeRotationX(fork*.19).setPosition(side*.114,.121,fork*.023);
+      batch.add(spoke,wheelFinish,new THREE.Matrix4().multiplyMatrices(rotorMatrix,local),0xb1bac1);
+    }
+  }
+  for (const side of [-1,1]) for (let i=0;i<5;i++) {
+    const m = new THREE.Matrix4().makeRotationX(i*TAU/5).multiply(new THREE.Matrix4().makeTranslation(side*.124,.032,0));
+    batch.add(lug,wheelFinish,m,0x4f555b);
+  }
+  batch.finish(group);
+  return group.children[0].geometry;
+}
+const alloy = roadWheel(), sportAlloy = roadWheel(8), aeroAlloy = roadWheel(5,true);
 const bodies = new Map();
 const modelPaints = new Map();
 /** The colour of a boro taxi, as the simulation names it. */
@@ -461,6 +489,76 @@ export function createDistantTraffic({ capacity = 96, library = null } = {}) {
   return createCarSet({ name: 'Distant traffic', label: 'Distant', capacity, library, lit: true, select: () => true });
 }
 
+// Upholstery and occupants are baked once in seat coordinates. Each is one
+// draw call in a nearby car, regardless of how many cushions or limbs it has.
+const upholstery = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: .76 });
+const interiors = new Map();
+// One reversible moulding for both door cards, in hinge-local coordinates.
+const doorCard = new Batches(), doorTemplate = new THREE.Group();
+doorCard.box(upholstery,-.055,.405,-.49,.065,.32,.89,0x2b2b2d);
+doorCard.box(upholstery,-.096,.43,-.45,.058,.055,.51,0x4d4c4d);
+doorCard.box(upholstery,-.101,.51,-.32,.023,.020,.16,0xa6abae);
+doorCard.finish(doorTemplate);
+const motor = new Batches(), engineBay = new THREE.Group();
+motor.box(upholstery,0,0,0,1.44,.08,1,0x191c20);
+motor.box(upholstery,.08,.06,0,.70,.12,.51,0x383b40);
+for (let i=0; i<5; i++) motor.box(upholstery,.08,.128,-.15+i*.066,.52,.017,.021,0x56595b);
+motor.box(upholstery,-.48,.04,.17,.21,.11,.32,0x26292a);
+motor.finish(engineBay);
+function cabinMesh(occupant = -1) {
+  if (interiors.has(occupant)) return interiors.get(occupant).clone();
+  const batch = new Batches(), group = new THREE.Group(), matrix = new THREE.Matrix4();
+  const cushion = new THREE.SphereGeometry(1, 16, 10);
+  const pad = (x,y,z,w,h,d,color,tilt=0) => {
+    matrix.makeRotationX(tilt).scale(new THREE.Vector3(w,h,d)).setPosition(x,y,z);
+    batch.add(cushion,upholstery,matrix,color);
+  };
+  if (occupant < 0) {
+    // The dashboard underside, parcel shelf and door liners keep daylight
+    // from showing through below the belt line when a window is missing.
+    batch.box(upholstery,0,.68,-.99,1.42,.15,.55,0x2b2c30);
+    batch.box(upholstery,0,.65,.67,1.55,.35,.27,0x22262a);
+    for (const x of [-.39,.39]) {
+      pad(x,.49,0,.27,.105,.3,0x49484a);
+      pad(x,.72,-.19,.255,.32,.087,0x3a3a3c,-.14);
+      pad(x,.74,-.13,.19,.25,.05,0x545256,-.14);
+      pad(x,1.04,-.22,.133,.102,.067,0x424246);
+      pad(x,.81,-.92,.13,.10,.07,0x36383b);
+    }
+    pad(0,.65,-.92,.73,.23,.12,0x38393c);
+    pad(0,.57,-.90,.78,.24,.12,0x37373b,-.12);
+    batch.box(upholstery,0,.27,-.14,1.58,.14,1.98,0x252326);
+    pad(0,.86,.59,.82,.14,.24,0x282a2c);
+    batch.box(upholstery,0,.83,.47,1.47,.021,.052,0x747778);
+    batch.box(upholstery,0,.93,.48,.27,.16,.045,0x171d22);
+    batch.box(upholstery,0,.93,.451,.24,.132,.008,0x354652);
+    const wheel = new THREE.TorusGeometry(.16,.018,8,36);
+    matrix.makeRotationX(.38).setPosition(.39,.86,.28);
+    batch.add(wheel,upholstery,matrix,0x18191b);
+    batch.box(upholstery,.39,.86,.28,.27,.036,.038,0x383b40);
+    batch.box(upholstery,.39,.86,.26,.11,.074,.04,0x28292c);
+  } else {
+    const skin = [0xaa7452,0xd2a381,0x8e5e42,0xc99574][occupant];
+    const coat = [0x32444f,0x845b4b,0x354638,0x4b485a][occupant];
+    pad(0,.72,0,.19,.24,.11,coat,-.12);
+    pad(0,.94,-.005,.061,.084,.057,skin);
+    pad(0,1.063,-.015,.095,.131,.099,skin);
+    pad(0,1.13,-.035,.099,.084,.099,0x312a27);
+    pad(0,1.055,.08,.029,.035,.028,skin);
+    for (const side of [-1,1]) {
+      pad(side*.042,1.082,.071,.015,.008,.009,0x423832);
+      pad(side*.18,.77,.045,.063,.166,.058,coat,-.36);
+      pad(side*.17,.72,.17,.045,.133,.048,coat,-1.08);
+      pad(side*.15,.78,.273,.044,.052,.046,skin);
+      pad(side*.10,.52,.13,.088,.088,.22,0x30323a);
+    }
+  }
+  batch.finish(group,false);
+  const mesh = group.children[0]; mesh.removeFromParent();
+  mesh.name = occupant < 0 ? 'Cabin upholstery' : 'Seated driver';
+  interiors.set(occupant,mesh); return mesh.clone();
+}
+
 export function createCar({ type = 'sedan', color: tint = 0xbcc5bd, seed = '', shape: given = null, model = null } = {}) {
   const group = new THREE.Group(); group.name = type;
   Object.assign(group.userData, { model, tint, given });
@@ -477,9 +575,25 @@ export function createCar({ type = 'sedan', color: tint = 0xbcc5bd, seed = '', s
   // The body rides above independent wheel pivots. Each tire can follow a
   // different measured height while the chassis absorbs terrain changes.
   const chassis = new THREE.Group();
-  const body = new THREE.Mesh(built.body, model ? modelPaints.get(tint) : carPaint); body.castShadow = true; body.receiveShadow = true; body.name = 'Car body';
-  const lamps = new THREE.Mesh(built.lamps, carGlow); lamps.name = 'Car lamps';
-  chassis.add(body, lamps); group.add(chassis); group.userData.chassis = chassis; group.userData.shape = shape;
+  const detail = group.userData.detail = fitExterior(chassis, built, model ? modelPaints.get(tint) : carPaint);
+  group.addEventListener('removed', () => releaseCrumple(detail));
+  for (const [i,side] of [1,-1].entries()) {
+    const card = doorTemplate.children[0].clone();
+    card.scale.set(side,detail.height,detail.hinge-detail.latch);
+    detail.doors[i].add(card);
+  }
+  detail.bay = engineBay.children[0].clone();
+  detail.bay.scale.set(detail.width*.70,1,(detail.bounds.max.z-detail.hood.position.z)*.59);
+  detail.bay.position.set(0,detail.height*.40,detail.hood.position.z+detail.bay.scale.z*.40);
+  detail.bay.visible = false; chassis.add(detail.bay);
+  const cabin = cabinMesh(), driver = detail.driver = cabinMesh(String(seed).split('').reduce((n,c)=>n+c.charCodeAt(0),0) % 4);
+  cabin.scale.set(detail.width/.93, detail.height/1.44, Math.min(1.25,(detail.hinge-detail.latch)/1.2));
+  cabin.position.z = detail.seatZ;
+  driver.scale.copy(cabin.scale); driver.position.set(.39*cabin.scale.x,0,detail.seatZ);
+  driver.visible = false;
+  chassis.add(cabin,driver);
+  const lamps = detail.lamps = new THREE.Mesh(built.lamps, carGlow); lamps.name = 'Car lamps';
+  chassis.add(lamps); group.add(chassis); group.userData.chassis = chassis; group.userData.shape = shape;
   group.userData.lights = [];
   if (police) {
     for (const [x, tone] of [[-0.38, 0x3379fa], [0.38, 0xfa493d]]) {
@@ -490,12 +604,13 @@ export function createCar({ type = 'sedan', color: tint = 0xbcc5bd, seed = '', s
     }
   }
   group.userData.wheels = [];
+  const rim = /tesla|ioniq|polestar|lucid/i.test(model?.id || '') ? aeroAlloy : shape === 'coupe' ? sportAlloy : alloy;
   for (const x of [-axle.x, axle.x]) for (const z of [axle.rear, axle.front]) {
     const wheel = new THREE.Group(); wheel.position.set(x, axle.radius + .01, z);
     const roll = new THREE.Group();
     roll.scale.setScalar(axle.radius / WHEEL.radius);
     const tire = new THREE.Mesh(wheelTyre, tireMaterial); tire.castShadow = true;
-    const hub = new THREE.Mesh(wheelRim, hubMaterial);
+    const hub = new THREE.Mesh(rim, wheelFinish);
     // Steering turns the axle around Y; the child spins around that axle's X.
     // Mixing both rotations on one default Euler pivot would wobble the axle.
     roll.add(tire, hub); wheel.add(roll);
@@ -507,6 +622,8 @@ export function createCar({ type = 'sedan', color: tint = 0xbcc5bd, seed = '', s
 
 /** Pose a +Z-facing car using its physical heading, steering yaw and signed speed. */
 export function updateCarVisuals(mesh, car, dt) {
+  poseExterior(mesh.userData.detail, car);
+  mesh.userData.detail.lamps.visible = !car.destroyed;
   const steering = Number.isFinite(car._steering) ? car._steering : 0;
   const speed = Number.isFinite(car.speed) ? car.speed : 0;
   const seconds = Math.max(0, dt);

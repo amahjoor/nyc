@@ -29,6 +29,46 @@ test('spawn leaves room beside a nearby driveable taxi', () => {
   assert.equal(sim.player.vehicleId, 'player-taxi');
 });
 
+test('a coasting car hits cross traffic side-on while the player is on foot', () => {
+  const sim = new Simulation(city());
+  const cross = sim._makeCar('cross', 'sedan', { x: 60, z: 0 }, Math.PI / 2);
+  const incoming = sim._makeCar('incoming', 'sedan', { x: 60, z: -5 }, 0);
+  Object.assign(incoming, { parked: false, _loose: 3, speed: 15, velocityZ: 15 });
+  Object.assign(cross, { parked: false, _loose: 3, speed: 1, velocityX: 1 });
+  sim.cars = [cross, incoming];
+  advance(sim, .6);
+  assert.ok(incoming.z < -2.9 && incoming.z > -3.3);
+  assert.ok(incoming.parked && cross.parked);
+  assert.equal(sim._vehicleHit(incoming), null);
+  assert.equal(sim.heat, 0); assert.equal(sim.health, 100);
+  cross.y = 6; incoming.y = 0; incoming.z = cross.z;
+  assert.equal(sim._vehicleHit(incoming), null, 'overlapping map coordinates on separate decks');
+});
+
+test('player and unoccupied cars make physical contact with pedestrians at street level', () => {
+  for (const controlled of [false, true]) {
+    const sim = new Simulation(city());
+    if (controlled) sim.interact();
+    sim.police._random = () => 0;
+    const car = sim.cars[0];
+    car.x = 30; car.z = 0; car.angle = 0; car.speed = 12; car.velocityZ = 12;
+    if (!controlled) Object.assign(car, { parked: false, _loose: 2 });
+    const walker = { x: 30, z: 3, y: 0, state: 'walk' };
+    const upstairs = { ...walker, y: 7 };
+    const vendor = { x: 30.7, z: 3.1, y: 0 };
+    sim.bystanders.push(vendor);
+    sim.setWalkers([], [walker, upstairs]);
+    advance(sim, .2);
+    assert.equal(walker.state, 'down'); assert.ok(walker.z > 3);
+    assert.equal(sim._nearCar(walker.x, walker.z, .4, null, walker.y), null);
+    assert.equal(upstairs.state, 'walk');
+    assert.ok(vendor.downUntil > sim.elapsed);
+    // Nothing is known to the police until the vendor who saw it has made the call.
+    assert.equal(sim.heat, 0); assert.equal(sim.police.calls.length > 0, controlled);
+    assert.ok(car.speed < 10);
+  }
+});
+
 test('acceleration and steering are consistent at 30, 60 and 144 Hz', () => {
   const states = [30, 60, 144].map(fps => {
     const sim = new Simulation(city());
@@ -473,6 +513,21 @@ function lone(sim, edge, back) {
   car.speed = car._cruise; sim.cars.push(car);
   return car;
 }
+
+test('two NPC drivers make bumper contact when the follower has too little distance to brake', () => {
+  const sim = new Simulation(crossing()), edge = edgeInto(sim, [0, 400], [0, 0]);
+  const leader = sim._makeCar('slow', 'sedan', sim._lanePoint(edge, .5), edge.angle, edge);
+  const follower = sim._makeCar('fast', 'sedan', sim._lanePoint(edge, .5 - 5 / edge.length), edge.angle, edge);
+  leader.speed = leader._cruise = 2;
+  follower.speed = follower._cruise = 16;
+  sim.cars = [leader, follower];
+  for (let i = 0; i < 60 && !follower._wait; i++) {
+    sim.step({}, 1 / 120);
+    assert.equal(sim._vehicleHit(follower), null);
+  }
+  assert.ok(follower._wait > 0 && follower.speed === 0);
+  assert.ok(leader.speed < 2 && sim.heat === 0);
+});
 
 test('junctions are planned from the streets that meet, and from what the city lists', () => {
   const sim = new Simulation(crossing());

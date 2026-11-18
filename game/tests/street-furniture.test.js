@@ -83,7 +83,7 @@ test('finished cars share geometry and materials, vary by identity, and light up
   // Finish and lamp colour ride on the stock physical and standard shaders.
   const paint = { vertexShader: '#include <begin_vertex>', fragmentShader: '#include <emissivemap_fragment>\n#include <lights_physical_fragment>' };
   createCarMaterial().onBeforeCompile(paint);
-  assert.match(paint.fragmentShader, /roughnessFactor = vFinish\.x; metalnessFactor = vFinish\.y;/); assert.match(paint.fragmentShader, /material\.clearcoat \*= vFinish\.z;/);
+  assert.match(paint.fragmentShader, /roughnessFactor = mix\(vFinish\.x, [\d.]+, lacquer\); metalnessFactor = mix\(vFinish\.y, [\d.]+, lacquer\);/); assert.match(paint.fragmentShader, /material\.clearcoat \*= vFinish\.z;/);
   const glow = { fragmentShader: '#include <emissivemap_fragment>' };
   createLampMaterial().onBeforeCompile(glow); assert.match(glow.fragmentShader, /totalEmissiveRadiance \*= vColor\.rgb;/);
 });

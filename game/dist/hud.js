@@ -1,3 +1,4 @@
+import {carCondition} from './vehicle-damage.js';
 import { formatMoney } from './money.js';
 import { title } from './local-search.js';
 import { vehicleName } from './fleet.js';
@@ -35,8 +36,10 @@ export class HUD {
     if (!$('cash-display').hidden) this.text('cash', formatMoney(sim.cash));
     this.text('deliveries', sim.deliveries+' DELIVERIES');
     this.text('distance', (sim.distanceTravelled*metersToMiles).toFixed(1)+' MI');
-    this.text('health-number', String(Math.round(sim.health)));
-    $('health-bar').style.width = Math.max(0,sim.health)+'%';
+    const condition = driving && sim.vehicle ? carCondition(sim.vehicle) : Math.round(sim.health);
+    this.text('health-label', driving ? 'CAR CONDITION' : 'CONDITION');
+    this.text('health-number', String(condition));
+    $('health-bar').style.width = Math.max(0,condition)+'%';
     this.text('street-name', title(sim.getStreet()));
     const police = sim.police, stars = Math.min(5, Math.ceil(sim.heat - 1e-9)), searching = Boolean(stars && police?.state === 'search');
     this.text('wanted-stars', '★'.repeat(stars) + '☆'.repeat(5 - stars));

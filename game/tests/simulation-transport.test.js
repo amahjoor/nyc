@@ -92,6 +92,25 @@ test('a car on an overhead deck cannot be entered or collide with actors below',
   assert.equal(sim.health, 100);assert.equal(sim.heat, 0);
 });
 
+test('drivers only yield to somebody crossing their own level of a stacked road', t => {
+  const run = (carY, walkerY) => {
+    const roads = [{ id: 'straight', width: 9, points: [[0, -95], [0, 115]], oneway: 'yes' }];
+    const { sim } = fixture(t, { ramp: false, spawn: { x: 50, z: -30 }, roads });
+    const edge = sim._graph.edges[0], start = sim._lanePoint(edge, .5);
+    const car = sim._makeCar('traffic', 'sedan', start, edge.angle, edge);
+    Object.assign(car, { y: carY, speed: 8, _cruise: 8 });
+    sim.cars = [car];
+    sim.setWalkers([{ x: start.x, z: start.z + 7, y: walkerY }], []);
+    const before = car.z;
+    for (let i = 0; i < 150; i++) sim._traffic(car, 1/120);
+    return car.z - before;
+  };
+  for (const [carY, walkerY] of [[0, 6], [6, 0]]) {
+    assert.ok(run(carY, walkerY) > 9, 'the car passes the projection of the other crossing');
+    assert.ok(run(carY, carY) < 5, 'the same car brakes for someone in its own lane');
+  }
+});
+
 test('pedestrian-only ramp elevation is available to walking but excluded for driving', t => {
   const { sim } = fixture(t, { subtype: 'pedestrian bridge' });
   sim.cars = [];advance(sim, 8, { moveZ: 1 });

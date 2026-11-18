@@ -228,7 +228,7 @@ export function buildCar({ type = 'sedan', shape = 'sedan', paint = 0xbcc5bd } =
  * With `instancedPaint`, a body built in white takes each instance's colour from `aPaint`.
  */
 export function createCarMaterial({ instancedPaint = false, bodyPaint = null, doubleSided = false } = {}) {
-  const material = new THREE.MeshPhysicalMaterial({ vertexColors: true, roughness: .4, metalness: .2, clearcoat: 1, clearcoatRoughness: .07 });
+  const material = new THREE.MeshPhysicalMaterial({ vertexColors: true, roughness: .4, metalness: .2, clearcoat: 1, clearcoatRoughness: .055 });
   if (doubleSided) material.side = THREE.DoubleSide;
   material.name = 'Car paint, glass and trim';
   if (instancedPaint) material.defines.NYC_INSTANCED_PAINT = '';
@@ -245,7 +245,7 @@ export function createCarMaterial({ instancedPaint = false, bodyPaint = null, do
       .replace('#include <color_vertex>', `#include <color_vertex>\n#ifdef NYC_INSTANCED_PAINT\nvColor.rgb *= mix( vec3( 1.0 ), aPaint, ${tintWeight} );\n#endif`);
     if (doubleSided) shader.vertexShader = 'attribute float aPaintWeight;\n' + shader.vertexShader;
     shader.fragmentShader = `varying vec3 vFinish;\n${shader.fragmentShader}`
-      .replace('#include <emissivemap_fragment>', '#include <emissivemap_fragment>\nroughnessFactor = vFinish.x; metalnessFactor = vFinish.y;')
+      .replace('#include <emissivemap_fragment>', '#include <emissivemap_fragment>\nfloat lacquer = vFinish.z * smoothstep(.20, .31, vFinish.x) * (1.0 - smoothstep(.40,.55,vFinish.x)); roughnessFactor = mix(vFinish.x, .235, lacquer); metalnessFactor = mix(vFinish.y, .48, lacquer);')
       // Lacquer on the paint and glass only; trim and rubber stay matt.
       .replace('#include <lights_physical_fragment>', '#include <lights_physical_fragment>\nmaterial.clearcoat *= vFinish.z;');
   };
@@ -268,7 +268,9 @@ export function createLampMaterial() {
 export function wheelGeometry() {
   const r = WHEEL.radius;
   const lathe = profile => new THREE.LatheGeometry(profile.map(([radius, depth]) => new THREE.Vector2(r * radius, depth)), 24).rotateZ(Math.PI / 2);
-  const tyre = lathe([[0, -.06], [.6, -.06], [.62, -.12], [.9, -.125], [1, -.085], [1, .085], [.9, .125], [.62, .12], [.6, .06], [0, .06]]);
+  const tyre = lathe([[0,-.06],[.59,-.06],[.62,-.122],[.73,-.132],[.75,-.134],[.77,-.131],[.90,-.122],[.98,-.096],
+    [1,-.077],[1,-.056],[.982,-.054],[.982,-.048],[1,-.046],[1,-.006],[.98,-.004],[.98,.004],[1,.006],
+    [1,.046],[.982,.048],[.982,.054],[1,.056],[1,.077],[.98,.096],[.90,.122],[.77,.131],[.75,.134],[.73,.132],[.62,.122],[.59,.06],[0,.06]]);
   // Both faces share the same instanced geometry. The recessed tyre surface
   // shows through the spaces between the spokes while the wheel spins.
   const alloy = [lathe([[.52, -.11], [.58, -.126], [.63, -.12], [.63, .12], [.58, .126], [.52, .11]]),

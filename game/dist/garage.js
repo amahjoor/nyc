@@ -1,4 +1,5 @@
 import { upgradePreview } from './vehicle-stats.js';
+import { carCondition } from './vehicle-damage.js';
 import { carPerformance } from './vehicle-performance.js';
 import { bodyShape } from './fleet.js';
 // What a garage does to a car, and what it charges.
@@ -64,7 +65,7 @@ export function vehicleHandling(car, mods = car.mods) {
 export function shopRows(kind, car = {}) {
   const offers = offersAt(kind), rows = [];
   if (!offers) return rows;
-  const cost = repairCost(car.health ?? 100);
+  const cost = repairCost(car.health ?? carCondition(car));
   rows.push({ job: 'repair', name: 'REPAIR', note: cost ? `$${cost}` : 'NOTHING TO MEND', price: cost || null });
   if (offers.parts) for (const [job, part] of Object.entries(PARTS)) {
     const stage = car.mods?.[job] || 0, price = part.prices[stage] ?? null;

@@ -271,6 +271,10 @@ function mesh(fields) {
   };
 }
 
+// One byte per generated triangle preserves the door seams and hood perimeter
+// through welding. Imported bodies use their surface metadata and geometry.
+export const EXTERIOR_PARTS = ['body','hood','left','right','leftGlass','rightGlass','windshield','rearGlass','leftQuarterGlass','rightQuarterGlass','roofGlass'];
+
 /** Skin the loft: smooth where panels meet gently, creased where they do not. */
 function skin(d, shell, body) {
   const { rings, stations } = shell, count = rings[0].length, last = rings.length - 1;
@@ -286,7 +290,8 @@ function skin(d, shell, body) {
     for (let j = 0; j < count; j++) {
       const face = faces[i][j];
       if (!face.n) continue;
-      const kind = panel(d, shell, x, j < HALF - 1 ? j : count - 1 - j), tone = TONE[kind], surface = FINISH[kind], weight = kind === 'paint' ? 1 : 0;
+      const section = j < HALF - 1 ? j : count - 1 - j;
+      const kind = panel(d, shell, x, section), tone = TONE[kind], surface = FINISH[kind], weight = kind === 'paint' ? 1 : 0;
       const corner = (ci, cj) => {
         // Average the faces around this corner that lie within a crease angle of this one.
         const sum = [0, 0, 0];
@@ -298,6 +303,15 @@ function skin(d, shell, body) {
         return unit(sum);
       };
       const quad = [[i, j], [i + 1, j], [i + 1, j + 1], [i, j + 1]].map(([a, b]) => ({ p: at(a, b), n: corner(a, b) }));
+      const side = quad[0].p[0] > 0 ? 'left' : 'right';
+      const door = x >= shell.cuts[0] && x <= shell.cuts[1] && section >= 5 && section <= 10;
+      let part = 'body';
+      if (kind === 'glass') {
+        if (section === 9) part = side + (door ? 'Glass' : 'QuarterGlass');
+        else part = x <= d.header ? 'windshield' : x >= d.rearD ? 'rearGlass' : 'roofGlass';
+      } else if (door) part = side;
+      else if (x > d.faceRun && x < d.cowl-.03 && section >= 10) part = 'hood';
+      body.panels.push(EXTERIOR_PARTS.indexOf(part), EXTERIOR_PARTS.indexOf(part));
       for (const k of [0, 1, 2, 0, 2, 3]) body.vertex(quad[k].p, quad[k].n, tone, surface, weight);
       triangles.push([quad[0].p, quad[1].p, quad[2].p, face.n], [quad[0].p, quad[2].p, quad[3].p, face.n]);
     }
@@ -557,6 +571,7 @@ function rearFace(d, wrap, shell) {
 export function buildVehicle(design) {
   const d = resolveDesign(design), shell = loft(d);
   const body = mesh(['position', 'normal', 'color', 'aFinish', 'aPaintWeight']), lamps = mesh(['position', 'normal', 'color']);
+  body.panels = [];
   const triangles = skin(d, shell, body);
   frontFace(d, wrapper(d, triangles, 'front', body, lamps));
   rearFace(d, wrapper(d, triangles, 'rear', body, lamps), shell);
@@ -564,11 +579,17 @@ export function buildVehicle(design) {
   for (const side of [-1, 1]) {
     // Door mirrors, on a short arm from the corner of the glass.
     const mx = d.cowl + .2, my = belt(mx) + .09;
+    const mirrorStart = body.index.length/3, door = EXTERIOR_PARTS.indexOf(side > 0 ? 'left' : 'right');
     solid(body, new THREE.SphereGeometry(1, 8, 6), d.mirrorKind ?? 'paint', place(side * (width(mx) + .085), my, z(mx), .1, .062, .055));
     solid(body, new THREE.BoxGeometry(.1, .025, .05), 'gloss', place(side * (width(mx) + .0), my - .03, z(mx), 1, 1, 1));
+    for (let i=mirrorStart; i<body.index.length/3; i++) body.panels[i] = door;
     // A handle on each door, just under the belt line.
     const doors = d.doors === 2 ? [shell.cuts[1]] : [shell.cuts[1], shell.cuts[2]];
-    for (const c of doors) { const hx = c - .17, hy = lerp(shell.floor(hx), belt(hx), .76); solid(body, new THREE.BoxGeometry(.022, .03, .17), d.handles ?? 'paint', place(side * (width(hx) * .985 + .004), hy, z(hx), 1, 1, 1)); }
+    for (const c of doors) {
+      const hx = c - .17, hy = lerp(shell.floor(hx), belt(hx), .76), start = body.index.length/3;
+      solid(body, new THREE.BoxGeometry(.022, .03, .17), d.handles ?? 'paint', place(side * (width(hx) * .985 + .004), hy, z(hx), 1, 1, 1));
+      if (c === doors[0]) for (let i=start; i<body.index.length/3; i++) body.panels[i] = door;
+    }
     if (d.rails && !d.cargo) {
       const from = d.header + .12, to = d.rearD - .12;
       for (let k = 0; k < 3; k++) {
@@ -607,5 +628,11 @@ export function buildVehicle(design) {
 /** A design as the game draws it: the same form as a decoded exterior file. */
 export function generateVehicle(spec) {
   const built = buildVehicle(spec.design);
-  return { id: spec.id, body: built.body.geometry(), lamps: built.lamps.geometry(), wheels: spec.wheels || designWheels(built.design), roof: built.roof };
+  const geometry = built.body.geometry();
+  const panels = new Uint8Array(geometry.index.count/3);
+  panels.set(built.body.panels);
+  geometry.userData.panels = panels;
+  return { id: spec.id, body: geometry, lamps: built.lamps.geometry(), wheels: spec.wheels || designWheels(built.design), roof: built.roof,
+    layout: { width: built.design.W/2, height: built.design.H, hinge: built.design.L/2-built.shell.cuts[0],
+      latch: built.design.L/2-built.shell.cuts[1], cowl: built.design.L/2-built.design.cowl } };
 }

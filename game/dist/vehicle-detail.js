@@ -1,0 +1,234 @@
+// Close-range articulated exteriors. Parts retain the original positions,
+// paint samples and normals. The distant traffic batches use the intact mesh.
+import * as THREE from './vendor/three.module.min.js';
+import { PANEL, doorPanel, hasDriver } from './vehicle-damage.js';
+import { EXTERIOR_PARTS } from './vehicle-generator.js';
+
+const exteriors = new WeakMap();
+const originalPanels = new WeakMap();
+const glass = new THREE.MeshPhysicalMaterial({
+  color: 0x769399, transparent: true, opacity: .34, roughness: .09, metalness: .12,
+  clearcoat: 1, clearcoatRoughness: .045, side: THREE.DoubleSide, depthWrite: false, forceSinglePass: true,
+});
+const privacy = glass.clone(); privacy.color.setHex(0x32454d); privacy.opacity = .64;
+const char = new THREE.MeshStandardMaterial({ color: 0x292727, metalness: .23, roughness: .91, side: THREE.DoubleSide });
+const cracked = glass.clone();
+cracked.onBeforeCompile = shader => {
+  shader.vertexShader = 'varying vec3 panePoint;\n' + shader.vertexShader.replace('#include <begin_vertex>', '#include <begin_vertex>\npanePoint = position;');
+  shader.fragmentShader = 'varying vec3 panePoint;\n' + shader.fragmentShader.replace('#include <color_fragment>', `#include <color_fragment>
+    vec2 p = panePoint.xy - vec2(.24, 1.12);
+    float r = length(p), a = atan(p.y, p.x);
+    float rays = abs(sin(a * 7.0 + sin(a * 4.0) + .12 * sin(r * 34.0))) * r;
+    float rings = abs(fract(r * (14.0 + sin(a * 7.0)) + .19 * sin(5.0 * a)) - .5);
+    float crack = max(1.0 - smoothstep(.001, .008, rays), (1.0 - smoothstep(.015, .045, rings)) * (1.0 - smoothstep(.04,.24,r)));
+    diffuseColor.rgb = mix(diffuseColor.rgb, vec3(.84,.9,.91), crack);
+    diffuseColor.a = mix(diffuseColor.a, .86, crack);`);
+};
+
+function partition(built) {
+  if (exteriors.has(built.body)) return exteriors.get(built.body);
+  const source = built.body, { position, normal, aFinish, aGlazing } = source.attributes;
+  source.computeBoundingBox();
+  const bounds = source.boundingBox, length = bounds.max.z - bounds.min.z;
+  const layout = built.layout || {
+    width: Math.abs(built.wheels?.x || .78) + .13, height: built.roof || bounds.max.y,
+    hinge: length * .23, latch: -length * .10, cowl: length * .23,
+  };
+  const { width, height, hinge, latch, cowl } = layout;
+  const buckets = new Map();
+  for (let t = 0, end = source.index?.count ?? position.count; t < end; t += 3) {
+    const a = source.index?.getX(t) ?? t, b = source.index?.getX(t+1) ?? t+1, c = source.index?.getX(t+2) ?? t+2;
+    const x = (position.getX(a)+position.getX(b)+position.getX(c))/3;
+    const y = (position.getY(a)+position.getY(b)+position.getY(c))/3;
+    const z = (position.getZ(a)+position.getZ(b)+position.getZ(c))/3;
+    const side = x > 0 ? 'left' : 'right';
+    const sideFacing = Math.abs(normal.getX(a)+normal.getX(b)+normal.getX(c)) > 1.35 && Math.abs(x) > width * .66;
+    const pane = aGlazing ? (aGlazing.getX(a)+aGlazing.getX(b)+aGlazing.getX(c)) > 1.5 : Math.abs(aFinish.getX(a)-.06) < .002;
+    const door = sideFacing && z > latch && z < hinge && y > height * .19 && y < height * .97;
+    let part = 'body';
+    if (pane) {
+      if (sideFacing) part = door ? side+'Glass' : side+'QuarterGlass';
+      else if (y > height*.93 && Math.abs(z) < length*.2) part = 'roofGlass';
+      else part = z > latch ? 'windshield' : 'rearGlass';
+    }
+    else if (door) part = side;
+    else if (z > cowl && Math.abs(x) < width * .94 && normal.getY(a)+normal.getY(b)+normal.getY(c) > 1.7 && y > height * .33) part = 'hood';
+    if (source.userData.panels) {
+      part = EXTERIOR_PARTS[source.userData.panels[t/3]];
+      if (part === 'body' && pane) part = 'rearGlass';
+    }
+    if (!buckets.has(part)) buckets.set(part, []);
+    buckets.get(part).push(a,b,c);
+  }
+  const parts = {};
+  for (const [name, indices] of buckets) {
+    const g = new THREE.BufferGeometry();
+    for (const [key, attribute] of Object.entries(source.attributes)) g.setAttribute(key, attribute);
+    g.setIndex(indices); g.boundingSphere = source.boundingSphere; g.boundingBox = bounds;
+    parts[name] = g;
+  }
+  const exterior = { parts, layout };
+  source.addEventListener('dispose', () => {
+    for (const g of Object.values(parts)) g.dispose();
+    exteriors.delete(source);
+  });
+  exteriors.set(source, exterior);
+  return exterior;
+}
+
+export function fitExterior(chassis, built, paint) {
+  const { parts, layout } = partition(built);
+  const { width, height, hinge, latch, cowl } = layout;
+  const doors = [], pieces = {};
+  for (const [side, name] of [[1,'left'],[-1,'right']]) {
+    const door = new THREE.Group();
+    door.name = name + ' front door'; door.position.set(side*width, 0, hinge);
+    doors.push(door); chassis.add(door);
+  }
+  const hood = new THREE.Group(); hood.name = 'Hood hinge';
+  hood.position.set(0, height*.62, cowl); chassis.add(hood);
+  for (const [name, geometry] of Object.entries(parts)) {
+    const window = name.endsWith('Glass') || name === 'windshield';
+    const material = window ? ((name.includes('Quarter') || name === 'rearGlass' || name === 'roofGlass') ? privacy : glass) : paint;
+    const mesh = new THREE.Mesh(geometry,material);
+    mesh.castShadow = !window; mesh.receiveShadow = true;
+    mesh.name = name === 'body' ? 'Car body' : name;
+    const parent = name === 'left' || name === 'leftGlass' ? doors[0] : name === 'right' || name === 'rightGlass' ? doors[1] : name === 'hood' ? hood : chassis;
+    if (parent !== chassis) mesh.position.copy(parent.position).negate();
+    parent.add(mesh); pieces[name] = mesh;
+  }
+  return { doors, hood, pieces, paint, width, height, bounds: built.body.boundingBox,
+    seatZ: latch + .36*(hinge-latch), hinge, latch };
+}
+
+// Identical cars share every intact vertex. Only a damaged car gets a private
+// set of positions, shared by its doors, glass and body partitions.
+export function releaseCrumple(detail) {
+  for (const { mesh, original } of detail.deformed || []) {
+    // Three releases attribute buffers on geometry disposal. The material
+    // attributes and indices still belong to other vehicles in the scene.
+    mesh.geometry.setIndex(null);
+    for (const name of Object.keys(original.attributes)) {
+      if (mesh.geometry.attributes[name] === original.attributes[name]) mesh.geometry.deleteAttribute(name);
+    }
+    mesh.geometry.dispose();
+    mesh.geometry = original;
+  }
+  detail.deformed = detail.positions = detail.lastDents = null;
+}
+
+function crumple(detail, dents) {
+  if (!dents) {
+    if (detail.deformed) releaseCrumple(detail);
+    return;
+  }
+  if (detail.lastDents && Object.values(PANEL).every(bit => detail.lastDents[bit] === dents[bit])) return;
+  detail.lastDents = { ...dents };
+  if (!detail.deformed) {
+    detail.deformed = [];
+    detail.positions = new Map();
+    for (const mesh of [...Object.values(detail.pieces), detail.lamps]) {
+      const original = mesh.geometry, source = original.attributes.position;
+      if (!detail.positions.has(source)) detail.positions.set(source, {
+        positions: source.clone(), normals: original.attributes.normal.clone(), restNormal: original.attributes.normal,
+      });
+      const geometry = new THREE.BufferGeometry();
+      for (const [name, attr] of Object.entries(original.attributes)) geometry.setAttribute(name, attr);
+      geometry.setAttribute('position', detail.positions.get(source).positions);
+      geometry.setAttribute('normal', detail.positions.get(source).normals);
+      geometry.setIndex(original.index);
+      geometry.boundingBox = original.boundingBox; geometry.boundingSphere = original.boundingSphere;
+      originalPanels.set(geometry, original);
+      detail.deformed.push({ mesh, original }); mesh.geometry = geometry;
+    }
+  }
+  const { min, max } = detail.bounds, length = max.z - min.z;
+  for (const [source, { positions, normals, restNormal }] of detail.positions) {
+    for (let i = 0; i < source.count; i++) {
+      const x = source.getX(i), y = source.getY(i), z = source.getZ(i);
+      const nose = Math.max(0, 1 - (max.z-z) / (.29*length)) ** 1.4 * (dents[PANEL.front] || 0);
+      const tail = Math.max(0, 1 - (z-min.z) / (.24*length)) ** 1.4 * (dents[PANEL.rear] || 0);
+      const side = Math.max(0, Math.abs(x)/detail.width-.56) * Math.max(0, 1-Math.abs(z)/(.43*length)) * (dents[doorPanel(x)] || 0);
+      positions.setXYZ(i, x - Math.sign(x)*.34*side,
+        y + (nose+tail)*(.08 + .085*Math.sin(13*z+2*x)), z + length*(.11*tail-.13*nose));
+      const ripple = (nose+tail)*.085*Math.cos(13*z+2*x);
+      const ny = restNormal.getY(i);
+      const nx = restNormal.getX(i) - 2*ripple*ny, nz = restNormal.getZ(i) - 13*ripple*ny;
+      const norm = Math.hypot(nx,ny,nz) || 1;
+      normals.setXYZ(i,nx/norm,ny/norm,nz/norm);
+    }
+    positions.needsUpdate = normals.needsUpdate = true;
+  }
+}
+
+export function poseExterior(detail, car) {
+  const { doors, hood, pieces } = detail;
+  crumple(detail, car.dents);
+  const dents = car.dents || {}, broken = car.brokenGlass || 0;
+  for (const [i, side] of [1,-1].entries()) {
+    const door = doors[i], flag = doorPanel(side), crush = dents[flag] || 0;
+    door.rotation.y = side === car.doorSide ? -side * (car.doorOpen || 0) * 1.08 : 0;
+    door.rotation.z = side * .075 * crush;
+    door.position.x = side * (detail.width - .14 * crush);
+    door.visible = !(car.missingDoors & flag);
+    const pane = pieces[side > 0 ? 'leftGlass' : 'rightGlass'];
+    if (pane) pane.visible = !(broken & flag);
+  }
+  const frontCrush = dents[PANEL.front] || 0;
+  detail.bay.visible = frontCrush > .18;
+  detail.bay.position.z = hood.position.z + detail.bay.scale.z*.40 - (detail.bounds.max.z-detail.bounds.min.z)*.065*frontCrush;
+  hood.rotation.x = -.17 * (dents[PANEL.front] || 0);
+  hood.rotation.z = .055 * (dents[PANEL.front] || 0);
+  if (pieces.windshield) {
+    pieces.windshield.visible = !(broken & PANEL.front);
+    pieces.windshield.material = dents[PANEL.front] > .08 ? cracked : glass;
+  }
+  if (pieces.rearGlass) pieces.rearGlass.visible = !(broken & PANEL.rear);
+  if (pieces.leftQuarterGlass) pieces.leftQuarterGlass.visible = !(broken & PANEL.left);
+  if (pieces.rightQuarterGlass) pieces.rightQuarterGlass.visible = !(broken & PANEL.right);
+  if (pieces.roofGlass) pieces.roofGlass.visible = !car.destroyed;
+  if (detail.charred !== !!car.destroyed) {
+    detail.charred = !!car.destroyed;
+    for (const key of ['body','hood','left','right']) if (pieces[key]) pieces[key].material = car.destroyed ? char : detail.paint;
+  }
+  detail.driver.visible = hasDriver(car);
+}
+
+// Detached panels share the car's meshes. Only their short-lived world poses
+// belong to the debris pool, so removing debris never disposes a car's paint.
+export function createDoorDebris(scene) {
+  const pieces = [];
+  return {
+    detach(door, car, side) {
+      door.updateWorldMatrix(true,false);
+      const shell = door.clone();
+      shell.visible = true;
+      shell.traverse(mesh => { if (originalPanels.has(mesh.geometry)) mesh.geometry = originalPanels.get(mesh.geometry); });
+      const panel = new THREE.Group(), center = new THREE.Vector3(0, .73, -.51);
+      door.matrixWorld.decompose(panel.position,panel.quaternion,panel.scale);
+      panel.position.copy(door.localToWorld(center.clone()));
+      shell.position.copy(center).negate(); shell.quaternion.identity(); shell.scale.setScalar(1);
+      panel.add(shell);
+      scene.add(panel);
+      if (pieces.length >= 12) pieces.shift().panel.removeFromParent();
+      pieces.push({ panel, age: 0, vx: (car.velocityX || 0) + Math.cos(car.angle)*side,
+        vz: (car.velocityZ || 0) - Math.sin(car.angle)*side, vy: 1.3, side, ground: (car.y || 0) + .10,
+        resting: new THREE.Quaternion().setFromEuler(new THREE.Euler(0,car.angle,side*Math.PI/2,'YXZ')) });
+    },
+    update(dt) {
+      for (let i=pieces.length-1; i>=0; i--) {
+        const piece = pieces[i], {panel} = piece;
+        piece.age += dt;
+        if (piece.age > 8) { panel.removeFromParent(); pieces.splice(i,1); continue; }
+        if (panel.position.y <= piece.ground && piece.vy <= 0) {
+          panel.position.y = piece.ground; piece.vy = 0;
+          piece.vx *= Math.exp(-dt*7); piece.vz *= Math.exp(-dt*7);
+          panel.quaternion.slerp(piece.resting, 1 - Math.exp(-dt*8));
+        } else {
+          piece.vy -= 9.81*dt; panel.rotateZ(piece.side*2.2*dt); panel.rotateY(dt);
+        }
+        panel.position.x += piece.vx*dt; panel.position.y += piece.vy*dt; panel.position.z += piece.vz*dt;
+      }
+    },
+  };
+}

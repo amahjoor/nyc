@@ -1,7 +1,7 @@
 import * as THREE from './vendor/three.module.min.js';
 
-// A shared interior for the driver's camera. Exterior models range from
-// closed procedural shells to double-sided scans with opaque windshields.
+// Cockpit controls follow the chassis. The windscreen uses the exterior's
+// actual glazing so a driver's view follows each crack or missing pane.
 export function createDriverCabin(scene) {
   const group = new THREE.Group();
   group.name = 'Driver cabin';
@@ -20,13 +20,18 @@ export function createDriverCabin(scene) {
 
   // +Z is the nose. Facing forward, the left-hand seat is on local +X.
   const eye = new THREE.Vector3(.37, 1.23, -.16);
-  panel(paint, 0, .78, 1.46, 1.66, .10, 1.25).rotation.x = .08;
+  const hood = panel(paint, 0, .78, 1.46, 1.66, .10, 1.25);
   panel(trim, 0, .89, .75, 1.74, .21, .48).rotation.x = -.04;
   panel(rubber, .37, .99, .66, .45, .12, .22);
   panel(rubber, 0, .32, -.23, 1.73, .10, 2.16);
   panel(trim, 0, 1.53, -.52, 1.48, .06, 1.46);
-  for (const side of [-1, 1]) {
-    panel(trim, side * .86, .63, -.18, .07, .58, 2.12);
+  const doors = [];
+  for (const side of [1, -1]) {
+    const door = new THREE.Group();
+    door.position.set(side * .86, 0, .75);
+    group.add(door); doors.push(door);
+    panel(trim, 0, .63, -.73, .07, .58, 1.48, door);
+    panel(trim, side * .86, .63, -1.02, .07, .58, .58);
     const foot = new THREE.Vector3(side * .84, .95, .94);
     const top = new THREE.Vector3(side * .71, 1.52, .17);
     const pillar = panel(trim, 0, 0, 0, .055, foot.distanceTo(top), .07);
@@ -40,10 +45,12 @@ export function createDriverCabin(scene) {
   panel(trim, 0, 0, 0, .32, .035, .035, wheel);
   panel(trim, 0, -.085, 0, .035, .16, .035, wheel);
   panel(rubber, 0, 0, 0, .13, .10, .055, wheel);
+  const windshield = new THREE.Mesh();
+  group.add(windshield);
 
   let fittedCar = null, frontWheel;
   function placeCamera(camera, carMesh, turn, pitch) {
-    const { chassis, wheels, tint } = carMesh.userData;
+    const { chassis, wheels, tint, detail } = carMesh.userData;
     if (fittedCar !== carMesh) {
       const body = carMesh.getObjectByName('Car body').geometry;
       if (!body.boundingBox) body.computeBoundingBox();
@@ -54,6 +61,18 @@ export function createDriverCabin(scene) {
         (frontWheel.position.z - rear.position.z) / 2.65);
       paint.color.set(tint);
       fittedCar = carMesh;
+    }
+    const pane = detail.pieces.windshield;
+    windshield.visible = !!pane?.visible;
+    if (pane) {
+      windshield.geometry = pane.geometry; windshield.material = pane.material;
+      windshield.scale.set(1/group.scale.x, 1/group.scale.y, 1/group.scale.z);
+    }
+    hood.rotation.x = .08 + detail.hood.rotation.x;
+    hood.rotation.z = detail.hood.rotation.z;
+    for (let i = 0; i < doors.length; i++) {
+      doors[i].visible = detail.doors[i].visible;
+      doors[i].rotation.copy(detail.doors[i].rotation);
     }
     chassis.getWorldPosition(group.position);
     chassis.getWorldQuaternion(group.quaternion);

@@ -118,7 +118,7 @@ test('a stationary car updates as its shared exterior arrives, moves between det
   car.color = '#fafafa'; assert.equal(parked.update([car]), true); assert.ok(tint.getX(0) > before);
   car.controlled = true; parked.update([car]); assert.equal(parked.count, 0);
   const driven = createCar({ color: car.color, shape: car.shape, model: mesh });
-  assert.equal(driven.getObjectByName('Car body').geometry, mesh.body);
+  assert.equal(driven.getObjectByName('Car body').geometry.attributes.position, mesh.body.attributes.position, 'close-up panels retain the registered exterior vertices');
   assert.equal(driven.userData.wheels[1].position.z, asset.wheels.front); assert.equal(loads, 1);
   const offline = createVehicleMeshLibrary(async () => { throw Error('offline'); });
   assert.equal(offline.get(asset), null); await nextTick(); assert.equal(offline.get(asset), null);
@@ -210,7 +210,7 @@ test('a drawn exterior is built off the frame, then shared by the kerb, the traf
   assert.equal(body.geometry.getAttribute('position'), mesh.body.getAttribute('position'), 'the set shares the vertices and adds only its paint');
   assert.ok(body.geometry.getAttribute('aPaint') && !mesh.body.getAttribute('aPaint'));
   const driven = createCar({ color: car.color, shape: car.shape, model: mesh });
-  assert.equal(driven.getObjectByName('Car body').geometry, mesh.body);
+  assert.equal(driven.getObjectByName('Car body').geometry.attributes.position, mesh.body.attributes.position, 'close-up panels retain the registered exterior vertices');
   assert.equal(driven.userData.wheels[1].position.z, spec.wheels.front);
   parked.dispose();
 });

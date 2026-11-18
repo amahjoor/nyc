@@ -314,3 +314,19 @@ test('a death or an arrest is watched before what follows it', () => {
   advance(sim, 1.1);
   assert.equal(sim.ending, null); assert.equal(sim.heat, 0); assert.equal(sim.cash, 380);
 });
+
+test('a car driven into is dented and shoved off its line, and its driver goes on after a while', () => {
+  const sim = alone(new Simulation(grid())); sim.interact();
+  const car = sim.cars.find(item => item.controlled);
+  assert.ok(car, 'driving');
+  sim.cars = [car];
+  Object.assign(car, { x: 0, z: 0, angle: 0 }); car.speed = 16; car.velocityX = 0; car.velocityZ = 16; Object.assign(sim.player, { x: 0, z: 0 });
+  const other = sim._makeCar('struck', 'sedan', { x: .5, z: 6 }, Math.PI / 2); other.parked = false; other._edge = sim._graph.edges[0]; other.speed = 0;
+  sim.cars.push(other);
+  const at = { x: other.x, z: other.z };
+  until(sim, 2, () => other.damage > 0, { forward: 1 });
+  assert.ok(other.damage > .2 && other._loose > 0, `dented ${other.damage}`);
+  advance(sim, 1.5);
+  assert.ok(Math.hypot(other.x - at.x, other.z - at.z) > 1.5, 'it was moved');
+  assert.ok(other._shoved);
+});

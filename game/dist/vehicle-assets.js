@@ -17,7 +17,7 @@ export function decodeVehicleMesh(buffer, spec) {
   const position = new THREE.BufferAttribute(read(attrs.POSITION, Float32Array, 3), 3);
   const normal = new THREE.BufferAttribute(read(attrs.NORMAL, Float32Array, 3), 3);
   const colors = new Float32Array(position.count * 3), finishes = new Float32Array(position.count * 3);
-  const tintWeight = new Float32Array(position.count);
+  const tintWeight = new Float32Array(position.count), glazing = new Float32Array(position.count);
   const sourceColors = attrs.COLOR_0 === undefined ? null : read(attrs.COLOR_0, Float32Array, 3);
   const surface = attrs._SURFACE === undefined ? null : read(attrs._SURFACE, Float32Array, 4);
   const shell = [], lenses = [];
@@ -30,6 +30,7 @@ export function decodeVehicleMesh(buffer, spec) {
       for (let c = 0; c < 3; c++) colors[i * 3 + c] = tone[c] * (sourceColors?.[i * 3 + c] ?? 1);
       if (finish) {
         for (let c = 0; c < 3; c++) finishes[i * 3 + c] = surface?.[i * 4 + c] ?? finish[c];
+        glazing[i] = surface ? surface[i*4+2] - surface[i*4+3] : Number(material.name === 'glass');
         tintWeight[i] = surface?.[i * 4 + 3] ?? (material.name === 'paint' ? 1 : 0);
       }
     }
@@ -44,6 +45,7 @@ export function decodeVehicleMesh(buffer, spec) {
   const body = geometry(shell);
   body.setAttribute('aFinish', new THREE.BufferAttribute(finishes, 3));
   body.setAttribute('aPaintWeight', new THREE.BufferAttribute(tintWeight, 1));
+  body.setAttribute('aGlazing', new THREE.BufferAttribute(glazing, 1));
   return { id: spec.id, body, lamps: geometry(lenses), wheels: spec.wheels };
 }
 

@@ -43,11 +43,11 @@ test('a garage mends, resprays and fits parts for cash, to the car that is drive
   sim.interact();
   const cab = sim.vehicle;
   assert.ok(cab && cab.id === 'player-taxi'); assert.deepEqual(cab.handling, handlingFor('sedan'));
-  sim.cash = 1000; sim.health = 60;
+  sim.cash = 1000; sim.health = 60; cab.damage = .4;
   assert.equal(sim.garage('pizza', 'repair'), false);
   assert.equal(sim.garage('bodyshop', 'engine'), false, 'a body shop does not fit engines'); assert.equal(sim.garage('repair', 'respray', '#8a1f1f'), false, 'a repair shop does not paint');
   assert.equal(sim.garage('repair', 'repair'), true);
-  assert.deepEqual([sim.health, sim.cash], [100, 880]);
+  assert.deepEqual([cab.damage, sim.health, sim.cash], [0, 60, 880]);
   assert.equal(sim.garage('repair', 'repair'), false); assert.equal(sim.cash, 880, 'nothing to mend, nothing charged');
   // Parts, a stage at a time, while the money lasts.
   assert.equal(sim.garage('repair', 'engine'), true);
@@ -84,10 +84,10 @@ test('the mechanic comes out to the car, and the cab can be brought round', () =
   sim.player.x = cab.x - 2.5; sim.player.z = cab.z; sim.interact();
   assert.equal(sim.vehicle, cab);
   assert.equal(sim.summonCab(), false, 'sitting in it');
-  sim.health = 50; sim.cash = 100;
+  sim.health = 50; cab.damage = .5; sim.cash = 100;
   assert.equal(sim.callMechanic(), false); assert.equal(sim.health, 50, 'not enough for the call-out and the repair');
   sim.cash = 400;
-  assert.equal(sim.callMechanic(), true); assert.deepEqual([sim.health, sim.cash], [100, 400 - CALL_OUT - repairCost(50)]);
+  assert.equal(sim.callMechanic(), true); assert.deepEqual([cab.damage, sim.health, sim.cash], [0, 50, 400 - CALL_OUT - repairCost(50)]);
   assert.equal(sim.callMechanic(), false, 'nothing to mend');
 });
 
