@@ -21,6 +21,7 @@ import { createRoadStream, nearestStreet, localDestinations, cellsAround } from 
 import { createCityNavigation } from '../dist/city-navigation.js';
 import { createStreetDetail } from '../dist/street-detail.js';
 import { Landscape } from '../dist/landscape.js';
+import { createCentralPark } from '../dist/central-park.js';
 import { RoadPilot } from '../dist/road-pilot.js';
 import { GameMap } from '../dist/game-map.js';
 import { createRoutePlanner } from '../dist/route-planner.js';
@@ -258,6 +259,8 @@ async function bootHarness({ stored = null, displayStored = null, unavailableSto
       return {ok:true,arrayBuffer:async()=>geometryBuffers.get(resource).slice(0)};
     }
     assert.ok(!/^https?:/.test(url),`integration test attempted an external request: ${url}`);
+    // Packed terrain heights and tree records are read as bytes.
+    if(url.endsWith('.bin')){const bytes=readFileSync(new URL(`../dist/${url.replace(/^\.\//,'')}`,import.meta.url));return {ok:true,arrayBuffer:async()=>bytes.buffer.slice(bytes.byteOffset,bytes.byteOffset+bytes.byteLength)};}
     let data=JSON.parse(readFileSync(new URL(`../dist/${url.replace(/^\.\//,'')}`,import.meta.url),'utf8'));
     // Geometry/source tests verify the complete DEMs. This application's offline
     // fixture keeps their real bounds with a known elevation to expose flat-Y
@@ -266,8 +269,8 @@ async function bootHarness({ stored = null, displayStored = null, unavailableSto
       // Keep actual terrain and mapped water for destination safety. Crown
       // rendering has its own tests and is unrelated to collision readiness.
       if(data.canopies)data={...data,canopies:[]};
-    }else if(url.startsWith('./landscape/'))data=data.heights
-      ?{...data,width:2,height:2,heights:Array(4).fill(terrainElevation)}
+    }else if(url.startsWith('./landscape/'))data=data.heights||data.heightsUrl
+      ?{...data,width:2,height:2,heights:Array(4).fill(terrainElevation),heightsUrl:undefined}
       :{...data,water:[],canopies:[]};
     if(Array.isArray(data.roads)&&holdRoads(url))await new Promise(resolve=>roadWaiters.push(resolve));
     if(holdLandscape(url))await new Promise(resolve=>landscapeWaiters.push(resolve));
@@ -287,7 +290,7 @@ async function bootHarness({ stored = null, displayStored = null, unavailableSto
     },
     updateChaseHeight, createDriverCabin, createCityGround, worldToGeographic, createRoadStream, nearestStreet, localDestinations, createCityNavigation,
     createStreetDetail:(manifest,options)=>createStreetDetail(manifest,{...options,now:()=>timestamp}),
-    renderStats, performanceName, vehicleHandling,
+    renderStats, performanceName, vehicleHandling, createCentralPark,
     Landscape, RoadPilot, AbortSignal, createGraphics, createStreetLife, createWater, setVehicleLamps, OFFICER_LOOK, createPoliceScene, createCityLife, manhattanCore, createStreetSigns, createCrowd, dress, seeded, KIT, createStreetProps, createPlaceSource, placeName, joinPlaceSources, indexFootprints, solveFrontages, createStorefronts, createInteraction, createPhone, describePlace, createFleet, createVehicleMeshLibrary, designFor, createSwitchShot, offersAt, shopRows, planRoom, buildRoom, roomKind, hasRoom, doorBlips, createDemographics, characterAt, createBuses, createBusStops, createSheds, planSheds, createShedMesh, createDining, planDining, createDiningMesh, seatsOf, planStands, vendorOf, createStandMesh, createBikeShare, planBikeDocks, createBikeDocks, menuFor, createSubway, createSubwayEntrances, FARE, indexKerbs, snapToKerb, formatDistance,
     // Bundled survey cells only: these tests stay offline.
     createStreetscape:options=>createStreetscape({...options,live:false,now:()=>timestamp}),
@@ -301,7 +304,7 @@ async function bootHarness({ stored = null, displayStored = null, unavailableSto
     },
   });
   function close() {
-    vm.runInContext('if(typeof gameMap!=="undefined")gameMap?.dispose?.();if(typeof navigation!=="undefined")navigation?.dispose?.();if(typeof roadPilot!=="undefined")roadPilot?.dispose();landscape?.dispose();streetDetail?.dispose();streetscape?.dispose();streetLife?.dispose();parkedCars?.dispose();distantTraffic?.dispose();signs?.dispose();crowd?.dispose();props?.dispose();storefronts?.dispose();subwayStairs?.dispose();busStops?.dispose();shedMesh?.dispose();diningMesh?.dispose();standMesh?.dispose();bikeDocks?.dispose();water?.dispose();world?.dispose();ground?.dispose();gfx?.dispose();',context);
+    vm.runInContext('if(typeof gameMap!=="undefined")gameMap?.dispose?.();if(typeof navigation!=="undefined")navigation?.dispose?.();if(typeof roadPilot!=="undefined")roadPilot?.dispose();centralPark?.dispose();landscape?.dispose();streetDetail?.dispose();streetscape?.dispose();streetLife?.dispose();parkedCars?.dispose();distantTraffic?.dispose();signs?.dispose();crowd?.dispose();props?.dispose();storefronts?.dispose();subwayStairs?.dispose();busStops?.dispose();shedMesh?.dispose();diningMesh?.dispose();standMesh?.dispose();bikeDocks?.dispose();water?.dispose();world?.dispose();ground?.dispose();gfx?.dispose();',context);
     for (const [key, descriptor] of original) {
       if (descriptor) Object.defineProperty(globalThis, key, descriptor);
       else delete globalThis[key];
@@ -1367,7 +1370,7 @@ test('measured landscape boots at elevation and supports park travel through the
     app.key('KeyV');app.key('KeyV',false);app.frames();
     assert.equal(app.camera().position.y,268,'aerial eye height is relative to measured ground');
     app.click('city-button');
-    spawnAtPreset(app,'Central Park · The Pond');
+    spawnAtPreset(app,'Central Park');
     await app.until(()=>!app.state().traveling);
     app.frames(2);
     // Street surfaces add at most a kerb to the measured ground.
@@ -1453,7 +1456,7 @@ test('Central Park Pond arrival accepts the actual surveyed building with a rais
   const app=await bootHarness({extraGeometry:resources.map(resource=>({resource,name:`central-park-${resource}`})),measuredLandscape:true});
   try{
     const manifest=JSON.parse(readFileSync(new URL('../dist/landscape-index.json',import.meta.url)));
-    const region=manifest.regions.find(region=>region.id==='central-park-south');
+    const region=manifest.regions.find(region=>region.id==='central-park');
     app.click('start-button');
     spawnAtPreset(app,region.name);await app.until(()=>!app.state().traveling);
     assert.equal(app.state().cityView,false,app.elements.get('travel-note').textContent);

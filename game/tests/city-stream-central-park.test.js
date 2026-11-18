@@ -8,7 +8,7 @@ import { Simulation } from '../dist/simulation.js';
 
 const index = JSON.parse(readFileSync(new URL('../dist/city-index.json', import.meta.url)));
 const landscapeIndex = JSON.parse(readFileSync(new URL('../dist/landscape-index.json', import.meta.url)));
-const region = landscapeIndex.regions.find(region => region.id === 'central-park-south');
+const region = landscapeIndex.regions.find(region => region.id === 'central-park');
 const samples = [3136, 3144, 3164, 3166, 3216, 3220, 3222, 3907].map(resource => {
   const bytes = gunzipSync(readFileSync(new URL(`./fixtures/i3s-central-park-${resource}.bin.gz`, import.meta.url)));
   return { node: index.nodes.find(node => node.resource === resource),

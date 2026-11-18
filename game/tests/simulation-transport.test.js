@@ -142,7 +142,10 @@ test('an actor already on a measured deck stops before an unsupported drop witho
 test('actual Central Park road samples no longer mix deck and ground wheel levels or jump across a meter gap', t => {
   const read = path => JSON.parse(readFileSync(new URL(`../dist/${path}`, import.meta.url)));
   const base = prepareTerrain(read('landscape/nyc-terrain.json'));
-  const fine = prepareTerrain(read('landscape/central-park-south-terrain.json'), { base });
+  // The park's grid keeps its heights beside it, as centimetres above a floor.
+  const park = read('landscape/central-park-terrain.json'), packed = readFileSync(new URL(`../dist/landscape/${park.heightsUrl.slice(2)}`, import.meta.url));
+  const raw = new Uint16Array(packed.buffer.slice(packed.byteOffset, packed.byteOffset + packed.byteLength));
+  const fine = prepareTerrain({ ...park, heights: Float32Array.from(raw, value => value * park.heightEncoding.scale + park.heightEncoding.offset) }, { base });
   const decks = new TransportSurfaces();t.after(() => decks.dispose());
   const structures = new Map();
   for (const cell of ['3_-11', '4_-11']) for (const feature of read(`street-detail/${cell}.json`).structures) structures.set(feature.id, feature);

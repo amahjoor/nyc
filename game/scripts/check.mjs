@@ -110,7 +110,12 @@ for(const path of landscapePaths){
   if(!/^\.\/landscape\/[a-z0-9-]+\.json$/.test(path))throw new Error(`Invalid landscape path: ${path}`);
   const bytes=await readFile(resolve(root,'dist',path));landscapeBytes+=bytes.length;
   const data=JSON.parse(bytes);
-  if(data.heights){
+  if(data.heightsUrl){
+    // A large grid keeps its heights beside it, two bytes a node.
+    if(!/^\.\/[a-z0-9-]+\.bin$/.test(data.heightsUrl)||data.heightEncoding?.type!=='uint16'||data.units!=='meters'||!data.sourceId||!data.verticalDatum.startsWith('NAVD88'))throw new Error(`Invalid measured terrain: ${path}`);
+    const packed=await readFile(resolve(root,'dist/landscape',data.heightsUrl));landscapeBytes+=packed.length;
+    if(packed.length!==data.width*data.height*2)throw new Error(`Terrain heights do not match their grid: ${path}`);
+  }else if(data.heights){
     if(data.width*data.height!==data.heights.length||data.units!=='meters'||!data.sourceId||!data.verticalDatum.startsWith('NAVD88')
       ||data.heights.some(height=>height!==null&&!Number.isFinite(height)))throw new Error(`Invalid measured terrain: ${path}`);
   }else{
@@ -119,6 +124,19 @@ for(const path of landscapePaths){
   }
 }
 if(landscapeBytes!==landscape.stats.bytes)throw new Error('Landscape manifest byte count does not match its assets');
+// Central Park: its ground maps and tree records must be those its description names.
+{
+  const park=JSON.parse(await readFile(resolve(root,'dist/central-park/park.json'),'utf8'));
+  const region=landscape.regions.find(region=>region.id===park.id);
+  if(!region||JSON.stringify(park.origin)!==JSON.stringify(landscape.origin))throw new Error('Central Park does not match the landscape it stands in');
+  const records=await readFile(resolve(root,'dist/central-park',park.trees.url));
+  if(records.length!==park.trees.count*park.trees.record.length*2||park.trees.count!==region.stats.trees)throw new Error('Central Park tree records do not match their count');
+  for(const map of [park.surface,park.canopy]){
+    const image=await readFile(resolve(root,'dist/central-park',map.url));
+    // A PNG states its size in bytes 16 to 23.
+    if(image.readUInt32BE(16)!==Math.round(park.size.width/map.metresPerPixel)||image.readUInt32BE(20)!==Math.round(park.size.depth/map.metresPerPixel))throw new Error(`Central Park ground map has the wrong size: ${map.url}`);
+  }
+}
 // Both reviews retain evidence for accepted and rejected candidates. A rejected
 // model result must stay rejected in the package, including its empty geometry.
 for(const [reportPath,assetFolder] of [['reconstruction-review.json','reconstruction'],['road-reconstruction-review.json','road-reconstruction']]){

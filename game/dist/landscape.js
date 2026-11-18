@@ -3,20 +3,26 @@ import { mercatorCoefficients, atlasProjectionGLSL } from './imagery-projection.
 import { airports } from './airport-data.js';
 import { createLeafMaterial } from './foliage.js';
 import { STILL_WATER_GLSL } from './water.js';
+import { buildTerrainChunks } from './terrain-chunks.js';
+import { PARK_GROUND_PARS_GLSL, PARK_GROUND_GLSL, createParkGroundUniforms, bindParkGround } from './park-ground.js';
 
 const finite = Number.isFinite;
 const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
 const contains = (bounds, x, z) => x >= bounds.minX && x <= bounds.maxX && z >= bounds.minZ && z <= bounds.maxZ;
 const validBounds = bounds => bounds && [bounds.minX, bounds.maxX, bounds.minZ, bounds.maxZ].every(finite)
   && bounds.maxX > bounds.minX && bounds.maxZ > bounds.minZ;
+// A grid may be turned from north: its `frame` gives the corner it starts from and the turn, and its bounds are then its own.
+const localOf = (frame, x, z) => frame ? [(x - frame.x) * frame.cos + (z - frame.z) * frame.sin, (z - frame.z) * frame.cos - (x - frame.x) * frame.sin] : [x, z];
+const worldOf = (frame, x, z) => frame ? [frame.x + x * frame.cos - z * frame.sin, frame.z + x * frame.sin + z * frame.cos] : [x, z];
 
 /** Sample nodes run west to east, then north to south, in the game's metre grid. */
 export function prepareTerrain(data, { base = null, blendMargin = 20 } = {}) {
   if (data?.version !== 1 || !validBounds(data.bounds) || !Number.isInteger(data.width) || !Number.isInteger(data.height)
     || data.width < 2 || data.height < 2 || data.width * data.height > 4_000_000 || data.units !== 'meters'
     || !['NAVD88', 'NAVD88 Geoid 12B'].includes(data.verticalDatum) || !data.sourceId || data.heights?.length !== data.width * data.height
-    || !data.heights.every(value => value === null || finite(value))) throw new Error('Invalid measured NYC terrain grid.');
-  const terrain = { ...data, dx: (data.bounds.maxX - data.bounds.minX) / (data.width - 1),
+    || (!ArrayBuffer.isView(data.heights) && !data.heights.every(value => value === null || finite(value)))
+    || (data.frame != null && ![data.frame.x, data.frame.z, data.frame.cos, data.frame.sin].every(finite))) throw new Error('Invalid measured NYC terrain grid.');
+  const terrain = { ...data, frame: data.frame || null, dx: (data.bounds.maxX - data.bounds.minX) / (data.width - 1),
     dz: (data.bounds.maxZ - data.bounds.minZ) / (data.height - 1), renderedHeights: Float64Array.from(data.heights, value => value === null ? NaN : value) };
   if (base && blendMargin > 0) {
     // Both sides of this LOD seam come from measured DEM samples. Blend node
@@ -24,7 +30,8 @@ export function prepareTerrain(data, { base = null, blendMargin = 20 } = {}) {
     for (let row = 0; row < data.height; row++) for (let column = 0; column < data.width; column++) {
       const i = row * data.width + column, x = data.bounds.minX + column * terrain.dx, z = data.bounds.minZ + row * terrain.dz;
       const distance = Math.min(x - data.bounds.minX, data.bounds.maxX - x, z - data.bounds.minZ, data.bounds.maxZ - z);
-      const reference = sampleTerrain(base, x, z), weight = clamp(distance / blendMargin, 0, 1);
+      if (distance >= blendMargin) continue;
+      const reference = sampleTerrain(base, ...worldOf(terrain.frame, x, z)), weight = clamp(distance / blendMargin, 0, 1);
       if (reference && finite(terrain.renderedHeights[i])) terrain.renderedHeights[i] = reference.elevation * (1 - weight) + terrain.renderedHeights[i] * weight;
     }
   }
@@ -32,7 +39,10 @@ export function prepareTerrain(data, { base = null, blendMargin = 20 } = {}) {
 }
 
 export function sampleTerrain(terrain, x, z) {
-  if (!terrain || !finite(x) || !finite(z) || !contains(terrain.bounds, x, z)) return null;
+  if (!terrain || !finite(x) || !finite(z)) return null;
+  const frame = terrain.frame;
+  if (frame) { const dx = x - frame.x, dz = z - frame.z;x = dx * frame.cos + dz * frame.sin;z = dz * frame.cos - dx * frame.sin; }
+  if (!contains(terrain.bounds, x, z)) return null;
   const gx = (x - terrain.bounds.minX) / terrain.dx, gz = (z - terrain.bounds.minZ) / terrain.dz;
   const column = Math.min(terrain.width - 2, Math.floor(gx)), row = Math.min(terrain.height - 2, Math.floor(gz));
   const u = gx - column, v = gz - row, a = row * terrain.width + column, b = a + 1, c = a + terrain.width, d = c + 1;
@@ -44,7 +54,8 @@ export function sampleTerrain(terrain, x, z) {
   const first = u + v <= 1, U = first ? u : 1 - u, V = first ? v : 1 - v;
   const [h0, hx, hz] = values;
   const elevation = h0 + (hx - h0) * U + (hz - h0) * V;
-  const sign = first ? 1 : -1, nx = -(hx - h0) / terrain.dx * sign, nz = -(hz - h0) / terrain.dz * sign;
+  const sign = first ? 1 : -1;let nx = -(hx - h0) / terrain.dx * sign, nz = -(hz - h0) / terrain.dz * sign;
+  if (frame) { const turned = nx * frame.cos - nz * frame.sin;nz = nx * frame.sin + nz * frame.cos;nx = turned; }
   const length = Math.hypot(nx, 1, nz), measured = indices.map(i => terrain.heights[i]);
   return { elevation, measuredElevation: measured[0] + (measured[1] - measured[0]) * U + (measured[2] - measured[0]) * V,
     normal: { x: nx / length, y: 1 / length, z: nz / length }, sourceId: terrain.sourceId,
@@ -55,8 +66,8 @@ export function buildTerrainGeometry(terrain) {
   const positions = new Float32Array(terrain.width * terrain.height * 3), indices = [];
   for (let row = 0; row < terrain.height; row++) for (let column = 0; column < terrain.width; column++) {
     const i = row * terrain.width + column;
-    positions.set([terrain.bounds.minX + column * terrain.dx, finite(terrain.renderedHeights[i]) ? terrain.renderedHeights[i] : 0,
-      terrain.bounds.minZ + row * terrain.dz], i * 3);
+    const [x, z] = worldOf(terrain.frame, terrain.bounds.minX + column * terrain.dx, terrain.bounds.minZ + row * terrain.dz);
+    positions.set([x, finite(terrain.renderedHeights[i]) ? terrain.renderedHeights[i] : 0, z], i * 3);
     if (row === terrain.height - 1 || column === terrain.width - 1) continue;
     const a = i, b = i + 1, c = i + terrain.width, d = c + 1;
     for (const triangle of [[a, c, b], [b, c, d]]) if (triangle.every(index => finite(terrain.renderedHeights[index]))) indices.push(...triangle);
@@ -88,11 +99,40 @@ function geometryFrom(positions, sourceIds, colors = null, normals = null, crown
   geometry.computeBoundingSphere();geometry.userData.sourceIds = sourceIds;return geometry;
 }
 
-/** Exact source shorelines and islands; the level is a measured DEM statistic. */
-export function buildWaterGeometry(features) {
+/**
+ * Exact source shorelines and islands; the level is a measured DEM statistic.
+ * Most mapped ponds have no such level. Given `heightAt`, those are laid on
+ * the ground they are mapped on, so that water which stops a walker is at
+ * least seen; without it they are left out.
+ */
+export function buildWaterGeometry(features, heightAt = null) {
   const positions = [], sourceIds = [];
   for (const feature of features) {
-    if (!feature.sourceId || !finite(feature.elevation)) continue;
+    if (!feature.sourceId) continue;
+    if (!finite(feature.elevation)) {
+      if (!heightAt) continue;
+      const parts = polygonParts(feature);if (!parts) continue;
+      const before = positions.length, stack = [];
+      for (const triangle of parts.triangles) {
+        const [a, b, c] = triangle.map(i => parts.vertices[i]);
+        stack.push((b.x - a.x) * (c.y - a.y) - (b.y - a.y) * (c.x - a.x) > 0 ? [a, c, b] : [a, b, c]);
+      }
+      // Cut each triangle until it follows the ground it lies on.
+      while (stack.length && positions.length - before < 180_000) {
+        const [a, b, c] = stack.pop(), ab = a.distanceTo(b), bc = b.distanceTo(c), ca = c.distanceTo(a);
+        if (Math.max(ab, bc, ca) > 24) {
+          if (ab >= bc && ab >= ca) { const m = a.clone().add(b).multiplyScalar(.5);stack.push([a, m, c], [m, b, c]); }
+          else if (bc >= ca) { const m = b.clone().add(c).multiplyScalar(.5);stack.push([a, b, m], [a, m, c]); }
+          else { const m = c.clone().add(a).multiplyScalar(.5);stack.push([a, b, m], [m, b, c]); }
+          continue;
+        }
+        const heights = [a, b, c].map(point => heightAt(point.x, point.y));
+        if (!heights.every(finite)) continue;
+        [a, b, c].forEach((point, i) => positions.push(point.x, heights[i] + .07, point.y));
+      }
+      if (positions.length > before) sourceIds.push(feature.id);
+      continue;
+    }
     const parts = polygonParts(feature);if (!parts) continue;
     for (const triangle of parts.triangles) {
       const [a, b, c] = triangle.map(i => parts.vertices[i]);
@@ -246,6 +286,7 @@ const GROUND_FINISH_GLSL = /* glsl */`
         vec3 court = mix(landscapeBroad, vec3(0.3, 0.1, 0.07), 0.45) * (0.9 + 0.2 * mottle) * (1.0 + close * 0.3 * (grit - 0.5));
         vec3 drawn = mix(photo, paving * hard + turf * planted + court * clay, dry);
         diffuseColor.rgb = mix(relit, drawn, 1.0 - smoothstep(150.0, 480.0, span));
+${PARK_GROUND_GLSL}
         vec3 airport = airportPavement(w);
         float paved = min(1.0, airport.r + airport.g + airport.b);
         if (paved > 0.0) {
@@ -289,13 +330,14 @@ const runwayDetailsGLSL = airports.flatMap(airport => airport.runways.map(({fram
     }`;
 })).join('\n');
 
-function createTerrainMaterial(airportTexture) {
+function createTerrainMaterial(airportTexture, parkGround = createParkGroundUniforms()) {
   const material = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 1, side: THREE.DoubleSide });
   const uniforms = { airportMask: { value: airportTexture }, landscapeOrtho: { value: null }, landscapeLocal: { value: null }, landscapeUseOrtho: { value: false },
     landscapeUseLocal: { value: false }, landscapeBounds: { value: new THREE.Vector4() }, landscapeLocalBounds: { value: new THREE.Vector4() },
     landscapeMercator: { value: new THREE.Vector4() }, landscapeLocalMercator: { value: new THREE.Vector4() },
     landscapeUseMercator: { value: false }, landscapeUseLocalMercator: { value: false }, landscapeCoverageCount: { value: 0 },
-    landscapeCoverage: { value: Array.from({ length: 16 }, () => new THREE.Vector4()) } };
+    landscapeCoverage: { value: Array.from({ length: 16 }, () => new THREE.Vector4()) },
+    landscapeCoverageFrame: { value: Array.from({ length: 16 }, () => new THREE.Vector4(0, 0, 1, 0)) }, ...parkGround };
   material.onBeforeCompile = shader => {
     Object.assign(shader.uniforms, uniforms);
     shader.vertexShader = 'varying vec2 vLandscapeXZ; varying float vLandscapeY;\n' + shader.vertexShader.replace('#include <begin_vertex>', '#include <begin_vertex>\nvLandscapeXZ = position.xz; vLandscapeY = position.y;');
@@ -303,7 +345,8 @@ function createTerrainMaterial(airportTexture) {
       uniform sampler2D landscapeOrtho; uniform sampler2D landscapeLocal;
       uniform bool landscapeUseOrtho; uniform bool landscapeUseLocal; uniform bool landscapeUseMercator; uniform bool landscapeUseLocalMercator;
       uniform vec4 landscapeBounds; uniform vec4 landscapeLocalBounds; uniform vec4 landscapeMercator; uniform vec4 landscapeLocalMercator;
-      uniform int landscapeCoverageCount; uniform vec4 landscapeCoverage[16];
+      uniform int landscapeCoverageCount; uniform vec4 landscapeCoverage[16]; uniform vec4 landscapeCoverageFrame[16];
+      ${PARK_GROUND_PARS_GLSL}
       vec2 landscapeUV(vec4 b, vec4 m, bool mercator) {
         vec2 uv = vec2((vLandscapeXZ.x-b.x)/(b.y-b.x), (b.w-vLandscapeXZ.y)/(b.w-b.z));
         if (mercator) uv.y = atlasNorthUV(vLandscapeXZ.y,b,m);
@@ -324,8 +367,9 @@ function createTerrainMaterial(airportTexture) {
     shader.fragmentShader = shader.fragmentShader.replace('#include <color_fragment>', `#include <color_fragment>
       for (int i=0; i<16; i++) {
         if (i>=landscapeCoverageCount) break;
-        vec4 b = landscapeCoverage[i];
-        if (vLandscapeXZ.x>=b.x && vLandscapeXZ.x<=b.y && vLandscapeXZ.y>=b.z && vLandscapeXZ.y<=b.w) discard;
+        vec4 b = landscapeCoverage[i], f = landscapeCoverageFrame[i];
+        vec2 q = vLandscapeXZ - f.xy; q = vec2(q.x*f.z + q.y*f.w, q.y*f.z - q.x*f.w);
+        if (q.x>=b.x && q.x<=b.y && q.y>=b.z && q.y<=b.w) discard;
       }
       if (landscapeUseOrtho) { vec2 uv = landscapeUV(landscapeBounds,landscapeMercator,landscapeUseMercator); if (landscapeInside(uv)) diffuseColor.rgb = texture2D(landscapeOrtho,uv).rgb; }
       // The photograph averaged over about two metres, and over about eight:
@@ -359,15 +403,17 @@ function bindAtlas(material, atlas, local = false) {
 }
 
 function clipWaterCoverage(material) {
-  const uniforms = { landscapeWaterCoverageCount: { value: 0 }, landscapeWaterCoverage: { value: Array.from({ length: 8 }, () => new THREE.Vector4()) } };
+  const uniforms = { landscapeWaterCoverageCount: { value: 0 }, landscapeWaterCoverage: { value: Array.from({ length: 8 }, () => new THREE.Vector4()) },
+    landscapeWaterCoverageFrame: { value: Array.from({ length: 8 }, () => new THREE.Vector4(0, 0, 1, 0)) } };
   material.userData.coverage = uniforms;
   material.onBeforeCompile = shader => {
     Object.assign(shader.uniforms, uniforms);
     shader.vertexShader = 'varying vec2 vLandscapeWaterXZ;\n' + shader.vertexShader.replace('#include <begin_vertex>', '#include <begin_vertex>\nvLandscapeWaterXZ=position.xz;');
-    shader.fragmentShader = 'varying vec2 vLandscapeWaterXZ; uniform int landscapeWaterCoverageCount; uniform vec4 landscapeWaterCoverage[8];\n' + shader.fragmentShader;
+    shader.fragmentShader = 'varying vec2 vLandscapeWaterXZ; uniform int landscapeWaterCoverageCount; uniform vec4 landscapeWaterCoverage[8]; uniform vec4 landscapeWaterCoverageFrame[8];\n' + shader.fragmentShader;
     shader.fragmentShader = shader.fragmentShader.replace('#include <color_fragment>', `#include <color_fragment>
-      for (int i=0;i<8;i++) { if(i>=landscapeWaterCoverageCount)break; vec4 b=landscapeWaterCoverage[i];
-        if(vLandscapeWaterXZ.x>=b.x&&vLandscapeWaterXZ.x<=b.y&&vLandscapeWaterXZ.y>=b.z&&vLandscapeWaterXZ.y<=b.w)discard;
+      for (int i=0;i<8;i++) { if(i>=landscapeWaterCoverageCount)break; vec4 b=landscapeWaterCoverage[i], f=landscapeWaterCoverageFrame[i];
+        vec2 q=vLandscapeWaterXZ-f.xy; q=vec2(q.x*f.z+q.y*f.w, q.y*f.z-q.x*f.w);
+        if(q.x>=b.x&&q.x<=b.y&&q.y>=b.z&&q.y<=b.w)discard;
       }`).replace('#include <emissivemap_fragment>', `#include <emissivemap_fragment>\n${STILL_WATER_GLSL}`);
   };
 }
@@ -448,6 +494,23 @@ export class Landscape {
       image.src = new URL('./assets/airfield-surfaces.png', import.meta.url).href;
     }
     this.terrainOverlays = new Map();this.retainedTerrainRegions = new Map();
+    // One mapped park's ground at a time is drawn into every terrain material; large grids are detailed this far out.
+    this.parkGround = createParkGroundUniforms();this.detailRange = 650;
+  }
+
+  /** A terrain grid. A large one keeps its heights apart, as scaled integers beside the description. */
+  async _terrain(url, signal) {
+    const data = await this._json(url, signal);
+    if (!data?.heightsUrl || data.heights) return data;
+    const encoding = data.heightEncoding;
+    if (encoding?.type !== 'uint16' || !finite(encoding.scale) || !finite(encoding.offset)) throw new Error('Unknown terrain height encoding.');
+    const response = await this.fetcher(url.slice(0, url.lastIndexOf('/') + 1) + data.heightsUrl.replace(/^\.\//, ''), { signal });
+    if (!response.ok) throw new Error(`NYC landscape source unavailable (${response.status}).`);
+    const raw = new Uint16Array(await response.arrayBuffer());
+    if (raw.length !== data.width * data.height) throw new Error('Terrain heights do not match their grid.');
+    const heights = new Float32Array(raw.length);
+    for (let i = 0; i < raw.length; i++) heights[i] = raw[i] * encoding.scale + encoding.offset;
+    return { ...data, heights };
   }
 
   async _json(url, signal) {
@@ -487,11 +550,17 @@ export class Landscape {
   }
 
   _build(terrain, features, regionId = null) {
-    const group = new THREE.Group(), material = createTerrainMaterial(this.airportTexture), mesh = new THREE.Mesh(buildTerrainGeometry(terrain), material);
+    const group = new THREE.Group(), material = createTerrainMaterial(this.airportTexture, this.parkGround);
     this.stairOpenings?.clip(material);
+    // A large region is drawn in pieces, the far ones coarsely (see terrain-chunks.js).
+    const chunks = regionId && terrain.width * terrain.height > 200_000 && terrain.renderedHeights.every(finite) ? buildTerrainChunks(terrain) : null;
+    const mesh = chunks ? new THREE.Group() : new THREE.Mesh(buildTerrainGeometry(terrain), material);
+    for (const chunk of chunks || []) for (const level of ['fine', 'coarse']) {
+      const piece = new THREE.Mesh(chunk[level], material);piece.receiveShadow = true;piece.visible = level === 'coarse';chunk[level + 'Mesh'] = piece;mesh.add(piece);
+    }
     mesh.receiveShadow = true;mesh.name = 'Surveyed terrain';group.add(mesh);this.group.add(group);
     bindAtlas(material, this.orthophoto);bindAtlas(material, this.localOrthophoto, true);
-    const entry = { terrain, group, mesh, material, regionId, used: ++this.serial, water: null, vegetation: null };
+    const entry = { terrain, group, mesh, material, regionId, chunks, used: ++this.serial, water: null, vegetation: null };
     this._features(entry, features);return entry;
   }
 
@@ -509,7 +578,8 @@ export class Landscape {
       }
     }
     if (water.length) {
-      const geometry = buildWaterGeometry(water), material = new THREE.MeshStandardMaterial({ color: 0x647773, roughness: .3, metalness: .08, side: THREE.DoubleSide });
+      const geometry = buildWaterGeometry(water, (x, z) => sampleTerrain(entry.terrain, x, z)?.elevation);
+      const material = new THREE.MeshStandardMaterial({ color: 0x647773, roughness: .3, metalness: .08, side: THREE.DoubleSide });
       clipWaterCoverage(material);
       // Shoreline and elevation are surveyed; optical water appearance is a
       // visualization, not a claim about water color or a new physical feature.
@@ -610,7 +680,10 @@ export class Landscape {
     const overlays = [...this.terrainOverlays.values()];
     const cover = (uniforms, replacements) => {
       uniforms.landscapeCoverageCount.value = this.layers.terrain ? replacements.length : 0;
-      replacements.forEach((entry, i) => { const b = entry.terrain.bounds;uniforms.landscapeCoverage.value[i].set(b.minX, b.maxX, b.minZ, b.maxZ); });
+      replacements.forEach((entry, i) => {
+        const b = entry.terrain.bounds, f = entry.terrain.frame;uniforms.landscapeCoverage.value[i].set(b.minX, b.maxX, b.minZ, b.maxZ);
+        uniforms.landscapeCoverageFrame.value[i].set(f ? f.x : 0, f ? f.z : 0, f ? f.cos : 1, f ? f.sin : 0);
+      });
     };
     cover(u, [...entries.map(([, entry]) => entry), ...overlays]);
     // A baked road patch replaces every older terrain LOD, including an
@@ -621,7 +694,10 @@ export class Landscape {
       // Mask only the refined rectangle, not the entire source lake. A lake
       // can cross a detail boundary and must remain visible on its other side.
       coverage.landscapeWaterCoverageCount.value = entries.length;
-      entries.forEach(([, entry], i) => { const b = entry.terrain.bounds;coverage.landscapeWaterCoverage.value[i].set(b.minX, b.maxX, b.minZ, b.maxZ); });
+      entries.forEach(([, entry], i) => {
+        const b = entry.terrain.bounds, f = entry.terrain.frame;coverage.landscapeWaterCoverage.value[i].set(b.minX, b.maxX, b.minZ, b.maxZ);
+        coverage.landscapeWaterCoverageFrame.value[i].set(f ? f.x : 0, f ? f.z : 0, f ? f.cos : 1, f ? f.sin : 0);
+      });
     }
   }
 
@@ -636,12 +712,12 @@ export class Landscape {
       controller.task = (async () => {
         try {
           await this.loadBase();
-          const [data, features] = await Promise.all([this._json(region.terrainUrl, controller.signal),
+          const [data, features] = await Promise.all([this._terrain(region.terrainUrl, controller.signal),
             region.featuresUrl ? this._json(region.featuresUrl, controller.signal) : { water: [], canopies: [] }]);
           if (this.disposed || controller.signal.aborted || !this.wanted.has(id) || this.pending.get(id) !== controller) return;
           // Rectangle coverage can replace coarse triangles only when fine
           // nodes have complete coverage. Missing measurements retain the base.
-          if (data.heights?.some(value => value === null)) throw new Error('Detail terrain contains missing elevation samples.');
+          if (data.heights?.some(value => value === null || Number.isNaN(value))) throw new Error('Detail terrain contains missing elevation samples.');
           const entry = this._build(prepareTerrain(data, { base: this.base?.terrain, blendMargin: region.blendMargin ?? 20 }), features, id);
           this.cache.set(id, entry);this.errors.delete(id);this._coverage();this.onChange();
         } catch (error) {
@@ -681,9 +757,18 @@ export class Landscape {
     for (const [id, controller] of this.pending) if (!this.wanted.has(id)) { controller.abort();this.pending.delete(id); }
     for (const [id, entry] of this.cache) { entry.group.visible = this.wanted.has(id);this._syncStems(entry);if (entry.group.visible) { entry.used = ++this.serial;this._updateVegetation(entry); } }
     for (const id of this.errors.keys()) if (id !== 'base-features' && !this.wanted.has(id)) this.errors.delete(id);
+    for (const entry of this.cache.values()) if (entry.chunks && entry.group.visible) this._detail(entry);
     this._coverage();this._trim();this._pump();
     if (previous !== [...this.wanted.keys()].join(',')) { this.onChange();this._report(); }
     else if (previousOverview !== overview) this._report();
+  }
+
+  /** Draw the pieces of a large region near the player in full, the rest coarsely. */
+  _detail(entry) {
+    for (const chunk of entry.chunks) {
+      const near = Math.hypot(chunk.x - this.focus.x, chunk.z - this.focus.z) - chunk.radius < this.detailRange;
+      chunk.fineMesh.visible = near;chunk.coarseMesh.visible = !near;
+    }
   }
 
   sampleSurface(x, z) {
@@ -755,7 +840,7 @@ export class Landscape {
     };
     for (const feature of candidates(this.base)) {
       let level = null;
-      for (const entry of fine) if (contains(entry.terrain.bounds, x, z)) {
+      for (const entry of fine) if (contains(entry.terrain.bounds, ...localOf(entry.terrain.frame, x, z))) {
         const candidate = entry.waterById.get(feature.id);if (candidate && finite(candidate.elevation)) { level = candidate;break; }
       }
       // Fine assets contain clipped polygons. Their artificial tile edges
@@ -796,6 +881,8 @@ export class Landscape {
     const entry = this.terrainOverlays.get(id);if (!entry) return;
     this._release(entry);this.terrainOverlays.delete(id);this._coverage();this.onChange();
   }
+  /** Give the terrain a mapped park's ground (see park-ground.js), or take it away with null. */
+  setParkGround(park) { bindParkGround(this.parkGround, park); }
   setOrthophoto(atlas) { this.orthophoto = atlas;for (const entry of [this.base, ...this.cache.values(), ...this.terrainOverlays.values()]) if (entry) bindAtlas(entry.material, atlas); }
   setLocalOrthophoto(atlas) { this.localOrthophoto = atlas;for (const entry of [this.base, ...this.cache.values(), ...this.terrainOverlays.values()]) if (entry) bindAtlas(entry.material, atlas, true); }
   setReconstructionReview(report) {

@@ -1,4 +1,5 @@
 import test from 'node:test';
+import { StreetObjects } from '../dist/street-objects.js';
 import assert from 'node:assert/strict';
 import * as THREE from '../dist/vendor/three.module.min.js';
 import { prepareTerrain, sampleTerrain, buildTerrainGeometry, buildWaterGeometry, buildCanopyGeometry, waterContact, reviewedWaterFeatures, Landscape } from '../dist/landscape.js';
@@ -173,6 +174,21 @@ test('preparing a place loads its measured surfaces and exposes source water con
   assert.deepEqual(f.landscape.getStatus().activeRegions, ['a']);assert.equal(f.landscape.getStatus().failures, 0);
 });
 
+test('park tree collisions follow the rendered stem, layer visibility and region unload', async t => {
+  const physics = new StreetObjects(), { landscape, files } = fixture(t, { physics });
+  files.get('features-a').canopies[0].treePoint = [2, 2];
+  await landscape.prepareAt({ x: 2, z: 2 });
+  const trunk = () => physics.contact(2, 2, .1, crown.baseElevation);
+  assert.equal(trunk()?.body.kind, 'tree');
+  assert.equal(physics.contact(.1, .1, .1, crown.baseElevation), null);
+  landscape.setLayers({ vegetation: false });
+  assert.equal(trunk(), null);
+  landscape.setLayers({ vegetation: true });
+  assert.ok(trunk());
+  await landscape.prepareAt({ x: 102, z: 2 });
+  assert.equal(trunk(), null);
+});
+
 test('baked road terrain replaces both overlapping park and city terrain without replacing water', async t => {
   const f = fixture(t);await f.landscape.prepareAt({ x: 2, z: 2 });
   const patch = grid({ bounds: bounds(1, 9, 1, 9), heights: [11, 12, 13, 15], sourceId: 'road-survey' });
@@ -310,7 +326,10 @@ test('a clipped detail boundary cannot become an invented shoreline', async t =>
   const f = fixture(t), large = { ...water, polygon: [[0, 0], [20, 0], [20, 20], [0, 20]], holes: [], elevation: null };
   f.landscape.index.baseFeaturesUrl = 'base-water';f.files.set('base-water', { version: 1, water: [large] });
   f.files.set('features-a', { water: [{ ...water, holes: [] }], canopies: [] });await f.landscape.prepareAt({ x: 9.8, z: 5 });
-  assert.equal(f.landscape.base.water.geometry.attributes.position.count, 0, 'an unmeasured water level never generates a guessed plane');
+  // Water with no measured level is laid on the ground it is mapped on: seen, but at no guessed level of its own.
+  const laid = f.landscape.base.water.geometry.attributes.position;
+  assert.ok(laid.count >= 6);
+  for (let i = 0; i < laid.count; i++) close(laid.getY(i), sampleTerrain(f.landscape.base.terrain, laid.getX(i), laid.getZ(i)).elevation + .07, 1e-4);
   const contact = f.landscape.contactAt(9.8, 5, .5);
   close(contact.depth, 5.5);close(contact.nx, 0);close(contact.nz, -1);
   assert.equal(f.landscape.waterAt(15, 5).id, 'pond', 'mapped water still exists beyond the detail boundary');

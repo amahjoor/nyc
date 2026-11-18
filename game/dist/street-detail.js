@@ -179,7 +179,7 @@ export function createStreetDetail(index, { scene, orthophoto, heightAt = null, 
   const transport = new TransportSurfaces({ material: deckMaterials[0], structureMaterial: deckMaterials[1], paintMaterial: deckMaterials[2], groundAt: heightAt, waterAt });group.add(transport.group);
   const cache = new Map(), pending = new Map(), errors = new Map(), triangulations = new Map();
   let wanted = new Map(), serial = 0, disposed = false, dirty = false, selection = '', covered = false, overviewMode = false;
-  let terrainRevision = 0, roadsKey = '', structureBuilt = -Infinity;
+  let terrainRevision = 0, roadsKey = '', structureBuilt = -Infinity, extra = [];
   const status = () => ({ cachedCells: cache.size, loading: pending.size,
     activeCells: [...wanted.keys()].filter(key => cache.has(key)).length,
     surfaces: mesh.geometry.userData.sourceIds?.length || 0, transport: transport.getStatus(),
@@ -196,7 +196,7 @@ export function createStreetDetail(index, { scene, orthophoto, heightAt = null, 
     // Opening the city map hides local rendering, but an actor may still be
     // supported by a deck. Retain those collision surfaces until local play
     // chooses its next cells, or returning from the map would drop the actor.
-    if (!overviewMode) transport.setFeatures(structures);
+    if (!overviewMode) transport.setFeatures(extra.length ? [...structures, ...extra] : structures);
     dirty = false;onChange();report();
   }
   function pump() {
@@ -294,6 +294,14 @@ export function createStreetDetail(index, { scene, orthophoto, heightAt = null, 
       uniforms.streetGroundReplacement.value = Boolean(bounds && [bounds.minX,bounds.maxX,bounds.minZ,bounds.maxZ].every(Number.isFinite)
         && bounds.maxX > bounds.minX && bounds.maxZ > bounds.minZ);
       if (uniforms.streetGroundReplacement.value) uniforms.streetGroundReplacementBounds.value.set(bounds.minX,bounds.maxX,bounds.minZ,bounds.maxZ);
+    },
+    /**
+     * Decks from elsewhere than the bundled cells, such as a park's own bridges. One a cell already holds is not
+     * added twice. `groundMaterial` draws the tops of those that carry ground and not a roadway.
+     */
+    setExtraStructures(features = [], groundMaterial = null) {
+      if (disposed) return;
+      extra = Array.isArray(features) ? features : [];transport.setGroundMaterial(groundMaterial);rebuild();
     },
     sampleSurface: (x, z, options) => transport.sampleSurface(x, z, options),
     surfacesAt: (x, z, mode) => transport.surfacesAt(x, z, mode),

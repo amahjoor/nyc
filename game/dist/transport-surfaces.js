@@ -181,7 +181,8 @@ function prepareFeature(feature) {
       ring = ring.slice(0, -1);elevations = elevations.slice(0, -1);
     }
     if (ring.length < 3) return null;
-    elevations = regrade(ring, despike(ring, elevations));
+    // A lid's heights are read off a continuous model of the ground: there are no survey slips or steps in them to mend.
+    if (feature.cover !== 'ground') elevations = regrade(ring, despike(ring, elevations));
     // Long outline edges are divided before the inside is filled, each new
     // point on the line between two measured heights: the fill then spans
     // the deck from side to side and not from one end of a span to the other.
@@ -218,7 +219,10 @@ function prepareFeature(feature) {
     pending.push([u, m, w], [m, v, w]);
   }
   relax(X, Z, Y, triangles);
-  return finishPart({ id: feature.id, sourceId: feature.sourceId, subtype: feature.subtype, name: feature.name || '', X, Z, Y, triangles, boundary });
+  const part = finishPart({ id: feature.id, sourceId: feature.sourceId, subtype: feature.subtype, name: feature.name || '', X, Z, Y, triangles, boundary });
+  // A lid over a cutting carries the ground across it, and is drawn as that ground.
+  if (feature.cover === 'ground') part.cover = 'ground';
+  return part;
 }
 
 /** A deck ready to draw and to stand on, from the vertices and triangles of its surface and the edges of its rim. */
@@ -257,7 +261,7 @@ function finishPart({ id, sourceId, subtype, name = '', X, Z, Y, triangles, boun
 /** Surveyed outline elevations provide the deck; what holds it up is drawn
  * by deck-structure.js. Queries use the same triangles as the visible mesh. */
 export class TransportSurfaces {
-  constructor({ scene, material, structureMaterial, paintMaterial, groundAt = null, waterAt = null } = {}) {
+  constructor({ scene, material, structureMaterial, paintMaterial, groundMaterial = null, groundAt = null, waterAt = null } = {}) {
     this.scene = scene;this.disposed = false;this.ownsMaterial = !material;
     this.material = material || new THREE.MeshStandardMaterial({ color: 0x3a3b3d, roughness: 1 });
     this.structureMaterial = structureMaterial || new THREE.MeshStandardMaterial({ color: 0x8f8d86, roughness: .95, side: THREE.DoubleSide });
@@ -267,6 +271,9 @@ export class TransportSurfaces {
     this.mesh = new THREE.Mesh(new THREE.BufferGeometry(), this.material);
     this.mesh.name = 'Surveyed bridge outlines with interpolated deck heights';
     this.mesh.castShadow = true;this.mesh.receiveShadow = true;this.group.add(this.mesh);
+    this.ground = new THREE.Mesh(new THREE.BufferGeometry(), groundMaterial || this.material);
+    this.ground.name = 'Decks that carry the ground across a cutting';
+    this.ground.castShadow = true;this.ground.receiveShadow = true;this.group.add(this.ground);
     this.structure = new THREE.Mesh(new THREE.BufferGeometry(), this.structureMaterial);
     this.structure.name = 'Deck slabs, parapets and piers';
     this.structure.castShadow = true;this.structure.receiveShadow = true;this.group.add(this.structure);
@@ -307,9 +314,9 @@ export class TransportSurfaces {
   }
 
   _index(parts) {
-    const positions = [], indices = [], cells = new Map(), largeTriangles = [];
+    const paved = { positions: [], indices: [] }, turfed = { positions: [], indices: [] }, cells = new Map(), largeTriangles = [];
     for (const part of parts) {
-      const offset = positions.length / 3;
+      const { positions, indices } = part.cover === 'ground' ? turfed : paved, offset = positions.length / 3;
       for (const point of part.vertices) positions.push(point.x, point.y, point.z);
       for (const index of part.indices) indices.push(index + offset);
       for (const triangle of part.triangles) {
@@ -326,18 +333,23 @@ export class TransportSurfaces {
         }
       }
     }
-    const geometry = new THREE.BufferGeometry();
-    geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
-    geometry.setAttribute('uv', new THREE.Float32BufferAttribute(new Float32Array(positions.length / 3 * 2), 2));
-    geometry.setIndex(indices);geometry.computeVertexNormals();
-    if (positions.length) geometry.computeBoundingSphere();
+    const mesh = ({ positions, indices }) => {
+      const geometry = new THREE.BufferGeometry();
+      geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+      geometry.setAttribute('uv', new THREE.Float32BufferAttribute(new Float32Array(positions.length / 3 * 2), 2));
+      geometry.setIndex(indices);geometry.computeVertexNormals();
+      if (positions.length) geometry.computeBoundingSphere();
+      return geometry;
+    };
+    const geometry = mesh(paved), lids = mesh(turfed), { indices } = paved;
     const surveyed = parts.filter(part => !part.approach);
     geometry.userData.sourceIds = surveyed.map(part => part.sourceId);
     geometry.userData.transportIds = surveyed.map(part => part.id);
     const previous = this.mesh.geometry;this.mesh.geometry = geometry;previous.dispose();
+    const former = this.ground.geometry;this.ground.geometry = lids;former.dispose();
     this.cells = cells;this.largeTriangles = largeTriangles;this.parts = parts;
     this.partById = new Map(parts.map(part => [part.id, part]));
-    this.status = { ...this.status, triangles: indices.length / 3 };
+    this.status = { ...this.status, triangles: (indices.length + turfed.indices.length) / 3 };
   }
 
   /** The street centrelines near the decks: they say where lanes run and where piers may stand. */
@@ -345,6 +357,9 @@ export class TransportSurfaces {
     if (this.disposed) return;
     this.roads = roads;this.structureDirty = true;
   }
+
+  /** What the lids over cuttings are drawn with: the ground they carry. */
+  setGroundMaterial(material) { if (!this.disposed) this.ground.material = material || this.material; }
 
   /** The ground beneath, for where a deck lands and how tall its piers are. */
   setGround(groundAt, waterAt = this.waterAt) {
@@ -430,7 +445,7 @@ export class TransportSurfaces {
 
   dispose() {
     if (this.disposed) return;
-    this.disposed = true;this.mesh.geometry.dispose();this.structure.geometry.dispose();this.paint.geometry.dispose();
+    this.disposed = true;this.mesh.geometry.dispose();this.ground.geometry.dispose();this.structure.geometry.dispose();this.paint.geometry.dispose();
     if (this.ownsMaterial) this.material.dispose();
     if (this.ownsStructureMaterial) this.structureMaterial.dispose();
     if (this.ownsPaintMaterial) this.paintMaterial.dispose();
