@@ -32,6 +32,7 @@ import { createDemographics } from './demographics.js';
 import { createBuses, createBusStops } from './bus.js';
 import { createSheds, planSheds, createShedMesh } from './sheds.js';
 import { createDining, planDining, createDiningMesh, seatsOf } from './dining.js';
+import { planStands, vendorOf, createStandMesh } from './stands.js';
 import { menuFor } from './menu.js';
 import { createSubway, createSubwayEntrances, FARE } from './subway.js';
 import { indexKerbs, snapToKerb } from './street-props.js';
@@ -69,6 +70,8 @@ let buses=null, busStops=null, stopHere=null;
 let sheds=null, shedMesh=null;
 // Sidewalk cafes: the addresses licensed for one, and the tables set out nearby.
 let dining=null, diningMesh=null, diners=[];
+// Newsstands and fruit stands at the kerb, and whoever minds each.
+let standMesh=null, vendors=[];
 let subway=null, subwayStairs=null, stairHere=null, kerbIndex=null, kerbsFor=null;
 // Which cars are registered where (fleet.js): the whole city's mix until the counts by ZIP code have loaded.
 let fleet=createFleet(null);
@@ -374,6 +377,8 @@ function syncScene(dt,controls) {
     const extras=roomStaff.map(person=>person.userData.figure);
     for(const guest of roomGuests)extras.push(guest);
     if(gfx.hours>=11&&gfx.hours<23&&!sim.room)for(const diner of diners)extras.push(diner);
+    // A newsstand is minded from before dawn; a fruit cart through the day.
+    if(!sim.room)for(const vendor of vendors)if(vendor.fruit?gfx.hours>=7&&gfx.hours<20:gfx.hours>=5&&gfx.hours<23)extras.push(vendor);
     if(p.mode==='walk')extras.push({x:p.x,y:p.y||0,z:p.z,heading:p.angle,phase:playerStride,stride:Math.min(1,pace/1.2),look:PLAYER_LOOK});
     crowd.setExtras(extras);
   }
@@ -592,6 +597,16 @@ function frame(now) {
       fronts=solveFrontages(placeSource.near(lit.x,lit.z,250),footprints,(x,z)=>Boolean(streetscape?.surfaceAt(x,z)));
       // Sheds stand along the street walls of the buildings permitted one.
       if(sheds&&shedMesh)shedMesh.update(planSheds(sheds.near(lit.x,lit.z,220),footprints,(x,z)=>Boolean(streetscape?.surfaceAt(x,z))));
+      if(standMesh){
+        if(walks!==kerbsFor){kerbsFor=walks;kerbIndex=indexKerbs(walks);}
+        const stands=planStands(placeSource.near(lit.x,lit.z,220),(x,z)=>snapToKerb(kerbIndex,x,z,16));
+        standMesh.update(stands);
+        vendors=stands.map(stand=>{
+          const spot=vendorOf(stand),random=seeded((Math.round(stand.x*13+stand.z*29)>>>0)||1),look=dress('casual',random,demographics.tracts?demographics.tonesAt(stand.x,stand.z,.3):null);
+          look.kit=(look.kit&(KIT.longHair|KIT.shortSleeves))|(random()<.35?KIT.woman:0);
+          return {x:spot.x,y:groundHeight(spot.x,spot.z),z:spot.z,heading:spot.heading,phase:0,stride:0,look,fruit:stand.kind==='fruitstand'};
+        });
+      }
       if(dining&&diningMesh){
         const rows=planDining(dining.near(lit.x,lit.z,200),footprints,(x,z)=>Boolean(streetscape?.surfaceAt(x,z)));
         diningMesh.update(rows);
@@ -653,7 +668,7 @@ function frame(now) {
   if(buses&&busStops){
     const walks=streetscape?.walks()||noStreetFurniture;
     if(walks!==kerbsFor){kerbsFor=walks;kerbIndex=indexKerbs(walks);}
-    busStops.group.visible=!cityView||Boolean(viewOverride);if(shedMesh)shedMesh.mesh.visible=busStops.group.visible;if(diningMesh)diningMesh.mesh.visible=busStops.group.visible;
+    busStops.group.visible=!cityView||Boolean(viewOverride);if(shedMesh)shedMesh.mesh.visible=busStops.group.visible;if(diningMesh)diningMesh.mesh.visible=busStops.group.visible;if(standMesh)standMesh.mesh.visible=busStops.group.visible;
     busStops.update(buses,lit,kerbIndex);
   }
   storefronts?.update(fronts,lit,gfx.hours);
@@ -881,7 +896,7 @@ async function boot() {
   loadData('demographics.json').then(data=>{demographics=createDemographics(data);}).catch(()=>{});
   busStops=createBusStops({scene,heightAt:groundHeight,kerb:(x,z)=>kerbIndex&&snapToKerb(kerbIndex,x,z,14)});
   shedMesh=createShedMesh({scene,heightAt:groundHeight});
-  diningMesh=createDiningMesh({scene,heightAt:groundHeight});
+  diningMesh=createDiningMesh({scene,heightAt:groundHeight});standMesh=createStandMesh({scene,heightAt:groundHeight});
   loadData('dining.json').then(data=>{dining=createDining(data);frontsFor=null;}).catch(()=>{});
   loadData('sheds.json').then(data=>{sheds=createSheds(data);frontsFor=null;}).catch(()=>{});
   loadData('bus-stops.json').then(data=>{buses=createBuses(data);}).catch(()=>{});
@@ -965,7 +980,7 @@ async function boot() {
   const b=city.bounds;camera.position.set((b.minX+b.maxX)/2-14000,44000,(b.minZ+b.maxZ)/2+32000);
   navigation=createCityNavigation({canvas,camera,input,bounds:city.bounds,heightAt:terrainHeight,onTravel:travel,onAddressSelected:focusCityAddress});
   $('place-select').innerHTML=roadIndex.places.map((place,i)=>'<option value="'+i+'">'+place.name+' · '+place.borough+'</option>').join('');
-  window.nycGame={graphics:gfx,get streetscape(){return streetscape;},get streetLife(){return streetLife;},get parkedCars(){return parkedCars;},get distantTraffic(){return distantTraffic;},get world(){return world;},get simulation(){return sim;},get signs(){return signs;},get crowd(){return crowd;},get props(){return props;},get places(){return placeSource;},get storefronts(){return storefronts;},get fronts(){return fronts;},get phone(){return phone;},get fleet(){return fleet;},get subway(){return subway;},get buses(){return buses;},get sheds(){return sheds;},get dining(){return dining;},get diningMesh(){return diningMesh;},get shedMesh(){return shedMesh;},get busStops(){return busStops;},get demographics(){return demographics;},get subwayStairs(){return subwayStairs;},get cityLife(){return cityLife;},heightAt:(x,z)=>terrainHeight(x,z),setView:view=>{viewOverride=view&&Array.isArray(view.position)&&Array.isArray(view.target)?view:null;},getState:()=>({time:gfx.clock,player:{...sim.player},heat:sim.heat,health:sim.health,mission:{...sim.mission},cash:sim.cash,deliveries:sim.deliveries,cars:sim.cars.length,parkedCars:sim.cars.filter(car=>car._kerb).length,buildings:buildings.length,totalBuildings:cityIndex.stats.buildingFeatures,stream:world.getStatus(),ground:ground.getStatus(),streetDetail:streetDetail?.getStatus()||null,streetscape:streetscape?.getStatus()||null,landscape:landscape?.getStatus()||null,reconstruction:reconstructionReview?{model:reconstructionReview.model,summary:reconstructionReview.summary}:null,roadReconstruction:roadReconstructionReview?{model:roadReconstructionReview.model,summary:roadReconstructionReview.summary}:null,roadPilot:roadPilot?roadPilot.getStatus():{ready:false,loading:Boolean(roadPilotLoading),error:roadPilotError},navigation:navigation.getState(),map:gameMap.getState(),routeGuidance,cityView,aerialView,traveling,bootReady,shadows:{enabled:shadowsEnabled,active:renderer.shadowMap.enabled},drawCalls:renderer.info.render.calls,triangles:renderer.info.render.triangles,started,paused})};
+  window.nycGame={graphics:gfx,get streetscape(){return streetscape;},get streetLife(){return streetLife;},get parkedCars(){return parkedCars;},get distantTraffic(){return distantTraffic;},get world(){return world;},get simulation(){return sim;},get signs(){return signs;},get crowd(){return crowd;},get props(){return props;},get places(){return placeSource;},get storefronts(){return storefronts;},get fronts(){return fronts;},get phone(){return phone;},get fleet(){return fleet;},get subway(){return subway;},get buses(){return buses;},get sheds(){return sheds;},get dining(){return dining;},get standMesh(){return standMesh;},get diningMesh(){return diningMesh;},get shedMesh(){return shedMesh;},get busStops(){return busStops;},get demographics(){return demographics;},get subwayStairs(){return subwayStairs;},get cityLife(){return cityLife;},heightAt:(x,z)=>terrainHeight(x,z),setView:view=>{viewOverride=view&&Array.isArray(view.position)&&Array.isArray(view.target)?view:null;},getState:()=>({time:gfx.clock,player:{...sim.player},heat:sim.heat,health:sim.health,mission:{...sim.mission},cash:sim.cash,deliveries:sim.deliveries,cars:sim.cars.length,parkedCars:sim.cars.filter(car=>car._kerb).length,buildings:buildings.length,totalBuildings:cityIndex.stats.buildingFeatures,stream:world.getStatus(),ground:ground.getStatus(),streetDetail:streetDetail?.getStatus()||null,streetscape:streetscape?.getStatus()||null,landscape:landscape?.getStatus()||null,reconstruction:reconstructionReview?{model:reconstructionReview.model,summary:reconstructionReview.summary}:null,roadReconstruction:roadReconstructionReview?{model:roadReconstructionReview.model,summary:roadReconstructionReview.summary}:null,roadPilot:roadPilot?roadPilot.getStatus():{ready:false,loading:Boolean(roadPilotLoading),error:roadPilotError},navigation:navigation.getState(),map:gameMap.getState(),routeGuidance,cityView,aerialView,traveling,bootReady,shadows:{enabled:shadowsEnabled,active:renderer.shadowMap.enabled},drawCalls:renderer.info.render.calls,triangles:renderer.info.render.triangles,started,paused})};
   requestAnimationFrame(frame);
   const [roads]=await Promise.all([roadStream.loadAround(seed.spawn),world.prepareAt(seed.spawn,300),landscapeReady]);
   sim.setActiveCity({roads,buildings,isReadyAt:(x,z,radius)=>world.isReadyAt(x,z,radius),missionPoints:destinationsFor(roads,seed.spawn)},{spawn:seed.spawn});city=sim.city;yaw=sim.player.angle;
