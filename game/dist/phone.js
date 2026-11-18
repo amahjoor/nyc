@@ -64,7 +64,7 @@ export function shopRows(kind, car = {}) {
  * the places within reach; `state()` gives { x, z, hours, clock, cash, fares,
  * miles, redLights }. The rest are what its buttons do.
  */
-export function createPhone({ $, places = () => [], state = () => ({}), onDirections = () => {}, onJob = () => {}, onMap = () => {}, onOpenChange = () => {}, onGarage = () => {}, onMechanic = () => {}, onCab = () => {} } = {}) {
+export function createPhone({ $, places = () => [], state = () => ({}), onDirections = () => {}, onJob = () => {}, onWork = () => {}, onMap = () => {}, onOpenChange = () => {}, onGarage = () => {}, onMechanic = () => {}, onCab = () => {} } = {}) {
   const SCREENS = ['home', 'nearby', 'place', 'contacts', 'wallet', 'shop', 'list'], TITLES = { home: 'PHONE', nearby: 'NEARBY', place: 'PLACE', contacts: 'CONTACTS', wallet: 'WALLET', shop: 'AUTO SHOP' };
   let shop = null, counter = [], listing = null, listPage = 0;
   let open = false, screen = 'home', category = 'all', page = 0, rows = [], chosen = null, listed = -Infinity;
@@ -120,6 +120,8 @@ export function createPhone({ $, places = () => [], state = () => ({}), onDirect
     }
     if (screen === 'list' && listing) {
       $('phone-title').textContent = listing.title;
+      $('phone-list-message').textContent = listing.message;
+      $('phone-list-message').hidden = !listing.message;
       const pages = Math.max(1, Math.ceil(listing.rows.length / ROWS)); listPage = Math.max(0, Math.min(listPage, pages - 1));
       for (let i = 0; i < ROWS; i++) {
         const row = listing.rows[listPage * ROWS + i];
@@ -142,13 +144,14 @@ export function createPhone({ $, places = () => [], state = () => ({}), onDirect
   };
   const click = (id, action) => $(id).addEventListener('click', action);
   click('phone-app-nearby', () => { page = 0; show('nearby'); }); click('phone-app-contacts', () => show('contacts')); click('phone-app-wallet', () => show('wallet'));
+  click('phone-app-work', onWork);
   click('phone-app-map', () => { setOpen(false); onMap(); });
   for (const item of CATEGORIES) click(`phone-chip-${item.id}`, () => { category = item.id; page = 0; render(); });
   $('phone-search').addEventListener('input', () => { page = 0; render(); });
   for (let i = 0; i < ROWS; i++) click(`phone-row-${i}`, () => { const row = rows[page * ROWS + i]; if (row) { chosen = row.place; show('place'); } });
   click('phone-prev', () => { page = Math.max(0, page - 1); render(); }); click('phone-next', () => { page++; render(); });
   click('phone-directions', () => { if (chosen) { onDirections(chosen); setOpen(false); } });
-  for (let i = 0; i < ROWS; i++) click(`phone-ride-${i}`, () => { const row = listing?.rows[listPage * ROWS + i]; if (row) { const pick = listing.onPick; setOpen(false); pick(row); } });
+  for (let i = 0; i < ROWS; i++) click(`phone-ride-${i}`, () => { const row = listing?.rows[listPage * ROWS + i]; if (open && screen === 'list' && row) { const pick = listing.onPick; if (!listing.keepOpen) setOpen(false); pick(row); } });
   click('phone-ride-prev', () => { listPage--; render(); }); click('phone-ride-next', () => { listPage++; render(); });
   click('phone-contact-dispatch', () => { onJob(); setOpen(false); });
   click('phone-contact-mechanic', () => { onMechanic(); setOpen(false); });
@@ -162,7 +165,7 @@ export function createPhone({ $, places = () => [], state = () => ({}), onDirect
     get screen() { return screen; },
     setOpen, toggle: () => setOpen(!open),
     /** Show a list to choose from: `rows` of { name, note }; `onPick(row)` is told which. */
-    openList(title, rows, onPick) { listing = { title, rows, onPick }; listPage = 0; setOpen(true); show('list'); },
+    openList(title, rows, onPick, { message = '', keepOpen = false } = {}) { listing = { title, rows, onPick, message, keepOpen }; listPage = 0; setOpen(true); show('list'); },
     /** Stand at a garage's counter: `place` is the auto shop the car is stopped at. */
     openShop(place) { shop = { kind: place.kind, name: placeName(place) }; setOpen(true); show('shop'); },
     /** Keep the clock, the cash and the distances current while the phone is out. `time` is in seconds. */

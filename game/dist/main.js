@@ -29,6 +29,7 @@ import { createCrowd, dress, seeded, KIT } from './crowd.js';
 import { createStreetProps } from './street-props.js';
 import { createPlaceSource, placeName, joinPlaceSources, indexFootprints, solveFrontages } from './places.js';
 import { createStorefronts } from './storefronts.js';
+import { Work } from './work.js';
 import { createPhone, describePlace } from './phone.js';
 import { createFleet } from './fleet.js';
 import { createVehicleMeshLibrary } from './vehicle-assets.js';
@@ -63,7 +64,7 @@ let cameraFlashing=false;
 // What is at each address (places.js), and the street fronts of those near the player.
 let placeSource=null, storefronts=null, footprints=indexFootprints([]), fronts=[], frontsFor=null, placeTimer=0;
 // The phone, and where a delivery can be sent: the streets around, and the places with a street front.
-let phone=null, roadDestinations=[], placeDestinations=[], shopHere=null;
+let phone=null, work=null, roadDestinations=[], placeDestinations=[], shopHere=null;
 // The front the player is standing at if it has a room to go into, and the room they are in.
 // The player and shop staff as the crowd's modelled figures, once those have loaded: where in their stride the player is.
 let playerStride=0, strideClock=0;
@@ -160,7 +161,15 @@ function action(name,event) {
     const menu=menuFor(sim.room.place);
     if(!menu.length)announce('Nothing is sold over the counter here.');
     else if(!counterHere)announce('Go up to whoever is serving.');
-    else phone.openList(sim.room.name,menu.map(item=>({item,name:item.name.toUpperCase(),note:'$'+item.price.toFixed(2)})),({item})=>{if(sim.buy(item))saveProgress();});
+    else {
+      const shop=sim.room.place;
+      const rows=menu.map(item=>({item,name:item.name.toUpperCase(),note:'$'+item.price.toFixed(2)}));
+      rows.push({name:'Rob the till', note:'Reported crime · two wanted stars'});
+      phone.openList(sim.room.name,rows,({item})=>{
+        if (!item) { work.rob(shop); return; }
+        if(sim.buy(item))saveProgress();
+      });
+    }
     return;
   }
   if(name==='shop'&&standHere&&started&&!paused&&!traveling&&bootReady&&!cityView&&!mapOpen&&sim.player.mode==='walk') {
@@ -169,7 +178,13 @@ function action(name,event) {
     phone.openList(placeName(place),menuFor(place).map(item=>({item,name:item.name.toUpperCase(),note:'$'+item.price.toFixed(2)})),({item})=>{if(sim.buy(item,{street:true}))saveProgress();});
     return;
   }
-  if(name==='shop') { if(started&&!paused&&!traveling&&bootReady&&!cityView&&!mapOpen&&shopHere)phone?.openShop(shopHere);return; }
+  if(name==='shop') {
+    if(started&&!paused&&!traveling&&bootReady&&!cityView&&!mapOpen&&!phone?.open){
+      if(shopHere)phone?.openShop(shopHere);
+      else if(work.pedestrian())work.street();
+    }
+    return;
+  }
   if(name==='phone') { if(started&&!paused&&!traveling&&bootReady&&!cityView&&!mapOpen)phone?.toggle();return; }
   if(name==='fight') {
     if(!started||paused||traveling||!bootReady||cityView||mapOpen||phone?.open||sim.player.mode!=='walk')return;
@@ -348,6 +363,7 @@ function restoreProgress() {
   try {
     const record=JSON.parse(localStorage.getItem(SAVE_KEY)||'null');
     if(record?.version===1){
+      work.restore(record.work);
       if(Number.isFinite(record.cash)&&record.cash>=0)sim.cash=Math.min(record.cash,1e8);
       if(Number.isInteger(record.deliveries)&&record.deliveries>=0)sim.deliveries=Math.min(record.deliveries,1e6);
       const cab=sim.cars.find(car=>car.id==='player-taxi');
@@ -360,7 +376,7 @@ function restoreProgress() {
 }
 function saveProgress() {
   const cab=sim.cars.find(car=>car.id==='player-taxi');
-  const value=JSON.stringify({version:1,cash:sim.cash,deliveries:sim.deliveries,cab:cab?{mods:cab.mods||null,color:cab.resprays?cab.color:null}:null});
+  const value=JSON.stringify({version:1,cash:sim.cash,deliveries:sim.deliveries,work:work.record,cab:cab?{mods:cab.mods||null,color:cab.resprays?cab.color:null}:null});
   if(value===savedEarnings)return;
   savedEarnings=value;
   try{localStorage.setItem(SAVE_KEY,value);}catch{/* Earnings remain for the current session. */}
@@ -764,6 +780,9 @@ function frame(now) {
     if(standHere)$('place-hint').textContent=placeName(standHere.place)+' · G TO BUY';
     if(stopHere)$('place-hint').textContent=stopHere.stop.name+' · '+stopHere.stop.lines.slice(0,5).join(' ')+' · E FOR THE BUS';
     if(stairHere)$('place-hint').textContent=stairHere.station.name.toUpperCase()+' · '+stairHere.station.routes+' · E FOR THE SUBWAY';
+    if(started&&!cityView&&!mapOpen&&!phone?.open&&!facing&&!stopHere&&!stairHere&&!standHere&&work.pedestrian()){
+      $('place-hint').hidden=false;$('place-hint').textContent='G TO TALK';
+    }
     shopHere=null;doorHere=null;
     if(!sim.room&&roomGroup){roomGroup.userData.dispose();roomGroup=null;roomStaff=[];roomGuests=[];doorAgain=elapsed+1.2;}
     // Indoors, within reach of whoever is serving.
@@ -1075,7 +1094,12 @@ async function boot() {
   streetLife=createStreetLife({scene,renderer,getLamps:()=>streetscape?.lamps()||noStreetFurniture,getTrees:()=>streetscape?.trees()||noStreetFurniture});
   parkedCars=createParkedCars({capacity:PARKED_LIMIT+8,library:vehicleMeshes});scene.add(parkedCars.group);
   distantTraffic=createDistantTraffic({library:vehicleMeshes});scene.add(distantTraffic.group);
-  sim=new Simulation(city);restoreProgress();yaw=sim.player.angle;
+  sim=new Simulation(city);
+  work=new Work({sim,phone:()=>phone,fronts:()=>fronts,hours:()=>gfx.hours,save:saveProgress,
+    guide:site=>{gameMap.setPin(site);gameMap.setOpen(true);},
+    pedestrian:()=>sim.player.mode==='walk'&&!sim.room?crowd?.closest(sim.player.x,sim.player.z,4):null,
+    counter:()=>sim.room&&counterHere&&sim.room.place.id&&menuFor(sim.room.place).length?sim.room.place:null});
+  restoreProgress();yaw=sim.player.angle;
   signs=createStreetSigns({scene,heightAt:groundHeight,raised:(x,z)=>(streetscape?.offsetAt(x,z)||0)>.1});
   crowd=createCrowd({scene,heightAt:groundHeight,isRoad:(x,z)=>streetscape?.surfaceAt(x,z)==='road',
     life:{crowding:(x,z,hours)=>cityLife.crowding(x,z,hours),wardrobe:(x,z,hours)=>cityLife.wardrobe(x,z,hours),
@@ -1113,7 +1137,7 @@ async function boot() {
     state:()=>({x:sim.player.x,z:sim.player.z,hours:gfx.hours,clock:gfx.clock,cash:sim.cash,jobActive:sim.mission.phase==='active',fares:sim.deliveries,miles:sim.distanceTravelled/1609.344,redLights:sim.redLights||0,car:sim.vehicle?{health:sim.health,mods:sim.vehicle.mods,color:sim.vehicle.color}:null}),
     onGarage:(kind,job,choice)=>{if(sim.garage(kind,job,choice))saveProgress();},onMechanic:()=>sim.callMechanic(),onCab:()=>sim.summonCab(),
     onDirections:place=>{const name=place.name||describePlace(place,gfx.hours).name;requestDirections({x:place.x,z:place.z}).then(found=>announce(found?'Directions to '+name+'. Follow the highlighted streets.':'No way to '+name+' along mapped streets.'));},
-    onJob:()=>action('job'),onMap:()=>action('map'),
+    onWork:()=>work.board(),onJob:()=>action('job'),onMap:()=>action('map'),
     onOpenChange:open=>{$('phone-button').setAttribute('aria-expanded',String(open));$('mission-panel').classList.toggle('behind-phone',open);if(!open)canvas.focus();}});
   loadData('street-life.json').then(data=>{cityLife=createCityLife(data);props.setData(data);sim.setActiveCity({signalHints});}).catch(()=>{});
   world=createCityStream(cityIndex,{scene,onCollisionChange:applyBuildings,onStatus:updateStreaming,heightAt:terrainHeight});

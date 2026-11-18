@@ -35,6 +35,7 @@ import { createCrowd, dress, seeded, KIT } from '../dist/crowd.js';
 import { createStreetProps } from '../dist/street-props.js';
 import { createPlaceSource, placeName, joinPlaceSources, indexFootprints, solveFrontages } from '../dist/places.js';
 import { createStorefronts } from '../dist/storefronts.js';
+import { Work } from '../dist/work.js';
 import { createPhone, describePlace } from '../dist/phone.js';
 import { createFleet } from '../dist/fleet.js';
 import { createVehicleMeshLibrary } from '../dist/vehicle-assets.js';
@@ -273,7 +274,7 @@ async function bootHarness({ stored = null, displayStored = null, unavailableSto
   const context = vm.createContext({
     ...globals,
     THREE: { ...THREE, WebGLRenderer: RendererStub },
-    createCar, createParkedCars, createDistantTraffic, createPerson, updateCarVisuals, Simulation, TRAFFIC_SIGHT, Input, HUD, CityAudio, GameMap, createStreetIndex, createPlaceIndex, searchLocal, title, createPlaceLayer, createRoutePlanner,
+    createCar, createParkedCars, createDistantTraffic, createPerson, updateCarVisuals, Simulation, TRAFFIC_SIGHT, Input, HUD, CityAudio, GameMap, Work, createStreetIndex, createPlaceIndex, searchLocal, title, createPlaceLayer, createRoutePlanner,
     lotsReady:async()=>false,
     createCityStream:(fullIndex,options)=>{
       assert.equal(fullIndex.stats.buildingFeatures,index.stats.buildingFeatures);
@@ -1640,4 +1641,24 @@ test('pin spawning requires citywide water data even when measured ground has lo
     assert.equal(app.state().map.open,false,app.elements.get('game-map-status').textContent);
     assert.equal(app.state().player.x,selected.x);assert.equal(app.state().player.z,selected.z);
   }finally{app.close();}
+});
+
+test('a player can clock in through the phone, finish a shift and spend the paycheck', async () => {
+  const app = await bootHarness();
+  try {
+    app.click('start-button'); app.click('view-button'); app.click('phone-button');
+    app.click('phone-app-work'); app.click('phone-ride-0');
+    assert.equal(app.elements.get('phone-ride-0-name').textContent, 'Clock in');
+    app.click('phone-ride-0');
+    const initial = app.state().cash;
+    for (let block = 0; block < 4; block++) {
+      assert.match(app.elements.get('phone-list-message').textContent, /Which tray/);
+      app.click('phone-ride-0');
+    }
+    assert.match(app.elements.get('phone-list-message').textContent, /5 PM.*Paycheck/);
+    assert.ok(app.state().cash >= initial + 80);
+    app.click('phone-ride-3'); app.click('phone-ride-0');
+    assert.match(app.elements.get('phone-list-message').textContent, /6\/12 cups/);
+    assert.equal(app.errors.length, 0);
+  } finally { app.close(); }
 });

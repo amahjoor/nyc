@@ -63,6 +63,10 @@
 .phone input{width:100%;background:#1d262b;color:var(--paper);padding:10px;border:1px solid #ffffff2e;border-radius:10px;font:12px Arial}
 .phone input:focus-visible{outline:2px solid var(--orange);outline-offset:1px}
 .phone-list{display:grid;gap:5px}
+#phone-list-message{margin:0 0 4px;padding:6px 5px;font-size:14px;line-height:1.4}
+#phone-list .phone-row b{white-space:normal}
+#phone-list .phone-row span{font-size:11px;letter-spacing:.2px}
+#phone-list .phone-row span:empty{display:none}
 .phone-row{display:grid;gap:4px;text-align:left;padding:10px 11px;background:#1d262b;border:1px solid #ffffff1f;border-radius:10px}
 .phone-row[hidden]{display:none}
 .phone-row b{font-size:11px;letter-spacing:.3px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
