@@ -68,7 +68,84 @@ export function createPhone({ $, places = () => [], state = () => ({}), onDirect
   const SCREENS = ['home', 'nearby', 'place', 'contacts', 'wallet', 'shop', 'list'], TITLES = { home: 'PHONE', nearby: 'NEARBY', place: 'PLACE', contacts: 'CONTACTS', wallet: 'WALLET', shop: 'AUTO SHOP' };
   let shop = null, counter = [], listing = null, listPage = 0;
   let open = false, screen = 'home', category = 'all', page = 0, rows = [], chosen = null, listed = -Infinity;
-  const show = next => { screen = next; render(); };
+  const handset = $('phone');
+  function controls(panel) {
+    return Array.from(panel.querySelectorAll?.('button, input, select') || [])
+      .filter(element => !element.disabled && !element.closest('[hidden]'));
+  }
+  function focusScreen() {
+    const first = controls($('phone-' + screen))[0] || $('phone-back');
+    first.focus?.();
+  }
+  const show = next => { screen = next; render(); focusScreen(); };
+  function back() {
+    if (screen === 'home') setOpen(false);
+    else show(screen === 'place' ? 'nearby' : 'home');
+  }
+
+  function center(element) {
+    const rect = element.getBoundingClientRect();
+    return { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 };
+  }
+
+  function moveFocus(key, active) {
+    const items = controls($('phone-' + screen));
+    if (!items.includes(active)) {
+      items[0]?.focus();
+      return;
+    }
+    const origin = center(active);
+    const vertical = key === 'ArrowUp' || key === 'ArrowDown';
+    const sign = key === 'ArrowUp' || key === 'ArrowLeft' ? -1 : 1;
+    let next = null;
+    let best = Infinity;
+    for (const item of items) {
+      const point = center(item);
+      const dx = point.x - origin.x, dy = point.y - origin.y;
+      const along = sign * (vertical ? dy : dx);
+      if (along < 2) continue;
+      // Prefer the current row or column when moving between icons or list entries.
+      const score = along + 3 * Math.abs(vertical ? dx : dy);
+      if (score < best) {
+        next = item;
+        best = score;
+      }
+    }
+    next?.focus();
+  }
+
+  function handleKey(event) {
+    if (!open) return false;
+    const key = event.key || event.code || '';
+    const active = handset.ownerDocument?.activeElement;
+    const editing = active?.matches?.('input, textarea, select');
+    if (key === 'Escape') {
+      event.preventDefault();
+      if (!event.repeat) setOpen(false);
+    } else if (key === 'Tab') {
+      event.preventDefault();
+      const items = controls(handset);
+      if (!items.length) return true;
+      const index = items.indexOf(active);
+      const start = index < 0 && event.shiftKey ? 0 : index;
+      items[(start + (event.shiftKey ? -1 : 1) + items.length) % items.length].focus();
+    } else if (!editing && key.startsWith('Arrow')) {
+      event.preventDefault();
+      moveFocus(key, active);
+    } else if (!editing && key === 'Backspace') {
+      event.preventDefault();
+      if (!event.repeat) back();
+    } else if (!editing && key === 'Enter') {
+      event.preventDefault();
+      if (!event.repeat && handset.contains?.(active)) active.click();
+    } else if (!editing && event.code === 'KeyM' && !event.ctrlKey && !event.metaKey && !event.altKey) {
+      if (!event.repeat) {
+        setOpen(false);
+        onMap();
+      }
+    }
+    return true;
+  }
   function list() {
     const now = state();
     rows = listPlaces(places(), { category, query: $('phone-search').value, x: now.x, z: now.z, hours: now.hours });
@@ -81,6 +158,7 @@ export function createPhone({ $, places = () => [], state = () => ({}), onDirect
     $('phone-clock').textContent = now.clock || ''; $('phone-cash').textContent = formatMoney(now.cash || 0);
     $('phone-title').textContent = TITLES[screen];
     for (const name of SCREENS) $(`phone-${name}`).hidden = name !== screen;
+    $('phone-toolbar').hidden = screen === 'home';
     $('phone-back').hidden = screen === 'home';
     if (screen === 'nearby') {
       list();
@@ -140,7 +218,7 @@ export function createPhone({ $, places = () => [], state = () => ({}), onDirect
     if (next === open) return;
     open = next;
     if (open) { screen = 'home'; $('phone-search').value = ''; page = 0; }
-    render(); onOpenChange(open);
+    render(); onOpenChange(open); if (open) focusScreen();
   };
   const click = (id, action) => $(id).addEventListener('click', action);
   click('phone-app-nearby', () => { page = 0; show('nearby'); }); click('phone-app-contacts', () => show('contacts')); click('phone-app-wallet', () => show('wallet'));
@@ -158,12 +236,13 @@ export function createPhone({ $, places = () => [], state = () => ({}), onDirect
   click('phone-contact-cab', () => { onCab(); setOpen(false); });
   for (let i = 0; i < 4; i++) click(`phone-shop-${i}`, () => { const row = counter[i]; if (row && row.price !== null && shop) { onGarage(shop.kind, row.job); render(); } });
   RESPRAYS.forEach(([, colour], i) => click(`phone-paint-${i}`, () => { if (shop) { onGarage(shop.kind, 'respray', colour); render(); } }));
-  click('phone-back', () => show(screen === 'place' ? 'nearby' : 'home'));
+  click('phone-back', back);
+  click('phone-home-key', () => screen === 'home' ? setOpen(false) : show('home'));
   click('phone-close', () => setOpen(false));
   return {
     get open() { return open; },
     get screen() { return screen; },
-    setOpen, toggle: () => setOpen(!open),
+    setOpen, handleKey, toggle: () => setOpen(!open),
     /** Show a list to choose from: `rows` of { name, note }; `onPick(row)` is told which. */
     openList(title, rows, onPick, { message = '', keepOpen = false } = {}) { listing = { title, rows, onPick, message, keepOpen }; listPage = 0; setOpen(true); show('list'); },
     /** Stand at a garage's counter: `place` is the auto shop the car is stopped at. */

@@ -56,7 +56,7 @@ test('every part of the phone the game fills in is on the page', () => {
   for (const id of ids) assert.equal(html.split(`id="${id}"`).length, 2, `${id} appears once`);
   for (const category of CATEGORIES) assert.match(html, new RegExp(`id="phone-chip-${category.id}">${category.label}<`));
   assert.match(html, /<section id="phone" class="phone" hidden/);
-  assert.match(html, /Take out \/ put away the phone<\/span><kbd>↑<\/kbd>/);
+  assert.match(html, /Open phone<\/span><kbd>↑<\/kbd>/);
 });
 
 test('the phone opens on its home screen, lists what is nearby, and sends the player to a place', () => {
@@ -112,4 +112,45 @@ test('the phone opens on its home screen, lists what is nearby, and sends the pl
   const empty = page(), bare = createPhone({ $: empty.$ });
   bare.setOpen(true); empty.click('phone-app-nearby');
   assert.deepEqual([empty.$('phone-empty').hidden, empty.$('phone-page').textContent, empty.$('phone-next').disabled], [false, '', true]);
+});
+
+test('the arrow keys navigate home and the dock, Enter selects, and editing keeps native keys', () => {
+  const { $ } = page();
+  const doc = { activeElement: null };
+  const home = [['nearby', 0, 0], ['work', 60, 0], ['contacts', 0, 200], ['wallet', 60, 200]];
+  const apps = home.map(([name, left, top]) => {
+    const app = $('phone-app-' + name);
+    app.closest = () => null;
+    app.focus = () => { doc.activeElement = app; };
+    app.click = () => app.fire('click');
+    app.getBoundingClientRect = () => ({ left, top, width: 50, height: 50 });
+    return app;
+  });
+  $('phone').ownerDocument = doc;
+  $('phone').contains = node => apps.includes(node);
+  $('phone-home').querySelectorAll = () => apps;
+  const phone = createPhone({ $ });
+  function press(key) {
+    let prevented = false;
+    phone.handleKey({ key, preventDefault: () => { prevented = true; } });
+    return prevented;
+  }
+  phone.setOpen(true);
+  assert.equal(doc.activeElement.id, 'phone-app-nearby');
+  for (const [key, app] of [['ArrowUp', 'nearby'], ['ArrowRight', 'work'], ['ArrowDown', 'wallet'], ['ArrowLeft', 'contacts']]) {
+    assert.equal(press(key), true);
+    assert.equal(doc.activeElement.id, 'phone-app-' + app);
+  }
+  press('Enter');
+  assert.equal(phone.screen, 'contacts');
+  press('Backspace');
+  assert.equal(phone.screen, 'home');
+  press('Enter');
+  assert.equal(phone.screen, 'nearby');
+  doc.activeElement = { matches: () => true };
+  assert.equal(press('ArrowLeft'), false);
+  assert.equal(press('Backspace'), false);
+  assert.equal(phone.screen, 'nearby');
+  press('Escape');
+  assert.equal(phone.open, false);
 });

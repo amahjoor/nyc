@@ -27,13 +27,13 @@ Press **M** or **MAP** for a street map centered on your neighborhood. Gameplay 
 
 On the street, press **E** to enter the nearby yellow taxi, then **N** to take a delivery. Stop inside the orange destination ring before the timer expires. Earnings and completed delivery count save in browser storage on this device. Sound starts muted; enable it with the top-right button.
 
-Press **P** or **PHONE** to take out your phone. **Nearby** lists the restaurants, shops, salons, garages and public buildings within about 700 m, nearest first: narrow it by category or type part of a name. Each shows how far it is, whether it is open now and, for a restaurant, its inspection grade; **Directions** sets route guidance to it. **Contacts** has the dispatcher, who gives you the next delivery, and **Wallet** your cash and record. On foot, standing at a shop front shows what it is above the controls. Deliveries go to named places as well as to streets: the drop is at the kerb in front of the door.
+Press **↑** or choose **PHONE** to open the handset. Use the arrow keys to move between controls, **Enter** to select, **Backspace** to go back and **Esc** to put it away. The round Home button returns to the app grid. **Nearby** lists the restaurants, shops, salons, garages and public buildings within about 700 m, nearest first: narrow it by category or type part of a name. Each shows how far it is, whether it is open now and, for a restaurant, its inspection grade; **Directions** sets route guidance to it. **Contacts** has the dispatcher, who gives you the next delivery, and **Wallet** your cash and record. On foot, standing at a shop front shows what it is above the controls. Deliveries go to named places as well as to streets: the drop is at the kerb in front of the door.
 
 Choose **Meadow Lake road reconstruction** in the city picker and select **Spawn here** to visit the reconstructed road and parking loop. Walk to the waiting cab and press **E**. While nearby, **Show aerial / Show reconstruction** compares the original photograph with source-sampled pavement and reviewed paint. Both modes share the same measured driving surface. The patch loads only when visited; the rest of NYC keeps its existing rendering.
 
 | Action | Keyboard | Controller |
 | --- | --- | --- |
-| Walk / steer | WASD or arrows | Left stick |
+| Walk / steer | WASD | Left stick |
 | Accelerate / brake then reverse | W / S | Right / left trigger |
 | Enter / exit car | E | A |
 | Sprint on foot | Shift | Left stick click |
@@ -234,7 +234,7 @@ On foot, walking into the door of an open shop, restaurant, bar, salon, hotel or
 
 ## Earning money
 
-On the street, open the phone with **↑** or **P** and choose **Work**.
+On the street, open the phone with **↑** and choose **Work**.
 
 - **Fast-food crew** and **Finance associate** mark their workplaces on the map. Arrive on foot, open Work again and clock in. Four decisions take your shift from 9 AM to 5 PM. The grill pays $80 plus $8 per correct tray. The office pays $120 plus $12 per correctly posted balance. An unfinished shift resumes from the same ticket.
 - **Food courier** offers a restaurant pickup and a customer drop-off. Stop at both gold markers in order to earn the fee and a time-based tip.

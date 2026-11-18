@@ -1,6 +1,6 @@
 /** Input is sampled each physics frame; one-shot actions run on key-down edges. */
 export class Input {
-  constructor(canvas, action) {
+  constructor(canvas, action, handleInterfaceKey = () => false) {
     this.keys = new Set();
     this.touch = new Set();
     this.lookDelta = 0;
@@ -9,11 +9,12 @@ export class Input {
     this._pointerLookEnabled = true;
     this.padButtons = [];
     this.action = action;
-    const actions = {KeyE:'interact',KeyN:'job',KeyZ:'cash',KeyR:'recover',KeyC:'camera',KeyB:'perspective',KeyV:'view',KeyM:'map',KeyP:'phone',ArrowUp:'phone',KeyF:'fight',KeyG:'shop',KeyH:'horn',KeyT:'time',Escape:'pause'};
+    const actions = {KeyE:'interact',KeyN:'job',KeyZ:'cash',KeyR:'recover',KeyC:'camera',KeyB:'perspective',KeyV:'view',KeyM:'map',ArrowUp:'phone',KeyF:'fight',KeyG:'shop',KeyH:'horn',KeyT:'time',Escape:'pause'};
     window.addEventListener('keydown', e => {
+      if (handleInterfaceKey(e)) return;
       if (['INPUT','TEXTAREA','SELECT'].includes(e.target.tagName)) return;
       if (e.code === 'Space' && e.target.tagName === 'BUTTON') return;
-      if (e.code.startsWith('Arrow') || e.code === 'Space') e.preventDefault();
+      if (e.code === 'ArrowUp' || e.code === 'Space') e.preventDefault();
       this.keys.add(e.code);
       if (!e.repeat && actions[e.code]) action(actions[e.code], e);
     });
@@ -66,9 +67,9 @@ export class Input {
   clear() { this.keys.clear(); this.touch.clear(); this.dragging = false; this._press = null; }
   sample(cameraYaw, dt) {
     const has = (...keys) => keys.some(key => this.keys.has(key));
-    // Up arrow is the phone, the same way a d-pad opens it. W still walks and drives.
-    let forward = Number(has('KeyW') || this.touch.has('forward')) - Number(has('KeyS','ArrowDown') || this.touch.has('back'));
-    let turn = Number(has('KeyD','ArrowRight') || this.touch.has('right')) - Number(has('KeyA','ArrowLeft') || this.touch.has('left'));
+    // Arrows belong to the phone and map. WASD controls walking and vehicles.
+    let forward = Number(has('KeyW') || this.touch.has('forward')) - Number(has('KeyS') || this.touch.has('back'));
+    let turn = Number(has('KeyD') || this.touch.has('right')) - Number(has('KeyA') || this.touch.has('left'));
     let walkForward = forward;
     let handbrake = has('Space') || this.touch.has('brake');
     let run = has('ShiftLeft','ShiftRight');

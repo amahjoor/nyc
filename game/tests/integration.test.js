@@ -429,7 +429,7 @@ test('five-borough app boots, walks, enters a cab, delivers, saves and pauses th
     app.key('KeyZ');app.key('KeyZ', false);
     assert.equal(balance.hidden, false);
     assert.equal(app.elements.get('cash').textContent, '$225');
-    app.key('KeyP');app.key('KeyP', false);
+    app.key('ArrowUp');app.key('ArrowUp', false);
     app.click('phone-app-contacts');app.click('phone-contact-dispatch');
     app.frames(6);
     assert.equal(app.state().mission.phase, 'active');
@@ -861,7 +861,7 @@ test('aerial entry, recovery and large location changes reset tracking without c
   }finally{app.close();}
 });
 
-test('walking A/D and arrow keys follow the visible camera right axis after orbiting',async()=>{
+test('walking A/D keys follow the visible camera right axis after orbiting',async()=>{
   const app=await bootHarness();
   try{
     app.click('start-button');app.click('view-button');app.frames(2);
@@ -874,7 +874,7 @@ test('walking A/D and arrow keys follow the visible camera right axis after orbi
     Object.assign(sim.player,clear,{velocityX:0,velocityZ:0,speed:0});
     for(const heading of [.37,1.89]){
       orbitWalkingCamera(app,heading);
-      for(const [key,sign] of [['KeyD',1],['ArrowRight',1],['KeyA',-1],['ArrowLeft',-1]]){
+      for(const [key,sign] of [['KeyD',1],['KeyA',-1]]){
         Object.assign(sim.player,{velocityX:0,velocityZ:0,speed:0});
         const before={...sim.player},right=cameraRight(app);
         app.key(key);app.frames(6);app.key(key,false);

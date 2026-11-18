@@ -49,22 +49,20 @@ function movementInput(t){
   return {input:new Input(target,action=>actions.push(action)),pad,target,actions};
 }
 
-test('keyboard, arrows, touch and controller movement follow the actual camera screen axes',t=>{
+test('keyboard, touch and controller movement follow the actual camera screen axes',t=>{
   const {input,pad}=movementInput(t);
   for(const yaw of [0,Math.PI/2,Math.PI,-Math.PI/2,.73]){
     const camera=new THREE.PerspectiveCamera();
     camera.position.set(-Math.sin(yaw)*10,5,-Math.cos(yaw)*10);camera.lookAt(0,0,0);camera.updateMatrixWorld();
     const right=new THREE.Vector3().setFromMatrixColumn(camera.matrixWorld,0);right.y=0;right.normalize();
     const ahead=new THREE.Vector3();camera.getWorldDirection(ahead);ahead.y=0;ahead.normalize();
-    for(const [key,arrow,touch,axis,value,expected,turn] of [
-      ['KeyD','ArrowRight','right',0,1,right,1],['KeyA','ArrowLeft','left',0,-1,right.clone().negate(),-1],
-      ['KeyW',null,'forward',1,-1,ahead,0],['KeyS','ArrowDown','back',1,1,ahead.clone().negate(),0],
+    for(const [key,touch,axis,value,expected,turn] of [
+      ['KeyD','right',0,1,right,1],['KeyA','left',0,-1,right.clone().negate(),-1],
+      ['KeyW','forward',1,-1,ahead,0],['KeyS','back',1,1,ahead.clone().negate(),0],
     ]){
-      for(const source of ['keyboard','arrows','touch','controller']){
-        if(source==='arrows'&&!arrow)continue;
+      for(const source of ['keyboard','touch','controller']){
         input.clear();pad.axes.fill(0);
         if(source==='keyboard')input.keys.add(key);
-        else if(source==='arrows')input.keys.add(arrow);
         else if(source==='touch')input.touch.add(touch);
         else pad.axes[axis]=value;
         const result=input.sample(yaw,1/60),movement=new THREE.Vector3(result.moveX,0,result.moveZ);
@@ -187,13 +185,15 @@ test('disabling pointer look mid-drag clears pending rotation without disabling 
   assert.equal(input.sample(0,1/60).turn,0);
 });
 
-test('up arrow opens the phone and does not walk',t=>{
+test('only Up opens the phone and no arrow moves or steers the player',t=>{
   const {input,target,actions}=movementInput(t);
-  target.emit('keydown',{code:'ArrowUp',target:{tagName:'CANVAS'},repeat:false,preventDefault(){}});
+  for(const code of ['KeyP','ArrowLeft','ArrowDown','ArrowRight','ArrowUp']){
+    input.clear();
+    target.emit('keydown',{code,target:{tagName:'CANVAS'},repeat:false,preventDefault(){}});
+    const {forward,turn,moveX,moveZ}=input.sample(.7,1/60);
+    assert.deepEqual([forward,turn,moveX,moveZ],[0,0,0,0],code);
+  }
   assert.deepEqual(actions,['phone']);
-  const controls=input.sample(0,1/60);
-  assert.equal(controls.forward,0);
-  assert.equal(controls.moveZ,0);
 });
 
 test('typing an address does not trigger actions, movement, or browser-key suppression',t=>{
