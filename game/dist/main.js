@@ -1730,8 +1730,10 @@ async function boot() {
   loadData('bus-stops.json').then(data=>{buses=createBuses(data);}).catch(()=>{});
   loadData('transit.json').then(data=>{subway=createSubway(data);}).catch(()=>{});
   sim.setFleet(fleet);
-  Promise.all(['fleet.json','vehicle-catalog.json','assets/vehicles/index.json','working-vehicles.json','vehicle-performance.json'].map(file=>loadData(file).catch(()=>null)))
-    .then(([base,catalog,art,working,performance])=>{fleet=createFleet(base,catalog,art?.models,designFor,working,performance);sim.setFleet(fleet);});
+  // Every car in the street is one the game draws (vehicle-generator.js). The scanned exteriors in assets/vehicles are
+  // lumpier than those and carry the shadows of their photographs on their glass; the catalog page still shows them.
+  Promise.all(['fleet.json','vehicle-catalog.json','working-vehicles.json','vehicle-performance.json'].map(file=>loadData(file).catch(()=>null)))
+    .then(([base,catalog,working,performance])=>{fleet=createFleet(base,catalog,null,designFor,working,performance);sim.setFleet(fleet);});
   // People are grown here (body.js): the street's cast and the player, once the skeleton and its movements have loaded.
   // Bodies are grown on another thread; where there is none, the blocked-out figures stay.
   if(typeof Worker!=='undefined')Promise.all([loadData('motion.json'),fetch('./motion.bin').then(response=>{if(!response.ok)throw new Error('motion');return response.arrayBuffer();})]).then(([meta,buffer])=>{

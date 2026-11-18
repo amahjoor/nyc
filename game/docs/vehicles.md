@@ -12,7 +12,7 @@ Each kerb space and each incoming civilian passenger car samples the ZIP centroi
 
 ## Licensed exteriors in the game
 
-An exterior matches the make, model, compatible US model-year range and body style. The registration keeps its exact year. An imported exterior takes precedence over a generated one for its years. Each mesh represents the shared exterior for those years, with approximate trim, wheels and materials. The scanned Accord and early CR-V retain uneven detail around glass and trim at close range. Passing cars, parked cars and the car the player takes share that geometry. Handling and collision dimensions still use game approximations.
+An exterior matches the make, model, compatible US model-year range and body style. The registration keeps its exact year. In the catalog an imported exterior takes precedence over a generated one for its years. Each mesh represents the shared exterior for those years, with approximate trim, wheels and materials. The scanned Accord and early CR-V retain uneven detail around glass and trim at close range, and carry the shadows of their photographs on their windows. The street does not use the imported exteriors for that reason: every car in traffic and at the kerb is one the game generates, and passing cars, parked cars and the car the player takes share that geometry. To put the imported exteriors back in the street, pass the models of `assets/vehicles/index.json` to `createFleet` in `main.js` again. Handling and collision dimensions still use game approximations.
 
 | Exterior | Model years used | NYC registrations in that range | Geometry source |
 | --- | --- | ---: | --- |
