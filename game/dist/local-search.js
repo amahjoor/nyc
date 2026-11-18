@@ -186,8 +186,20 @@ export function parseQuery(text) {
  */
 export function createPlaceIndex(data = null) {
   const places = (data?.places || []).map(([name, x, z, kind, borough]) => ({ name, x, z, kind: data.kinds[kind] || '', borough: BOROUGH_NAMES[borough] || '', order: borough, words: plain(name).split(' ') }));
+  const facilities = {
+    hospital: places.filter(place => place.kind === 'Hospital'),
+    courthouse: places.filter(place => place.kind === 'Courthouse' && /\b(?:CRIM(?:INAL)?|DETENTION)\b/i.test(place.name)),
+  };
   return {
     count: places.length,
+    nearestRecovery(facility, point) {
+      let nearest = null, distance = Infinity;
+      for (const place of facilities[facility]) {
+        const gap = Math.hypot(place.x - point.x, place.z - point.z);
+        if (gap < distance) { nearest = place; distance = gap; }
+      }
+      return nearest;
+    },
     /**
      * Places whose name holds every word typed (a word may be unfinished),
      * best first; among equals the nearest to `near` first.

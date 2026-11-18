@@ -243,21 +243,37 @@ On the street, open the phone with **↑** and choose **Work**.
 
 ## The police
 
-Being wanted runs from one star to five. Crimes add up: running a red light in front of a patrol, a crash at speed, a punch, hitting a patrol car or an officer. Each one also tells the police where you are at that moment. The rules are in `dist/police.js`; they are the game's, not the NYPD's.
+Being wanted runs from one star to five. The rules are in `dist/police.js`; they are the game's, not the NYPD's.
 
-A chase has two states. While any unit can see you the stars are steady and every unit knows where you are. Out of everyone's sight for two seconds, the stars flash and a bar under them fills: the police go to where you were last seen and spread out from there, and when the bar is full (26 seconds at one star, 58 at five) they give up and all the stars go at once. Seen again, the chase is back on and the bar starts over. Walls block sight. A searching unit sees only what is in front of it, 55° to either side out to 62 m, and anything within 14 m. Indoors nobody on the street can see you, unless they saw you go in: then they know the door, the bar does not fill, and an officer who reaches it makes the arrest.
+**Nothing is known to the police unless somebody tells them.** A crime counts at once if a patrol or an officer within 55 m can see it. Otherwise it counts only if a bystander saw it and makes the call: each person near enough (and each driver in traffic close by) may pick up a phone, the call takes four to nine seconds to get through, and the police are sent to where it happened, not to where you are by then. On an empty street at four in the morning nobody saw anything.
+
+**Each kind of crime brings only so many stars**, however often it is done:
+
+| Crime | Most stars | Who has to see it |
+| --- | --- | --- |
+| Red light, unpaid fare, a crash, reckless driving, a broken car window, a stolen wallet | 1 | A patrol (red light), the victim (wallet), otherwise bystanders |
+| A punch or a kick, running somebody down, taking a car with its driver in it, a gun shown in the street, a till robbed | 2 | Bystanders; the shop's alarm for the till |
+| Gunfire, ramming a patrol car, hitting an officer, killing somebody | 3 | Gunfire is heard 90 m off; the police see what is done to them |
+| An officer killed; four people dead | 4 | |
+| Three officers killed; eight people dead | 5 | |
+
+Running from an arrest raises one star to two, slowly, and no further.
+
+A chase has two states. While any unit can see you the stars are steady and every unit knows where you are. Out of everyone's sight for two seconds, the stars flash and a bar under them fills: the police go to where you were last seen and spread out from there, and when the bar is full (26 seconds at one star, 58 at five) they give up and all the stars go at once. Seen again, the chase is back on and the bar starts over. Walls block sight. A searching unit sees only what is in front of it, 55° to either side out to 62 m, and anything within 14 m. They are looking for what they last saw you in: change cars, or get out of the one they were chasing, and a searching unit has to come within 24 m to know you. Indoors nobody on the street can see you, unless they saw you go in: then they know the door, the bar does not fill, and an officer who reaches it makes the arrest.
 
 | Stars | Patrol cars | What they do |
 | --- | --- | --- |
-| 1 | 2 | Follow, pull up, and get out to arrest you |
-| 2 | 3 | Ram your car; shoot if you run or drive off |
-| 3 | 4 | Shoot on sight; a helicopter joins |
+| 1 | 1 | Follow, pull up, and get out to arrest you |
+| 2 | 2 | Ram your car; draw only if you have a gun out |
+| 3 | 4 | Shoot; a helicopter joins |
 | 4 | 6 | The same, faster and more of it |
 | 5 | 8 | The same again |
 
-Patrol cars are sent from out of view, a few blocks off, and take the streets with their sirens on: through red lights, and round a queue on the wrong side. Within 55 m and in sight of you they leave the lane and drive straight at you. When you are on foot or stopped, the crew of two get out. Officers run a little slower than you can. Standing still with an officer at arm's length, or stopped with a patrol car on top of you, is an arrest after two seconds: a fine of $80 a star, and you are put back where you arrived. Running from one or two stars for long enough makes three. Being shot down costs a hospital bill instead.
+Officers do not shoot on the run. One who has stopped with you in sight takes about a second to bring the gun up and two and a half for the aim to settle, fires two or three shots and takes a breath. A settled shot at somebody standing still is even odds at 9 m, one in five at 30 m; a running target cuts that to a third, and somebody in a moving car is hit about one time in twelve.
 
-The helicopter circles over you during a chase and over the search area afterwards. It sees you under its searchlight unless a building stands close between you and it.
+Patrol cars are sent from out of view, a few blocks off, and take the streets with their sirens on: through red lights, and round a queue on the wrong side. Within 55 m and in sight of you they leave the lane and drive straight at you. When you are on foot or stopped, the crew of two get out. Officers run a little slower than you can. Standing still with an officer at arm's length, or stopped with a patrol car on top of you, is an arrest after two seconds: **BUSTED** comes up over a picture drained of colour while the world runs at a third of its speed, then a fine of $80 a star, and you are put back at the courthouse. Dying (shot, run down, a fall, a wrecked car) is **WASTED** the same way, and a hospital bill.
+
+The helicopter circles over you during a chase and over the search area afterwards. It sees you under its searchlight unless a building stands close between you and it. The searchlight is light: it goes into the same map of light as the street lamps, so the street, the cars and the people under it are lit and nothing else is.
 
 The map and the minimap show patrol cars, officers and the helicopter while you are wanted. During a search they also show the area being searched, around the place you were last seen, and what each unit can see.
 

@@ -2,7 +2,7 @@ import { resetVehicleDynamics, stepVehicleDynamics, stopVehicleRotation, vehicle
 import { planJunction, junctionArms, vehicleAspect, stopDistance } from './signal-plan.js';
 import { laneLayout } from './lanes.js';
 import { StreetObjects } from './street-objects.js';
-import { roadLevelAt } from './road-level.js';
+import { roadLevelAt, trafficAtHeight } from './road-level.js';
 import { drawVehicle, drawPaint, drawTaxi, WHEEL } from './fleet.js';
 import { walkRoom, roomPoint } from './room.js';
 import { PEP, scratch } from './menu.js';
@@ -217,8 +217,10 @@ function buildRoadGraph(roads) {
 }
 
 export class Simulation {
-  constructor(city) {
+  constructor(city, { onRecovery } = {}) {
     this.city = city;
+    this.onRecovery = onRecovery;
+    this.bystanders = [];
     this.streetObjects = new StreetObjects();
     this.bounds = city.bounds;
     this.loadedBounds = city.loadedBounds || null;
@@ -379,7 +381,7 @@ export class Simulation {
     this.redLights = (this.redLights || 0) + 1;
     const patrol = this.cars.find(other => other.type === 'police' && distance(other, car) < 85 && this._hasSight(other, this.player));
     if (patrol) {
-      this.crime(.5, 'A patrol saw you run that red light.');
+      this.offence('redLight', { seen: true, message: 'A patrol saw you run that red light.' });
     } else if (junction.camera) {
       const fine = Math.min(this.cash, CAMERA_FINE);
       this.cash -= fine;
@@ -389,7 +391,7 @@ export class Simulation {
   }
 
   /** People in the roadway, as { x, z }. Traffic slows and stops for them. */
-  setWalkers(walkers = []) { this._walkers = walkers; }
+  setWalkers(walkers = [], people = walkers) { this._walkers = walkers; this._people = people; }
 
   /**
    * How much traffic there is and what it is made of. `level` runs from
@@ -1088,19 +1090,39 @@ export class Simulation {
   /** A swing on foot. Returns whether the punch comes out; a caller resolves who it hits. */
   fight() {
     const player = this.player;
-    if (player.mode !== 'walk' || this.room || (player.swing || 0) > 0.08) return false;
+    if (player.mode !== 'walk' || this.room || this.ending || (player.swing || 0) > 0.08) return false;
     player.swing = 0.34;
     return true;
   }
 
   /** Punching someone is a crime. Heat climbs the same way a collision with a patrol does. */
-  assault() {
-    this.crime(1, this.heat >= 1 ? 'The police are looking for you.' : 'Somebody called that in.');
+  assault(x, z) {
+    return this.offence('assault', { x, z, message: 'Somebody called that in.' });
   }
 
   /**
-   * Something the police will come for. `amount` is in stars, and parts of a
+   * Something the player has done that the police would come for, if they
+   * hear of it (police.js, OFFENCES): seen by a patrol it counts at once, seen
+   * by a bystander it counts when their call gets through, and with nobody
+   * about it never happened.
+   */
+  offence(kind, options) { return this.police.offence(kind, options); }
+
+  /** How many people are near enough to a place, and can see it, to tell the police what happened there. */
+  witnesses(x, z, reach, y) {
+    const at = { x, z }; let count = 0;
+    const sees = other => { const d = distance(other, at); return d < reach && (!Number.isFinite(y) || trafficAtHeight(other, y)) && (d < 10 || this._hasSight(other, at)); };
+    for (const person of this._people || []) { if (person.state !== 'down' && !person.dead && sees(person) && ++count >= 6) return count; }
+    for (const person of this.bystanders) { if (!(person.downUntil > this.elapsed) && sees(person) && ++count >= 6) return count; }
+    // Somebody at the wheel sees what happens on the street in front of them.
+    for (const car of this.cars) { if (car._edge && !car.parked && !car.controlled && car.type !== 'police' && distance(car, at) < reach * .6 && (!Number.isFinite(y) || trafficAtHeight(car, y)) && ++count >= 6) return count; }
+    return count;
+  }
+
+  /**
+   * Something the police already know of. `amount` is in stars, and parts of a
    * star add up; the report tells them where the player is at this moment.
+   * What happens on the street goes through offence(), which needs a witness.
    */
   crime(amount, message = '') {
     this.heat = clamp(this.heat + amount, 0, MAX_STARS);
@@ -1113,13 +1135,14 @@ export class Simulation {
   get stars() { return this.police.stars; }
 
   hurt(amount, cause = 'fight') {
-    if (!(amount > 0) || this.health <= 0) return;
+    if (!(amount > 0) || this.health <= 0 || this.ending) return;
     this.health = Math.max(0, this.health - amount);
     if (this.health <= 0) this._downed = cause;
   }
 
   interact() {
     const player = this.player;
+    if (this.ending) return false;
     if (player.mode === 'walk') {
       if (this.room) return this.leaveRoom();
       const car = this.getNearbyCar();
@@ -1234,13 +1257,31 @@ export class Simulation {
     const point = this._findSafePoint(this.city.spawn.x, this.city.spawn.z, PLAYER_RADIUS);
     Object.assign(this.player, { ...point, y: undefined, transportId: null, angle: this.city.spawn.angle || 0, speed: 0, mode: 'walk', vehicleId: null, velocityX: 0, velocityZ: 0, vy: 0, grounded: true, slide: 0, swing: 0 });
     this.updateGrounding();
+    this._restoreCondition();
+    this._say('Recovered nearby. Your earnings and completed deliveries are saved.');
+  }
+
+  _restoreCondition() {
+    this.room = null; this.seat = null; this.doorway = null;
+    if (this.player.mode === 'bike') this.player.mode = 'walk';
+    this.bike = null;
+    this._downed = null; this.ending = null;
+    this.player.armed = false; this.player.reloading = 0; this.player.standing = null;
     this.health = 100;
     this.heat = 0;
+    this.spotted = false;
     this.police.clear();
     this._timeSinceCrime = 100;
     this._impactCooldown = 0;
     if (this.mission.phase === 'active') this.mission.phase = 'failed';
-    this._say('Recovered nearby. Your earnings and completed deliveries are saved.');
+  }
+
+  recoverAt(facility, message) {
+    this._accumulator = 0;
+    if (this.onRecovery) this._restoreCondition();
+    else this.reset();
+    this._say(this.onRecovery ? `${message} Heading to the ${facility}…` : message, 7);
+    this.onRecovery?.({ facility, message });
   }
 
   step(input = {}, dt = 0) {
@@ -1249,8 +1290,8 @@ export class Simulation {
     this._accumulator += clamp(finite(dt), 0, 0.25);
     const normalized = { forward: clamp(finite(input.forward), -1, 1), turn: clamp(finite(input.turn), -1, 1), moveX: clamp(finite(input.moveX), -1, 1), moveZ: clamp(finite(input.moveZ), -1, 1), brake: Boolean(input.brake), handbrake: Boolean(input.handbrake), run: Boolean(input.run) };
     while (this._accumulator + 1e-10 >= FIXED_STEP) {
-      this._tick(normalized, FIXED_STEP);
       this._accumulator -= FIXED_STEP;
+      this._tick(normalized, FIXED_STEP);
     }
   }
 
@@ -1262,6 +1303,12 @@ export class Simulation {
     this._impactCooldown = Math.max(0, this._impactCooldown - dt);
     this._timeSinceCrime += dt;
     const before = { x: this.player.x, z: this.player.z };
+    if (this.ending) {
+      this.ending.t += dt;
+      if (this.ending.t >= this.ending.T) { const ending = this.ending; this.ending = null; ending.finish(); return; }
+      // Nobody is at the controls: a car rolls on, somebody on foot stays where they are.
+      input = { forward: 0, turn: 0, lift: 0, moveX: 0, moveZ: 0, brake: false, handbrake: false, run: false };
+    }
     const jumping = Boolean(input.handbrake) && !this._jumpHeld;
     this._jumpHeld = Boolean(input.handbrake);
     if (this.player.swing > 0) this.player.swing = Math.max(0, this.player.swing - dt);
@@ -1283,13 +1330,29 @@ export class Simulation {
     this.updateGrounding();
     this.police.update(dt);
     this._updateMission(dt);
-    if (this.health <= 0) {
+    if (this.health <= 0 && !this.ending) {
       const cause = this._downed || 'wreck';
-      this._downed = null;
-      const charge = Math.min(this.cash, cause === 'wreck' ? 75 : 40);
-      this.cash -= charge;
-      this.reset();
-      this._say(cause === 'fight' ? `You got knocked out. Hospital: $${charge}.` : cause === 'police' ? `Shot by the police. Hospital: $${charge}.` : cause === 'fall' ? `That fall put you down. Hospital: $${charge}.` : `Vehicle recovered. Repairs: $${charge}.`, 6);
+      const reason = { fire: 'Caught in a vehicle fire.', fight: 'You got knocked out.', police: 'Shot by the police.', fall: 'That fall put you down.', traffic: 'You were run down.' };
+      this.end('wasted', cause === 'wreck' ? 'Your car was wrecked.' : reason[cause] || 'You were injured.', () => {
+        const charge = Math.min(this.cash, cause === 'wreck' ? 75 : 40);
+        this.cash -= charge;
+        this.recoverAt('hospital', cause === 'wreck' ? `Your car was wrecked. Repairs cost $${charge}.` : `${reason[cause] || 'You were injured.'} Hospital bill $${charge}.`);
+      });
+    }
+  }
+
+  /**
+   * The player is finished for now: dead ('wasted') or in handcuffs ('busted').
+   * With `endingSeconds` set, the world runs on for that long with nobody at
+   * the controls, so that it can be watched, and then `finish` deals with what
+   * comes after; without it, that happens at once.
+   */
+  end(kind, line, finish) {
+    if (this.ending) return;
+    if (!(this.endingSeconds > 0)) { finish(); return; }
+    this.ending = { kind, line, t: 0, T: this.endingSeconds, finish };
+    if (this.player.move) {
+      this.player.move = null; this.player.lift = 0;
     }
   }
 
@@ -1466,8 +1529,8 @@ export class Simulation {
     if (speed > 9 || kind === 'police') {
       // In a chase the patrols do the ramming, and each knock counts for less.
       const chased = this.police.state === 'chase';
-      this.crime(kind === 'police' ? (chased ? 0.34 : 1) : kind === 'vehicle' ? 0.65 : 0.4,
-        chased ? '' : kind === 'police' ? 'You hit a patrol car. Get out of sight to lose them.' : 'Reckless driving reported. Get out of sight to lose them.');
+      this.offence(kind === 'police' ? 'ramPatrol' : kind === 'vehicle' ? 'collision' : 'reckless',
+        { message: chased ? '' : kind === 'police' ? 'You hit a patrol car. Get out of sight to lose them.' : 'Reckless driving reported. Get out of sight to lose them.' });
     }
   }
 

@@ -163,7 +163,7 @@ test('high speed and a long frame cannot tunnel through a thin building', () => 
   assert.ok(car.z < 20.1, `car should remain on its original side, got ${car.z}`);
   assert.equal(sim._carContact(car.x, car.z, car.angle), null);
   assert.ok(sim.health < 100);
-  assert.ok(sim.heat > 0);
+  assert.equal(sim.heat, 0, 'with nobody about, nobody reports it');
 });
 
 test('a sideways impact with a parked car cancels closing velocity and rotation', () => {
@@ -178,7 +178,7 @@ test('a sideways impact with a parked car cancels closing velocity and rotation'
   assert.equal(sim._nearCar(car.x, car.z, .92, car.id), null);
   assert.equal(car.velocityX, 0, 'contact removes motion into the other vehicle');
   assert.equal(car.yawRate, 0);
-  assert.ok(sim.health < 100 && sim.heat > 0, 'sideways impact energy still counts');
+  assert.ok(sim.health < 100, 'sideways impact energy still counts');
   const stoppedX = car.x;advance(sim, .5);
   assert.equal(car.x, stoppedX, 'damped motion cannot keep pushing into the parked car');
 });

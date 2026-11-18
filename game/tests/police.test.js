@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { Simulation } from '../dist/simulation.js';
-import { MAX_STARS, evadeTime, SIGHT, HELICOPTER } from '../dist/police.js';
+import { MAX_STARS, evadeTime, SIGHT, HELICOPTER, OFFENCES, hitChance } from '../dist/police.js';
 
 const street = (id, points, width = 10) => ({ id, name: id.toUpperCase(), points, width, oneway: false, kind: 'residential', roadwayType: 1, fromLevel: 13, toLevel: 13 });
 const box = (x, z, w = 20, d = 20) => ({ polygon: [[x, z], [x + w, z], [x + w, z + d], [x, z + d]] });
@@ -211,4 +211,106 @@ test('when the chase is over the officers walk back to their car and it drives o
   assert.equal(patrol._crewOut, false);
   advance(sim, 4);
   assert.ok(Math.hypot(patrol.x - where.x, patrol.z - where.z) > 5, 'and then moves off');
+});
+
+test('a pedestrian collision is only reported by witnesses on that road level', () => {
+  const sim = alone(new Simulation(grid()));
+  const event = { x: 5, y: 8, z: 50 };
+  const patrol = sim._makeCar('witness', 'police', { x: 6, z: 50 }, 0);
+  patrol.y = 1;
+  sim.cars = [patrol];
+  const pedestrian = { x: 7, y: 1, z: 50, state: 'walk' };
+  sim.setWalkers([], [pedestrian]);
+  sim.police._random = () => 0;
+  assert.equal(sim.offence('runDown', event), null);
+  pedestrian.y = 8;
+  assert.equal(sim.offence('runDown', event), 'called');
+  patrol.y = 8;
+  assert.equal(sim.offence('runDown', event), 'seen');
+});
+
+test('a crime nobody saw never happened, and one somebody saw counts when their call gets through', () => {
+  const sim = alone(new Simulation(grid())); sim.cars = [];
+  assert.equal(sim.offence('assault'), null); assert.equal(sim.heat, 0); assert.equal(sim.police.state, 'clear');
+  // Somebody across the street, who always calls.
+  sim.setWalkers([], [{ x: 16, z: 50, state: 'walk' }]); sim.police._random = () => 0;
+  assert.equal(sim.witnesses(6, 50, 26), 1); assert.equal(sim.witnesses(6, 50, 8), 0);
+  assert.equal(sim.offence('assault', { x: 6, z: 50 }), 'called');
+  assert.equal(sim.heat, 0, 'not yet'); assert.equal(sim.police.calls.length, 1);
+  advance(sim, 5); assert.equal(sim.stars, 1); assert.equal(sim.police.state, 'search');
+  assert.deepEqual(sim.police.lastKnown, { x: 6, z: 50 }, 'they are sent to where it happened');
+  // Someone lying in the street tells nobody.
+  sim.heat = 0; sim.police.clear(); sim.setWalkers([], [{ x: 16, z: 50, state: 'down' }]);
+  assert.equal(sim.offence('assault', { x: 6, z: 50 }), null);
+});
+
+test('each kind of crime brings only so many stars however often it is done', () => {
+  const sim = alone(new Simulation(grid())); sim.cars = [];
+  const charge = (kind, times) => { for (let i = 0; i < times; i++) sim.offence(kind, { seen: true }); return sim.stars; };
+  assert.equal(charge('redLight', 12), 1); assert.equal(charge('collision', 12), 1);
+  assert.equal(charge('assault', 12), 2); assert.equal(charge('carjack', 12), 2);
+  assert.equal(charge('gunfire', 12), 3);
+  assert.equal(charge('killing', 3), 3, 'three dead is three stars');
+  assert.equal(charge('killing', 1), 4, 'a fourth brings a fourth'); assert.equal(charge('killing', 3), 4);
+  assert.equal(charge('killing', 1), 5, 'and it takes eight for five');
+  sim.heat = 0; sim.police.clear();
+  assert.equal(charge('officerDown', 2), 4); assert.equal(charge('officerDown', 1), 5);
+  for (const [kind, spec] of Object.entries(OFFENCES)) assert.ok(spec.heat > 0 && spec.cap >= 1 && spec.cap <= 4 && (spec.certain || kind === 'redLight' || (spec.reach > 0 && spec.call > 0 && spec.call < 1)), kind);
+});
+
+test('a patrol that can see it needs nobody to call', () => {
+  const sim = alone(new Simulation(grid()));
+  patrolAt(sim, 6, 80);
+  assert.equal(sim.offence('glass', { x: 6, z: 50 }), 'seen'); assert.equal(sim.stars, 1);
+  const far = alone(new Simulation(grid())); patrolAt(far, 6, 250);
+  assert.equal(far.offence('glass', { x: 6, z: 50 }), null); assert.equal(far.heat, 0);
+});
+
+test('the police are slow to know somebody who has changed what they are in', () => {
+  const sim = alone(new Simulation(grid()));
+  const patrol = patrolAt(sim, 6, 10, 0);
+  sim.heat = 1; sim.police.report(); sim.police.known = 'car-they-saw';
+  assert.equal(sim.police._look(), false, 'forty metres off, on foot, they were looking for a car');
+  sim.police.known = sim.police._ride();
+  assert.equal(sim.police._look(), true);
+  sim.police.known = 'car-they-saw'; patrol.z = 50 - SIGHT.changed + 4;
+  assert.equal(sim.police._look(), true, 'close enough, they know the face');
+});
+
+test('an officer\'s shot is a short-range thing, and worse at anything moving', () => {
+  assert.ok(hitChance(9, 0, false) > .45 && hitChance(9, 0, false) < .55);
+  assert.ok(hitChance(30, 0, false) < .2); assert.ok(hitChance(45, 0, false) < .13);
+  assert.ok(hitChance(15, 8, false) < hitChance(15, 0, false) * .4, 'running');
+  assert.ok(hitChance(15, 15, true) < .1, 'driving');
+  assert.ok(hitChance(9, 0, false, 1) < hitChance(9, 0, false) * .5, 'a hurried shot');
+  for (let away = 0; away < 60; away += 3) assert.ok(hitChance(away + 3, 0, false) < hitChance(away, 0, false));
+  // Nobody fires the moment they see somebody: the gun has to come up first.
+  const sim = alone(new Simulation(grid())); sim.cars = [];
+  sim.heat = 3; sim.police.report(); sim.police.state = 'chase';
+  sim.police.officers.push({ id: 'o', carId: null, x: 6, z: 58, y: 0, angle: Math.PI, speed: 0, health: 100, phase: 0, stride: 0, fire: 0, sees: true, aiming: false, returning: false, goal: null, side: 1, dodge: 0 });
+  sim.police._seen = true;
+  for (let i = 0; i < 30; i++) sim.police._officers(1 / 60);
+  assert.equal(sim.police.shotsFired, 0, 'half a second in');
+  for (let i = 0; i < 240; i++) sim.police._officers(1 / 60);
+  assert.ok(sim.police.shotsFired > 0, 'and then they do');
+});
+
+test('a death or an arrest is watched before what follows it', () => {
+  const sim = alone(new Simulation(grid())); sim.cars = []; sim.endingSeconds = 1; sim.cash = 500;
+  sim.hurt(500, 'police');
+  advance(sim, .1);
+  assert.equal(sim.ending.kind, 'wasted'); assert.equal(sim.health, 0); assert.equal(sim.cash, 500, 'the bill comes after');
+  const at = { x: sim.player.x, z: sim.player.z };
+  advance(sim, .5, { moveX: 1, moveZ: 1, run: true });
+  assert.ok(Math.hypot(sim.player.x - at.x, sim.player.z - at.z) < .2, 'nobody is at the controls');
+  assert.equal(sim.fight(), false); assert.equal(sim.interact(), false);
+  advance(sim, .6);
+  assert.equal(sim.ending, null); assert.equal(sim.health, 100); assert.equal(sim.cash, 460);
+  // Arrested.
+  sim.heat = 1; sim.police.report(); sim.police.arrest = .99;
+  sim.police.officers.push({ id: 'o', carId: null, x: sim.player.x + 1, z: sim.player.z, y: 0, angle: 0, speed: 0, health: 100, phase: 0, stride: 0, fire: 9, sees: true, aiming: false, returning: false, goal: null, side: 1, dodge: 0 });
+  advance(sim, .2);
+  assert.equal(sim.ending?.kind, 'busted'); assert.equal(sim.cash, 460);
+  advance(sim, 1.1);
+  assert.equal(sim.ending, null); assert.equal(sim.heat, 0); assert.equal(sim.cash, 380);
 });

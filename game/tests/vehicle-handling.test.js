@@ -155,7 +155,6 @@ test('lateral drift cannot tunnel through a thin wall during a long display fram
   assert.equal(sim._carContact(car.x, car.z, car.angle), null);
   assert.ok(car.velocityX <= .05, 'the wall removes inward lateral velocity');
   assert.ok(sim.health < 100, 'sideways impact energy counts even though the nose points along the wall');
-  assert.ok(sim.heat > 0);
 });
 
 test('sideways drift stops at map and loading boundaries without a crash or stored launch velocity', () => {

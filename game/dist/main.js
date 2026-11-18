@@ -77,6 +77,7 @@ let phone=null, interaction=null, work=null, roadDestinations=[], placeDestinati
 // The front the player is standing at if it has a room to go into, and the room they are in.
 // The player and shop staff as the crowd's modelled figures, once those have loaded: where in their stride the player is.
 let playerStride=0, strideClock=0;
+let endingShown=null;
 const officerModels=new Map();
 const PLAYER_LOOK={top:0xd7774e,bottom:0x1c1d22,skin:0xb98563,hair:0x14110f,kit:0,height:1.76};
 let doorAgain=0;
@@ -255,7 +256,7 @@ function action(name,event) {
       const from=stopHere.stop,rides=buses.ridesFrom(from).map(ride=>({ride,name:ride.stop.name,note:ride.lines.slice(0,3).join(' ')+' · '+formatDistance(ride.distance)+' · $'+FARE.toFixed(2)}));
       interaction.openList(from.name+' · '+from.lines.slice(0,4).join(' '),rides,({ride})=>{
         // The driver waves a rider with no fare on more often than not; an inspector does not.
-        const unpaid=sim.cash<FARE;if(unpaid)sim.heat=Math.min(5,sim.heat+.2);else sim.cash-=FARE;
+        const unpaid=sim.cash<FARE;if(unpaid)sim.offence('fare');else sim.cash-=FARE;
         travel({x:ride.stop.x,z:ride.stop.z,name:ride.stop.name}).then(arrived=>arrived&&announce((unpaid?'You rode without paying. ':'')+'The '+ride.lines[0]+' to '+ride.stop.name+'.'));
       },{cash:sim.cash,available:()=>stopHere?.stop===from});
       return;
@@ -265,7 +266,7 @@ function action(name,event) {
       const from=stairHere.station,rides=subway.ridesFrom(from).map(ride=>({ride,name:ride.station.name,note:ride.lines.join(' ')+' · '+formatDistance(ride.distance)+' · $'+FARE.toFixed(2)}));
       interaction.openList(from.name+' · '+from.routes,rides,({ride})=>{
         // No fare, no problem, until someone sees.
-        const jumped=sim.cash<FARE;if(jumped)sim.heat=Math.min(5,sim.heat+.4);else sim.cash-=FARE;
+        const jumped=sim.cash<FARE;if(jumped)sim.offence('fare');else sim.cash-=FARE;
         const exit=subway.exitOf(ride.station);
         travel({x:exit.x+2.5,z:exit.z+2.5,name:ride.station.name,exact:true}).then(arrived=>arrived&&announce((jumped?'You jumped the turnstile. ':'')+'The '+ride.lines[0]+' to '+ride.station.name+'.'));
       },{cash:sim.cash,available:()=>stairHere?.station===from});
@@ -456,6 +457,19 @@ function refreshParkedCars() {
   }
   near.sort((a,b)=>a[0]-b[0]);
   parkedCount=sim.syncParkedCars(near.slice(0,PARKED_LIMIT).map(entry=>entry[1]));
+}
+
+function showEnding() {
+  const ending=sim.ending,kind=ending?.kind||null;
+  if(kind===endingShown)return;
+  endingShown=kind;
+  if(kind)interaction?.close();
+  const panel=$('ending');
+  if(!panel)return;
+  document.body?.classList?.toggle('ending-wasted',kind==='wasted');
+  document.body?.classList?.toggle('ending-busted',kind==='busted');
+  panel.hidden=!kind;
+  if(kind){$('ending-word').textContent=kind==='wasted'?'WASTED':'BUSTED';$('ending-line').textContent=ending.line||'';panel.className='ending '+kind;}
 }
 
 function animatePerson(mesh,moving,time,speed=1) {
@@ -690,7 +704,8 @@ function updateCamera(dt) {
 
 function frame(now) {
   requestAnimationFrame(frame);
-  const dt=Math.min(.05,(now-(lastFrame||now))/1000);lastFrame=now;
+  // A death or an arrest is watched at a third of the speed.
+  const dt=Math.min(.05,(now-(lastFrame||now))/1000)*(sim?.ending?.36:1);lastFrame=now;
   let controls={forward:0,turn:0,brake:false,run:false,moveX:0,moveZ:0};
   if(started){
     // Keep polling controller button edges while paused so Start can resume.
@@ -703,6 +718,7 @@ function frame(now) {
     if(switchShot.active)controls={forward:0,turn:0,brake:false,run:false,moveX:0,moveZ:0};
     if(switchShot.active!==switchShotLive){switchShotLive=switchShot.active;for(const id of ['hud','mission-panel','wanted','touch-controls'])$(id).classList.toggle('switch-shot',switchShotLive);}
     if(!paused&&!traveling&&!cityView&&!mapOpen&&bootReady){sim.step(controls,dt);elapsed+=dt;}
+    showEnding();
   }else{elapsed+=dt;introTime+=dt;}
   if(landscapeDirty){
     landscapeDirty=false;landscapeRevision++;
@@ -761,7 +777,7 @@ function frame(now) {
     const ahead=camera.getWorldDirection(crowdAhead),flat=Math.hypot(ahead.x,ahead.z)||1;
     crowd.update(paused||mapOpen?0:dt,{walks:streetscape?.walks()||noStreetFurniture,focus:lit,forward:[ahead.x/flat,ahead.z/flat],hours:gfx.hours,time:sim.elapsed,junctions:sim.junctions,cars:sim.cars,player:sim.player});
     if(crowd.damage)sim.hurt(crowd.damage);
-    sim.setWalkers(crowd.crossing);
+    sim.setWalkers(crowd.crossing,crowd.people);
   }
   // Shop fronts take the names of the places the registers put behind them.
   // Whose front is whose is worked out again when the places, the buildings
@@ -965,12 +981,13 @@ function goIn(front){
 // Corners and businesses, found in the game's own data. The street index is made from the route planner's roads the
 // first time something is searched for, and the list of place names is fetched then too.
 let streetIndex=null, placeIndex=null, placeIndexReady=null;
-// The citywide list of place names is fetched once, the first time a search or the map's layers ask for it.
+// Search, map layers and recovery share one citywide list of places.
 function loadPlaceNames(){
   const read=file=>fetch('./'+file,{signal:AbortSignal.timeout(30000)}).then(response=>response.ok?response.json():null);
   placeIndexReady||=Promise.all([read('place-names.json'),read('landmarks.json').catch(()=>null)]).then(([data,named])=>{
+    if(!data)throw new Error('The citywide places could not load.');
     // The city's individual landmarks are searched and mapped by name with everything else.
-    if(data&&named){const kind=data.kinds.length;data.kinds.push('Landmark');for(const [name,x,z] of named.landmarks)data.places.push([name,x,z,kind,0]);}
+    if(named){const kind=data.kinds.length;data.kinds.push('Landmark');for(const [name,x,z] of named.landmarks)data.places.push([name,x,z,kind,0]);}
     placeIndex=createPlaceIndex(data);gameMap?.setPlaces(createPlaceLayer(data));
   }).catch(()=>{placeIndexReady=null;});
   return placeIndexReady;
@@ -1075,7 +1092,7 @@ async function ensureRoadPilot(){
   })();
   return roadPilotLoading;
 }
-async function travel(place){
+async function travel(place,recovery=null){
   if(!place||traveling||!bootReady)return false;
   interaction?.close();
   traveling=true;roadEpoch++;input.clear();
@@ -1088,7 +1105,13 @@ async function travel(place){
   if(mapOpen)gameMap.setStatus('Loading measured ground and buildings at the pin…');
   const previous={roads:sim.city.roads,buildings:sim.city.buildings,missionPoints:sim.city.missionPoints};
   try{
-    let roads=await roadStream.loadAround(place,1000);
+    if(recovery){
+      phone?.setOpen(false);
+      await loadPlaceNames();
+      place=placeIndex?.nearestRecovery(recovery.facility,place);
+      if(!place)throw new Error(`The ${recovery.facility} location is unavailable.`);
+    }
+    const roads=await roadStream.loadAround(place,1000);
     const target=place.exact?place:nearestStreet(roads,place,600);
     if(!target)throw new Error('Choose a point closer to a street. Water and unmapped areas cannot be arrival points.');
     if(place.exact&&!landscape?.getStatus().baseReady)throw new Error('Measured ground is unavailable. Wait for the terrain to load before spawning at this pin.');
@@ -1104,12 +1127,21 @@ async function travel(place){
     if(!started)$('start-button').click();
     setView('street');$('travel-note').textContent='';
     switchShot.arrive({x:sim.player.x,y:sim.player.y||0,z:sim.player.z,angle:sim.player.angle});
-    clearDirections();gameMap?.setStatus('Spawned at the selected location.');return true;
+    clearDirections();gameMap?.setStatus('Spawned at the selected location.');
+    if(recovery){
+      const release=recovery.facility==='hospital'?'Discharged from':'Released from';
+      sim._say(`${recovery.message} ${release} ${title(place.name)}.`,7);
+    }
+    return true;
   }catch(error){
     // The stream can publish additional colliders while a destination loads.
     // Restore navigation data without replacing that newer collision snapshot.
     switchShot.cancel();
     sim.setActiveCity({...previous,buildings});$('travel-note').textContent=error.message;announce(error.message);
+    if(recovery){
+      sim.reset();
+      sim._say(`${recovery.message} The ${recovery.facility} was unavailable. Recovered locally.`,7);
+    }
     if(mapOpen)gameMap.setStatus(error.message);return false;
   }
   finally{traveling=false;navigation?.setTraveling(false);}
@@ -1163,7 +1195,7 @@ async function boot() {
   camera=new THREE.PerspectiveCamera(52,innerWidth/innerHeight,10,150000);
   // Sky, sun, haze and the screen-space finish share one time of day.
   gfx=createGraphics({renderer,scene,camera});
-  sim=new Simulation(city);
+  sim=new Simulation(city,{onRecovery:recovery=>travel({x:sim.player.x,z:sim.player.z},recovery)});
   subwayStairs=createSubwayEntrances({scene,physics:sim.streetObjects,heightAt:groundHeight,
     kerbAt:(x,z)=>kerbIndex&&snapToKerb(kerbIndex,x,z,12)});
   const stairOpenings=subwayStairs.openings;
@@ -1176,6 +1208,7 @@ async function boot() {
     image.src=manifest.url;
   }).catch(()=>{});
   gfx.passes.push((renderer,scene,camera)=>water.renderMirror(renderer,scene,camera,{enabled:Boolean(viewOverride)||!cityView,scale:highQuality?.75:.5}));
+  sim.endingSeconds=2;
   streetLife=createStreetLife({scene,renderer,physics:sim.streetObjects,getLamps:()=>streetscape?.lamps()||noStreetFurniture,getTrees:()=>streetscape?.trees()||noStreetFurniture});
   parkedCars=createParkedCars({capacity:PARKED_LIMIT+8,library:vehicleMeshes});scene.add(parkedCars.group);
   distantTraffic=createDistantTraffic({library:vehicleMeshes});scene.add(distantTraffic.group);

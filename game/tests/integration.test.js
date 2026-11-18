@@ -175,7 +175,7 @@ function makeDocument() {
   return { document, elements };
 }
 
-async function bootHarness({ stored = null, displayStored = null, unavailableStorage = false, fetchOK = true, geometryOK = true, imageryOK = true, streetFailure = null, landscapeFailure = false, roadPilotFailure = false, navigationFailure = false, baseWaterFailure = false, terrainElevation = 0, coarsePointer = false, holdRoads = () => false, holdLandscape = () => false, measuredLandscape = false, extraGeometry = [], geocodeFetch = null } = {}) {
+async function bootHarness({ stored = null, displayStored = null, unavailableStorage = false, fetchOK = true, geometryOK = true, imageryOK = true, streetFailure = null, landscapeFailure = false, roadPilotFailure = false, navigationFailure = false, baseWaterFailure = false, terrainElevation = 0, coarsePointer = false, holdRoads = () => false, holdLandscape = () => false, beforePlaceNames = null, measuredLandscape = false, extraGeometry = [], geocodeFetch = null } = {}) {
   const { document, elements } = makeDocument();
   const window = new EventTarget();
   const pads = [];
@@ -241,6 +241,7 @@ async function bootHarness({ stored = null, displayStored = null, unavailableSto
     if(this!=null&&this!==globalThis)throw new TypeError("Failed to execute 'fetch' on 'Window': Illegal invocation");
     url=String(url);requests.push(url);
     if(!fetchOK)return {ok:false,status:503};
+    if(url==='./place-names.json')await beforePlaceNames?.();
     if(roadPilotFailure&&url==='./road-pilot.json')return {ok:false,status:503};
     if(navigationFailure&&url==='./navigation-roads.json')return {ok:false,status:503};
     if(baseWaterFailure&&url==='./landscape/nyc-water.json')return {ok:false,status:503};
@@ -322,6 +323,7 @@ async function bootHarness({ stored = null, displayStored = null, unavailableSto
       assert.fail(message);
     }
     await until(()=>vm.runInContext('bootReady',context)||!elements.get('load-error').hidden,'production boot did not finish');
+    vm.runInContext('if(sim)sim.endingSeconds=0;',context);
     return {
       close, errors, elements, storage, pads, window, document, rendererInstances, requests, imageRequests, until,
       setStreetFailure:value=>{streetFailure=value;},
@@ -1575,6 +1577,26 @@ function clickGameMapPoint(app,point){
   canvas.dispatch('pointerdown',{pointerId:5,clientX,clientY});
   canvas.dispatch('pointerup',{pointerId:5,clientX,clientY});
 }
+
+test('a failed hospital transfer recovers locally and the next wreck can reach the hospital',async()=>{
+  let fail=false;
+  const app=await bootHarness({beforePlaceNames:()=>{if(fail)throw new Error('Places offline');}});
+  try{
+    app.click('start-button');app.click('view-button');app.frames(2);
+    const sim=app.simulation(),start=sim.city.spawn;
+    sim.cash=100;sim.interact();assert.equal(sim.player.mode,'drive');
+    fail=true;sim.health=0;app.frames();
+    await app.until(()=>!app.state().traveling);
+    assert.match(sim.notice,/wrecked.*\$75.*hospital was unavailable/i);
+    assert.deepEqual(sim.city.spawn,start);assert.equal(sim.player.mode,'walk');assert.equal(sim.health,100);
+    assert.equal(sim.cash,25);
+    fail=false;sim.interact();sim.health=0;app.frames();
+    await app.until(()=>!app.state().traveling);
+    assert.match(sim.notice,/wrecked.*\$25.*Discharged from/i);
+    assert.notEqual(sim.city.spawn.name,start.name);assert.equal(sim.cash,0);
+    assert.equal(app.errors.length,0);
+  }finally{app.close();}
+});
 
 test('interactive map opens from city view, zooms, pans, and pauses driving without pausing the menu',async()=>{
   const app=await bootHarness({geocodeFetch:async()=>{throw new Error('Address service unavailable');}});

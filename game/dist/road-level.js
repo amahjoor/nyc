@@ -24,3 +24,10 @@ export function roadLevelAt(road, x, z) {
   }
   return from + (to - from) * along / total;
 }
+
+/** Compare street actors at a crossing or collision. Flat street callers may omit height. */
+export function trafficAtHeight(actor, height) {
+  // A newly streamed traffic car has a route but no wheel heights until its first ground sample.
+  if (actor._edge && !Number.isFinite(actor.y)) return false;
+  return Math.abs((actor.y ?? 0) - (height ?? 0)) <= 2.5;
+}
