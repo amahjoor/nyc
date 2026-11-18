@@ -738,7 +738,7 @@ function frame(now) {
   }
   water.update(lit,{overview:cityView&&!viewOverride});
   // Lamps and headlights are gathered before the frame that they light.
-  streetLife.update(lit,{lights:gfx.state.lightsOn,cars:sim.cars,overview:overview&&!viewOverride});
+  streetLife.update(lit,{lights:gfx.state.lightsOn,cars:sim.cars,overview:overview&&!viewOverride,spots:policeScene.spots});
   // Signals show what the simulation's traffic is obeying, on the same clock.
   signs.group.visible=!cityView||Boolean(viewOverride);
   if(signs.group.visible)signs.update(sim.junctions,lit,sim.elapsed);

@@ -4,6 +4,8 @@ import * as THREE from './vendor/three.module.min.js';
 // are drawn with the traffic and the crowd): the helicopter and its
 // searchlight, and gunfire.
 const TRACERS = 12, TRACER_LIFE = 0.09;
+// The pool the searchlight throws: its radius on the ground in metres, and how bright (a street lamp is about 3).
+const SEARCHLIGHT = { radius: 10, glow: [2.9, 3.05, 3.4] };
 
 function createHelicopter() {
   const group = new THREE.Group();
@@ -35,12 +37,18 @@ function createHelicopter() {
 
 export function createPoliceScene(scene, heightAt = () => 0) {
   const helicopter = createHelicopter(); helicopter.visible = false; scene.add(helicopter);
-  // The searchlight: a cone of light from the nose to the ground, and the pool where it lands.
-  const beamMaterial = new THREE.MeshBasicMaterial({ color: 0xfff3c4, transparent: true, opacity: .07, depthWrite: false, side: THREE.DoubleSide, blending: THREE.AdditiveBlending });
+  // The searchlight. What it lights is lit through the city's light map (the
+  // caller passes `spots` on to it), so the street, the cars and the people
+  // under it are bright and the rest of the block is not; all that is drawn
+  // here is the shaft itself, faintly, as light catches the air.
+  // It is brightest at the lamp and has thinned to nothing well before the ground, so that
+  // somebody standing in the light looks out through clear air and not through a veil.
+  const beamMaterial = new THREE.ShaderMaterial({ transparent: true, depthWrite: false, side: THREE.DoubleSide, blending: THREE.AdditiveBlending,
+    vertexShader: 'varying float vDown; void main() { vDown = - position.y; gl_Position = projectionMatrix * modelViewMatrix * vec4( position, 1.0 ); }',
+    fragmentShader: 'varying float vDown; void main() { float thin = pow( max( 1.0 - vDown / 0.7, 0.0 ), 2.0 ); gl_FragColor = vec4( vec3( 0.92, 0.95, 1.0 ) * 0.085 * thin, 1.0 ); }' });
   const beamShape = new THREE.CylinderGeometry(.4, 1, 1, 24, 1, true); beamShape.translate(0, -.5, 0);
   const beam = new THREE.Mesh(beamShape, beamMaterial); beam.visible = false; beam.frustumCulled = false; scene.add(beam);
-  const pool = new THREE.Mesh(new THREE.CircleGeometry(1, 40), new THREE.MeshBasicMaterial({ color: 0xfff3c4, transparent: true, opacity: .16, depthWrite: false, blending: THREE.AdditiveBlending }));
-  pool.rotation.x = -Math.PI / 2; pool.visible = false; scene.add(pool);
+  const spots = [], spot = { x: 0, z: 0, y: 0, radius: SEARCHLIGHT.radius, glow: SEARCHLIGHT.glow };
   const tracerMaterial = new THREE.LineBasicMaterial({ color: 0xffe9a0, transparent: true, opacity: .85 });
   const flashMaterial = new THREE.MeshBasicMaterial({ color: 0xffd98a, transparent: true, opacity: .95, blending: THREE.AdditiveBlending, depthWrite: false });
   const tracers = [];
@@ -53,9 +61,12 @@ export function createPoliceScene(scene, heightAt = () => 0) {
   const down = new THREE.Vector3(0, -1, 0), toward = new THREE.Vector3();
   return {
     helicopter,
+    /** What the searchlight is lighting now, for the light map: [] or one { x, z, y, radius, glow }. */
+    spots,
     update(police, time, shown = true) {
       const unit = shown ? police.helicopter : null;
-      helicopter.visible = beam.visible = pool.visible = Boolean(unit);
+      helicopter.visible = beam.visible = Boolean(unit);
+      spots.length = 0;
       if (unit) {
         const speed = Math.hypot(unit.vx, unit.vz);
         helicopter.position.set(unit.x, unit.y, unit.z);
@@ -68,12 +79,11 @@ export function createPoliceScene(scene, heightAt = () => 0) {
         const ground = heightAt(unit.light.x, unit.light.z) || 0;
         toward.set(unit.light.x - fromX, ground - fromY, unit.light.z - fromZ);
         const length = toward.length() || 1, spread = unit.leaving ? 0 : 7;
-        beam.visible = pool.visible = spread > 0;
+        beam.visible = spread > 0;
         beam.position.set(fromX, fromY, fromZ);
         beam.quaternion.setFromUnitVectors(down, toward.divideScalar(length));
         beam.scale.set(spread, length, spread);
-        pool.position.set(unit.light.x, ground + .25, unit.light.z);
-        pool.scale.setScalar(spread);
+        if (spread > 0) { spot.x = unit.light.x; spot.z = unit.light.z; spot.y = ground; spots.push(spot); }
       }
       const now = police.sim.elapsed, shots = shown ? police.shots : [];
       for (let i = 0; i < TRACERS; i++) {

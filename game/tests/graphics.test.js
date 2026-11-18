@@ -27,6 +27,8 @@ test('Three\'s stock shader chunks gain haze, cascaded sun shadows and city ligh
   // Only the first cascade lights the surface; later sun cascades are skipped, other lights are kept.
   assert.match(lights, /#if UNROLLED_LOOP_INDEX == 0[\s\S]+#elif UNROLLED_LOOP_INDEX >= NYC_CSM[\s\S]+RE_Direct/);
   assert.match(chunk.shadowmap_pars_fragment, /float nycSunShadow\(\)/);
+  assert.match(chunk.lights_pars_begin, /uniform highp sampler2D uNycCarLights;/);
+  assert.match(chunk.lights_fragment_end, /nycVehicleLight\( nycWorld, nycLightUV, .*uNycLights \)/, 'the lit surface supplies its own position to each vehicle light');
   assert.match(chunk.lights_fragment_end, /uNycLightMap[\s\S]+RE_IndirectDiffuse/, 'city light joins the indirect term before it is applied');
   // Stock materials still assemble: every include resolves to a chunk.
   for (const name of ['standard', 'basic', 'lambert', 'physical']) for (const include of THREE.ShaderLib[name].fragmentShader.match(/#include <(\w+)>/g))

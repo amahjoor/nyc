@@ -1,4 +1,5 @@
 import * as THREE from './vendor/three.module.min.js';
+import { VEHICLE_LIGHT_GLSL } from './vehicle-lights.js';
 
 // Rendering state shared by every material in the city. Three's built-in
 // shader chunks are extended once, here, so stock and custom materials agree
@@ -21,8 +22,9 @@ export const shared = {
   uNycFogSunColor: { value: new THREE.Color(1, 1, 1) },
   uNycNoise: { value: null },
   uNycWet: { value: 0 },
-  // Top-down map of artificial light around the player; see city-lights.js.
+  // Streetlamp pools and nearby vehicle lights, populated by streetlife.js.
   uNycLightMap: { value: null },
+  uNycCarLights: { value: null },
   // xy: world position of the map's minimum corner, z: 1 / size, w: strength.
   uNycLightRect: { value: new THREE.Vector4(0, 0, 0, 0) },
   // Shoreline masks, white on land: one for the whole city, one sharp one
@@ -217,8 +219,7 @@ const DIRECTIONAL_SHADOW_CASCADED = /* glsl */`
 			RE_Direct( directLight, geometryPosition, geometryNormal, geometryViewDir, geometryClearcoatNormal, material, reflectedLight );
 		#endif`;
 
-// Street lamps, headlights and shop fronts are splatted into one top-down
-// texture. Any lit surface near street level gathers them as extra irradiance.
+// Static street lights use a pooled texture. Each car lights its own road level.
 const CITY_LIGHT_GLSL = /* glsl */`
 #if defined( RE_IndirectDiffuse )
 	// Sunlight returned by the walls and pavements around.
@@ -233,7 +234,8 @@ const CITY_LIGHT_GLSL = /* glsl */`
 			// A street lamp throws its light down: little of it reaches above the lamp head.
 			float nycReach = exp( - max( nycAbove, 0.0 ) * 0.085 ) * smoothstep( -3.0, -0.5, nycAbove ) * ( 1.0 - 0.7 * smoothstep( 5.0, 13.0, nycAbove ) );
 			vec2 nycEdge = min( nycLightUV, 1.0 - nycLightUV );
-			irradiance += nycLight.rgb * ( uNycLightRect.w * nycReach * smoothstep( 0.0, 0.06, min( nycEdge.x, nycEdge.y ) ) );
+			vec3 nycLocalLight = nycLight.rgb * nycReach + nycVehicleLight( nycWorld, nycLightUV, ( geometryNormal * mat3( viewMatrix ) ).y, uNycLights );
+			irradiance += nycLocalLight * ( uNycLightRect.w * smoothstep( 0.0, 0.06, min( nycEdge.x, nycEdge.y ) ) );
 		}
 	}
 #endif`;
@@ -250,6 +252,7 @@ export function installShaderChunks() {
   chunk.fog_fragment = FOG_FRAGMENT;
   chunk.shadowmap_pars_fragment += SUN_SHADOW_GLSL;
   chunk.lights_fragment_begin = replaceChunk(chunk.lights_fragment_begin, DIRECTIONAL_SHADOW, DIRECTIONAL_SHADOW_CASCADED, 'directional light loop');
+  chunk.lights_pars_begin += '\n' + VEHICLE_LIGHT_GLSL;
   chunk.lights_fragment_end = CITY_LIGHT_GLSL + '\n' + chunk.lights_fragment_end;
   installed = true;
 }

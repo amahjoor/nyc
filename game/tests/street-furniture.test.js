@@ -128,3 +128,31 @@ test('lamps and trees are instanced where the streetscape puts them', () => {
   assert.ok(LIGHT_MAP_SPAN > 300);
   life.dispose(); assert.equal(scene.children.length, 0);
 });
+
+test('overlapping vehicle lights retain both road planes in the renderer and clear when a car leaves', () => {
+  const renderer = {
+    capabilities: {}, extensions: { has: () => true }, getContext: () => ({}), autoClear: false,
+    getRenderTarget: () => null, setRenderTarget() {}, getClearAlpha: () => 0, getClearColor() {}, setClearColor() {}, render() {},
+  };
+  const street = createStreetLife({ renderer }), focus = { x: 32, z: -64 };
+  const car = { x: focus.x, y: 3, z: focus.z, angle: 0, pitch: 0, roll: 0 };
+  const bridge = { ...car, y: 11, pitch: -Math.atan(.12), roll: Math.atan(.04) };
+  const records = (x, z) => {
+    const data = shared.uNycCarLights.value.image.data, rect = shared.uNycLightRect.value;
+    const tile = Math.floor((x - rect.x) * rect.z * 24) + Math.floor((z - rect.y) * rect.z * 24) * 24;
+    const start = data[4 * tile] * 4, count = data[4 * tile + 1];
+    return Array.from({ length: count }, (_, i) => data.slice(start + 8 * i, start + 8 * i + 8));
+  };
+  street.update(focus, { lights: 1, cars: [car, bridge, { ...car, y: undefined }, { ...car, parked: true }] });
+  const front = records(car.x, car.z + 12), tail = records(car.x, car.z - 3);
+  assert.deepEqual(front.map(light => light[1]), [3, 11]);
+  assert.deepEqual(tail.map(light => light[1]), [3, 11]);
+  assert.ok(Math.abs(front[1][5] - .12) < 1e-6 && Math.abs(front[1][6] - .04) < 1e-6);
+  assert.equal(records(car.x + 65, car.z).length, 0);
+  street.update(focus, { lights: 1, cars: [bridge] });
+  assert.deepEqual(records(car.x, car.z + 12).map(light => light[1]), [11]);
+  street.update(focus, { lights: 1, cars: [] });
+  assert.equal(records(car.x, car.z + 12).length, 0);
+  street.dispose();
+  assert.equal(shared.uNycCarLights.value, null);
+});

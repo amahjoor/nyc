@@ -1,11 +1,11 @@
 import * as THREE from './vendor/three.module.min.js';
 import { shared, supportsFloatTargets } from './gfx-common.js';
 import { createLeafMaterial } from './foliage.js';
+import { VehicleLights } from './vehicle-lights.js';
 
 // Street furniture and the light it gives. Lamp posts stand where the
-// streetscape places them along surveyed kerbs. After dark their light, and
-// every car's headlights, are gathered into one top-down texture that all
-// lit surfaces read, so hundreds of lamps cost one texture lookup each.
+// streetscape places them along surveyed kerbs. After dark their pools of light
+// share a top-down texture. Vehicle lights also use their road elevation.
 
 export const LIGHT_MAP_SIZE = 512;
 export const LIGHT_MAP_SPAN = 384;   // metres covered, centred on the action
@@ -83,39 +83,27 @@ function lensGeometry() {
 }
 
 const SPLAT_VERTEX = /* glsl */`
-attribute vec4 aPlace;   // centre x, centre z, cos, sin of heading
-attribute vec4 aShape;   // half width, half length, ground height, kind
+attribute vec4 aPlace;   // centre x, centre z, radius, ground height
 attribute vec3 aGlow;
 uniform vec4 uRect;      // min x, min z, 1 / span
 varying vec2 vLocal;
 varying vec3 vGlow;
-varying vec2 vKind;
+varying float vHeight;
 void main() {
 	vLocal = position.xy;
 	vGlow = aGlow;
-	vKind = vec2( aShape.w, ( aShape.z + 16.0 ) / 256.0 );
-	vec2 offset = position.xy * aShape.xy;
-	// Local +Y runs along the heading.
-	vec2 world = aPlace.xy + vec2( offset.x * aPlace.z + offset.y * aPlace.w, - offset.x * aPlace.w + offset.y * aPlace.z );
+	vHeight = ( aPlace.w + 16.0 ) / 256.0;
+	vec2 world = aPlace.xy + position.xy * aPlace.z;
 	gl_Position = vec4( ( world - uRect.xy ) * uRect.z * 2.0 - 1.0, 0.0, 1.0 );
 }`;
 const SPLAT_FRAGMENT = /* glsl */`
 varying vec2 vLocal;
 varying vec3 vGlow;
-varying vec2 vKind;
+varying float vHeight;
 void main() {
-	float amount;
-	if ( vKind.x < 0.5 ) {
-		// A lamp's pool: bright under the head, gone by the edge.
-		float r = dot( vLocal, vLocal );
-		amount = pow( max( 1.0 - r, 0.0 ), 2.2 );
-	} else {
-		// Headlights: a beam that widens and fades ahead of the car.
-		float ahead = vLocal.y * 0.5 + 0.5;
-		float across = abs( vLocal.x ) / ( 0.16 + 0.84 * ahead );
-		amount = max( 1.0 - across * across, 0.0 ) * pow( 1.0 - ahead, 1.35 ) * smoothstep( 0.0, 0.05, ahead );
-	}
-	gl_FragColor = vec4( vGlow * amount, vKind.y );
+	float amount = pow( max( 1.0 - dot( vLocal, vLocal ), 0.0 ), 2.2 );
+	if ( amount <= 0.0 ) discard;
+	gl_FragColor = vec4( vGlow * amount, vHeight );
 }`;
 
 /**
@@ -149,10 +137,10 @@ export function createStreetLife({ scene, renderer = null, getLamps = () => [], 
   // --- Light map -----------------------------------------------------------------
   const quad = new THREE.InstancedBufferGeometry();
   quad.setAttribute('position', new THREE.Float32BufferAttribute([-1, -1, 0, 1, -1, 0, 1, 1, 0, -1, -1, 0, 1, 1, 0, -1, 1, 0], 3));
-  const place = new THREE.InstancedBufferAttribute(new Float32Array(MAX_SPLATS * 4), 4), shape = new THREE.InstancedBufferAttribute(new Float32Array(MAX_SPLATS * 4), 4);
+  const place = new THREE.InstancedBufferAttribute(new Float32Array(MAX_SPLATS * 4), 4);
   const glow = new THREE.InstancedBufferAttribute(new Float32Array(MAX_SPLATS * 3), 3);
-  for (const attribute of [place, shape, glow]) attribute.setUsage(THREE.DynamicDrawUsage);
-  quad.setAttribute('aPlace', place); quad.setAttribute('aShape', shape); quad.setAttribute('aGlow', glow); quad.instanceCount = 0;
+  for (const attribute of [place, glow]) attribute.setUsage(THREE.DynamicDrawUsage);
+  quad.setAttribute('aPlace', place); quad.setAttribute('aGlow', glow); quad.instanceCount = 0;
   const rect = new THREE.Vector4();
   const splatMaterial = new THREE.ShaderMaterial({ vertexShader: SPLAT_VERTEX, fragmentShader: SPLAT_FRAGMENT, uniforms: { uRect: { value: rect } },
     depthTest: false, depthWrite: false, toneMapped: false, fog: false, side: THREE.DoubleSide, transparent: true,
@@ -162,6 +150,7 @@ export function createStreetLife({ scene, renderer = null, getLamps = () => [], 
   const splats = new THREE.Mesh(quad, splatMaterial); splats.frustumCulled = false;
   const mapScene = new THREE.Scene(); mapScene.add(splats);
   const mapCamera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
+  const vehicleLights = accelerated ? new VehicleLights() : null;
   const target = accelerated ? new THREE.WebGLRenderTarget(LIGHT_MAP_SIZE, LIGHT_MAP_SIZE, { type: THREE.HalfFloatType, format: THREE.RGBAFormat,
     minFilter: THREE.LinearFilter, magFilter: THREE.LinearFilter, depthBuffer: false, generateMipmaps: false }) : null;
   if (target) { target.texture.name = 'City light map'; shared.uNycLightMap.value = target.texture; }
@@ -212,9 +201,9 @@ export function createStreetLife({ scene, renderer = null, getLamps = () => [], 
     get treeCount() { return treeCount; },
     /**
      * @param {{x:number,z:number}} focus centre of the light map
-     * @param {object} frame lights 0..1 (lamps on), cars with x, z, y, angle and parked
+     * @param {object} frame lights 0..1 (lamps on), cars with x, z, y, angle and parked, spots for any other light from above
      */
-    update(focus, { lights = 0, cars = [], overview = false } = {}) {
+    update(focus, { lights = 0, cars = [], overview = false, spots = [] } = {}) {
       if (disposed) return;
       group.visible = !overview;
       const list = getLamps();
@@ -224,33 +213,29 @@ export function createStreetLife({ scene, renderer = null, getLamps = () => [], 
       // A lens is far brighter than the wall beside it; let it bloom.
       lensMaterial.color.setRGB(1, .86, .62).multiplyScalar(5.5 * lights);
       if (!target) return;
-      if (overview || lights < .01) { shared.uNycLightRect.value.w = 0; return; }
+      if (overview || (lights < .01 && !spots.length)) { shared.uNycLightRect.value.w = 0; return; }
       const texel = LIGHT_MAP_SPAN / LIGHT_MAP_SIZE;
       // Snap to whole texels so pools of light do not crawl as the player moves.
       const minX = Math.round((focus.x - LIGHT_MAP_SPAN / 2) / texel) * texel, minZ = Math.round((focus.z - LIGHT_MAP_SPAN / 2) / texel) * texel;
       rect.set(minX, minZ, 1 / LIGHT_MAP_SPAN, 0);
       shared.uNycLightRect.value.set(minX, minZ, 1 / LIGHT_MAP_SPAN, 1);
       let count = 0;
-      const add = (x, z, cos, sin, halfWidth, halfLength, height, kind, r, g, b) => {
+      const add = (x, z, radius, height, r, g, b) => {
         if (count >= MAX_SPLATS) return;
-        place.setXYZW(count, x, z, cos, sin); shape.setXYZW(count, halfWidth, halfLength, height, kind); glow.setXYZ(count, r, g, b); count++;
+        place.setXYZW(count, x, z, radius, height); glow.setXYZ(count, r, g, b); count++;
       };
       const reach = LIGHT_MAP_SPAN / 2 + 18;
       for (const lamp of lamps) {
         if (Math.abs(lamp.x - focus.x) > reach || Math.abs(lamp.z - focus.z) > reach) continue;
         // Most lamps are warm LED; a few old sodium heads remain.
         const sodium = ((lamp.x * 13.7 + lamp.z * 7.3) % 1 + 1) % 1 < .14, k = lights * (sodium ? 2.5 : 3.1);
-        add(lamp.x + lamp.nx * 2.3, lamp.z + lamp.nz * 2.3, 1, 0, 21, 21, lamp.y - .2, 0, k, k * (sodium ? .6 : .82), k * (sodium ? .25 : .58));
+        add(lamp.x + lamp.nx * 2.3, lamp.z + lamp.nz * 2.3, 21, lamp.y - .2, k, k * (sodium ? .6 : .82), k * (sodium ? .25 : .58));
       }
-      for (const car of cars) {
-        if (car.parked || Math.abs(car.x - focus.x) > reach || Math.abs(car.z - focus.z) > reach) continue;
-        const sin = Math.sin(car.angle), cos = Math.cos(car.angle), y = car.y || 0, k = 2.6 * Math.max(lights, .25);
-        // The beam starts at the bumper and reaches about thirty metres.
-        add(car.x + sin * 17, car.z + cos * 17, cos, sin, 7.5, 15, y, 1, k, k * .93, k * .78);
-        add(car.x - sin * 3.2, car.z - cos * 3.2, 1, 0, 3, 3, y, 0, .55 * lights, .03 * lights, .02 * lights);
-      }
+      shared.uNycCarLights.value = vehicleLights.update(cars, minX, minZ, LIGHT_MAP_SPAN);
+      // Anything else that throws light on the ground from above: { x, z, y, radius, glow: [r, g, b] }.
+      for (const spot of spots) add(spot.x, spot.z, spot.radius, spot.y, spot.glow[0], spot.glow[1], spot.glow[2]);
       quad.instanceCount = count;
-      place.needsUpdate = shape.needsUpdate = glow.needsUpdate = true;
+      place.needsUpdate = glow.needsUpdate = true;
       const previous = renderer.getRenderTarget(), autoClear = renderer.autoClear, alpha = renderer.getClearAlpha();
       renderer.getClearColor(clearColor);
       renderer.setRenderTarget(target); renderer.setClearColor(0x000000, 0); renderer.autoClear = true;
@@ -263,6 +248,10 @@ export function createStreetLife({ scene, renderer = null, getLamps = () => [], 
       posts.geometry.dispose(); lenses.geometry.dispose(); poleMaterial.dispose(); lensMaterial.dispose(); quad.dispose(); splatMaterial.dispose(); target?.dispose();
       for (const mesh of [trunks, crowns, boughs]) mesh.geometry.dispose();
       barkMaterial.dispose(); leafMaterial.dispose();
+      if (vehicleLights) {
+        if (shared.uNycCarLights.value === vehicleLights.texture) shared.uNycCarLights.value = null;
+        vehicleLights.dispose();
+      }
       if (target && shared.uNycLightMap.value === target.texture) { shared.uNycLightMap.value = null; shared.uNycLightRect.value.w = 0; }
       scene?.remove(group);
     },
