@@ -9,11 +9,13 @@ import { createLandmarkBuildings } from './landmarks.js';
  * are decoded: on the page and in each background decoder. Resolves when it
  * is in, or has failed, in which case facades go by size and place alone.
  */
-let lotsLoading = null;
+let lotsLoading = null, lotGrid = null;
+/** The tax-lot grid once lotsReady() has fetched it, or null. */
+export const lots = () => lotGrid;
 export function lotsReady() {
   if (typeof fetch !== 'function' || !/^https?:/.test(import.meta.url)) return Promise.resolve(false);
   const bytes = file => fetch(new URL(file, import.meta.url)).then(response => response.ok ? response.arrayBuffer() : null).catch(() => null);
-  return lotsLoading ||= Promise.all([bytes('./lots.bin'), bytes('./landmark-buildings.bin')]).then(([lots, landmarks]) => { setLots(createLots(lots)); setLandmarks(createLandmarkBuildings(landmarks)); return Boolean(lots || landmarks); });
+  return lotsLoading ||= Promise.all([bytes('./lots.bin'), bytes('./landmark-buildings.bin')]).then(([lots, landmarks]) => { lotGrid = createLots(lots); setLots(lotGrid); setLandmarks(createLandmarkBuildings(landmarks)); return Boolean(lots || landmarks); });
 }
 
 const EARTH_RADIUS = 6371008.8;

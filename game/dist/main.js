@@ -5,7 +5,7 @@ import { Simulation, TRAFFIC_SIGHT } from './simulation.js';
 import { Input } from './input.js';
 import { HUD } from './hud.js';
 import { CityAudio } from './audio.js';
-import { lotsReady, createCityStream } from './city-stream.js';
+import { lots, lotsReady, createCityStream } from './city-stream.js';
 import { createCityGround, worldToGeographic } from './city-ground.js';
 import { createStreetDetail } from './street-detail.js';
 import { Landscape } from './landscape.js';
@@ -35,6 +35,7 @@ import { createBuses, createBusStops } from './bus.js';
 import { createSheds, planSheds, createShedMesh } from './sheds.js';
 import { createDining, planDining, createDiningMesh, seatsOf } from './dining.js';
 import { planStands, vendorOf, createStandMesh } from './stands.js';
+import { createCollection, planTrash, createTrashMesh } from './trash.js';
 import { createBikeShare, planBikeDocks, createBikeDocks } from './bikes.js';
 import { menuFor } from './menu.js';
 import { createSubway, createSubwayEntrances, FARE } from './subway.js';
@@ -76,6 +77,9 @@ let sheds=null, shedMesh=null;
 let dining=null, diningMesh=null, diners=[];
 // Newsstands and fruit stands at the kerb, and whoever minds each.
 let standMesh=null, vendors=[], standHere=null;
+// Trash night: which days each block is collected, the heaps of bags near the player, and what day of the week it is.
+// The week starts on today's real weekday and moves on a day each time the game's clock passes midnight.
+let collection=null, trashMesh=null, weekday=(new Date().getDay()+6)%7, clockWas=null;
 // Citi Bike: the stations, and the docks drawn nearby.
 let bikeShare=null, bikeDocks=null;
 let subway=null, subwayStairs=null, stairHere=null, kerbIndex=null, kerbsFor=null;
@@ -380,6 +384,8 @@ function syncScene(dt,controls) {
     const p=sim.player,f=doorHere,dx=p.x-f.x,dz=p.z-f.z,inward=-((p.velocityX||0)*f.nx+(p.velocityZ||0)*f.nz);
     if(dx*f.nx+dz*f.nz<1.25&&Math.abs(dx*f.tx+dz*f.tz)<Math.min(1.8,f.width/2)&&inward>.8&&goIn(f))doorHere=null;
   }
+  // Bags are at the kerb from the evening before a collection day until the truck has been the next morning.
+  if(gfx&&trashMesh){if(clockWas!==null&&gfx.hours<clockWas-12)weekday=(weekday+1)%7;clockWas=gfx.hours;trashMesh.show(weekday,gfx.hours);if(cityView&&!viewOverride)trashMesh.mesh.visible=false;}
   // Once the modelled figures are in, the player and whoever is serving are drawn as two of them.
   const modelled=Boolean(crowd?.modelled),pace=Math.abs(p.speed);
   playerStride+=pace*Math.min(.1,Math.max(0,elapsed-strideClock))*3.3;strideClock=elapsed;
@@ -609,6 +615,10 @@ function frame(now) {
       fronts=solveFrontages(placeSource.near(lit.x,lit.z,250),footprints,(x,z)=>Boolean(streetscape?.surfaceAt(x,z)));
       // Sheds stand along the street walls of the buildings permitted one.
       if(sheds&&shedMesh)shedMesh.update(planSheds(sheds.near(lit.x,lit.z,220),footprints,(x,z)=>Boolean(streetscape?.surfaceAt(x,z))));
+      if(collection&&trashMesh){
+        if(walks!==kerbsFor){kerbsFor=walks;kerbIndex=indexKerbs(walks);}
+        trashMesh.setHeaps(planTrash(footprints.near(lit.x,lit.z,150),footprints,(x,z)=>Boolean(streetscape?.surfaceAt(x,z)),{kerb:(x,z)=>snapToKerb(kerbIndex,x,z,12),useAt:(x,z)=>lots()?.at(x,z)?.use??0,daysAt:(x,z)=>collection.daysAt(x,z)}));
+      }
       if(standMesh){
         if(walks!==kerbsFor){kerbsFor=walks;kerbIndex=indexKerbs(walks);}
         const stands=planStands(placeSource.near(lit.x,lit.z,220),(x,z)=>snapToKerb(kerbIndex,x,z,16));
@@ -1002,6 +1012,8 @@ async function boot() {
   loadData('demographics.json').then(data=>{demographics=createDemographics(data);}).catch(()=>{});
   busStops=createBusStops({scene,heightAt:groundHeight,kerb:(x,z)=>kerbIndex&&snapToKerb(kerbIndex,x,z,14)});
   shedMesh=createShedMesh({scene,heightAt:groundHeight});
+  trashMesh=createTrashMesh({scene,heightAt:groundHeight});
+  fetch('./collection.bin').then(response=>response.ok?response.arrayBuffer():null).then(buffer=>{collection=createCollection(buffer);frontsFor=null;}).catch(()=>{});
   diningMesh=createDiningMesh({scene,heightAt:groundHeight});standMesh=createStandMesh({scene,heightAt:groundHeight});
   loadData('dining.json').then(data=>{dining=createDining(data);frontsFor=null;}).catch(()=>{});
   bikeDocks=createBikeDocks({scene,heightAt:groundHeight});
@@ -1088,7 +1100,7 @@ async function boot() {
   const b=city.bounds;camera.position.set((b.minX+b.maxX)/2-14000,44000,(b.minZ+b.maxZ)/2+32000);
   navigation=createCityNavigation({canvas,camera,input,bounds:city.bounds,heightAt:terrainHeight,onTravel:travel,onAddressSelected:focusCityAddress,searchLocal:findLocally});
   $('place-select').innerHTML=roadIndex.places.map((place,i)=>'<option value="'+i+'">'+place.name+' · '+place.borough+'</option>').join('');
-  window.nycGame={graphics:gfx,get streetscape(){return streetscape;},get streetLife(){return streetLife;},get parkedCars(){return parkedCars;},get distantTraffic(){return distantTraffic;},get world(){return world;},get simulation(){return sim;},get signs(){return signs;},get crowd(){return crowd;},get props(){return props;},get places(){return placeSource;},get storefronts(){return storefronts;},get fronts(){return fronts;},get phone(){return phone;},get fleet(){return fleet;},get subway(){return subway;},get buses(){return buses;},get sheds(){return sheds;},get dining(){return dining;},get standMesh(){return standMesh;},get map(){return gameMap;},findLocally,get bikeShare(){return bikeShare;},get bikeDocks(){return bikeDocks;},get diningMesh(){return diningMesh;},get shedMesh(){return shedMesh;},get busStops(){return busStops;},get demographics(){return demographics;},get subwayStairs(){return subwayStairs;},get cityLife(){return cityLife;},heightAt:(x,z)=>terrainHeight(x,z),setView:view=>{viewOverride=view&&Array.isArray(view.position)&&Array.isArray(view.target)?view:null;},getState:()=>({time:gfx.clock,player:{...sim.player},heat:sim.heat,health:sim.health,mission:{...sim.mission},cash:sim.cash,deliveries:sim.deliveries,cars:sim.cars.length,parkedCars:sim.cars.filter(car=>car._kerb).length,buildings:buildings.length,totalBuildings:cityIndex.stats.buildingFeatures,stream:world.getStatus(),ground:ground.getStatus(),streetDetail:streetDetail?.getStatus()||null,streetscape:streetscape?.getStatus()||null,landscape:landscape?.getStatus()||null,reconstruction:reconstructionReview?{model:reconstructionReview.model,summary:reconstructionReview.summary}:null,roadReconstruction:roadReconstructionReview?{model:roadReconstructionReview.model,summary:roadReconstructionReview.summary}:null,roadPilot:roadPilot?roadPilot.getStatus():{ready:false,loading:Boolean(roadPilotLoading),error:roadPilotError},navigation:navigation.getState(),map:gameMap.getState(),routeGuidance,cityView,aerialView,traveling,bootReady,shadows:{enabled:shadowsEnabled,active:renderer.shadowMap.enabled},drawCalls:renderer.info.render.calls,triangles:renderer.info.render.triangles,started,paused})};
+  window.nycGame={graphics:gfx,get streetscape(){return streetscape;},get streetLife(){return streetLife;},get parkedCars(){return parkedCars;},get distantTraffic(){return distantTraffic;},get world(){return world;},get simulation(){return sim;},get signs(){return signs;},get crowd(){return crowd;},get props(){return props;},get places(){return placeSource;},get storefronts(){return storefronts;},get fronts(){return fronts;},get phone(){return phone;},get fleet(){return fleet;},get subway(){return subway;},get buses(){return buses;},get sheds(){return sheds;},get dining(){return dining;},get standMesh(){return standMesh;},get trash(){return trashMesh;},get weekday(){return weekday;},set weekday(day){weekday=((day%7)+7)%7;},get map(){return gameMap;},findLocally,get bikeShare(){return bikeShare;},get bikeDocks(){return bikeDocks;},get diningMesh(){return diningMesh;},get shedMesh(){return shedMesh;},get busStops(){return busStops;},get demographics(){return demographics;},get subwayStairs(){return subwayStairs;},get cityLife(){return cityLife;},heightAt:(x,z)=>terrainHeight(x,z),setView:view=>{viewOverride=view&&Array.isArray(view.position)&&Array.isArray(view.target)?view:null;},getState:()=>({time:gfx.clock,player:{...sim.player},heat:sim.heat,health:sim.health,mission:{...sim.mission},cash:sim.cash,deliveries:sim.deliveries,cars:sim.cars.length,parkedCars:sim.cars.filter(car=>car._kerb).length,buildings:buildings.length,totalBuildings:cityIndex.stats.buildingFeatures,stream:world.getStatus(),ground:ground.getStatus(),streetDetail:streetDetail?.getStatus()||null,streetscape:streetscape?.getStatus()||null,landscape:landscape?.getStatus()||null,reconstruction:reconstructionReview?{model:reconstructionReview.model,summary:reconstructionReview.summary}:null,roadReconstruction:roadReconstructionReview?{model:roadReconstructionReview.model,summary:roadReconstructionReview.summary}:null,roadPilot:roadPilot?roadPilot.getStatus():{ready:false,loading:Boolean(roadPilotLoading),error:roadPilotError},navigation:navigation.getState(),map:gameMap.getState(),routeGuidance,cityView,aerialView,traveling,bootReady,shadows:{enabled:shadowsEnabled,active:renderer.shadowMap.enabled},drawCalls:renderer.info.render.calls,triangles:renderer.info.render.triangles,started,paused})};
   requestAnimationFrame(frame);
   const [roads]=await Promise.all([roadStream.loadAround(seed.spawn),world.prepareAt(seed.spawn,300),landscapeReady]);
   sim.setActiveCity({roads,buildings,isReadyAt:(x,z,radius)=>world.isReadyAt(x,z,radius),missionPoints:destinationsFor(roads,seed.spawn)},{spawn:seed.spawn});city=sim.city;yaw=sim.player.angle;
