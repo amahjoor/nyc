@@ -344,6 +344,15 @@ const STYLES = {
   },
 };
 
+/** How many metres of building lie straight in from a front's door, up to 13. `inside(x, z)` says whether a point is within its building. */
+export function roomDepth(front, inside = () => true) {
+  let depth = 0;
+  while (depth < 13 && inside(front.x - front.nx * (depth + 1), front.z - front.nz * (depth + 1))) depth++;
+  return depth;
+}
+/** Whether a street front has a room to walk into: a kind of place that has one, with four metres of building behind its door. */
+export const hasRoom = (front, inside = () => true) => Boolean(roomKind(front.place)) && roomDepth(front, inside) >= 4;
+
 /**
  * Lay out a place's room. `front` is its street front (places.js);
  * `inside(x, z)` says whether a point is within its building.
@@ -359,8 +368,7 @@ export function planRoom(front, inside = () => true) {
   const place = front.place, kind = roomKind(place);
   if (!kind) return null;
   // As deep as the building goes behind the door, within reason.
-  let depth = 0;
-  while (depth < 13 && inside(front.x - front.nx * (depth + 1), front.z - front.nz * (depth + 1))) depth++;
+  let depth = roomDepth(front, inside);
   if (depth < 4) return null;
   depth = Math.min(12, depth - .4);
   const width = Math.max(5, Math.min(9, front.width)), half = width / 2, seed = hashOf(`${placeName(place)}|${place.x}|${place.z}`), style = roomStyle(place);

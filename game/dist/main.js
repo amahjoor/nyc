@@ -36,7 +36,8 @@ import { createFleet } from './fleet.js';
 import { createVehicleMeshLibrary } from './vehicle-assets.js';
 import { designFor } from './vehicle-designs.js';
 import { offersAt } from './garage.js';
-import { planRoom, buildRoom, roomKind } from './interiors.js';
+import { planRoom, buildRoom, roomKind, hasRoom } from './interiors.js';
+import { doorBlips } from './map-blips.js';
 import { createDemographics } from './demographics.js';
 import { createBuses, createBusStops } from './bus.js';
 import { createSheds, planSheds, createShedMesh } from './sheds.js';
@@ -66,6 +67,8 @@ const noStreetFurniture=[], crowdAhead=new THREE.Vector3();
 let cameraFlashing=false;
 // What is at each address (places.js), and the street fronts of those near the player.
 let placeSource=null, storefronts=null, footprints=indexFootprints([]), fronts=[], frontsFor=null, placeTimer=0;
+// The doors that can be walked through near the player, as the radar and the map mark them: fronts with a room behind them, and the subway's stairs.
+let doors=[], doorsFor=null;
 // The phone, and where a delivery can be sent: the streets around, and the places with a street front.
 let phone=null, work=null, roadDestinations=[], placeDestinations=[], shopHere=null;
 // The front the player is standing at if it has a room to go into, and the room they are in.
@@ -729,6 +732,7 @@ function frame(now) {
   placeTimer-=dt;
   if(placeSource&&placeTimer<=0){
     placeTimer=.4;placeSource.request(lit.x,lit.z,700);
+    markDoors();
     const walks=streetscape?.walks()||noStreetFurniture;
     if(!frontsFor||frontsFor.places!==placeSource.version||frontsFor.footprints!==footprints||frontsFor.walks!==walks||Math.hypot(lit.x-frontsFor.x,lit.z-frontsFor.z)>30){
       frontsFor={places:placeSource.version,footprints,walks,x:lit.x,z:lit.z};
@@ -874,6 +878,20 @@ async function loadLogos(){
     image.onerror=resolve;image.src='./logos/'+entry.file;
   })));
   return logos;
+}
+// Mark the doors that can be walked through on the radar and the map (map-blips.js): the fronts with a room behind
+// them and the subway's stairs. The open map looks further than the street does, so for it fronts are worked out as
+// far as places are loaded. Past 300 m fewer of the streets are known, and fewer doors are found than are there.
+function markDoors(){
+  if(!gameMap||!placeSource)return;
+  const stairs=subwayStairs?.entrances;
+  if(!doorsFor||doorsFor.fronts!==fronts||doorsFor.stairs!==stairs||doorsFor.wide!==mapOpen){
+    doorsFor={fronts,stairs,wide:mapOpen};
+    const inside=(x,z)=>Boolean(footprints.at(x,z)),at=frontsFor||sim.player;
+    const beyond=mapOpen?solveFrontages(placeSource.near(at.x,at.z,700).filter(place=>Math.hypot(place.x-at.x,place.z-at.z)>250),footprints,(x,z)=>Boolean(streetscape?.surfaceAt(x,z))):[];
+    doors=doorBlips([...fronts,...beyond].filter(front=>hasRoom(front,inside)),mapOpen&&subway?subway.entrancesNear(at.x,at.z,700).filter(entrance=>entrance.kind===0):stairs);
+  }
+  gameMap.setDoors(doors,gfx.hours);
 }
 // Through the door of a place and into its room. Returns whether there was a room to go into.
 function goIn(front){
@@ -1215,7 +1233,7 @@ async function boot() {
   hud=new HUD(city);applyQuality();
   gameMap=new GameMap({city,searchLocal:findLocally,onPlacesWanted:loadPlaceNames,onPin:requestDirections,
     onSpawn:pin=>travel({...pin,exact:true}),
-    onOpenChange:open=>{mapOpen=open;input.clear();input.lookDelta=0;input.lookVertical=0;if(!open)canvas.focus();}});
+    onOpenChange:open=>{mapOpen=open;input.clear();input.lookDelta=0;input.lookVertical=0;if(!open)canvas.focus();markDoors();}});
   hud.attachMap(gameMap);
   // The compact citywide graph is optional: a failed route download must not
   // prevent entering the game or using a measured, validated spawn point.

@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { GameMap, mapWorldToScreen, mapScreenToWorld } from '../dist/game-map.js';
+import { doorBlips } from '../dist/map-blips.js';
 
 class Events {
   listeners = new Map();
@@ -242,4 +243,53 @@ test('zoomed-out streets are stroked from paths built once, only where in sight'
   const seen = strokes().length;assert.ok(seen > 0 && seen < chunks.length, 'squares out of sight are skipped');
   f.map.zoom(1.5);assert.equal(f.map.roadChunks(), chunks);assert.ok(strokes().length > seen);
   f.map.setRoads(roads.slice(0, 1100));assert.notEqual(f.map.roadChunks(), chunks);
+});
+
+const door = (kind, x, z, name = '') => ({ place: { id: `${kind}|${x}|${z}`, kind, name, x, z }, x, z, tx: 1, tz: 0, nx: 0, nz: 1, width: 6 });
+
+test('doors nearby are marked on the radar and the open map, and a click on a badge pins that place by name', t => {
+  const pins = [], { map, pointer, byId } = fixture(t, { onPin: pin => pins.push(pin) });
+  const doors = doorBlips([door('pizza', 30, -20, "JOE'S PIZZA"), door('barber', -40, 35)]);
+  map.setDoors(doors, 12);
+  const mini = byId('minimap');mini.calls.length = 0;
+  map.update({ player: { x: 0, z: 0, angle: 0 } });
+  // The radar is 300 m across a canvas 440 wide: each door is a badge 28 across where it stands, the rarer trade drawn first.
+  const badges = calls => calls.filter(call => call.key === 'arc' && (call.args[2] === 14 || call.args[2] === 11)).map(call => call.args.slice(0, 2).map(Math.round));
+  assert.deepEqual(badges(mini.calls), [[161, 271], [264, 191]]);
+  // The open map is 1000 m across 900 pixels: the same doors, smaller.
+  const canvas = byId('game-map-canvas');map.setOpen(true);
+  assert.deepEqual(badges(canvas.calls), [[414, 332], [477, 282]]);
+  // Closer in, 600 m across, each has its name beside it.
+  canvas.calls.length = 0;map.zoom(.6);
+  assert.deepEqual(badges(canvas.calls), [[390, 353], [495, 270]]);
+  assert.deepEqual(canvas.calls.filter(call => call.key === 'fillText' && /PIZZA|BARBER/.test(call.args[0])).map(call => call.args[0]), ['BARBER SHOP', "JOE'S PIZZA"]);
+  // Beside it, what each badge stands for.
+  const legend = byId('game-map-legend');
+  assert.equal(legend.hidden, false);assert.deepEqual(legend.children.map(child => child.textContent || child.children.map(part => part.textContent).join('')), ['WALK IN NEARBY', 'BARBER · 1', 'PIZZA · 1']);
+  assert.match(legend.children[1].children[0].innerHTML, /^<svg /);
+  // A click on the badge is a click on the place.
+  pointer('pointerdown', 498, 273);pointer('pointerup', 498, 273);
+  assert.deepEqual(pins.at(-1), { x: 30, z: -20, name: "JOE'S PIZZA · Pizza" });
+  // A click clear of every badge is still a plain pin.
+  pointer('pointerdown', 700, 100);pointer('pointerup', 700, 100);
+  assert.equal(pins.at(-1).name, 'Map pin');
+});
+
+test('doors are redrawn when they or the hour change, dim when shut, and left off a map of the whole city', t => {
+  const { map, byId } = fixture(t), canvas = byId('game-map-canvas');
+  const doors = doorBlips([door('barber', 20, 0), door('bodega', 120, 0)]);
+  map.setOpen(true);map.setDoors(doors, 12);
+  const alphas = () => canvas.calls.filter(call => call.key === 'arc' && call.args[2] === 11).length;
+  assert.equal(alphas(), 2);
+  // The same doors at the same hour draw nothing again.
+  canvas.calls.length = 0;map.setDoors(doors, 12.1);assert.equal(canvas.calls.length, 0);
+  // At midnight the barber is shut: the map is drawn again.
+  map.setDoors(doors, 0);assert.equal(alphas(), 2);assert.equal(map.hours, 0);
+  // Doors that would overlap share one badge: at 2.4 km across, these two a hundred metres apart are 37 pixels apart and both fit; forty metres apart, 15 pixels, one stays.
+  canvas.calls.length = 0;map.view.span = 2400;map.draw();assert.equal(alphas(), 2);
+  canvas.calls.length = 0;map.setDoors(doorBlips([door('barber', 20, 0), door('bodega', 60, 0)]), 12);assert.equal(alphas(), 1);
+  // Across the whole city the doors around one person are not drawn at all.
+  canvas.calls.length = 0;map.showCity();assert.equal(alphas(), 0);
+  // With no doors there is no legend.
+  map.setDoors([], 12);assert.equal(byId('game-map-legend').hidden, true);
 });

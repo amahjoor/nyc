@@ -283,6 +283,9 @@
 .game-map-chip{border:1px solid #ffffff2e;background:#17252f;color:#d2d9d2;padding:6px 9px 6px 22px;font-size:8px;letter-spacing:1px;position:relative;cursor:pointer}
 .game-map-chip::before{content:"";position:absolute;left:8px;top:50%;width:8px;height:8px;margin-top:-4px;border-radius:50%;background:var(--chip,#fff);opacity:.45}
 .game-map-chip[aria-pressed="true"]{border-color:var(--chip,#fff);background:#0f171c;color:#fff}.game-map-chip[aria-pressed="true"]::before{opacity:1}
+.game-map-legend{position:absolute;right:9px;top:9px;background:#17252fdb;padding:8px 10px;display:flex;flex-direction:column;gap:4px;pointer-events:none;max-height:calc(100% - 70px);overflow:hidden}.game-map-legend[hidden]{display:none}.game-map-legend p{margin:0 0 3px}
+@media (max-width:760px),(max-height:520px){.game-map-legend{display:none}}
+.game-map-legend-row{display:flex;align-items:center;gap:7px;font-size:9px;letter-spacing:.6px;color:#d2d9d2}.game-map-legend-row i{display:block;width:18px;height:18px;flex:none}.game-map-legend-row b{font-weight:600}
 .game-map-places-note{position:absolute;left:64px;top:9px;background:#17252fdb;padding:6px 8px;font-size:9px;color:#d2d9d2;pointer-events:none;max-width:70%}.game-map-places-note:empty{display:none}
 
 :root { font-family: var(--ui); font-weight: 500; }

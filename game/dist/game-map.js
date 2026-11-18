@@ -1,6 +1,7 @@
 import { airports } from './airport-data.js';
 import { searchDestinations } from './geocoder.js';
 import { MAP_CATEGORIES, placeMarks, drawPlaceMarks } from './map-places.js';
+import { thinBlips, drawBlips, blipOpen, blipLegend, blipSvg } from './map-blips.js';
 
 const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
 const finitePoint = point => point && Number.isFinite(point.x) && Number.isFinite(point.z);
@@ -40,6 +41,8 @@ export class GameMap {
     this.searchLocal = searchLocal;
     // What is where: the kinds of place chosen to be shown, and the places themselves once they have been fetched.
     this.placeLayer = null;this.placeKinds = new Set();this.placeChips = new Map();
+    // The doors near the player that can be walked through (map-blips.js), the time of day, and those of them far enough apart to draw at each scale.
+    this.doors = [];this.hours = 12;this.doorQuarter = null;this.doorsApart = new Map();
     const chips = byId('game-map-places');
     if (chips) for (const category of MAP_CATEGORIES) {
       const chip = document.createElement('button');
@@ -134,6 +137,8 @@ export class GameMap {
     }
     if (drag.moved) return;
     // A click on a place that is shown pins the place itself, by name.
+    const door = this.doorAt(this.pointerPoint(event));
+    if (door) { this.setPin({ x: door.x, z: door.z, name: `${door.name} · ${door.what}` });return; }
     const point = mapScreenToWorld(this.pointerPoint(event), this.view), place = this.placeLayer && this.placeKinds.size && this.view.span <= 1400 ? this.placeLayer.nearest(point, 12 * this.view.span / this.view.width, this.placeKinds) : null;
     this.setPin(place ? { x: place.x, z: place.z, name: `${place.name} · ${place.kind}` } : point);
   }
@@ -154,7 +159,7 @@ export class GameMap {
   setOpen(open) {
     if (this.disposed || this.open === Boolean(open)) return;
     this.open = Boolean(open);this.element.hidden = !this.open;
-    if (this.open) { this.previousFocus = this.document.activeElement;this.dimensions();this.recenter();this.byId('game-map-close').focus(); }
+    if (this.open) { this.previousFocus = this.document.activeElement;this.dimensions();this.recenter();this.byId('game-map-close').focus();this.listDoors(); }
     else { this.drag = null;this.dropSharpRoads();this.clearAddressResults();this.previousFocus?.focus?.(); }
     this.byId('map-button').setAttribute('aria-expanded', String(this.open));this.byId('open-map-button').setAttribute('aria-expanded', String(this.open));this.onOpenChange(this.open);
   }
@@ -223,6 +228,59 @@ export class GameMap {
     this.placeLayer = layer;
     for (const category of MAP_CATEGORIES) { const chip = this.placeChips.get(category.id);if (chip) chip.title = `${(layer?.totals[category.id] || 0).toLocaleString('en-US')} in the city`; }
     this.dirty = true;if (this.open) this.draw();
+  }
+  /**
+   * The doors that can be walked through near the player, to mark with their trades.
+   * @param blips map-blips.js doorBlips(); the same array again changes nothing
+   * @param hours the time of day, 0 to 24: a place that is shut is marked dim
+   */
+  setDoors(blips, hours = this.hours) {
+    const quarter = Math.floor(hours * 4);
+    if (blips === this.doors && quarter === this.doorQuarter) return;
+    const changed = blips !== this.doors;
+    this.doors = blips || [];this.hours = hours;this.doorQuarter = quarter;this.doorsApart.clear();this.dirty = true;
+    if (this.open) { if (changed) this.listDoors();this.draw(); }
+  }
+  /** The doors to draw when badges are kept `gap` pixels apart at `scale` pixels to the metre: all of them where they fit, the rarer trades where they do not. */
+  doorsShown(gap, scale) {
+    // Rounded to a twentieth, so the steps of a zoom share a list.
+    const spacing = Math.exp(Math.round(Math.log(gap / scale) * 20) / 20), key = spacing.toFixed(3);
+    let kept = this.doorsApart.get(key);
+    if (!kept) { if (this.doorsApart.size > 40) this.doorsApart.clear();this.doorsApart.set(key, kept = thinBlips(this.doors, spacing, this.hours)); }
+    return kept;
+  }
+  /** The door whose badge is under a point of the open map, if any. */
+  doorAt(point) {
+    if (!this.doors.length || this.view.span > 2600) return null;
+    let best = null, distance = 13;
+    for (const blip of this.doorsShown(20, this.view.width / this.view.span)) { const p = mapWorldToScreen(blip, this.view), d = Math.hypot(p.x - point.x, p.y - point.y);if (d < distance) { distance = d;best = blip; } }
+    return best;
+  }
+  /** Beside the open map: what each badge among the doors nearby stands for, and how many there are. */
+  listDoors() {
+    const legend = this.byId('game-map-legend');
+    if (!legend) return;
+    const rows = blipLegend(this.doors);
+    legend.hidden = !rows.length;legend.replaceChildren();
+    if (!rows.length) return;
+    const title = this.document.createElement('p');title.className = 'small-label';title.textContent = 'WALK IN NEARBY';legend.append(title);
+    for (const row of rows.slice(0, 14)) {
+      const line = this.document.createElement('span'), picture = this.document.createElement('i'), text = this.document.createElement('b');
+      line.className = 'game-map-legend-row';picture.innerHTML = blipSvg(row.id, row.colour, 18);text.textContent = `${row.label.toUpperCase()} · ${row.count}`;
+      line.append(picture);line.append(text);legend.append(line);
+    }
+  }
+  paintDoors(context, view, mini) {
+    // Past a few kilometres across, the doors around one person are a smudge.
+    if (!this.doors.length || view.span > 2600) return;
+    // On the open map badges may touch; on the radar, a fifth the width, they are kept clear of each other.
+    const scale = view.width / view.span, size = mini ? 28 : 22, reach = size / scale, bounds = viewBounds(view), marks = [];
+    for (const blip of this.doorsShown(mini ? 33 : 20, scale)) {
+      if (blip.x < bounds.minX - reach || blip.x > bounds.maxX + reach || blip.z < bounds.minZ - reach || blip.z > bounds.maxZ + reach) continue;
+      const p = mapWorldToScreen(blip, view);
+      marks.push({ px: p.x, py: p.y, icon: blip.icon, colour: blip.colour, open: blipOpen(blip, this.hours), label: !mini && view.span <= 700 ? blip.name : '' });
+    }
+    drawBlips(context, marks, { size, ratio: mini ? 1 : this.ratio, document: this.document });
   }
   setRoads(roads) {
     this.roads = roads || [];this.roadGrid.clear();this.longRoads = [];this.chunks = null;this.dropSharpRoads();
@@ -464,6 +522,7 @@ export class GameMap {
     } else if (!mini) { const note = this.byId('game-map-places-note');if (note) note.textContent = this.placeKinds.size ? 'LOADING PLACES…' : ''; }
     const route = pointsOf(this.route);
     if (route.length > 1) { context.strokeStyle = '#131c24';context.lineWidth = mini ? 9 : 8;context.beginPath();chain(route);context.stroke();context.strokeStyle = '#ba8cff';context.lineWidth = mini ? 5 : 4;context.stroke(); }
+    this.paintDoors(context, view, mini);
     const pin = this.drag?.preview || this.pin || (this.sim?.mission?.phase === 'active' ? this.sim.mission.target : null);
     if (pin) { const p = mapWorldToScreen(pin, view), x = mini ? clamp(p.x, 12, view.width - 12) : p.x, y = mini ? clamp(p.y, 12, view.height - 12) : p.y;context.fillStyle = '#ff9369';context.strokeStyle = '#1b2529';context.lineWidth = 3;context.beginPath();context.arc(x, y, mini ? 7 : 9, 0, Math.PI * 2);context.fill();context.stroke(); }
     // Civilian traffic stays off the map. Police show once you are wanted, held
@@ -532,5 +591,5 @@ export class GameMap {
     const p = mapWorldToScreen(this.player, view);context.translate(p.x, p.y);context.rotate(-(this.player.angle || 0));context.fillStyle = '#f8f2df';context.strokeStyle = '#172127';context.lineWidth = 3;context.beginPath();context.moveTo(0, 12);context.lineTo(-8, -8);context.lineTo(0, -4);context.lineTo(8, -8);context.closePath();context.fill();context.stroke();context.restore();
   }
   getState() { return { open: this.open, pin: this.pin && { ...this.pin }, view: { ...this.view }, busy: this.busy, route: this.route && { distance: this.route.distance, points: pointsOf(this.route).map(point => [...point]) } }; }
-  dispose() { if (this.disposed) return;this.setOpen(false);this.disposed = true;for (const remove of this.listeners) remove();this.listeners = [];this.roadGrid.clear();this.chunks = null;this.dropSharpRoads();this.miniLandCache = null;this.drag = null; }
+  dispose() { if (this.disposed) return;this.setOpen(false);this.disposed = true;for (const remove of this.listeners) remove();this.listeners = [];this.doors = [];this.doorsApart.clear();this.roadGrid.clear();this.chunks = null;this.dropSharpRoads();this.miniLandCache = null;this.drag = null; }
 }
