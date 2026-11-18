@@ -15,6 +15,7 @@ import { createCityNavigation } from './city-navigation.js';
 import { GameMap } from './game-map.js';
 import { createRoutePlanner } from './route-planner.js';
 import { createStreetIndex, createPlaceIndex, searchLocal, title } from './local-search.js';
+import { createPlaceLayer } from './map-places.js';
 import { createGraphics } from './gfx.js';
 import { createStreetscape } from './streetscape.js';
 import { createStreetLife } from './streetlife.js';
@@ -740,11 +741,15 @@ function goIn(front){
 // Corners and businesses, found in the game's own data. The street index is made from the route planner's roads the
 // first time something is searched for, and the list of place names is fetched then too.
 let streetIndex=null, placeIndex=null, placeIndexReady=null;
+// The citywide list of place names is fetched once, the first time a search or the map's layers ask for it.
+function loadPlaceNames(){
+  placeIndexReady||=fetch('./place-names.json',{signal:AbortSignal.timeout(30000)}).then(response=>response.ok?response.json():null).then(data=>{placeIndex=createPlaceIndex(data);gameMap?.setPlaces(createPlaceLayer(data));}).catch(()=>{placeIndexReady=null;});
+  return placeIndexReady;
+}
 async function findLocally(query){
   const planner=await plannerReady;
   if(planner&&!streetIndex)streetIndex=createStreetIndex(planner.roads);
-  placeIndexReady||=fetch('./place-names.json',{signal:AbortSignal.timeout(30000)}).then(response=>response.ok?response.json():null).then(data=>{placeIndex=createPlaceIndex(data);}).catch(()=>{placeIndexReady=null;});
-  await placeIndexReady;
+  await loadPlaceNames();
   const found=searchLocal(query,{streets:streetIndex,places:placeIndex,near:sim?{x:sim.player.x,z:sim.player.z}:null});
   // Several branches of one name are told apart by the street each is on.
   for(const place of found)if(place.kind==='place'&&planner){const road=planner.snap({x:place.x,z:place.z},{maxSnapDistance:300});if(road)place.detail=title(road.name);}
@@ -1026,7 +1031,7 @@ async function boot() {
   }).catch(()=>{$('road-reconstruction-status').textContent='Road image review unavailable. Surveyed surfaces remain active.';});
   avatar=createPerson(0xd7774e,{courier:true});scene.add(avatar);marker=createMissionMarker();enterHint=createEnterHint();
   hud=new HUD(city);applyQuality();
-  gameMap=new GameMap({city,searchLocal:findLocally,onPin:clearDirections,onRoute:requestDirections,
+  gameMap=new GameMap({city,searchLocal:findLocally,onPlacesWanted:loadPlaceNames,onPin:clearDirections,onRoute:requestDirections,
     onSpawn:pin=>travel({...pin,exact:true}),
     onOpenChange:open=>{mapOpen=open;input.clear();input.lookDelta=0;input.lookVertical=0;if(!open)canvas.focus();}});
   hud.attachMap(gameMap);

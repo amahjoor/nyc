@@ -1,4 +1,5 @@
 import { searchDestinations } from './geocoder.js';
+import { MAP_CATEGORIES, placeMarks, drawPlaceMarks } from './map-places.js';
 
 const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
 const finitePoint = point => point && Number.isFinite(point.x) && Number.isFinite(point.z);
@@ -26,7 +27,7 @@ function shapeBounds(points) {
 
 /** Canvas map uses the game's local meters, never an independent map projection. */
 export class GameMap {
-  constructor({ document = globalThis.document, city, searchLocal = () => [], lookupAddress, onPin = () => {}, onRoute = () => {}, onSpawn = () => {}, onOpenChange = () => {} } = {}) {
+  constructor({ document = globalThis.document, city, searchLocal = () => [], onPlacesWanted = () => {}, lookupAddress, onPin = () => {}, onRoute = () => {}, onSpawn = () => {}, onOpenChange = () => {} } = {}) {
     this.document = document;this.city = city;this.onPin = onPin;this.onRoute = onRoute;this.onSpawn = onSpawn;this.onOpenChange = onOpenChange;
     this.element = document.getElementById('game-map');this.canvas = document.getElementById('game-map-canvas');
     this.mini = document.getElementById('minimap');this.open = false;this.pin = null;this.route = null;this.progress = null;this.busy = false;
@@ -36,6 +37,15 @@ export class GameMap {
     const byId = id => document.getElementById(id);this.byId = byId;
     const listen = (target, type, callback, options) => { target.addEventListener(type, callback, options);this.listeners.push(() => target.removeEventListener(type, callback, options)); };
     this.searchLocal = searchLocal;
+    // What is where: the kinds of place chosen to be shown, and the places themselves once they have been fetched.
+    this.placeLayer = null;this.placeKinds = new Set();this.placeChips = new Map();
+    const chips = byId('game-map-places');
+    if (chips) for (const category of MAP_CATEGORIES) {
+      const chip = document.createElement('button');
+      chip.type = 'button';chip.className = 'game-map-chip';chip.textContent = category.label;chip.style?.setProperty?.('--chip', category.colour);chip.setAttribute?.('aria-pressed', 'false');
+      listen(chip, 'click', () => { if (this.placeKinds.has(category.id)) this.placeKinds.delete(category.id);else this.placeKinds.add(category.id);chip.setAttribute?.('aria-pressed', String(this.placeKinds.has(category.id)));if (!this.placeLayer) onPlacesWanted();this.dirty = true;this.draw(); });
+      chips.append(chip);this.placeChips.set(category.id, chip);
+    }
     this.lookupAddress = lookupAddress;
     listen(byId('game-map-search'), 'submit', event => { event.preventDefault();return this.searchAddress(); });
     listen(byId('game-map-address'), 'input', () => this.clearAddressResults());
@@ -113,7 +123,10 @@ export class GameMap {
     if (!this.drag || event.pointerId !== this.drag.pointerId) return;
     const drag = this.drag;this.drag = null;
     this.canvas.releasePointerCapture?.(event.pointerId);
-    if (!drag.moved && !drag.pin) this.setPin(mapScreenToWorld(this.pointerPoint(event), this.view));
+    if (drag.moved || drag.pin) return;
+    // A click on a place that is shown pins the place itself, by name.
+    const point = mapScreenToWorld(this.pointerPoint(event), this.view), place = this.placeLayer && this.placeKinds.size && this.view.span <= 1400 ? this.placeLayer.nearest(point, 12 * this.view.span / this.view.width, this.placeKinds) : null;
+    this.setPin(place ? { x: place.x, z: place.z, name: `${place.name} · ${place.kind}` } : point);
   }
   cancelPointer(event) { if (this.drag?.pointerId === event.pointerId) this.drag = null; }
   clampCenter() {
@@ -197,6 +210,12 @@ export class GameMap {
     if (!finitePoint(player)) return;
     if (player.x !== this.player.x || player.z !== this.player.z || player.angle !== this.player.angle) this.dirty = true;
     this.player = { ...player };if (this.following) { this.view.x = player.x;this.view.z = player.z; }
+  }
+  /** `layer` is map-places.js createPlaceLayer(): the places the chips show. */
+  setPlaces(layer) {
+    this.placeLayer = layer;
+    for (const category of MAP_CATEGORIES) { const chip = this.placeChips.get(category.id);if (chip) chip.title = `${(layer?.totals[category.id] || 0).toLocaleString('en-US')} in the city`; }
+    this.dirty = true;if (this.open) this.draw();
   }
   setRoads(roads) {
     this.roads = roads || [];this.roadGrid.clear();this.longRoads = [];this.overviewCache = null;this.dropSharpRoads();
@@ -386,6 +405,12 @@ export class GameMap {
       }
     }
     if (!mini && view.span > 8000) { context.font = 'bold 12px Arial';context.fillStyle = '#c3c9c0';context.textAlign = 'center';for (const borough of this.city.boroughs || []) if (finitePoint(borough.label)) { const p = mapWorldToScreen(borough.label, view);context.fillText(borough.name.toUpperCase(), p.x, p.y); } }
+    if (!mini && this.placeLayer && this.placeKinds.size) {
+      drawPlaceMarks(context, placeMarks(this.placeLayer, view, this.placeKinds));
+      // How many of each chosen kind are in view.
+      const counted = this.placeLayer.counts(bounds), note = this.byId('game-map-places-note');
+      if (note) note.textContent = MAP_CATEGORIES.filter(category => this.placeKinds.has(category.id)).map(category => `${counted[category.id].toLocaleString('en-US')} ${category.label}`).join(' · ') + ' IN VIEW';
+    } else if (!mini) { const note = this.byId('game-map-places-note');if (note) note.textContent = this.placeKinds.size ? 'LOADING PLACES…' : ''; }
     const route = pointsOf(this.route);
     if (route.length > 1) { context.strokeStyle = '#131c24';context.lineWidth = mini ? 9 : 8;context.beginPath();chain(route);context.stroke();context.strokeStyle = '#ba8cff';context.lineWidth = mini ? 5 : 4;context.stroke(); }
     const pin = this.pin || (this.sim?.mission?.phase === 'active' ? this.sim.mission.target : null);
