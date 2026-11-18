@@ -4,6 +4,7 @@ import { readFileSync } from 'node:fs';
 import { buildBody, createRig, restWorld, heightOf, palette, PAINT, HAIR, TOPS, BOTTOMS } from '../dist/body.js';
 import { createMotion, createAnimator, fitPose } from '../dist/body-motion.js';
 import { writeMovements } from '../dist/body-moves.js';
+import { createHuman } from '../dist/human.js';
 import { footHeight, previewSeats, sheetSeats } from '../dist/seating.js';
 import { CAST, castFor, FIELDS, DEFAULT_DESIGN, tidy, randomDesign, loadDesign, saveDesign } from '../dist/body-designs.js';
 import { createFigures, STREET_CLIPS, paletteOf } from '../dist/people-figures.js';
@@ -13,6 +14,39 @@ const meta = JSON.parse(readFileSync(new URL('../dist/motion.json', import.meta.
 const file = readFileSync(new URL('../dist/motion.bin', import.meta.url)), words = new Int16Array(file.buffer, file.byteOffset, file.byteLength / 2);
 const motion = writeMovements(createMotion(meta, words));
 
+test('every furniture pose fits the cushion and foot support across body sizes', () => {
+  const binary = name => Uint8Array.from(readFileSync(new URL('../dist/human/' + name, import.meta.url))).buffer;
+  const human = createHuman(JSON.parse(readFileSync(new URL('../dist/human/human.json', import.meta.url))), binary('body.bin'), binary('parts.bin'), meta);
+  for (const rig of [createRig(meta), ...[1.2, 1.77, 2.15].map(height => human.build({height}, {detail:'far'}).rig)]) {
+    for (const [clip, seat] of Object.entries(previewSeats)) {
+      let first;
+      for (const t of [0,.6,1.2,2.3999]) {
+        const pose = motion.sample(clip, t), fit = fitPose(motion, rig, pose, undefined, seat);
+        const world = restWorld(rig.bones.map((b,i)=>({...b,q:fit.q[i],t:i===motion.pelvis?fit.pelvis:b.t})));
+        const hips = world[motion.pelvis].p;
+        assert.ok(Math.abs(hips[0])<.01 && Math.abs(hips[2])<.13, clip + ' keeps hips over cushion');
+        assert.ok(Math.abs(hips[1]-seat.seatHeight-.086*rig.stride)<.005);
+        for (const side of ['l','r']) {
+          const foot=rig.index.get('foot_'+side), sole=world[foot].p[1]-(rig.bind||rig.world)[foot].p[1];
+          assert.ok(sole>=footHeight(seat)-.007, clip + ' clears its support');
+          if(rig.height>1.9)assert.ok(Math.abs(sole-footHeight(seat))<.008, clip + ' plants reachable feet');
+        }
+        if (!first) first=hips;
+        assert.ok(hips.every((v,i)=>Math.abs(v-first[i])<.0001),'breathing keeps the pelvis planted');
+        const sheet=fitPose(motion, rig, pose, undefined, sheetSeats[clip]);
+        const baked=restWorld(rig.bones.map((b,i)=>({...b,q:sheet.q[i],t:i===motion.pelvis?sheet.pelvis:b.t})));
+        assert.ok(Math.abs(baked[motion.pelvis].p[1]+seat.seatHeight-hips[1])<.0001);
+      }
+      const halfway = {...seat,clip,weight:.5};
+      const mid = fitPose(motion,rig,createAnimator(motion).update(0,{seat:halfway}),undefined,halfway);
+      const legs = restWorld(rig.bones.map((b,i)=>({...b,q:mid.q[i],t:i===motion.pelvis?mid.pelvis:b.t})));
+      for (const side of ['l','r']) {
+        const ankle = rig.index.get('foot_'+side);
+        assert.ok(legs[ankle].p[1]-(rig.bind||rig.world)[ankle].p[1]>=footHeight(seat)*.5-.01,clip+' clears support during descent');
+      }
+    }
+  }
+});
 const extent = (built, test = () => true) => { const lo = [Infinity, Infinity, Infinity], hi = [-Infinity, -Infinity, -Infinity]; for (let i = 0; i < built.position.length; i += 3) { if (!test(built.position[i], built.position[i + 1], built.position[i + 2], built.paint[i / 3])) continue; for (let k = 0; k < 3; k++) { lo[k] = Math.min(lo[k], built.position[i + k]); hi[k] = Math.max(hi[k], built.position[i + k]); } } return { lo, hi }; };
 
 test('the skeleton and its recorded movements are baked from a public-domain library', () => {
