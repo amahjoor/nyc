@@ -120,13 +120,6 @@
 .pause-note{margin:14px 0 0;font-size:11px;line-height:1.5;color:#b7c2be}
 .pause-note a{color:#ffab8e}
 
-@font-face {
-  font-family: "Noto Sans Title";
-  src: url("./assets/fonts/noto-sans-black-title.woff2") format("woff2");
-  font-weight: 900;
-  font-display: swap;
-}
-
 .intro {
   display: grid;
   align-items: center;
@@ -135,21 +128,21 @@
 }
 .intro-body { width: max-content; max-width: 100%; }
 .intro-title {
-  width: max-content;
+  width: clamp(178px, 21vw, 320px);
   margin: 0 0 32px;
-  font-family: "Noto Sans Title", Impact, "Arial Black", sans-serif;
-  font-size: clamp(78px, 11vw, 172px);
-  font-weight: 900;
-  line-height: .79;
-  letter-spacing: -.073em;
-  color: #fff5de;
-  paint-order: stroke fill;
-  -webkit-text-stroke: .052em #0c1217;
-  text-shadow: .024em .045em #0c1217, .05em .075em #0c1217;
-  transform: skewY(-5deg);
+  text-align: center;
 }
-.intro-title span { display: block; }
-.intro-title span:last-child { color: #ffc56f; }
+.intro-title img { display: block; width: 100%; height: auto; }
+.intro-title span {
+  display: block;
+  margin-top: -.04em;
+  font: 400 clamp(62px, 7.6vw, 118px)/1 var(--title);
+  letter-spacing: .025em;
+  color: #aac49e;
+  paint-order: stroke fill;
+  -webkit-text-stroke: .055em #132017;
+  text-shadow: 0 .045em #101610;
+}
 .start-button {
   display: inline-flex;
   min-width: min(232px, 100%);
@@ -274,7 +267,8 @@
   .stream-status { left: 15px; }
 }
 @media (max-height: 470px) {
-  .intro-title { font-size: clamp(55px, 22dvh, 110px); margin-bottom: 22px; }
+  .intro-title { width: min(52dvh, 210px); margin-bottom: 18px; }
+  .intro-title span { font-size: min(18dvh, 76px); }
 }
 @media (prefers-reduced-motion: reduce) {
   .start-button { transition: none; }
@@ -287,27 +281,36 @@
 .game-map-chip[aria-pressed="true"]{border-color:var(--chip,#fff);background:#0f171c;color:#fff}.game-map-chip[aria-pressed="true"]::before{opacity:1}
 .game-map-places-note{position:absolute;left:64px;top:9px;background:#17252fdb;padding:6px 8px;font-size:9px;color:#d2d9d2;pointer-events:none;max-width:70%}.game-map-places-note:empty{display:none}
 
-/* Type. Two faces, both under the SIL Open Font License (see assets/fonts):
-   a heavy display face for titles, money and the speedometer, and a condensed
-   one for everything else. The interface was sized for Arial, which is wider
-   and taller in the x than a condensed face, so size-adjust scales the glyphs
-   and every existing font-size keeps meaning what it meant. */
-@font-face{font-family:"Passion One";src:url(assets/fonts/passion-one-black.woff2) format("woff2");font-weight:100 900;font-display:swap}
-@font-face{font-family:"Barlow Condensed";src:url(assets/fonts/barlow-condensed-500.woff2) format("woff2");font-weight:100 500;font-display:swap;size-adjust:124%}
-@font-face{font-family:"Barlow Condensed";src:url(assets/fonts/barlow-condensed-600.woff2) format("woff2");font-weight:600;font-display:swap;size-adjust:124%}
-@font-face{font-family:"Barlow Condensed";src:url(assets/fonts/barlow-condensed-700.woff2) format("woff2");font-weight:700 900;font-display:swap;size-adjust:124%}
-:root{--display:"Passion One",Impact,"Arial Black",sans-serif;--ui:"Barlow Condensed","Arial Narrow",Arial,Helvetica,sans-serif;font-family:var(--ui);font-weight:500}
-input,select,textarea,kbd{font-family:var(--ui)}
-h1,h2,.wordmark,.cash strong,.speed>strong,.phone-wallet b,.phone-place b,.road-pilot-destination strong{font-family:var(--display);font-weight:400;font-synthesis:none}
-h1{letter-spacing:.005em;line-height:.88}
-h1 span{-webkit-text-stroke-width:1.5px}
-h2{text-transform:uppercase}
-.modal h2,.city-navigation h2{letter-spacing:0;line-height:1}
-.mission-panel h2{letter-spacing:.2px;font-size:28px;line-height:1.05}
-.wordmark{letter-spacing:.3px;font-size:19px}
-.wordmark .edition{font-family:var(--ui);font-weight:600}
-.brand-icon{letter-spacing:-9px}
-.cash strong{letter-spacing:.3px;font-size:24px;color:#8fd684}
-.speed>strong{letter-spacing:-1px}
-.phone-wallet b{letter-spacing:0}
-@media(max-width:600px){.wordmark{font-size:15px}.brand-icon{letter-spacing:-7px}.mission-panel h2{font-size:23px}.cash strong{font-size:19px}}
+:root { font-family: var(--ui); font-weight: 500; }
+input, select, textarea, .phone input, .road-pilot-controls button { font-family: var(--ui); }
+kbd { font-family: Arial, sans-serif; }
+
+h2, .speed > strong, .phone-place b, .road-pilot-destination strong {
+  font-family: var(--heading);
+  font-weight: 700;
+}
+h2 { text-transform: uppercase; }
+.modal h2, .city-navigation h2 { letter-spacing: 0; line-height: 1; }
+.mission-panel h2 { font: 900 28px/1.05 var(--display); letter-spacing: .01em; }
+.speed > strong { letter-spacing: -1px; }
+.cash-display strong, #phone-wallet-cash, #phone-cash {
+  font-family: var(--display);
+  font-weight: 900;
+  letter-spacing: .015em;
+}
+.cash-display strong {
+  paint-order: stroke fill;
+  -webkit-text-stroke: .08em #142017;
+}
+#street-name, #about-title {
+  font-family: var(--script);
+  font-weight: 400;
+  letter-spacing: 0;
+  text-transform: none;
+}
+#street-name { font-size: clamp(15px, 1.6vw, 22px); line-height: 1.25; }
+.sources-modal { font-family: var(--heading); }
+
+@media (max-width: 600px) {
+  .mission-panel h2 { font-size: 23px; }
+}

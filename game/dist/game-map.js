@@ -446,7 +446,7 @@ export class GameMap {
     const roads = overview ? [] : this.visibleRoads(bounds);
     if (overview) this.paintOverviewRoads(context, view);else this.paintRoads(context, view, roads, mini ? 1.3 : .65);
     if (!mini && view.span < 3500) {
-      const labels = new Set(), slots = new Set();context.font = '600 11px "Barlow Condensed", Arial';context.fillStyle = '#d1d7d0';context.textAlign = 'center';
+      const labels = new Set(), slots = new Set();context.font = '600 11px "Chalet Menu", Jost, Arial';context.fillStyle = '#d1d7d0';context.textAlign = 'center';
       for (const road of roads) {
         if (!road.name || labels.has(road.name) || labels.size >= 20) continue;
         const a = xy(road.points[0]), b = xy(road.points.at(-1));if (Math.hypot(b.x - a.x, b.y - a.y) < 75) continue;
@@ -455,7 +455,7 @@ export class GameMap {
         context.fillText(road.name, x, y - 6);slots.add(slot);labels.add(road.name);
       }
     }
-    if (!mini && view.span > 8000) { context.font = '700 13px "Barlow Condensed", Arial';context.fillStyle = '#c3c9c0';context.textAlign = 'center';for (const borough of this.city.boroughs || []) if (finitePoint(borough.label)) { const p = mapWorldToScreen(borough.label, view);context.fillText(borough.name.toUpperCase(), p.x, p.y); } }
+    if (!mini && view.span > 8000) { context.font = '700 13px "Chalet Menu", Jost, Arial';context.fillStyle = '#c3c9c0';context.textAlign = 'center';for (const borough of this.city.boroughs || []) if (finitePoint(borough.label)) { const p = mapWorldToScreen(borough.label, view);context.fillText(borough.name.toUpperCase(), p.x, p.y); } }
     if (!mini && this.placeLayer && this.placeKinds.size) {
       drawPlaceMarks(context, placeMarks(this.placeLayer, view, this.placeKinds));
       // How many of each chosen kind are in view.

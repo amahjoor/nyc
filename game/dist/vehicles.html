@@ -5,13 +5,14 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <link rel="icon" href="data:,">
   <title>NYC vehicle catalog · GTA NYC</title>
+  <link rel="stylesheet" href="fonts.css">
   <style>
-    :root { color-scheme: dark; font: 16px/1.5 Arial, Helvetica, sans-serif; color: #eae9e2; background: #151b1d; }
+    :root { color-scheme: dark; font: 16px/1.5 var(--ui); color: #eae9e2; background: #151b1d; }
     * { box-sizing: border-box }
     body { margin: 0 }
     main { max-width: 1180px; margin: auto; padding: clamp(16px, 4vw, 50px) }
     header { border-bottom: 1px solid #435054; margin-bottom: 24px; padding-bottom: 18px }
-    h1, h2 { margin: 0; line-height: 1.08; letter-spacing: -.045em }
+    h1, h2 { font-family: var(--heading); margin: 0; line-height: 1.08; letter-spacing: -.045em }
     h1 { font-size: clamp(32px, 6vw, 60px); margin-top: 16px }
     h2 { font-size: clamp(25px, 3.5vw, 40px) }
     p { margin: 8px 0; color: #b7c2c1 }

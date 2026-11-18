@@ -1,4 +1,5 @@
 import { formatMoney } from './money.js';
+import { title } from './local-search.js';
 import { vehicleName } from './fleet.js';
 
 const $ = id => document.getElementById(id);
@@ -36,7 +37,7 @@ export class HUD {
     this.text('distance', (sim.distanceTravelled*metersToMiles).toFixed(1)+' MI');
     this.text('health-number', String(Math.round(sim.health)));
     $('health-bar').style.width = Math.max(0,sim.health)+'%';
-    this.text('street-name', sim.getStreet().toUpperCase());
+    this.text('street-name', title(sim.getStreet()));
     const police = sim.police, stars = Math.min(5, Math.ceil(sim.heat - 1e-9)), searching = Boolean(stars && police?.state === 'search');
     this.text('wanted-stars', '★'.repeat(stars) + '☆'.repeat(5 - stars));
     this.text('wanted-label', police?.arrest > .15 ? 'HANDS UP' : searching ? (police.cornered ? 'THEY KNOW WHERE YOU ARE' : 'STAY OUT OF SIGHT') : stars > 1 ? 'LOSE THE COPS' : 'WANTED');
