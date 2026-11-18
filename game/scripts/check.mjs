@@ -131,6 +131,13 @@ if(landscapeBytes!==landscape.stats.bytes)throw new Error('Landscape manifest by
   if(!region||JSON.stringify(park.origin)!==JSON.stringify(landscape.origin))throw new Error('Central Park does not match the landscape it stands in');
   const records=await readFile(resolve(root,'dist/central-park',park.trees.url));
   if(records.length!==park.trees.count*park.trees.record.length*2||park.trees.count!==region.stats.trees)throw new Error('Central Park tree records do not match their count');
+  const decks=JSON.parse(await readFile(resolve(root,'dist/central-park',park.structures.url),'utf8')).structures;
+  if(decks.length!==park.structures.count||new Set(decks.map(deck=>deck.id)).size!==decks.length)throw new Error('Central Park bridges do not match their count');
+  for(const deck of decks){
+    if(deck.kind!=='transport'||deck.elevationStatus!=='surveyed'||deck.polygon.length<3||deck.polygon.length!==deck.elevations.polygon.length
+      ||!deck.elevations.polygon.every(Number.isFinite))throw new Error(`Invalid Central Park bridge: ${deck.id}`);
+  }
+  if(!decks.some(deck=>deck.cover==='ground'))throw new Error('Central Park has no lids over its transverse roads');
   for(const map of [park.surface,park.canopy]){
     const image=await readFile(resolve(root,'dist/central-park',map.url));
     // A PNG states its size in bytes 16 to 23.

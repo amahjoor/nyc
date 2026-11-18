@@ -167,3 +167,23 @@ test('Central Park waits for its terrain before standing its trees, and paints t
   park.dispose();
   assert.equal(ground, null);
 });
+
+test('the park hands its bridges to the city\'s decks while it is near, and takes them back', async () => {
+  const given = [];
+  const decks = { setExtraStructures: (features, material) => given.push({ count: features.length, lids: features.filter(feature => feature.cover === 'ground').length, material }) };
+  const landscape = { parkGround: createParkGroundUniforms(), setParkGround: () => {}, getStatus: () => ({ activeRegions: [] }) };
+  const fetcher = async url => url.endsWith('.bin') ? { ok: true, arrayBuffer: async () => bytes(url.replace(/^\.\//, '')) } : { ok: true, json: async () => read(url.replace(/^\.\//, '')) };
+  const park = createCentralPark({ scene: new THREE.Scene(), landscape, fetcher, streetDetail: () => decks, loadTextures: async () => ({ surface: new THREE.Texture(), canopy: new THREE.Texture() }) });
+  const manifest = await park.ready, inside = { x: 2655, z: -6005 };
+  park.update({ x: -8000, z: 9000 });
+  assert.equal(given.length, 0, 'far off, nothing is asked for');
+  park.update(inside);
+  for (let waited = 0; waited < 400 && !given.length; waited++) { await new Promise(resolve => setTimeout(resolve, 5));park.update(inside); }
+  assert.equal(given.length, 1);
+  assert.equal(given[0].count, manifest.structures.count);
+  assert.ok(given[0].lids >= 8 && given[0].material.isMeshStandardMaterial, 'the lids come with the material that draws the ground on them');
+  park.update(inside);assert.equal(given.length, 1, 'once is enough');
+  park.update({ x: -8000, z: 9000 });
+  assert.deepEqual(given.at(-1).count, 0, 'leaving the park returns the decks to the city\'s own');
+  park.dispose();
+});

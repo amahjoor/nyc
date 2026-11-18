@@ -525,42 +525,58 @@ def crown_candidates(cache, download, frame, park):
     return found
 
 
-def tree_records(candidates, park, water, row_walks, blocked, heights):
+def tree_records(candidates, frame, park, row_walks, blocked, heights):
     """
     One record for each tree: where it stands, how tall, how wide. A trunk stands under its crown's highest
-    point, unless that is over water, a roadway, a path or a roof: then at the nearest ground the crown covers.
+    point, unless that is over water, a roadway, a path or a roof: then on the nearest clear ground the crown covers.
     """
     import numpy as np
-    from shapely import STRtree
+    from scipy import ndimage
     from shapely.geometry import Point
-    from shapely.ops import nearest_points, unary_union
+    from shapely.ops import unary_union
     from shapely.prepared import prep
     inside = prep(park)
     street = prep(unary_union(row_walks).buffer(1.5)) if row_walks else None
-    parts = [part for shape_ in blocked if shape_ is not None and not shape_.is_empty for part in getattr(shape_, "geoms", [shape_])]
-    tree = STRtree(parts)
+    # How far each spot is from anything a trunk cannot stand in.
+    clear = ndimage.distance_transform_edt(~draw(blocked, frame)) * FINE
+    rows, columns = clear.shape
     records, footprints, count = [], [], {"moved": 0, "no ground under the crown": 0, "outside": 0, "street": 0}
     for x, z, top, low, crown in candidates:
-        point = Point(x, z)
-        hits = [parts[i] for i in tree.query(crown)]
-        if any(hit.contains(point) or hit.distance(point) < .6 for hit in hits):
-            free = crown.difference(unary_union(hits).buffer(.8))
-            if free.is_empty or free.area < 1:
-                count["no ground under the crown"] += 1
-                continue
-            point = nearest_points(free, point)[0]
-            count["moved"] += 1
-        if not inside.contains(point):
+        row, column = int(z / FINE), int(x / FINE)
+        if not (0 <= row < rows and 0 <= column < columns):
             count["outside"] += 1
             continue
-        if street and street.contains(point):
+        if street and street.contains(Point(x, z)):
             # The street tree census draws the trees of the sidewalk outside the wall.
             count["street"] += 1
             continue
-        records.append((point.x, point.y, top, math.sqrt(crown.area / math.pi), low))
+        if clear[row, column] < .6:
+            x0, z0, x1, z1 = crown.bounds
+            wx, wz = math.floor(x0), math.floor(z0)
+            covered = draw([crown], frame, FINE, (wx, wz, math.ceil(x1) - wx + 1, math.ceil(z1) - wz + 1))
+            r0, c0 = round(wz / FINE), round(wx / FINE)
+            if r0 < 0 or c0 < 0 or r0 + covered.shape[0] > rows or c0 + covered.shape[1] > columns:
+                count["no ground under the crown"] += 1
+                continue
+            free = covered & (clear[r0:r0 + covered.shape[0], c0:c0 + covered.shape[1]] >= .8)
+            if not free.any():
+                count["no ground under the crown"] += 1
+                continue
+            rr, cc = np.nonzero(free)
+            px, pz = wx + (cc + .5) * FINE, wz + (rr + .5) * FINE
+            nearest = int(np.argmin((px - x) ** 2 + (pz - z) ** 2))
+            x, z = float(px[nearest]), float(pz[nearest])
+            count["moved"] += 1
+        point = Point(x, z)
+        if not inside.contains(point):
+            count["outside"] += 1
+            continue
+        records.append((x, z, top, math.sqrt(crown.area / math.pi), low))
         footprints.append(crown)
     print("Trees:", len(records), count)
     data = np.array(records)
+    # A record holds a position to the decimetre: the ground is read where the record will say the tree is.
+    data[:, 0:2] = np.round(data[:, 0:2] * 10) / 10
     ground = grid_height(heights, data[:, 0], data[:, 1])
     order = np.lexsort((data[:, 0], np.floor(data[:, 1] / 100)))
     packed = np.stack([data[:, 0] * 10, data[:, 1] * 10, (ground - HEIGHT_OFFSET) / HEIGHT_SCALE, data[:, 2] * 100, np.minimum(data[:, 3], 30) * 100, data[:, 4] * 100], axis=1)[order]
@@ -575,7 +591,7 @@ def transverse_cuts(elements, frame, park, sample):
     end to the other; its width, from the cutting on either side; and the lid, at the heights the model has.
     """
     import numpy as np
-    from shapely.geometry import LineString, Polygon
+    from shapely.geometry import LineString
     from shapely.ops import linemerge, unary_union, substring
     roads, tunnels = {}, {}
     for element in elements:
@@ -587,16 +603,46 @@ def transverse_cuts(elements, frame, park, sample):
         roads.setdefault(name, []).append(line)
         if tags.get("tunnel") == "yes" or tags.get("covered") == "yes":
             tunnels.setdefault(name, []).append(line)
+    spot = lambda point: (round(point[0], 2), round(point[1], 2))
+
+    def onward(ways, start, heading, reach):
+        """The road beyond one end of a tunnel: whichever way leaves that end most nearly straight on, and so on."""
+        path, travelled, used = [], 0.0, set()
+        while travelled < reach:
+            best = None
+            for number, way in enumerate(ways):
+                for coords in (list(way.coords), list(way.coords)[::-1]):
+                    if number in used or spot(coords[0]) != spot(start):
+                        continue
+                    dx, dz = coords[1][0] - coords[0][0], coords[1][1] - coords[0][1]
+                    straight = (dx * heading[0] + dz * heading[1]) / ((math.hypot(dx, dz) or 1) * (math.hypot(*heading) or 1))
+                    if straight > .5 and (best is None or straight > best[0]):
+                        best = (straight, number, coords)
+            if best is None:
+                break
+            _, number, coords = best
+            used.add(number)
+            path += coords[1:]
+            travelled += LineString(coords).length
+            start, heading = coords[-1], (coords[-1][0] - coords[-2][0], coords[-1][1] - coords[-2][1])
+        return path
+
     cuts = []
     for name, lines in sorted(tunnels.items()):
-        merged = linemerge(unary_union(roads[name]))
-        whole = list(merged.geoms) if merged.geom_type == "MultiLineString" else [merged]
         covered = linemerge(unary_union(lines))
+        open_ways = [way for way in roads[name] if not any(way.equals(line) for line in lines)]
         for tunnel in (list(covered.geoms) if covered.geom_type == "MultiLineString" else [covered]):
-            road = min(whole, key=lambda part: part.distance(tunnel.interpolate(.5, normalized=True)))
-            if road.distance(tunnel.interpolate(.5, normalized=True)) > 2 or not park.intersects(tunnel):
+            if not park.intersects(tunnel):
                 continue
-            s0, s1 = sorted((road.project(tunnel.interpolate(0, normalized=True)), road.project(tunnel.interpolate(1, normalized=True))))
+            inside = list(tunnel.coords)
+            before = onward(open_ways, inside[0], (inside[0][0] - inside[1][0], inside[0][1] - inside[1][1]), 45)
+            after = onward(open_ways, inside[-1], (inside[-1][0] - inside[-2][0], inside[-1][1] - inside[-2][1]), 45)
+            if not before or not after:
+                print(f"  {name}: a covered stretch of {tunnel.length:.0f} m has no open road at one end and is left alone")
+                continue
+            road = LineString(before[::-1] + inside + after)
+            s0 = LineString(before[::-1] + inside[:1]).length
+            s1 = s0 + tunnel.length
             reach = 30
             stations = np.arange(max(0, s0 - reach), min(road.length, s1 + reach) + .5, 1.0)
             points = [road.interpolate(float(s)) for s in stations]
@@ -633,10 +679,11 @@ def transverse_cuts(elements, frame, park, sample):
                 measured = [w for w in (half_width(a0 - 3, side), half_width(a1 + 3, side), half_width(a0 - 8, side), half_width(a1 + 8, side)) if w]
                 widths[side] = min(9.0, max(4.5, float(np.median(measured)) + .5)) if measured else 6.0
             centre = substring(road, a0, a1)
-            edge = lambda line, side, extra: line.offset_curve(side * (widths[side] + extra))
-            def corridor(line, extra):
-                one, other = edge(line, 1, extra), edge(line, -1, extra)
-                return Polygon(list(one.coords) + list(other.coords)[::-1]).buffer(0)
+            def corridor(line, extra, widths=widths):
+                # The strip either side of the centre line, square at its ends.
+                sides = [line.buffer(side * (widths[side] + extra), single_sided=True, join_style=2) for side in (1, -1)]
+                strip = unary_union(sides).buffer(.05, join_style=2)
+                return max(strip.geoms, key=lambda part: part.area) if strip.geom_type == "MultiPolygon" else strip
             cuts.append({"name": name, "road": road, "from": a0, "to": a1, "h0": h0, "h1": h1, "lid": (p0, p1), "bump": bump, "widths": widths,
                          "cut": corridor(centre, 0), "corridor": corridor})
             print(f"  {name}: covered for {a1 - a0:.0f} m, {bump:.1f} m under the top, {widths[1] + widths[-1]:.1f} m wide")
@@ -666,8 +713,9 @@ def lids(cuts, frame, sample, bridges):
     ground either side. Where the survey already outlines a bridge over the stretch, that bridge is the lid.
     """
     import numpy as np
+    from shapely.geometry import Point
     from shapely.ops import substring
-    features = []
+    features, outlines = [], []
     for number, cut in enumerate(cuts):
         p0, p1 = cut["lid"]
         if p1 - p0 < 4:
@@ -686,17 +734,17 @@ def lids(cuts, frame, sample, bridges):
         # Heights come from just inside the lid's ends, clear of the model's slope down into the cutting.
         tops = []
         for x, z in dense:
-            from shapely.geometry import Point
             station = min(max(line.project(Point(x, z)), 2.0), max(2.0, line.length - 2.0))
             on = line.interpolate(station); near = line.interpolate(line.project(Point(x, z)))
             tops.append(float(sample(*frame.world(np.array([x + on.x - near.x]), np.array([z + on.y - near.y])))[0]))
         world = [frame.world(x, z) for x, z in dense]
-        features.append({"id": f"transport:central-park-lid:{number}", "sourceId": "nyc-dem-2017", "kind": "transport", "subtype": "bridge", "cover": "ground",
+        outlines.append(outline)
+        features.append({"id": f"transport:central-park-lid:{number}", "sourceId": "nyc-dem-2017", "kind": "transport", "subtype": "bridge", "cover": "ground", "grade": True,
                          "name": cut["name"], "polygon": [[round(float(x), 3), round(float(z), 3)] for x, z in world], "holes": [],
                          "elevations": {"polygon": [round(v, 3) for v in tops], "holes": []}, "elevationUnits": "meters", "verticalDatum": "NAVD88",
                          "elevationStatus": "surveyed", "elevationMeaning": "The 2017 elevation model at the outline: the ground or bridge top over a covered roadway.",
                          "surfaceRole": "elevated transport outline"})
-    return features
+    return features, outlines
 
 
 def survey_bridges(cache, download, frame, park):
@@ -721,6 +769,8 @@ def survey_bridges(cache, download, frame, park):
             chains = [chain(ring) for ring in rings]
             features.append({"id": f"transport:arcgis-{properties['OBJECTID']}:{part}", "sourceId": str(properties.get("SOURCE_ID")), "sourceRowId": f"arcgis-{properties['OBJECTID']}",
                              "kind": "transport", "featureCode": properties["FEATURE_CODE"], "subCode": properties.get("SUB_FEATURE_CODE"), "subtype": subtype,
+                             # Every bridge in the park carries a drive or a path that is at grade either side of it.
+                             "grade": True,
                              "status": properties.get("STATUS"), "name": properties.get("NAME") or "", "polygon": chains[0][0], "holes": [c[0] for c in chains[1:]],
                              "elevations": {"polygon": chains[0][1], "holes": [c[1] for c in chains[1:]]}, "elevationUnits": "meters", "verticalDatum": "NAVD88",
                              "sourceElevationUnits": "US survey feet", "elevationStatus": "surveyed",
@@ -812,15 +862,20 @@ def build(cache, output, download=False, preview=None):
     print("Transverse roads under cover:")
     cuts = transverse_cuts(elements, frame, park, sample)
     bridges, bridge_shapes = survey_bridges(cache, download, frame, park)
-    structures = lids(cuts, frame, sample, bridge_shapes) + bridges
-    print(f"Structures: {len(structures) - len(bridges)} lids over the transverse roads, {len(bridges)} surveyed bridges")
+    covers, cover_shapes = lids(cuts, frame, sample, bridge_shapes)
+    # A surveyed bridge that mostly lies where a lid does would be drawn twice: the lid, which spans the whole cutting, stays.
+    bridges = [bridge for bridge, outline in zip(bridges, bridge_shapes)
+               if not any(outline.intersection(cover).area > .4 * outline.area for cover in cover_shapes)]
+    structures = covers + bridges
+    print(f"Structures: {len(covers)} lids over the transverse roads, {len(bridges)} surveyed bridges")
     heights = carve(heights, cuts)
     # Trees stand on the ground as it ships: the same rounded heights the game will sample.
     shipped = np.clip(np.round((heights - HEIGHT_OFFSET) / HEIGHT_SCALE), 0, 65535) * HEIGHT_SCALE + HEIGHT_OFFSET
     near = park.buffer(3)
-    blocked = ([feature["local"] for feature in water] + [geometry for name in ("Roadbed_2022", "Sidewalk_2022") for properties, geometry in survey[name] if geometry.intersects(near)]
+    blocked = ([feature["local"] for feature in water] + [geometry for name in ("Roadbed_2022", "Sidewalk_2022") for properties, geometry in survey[name]
+                                                              if geometry.intersects(near) and properties.get("SUB_FEATURE_CODE") != 380000]
                + osm_areas["building"] + [cut["cut"].buffer(3) for cut in cuts])
-    trees, crowns = tree_records(crown_candidates(cache, download, frame, park), park, water, row_walks, blocked, shipped)
+    trees, crowns = tree_records(crown_candidates(cache, download, frame, park), frame, park, row_walks, blocked, shipped)
     surface, over, shares = ground_cover(frame, park, survey, osm_areas, osm_lines, water, crowns)
     print("Ground:", shares)
 

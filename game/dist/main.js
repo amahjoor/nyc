@@ -1758,7 +1758,7 @@ async function boot() {
     landscapeManifest=index;
     landscape=new Landscape({scene,index,physics:sim.streetObjects,stairOpenings,orthophoto:ground.orthophoto,onChange:()=>{landscapeDirty=true;},onStatus:updateLandscapeStatus});
     await landscape.loadBase();
-    centralPark=createCentralPark({scene,landscape,physics:sim.streetObjects});
+    centralPark=createCentralPark({scene,landscape,physics:sim.streetObjects,streetDetail:()=>streetDetail});
     // Measured terrain and the water sheet now cover everything the flat
     // photograph did; it stays loaded as the terrain's and the roofs' texture.
     ground.group.visible=!landscape.getStatus().baseReady;
