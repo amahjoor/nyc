@@ -58,9 +58,10 @@ test('keyboard, arrows, touch and controller movement follow the actual camera s
     const ahead=new THREE.Vector3();camera.getWorldDirection(ahead);ahead.y=0;ahead.normalize();
     for(const [key,arrow,touch,axis,value,expected,turn] of [
       ['KeyD','ArrowRight','right',0,1,right,1],['KeyA','ArrowLeft','left',0,-1,right.clone().negate(),-1],
-      ['KeyW','ArrowUp','forward',1,-1,ahead,0],['KeyS','ArrowDown','back',1,1,ahead.clone().negate(),0],
+      ['KeyW',null,'forward',1,-1,ahead,0],['KeyS','ArrowDown','back',1,1,ahead.clone().negate(),0],
     ]){
       for(const source of ['keyboard','arrows','touch','controller']){
+        if(source==='arrows'&&!arrow)continue;
         input.clear();pad.axes.fill(0);
         if(source==='keyboard')input.keys.add(key);
         else if(source==='arrows')input.keys.add(arrow);
@@ -184,6 +185,15 @@ test('disabling pointer look mid-drag clears pending rotation without disabling 
   assert.deepEqual(actions,['interact','view']);
   target.emit('keyup',{code:'KeyD',target:{tagName:'CANVAS'}});
   assert.equal(input.sample(0,1/60).turn,0);
+});
+
+test('up arrow opens the phone and does not walk',t=>{
+  const {input,target,actions}=movementInput(t);
+  target.emit('keydown',{code:'ArrowUp',target:{tagName:'CANVAS'},repeat:false,preventDefault(){}});
+  assert.deepEqual(actions,['phone']);
+  const controls=input.sample(0,1/60);
+  assert.equal(controls.forward,0);
+  assert.equal(controls.moveZ,0);
 });
 
 test('typing an address does not trigger actions, movement, or browser-key suppression',t=>{

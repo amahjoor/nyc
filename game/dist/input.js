@@ -9,18 +9,20 @@ export class Input {
     this._pointerLookEnabled = true;
     this.padButtons = [];
     this.action = action;
-    const actions = {KeyE:'interact',KeyN:'job',KeyR:'recover',KeyC:'camera',KeyV:'view',KeyM:'map',KeyP:'phone',KeyG:'shop',KeyH:'horn',KeyT:'time',Escape:'pause'};
+    const actions = {KeyE:'interact',KeyN:'job',KeyZ:'cash',KeyR:'recover',KeyC:'camera',KeyB:'perspective',KeyV:'view',KeyM:'map',KeyP:'phone',ArrowUp:'phone',KeyF:'fight',KeyG:'shop',KeyH:'horn',KeyT:'time',Escape:'pause'};
     window.addEventListener('keydown', e => {
       if (['INPUT','TEXTAREA','SELECT'].includes(e.target.tagName)) return;
+      if (e.code === 'Space' && e.target.tagName === 'BUTTON') return;
       if (e.code.startsWith('Arrow') || e.code === 'Space') e.preventDefault();
       this.keys.add(e.code);
-      if (!e.repeat && actions[e.code]) action(actions[e.code]);
+      if (!e.repeat && actions[e.code]) action(actions[e.code], e);
     });
     window.addEventListener('keyup', e => this.keys.delete(e.code));
     window.addEventListener('blur', () => this.clear());
     canvas.addEventListener('pointerdown', e => {
       if (!this.pointerLookEnabled) return;
       this.dragging = true;
+      this._press = { id: e.pointerId, x: e.clientX, y: e.clientY };
       this.pointerX = e.clientX;
       this.pointerY = e.clientY;
       canvas.setPointerCapture(e.pointerId);
@@ -32,7 +34,15 @@ export class Input {
       this.pointerX = e.clientX;
       this.pointerY = e.clientY;
     });
-    for (const event of ['pointerup','pointercancel','lostpointercapture']) canvas.addEventListener(event, () => this.dragging = false);
+    canvas.addEventListener('pointerup', e => {
+      const press = this._press;
+      this._press = null;
+      this.dragging = false;
+      // A click punches. A drag is the camera, and it should not swing.
+      if (!this._pointerLookEnabled || !press || e.pointerId !== press.id) return;
+      if (Math.hypot(e.clientX - press.x, e.clientY - press.y) < 7) this.action('fight');
+    });
+    for (const event of ['pointercancel','lostpointercapture']) canvas.addEventListener(event, () => { this.dragging = false; this._press = null; });
     for (const button of document.querySelectorAll('[data-control]')) {
       const name = button.dataset.control;
       button.addEventListener('pointerdown', e => { e.preventDefault(); button.setPointerCapture(e.pointerId); this.touch.add(name); button.classList.add('pressed'); });
@@ -48,14 +58,16 @@ export class Input {
       // Map selection can take ownership mid-drag. Discard queued pointer
       // movement so returning to the street cannot rotate the camera later.
       this.dragging = false;
+      this._press = null;
       this.lookDelta = 0;
       this.lookVertical = 0;
     }
   }
-  clear() { this.keys.clear(); this.touch.clear(); this.dragging = false; }
+  clear() { this.keys.clear(); this.touch.clear(); this.dragging = false; this._press = null; }
   sample(cameraYaw, dt) {
     const has = (...keys) => keys.some(key => this.keys.has(key));
-    let forward = Number(has('KeyW','ArrowUp') || this.touch.has('forward')) - Number(has('KeyS','ArrowDown') || this.touch.has('back'));
+    // Up arrow is the phone, the same way a d-pad opens it. W still walks and drives.
+    let forward = Number(has('KeyW') || this.touch.has('forward')) - Number(has('KeyS','ArrowDown') || this.touch.has('back'));
     let turn = Number(has('KeyD','ArrowRight') || this.touch.has('right')) - Number(has('KeyA','ArrowLeft') || this.touch.has('left'));
     let walkForward = forward;
     let handbrake = has('Space') || this.touch.has('brake');
@@ -78,7 +90,7 @@ export class Input {
       this.lookVertical += dead(pad.axes[3]) * dt;
       // Right bumper also exits the initial city overview, so a controller
       // can reach walking/driving without needing a keyboard camera shortcut.
-      for (const [index, name] of [[0,'interact'],[3,'job'],[5,'view'],[9,'pause'],[8,'map']]) {
+      for (const [index, name] of [[0,'interact'],[1,'fight'],[3,'job'],[5,'view'],[9,'pause'],[8,'map'],[11,'perspective'],[13,'cash']]) {
         const pressed = Boolean(pad.buttons[index]?.pressed);
         if (pressed && !this.padButtons[index]) this.action(name);
         this.padButtons[index] = pressed;
