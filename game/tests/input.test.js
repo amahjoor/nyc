@@ -37,7 +37,7 @@ test('right bumper emits camera changes on press edges, including from city over
   }
 });
 
-function movementInput(t){
+function movementInput(t, handleInterfaceKey){
   const original=new Map(['window','document','navigator'].map(name=>[name,Object.getOwnPropertyDescriptor(globalThis,name)]));
   const listeners=new Map(),actions=[];
   const target={captures:[],addEventListener(name,handler){if(!listeners.has(name))listeners.set(name,[]);listeners.get(name).push(handler);},
@@ -46,7 +46,7 @@ function movementInput(t){
   const globals={window:target,document:{querySelectorAll:()=>[]},navigator:{getGamepads:()=>[pad]}};
   for(const [name,value] of Object.entries(globals))Object.defineProperty(globalThis,name,{value,configurable:true});
   t.after(()=>{for(const [name,descriptor] of original){if(descriptor)Object.defineProperty(globalThis,name,descriptor);else delete globalThis[name];}});
-  return {input:new Input(target,action=>actions.push(action)),pad,target,actions};
+  return {input:new Input(target,action=>actions.push(action),handleInterfaceKey),pad,target,actions};
 }
 
 test('keyboard, touch and controller movement follow the actual camera screen axes',t=>{
@@ -194,6 +194,24 @@ test('only Up opens the phone and no arrow moves or steers the player',t=>{
     assert.deepEqual([forward,turn,moveX,moveZ],[0,0,0,0],code);
   }
   assert.deepEqual(actions,['phone']);
+});
+
+test('focused phone buttons share movement with the game and search fields accept typing', t => {
+  const {input,target,actions} = movementInput(t, () => true);
+  function press(code, tagName) {
+    let prevented = false;
+    target.emit('keydown', {code,target:{tagName},preventDefault(){ prevented = true; }});
+    return prevented;
+  }
+  for (const code of ['KeyW','KeyD','ShiftLeft','KeyE']) press(code, 'BUTTON');
+  assert.equal(press('Space', 'BUTTON'), true);
+  const {forward,turn,run,handbrake} = input.sample(0, 1/60);
+  assert.deepEqual([forward,turn,run,handbrake], [1,1,true,true]);
+  assert.deepEqual(actions, []);
+  for (const code of ['KeyW','KeyD','ShiftLeft','Space']) target.emit('keyup',{code,target:{tagName:'INPUT'}});
+  for (const code of ['KeyS','KeyA','Space']) assert.equal(press(code, 'INPUT'), false);
+  const typed = input.sample(0, 1/60);
+  assert.deepEqual([typed.forward,typed.turn,typed.run,typed.handbrake], [0,0,false,false]);
 });
 
 test('typing an address does not trigger actions, movement, or browser-key suppression',t=>{

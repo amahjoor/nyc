@@ -511,7 +511,7 @@ function updateFirstPerson(look,vertical){
   if(headAnchor!==anchor){
     headAnchor=anchor;yaw=p.angle;headTurn=0;headPitch=0;
   }
-  if(paused||traveling||phone?.open){look=0;vertical=0;}
+  if(paused||traveling){look=0;vertical=0;}
   headPitch=clamp(headPitch+vertical,driving?-.9:-1.4,driving?1.05:1.4);
   if(driving){
     headTurn=clamp(headTurn+look,-1.95,1.95);
@@ -1176,7 +1176,7 @@ async function boot() {
     onGarage:(kind,job,choice)=>{if(sim.garage(kind,job,choice))saveProgress();},onMechanic:()=>sim.callMechanic(),onCab:()=>sim.summonCab(),
     onDirections:place=>{const name=place.name||describePlace(place,gfx.hours).name;requestDirections({x:place.x,z:place.z}).then(found=>announce(found?'Directions to '+name+'. Follow the highlighted streets.':'No way to '+name+' along mapped streets.'));},
     onWork:()=>work.board(),onJob:()=>action('job'),onMap:()=>action('map'),
-    onOpenChange:open=>{input.clear();$('phone-button').setAttribute('aria-expanded',String(open));$('mission-panel').classList.toggle('behind-phone',open);if(!open)canvas.focus();}});
+    onOpenChange:open=>{$('phone-button').setAttribute('aria-expanded',String(open));$('mission-panel').classList.toggle('behind-phone',open);if(!open)canvas.focus();}});
   loadData('street-life.json').then(data=>{cityLife=createCityLife(data);props.setData(data);sim.setActiveCity({signalHints});}).catch(()=>{});
   world=createCityStream(cityIndex,{scene,onCollisionChange:applyBuildings,onStatus:updateStreaming,heightAt:terrainHeight});
   ground=createCityGround({scene,renderer,onStatus:status=>{if(status.failures)$('imagery-status').textContent='Some aerial tiles are unavailable. NYC imagery will retry as you explore; surveyed geometry loads separately.';}});

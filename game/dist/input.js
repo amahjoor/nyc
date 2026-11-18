@@ -11,12 +11,13 @@ export class Input {
     this.action = action;
     const actions = {KeyE:'interact',KeyN:'job',KeyZ:'cash',KeyR:'recover',KeyC:'camera',KeyB:'perspective',KeyV:'view',KeyM:'map',ArrowUp:'phone',KeyF:'fight',KeyG:'shop',KeyH:'horn',KeyT:'time',Escape:'pause'};
     window.addEventListener('keydown', e => {
-      if (handleInterfaceKey(e)) return;
+      const interfaceHandled = handleInterfaceKey(e);
       if (['INPUT','TEXTAREA','SELECT'].includes(e.target.tagName)) return;
-      if (e.code === 'Space' && e.target.tagName === 'BUTTON') return;
+      if (e.code === 'Space' && e.target.tagName === 'BUTTON' && !interfaceHandled) return;
       if (e.code === 'ArrowUp' || e.code === 'Space') e.preventDefault();
+      // Sample held movement even while the phone owns shortcuts and app navigation.
       this.keys.add(e.code);
-      if (!e.repeat && actions[e.code]) action(actions[e.code], e);
+      if (!interfaceHandled && !e.repeat && actions[e.code]) action(actions[e.code], e);
     });
     window.addEventListener('keyup', e => this.keys.delete(e.code));
     window.addEventListener('blur', () => this.clear());

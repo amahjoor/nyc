@@ -418,9 +418,15 @@ test('five-borough app boots, walks, enters a cab, delivers, saves and pauses th
     assert.equal(app.state().paused,true);
     app.click('resume-button');
     const initial = app.state().player;
-    app.key('KeyW'); app.frames(12); app.key('KeyW', false);
+    app.key('KeyW');
+    app.key('ArrowUp'); app.key('ArrowUp', false);
+    app.click('phone-app-wallet');
+    app.frames(12);
+    assert.equal(app.elements.get('phone-wallet').hidden, false);
+    app.key('KeyW', false);
     const walked = app.state().player;
-    assert.ok(Math.hypot(walked.x - initial.x, walked.z - initial.z) > 0.2, 'keyboard input advances the real walking simulation');
+    assert.ok(Math.hypot(walked.x - initial.x, walked.z - initial.z) > 0.2, 'held movement continues through opening the phone and browsing the wallet');
+    app.key('Escape'); app.key('Escape', false);
     app.key('KeyR'); app.key('KeyR', false);
     app.key('KeyE'); app.key('KeyE', false);
     assert.equal(app.state().player.mode, 'drive');
@@ -440,8 +446,13 @@ test('five-borough app boots, walks, enters a cab, delivers, saves and pauses th
     assert.equal(app.elements.get('game-map').hidden,false);
     assert.equal(app.state().map.open,true);
     app.click('game-map-close');
-    app.key('KeyW'); app.frames(20); app.key('KeyW', false);
-    assert.ok(app.state().player.speed > 1, 'accelerator reaches the actual controlled car');
+    app.key('ArrowUp'); app.key('ArrowUp', false);
+    app.key('KeyW'); app.frames(20);
+    const phoneSpeed = app.state().player.speed;
+    assert.ok(phoneSpeed > 1, 'the accelerator works while browsing the phone');
+    app.key('Escape'); app.key('Escape', false);
+    app.frames(6); app.key('KeyW', false);
+    assert.ok(app.state().player.speed > phoneSpeed, 'closing the phone preserves held throttle');
 
     app.key('Escape'); app.key('Escape', false);
     assert.equal(app.state().paused, true);
@@ -912,6 +923,8 @@ test('first person follows the walker at eye level and keeps their heading while
       assert.ok(Math.abs(eye.y-p.y-1.64)<1e-6);
     };
     checkEye();
+    app.key('ArrowUp');app.key('ArrowUp',false);
+    assert.equal(app.elements.get('phone').hidden,false);
     const initial=app.camera().quaternion;
     canvas.dispatch('pointerdown',{clientX:100,clientY:200,pointerId:1});
     canvas.dispatch('pointermove',{clientX:260,clientY:150,pointerId:1});
