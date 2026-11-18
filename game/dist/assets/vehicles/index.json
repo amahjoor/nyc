@@ -1,0 +1,221 @@
+{
+  "changes": "Selected and simplified exterior panels, adapted paint, glazing and lamps, and fitted animated game wheels.",
+  "models": [
+    {
+      "id": "toyota-camry-2012",
+      "make": "Toyota",
+      "model": "Camry",
+      "shape": "sedan",
+      "years": [
+        2012,
+        2014
+      ],
+      "title": "2012 Toyota Camry, detailed model v5a",
+      "author": "Center for Collision Safety and Analysis, George Mason University / FHWA",
+      "source": "https://www.ccsa.gmu.edu/models/2012-toyota-camry/",
+      "license": "Public domain",
+      "licenseUrl": "https://doi.org/10.3390/machines12090596",
+      "url": "./assets/vehicles/toyota-camry-2012.glb",
+      "wheels": {
+        "x": 0.8047,
+        "front": 1.4578,
+        "rear": -1.332,
+        "radius": 0.3363
+      },
+      "triangles": 6097,
+      "sha256": "9a6337b09928085fa8d513ae0aed63a561eb2b72021d90cb050150d6ee26acfc"
+    },
+    {
+      "id": "nissan-rogue-2020",
+      "make": "Nissan",
+      "model": "Rogue",
+      "shape": "suv",
+      "years": [
+        2017,
+        2020
+      ],
+      "title": "2020 Nissan Rogue SUV, v3",
+      "author": "Center for Collision Safety and Analysis, George Mason University / NHTSA",
+      "source": "https://www.ccsa.gmu.edu/models/2020-nissan-rogue/",
+      "license": "Public domain",
+      "licenseUrl": "https://doi.org/10.3390/machines12090596",
+      "url": "./assets/vehicles/nissan-rogue-2020.glb",
+      "wheels": {
+        "x": 0.7968,
+        "front": 1.3732,
+        "rear": -1.3284,
+        "radius": 0.3612
+      },
+      "triangles": 6746,
+      "sha256": "f3d7e082f1c6932a16a5587d208338c6bd721bb9f33c4dcf88f7d2d8af03508c"
+    },
+    {
+      "id": "tesla-model-y-2021",
+      "make": "Tesla",
+      "model": "Model Y",
+      "shape": "suv",
+      "years": [
+        2020,
+        2024
+      ],
+      "title": "Tesla Model Y 2021",
+      "author": "763468712",
+      "source": "https://sketchfab.com/3d-models/tesla-model-y-2021-c0a86cac582d4b33aba0fb1b1912d970",
+      "license": "CC BY 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by/4.0/",
+      "url": "./assets/vehicles/tesla-model-y-2021.glb",
+      "wheels": {
+        "x": 0.773,
+        "front": 1.4655,
+        "rear": -1.4163,
+        "radius": 0.369
+      },
+      "triangles": 6717,
+      "sha256": "c79f510613374bd81a343d5427480e20b1a6f2a8aa59cb31fe2c780bb7e30e88"
+    },
+    {
+      "id": "tesla-model-3-original",
+      "make": "Tesla",
+      "model": "Model 3",
+      "shape": "sedan",
+      "years": [
+        2017,
+        2020
+      ],
+      "title": "Tesla M3 model",
+      "author": "wintrez",
+      "source": "https://sketchfab.com/3d-models/tesla-m3-model-3a602469d7874d1397efa67182198705",
+      "license": "CC BY 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by/4.0/",
+      "url": "./assets/vehicles/tesla-model-3-original.glb",
+      "wheels": {
+        "x": 0.8041,
+        "front": 1.5496,
+        "rear": -1.4046,
+        "radius": 0.3673
+      },
+      "triangles": 6747,
+      "sha256": "ae917402f76d3c118b43aa34530efa6817875d15d383b924b9c65c3c81c0c1fc"
+    },
+    {
+      "id": "hyundai-tucson-tl",
+      "make": "Hyundai",
+      "model": "Tucson",
+      "shape": "suv",
+      "years": [
+        2016,
+        2018
+      ],
+      "title": "2015 Hyundai Tucson",
+      "author": "razor24",
+      "source": "https://sketchfab.com/3d-models/2015-hyundai-tucson-7674a3bd168a451daf73fc0a33d39589",
+      "license": "CC BY 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by/4.0/",
+      "url": "./assets/vehicles/hyundai-tucson-tl.glb",
+      "wheels": {
+        "x": 0.7616,
+        "front": 1.2683,
+        "rear": -1.3712,
+        "radius": 0.3526
+      },
+      "triangles": 6604,
+      "sha256": "7fa98ad68fde81de14e0f5ce5659ea69938c6462386092b8096fabbab489c93e"
+    },
+    {
+      "id": "mazda-cx-5-ke",
+      "make": "Mazda",
+      "model": "CX-5",
+      "shape": "suv",
+      "years": [
+        2013,
+        2015
+      ],
+      "title": "Mazda CX-5",
+      "author": "tnnv",
+      "source": "https://sketchfab.com/3d-models/mazda-cx-5-0ca0354c7b2a41bbb84c835ff046e8e5",
+      "license": "CC BY 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by/4.0/",
+      "url": "./assets/vehicles/mazda-cx-5-ke.glb",
+      "wheels": {
+        "x": 0.7845,
+        "front": 1.3258,
+        "rear": -1.3601,
+        "radius": 0.3641
+      },
+      "triangles": 6652,
+      "sha256": "8c9c0532600ee1a6222c07ae63a5e60dc48e7608c0d59172c891f665dc233e5a"
+    },
+    {
+      "id": "honda-civic-2016",
+      "make": "Honda",
+      "model": "Civic",
+      "shape": "sedan",
+      "years": [
+        2016,
+        2018
+      ],
+      "title": "Honda civic",
+      "author": "Aldios",
+      "source": "https://sketchfab.com/3d-models/honda-civic-ff844e296f214e709c0d0691d031c68b",
+      "license": "CC BY 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by/4.0/",
+      "url": "./assets/vehicles/honda-civic-2016.glb",
+      "wheels": {
+        "x": 0.7609,
+        "front": 1.369,
+        "rear": -1.2844,
+        "radius": 0.3235
+      },
+      "triangles": 6118,
+      "sha256": "b01a96edfe14f56baa80b9c28b74c0a703f73dbee179cc0c24fe74b4d5836836"
+    },
+    {
+      "id": "honda-cr-v-rd",
+      "make": "Honda",
+      "model": "CR-V",
+      "shape": "suv",
+      "years": [
+        2002,
+        2004
+      ],
+      "title": "Day 76: Honda CRV",
+      "author": "alexdelker",
+      "source": "https://sketchfab.com/3d-models/day-76-honda-crv-e511fa250abd4feebaeedad5707ff1f7",
+      "license": "CC BY 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by/4.0/",
+      "url": "./assets/vehicles/honda-cr-v-rd.glb",
+      "wheels": {
+        "x": 0.7636,
+        "front": 1.4693,
+        "rear": -1.133,
+        "radius": 0.3366
+      },
+      "triangles": 12821,
+      "sha256": "f8bf1780367cee53dcd660df220a96aebee00cbed2986b4b8391fb19511e4e0a"
+    },
+    {
+      "id": "honda-accord-2018",
+      "make": "Honda",
+      "model": "Accord",
+      "shape": "sedan",
+      "years": [
+        2018,
+        2020
+      ],
+      "title": "2018 Honda Accord",
+      "author": "roflowhale",
+      "source": "https://sketchfab.com/3d-models/2018-honda-accord-54c227442c4b42dfbaa25e474ad9d736",
+      "license": "CC BY 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by/4.0/",
+      "url": "./assets/vehicles/honda-accord-2018.glb",
+      "wheels": {
+        "x": 0.7983,
+        "front": 1.5068,
+        "rear": -1.3071,
+        "radius": 0.3333
+      },
+      "triangles": 13923,
+      "sha256": "94b6f7b210ad0505e07ae800d3fbf6cb1830d5b364f9e1b9965e038d0ce2c203"
+    }
+  ]
+}

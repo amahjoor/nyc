@@ -1,7 +1,7 @@
 """Build joint ZIP / make / model / year counts from NYS DMV and NHTSA vPIC.
 
 Install ultravin==3.0.2 in a venv. Pass --cache DIR to keep the five county
-extracts for offline rebuilds. Only factory descriptors leave the DMV server.
+extracts for offline rebuilds. Full VINs and serial numbers are excluded.
 """
 
 import argparse
@@ -101,7 +101,7 @@ def build(cache, snapshot):
                 year = int(row["model_year"] or 0)
                 identity = identify(row["descriptor"], row["year_plant"], year)
                 body = DMV_BODY[row["body_type"]]
-                if identity:
+                if identity and (identity[2] or body != "suburban"):
                     make, model, decoded_body = identity
                     key = (make, model, year, decoded_body or body)
                 else:
@@ -148,5 +148,6 @@ if __name__ == "__main__":
     # Replace only after all five counties have been verified and decoded.
     with tempfile.NamedTemporaryFile("w", dir=args.out.parent, delete=False) as out:
         json.dump(catalog, out, ensure_ascii=False, separators=(",", ":"))
+    Path(out.name).chmod(0o644)
     Path(out.name).replace(args.out)
     print(f"{catalog['registrations']:,} registrations, {len(catalog['variants']):,} model-year/body entries")
