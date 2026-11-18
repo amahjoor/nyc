@@ -1,0 +1,214 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { Simulation } from '../dist/simulation.js';
+import { MAX_STARS, evadeTime, SIGHT, HELICOPTER } from '../dist/police.js';
+
+const street = (id, points, width = 10) => ({ id, name: id.toUpperCase(), points, width, oneway: false, kind: 'residential', roadwayType: 1, fromLevel: 13, toLevel: 13 });
+const box = (x, z, w = 20, d = 20) => ({ polygon: [[x, z], [x + w, z], [x + w, z + d], [x, z + d]] });
+/** A grid of two-way streets every hundred metres, the player on foot in the middle of a block face. */
+function grid(overrides = {}) {
+  const roads = [];
+  for (let i = -3; i <= 3; i++) {
+    roads.push(street(`ns${i}`, [[i * 100, -300], [i * 100, 300]]), street(`ew${i}`, [[-300, i * 100], [300, i * 100]]));
+  }
+  return { bounds: { minX: -600, maxX: 600, minZ: -600, maxZ: 600 }, roads, buildings: [], spawn: { x: 6, z: 50, angle: 0 }, missionPoints: [{ x: 0, z: 140, name: 'A' }, { x: 110, z: 0, name: 'B' }], ...overrides };
+}
+function advance(sim, seconds, input = {}) {
+  for (let i = 0; i < Math.round(seconds * 60); i++) sim.step(input, 1 / 60);
+}
+/** Run until `done`, at most `seconds`. Returns the seconds it took, or -1. */
+function until(sim, seconds, done, input = {}) {
+  for (let i = 0; i < seconds * 60; i++) { sim.step(input, 1 / 60); if (done()) return i / 60; }
+  return -1;
+}
+const patrols = sim => sim.cars.filter(car => car.type === 'police');
+/** No police at all, so that a test can place its own. */
+const alone = sim => { sim.cars = sim.cars.filter(car => car.type !== 'police'); return sim; };
+function patrolAt(sim, x, z, angle = 0) {
+  const car = sim._makeCar(`patrol-${sim.cars.length}`, 'police', { x, z }, angle);
+  sim.cars.push(car);
+  return car;
+}
+
+test('crimes add up to five stars and no further', () => {
+  const sim = alone(new Simulation(grid({ roads: [] })));
+  assert.equal(sim.stars, 0);
+  sim.crime(0.4); assert.equal(sim.stars, 1);
+  sim.crime(1); assert.equal(sim.stars, 2);
+  for (let i = 0; i < 9; i++) sim.crime(1);
+  assert.equal(sim.heat, MAX_STARS); assert.equal(sim.stars, 5);
+  assert.deepEqual(sim.police.lastKnown, { x: sim.player.x, z: sim.player.z }, 'a report says where the player is');
+  assert.equal(sim.police.state, 'search');
+});
+
+test('out of sight, the stars hold until the search is given up, then all go at once', () => {
+  const sim = alone(new Simulation(grid({ roads: [] })));
+  sim.heat = 2;
+  advance(sim, evadeTime(2) - 2);
+  assert.equal(sim.heat, 2); assert.equal(sim.police.state, 'search'); assert.equal(sim.spotted, false);
+  assert.ok(sim.police.evade > 0 && sim.police.evade < 3);
+  advance(sim, 3);
+  assert.equal(sim.heat, 0); assert.equal(sim.police.state, 'clear');
+  assert.match(sim.notice, /lost the police/i);
+  assert.ok(evadeTime(5) > evadeTime(1), 'more stars take longer to shake');
+});
+
+test('a patrol that sees the player starts a chase, and a wall between them ends it', () => {
+  const sim = alone(new Simulation(grid({ roads: [], buildings: [box(-10, 70, 40, 10)] })));
+  const patrol = patrolAt(sim, 6, 20);
+  sim.heat = 1;
+  advance(sim, 0.5);
+  assert.equal(sim.police.state, 'chase'); assert.equal(sim.spotted, true); assert.equal(patrol._sees, true);
+  // Behind the building.
+  patrol.z = 100;
+  sim.police.arrest = 0;
+  advance(sim, 1);
+  assert.equal(sim.police.state, 'chase', 'a moment out of sight is not yet an escape');
+  advance(sim, 2);
+  assert.equal(sim.police.state, 'search'); assert.equal(sim.spotted, false);
+  const left = sim.police.evade;
+  advance(sim, 4);
+  assert.ok(sim.police.evade < left - 3, 'the clock runs while they search');
+  // Seen again: the clock starts over.
+  patrol.z = 20;
+  advance(sim, 0.5);
+  assert.equal(sim.police.state, 'chase');
+  assert.equal(sim.police.evade, sim.police.evadeTotal);
+});
+
+test('searching units see only what is in front of them, unless it is close', () => {
+  const sim = alone(new Simulation(grid({ roads: [] })));
+  const patrol = patrolAt(sim, 6, 10, Math.PI);
+  sim.heat = 1; sim.police.report();
+  assert.equal(sim.police._look(), false, 'forty metres behind a searching patrol is unseen');
+  patrol.angle = 0;
+  assert.equal(sim.police._look(), true, 'in front of it is seen');
+  patrol.angle = Math.PI; patrol.z = sim.player.z - SIGHT.close + 2;
+  assert.equal(sim.police._look(), true, 'right behind it is noticed all the same');
+  patrol.z = sim.player.z - SIGHT.search - 5; patrol.angle = 0;
+  assert.equal(sim.police._look(), false, 'and too far off is not');
+});
+
+test('indoors nobody on the street can see the player', () => {
+  const sim = alone(new Simulation(grid({ roads: [] })));
+  patrolAt(sim, 6, 30);
+  sim.heat = 1; sim.police.report();
+  assert.equal(sim.police._look(), true);
+  sim.room = {};
+  assert.equal(sim.police._look(), false);
+});
+
+test('more stars bring more patrol cars, and they go home when it is over', () => {
+  const sim = new Simulation(grid());
+  const before = patrols(sim).length;
+  sim.heat = 5;
+  sim.room = {};
+  // Hidden indoors, so that nothing ends the chase early; walking is the room's business.
+  sim._walk = () => {};
+  advance(sim, 12);
+  assert.ok(patrols(sim).length >= 8, `eight cars answer five stars: ${patrols(sim).length}`);
+  assert.ok(patrols(sim).length > before);
+  assert.ok(patrols(sim).every(car => car.siren || car.parked));
+  sim.heat = 0;
+  advance(sim, 3);
+  assert.equal(sim.police.state, 'clear');
+  assert.ok(patrols(sim).filter(car => car._dispatched).length < 8, 'cars sent for the chase leave once out of view');
+  assert.ok(patrols(sim).every(car => !car.siren));
+});
+
+test('patrols drive to the player, the crew get out, and standing still is an arrest', () => {
+  const sim = new Simulation(grid());
+  sim.cash = 500;
+  sim.crime(1);
+  const start = { x: sim.player.x, z: sim.player.z };
+  let officers = 0, nearest = Infinity;
+  const took = until(sim, 90, () => {
+    officers = Math.max(officers, sim.police.officers.length);
+    for (const car of patrols(sim)) nearest = Math.min(nearest, Math.hypot(car.x - start.x, car.z - start.z));
+    return /Busted/.test(sim.notice);
+  });
+  assert.ok(nearest < 25, `a patrol came to the player: ${nearest.toFixed(0)} m`);
+  assert.ok(officers >= 2, 'its crew got out');
+  assert.ok(took > 0, 'and made the arrest');
+  assert.equal(sim.heat, 0); assert.equal(sim.police.state, 'clear'); assert.equal(sim.police.officers.length, 0);
+  assert.ok(sim.cash < 500 && sim.cash >= 500 - 80 * 3, `fined: $${500 - sim.cash}`);
+});
+
+test('at three stars the officers open fire and a helicopter comes', () => {
+  const sim = new Simulation(grid());
+  sim.heat = 3;
+  let shots = 0, hurt = false, helicopter = false, seenFromAbove = false;
+  until(sim, 80, () => {
+    shots = sim.police.shotsFired; hurt ||= sim.health < 100;
+    helicopter ||= Boolean(sim.police.helicopter); seenFromAbove ||= Boolean(sim.police.helicopter?.sees);
+    return /Shot by the police/.test(sim.notice);
+  });
+  assert.ok(helicopter, 'a helicopter was sent');
+  assert.ok(seenFromAbove, 'and found the player in the open');
+  assert.ok(shots > 3, `shots fired: ${shots}`);
+  assert.ok(hurt, 'some of them hit');
+  assert.match(sim.notice, /Shot by the police/);
+  assert.equal(sim.heat, 0); assert.equal(sim.health, 100);
+});
+
+test('no helicopter below three stars', () => {
+  const sim = new Simulation(grid());
+  sim.heat = HELICOPTER.stars - 1; sim.room = {}; sim._walk = () => {};
+  advance(sim, 6);
+  assert.equal(sim.police.helicopter, null);
+  sim.heat = HELICOPTER.stars;
+  advance(sim, 1);
+  assert.ok(sim.police.helicopter);
+  sim.heat = 0;
+  advance(sim, 30);
+  assert.equal(sim.police.helicopter, null, 'it leaves when the search is over');
+});
+
+test('from two stars a patrol rams the car it is chasing', () => {
+  const sim = alone(new Simulation(grid()));
+  sim.interact();
+  assert.equal(sim.player.mode, 'drive');
+  const car = sim.vehicle, edge = sim._nearestEdge(car.x, car.z + 60).edge;
+  const patrol = sim._makeCar('patrol-ram', 'police', { x: car.x, z: car.z - 45 }, 0, edge);
+  sim.cars.push(patrol);
+  sim.heat = 2;
+  let closest = Infinity, health = 100;
+  until(sim, 12, () => { closest = Math.min(closest, Math.hypot(patrol.x - car.x, patrol.z - car.z)); health = Math.min(health, sim.health); return health < 100 || /Busted/.test(sim.notice); }, { forward: 0.25 });
+  assert.ok(closest < 5, `the patrol closed to ${closest.toFixed(1)} m`);
+  assert.ok(health < 100, 'and hit the car');
+});
+
+test('punching an officer is a crime, and enough of it puts them down', () => {
+  const sim = alone(new Simulation(grid({ roads: [] })));
+  const patrol = patrolAt(sim, 6, 60);
+  sim.heat = 1; sim.police.report();
+  assert.equal(sim.police._dismount(patrol), true);
+  const officer = sim.police.officers[0];
+  Object.assign(officer, { x: sim.player.x, z: sim.player.z + 1.2 });
+  const heat = sim.heat;
+  assert.equal(sim.police.strike(sim.player.x, sim.player.z, Math.PI), false, 'a swing the other way misses');
+  assert.equal(sim.police.strike(sim.player.x, sim.player.z, 0), true);
+  assert.ok(sim.heat > heat);
+  sim.police.strike(sim.player.x, sim.player.z, 0); sim.police.strike(sim.player.x, sim.player.z, 0);
+  assert.equal(sim.police.officers.length, 1, 'three punches and the officer is down');
+  assert.ok(sim.stars >= 3);
+});
+
+test('when the chase is over the officers walk back to their car and it drives on', () => {
+  const sim = alone(new Simulation(grid()));
+  const edge = sim._nearestEdge(0, 150).edge;
+  const patrol = sim._makeCar('patrol-0', 'police', sim._lanePoint(edge, 0.5), edge.angle, edge);
+  sim.cars.push(patrol);
+  sim.heat = 1; sim.police.report();
+  assert.equal(sim.police._dismount(patrol), true);
+  assert.equal(patrol._crewOut, true);
+  const where = { x: patrol.x, z: patrol.z };
+  advance(sim, 1);
+  assert.deepEqual({ x: patrol.x, z: patrol.z }, where, 'the car stands while its crew are out');
+  sim.heat = 0;
+  advance(sim, 6);
+  assert.equal(sim.police.officers.length, 0);
+  assert.equal(patrol._crewOut, false);
+  advance(sim, 4);
+  assert.ok(Math.hypot(patrol.x - where.x, patrol.z - where.z) > 5, 'and then moves off');
+});

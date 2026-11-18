@@ -194,20 +194,24 @@ test('loading rejection rolls back yaw as well as position to retain a fully loa
   }
 });
 
-test('sideways speed prevents exiting or completing a delivery despite zero forward speed', () => {
+test('a slide does not finish a delivery, and you can bail out of it', () => {
   const { sim, car } = driving(0);
   assert.ok(sim.startMission());
   sim.mission.target = { x: car.x, z: car.z, name: 'Test delivery' };
   car.velocityX = 8;
-  assert.equal(sim.interact(), false, 'a sliding car is not safe to exit');
   sim.step({ handbrake: true }, STEP);
-  assert.equal(sim.player.mode, 'drive');assert.equal(sim.mission.phase, 'active');
+  assert.equal(sim.player.mode, 'drive');
+  assert.equal(sim.mission.phase, 'active');
   assert.equal(sim.deliveries, 0);
-  for (let frame = 0; frame < 360 && Math.hypot(car.velocityX, car.velocityZ) > .1; frame++) sim.step({ brake: true }, STEP);
-  sim.mission.target = { x: car.x, z: car.z, name: 'Test delivery' };
-  sim.step({ brake: true }, STEP);
+  assert.equal(sim.interact(), true, 'you can bail out of a slide');
+  assert.equal(sim.player.mode, 'walk');
+  assert.ok(Math.hypot(sim.player.velocityX, sim.player.velocityZ) > 4);
+  assert.equal(car.controlled, false);
+  assert.equal(sim.mission.phase, 'active', 'bailing at speed does not complete the drop');
+  for (let frame = 0; frame < 360 && Math.hypot(sim.player.velocityX, sim.player.velocityZ) > 1; frame++) sim.step({}, STEP);
+  sim.mission.target = { x: sim.player.x, z: sim.player.z, name: 'Test delivery' };
+  sim.step({}, STEP);
   assert.equal(sim.deliveries, 1);
-  assert.equal(sim.interact(), true, 'a stopped car remains safe to exit');
 });
 
 test('recovery clears old drift and yaw before the recovered cab is driven again', () => {

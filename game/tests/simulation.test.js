@@ -202,13 +202,22 @@ test('a car stays inside world bounds without damage or heat from the map limit'
   assert.equal(sim.heat, 0);
 });
 
-test('safe exit requires low speed and chooses the unblocked side', () => {
+test('you can bail out of a moving car, and a stop still uses the open door', () => {
   const sim = new Simulation(city({ buildings: [{ polygon: [[-8, -8], [-1.5, -8], [-1.5, 12], [-8, 12]] }] }));
   assert.equal(sim.interact(), true);
   const car = sim.cars.find(item => item.controlled);
+  const started = { x: car.x, z: car.z };
   car.speed = 10;
-  assert.equal(sim.interact(), false);
-  assert.equal(sim.player.mode, 'drive');
+  assert.equal(sim.interact(), true, 'a moving car can be exited');
+  assert.equal(sim.player.mode, 'walk');
+  assert.equal(car.controlled, false);
+  assert.ok(Math.hypot(sim.player.velocityX, sim.player.velocityZ) > 4, 'you keep the car\'s speed');
+  assert.equal(sim.player.grounded, false);
+  advance(sim, 0.4);
+  assert.ok(Math.hypot(car.x - started.x, car.z - started.z) > 1, 'the empty car keeps rolling');
+  car.speed = 0; car.velocityX = 0; car.velocityZ = 0; car._loose = 0; car.parked = true;
+  Object.assign(sim.player, { x: car.x + 2.2, z: car.z, velocityX: 0, velocityZ: 0, slide: 0, grounded: true });
+  assert.equal(sim.interact(), true);
   car.speed = 0;
   assert.equal(sim.interact(), true);
   assert.equal(sim.player.mode, 'walk');
@@ -216,6 +225,24 @@ test('safe exit requires low speed and chooses the unblocked side', () => {
   assert.equal(sim.isBlocked(sim.player.x, sim.player.z, 0.4), false);
   assert.equal(car.speed, 0);
   assert.equal(car.controlled, false);
+});
+
+test('jumping leaves the ground and a ledge becomes a fall', () => {
+  const flat = new Simulation(city({ sampleSurface: () => ({ elevation: 3 }) }));
+  assert.equal(flat.player.y, 3);
+  flat.step({ handbrake: true }, 1 / 60);
+  assert.equal(flat.player.grounded, false);
+  assert.ok(flat.player.y > 3.08);
+  for (let i = 0; i < 180 && flat.player.grounded === false; i++) flat.step({}, 1 / 120);
+  assert.equal(flat.player.grounded, true);
+  assert.equal(flat.player.y, 3);
+  assert.equal(flat.health, 100, 'a hop is not a fall');
+  const ledge = new Simulation(city({ sampleSurface: (x, z) => ({ elevation: z < 2 ? 8 : 0 }) }));
+  assert.equal(ledge.player.y, 8);
+  advance(ledge, 2, { moveZ: 1 });
+  assert.ok(ledge.player.z > 2, 'you can walk off the ledge');
+  assert.ok(ledge.player.y < 1, 'and fall to the ground below');
+  assert.ok(ledge.health < 100, 'a long fall hurts');
 });
 
 test('delivery pays once, can be repeated, and will not complete at high speed', () => {
@@ -256,10 +283,9 @@ test('an expired delivery fails without paying', () => {
 test('heat clears after escaping patrol sight', () => {
   const sim = new Simulation(city());
   sim.heat = 2;
-  sim._timeSinceCrime = 0;
   advance(sim, 8);
   assert.equal(sim.heat, 2);
-  advance(sim, 20);
+  advance(sim, 30);
   assert.equal(sim.heat, 0);
 });
 

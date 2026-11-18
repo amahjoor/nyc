@@ -1,9 +1,10 @@
 import { resetVehicleDynamics, stepVehicleDynamics, stopVehicleRotation, vehicleTravelSpeed } from './vehicle-dynamics.js';
 import { planJunction, junctionArms, vehicleAspect, stopDistance } from './signal-plan.js';
 import { laneLayout } from './lanes.js';
-import { drawVehicle, drawPaint, bodyShape } from './fleet.js';
+import { drawVehicle, drawPaint, bodyShape, WHEEL } from './fleet.js';
 import { walkRoom, roomPoint } from './room.js';
 import { PEP, scratch } from './menu.js';
+import { Police, MAX_STARS } from './police.js';
 import { handlingFor, repairCost, offersAt, PARTS, RESPRAY_PRICE, RESPRAYS, CALL_OUT, DELIVERY } from './garage.js';
 
 // Simulation units are metres and seconds. A heading of zero points along +Z.
@@ -12,6 +13,8 @@ const TAU = Math.PI * 2;
 const FIXED_STEP = 1 / 120;
 const PLAYER_RADIUS = 0.4;
 const CAR_RADIUS = 0.92;
+// On foot: a short hop, then gravity. A curb is a step; anything taller is a fall.
+const GRAVITY = 18, JUMP_SPEED = 6.4, STEP_DROP = 0.65, FALL_HURT = 10;
 const CAR_HALF_AXLE = 1.12;
 // What stands at a New York kerb: mostly black, white and shades of grey.
 const KERB_PAINT = ['#15181b', '#15181b', '#2b2f33', '#5b6166', '#8f969b', '#8f969b', '#c9cdd0', '#e8e9e6', '#e8e9e6', '#1f2f45', '#3a5a7a', '#7a1f1f', '#27402f', '#8a7a5c'];
@@ -224,7 +227,10 @@ export class Simulation {
     this._graph = buildRoadGraph(city.roads || []);
     this._signalHints = typeof city.signalHints === 'function' ? city.signalHints : null;
     this._planJunctions();
-    this.player = { x: city.spawn.x, z: city.spawn.z, angle: city.spawn.angle || 0, speed: 0, mode: 'walk', vehicleId: null, velocityX: 0, velocityZ: 0 };
+    this.player = { x: city.spawn.x, z: city.spawn.z, angle: city.spawn.angle || 0, speed: 0, mode: 'walk', vehicleId: null, velocityX: 0, velocityZ: 0, vy: 0, grounded: true, slide: 0, swing: 0 };
+    this.spotted = false;
+    this.threats = [];
+    this.melee = false;
     this.cars = [];
     this.heat = 0;
     this.health = 100;
@@ -238,10 +244,9 @@ export class Simulation {
     this._accumulator = 0;
     this._impactCooldown = 0;
     this._timeSinceCrime = 100;
-    this._policeRouteTimer = 0;
     this._lastTarget = null;
-    this._bustedTime = 0;
     this._lastBoundaryNotice = -Infinity;
+    this.police = new Police(this);
     this._seedCars();
     const safeSpawn = this._findSafePoint(city.spawn.x, city.spawn.z, PLAYER_RADIUS);
     this.player.x = safeSpawn.x;
@@ -371,8 +376,7 @@ export class Simulation {
     this.redLights = (this.redLights || 0) + 1;
     const patrol = this.cars.find(other => other.type === 'police' && distance(other, car) < 85 && this._hasSight(other, this.player));
     if (patrol) {
-      this.heat = clamp(this.heat + .5, 0, 3); this._timeSinceCrime = 0;
-      this._say('A patrol saw you run that red light.');
+      this.crime(.5, 'A patrol saw you run that red light.');
     } else if (junction.camera) {
       const fine = Math.min(this.cash, CAMERA_FINE);
       this.cash -= fine;
@@ -429,7 +433,7 @@ export class Simulation {
     if (!room || this.player.mode !== 'walk') return false;
     this.room = { ...room, a: 0, b: 1.1 };
     const [x, z] = roomPoint(room, 0, 1.1);
-    Object.assign(this.player, { x, z, velocityX: 0, velocityZ: 0, speed: 0, angle: Math.atan2(-room.nx, -room.nz) });
+    Object.assign(this.player, { x, z, velocityX: 0, velocityZ: 0, speed: 0, vy: 0, grounded: true, slide: 0, angle: Math.atan2(-room.nx, -room.nz) });
     this._say(room.name, 3);
     return true;
   }
@@ -438,7 +442,7 @@ export class Simulation {
     const room = this.room;
     if (!room) return false;
     this.room = null;
-    Object.assign(this.player, { x: room.x + room.nx * 1.2, z: room.z + room.nz * 1.2, velocityX: 0, velocityZ: 0, speed: 0, angle: Math.atan2(room.nx, room.nz) });
+    Object.assign(this.player, { x: room.x + room.nx * 1.2, z: room.z + room.nz * 1.2, velocityX: 0, velocityZ: 0, speed: 0, vy: 0, grounded: true, slide: 0, angle: Math.atan2(room.nx, room.nz) });
     return true;
   }
 
@@ -506,15 +510,16 @@ export class Simulation {
   }
 
   /**
-   * The cars registered where the player is: a mix from fleet.js. Cars that
-   * join the traffic or are found at the kerb from now on are drawn from it.
+   * Look up registrations at each car's location. An already selected
+   * mix is also accepted for callers modelling a single neighbourhood.
    */
   setFleet(source = null) {
     if (this._fleet === source) return;
-    this._fleet = typeof source?.at === 'function' || Array.isArray(source?.bodies) ? source : null;
+    const lookup = typeof source?.at === 'function' && !Array.isArray(source);
+    this._fleet = lookup || Array.isArray(source?.bodies) ? source : null;
     // Counts may arrive after the initial cars. Use the same stable draw as
     // a fresh spawn, including for kerb spaces already occupied at load time.
-    if (this._fleet?.at) for (const car of this.cars) {
+    if (lookup) for (const car of this.cars) {
       if (car.type === 'sedan' && !car.controlled && (car._kerb || car._edge)) this._registeredAppearance(car, !car._kerb);
     }
   }
@@ -640,7 +645,7 @@ export class Simulation {
       car.parked = car._streamParked;
       if (car.parked) resetVehicleDynamics(car);
     }
-    this._policeRouteTimer = 0;
+    for (const car of this.cars) if (car.type === 'police') car._routeAt = 0;
   }
 
   _travelSpawn(spawn) {
@@ -682,14 +687,13 @@ export class Simulation {
     const target = this._travelSpawn(spawn);
     this.city = { ...this.city, spawn: target };
     this.cars = [];
-    Object.assign(this.player, { x: target.x, z: target.z, y: undefined, transportId: null, angle: target.angle, speed: 0, mode: 'walk', vehicleId: null, velocityX: 0, velocityZ: 0 });
+    this.police.clear();
+    Object.assign(this.player, { x: target.x, z: target.z, y: undefined, transportId: null, angle: target.angle, speed: 0, mode: 'walk', vehicleId: null, velocityX: 0, velocityZ: 0, vy: 0, grounded: true, slide: 0, swing: 0 });
     this._seedCars();
     const safe = target.exact ? target : this._findSafePoint(target.x, target.z, PLAYER_RADIUS);
     Object.assign(this.player, { x: safe.x, z: safe.z });
     this.updateGrounding();
     this._accumulator = 0;
-    this._policeRouteTimer = 0;
-    this._bustedTime = 0;
     const arrival = target.exact ? this.cars.some(car => car.id === 'player-taxi')
       ? 'A cab is waiting on a nearby street.' : 'Explore on foot.' : 'Your cab is nearby.';
     this._say(`Arrived${target.name ? ` at ${target.name}` : ''}. ${arrival}`);
@@ -787,18 +791,30 @@ export class Simulation {
         }
         return finite(sample?.elevation);
       };
-      const rl = height(-.90, -1.37), fl = height(-.90, 1.30), rr = height(.90, -1.37), fr = height(.90, 1.30);
+      const axle = car.identity?.asset?.wheels || WHEEL;
+      const rl = height(-axle.x, axle.rear), fl = height(-axle.x, axle.front), rr = height(axle.x, axle.rear), fr = height(axle.x, axle.front);
       car.wheelHeights = [rl, fl, rr, fr];car.wheelSupported = supported;
       car.supportSurface = center || null;car.transportId = center?.transportId || null;
       car.y = (fl + fr + rl + rr) / 4;
-      car.pitch = -Math.atan2((fl + fr - rl - rr) / 2, 2.67);
-      car.roll = Math.atan2((fr + rr - fl - rl) / 2, 1.80);
+      car.pitch = -Math.atan2((fl + fr - rl - rr) / 2, axle.front - axle.rear);
+      car.roll = Math.atan2((fr + rr - fl - rl) / 2, axle.x * 2);
     }
     const vehicle = this.player.mode === 'drive' && this.cars.find(car => car.id === this.player.vehicleId);
     const options = Number.isFinite(this.player.y) ? { referenceHeight: this.player.y, mode: 'walk', transportId: this.player.transportId } : undefined;
-    const surface = vehicle ? vehicle.supportSurface : this._sampleSurface?.(this.player.x, this.player.z, options);
-    this.player.y = vehicle ? vehicle.y : finite(surface?.elevation);
+    if (vehicle) {
+      this.player.y = vehicle.y;
+      this.player.transportId = vehicle.transportId || null;
+      this.player.vy = 0;
+      this.player.grounded = true;
+      return;
+    }
+    // A jump or a fall owns its height until the feet meet a surface again.
+    if (this.player.grounded === false) return;
+    const surface = this._sampleSurface?.(this.player.x, this.player.z, options);
+    this.player.y = finite(surface?.elevation);
     this.player.transportId = surface?.transportId || null;
+    this.player.grounded = true;
+    this.player.vy = 0;
   }
 
   _unsupportedDeckExit(actor, x, z, mode) {
@@ -831,10 +847,10 @@ export class Simulation {
     return null;
   }
 
-  _resolvePosition(x, z, radius, angle = null, previous = null) {
-    // Vertical falls are not simulated. Stop an actor already on a measured
-    // deck before an unsupported drop instead of snapping it onto a road below.
-    if (previous && this._unsupportedDeckExit(previous, x, z, angle === null ? 'walk' : 'drive')) {
+  _resolvePosition(x, z, radius, angle = null, previous = null, allowDrop = false) {
+    // Cars stop at a deck edge. On foot, the same step is allowed through so
+    // the walker can leave the deck and fall to whatever is below.
+    if (!allowDrop && previous && this._unsupportedDeckExit(previous, x, z, angle === null ? 'walk' : 'drive')) {
       const dx = previous.x - x, dz = previous.z - z, length = Math.hypot(dx, dz) || 1;
       return { x: previous.x, z: previous.z, hit: { kind: 'surface', nx: dx / length, nz: dz / length, depth: 0 } };
     }
@@ -1019,6 +1035,39 @@ export class Simulation {
 
   _say(message, seconds = 4) { this.notice = message; this.noticeTime = seconds; }
 
+  /** A swing on foot. Returns whether the punch comes out; a caller resolves who it hits. */
+  fight() {
+    const player = this.player;
+    if (player.mode !== 'walk' || this.room || (player.swing || 0) > 0.08) return false;
+    player.swing = 0.34;
+    return true;
+  }
+
+  /** Punching someone is a crime. Heat climbs the same way a collision with a patrol does. */
+  assault() {
+    this.crime(1, this.heat >= 1 ? 'The police are looking for you.' : 'Somebody called that in.');
+  }
+
+  /**
+   * Something the police will come for. `amount` is in stars, and parts of a
+   * star add up; the report tells them where the player is at this moment.
+   */
+  crime(amount, message = '') {
+    this.heat = clamp(this.heat + amount, 0, MAX_STARS);
+    this._timeSinceCrime = 0;
+    this.police.report();
+    if (message) this._say(message);
+  }
+
+  /** Stars showing: 0 to 5. */
+  get stars() { return this.police.stars; }
+
+  hurt(amount, cause = 'fight') {
+    if (!(amount > 0) || this.health <= 0) return;
+    this.health = Math.max(0, this.health - amount);
+    if (this.health <= 0) this._downed = cause;
+  }
+
   interact() {
     const player = this.player;
     if (player.mode === 'walk') {
@@ -1028,37 +1077,62 @@ export class Simulation {
       if (vehicleTravelSpeed(car) > 4) { this._say('Wait for the car to slow down.'); return false; }
       car.controlled = true;
       car.parked = true;
+      car._loose = 0;
       car._kerb = false;
       car._route = [];
       car.handling = handlingFor(bodyShape(car.type, car.id, car.shape), car.mods);
       resetVehicleDynamics(car, car.speed);
-      Object.assign(player, { mode: 'drive', vehicleId: car.id, x: car.x, z: car.z, angle: car.angle, speed: car.speed, velocityX: car.velocityX, velocityZ: car.velocityZ });
+      Object.assign(player, { mode: 'drive', vehicleId: car.id, x: car.x, z: car.z, angle: car.angle, speed: car.speed, velocityX: car.velocityX, velocityZ: car.velocityZ, vy: 0, grounded: true, slide: 0, swing: 0 });
       this.updateGrounding();
       this._say('W accelerate. S brake / reverse. A / D steer. Space handbrake.');
       return true;
     }
     const car = this.cars.find(item => item.id === player.vehicleId);
     if (!car) { this.reset(); return false; }
-    if (vehicleTravelSpeed(car) > 4) { this._say('Slow down before getting out.'); return false; }
+    const bailing = vehicleTravelSpeed(car) > 4;
+    let spot = null;
     for (const [side, front] of [[-2.2, 0], [2.2, 0], [-2.5, -1.8], [2.5, -1.8], [0, -3.2], [0, 3.2]]) {
       const x = car.x + Math.cos(car.angle) * side + Math.sin(car.angle) * front;
       const z = car.z - Math.sin(car.angle) * side + Math.cos(car.angle) * front;
       const surface = this._sampleSurface?.(x, z, { referenceHeight: car.y, mode: 'walk', transportId: car.transportId });
-      // Clear horizontal space beside a bridge is not a supported exit. Check
-      // the actual walking surface before switching out of the vehicle so a
-      // door beyond the deck cannot teleport its passenger to the road below.
-      if (Number.isFinite(car.y) && Math.abs(finite(surface?.elevation) - car.y) > 1.5) continue;
-      if (this.isBlocked(x, z, PLAYER_RADIUS) || this._nearCar(x, z, PLAYER_RADIUS, car.id, car.y)) continue;
-      car.controlled = false;
-      car.parked = true;
-      resetVehicleDynamics(car);
-      Object.assign(player, { x, z, mode: 'walk', vehicleId: null, transportId: car.transportId || null, speed: 0, velocityX: 0, velocityZ: 0 });
-      this.updateGrounding();
-      this._say('On foot. Hold Shift to run. E to get back in.');
-      return true;
+      // A stopped exit still needs a real surface beside the door. Bailing out
+      // of a moving car can leave the deck; the fall that follows is the landing.
+      const unsupported = Number.isFinite(car.y) && Math.abs(finite(surface?.elevation) - car.y) > 1.5;
+      const blocked = this.isBlocked(x, z, PLAYER_RADIUS) || this._nearCar(x, z, PLAYER_RADIUS, car.id, car.y);
+      if (unsupported && !bailing) continue;
+      if (blocked && !bailing) continue;
+      const candidate = { x, z, surface, unsupported, blocked };
+      if (!unsupported && !blocked) { spot = candidate; break; }
+      if (bailing && !spot) spot = candidate;
     }
-    this._say('Both doors are blocked. Move the car into an open space.');
-    return false;
+    if (!spot) { this._say('Both doors are blocked. Move the car into an open space.'); return false; }
+    car.controlled = false;
+    car._route = [];
+    if (bailing) {
+      const travel = vehicleTravelSpeed(car);
+      if (Math.hypot(car.velocityX, car.velocityZ) < travel * 0.5) {
+        car.velocityX = Math.sin(car.angle) * car.speed;
+        car.velocityZ = Math.cos(car.angle) * car.speed;
+      }
+      car.parked = false;
+      car._loose = 3.2;
+      const speed = Math.hypot(car.velocityX, car.velocityZ);
+      Object.assign(player, {
+        x: spot.x, z: spot.z, y: Number.isFinite(car.y) ? car.y : player.y, mode: 'walk', vehicleId: null,
+        transportId: spot.unsupported ? null : (car.transportId || null),
+        speed, velocityX: car.velocityX, velocityZ: car.velocityZ,
+        vy: Math.min(3.2, 1.4 + speed * 0.06), grounded: false, slide: Math.min(1.15, 0.3 + speed * 0.05), swing: 0,
+      });
+      this._say('You bailed out. The car is still rolling.');
+    } else {
+      car.parked = true;
+      car._loose = 0;
+      resetVehicleDynamics(car);
+      Object.assign(player, { x: spot.x, z: spot.z, mode: 'walk', vehicleId: null, transportId: car.transportId || null, speed: 0, velocityX: 0, velocityZ: 0, vy: 0, grounded: true, slide: 0, swing: 0 });
+      this._say('On foot. Shift runs. Space jumps. F punches.');
+    }
+    this.updateGrounding();
+    return true;
   }
 
   startMission() {
@@ -1089,7 +1163,7 @@ export class Simulation {
       }
     }
     const car = this.cars.find(item => item.id === this.player.vehicleId);
-    if (car) { car.controlled = false; car.parked = true; resetVehicleDynamics(car); }
+    if (car) { car.controlled = false; car.parked = true; car._loose = 0; resetVehicleDynamics(car); }
     const taxi = this.cars.find(item => item.id === 'player-taxi');
     if (taxi) {
       const placement = this.city.spawn.exact ? this._pinTaxiPlacement(this.city.spawn) : null;
@@ -1102,13 +1176,13 @@ export class Simulation {
       }
     }
     const point = this._findSafePoint(this.city.spawn.x, this.city.spawn.z, PLAYER_RADIUS);
-    Object.assign(this.player, { ...point, y: undefined, transportId: null, angle: this.city.spawn.angle || 0, speed: 0, mode: 'walk', vehicleId: null, velocityX: 0, velocityZ: 0 });
+    Object.assign(this.player, { ...point, y: undefined, transportId: null, angle: this.city.spawn.angle || 0, speed: 0, mode: 'walk', vehicleId: null, velocityX: 0, velocityZ: 0, vy: 0, grounded: true, slide: 0, swing: 0 });
     this.updateGrounding();
     this.health = 100;
     this.heat = 0;
+    this.police.clear();
     this._timeSinceCrime = 100;
     this._impactCooldown = 0;
-    this._bustedTime = 0;
     if (this.mission.phase === 'active') this.mission.phase = 'failed';
     this._say('Recovered nearby. Your earnings and completed deliveries are saved.');
   }
@@ -1130,48 +1204,81 @@ export class Simulation {
     this._impactCooldown = Math.max(0, this._impactCooldown - dt);
     this._timeSinceCrime += dt;
     const before = { x: this.player.x, z: this.player.z };
+    const jumping = Boolean(input.handbrake) && !this._jumpHeld;
+    this._jumpHeld = Boolean(input.handbrake);
+    if (this.player.swing > 0) this.player.swing = Math.max(0, this.player.swing - dt);
     if (this.player.mode === 'drive') {
       this._drive(input, dt);
       const vehicle = this.cars.find(car => car.id === this.player.vehicleId);
       if (vehicle) this._watchSignals(vehicle);
-    } else { this._walk(input, dt); this._insideJunction = null; }
+    } else { this._walk(input, dt, jumping); this._insideJunction = null; }
     this.distanceTravelled += distance(before, this.player);
     this._trafficTimer = (this._trafficTimer || 0) - dt;
     if (this._trafficTimer <= 0) { this._trafficTimer = .5; this._balanceTraffic(); }
-    this._policeRouteTimer -= dt;
-    const refreshRoutes = this._policeRouteTimer <= 0;
-    if (refreshRoutes) this._policeRouteTimer = 1.2;
     for (const car of this.cars) {
-      if (car.controlled || car.parked) continue;
-      if (refreshRoutes && car.type === 'police' && this.heat > 0.05) this._routePolice(car);
+      if (car.controlled) continue;
+      if (car._loose > 0) { this._coast(car, dt); continue; }
+      if (car.parked) continue;
+      if (car.type === 'police' && this.police.drive(car, dt)) continue;
       this._traffic(car, dt);
     }
     this.updateGrounding();
-    this._updateHeat(dt);
+    this.police.update(dt);
     this._updateMission(dt);
     if (this.health <= 0) {
-      const charge = Math.min(this.cash, 75);
+      const cause = this._downed || 'wreck';
+      this._downed = null;
+      const charge = Math.min(this.cash, cause === 'wreck' ? 75 : 40);
       this.cash -= charge;
       this.reset();
-      this._say(`Vehicle recovered. Repairs: $${charge}.`, 6);
+      this._say(cause === 'fight' ? `You got knocked out. Hospital: $${charge}.` : cause === 'police' ? `Shot by the police. Hospital: $${charge}.` : cause === 'fall' ? `That fall put you down. Hospital: $${charge}.` : `Vehicle recovered. Repairs: $${charge}.`, 6);
     }
   }
 
-  _walk(input, dt) {
+  /** A car someone just jumped out of keeps its speed, then rolls to a stop. */
+  _coast(car, dt) {
+    car._loose -= dt;
+    const drag = Math.exp(-0.45 * dt);
+    car.velocityX *= drag;
+    car.velocityZ *= drag;
+    const speed = Math.hypot(car.velocityX, car.velocityZ);
+    car.speed = speed;
+    const next = this._resolvePosition(car.x + car.velocityX * dt, car.z + car.velocityZ * dt, CAR_RADIUS, car.angle, car);
+    if (next.hit) { car.velocityX *= 0.45; car.velocityZ *= 0.45; car.speed = Math.hypot(car.velocityX, car.velocityZ); }
+    car.x = next.x;
+    car.z = next.z;
+    if (car._loose <= 0 || speed < 0.7) {
+      car._loose = 0;
+      car.parked = true;
+      resetVehicleDynamics(car);
+    }
+  }
+
+  _walk(input, dt, jumping = false) {
     const player = this.player;
     const magnitude = Math.hypot(input.moveX, input.moveZ);
     const divisor = Math.max(1, magnitude);
     // Fed or with a coffee inside them, the player walks and runs a little faster.
     this.pep = Math.max(0, (this.pep || 0) - dt);
-    const topSpeed = (input.run ? 7.3 : 4.25) * (this.pep > 0 ? 1.15 : 1);
+    const topSpeed = (input.run ? 8.6 : 4.25) * (this.pep > 0 ? 1.15 : 1);
     const desiredX = input.moveX / divisor * topSpeed;
     const desiredZ = input.moveZ / divisor * topSpeed;
-    const blend = 1 - Math.exp(-13 * dt);
-    player.velocityX += (desiredX - player.velocityX) * blend;
-    player.velocityZ += (desiredZ - player.velocityZ) * blend;
-    if (magnitude > 0.02) player.angle += turnDelta(player.angle, Math.atan2(desiredX, desiredZ)) * (1 - Math.exp(-16 * dt));
+    const air = player.grounded === false;
+    const sliding = (player.slide || 0) > 0;
+    if (sliding) player.slide = Math.max(0, player.slide - dt);
+    // A bail-out slide keeps its momentum. In the air, steering still works, just less of it.
+    const blend = 1 - Math.exp(-(sliding ? 1.8 : air ? 4 : 13) * dt);
+    if (sliding) {
+      player.velocityX = player.velocityX * (1 - blend) + desiredX * blend * 0.35;
+      player.velocityZ = player.velocityZ * (1 - blend) + desiredZ * blend * 0.35;
+    } else {
+      player.velocityX += (desiredX - player.velocityX) * blend;
+      player.velocityZ += (desiredZ - player.velocityZ) * blend;
+    }
+    if (magnitude > 0.02 && !sliding) player.angle += turnDelta(player.angle, Math.atan2(desiredX, desiredZ)) * (1 - Math.exp(-16 * dt));
     if (this.room) {
       // Indoors the walls and the furniture are the room's, not the city's.
+      player.vy = 0; player.grounded = true; player.slide = 0;
       const room = this.room, dx = player.velocityX * dt, dz = player.velocityZ * dt;
       const moved = walkRoom(room, room.a, room.b, dx * room.tx + dz * room.tz, -(dx * room.nx + dz * room.nz), PLAYER_RADIUS);
       if (moved.out) { this.leaveRoom(); return; }
@@ -1180,10 +1287,10 @@ export class Simulation {
       room.a = moved.a; room.b = moved.b; player.x = x; player.z = z;
       return;
     }
-    let next = this._resolvePosition(player.x + player.velocityX * dt, player.z + player.velocityZ * dt, PLAYER_RADIUS, null, player);
+    let next = this._resolvePosition(player.x + player.velocityX * dt, player.z + player.velocityZ * dt, PLAYER_RADIUS, null, player, true);
     const carHit = this._nearCar(next.x, next.z, PLAYER_RADIUS, null, player.y);
     if (carHit) {
-      next = this._resolvePosition(next.x + carHit.nx * (carHit.depth + 0.001), next.z + carHit.nz * (carHit.depth + 0.001), PLAYER_RADIUS, null, player);
+      next = this._resolvePosition(next.x + carHit.nx * (carHit.depth + 0.001), next.z + carHit.nz * (carHit.depth + 0.001), PLAYER_RADIUS, null, player, true);
     }
     player.speed = Math.hypot(next.x - player.x, next.z - player.z) / dt;
     if (next.hit) {
@@ -1192,6 +1299,46 @@ export class Simulation {
     }
     player.x = next.x;
     player.z = next.z;
+    this._fall(player, dt, jumping);
+  }
+
+  /** Jump, step down a curb, or fall off a ledge. Grounded feet are seated by updateGrounding. */
+  _fall(player, dt, jumping) {
+    const surface = this._sampleSurface?.(player.x, player.z, {
+      referenceHeight: Number.isFinite(player.y) ? player.y : 0,
+      mode: 'walk',
+      transportId: player.transportId || null,
+    });
+    const ground = Number.isFinite(surface?.elevation) ? surface.elevation : (this._sampleSurface ? null : 0);
+    if (player.grounded !== false) {
+      if (jumping) {
+        player.vy = JUMP_SPEED;
+        player.grounded = false;
+        player.y = (Number.isFinite(player.y) ? player.y : ground || 0) + player.vy * dt;
+        return;
+      }
+      if (ground !== null && Number.isFinite(player.y) && ground < player.y - STEP_DROP) {
+        player.grounded = false;
+        player.transportId = null;
+        player.vy = Math.min(0, player.vy || 0) - GRAVITY * dt;
+        player.y += player.vy * dt;
+      }
+      return;
+    }
+    player.vy = Math.max(-32, (player.vy || 0) - GRAVITY * dt);
+    player.y = (Number.isFinite(player.y) ? player.y : 0) + player.vy * dt;
+    if (ground === null || player.vy > 0 || player.y > ground) return;
+    const impact = -player.vy;
+    player.y = ground;
+    player.vy = 0;
+    player.grounded = true;
+    player.transportId = surface?.transportId || null;
+    if (impact > FALL_HURT) {
+      this.health = Math.max(0, this.health - (impact - (FALL_HURT - 1)) * 3.5);
+      if (this.health <= 0) this._downed = 'fall';
+      else this._say(impact > 16 ? 'That was a bad fall.' : 'You landed hard.');
+      player.slide = Math.max(player.slide || 0, 0.35);
+    }
   }
 
   _drive(input, dt) {
@@ -1251,7 +1398,7 @@ export class Simulation {
       collision.car._wait = 0.7;
       break;
     }
-    Object.assign(this.player, { x: car.x, z: car.z, angle: car.angle, speed: car.speed, velocityX: car.velocityX, velocityZ: car.velocityZ });
+    Object.assign(this.player, { x: car.x, z: car.z, angle: car.angle, speed: car.speed, velocityX: car.velocityX, velocityZ: car.velocityZ, vy: 0, grounded: true });
   }
 
   _impact(speed, kind) {
@@ -1259,9 +1406,10 @@ export class Simulation {
     this._impactCooldown = 0.8;
     this.health = Math.max(0, this.health - Math.max(1, (speed - 3) * 0.75));
     if (speed > 9 || kind === 'police') {
-      this.heat = clamp(this.heat + (kind === 'police' ? 0.9 : kind === 'vehicle' ? 0.65 : 0.4), 0, 3);
-      this._timeSinceCrime = 0;
-      this._say(kind === 'police' ? 'Police collision. Lose the patrols to clear your heat.' : 'Reckless driving reported. Lose the patrols to clear your heat.');
+      // In a chase the patrols do the ramming, and each knock counts for less.
+      const chased = this.police.state === 'chase';
+      this.crime(kind === 'police' ? (chased ? 0.34 : 1) : kind === 'vehicle' ? 0.65 : 0.4,
+        chased ? '' : kind === 'police' ? 'You hit a patrol car. Get out of sight to lose them.' : 'Reckless driving reported. Get out of sight to lose them.');
     }
   }
 
@@ -1350,10 +1498,12 @@ export class Simulation {
     }
     const lookAhead = Math.max(3.5, Math.abs(car.speed) * 0.7);
     const target = this._lanePoint(edge, clamp(projection.t + lookAhead / edge.length, 0, 1), lane);
+    // A patrol held up behind traffic goes round it on the wrong side of the road.
+    if (car._passing > 0) { car._passing -= dt; target.x += Math.cos(edge.angle) * 2.7; target.z -= Math.sin(edge.angle) * 2.7; }
     const desiredAngle = Math.atan2(target.x - car.x, target.z - car.z);
     const delta = turnDelta(car.angle, desiredAngle);
     car.angle += clamp(delta, -1.9 * dt, 1.9 * dt);
-    let desiredSpeed = (car.siren ? 13 + this.heat * 1.8 : car._cruise) / (1 + Math.abs(delta) * 1.8);
+    let desiredSpeed = (car.siren ? this.police.cruise() : car._cruise) / (1 + Math.abs(delta) * 1.8);
     if (car._wait > 0) desiredSpeed = 0;
     // Signals and stop signs. A patrol answering a call goes through.
     const plan = edge.to.plan;
@@ -1381,9 +1531,18 @@ export class Simulation {
       const along = dx * sin + dz * cos;
       const across = Math.abs(dx * cos - dz * sin);
       if (along > 0 && along < sight && across < 1.95) {
+        // From two stars a patrol does not brake for the car it is chasing.
+        if (car.siren && other.controlled && this.police.rams) continue;
+        // Nor, once it has pulled out to pass, for the queue it is squeezing by.
+        if (car._passing > 0 && !other.controlled && other.type !== 'police') continue;
         const limit = Math.max(0, (along - 5) * 1.2);
         if (limit < desiredSpeed) { desiredSpeed = limit; leader = other; }
       }
+    }
+    if (car.siren) {
+      car._queued = leader && car.speed < 3 ? (car._queued || 0) + dt : 0;
+      if (car._queued > 0.7 && !(car._passing > 0)) { car._passing = 4; car._queued = 0; }
+      if (car._passing > 0) desiredSpeed = Math.min(desiredSpeed, 9);
     }
     let afoot = false;
     if (this.player.mode === 'walk' && Math.abs(this.player.y - finite(car.y, this.player.y)) <= 2.5) {
@@ -1398,7 +1557,7 @@ export class Simulation {
     // Standing behind something that is going nowhere (a car left in the lane,
     // the player on foot, or a car itself standing behind one of those) shuts
     // the block: others turn off before it.
-    const shut = car.speed < .3 && (afoot || (leader && (leader.parked || (leader.controlled && Math.abs(leader.speed) < .5) || leader._held > BLOCK_PATIENCE)));
+    const shut = car.speed < .3 && (afoot || (leader && (leader.parked || leader._crewOut || (leader.controlled && Math.abs(leader.speed) < .5) || leader._held > BLOCK_PATIENCE)));
     car._held = shut ? (car._held || 0) + dt : 0;
     // Where there is another lane, it pulls out into it as soon as there is a gap.
     if (car._held > PULL_OUT && edge.lanes > 1 && !car.siren) {
@@ -1448,29 +1607,47 @@ export class Simulation {
     }
   }
 
-  _routePolice(car) {
-    const nearest = this._nearestEdge(this.player.x, this.player.z);
+  /** Give a patrol the shortest legal way along the streets to `target`: the player unless told otherwise. */
+  _routePolice(car, target = this.player) {
+    const nearest = this._nearestEdge(target.x, target.z);
     if (!nearest || !car._edge) return;
     const destination = nearest.t < 0.5 ? nearest.edge.from : nearest.edge.to;
     const start = car._edge.to;
     if (start === destination) { car._route = []; return; }
-    const cost = new Map([[start.id, 0]]);
-    const previous = new Map();
-    const open = [start];
-    const visited = new Set();
-    while (open.length) {
-      let bestIndex = 0;
-      for (let i = 1; i < open.length; i++) if (cost.get(open[i].id) < cost.get(open[bestIndex].id)) bestIndex = i;
-      const node = open.splice(bestIndex, 1)[0];
+    const cost = new Map([[start.id, 0]]), previous = new Map(), visited = new Set();
+    // A binary heap of [cost, node]: a chase can have a dozen cars asking for routes.
+    const heap = [[0, start]];
+    const push = item => {
+      let i = heap.push(item) - 1;
+      while (i > 0) { const up = (i - 1) >> 1; if (heap[up][0] <= item[0]) break; heap[i] = heap[up]; i = up; }
+      heap[i] = item;
+    };
+    const pop = () => {
+      const top = heap[0], last = heap.pop();
+      if (heap.length) {
+        let i = 0;
+        for (;;) {
+          let child = i * 2 + 1;
+          if (child >= heap.length) break;
+          if (child + 1 < heap.length && heap[child + 1][0] < heap[child][0]) child++;
+          if (heap[child][0] >= last[0]) break;
+          heap[i] = heap[child]; i = child;
+        }
+        heap[i] = last;
+      }
+      return top;
+    };
+    while (heap.length) {
+      const [reached, node] = pop();
       if (visited.has(node.id)) continue;
       if (node === destination) break;
       visited.add(node.id);
       for (const edge of node.edges) {
-        const candidate = cost.get(node.id) + edge.length;
+        const candidate = reached + edge.length;
         if (candidate >= (cost.get(edge.to.id) ?? Infinity)) continue;
         cost.set(edge.to.id, candidate);
         previous.set(edge.to.id, edge);
-        open.push(edge.to);
+        push([candidate, edge.to]);
       }
     }
     const route = [];
@@ -1489,23 +1666,6 @@ export class Simulation {
       if (this.isBlocked(a.x + (b.x - a.x) * i / steps, a.z + (b.z - a.z) * i / steps, 0.05)) return false;
     }
     return true;
-  }
-
-  _updateHeat(dt) {
-    if (this.heat <= 0) return;
-    const visiblePatrol = this.cars.find(car => car.type === 'police' && distance(car, this.player) < 85 && this._hasSight(car, this.player));
-    if (!visiblePatrol && this._timeSinceCrime > 10) {
-      this.heat = Math.max(0, this.heat - dt * 0.14);
-      if (this.heat === 0) this._say('You lost the police. Heat cleared.');
-    }
-    if (visiblePatrol && distance(visiblePatrol, this.player) < 8 && playerTravelSpeed(this.player) < 1.2) this._bustedTime += dt;
-    else this._bustedTime = Math.max(0, this._bustedTime - dt * 2);
-    if (this._bustedTime > 5) {
-      const fine = Math.min(this.cash, Math.round(50 + this.heat * 50));
-      this.cash -= fine;
-      this.reset();
-      this._say(`Busted. Fine: $${fine}. Your cab is waiting at the start.`, 7);
-    }
   }
 
   _updateMission(dt) {

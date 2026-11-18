@@ -133,9 +133,10 @@ test('an actor already on a measured deck stops before an unsupported drop witho
   sim.updateGrounding();advance(sim, 4, { forward: 1 });
   assert.ok(car.z <= 120);assert.equal(car.y, 6);assert.equal(sim.health, 100);assert.equal(sim.heat, 0);
   assert.match(sim.notice, /Deck edge/);
-  Object.assign(sim.player, { x: 0, z: 119, y: 6, mode: 'walk', vehicleId: null, transportId: car.transportId });
+  Object.assign(sim.player, { x: 0, z: 119, y: 6, mode: 'walk', vehicleId: null, transportId: car.transportId, grounded: true, vy: 0 });
   sim.cars = [];advance(sim, 4, { moveZ: 1 });
-  assert.ok(sim.player.z <= 120);assert.equal(sim.player.y, 6);
+  assert.ok(sim.player.z > 120, 'on foot you can step off the deck');
+  assert.ok(sim.player.y < 1, 'and fall to the road below');
 });
 
 test('actual Central Park road samples no longer mix deck and ground wheel levels or jump across a meter gap', t => {
