@@ -214,6 +214,17 @@ The city's business licences, already bundled with the other places, include 263
 
 `scripts/build-bikes.mjs` bundles the 2,369 Citi Bike stations in the city from the system's public station feed, with the number of docks at each (`dist/bikes.json`). `bikes.js` draws a station as a row of docks along the nearest kerb, a pay kiosk at one end, and a blue bike in about six docks of ten (the same docks every time; live availability is not read). Real stations mostly stand in the parking lane: here they are on the sidewalk side of the kerb, because the game parks cars in that lane, and a station of more than fifteen docks is cut to fifteen. The bikes cannot be ridden.
 
+## From the air
+
+On the street the game draws building tiles within about two kilometres and builds a street's furniture round the player. From an aircraft that showed a city with an edge, asked for tiles the aircraft had already passed, and went on working out shop fronts, sheds and kerbs several times a second for a view that could not see them. `aloft.js` says what to do for a height above the ground instead:
+
+- **The far city is always there.** From sixty metres up the distance beyond which coarse tiles are dropped opens out, and from three hundred it covers all five boroughs: the same coarse tiles the all-boroughs view uses, about a hundred and fifty of them.
+- **Detail is asked for ahead.** Full-detail tiles are chosen round the point an aircraft will reach in three and a half seconds as well as round where it is. Above five hundred metres less full detail is asked for, and from a kilometre up none.
+- **Walls are solid only where they can be hit:** within 850 m on the ground, 350 m when flying among the roofs, and not at all above 650 m.
+- **Above 250 m the street is left alone** (it comes back below 190 m): kerbs, lamps, people, shop fronts, sheds, cafes, stands, bikes, bus stops, subway stairs and bags are neither worked out nor drawn, and the haze thins as in the all-boroughs view.
+
+The height is the camera's or the player's above the ground beneath, whichever is greater, so it holds for any aircraft and for a high camera. It was checked by flying the camera over Manhattan at up to 135 m/s and 1,050 m; it has not been measured for frame rate, because the machine it was tested on was busy.
+
 ## Trash night
 
 New York has few alleys, so household refuse waits in bags at the kerb. `scripts/build-collection.mjs` lays the Department of Sanitation's 623 collection sections, each with its days ("Mon, Thu"), on a grid of hundred-metre cells with a bit for each day (`dist/collection.bin`, 214 KB). `trash.js` puts a heap of bags at the kerb before each building people live in (a house, a walk-up or an apartment house, by its tax lot): two or three for a house, a heap for an apartment house. They are out from eight in the evening before a collection day and gone by eight the next morning. The days are the Department's; the hours, the number of bags and where along the front they sit are the game's. The week begins on the real day of the week when the game is opened and moves on a day each time the game's clock passes midnight. Recycling, bins, commercial waste and the trucks are not modelled, and the bags cannot be walked into.

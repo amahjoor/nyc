@@ -2,6 +2,7 @@ import * as THREE from './vendor/three.module.min.js';
 import { mercatorCoefficients, atlasProjectionGLSL } from './imagery-projection.js';
 import { chooseStyle, featureRandom, writeFacade, createFacadeScratch, applyFacadeShader, HEIGHT_UNIT, setLots, setLandmarks } from './facade.js';
 import { createLots } from './lots.js';
+import { streamRanges, leadPoint } from './aloft.js';
 import { createLandmarkBuildings } from './landmarks.js';
 
 /**
@@ -522,28 +523,38 @@ class CityStream {
     }
   }
 
-  update(focus, camera, { overview = false } = {}) {
+  /**
+   * `altitude` is how high the view is above the ground. From the air the far city is kept in its coarse form
+   * however far off, full detail is asked for ahead of a fast aircraft as well as under it, and walls are made
+   * solid only when there is something near enough to fly into (aloft.js).
+   */
+  update(focus, camera, { overview = false, altitude = 0 } = {}) {
     if (this.disposed) return;
     this.focus = { x: focus.x, z: focus.z };
     const now = Date.now();
     if (now - this.lastSelection < 350 && overview === this.lastOverview) return;
+    // How fast the focus is moving, from where it was at the last selection.
+    const elapsed = (now - this.lastSelection) / 1000, was = this.selectedAt;
+    const velocity = was && elapsed > 0 && elapsed < 2 ? { x: (focus.x - was.x) / elapsed, z: (focus.z - was.z) / elapsed } : { x: 0, z: 0 };
+    this.selectedAt = { x: focus.x, z: focus.z };
     this.lastSelection = now; this.lastOverview = overview;
+    const ranges = streamRanges(altitude), ahead = leadPoint(focus, velocity);
     const selected = [];
     const visit = node => {
-      const distance = Math.hypot(node.x - focus.x, node.z - focus.z) - node.radius;
-      if (!overview && distance > 2100) return;
-      if (!overview && node.children.length && distance < 850) {
+      const here = Math.hypot(node.x - focus.x, node.z - focus.z) - node.radius, distance = Math.min(here, Math.hypot(node.x - ahead.x, node.z - ahead.z) - node.radius);
+      if (!overview && here > ranges.cut) return;
+      if (!overview && node.children.length && distance < ranges.refine) {
         node.children.forEach(id => visit(this.nodes.get(id))); return;
       }
       if (node.resource !== null) selected.push(node);
     };
     indexRoots(this.index).forEach(id => visit(this.nodes.get(id)));
     this.desired = new Set(selected.map(node => node.id));
-    const physics = this.nearby(focus, overview ? 140 : 850);
+    const physics = overview ? this.nearby(focus, 140) : ranges.physics ? this.nearby(focus, ranges.physics) : [];
     this.physicsDesired = new Set(physics.map(node => node.id));
     // Reuse already cached local walls in overview without requesting distant
     // scenery as physics. Completed travel preparations hand off here.
-    this.collisionDesired = new Set(this.nearby(focus, 850).map(node => node.id));
+    this.collisionDesired = new Set((overview || ranges.physics ? this.nearby(focus, overview ? 850 : ranges.physics) : []).map(node => node.id));
     this.preparedCollisions.clear();
     for (const node of physics) {
       const priority = Math.hypot(node.x - focus.x, node.z - focus.z) - node.radius - 10000;

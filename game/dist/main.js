@@ -36,6 +36,7 @@ import { createSheds, planSheds, createShedMesh } from './sheds.js';
 import { createDining, planDining, createDiningMesh, seatsOf } from './dining.js';
 import { planStands, vendorOf, createStandMesh } from './stands.js';
 import { createCollection, planTrash, createTrashMesh } from './trash.js';
+import { aboveTheStreet } from './aloft.js';
 import { createBikeShare, planBikeDocks, createBikeDocks } from './bikes.js';
 import { menuFor } from './menu.js';
 import { createSubway, createSubwayEntrances, FARE } from './subway.js';
@@ -77,6 +78,8 @@ let sheds=null, shedMesh=null;
 let dining=null, diningMesh=null, diners=[];
 // Newsstands and fruit stands at the kerb, and whoever minds each.
 let standMesh=null, vendors=[], standHere=null;
+// How high the view is above the ground, and whether it is above the street (aloft.js).
+let viewHeight=0, aloft=false;
 // Trash night: which days each block is collected, the heaps of bags near the player, and what day of the week it is.
 // The week starts on today's real weekday and moves on a day each time the game's clock passes midnight.
 let collection=null, trashMesh=null, weekday=(new Date().getDay()+6)%7, clockWas=null;
@@ -559,14 +562,17 @@ function frame(now) {
   // prepareAt owns the destination's collision data until arrival. Reselecting
   // around the old player while terrain is still loading would discard it.
   // Continue rendering and downloads; resume selection after arrival/rollback.
-  if(!traveling)world.update(sim.player,camera,{overview:cityView||!started});
+  // How high the view is above the ground under it, and whether that is too high to see a street's furniture (aloft.js).
+  viewHeight=Math.max(0,camera.position.y-groundHeight(camera.position.x,camera.position.z),(sim.player.y||0)-groundHeight(sim.player.x,sim.player.z));
+  aloft=started&&!cityView&&aboveTheStreet(viewHeight,aloft);
+  if(!traveling)world.update(sim.player,camera,{overview:cityView||!started,altitude:started&&!cityView?viewHeight:0});
   ground.update(sim.player,{overview:cityView||!started});
   world.setLocalOrthophoto(ground.localOrthophoto);
   landscape?.setLocalOrthophoto(ground.localOrthophoto);
   landscape?.update(sim.player,{overview:cityView||!started});
   streetDetail?.setLocalOrthophoto(ground.localOrthophoto);
-  streetDetail?.update(sim.player,{overview:cityView||!started});
-  streetscape?.update(sim.player,{overview:cityView||!started});
+  streetDetail?.update(sim.player,{overview:cityView||!started||aloft});
+  streetscape?.update(sim.player,{overview:cityView||!started||aloft});
   roadPilot?.setLocalOrthophoto(ground.localOrthophoto);
   if(started&&!cityView&&roadPilotIndex&&!roadPilot&&!roadPilotLoading&&Date.now()>=roadPilotRetryAt&&nearRoadPilot(sim.player,600))ensureRoadPilot().catch(()=>{});
   updateRoadPilotControls();
@@ -576,8 +582,9 @@ function frame(now) {
   const overview=cityView||!started;
   const lit=viewOverride?{x:viewOverride.target[0],y:viewOverride.target[1],z:viewOverride.target[2]}:!started?{x:INTRO.x,y:0,z:INTRO.z}
     :aerialView&&!overview?aerialTarget:{x:sim.player.x,y:sim.player.y||0,z:sim.player.z};
-  gfx.update(dt,{focus:lit,overview:cityView&&!viewOverride,paused:paused||mapOpen});
-  if(bootReady&&!traveling)refreshRoads();
+  gfx.update(dt,{focus:lit,overview:(cityView&&!viewOverride)||aloft,paused:paused||mapOpen});
+  // The streets under an aircraft are not driven on: they are fetched again when the view comes down.
+  if(bootReady&&!traveling&&!aloft)refreshRoads();
   if(bootReady&&started&&!traveling&&!cityView)refreshParkedCars();
   audio.update(sim,elapsed,started&&!paused&&!traveling&&!cityView&&!mapOpen);
   hudTime+=dt;if(hudTime>.075){
@@ -587,7 +594,7 @@ function frame(now) {
   }
   water.update(lit,{overview:cityView&&!viewOverride});
   // Lamps and headlights are gathered before the frame that they light.
-  streetLife.update(lit,{lights:gfx.state.lightsOn,cars:sim.cars,overview:overview&&!viewOverride});
+  streetLife.update(lit,{lights:gfx.state.lightsOn,cars:sim.cars,overview:(overview&&!viewOverride)||aloft});
   // Signals show what the simulation's traffic is obeying, on the same clock.
   signs.group.visible=!cityView||Boolean(viewOverride);
   if(signs.group.visible)signs.update(sim.junctions,lit,sim.elapsed);
@@ -597,7 +604,7 @@ function frame(now) {
   if(lifeTimer<=0){lifeTimer=2;sim.setTraffic(cityLife.traffic(sim.player.x,sim.player.z,gfx.hours));sim.setFleet(fleet.at(sim.player.x,sim.player.z));}
   camera.getWorldDirection(trafficAhead);sim.setLookout(trafficAhead.x,trafficAhead.z);
   // People on the sidewalks: as many as the place and the hour call for.
-  crowd.mesh.visible=started&&(!cityView||Boolean(viewOverride));
+  crowd.mesh.visible=started&&(!cityView||Boolean(viewOverride))&&!aloft;
   if(crowd.mesh.visible){
     const ahead=camera.getWorldDirection(crowdAhead),flat=Math.hypot(ahead.x,ahead.z)||1;
     crowd.update(paused||mapOpen?0:dt,{walks:streetscape?.walks()||noStreetFurniture,focus:lit,forward:[ahead.x/flat,ahead.z/flat],hours:gfx.hours,time:sim.elapsed,junctions:sim.junctions,cars:sim.cars,player:sim.player});
@@ -607,7 +614,8 @@ function frame(now) {
   // Whose front is whose is worked out again when the places, the buildings
   // or the streets around change, or the player has gone thirty metres.
   placeTimer-=dt;
-  if(placeSource&&placeTimer<=0){
+  // From the air no shop front, shed or stand can be made out, and at an aircraft's speed they would be worked out afresh several times a second.
+  if(placeSource&&placeTimer<=0&&!aloft){
     placeTimer=.4;placeSource.request(lit.x,lit.z,700);
     const walks=streetscape?.walks()||noStreetFurniture;
     if(!frontsFor||frontsFor.places!==placeSource.version||frontsFor.footprints!==footprints||frontsFor.walks!==walks||Math.hypot(lit.x-frontsFor.x,lit.z-frontsFor.z)>30){
@@ -692,13 +700,13 @@ function frame(now) {
   }
   gfx.indoors=Boolean(sim.room);
   // Subway stairs stand where the MTA lists them, running along the kerb beside them.
-  if(subway&&subwayStairs){
+  if(subway&&subwayStairs&&!aloft){
     const walks=streetscape?.walks()||noStreetFurniture;
     if(walks!==kerbsFor){kerbsFor=walks;kerbIndex=indexKerbs(walks);}
     subwayStairs.group.visible=!cityView||Boolean(viewOverride);
     subwayStairs.update(subway,lit);
   }
-  if(buses&&busStops){
+  if(buses&&busStops&&!aloft){
     const walks=streetscape?.walks()||noStreetFurniture;
     if(walks!==kerbsFor){kerbsFor=walks;kerbIndex=indexKerbs(walks);}
     busStops.group.visible=!cityView||Boolean(viewOverride);if(shedMesh)shedMesh.mesh.visible=busStops.group.visible;if(diningMesh)diningMesh.mesh.visible=busStops.group.visible;if(standMesh)standMesh.mesh.visible=busStops.group.visible;if(bikeDocks)bikeDocks.group.visible=busStops.group.visible;
@@ -710,8 +718,10 @@ function frame(now) {
   const flashed=sim.cameraFlash&&sim.elapsed-sim.cameraFlash.at<.11;
   if(flashed!==cameraFlashing){cameraFlashing=flashed;$('world').style.filter=flashed?'brightness(2.2)':'';}
   props.group.visible=crowd.mesh.visible;
-  if(props.group.visible)props.update(streetscape?.walks()||noStreetFurniture,lit,signs.poles);
+  if(props.group.visible&&!aloft)props.update(streetscape?.walks()||noStreetFurniture,lit,signs.poles);
   setVehicleLamps(gfx.state.lightsOn);
+  // Above the street nothing of its furniture is drawn; each is shown again by its own update when the view comes down.
+  if(aloft)for(const thing of [crowd?.mesh,signs?.group,props?.group,subwayStairs?.group,busStops?.group,shedMesh?.mesh,diningMesh?.mesh,standMesh?.mesh,bikeDocks?.group,trashMesh?.mesh])if(thing)thing.visible=false;
   gfx.render();
   qualityTimer+=dt;if(dt>.035)slowFrames++;
   if(highQuality&&qualityTimer>5){if(slowFrames>90){highQuality=false;applyQuality();announce('Switched to balanced graphics for smoother streets.');}qualityTimer=0;slowFrames=0;}
@@ -1100,7 +1110,7 @@ async function boot() {
   const b=city.bounds;camera.position.set((b.minX+b.maxX)/2-14000,44000,(b.minZ+b.maxZ)/2+32000);
   navigation=createCityNavigation({canvas,camera,input,bounds:city.bounds,heightAt:terrainHeight,onTravel:travel,onAddressSelected:focusCityAddress,searchLocal:findLocally});
   $('place-select').innerHTML=roadIndex.places.map((place,i)=>'<option value="'+i+'">'+place.name+' · '+place.borough+'</option>').join('');
-  window.nycGame={graphics:gfx,get streetscape(){return streetscape;},get streetLife(){return streetLife;},get parkedCars(){return parkedCars;},get distantTraffic(){return distantTraffic;},get world(){return world;},get simulation(){return sim;},get signs(){return signs;},get crowd(){return crowd;},get props(){return props;},get places(){return placeSource;},get storefronts(){return storefronts;},get fronts(){return fronts;},get phone(){return phone;},get fleet(){return fleet;},get subway(){return subway;},get buses(){return buses;},get sheds(){return sheds;},get dining(){return dining;},get standMesh(){return standMesh;},get trash(){return trashMesh;},get weekday(){return weekday;},set weekday(day){weekday=((day%7)+7)%7;},get map(){return gameMap;},findLocally,get bikeShare(){return bikeShare;},get bikeDocks(){return bikeDocks;},get diningMesh(){return diningMesh;},get shedMesh(){return shedMesh;},get busStops(){return busStops;},get demographics(){return demographics;},get subwayStairs(){return subwayStairs;},get cityLife(){return cityLife;},heightAt:(x,z)=>terrainHeight(x,z),setView:view=>{viewOverride=view&&Array.isArray(view.position)&&Array.isArray(view.target)?view:null;},getState:()=>({time:gfx.clock,player:{...sim.player},heat:sim.heat,health:sim.health,mission:{...sim.mission},cash:sim.cash,deliveries:sim.deliveries,cars:sim.cars.length,parkedCars:sim.cars.filter(car=>car._kerb).length,buildings:buildings.length,totalBuildings:cityIndex.stats.buildingFeatures,stream:world.getStatus(),ground:ground.getStatus(),streetDetail:streetDetail?.getStatus()||null,streetscape:streetscape?.getStatus()||null,landscape:landscape?.getStatus()||null,reconstruction:reconstructionReview?{model:reconstructionReview.model,summary:reconstructionReview.summary}:null,roadReconstruction:roadReconstructionReview?{model:roadReconstructionReview.model,summary:roadReconstructionReview.summary}:null,roadPilot:roadPilot?roadPilot.getStatus():{ready:false,loading:Boolean(roadPilotLoading),error:roadPilotError},navigation:navigation.getState(),map:gameMap.getState(),routeGuidance,cityView,aerialView,traveling,bootReady,shadows:{enabled:shadowsEnabled,active:renderer.shadowMap.enabled},drawCalls:renderer.info.render.calls,triangles:renderer.info.render.triangles,started,paused})};
+  window.nycGame={graphics:gfx,get streetscape(){return streetscape;},get streetLife(){return streetLife;},get parkedCars(){return parkedCars;},get distantTraffic(){return distantTraffic;},get world(){return world;},get simulation(){return sim;},get signs(){return signs;},get crowd(){return crowd;},get props(){return props;},get places(){return placeSource;},get storefronts(){return storefronts;},get fronts(){return fronts;},get phone(){return phone;},get fleet(){return fleet;},get subway(){return subway;},get buses(){return buses;},get sheds(){return sheds;},get dining(){return dining;},get standMesh(){return standMesh;},get aloft(){return aloft;},get viewHeight(){return viewHeight;},get trash(){return trashMesh;},get weekday(){return weekday;},set weekday(day){weekday=((day%7)+7)%7;},get map(){return gameMap;},findLocally,get bikeShare(){return bikeShare;},get bikeDocks(){return bikeDocks;},get diningMesh(){return diningMesh;},get shedMesh(){return shedMesh;},get busStops(){return busStops;},get demographics(){return demographics;},get subwayStairs(){return subwayStairs;},get cityLife(){return cityLife;},heightAt:(x,z)=>terrainHeight(x,z),setView:view=>{viewOverride=view&&Array.isArray(view.position)&&Array.isArray(view.target)?view:null;},getState:()=>({time:gfx.clock,player:{...sim.player},heat:sim.heat,health:sim.health,mission:{...sim.mission},cash:sim.cash,deliveries:sim.deliveries,cars:sim.cars.length,parkedCars:sim.cars.filter(car=>car._kerb).length,buildings:buildings.length,totalBuildings:cityIndex.stats.buildingFeatures,stream:world.getStatus(),ground:ground.getStatus(),streetDetail:streetDetail?.getStatus()||null,streetscape:streetscape?.getStatus()||null,landscape:landscape?.getStatus()||null,reconstruction:reconstructionReview?{model:reconstructionReview.model,summary:reconstructionReview.summary}:null,roadReconstruction:roadReconstructionReview?{model:roadReconstructionReview.model,summary:roadReconstructionReview.summary}:null,roadPilot:roadPilot?roadPilot.getStatus():{ready:false,loading:Boolean(roadPilotLoading),error:roadPilotError},navigation:navigation.getState(),map:gameMap.getState(),routeGuidance,cityView,aerialView,traveling,bootReady,shadows:{enabled:shadowsEnabled,active:renderer.shadowMap.enabled},drawCalls:renderer.info.render.calls,triangles:renderer.info.render.triangles,started,paused})};
   requestAnimationFrame(frame);
   const [roads]=await Promise.all([roadStream.loadAround(seed.spawn),world.prepareAt(seed.spawn,300),landscapeReady]);
   sim.setActiveCity({roads,buildings,isReadyAt:(x,z,radius)=>world.isReadyAt(x,z,radius),missionPoints:destinationsFor(roads,seed.spawn)},{spawn:seed.spawn});city=sim.city;yaw=sim.player.angle;
