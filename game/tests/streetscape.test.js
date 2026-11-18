@@ -1,4 +1,5 @@
 import test from 'node:test';
+import { StreetObjects } from '../dist/street-objects.js';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import * as THREE from '../dist/vendor/three.module.min.js';
@@ -271,6 +272,32 @@ test('islands and plazas are raised and kerbed, lots are asphalt, and none of th
   assert.deepEqual(built.lamps, plain.lamps);
   assert.ok(built.parking.length <= plain.parking.length && built.parking.every(space => plain.parking.some(other => other.id === space.id)));
   assert.ok(!built.parking.some(space => Math.abs(space.z) < 3 && space.x > 18 && space.x < 52), 'nothing parks against the island');
+});
+
+test('a broken median fence is rebuilt in its fallen pose when its cell is evicted and revisited', async t => {
+  const physics = new StreetObjects(), scene = new THREE.Scene();
+  const ring = [...square(30, 30, 8), [30, 30]].map(point => lonLat(...point));
+  const median = { attributes: { OBJECTID: 10, SUB_FEATURE_CODE: 360040 }, geometry: { rings: [ring] } };
+  const fetcher = async url => ({ ok: true, json: async () => String(url).includes(LAYERS.median.path) ? { features: [median] } : [] });
+  const streets = createStreetscape({ scene, physics, radius: 5, maxCells: 1, cacheStorage: null, fetcher });
+  t.after(() => streets.dispose());
+  const here = { x: 30, z: 30 };
+  assert.ok(await streets.prepareAt(here));
+  const panels = physics.groups.get('0,0');
+  const panel = panels[0], axis = { x: panel.tz, z: -panel.tx };
+  const hit = physics.contact(panel.x - .1 * axis.x, panel.z - .1 * axis.z, .2, panel.y);
+  assert.equal(hit.body, panel);
+  physics.strike(hit, { id: 'car' }, 10 * axis.x, 10 * axis.z, true, 0);
+  streets.update({ x: 802, z: 30 });
+  assert.ok(!physics.groups.has('0,0'));
+  for (let i = 0; i < 180; i++) physics.step(1/120);
+  assert.ok(await streets.prepareAt(here));
+  const restored = physics.groups.get('0,0');
+  assert.equal(restored[0].pose.settled, true);
+  const mesh = scene.getObjectByName('Median fence panels'), matrix = new THREE.Matrix4();
+  mesh.getMatrixAt(0, matrix); assert.ok(Math.abs(matrix.elements[5]) < .001);
+  mesh.getMatrixAt(1, matrix); assert.equal(matrix.elements[5], 1);
+  assert.equal(physics.contact(panel.x, panel.z, .05, panel.y), null);
 });
 
 test('the streetscape streams cells around the player and reports what it is standing on', async () => {

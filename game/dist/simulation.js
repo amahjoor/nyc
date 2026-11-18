@@ -1,6 +1,7 @@
 import { resetVehicleDynamics, stepVehicleDynamics, stopVehicleRotation, vehicleTravelSpeed } from './vehicle-dynamics.js';
 import { planJunction, junctionArms, vehicleAspect, stopDistance } from './signal-plan.js';
 import { laneLayout } from './lanes.js';
+import { StreetObjects } from './street-objects.js';
 import { roadLevelAt } from './road-level.js';
 import { drawVehicle, drawPaint, drawTaxi, WHEEL } from './fleet.js';
 import { walkRoom, roomPoint } from './room.js';
@@ -218,6 +219,7 @@ function buildRoadGraph(roads) {
 export class Simulation {
   constructor(city) {
     this.city = city;
+    this.streetObjects = new StreetObjects();
     this.bounds = city.bounds;
     this.loadedBounds = city.loadedBounds || null;
     this._isReadyAt = typeof city.isReadyAt === 'function' ? city.isReadyAt : null;
@@ -721,7 +723,7 @@ export class Simulation {
     return this._rngState / 4294967296;
   }
 
-  _contact(x, z, radius, ignoreWater = false) {
+  _contact(x, z, radius, ignoreWater = false, baseHeight, actor) {
     let contact = null;
     const keep = hit => { if (hit && (!contact || hit.depth > contact.depth)) contact = hit; };
     const bounds = this.bounds;
@@ -745,6 +747,7 @@ export class Simulation {
       const road = landscape.kind === 'water' ? this._nearestEdge(x, z) : null;
       if (!road || road.distance > Math.max(1, finite(road.edge.road.width, 8) / 2 - radius)) keep(landscape);
     }
+    if (this.streetObjects.grid.size) keep(this.streetObjects.contact(x,z,radius,baseHeight,actor,this.elapsed));
     const checked = new Set();
     for (let gx = Math.floor((x - radius) / GRID_SIZE); gx <= Math.floor((x + radius) / GRID_SIZE); gx++) {
       for (let gz = Math.floor((z - radius) / GRID_SIZE); gz <= Math.floor((z + radius) / GRID_SIZE); gz++) {
@@ -759,10 +762,10 @@ export class Simulation {
   }
 
   /** Static map collision query for cameras and pedestrian placement. */
-  isBlocked(x, z, radius = 0.5, { ignoreWater = false } = {}) {
+  isBlocked(x, z, radius = 0.5, { ignoreWater = false, baseHeight } = {}) {
     // A camera above the surface can look across a pond. Actors still use
     // shoreline collision; water must not become an infinitely tall wall.
-    return Boolean(this._contact(x, z, Math.max(0.01, radius), ignoreWater));
+    return Boolean(this._contact(x, z, Math.max(0.01, radius), ignoreWater, baseHeight));
   }
 
   groundHeight(x, z) {
@@ -853,10 +856,10 @@ export class Simulation {
     return !Number.isFinite(surface?.elevation) || Math.abs(surface.elevation - actor.y) > 1.5;
   }
 
-  _carContact(x, z, angle) {
+  _carContact(x, z, angle, actor) {
     let best = null;
     for (const offset of [-CAR_HALF_AXLE, 0, CAR_HALF_AXLE]) {
-      const hit = this._contact(x + Math.sin(angle) * offset, z + Math.cos(angle) * offset, CAR_RADIUS);
+      const hit = this._contact(x + Math.sin(angle) * offset, z + Math.cos(angle) * offset, CAR_RADIUS, false, actor?.y, actor);
       if (hit && (!best || hit.depth > best.depth)) best = hit;
     }
     return best;
@@ -877,17 +880,33 @@ export class Simulation {
     return null;
   }
 
-  _resolvePosition(x, z, radius, angle = null, previous = null, allowDrop = false) {
+  _resolvePosition(x, z, radius, angle = null, previous = null, allowDrop = false, movementDt = 0) {
     // Cars stop at a deck edge. On foot, the same step is allowed through so
     // the walker can leave the deck and fall to whatever is below.
     if (!allowDrop && previous && this._unsupportedDeckExit(previous, x, z, angle === null ? 'walk' : 'drive')) {
       const dx = previous.x - x, dz = previous.z - z, length = Math.hypot(dx, dz) || 1;
       return { x: previous.x, z: previous.z, hit: { kind: 'surface', nx: dx / length, nz: dz / length, depth: 0 } };
     }
+    const vx = movementDt ? (x-previous.x)/movementDt : 0, vz = movementDt ? (z-previous.z)/movementDt : 0;
     let hit = null;
     for (let iteration = 0; iteration < 5; iteration++) {
-      const contact = angle === null ? this._contact(x, z, radius) : this._carContact(x, z, angle);
+      const contact = angle === null ? this._contact(x, z, radius, false, previous?.y, previous) : this._carContact(x, z, angle, previous);
       if (!contact) break;
+      if (contact.kind === 'prop' && movementDt) {
+        const retained = this.streetObjects.strike(contact, previous, vx, vz, angle !== null, this.elapsed);
+        if (retained !== null) {
+          if (previous.controlled || previous._loose > 0) {
+            stopVehicleRotation(previous, previous.velocityX * retained, previous.velocityZ * retained);
+            const force = -(vx * contact.nx + vz * contact.nz) * (1 - retained);
+            if (previous.controlled) this._impact(force, 'prop');
+          }
+          else {
+            previous.speed *= retained;
+            if (Number.isFinite(previous.velocityX)) { previous.velocityX *= retained; previous.velocityZ *= retained; }
+          }
+          continue;
+        }
+      }
       // A missing I3S region has no wall normal. Stop at the last verified
       // position rather than guessing a push direction through unloaded data.
       if (contact.kind === 'loading' && previous) {
@@ -1237,6 +1256,8 @@ export class Simulation {
 
   _tick(input, dt) {
     this.elapsed += dt;
+    if (this.streetObjects.moving.size) this.streetObjects.step(dt,
+      (x,z,r,y)=>this._contact(x,z,r,false,y), (x,z)=>this.groundHeight(x,z));
     this.noticeTime = Math.max(0, this.noticeTime - dt);
     this._impactCooldown = Math.max(0, this._impactCooldown - dt);
     this._timeSinceCrime += dt;
@@ -1280,7 +1301,7 @@ export class Simulation {
     car.velocityZ *= drag;
     const speed = Math.hypot(car.velocityX, car.velocityZ);
     car.speed = speed;
-    const next = this._resolvePosition(car.x + car.velocityX * dt, car.z + car.velocityZ * dt, CAR_RADIUS, car.angle, car);
+    const next = this._resolvePosition(car.x + car.velocityX * dt, car.z + car.velocityZ * dt, CAR_RADIUS, car.angle, car, false, dt);
     if (next.hit) { car.velocityX *= 0.45; car.velocityZ *= 0.45; car.speed = Math.hypot(car.velocityX, car.velocityZ); }
     car.x = next.x;
     car.z = next.z;
@@ -1324,7 +1345,7 @@ export class Simulation {
       room.a = moved.a; room.b = moved.b; player.x = x; player.z = z;
       return;
     }
-    let next = this._resolvePosition(player.x + player.velocityX * dt, player.z + player.velocityZ * dt, PLAYER_RADIUS, null, player, true);
+    let next = this._resolvePosition(player.x + player.velocityX * dt, player.z + player.velocityZ * dt, PLAYER_RADIUS, null, player, true, dt);
     const carHit = this._nearCar(next.x, next.z, PLAYER_RADIUS, null, player.y);
     if (carHit) {
       next = this._resolvePosition(next.x + carHit.nx * (carHit.depth + 0.001), next.z + carHit.nz * (carHit.depth + 0.001), PLAYER_RADIUS, null, player, true);
@@ -1383,7 +1404,7 @@ export class Simulation {
     if (!car) { this.reset(); return; }
     const previousAngle = car.angle;
     stepVehicleDynamics(car, input, dt);
-    const next = this._resolvePosition(car.x + car.velocityX * dt, car.z + car.velocityZ * dt, CAR_RADIUS, car.angle, car);
+    const next = this._resolvePosition(car.x + car.velocityX * dt, car.z + car.velocityZ * dt, CAR_RADIUS, car.angle, car, false, dt);
     if (next.hit) {
       const approach = -(car.velocityX * next.hit.nx + car.velocityZ * next.hit.nz);
       const loadingBoundary = next.hit.kind === 'boundary' || next.hit.kind === 'loading' || next.hit.kind === 'water' || next.hit.kind === 'surface';
@@ -1626,14 +1647,14 @@ export class Simulation {
     let x = car.x + sin * car.speed * dt, z = car.z + cos * car.speed * dt, hit = null;
     car._unchecked = (car._unchecked || 0) + Math.abs(car.speed) * dt;
     if (car._touching || car._unchecked >= TRAFFIC_CHECK) {
-      const resolved = this._resolvePosition(x, z, CAR_RADIUS, car.angle, car);
+      const resolved = this._resolvePosition(x, z, CAR_RADIUS, car.angle, car, false, dt);
       x = resolved.x; z = resolved.z; hit = resolved.hit;
       car._unchecked = 0; car._touching = Boolean(hit);
     }
     car.x = x; car.z = z;
     if (hit) { car.speed *= 0.9; car._stuckTime += dt; }
     else car._stuckTime = Math.max(0, car._stuckTime - dt);
-    if (car._stuckTime > 3 && Math.hypot(car.x - beforeX, car.z - beforeZ) < 0.015) {
+    if (hit?.kind !== 'prop' && car._stuckTime > 3 && Math.hypot(car.x - beforeX, car.z - beforeZ) < 0.015) {
       // Rejoin the same legal lane when a tight imported corner traps a patrol.
       // Recovery is constrained to a nearby clear point, never through a block.
       const rejoin = this._lanePoint(edge, clamp(projection.t + 3 / edge.length, 0.08, 0.92), lane);

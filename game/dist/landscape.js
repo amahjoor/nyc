@@ -118,7 +118,7 @@ function boundaryDistance(point, rings) {
 export function buildCanopyGeometry(features, { maxFeatures = 20_000, maxVertices = 1_200_000, focus = null, detailRadius = 120 } = {}) {
   // Normals point out from each crown's middle so it shades as one rounded mass;
   // aCrown carries crown-local coordinates for the leaf shader (w = 0 on stems).
-  const positions = [], colors = [], normals = [], crowns = [], sourceIds = [];let truncated = false, approximateTrunks = 0;
+  const positions = [], colors = [], normals = [], crowns = [], sourceIds = [], stems = [];let truncated = false;
   const leafGreen = new THREE.Color(.21, .33, .12);
   for (const feature of features) {
     if (sourceIds.length >= maxFeatures) { truncated = true;break; }
@@ -167,7 +167,7 @@ export function buildCanopyGeometry(features, { maxFeatures = 20_000, maxVertice
     for (const triangle of parts.triangles) for (const i of [...triangle].reverse()) add(parts.vertices[i], lower);
     if (feature.individualTree === true && interior) {
       // Individual crown detection establishes a real tree, not its exact
-      // stem. This narrow visual proxy is disclosed and has no collider.
+      // stem. Use the same approximate stem for the mesh and contact.
       const supplied = feature.treePoint;
       const center = Array.isArray(supplied) && supplied.length >= 2 && supplied.every(finite)
         && inWater(feature, supplied[0], supplied[1]) ? new THREE.Vector2(...supplied) : interior;
@@ -184,13 +184,13 @@ export function buildCanopyGeometry(features, { maxFeatures = 20_000, maxVertice
         const ax = center.x + Math.cos(a) * radius, az = center.y + Math.sin(a) * radius, bx = center.x + Math.cos(b) * radius, bz = center.y + Math.sin(b) * radius;
         for (const vertex of [[ax, 0, az], [ax, top, az], [bx, top, bz], [ax, 0, az], [bx, top, bz], [bx, 0, bz], [ax, top, az], [center.x, top, center.y], [bx, top, bz]]) stem(...vertex);
       }
-      approximateTrunks++;
+      stems.push({ kind: 'tree', x: center.x, y: feature.baseElevation, z: center.y, radius, height: top });
     }
     sourceIds.push(feature.id);
   }
   const geometry = geometryFrom(positions, sourceIds, colors, normals, crowns);
   geometry.userData.approximation = 'Crown envelopes from measured footprints and canopy-top heights. Crown undersides, branch shapes and stem diameters are not measured; individual-tree stems are visual approximations.';
-  geometry.userData.approximateTrunks = approximateTrunks;geometry.userData.truncated = truncated;return geometry;
+  geometry.userData.stems = stems;geometry.userData.approximateTrunks = stems.length;geometry.userData.truncated = truncated;return geometry;
 }
 
 // The aerial photograph is sharp from the air and a smear from the street:
@@ -425,11 +425,12 @@ export function reviewedWaterFeatures(report, official, origin) {
 
 /** A small bounded set of surveyed regions overlays the citywide measured DEM. */
 export class Landscape {
-  constructor({ scene, index, orthophoto, localOrthophoto, fetcher = globalThis.fetch.bind(globalThis), onStatus = () => {}, onChange = () => {},
+  constructor({ scene, index, orthophoto, localOrthophoto, physics = null, fetcher = globalThis.fetch.bind(globalThis), onStatus = () => {}, onChange = () => {},
     now = () => Date.now(), maxCache = 4, concurrency = 2, radius = 1800 } = {}) {
     if (index?.version !== 1 || !Array.isArray(index.regions)) throw new Error('Invalid NYC landscape index.');
     this.index = index;this.scene = scene;this.fetcher = fetcher;this.onStatus = onStatus;this.onChange = onChange;this.now = now;
     this.maxCache = clamp(maxCache, 1, 8);this.concurrency = clamp(concurrency, 1, 4);this.radius = radius;
+    this.physics = physics;
     this.orthophoto = orthophoto;this.localOrthophoto = localOrthophoto;
     this.group = new THREE.Group();this.group.name = 'Measured NYC landscape reconstruction';scene?.add(this.group);
     this.cache = new Map();this.pending = new Map();this.errors = new Map();this.wanted = new Map();this.preparing = new Map();this.serial = 0;this.disposed = false;
@@ -552,7 +553,7 @@ export class Landscape {
     entry.vegetationSelection = selection;const generation = (entry.vegetationGeneration || 0) + 1;entry.vegetationGeneration = generation;
     entry.vegetationLoading = true;
     entry.vegetationTask = (async () => {
-      const parts = [], sourceIds = [];let count = 0, approximateTrunks = 0, truncated = false;
+      const parts = [], sourceIds = [], stems = [];let count = 0, truncated = false;
       // A 12,000-crown region must not block steering on the main thread.
       // Build nearby features in small cooperative batches while retaining
       // the previous GPU mesh until its complete replacement is ready.
@@ -562,7 +563,7 @@ export class Landscape {
         const geometry = buildCanopyGeometry(selected.slice(offset, offset + 96), { focus: center, maxFeatures: 6000 - sourceIds.length, maxVertices: 1_200_000 - count });
         const p = geometry.attributes.position.array, n = geometry.attributes.normal.array, c = geometry.attributes.color.array, k = geometry.attributes.aCrown.array;
         parts.push({ p, n, c, k });count += p.length / 3;sourceIds.push(...geometry.userData.sourceIds);
-        approximateTrunks += geometry.userData.approximateTrunks;truncated ||= geometry.userData.truncated;geometry.dispose();
+        stems.push(...geometry.userData.stems);truncated ||= geometry.userData.truncated;geometry.dispose();
         if (truncated) break;
       }
       if (this.disposed || entry.vegetationGeneration !== generation || !entry.group.parent) return;
@@ -572,13 +573,22 @@ export class Landscape {
       for (const part of parts) { positions.set(part.p, offset);normals.set(part.n, offset);colors.set(part.c, offset);crownLocal.set(part.k, vertex * 4);offset += part.p.length;vertex += part.p.length / 3; }
       geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));geometry.setAttribute('normal', new THREE.BufferAttribute(normals, 3));
       geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));geometry.setAttribute('aCrown', new THREE.BufferAttribute(crownLocal, 4));geometry.computeBoundingSphere();
-      Object.assign(geometry.userData, { sourceIds, approximateTrunks, truncated,
+      Object.assign(geometry.userData, { sourceIds, approximateTrunks: stems.length, stems, truncated,
         approximation: 'Measured crown footprints and canopy-top heights; crown volume, underside and stems approximated.' });
-      const previous = entry.vegetation.geometry;entry.vegetation.geometry = geometry;previous.dispose();entry.vegetationLoading = false;this._report();
+      const previous = entry.vegetation.geometry;entry.vegetation.geometry = geometry;previous.dispose();this._syncStems(entry);entry.vegetationLoading = false;this._report();
     })().catch(error => { if (!this.disposed && entry.vegetationGeneration === generation) { entry.vegetationLoading = false;entry.vegetationError = error.message;this._report(); } });
   }
 
+  _syncStems(entry) {
+    if (!this.physics || !entry.vegetation) return;
+    const stems = entry.group.visible && this.layers.vegetation ? entry.vegetation.geometry.userData.stems : null;
+    if (stems === entry.registeredStems) return;
+    this.physics.replace(entry, stems || []);
+    entry.registeredStems = stems;
+  }
+
   _applyLayers(entry) {
+    this._syncStems(entry);
     entry.mesh.visible = this.layers.terrain;
     if (entry.water) entry.water.visible = this.layers.water;
     if (entry.reviewedWater) entry.reviewedWater.visible = this.layers.water;
@@ -586,6 +596,7 @@ export class Landscape {
   }
 
   _release(entry) {
+    if (entry.registeredStems) this.physics.replace(entry, []);
     entry.vegetationGeneration = (entry.vegetationGeneration || 0) + 1;
     this.group.remove(entry.group);
     entry.group.traverse(object => { object.geometry?.dispose();object.material?.dispose(); });
@@ -666,7 +677,7 @@ export class Landscape {
     selected.length = Math.min(selected.length, this.maxCache);
     this.wanted = new Map(selected.map(region => [region.id, region]));
     for (const [id, controller] of this.pending) if (!this.wanted.has(id)) { controller.abort();this.pending.delete(id); }
-    for (const [id, entry] of this.cache) { entry.group.visible = this.wanted.has(id);if (entry.group.visible) { entry.used = ++this.serial;this._updateVegetation(entry); } }
+    for (const [id, entry] of this.cache) { entry.group.visible = this.wanted.has(id);this._syncStems(entry);if (entry.group.visible) { entry.used = ++this.serial;this._updateVegetation(entry); } }
     for (const id of this.errors.keys()) if (id !== 'base-features' && !this.wanted.has(id)) this.errors.delete(id);
     this._coverage();this._trim();this._pump();
     if (previous !== [...this.wanted.keys()].join(',')) { this.onChange();this._report(); }

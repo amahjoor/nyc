@@ -1,0 +1,155 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import * as THREE from '../dist/vendor/three.module.min.js';
+import { Simulation } from '../dist/simulation.js';
+import { buildCell } from '../dist/streetscape.js';
+import { createStreetLife } from '../dist/streetlife.js';
+import { createStreetProps, SETBACK } from '../dist/street-props.js';
+import { createSubwayEntrances } from '../dist/subway.js';
+import { StreetObjects } from '../dist/street-objects.js';
+
+function game(roads = []) {
+  return new Simulation({ bounds: { minX: -500, maxX: 500, minZ: -500, maxZ: 500 },
+    roads, buildings: [], spawn: { x: 0, z: 0, angle: 0 } });
+}
+
+const step = (sim, ticks, input = {}) => {
+  for (let i = 0; i < ticks; i++) sim.step(input, 1/120);
+};
+
+function driving(speed) {
+  const sim = game();
+  assert.ok(sim.interact());
+  const car = sim.cars.find(c => c.controlled);
+  sim.cars = [car];
+  Object.assign(car, { x: 0, z: 0, angle: 0, speed });
+  step(sim, 1);
+  return { sim, car };
+}
+
+test('a slow bump leaves a lamp standing and a fast car stops at the visible trunk', () => {
+  for (const [kind, speed] of [['lamp', 4], ['tree', 16]]) {
+    const { sim, car } = driving(speed);
+    const tree = { x: 0, y: 0, z: 4, girth: .65, species: 'oak' };
+    const lamp = { x: 0, y: 0, z: 4, nx: 1, nz: 0 };
+    const life = createStreetLife({ physics: sim.streetObjects,
+      getLamps: () => kind === 'lamp' ? [lamp] : [], getTrees: () => kind === 'tree' ? [tree] : [] });
+    life.update(car);
+    assert.equal(sim.isBlocked(0, 4, .1), true);
+    step(sim, 120, { forward: .3 });
+    assert.ok(car.z > .4 && car.z < 2.4 && Math.abs(car.speed) < .1, kind);
+    assert.equal(sim.streetObjects.damage.size, 0);
+    if (kind === 'tree') {
+      assert.ok(sim.isBlocked(.32, 4, .01));
+      assert.ok(!sim.isBlocked(.8, 4, .1), 'the canopy leaves walking space beside the trunk');
+    }
+    life.dispose();
+    assert.equal(sim.streetObjects.grid.size, 0);
+  }
+});
+
+test('a coasting empty car topples a lamp, darkens its lens, and leaves a fallen obstacle on return', () => {
+  const { sim, car } = driving(18);
+  Object.assign(sim.player, { x: 30, z: 0, mode: 'walk', vehicleId: null });
+  Object.assign(car, { controlled: false, parked: false, _loose: 2 });
+  const lamp = { x: 0, y: 0, z: 5, nx: -1, nz: 0 };
+  let lamps = [lamp];
+  const life = createStreetLife({ physics: sim.streetObjects, getLamps: () => lamps });
+  life.update(car);
+  const mesh = life.group.getObjectByName('Street lamps'), lens = life.group.getObjectByName('Street lamp lenses');
+  const matrix = new THREE.Matrix4();
+  for (let i = 0; i < 60 && !sim.streetObjects.damage.size; i++) step(sim, 1);
+  assert.equal(sim.streetObjects.damage.size, 1);
+  assert.ok(car.speed < 12, 'the pole absorbs some of the car momentum');
+  lens.getMatrixAt(0, matrix); assert.equal(matrix.determinant(), 0);
+  lamps = []; life.update(car);
+  assert.equal(sim.streetObjects.grid.size, 0);
+  step(sim, 240);
+  assert.equal(sim.streetObjects.moving.size, 0, 'the fall finishes while its mesh is unloaded');
+  lamps = [lamp]; life.update(car);
+  mesh.getMatrixAt(0, matrix);
+  const axis = new THREE.Vector3(0, 1, 0).transformDirection(matrix);
+  assert.ok(axis.z > .99);
+  assert.ok(sim.isBlocked(0, 11, .2, { baseHeight: 0 }));
+  assert.ok(!sim.isBlocked(0, 11, .2, { baseHeight: 4 }));
+  assert.ok(!sim.isBlocked(0, 4, .2));
+  life.dispose();
+});
+
+test('a walker moves the visible litter basket, which settles against a solid obstruction', () => {
+  const sim = game();
+  sim.cars = [];
+  const kerb = { points: [[-10, 0], [10, 0]], normals: [[0, 1]] };
+  const props = createStreetProps({ physics: sim.streetObjects, data: { baskets: [0, 0] } });
+  props.update([kerb], sim.player);
+  const z = -SETBACK.basket;
+  Object.assign(sim.player, { x: 0, z: z - 2, y: 0 });
+  sim.streetObjects.replace('tree', [{ x: 0, z: z + 2.3, y: 0, radius: .3, height: 4 }]);
+  step(sim, 50, { moveZ: 1 });
+  Object.assign(sim.player, { x: 5, z: 4, velocityZ: 0 });
+  step(sim, 300);
+  const [pose] = sim.streetObjects.damage.values();
+  assert.ok(pose?.settled && pose.dz > .3 && pose.dz + .88 * Math.sin(pose.tilt) < 1.71);
+  assert.ok(!sim.isBlocked(0, z - .28, .04));
+  assert.ok(sim.isBlocked(0, z + pose.dz, .04));
+  const matrix = new THREE.Matrix4();
+  props.meshes.baskets.getMatrixAt(0, matrix);
+  assert.ok(Math.abs(matrix.elements[14] - (z + pose.dz)) < .001 && Math.abs(matrix.elements[5] - Math.cos(pose.tilt)) < .001);
+  props.dispose();
+});
+
+test('mapped median panels have independent stable identities and a glancing strike leaves the section standing', async () => {
+  const surface = { id: 'median/7', kind: 'median', subtype: 'fenced median', polygon: [[0,0],[10,0],[10,2],[0,2]] };
+  const { fences } = await buildCell([surface], []);
+  assert.equal(fences.length, 10);
+  assert.equal(new Set(fences.map(body => body.id)).size, 10);
+  const physics = new StreetObjects();
+  physics.replace('0,0', fences);
+  const hit = physics.contact(1.25, -.2, .3, 0);
+  assert.equal(hit.body, fences[0]);
+  assert.equal(physics.strike(hit, { id: 'cab' }, 18, 1, true, 0), null);
+  assert.equal(physics.damage.size, 0);
+});
+
+test('a thin street tree tips as one piece and keeps its crown attached when streamed back in', () => {
+  const { sim, car } = driving(15);
+  const tree = { x: 0, y: 0, z: 4, girth: .1, species: 'ginkgo' };
+  let trees = [tree];
+  const life = createStreetLife({ physics: sim.streetObjects, getTrees: () => trees });
+  life.update(car);
+  step(sim, 200);
+  const [stem] = sim.streetObjects.groups.get('tree');
+  assert.ok(stem.pose?.settled);
+  trees = []; life.update(car);
+  trees = [tree]; life.update(car);
+  const getMatrix = name => {
+    const matrix = new THREE.Matrix4();
+    life.group.getObjectByName(name).getMatrixAt(0, matrix);
+    return matrix;
+  };
+  const tip = new THREE.Vector3(0, 1, 0).applyMatrix4(getMatrix('Street tree trunks'));
+  const crown = new THREE.Vector3().setFromMatrixPosition(getMatrix('Street tree crowns'));
+  assert.ok(tip.z > tree.z + 2 && tip.distanceTo(crown) < .001);
+  life.dispose();
+});
+
+test('ordinary traffic knocks a basket aside and slows to scrape around a mature tree', () => {
+  const sim = game([{ id: 'street', name: 'Street', points: [[0, -80], [0, 80]], width: 12 }]);
+  const edge = sim._graph.edges.find(e => Math.cos(e.angle) > .9);
+  const lane = sim._lanePoint(edge, .5);
+  Object.assign(sim.player, { x: 25, z: 0 });
+  const car = sim._makeCar('traffic-test', 'sedan', lane, edge.angle, edge);
+  car._cruise = car.speed = 12;
+  sim.cars = [car];
+  sim.streetObjects.replace('basket', [{ id: 'bin', x: lane.x, z: lane.z + 6, y: 0, radius: .3, height: .88 }]);
+  sim.streetObjects.replace('tree', [{ x: lane.x, z: lane.z + 18, y: 0, radius: .35, height: 5 }]);
+  let slowest = Infinity, clearance = Infinity;
+  for (let i = 0; i < 1200; i++) {
+    step(sim, 1);
+    if (Math.abs(car.z - lane.z - 16) < 1) slowest = Math.min(slowest, car.speed);
+    clearance = Math.min(clearance, Math.hypot(car.x - lane.x, car.z - lane.z - 18));
+  }
+  assert.ok(sim.streetObjects.damage.get('bin')?.settled);
+  assert.ok(slowest < 4 && clearance > 1.1);
+  assert.ok(car.z > lane.z + 20, 'the AI can get moving again once clear of the tree');
+});

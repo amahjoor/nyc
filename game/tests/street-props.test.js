@@ -36,6 +36,9 @@ test('baskets and shelters stand on the sidewalk just inside the kerb, facing th
   props.meshes.shelters.getMatrixAt(0, matrix); at.setFromMatrixPosition(matrix); front.set(0, 0, 1).transformDirection(matrix);
   assert.ok(Math.abs(at.x - 70) < 1e-9 && Math.abs(at.z - (-5 - SETBACK.shelter)) < 1e-9);
   assert.ok(Math.abs(front.z - 1) < 1e-9, 'its open side faces the road');
+  assert.equal(props.seats.length,2);
+  assert.ok(props.seats.every(seat=>seat.seatKind==='bench' && seat.seatHeight===.47+.05/2));
+  assert.ok(props.seats.every(seat=>Math.abs(seat.z-at.z+.42)<1e-5 && seat.x>=at.x-1.55 && seat.x<=at.x+.35));
   assert.equal(props.meshes.glazing.count, 1); assert.equal(props.meshes.adverts.count, 1);
   assert.ok(props.meshes.adverts.instanceColor.getX(0) > .5, 'the advertising panel is lit');
   // Nothing is redone until the player has moved or the kerbs have changed.

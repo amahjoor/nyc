@@ -1155,6 +1155,7 @@ async function boot() {
   camera=new THREE.PerspectiveCamera(52,innerWidth/innerHeight,10,150000);
   // Sky, sun, haze and the screen-space finish share one time of day.
   gfx=createGraphics({renderer,scene,camera});
+  sim=new Simulation(city);
   // Rivers, harbor and sea, bounded by the borough shorelines.
   water=createWater({scene,boroughs,bounds:roadIndex.bounds,panorama:gfx.skyPanorama});
   // The country around the city, as a silhouette. Optional: without it the city stands in open sea.
@@ -1164,10 +1165,9 @@ async function boot() {
     image.src=manifest.url;
   }).catch(()=>{});
   gfx.passes.push((renderer,scene,camera)=>water.renderMirror(renderer,scene,camera,{enabled:Boolean(viewOverride)||!cityView,scale:highQuality?.75:.5}));
-  streetLife=createStreetLife({scene,renderer,getLamps:()=>streetscape?.lamps()||noStreetFurniture,getTrees:()=>streetscape?.trees()||noStreetFurniture});
+  streetLife=createStreetLife({scene,renderer,physics:sim.streetObjects,getLamps:()=>streetscape?.lamps()||noStreetFurniture,getTrees:()=>streetscape?.trees()||noStreetFurniture});
   parkedCars=createParkedCars({capacity:PARKED_LIMIT+8,library:vehicleMeshes});scene.add(parkedCars.group);
   distantTraffic=createDistantTraffic({library:vehicleMeshes});scene.add(distantTraffic.group);
-  sim=new Simulation(city);
   interaction=createInteraction({$,onOpenChange:open=>{
     if(open)phone?.setOpen(false);else canvas.focus();
   }});
@@ -1187,7 +1187,7 @@ async function boot() {
   // on foot. Without them the model answers alone and nothing is lost but detail.
   const signalHints=(x,z)=>({...cityLife.hintsAt(x,z),core:manhattanCore(x,z)});
   sim.setActiveCity({signalHints});
-  props=createStreetProps({scene,heightAt:groundHeight});
+  props=createStreetProps({scene,physics:sim.streetObjects,heightAt:groundHeight});
   storefronts=createStorefronts();
   loadLogos().then(logos=>{if(logos.size)storefronts.setLogos(logos);}).catch(()=>{});
   // The registers' places, and the shops they do not list (OpenStreetMap), read as one.
@@ -1223,7 +1223,7 @@ async function boot() {
   world.setOrthophoto(ground.orthophoto);
   const landscapeReady=loadData('landscape-index.json').then(async index=>{
     landscapeManifest=index;
-    landscape=new Landscape({scene,index,orthophoto:ground.orthophoto,onChange:()=>{landscapeDirty=true;},onStatus:updateLandscapeStatus});
+    landscape=new Landscape({scene,index,physics:sim.streetObjects,orthophoto:ground.orthophoto,onChange:()=>{landscapeDirty=true;},onStatus:updateLandscapeStatus});
     await landscape.loadBase();
     // Measured terrain and the water sheet now cover everything the flat
     // photograph did; it stays loaded as the terrain's and the roofs' texture.
@@ -1242,7 +1242,7 @@ async function boot() {
   // Asphalt, sidewalks, kerbs and paint. Surveyed outlines ship for a few
   // neighbourhoods; elsewhere they stream from NYC Open Data around the player.
   const startStreetscape=index=>{
-    streetscape=createStreetscape({scene,index,heightAt:terrainHeight,onChange:()=>sim?.updateGrounding(),
+    streetscape=createStreetscape({scene,index,physics:sim.streetObjects,heightAt:terrainHeight,onChange:()=>sim?.updateGrounding(),
       roadsFor:bounds=>roadStream.loadAround({x:(bounds.minX+bounds.maxX)/2,z:(bounds.minZ+bounds.maxZ)/2},320)});
     if(roadPilot)streetscape.setGroundReplacementBounds(roadPilotIndex.bounds);
   };

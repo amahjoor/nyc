@@ -1,5 +1,6 @@
 import * as THREE from './vendor/three.module.min.js';
 import { CITY_ORIGIN, worldToGeographic } from './city-ground.js';
+import { propInstance } from './prop-instance.js';
 import { laneLayout } from './lanes.js';
 
 // Street surfaces from New York's planimetric survey: every roadbed and
@@ -400,6 +401,7 @@ export async function buildCell(surfaces, roads, { heightAt = () => 0, bounds = 
   }
   for (const entry of entries) if (!entry.elevated && !(excluded && excluded(entry.surface))) grid.add(entry);
 
+  const fences = [];
   let budget = performance.now(), drawn = 0;
   const breathe = async () => { if (performance.now() - budget > 5) { await pause(); budget = performance.now(); } };
 
@@ -420,6 +422,19 @@ export async function buildCell(surfaces, roads, { heightAt = () => 0, bounds = 
     }
     const draped = drapeTriangles(points, heights, triangles, sample);
     drawn++;
+    if (surface.subtype === 'fenced median' || surface.subtype === 'railed median') {
+      const ring = surface.polygon;
+      for (let i=0; i<ring.length; i++) {
+        const a=ring[i], b=ring[(i+1)%ring.length], dx=b[0]-a[0], dz=b[1]-a[1];
+        const length=Math.hypot(dx,dz), count=Math.ceil(length/2.5);
+        if (length<.1) continue;
+        for (let j=0; j<count; j++) {
+          const x=a[0]+dx*(j+.5)/count, z=a[1]+dz*(j+.5)/count;
+          fences.push({ kind:'rail', id:surface.id+'/'+i+'/'+j, x, z, y:sample(x,z)+lift,
+            height:1, radius:.035, half:length/count/2, tx:dx/length, tz:dz/length });
+        }
+      }
+    }
     if (entry.asphalt) {
       for (const i of draped) road.push(points[i * 2], heights[i] + lift, points[i * 2 + 1], 0, 1, 0);
       continue;
@@ -664,7 +679,7 @@ export async function buildCell(surfaces, roads, { heightAt = () => 0, bounds = 
     const first = run.points[0], last = run.points.at(-1);
     run.id = `walk:${Math.round(first[0] * 2)}:${Math.round(first[1] * 2)}:${Math.round(last[0] * 2)}:${Math.round(last[1] * 2)}`;
   }
-  return { road, walk, marks, grid, lamps, trees, parking, walks, surfaces: drawn };
+  return { road, walk, marks, grid, lamps, trees, fences, parking, walks, surfaces: drawn };
 }
 
 // --- Materials ------------------------------------------------------------------
@@ -785,7 +800,7 @@ export function paintMaterial() {
  * Streams street cells around a focus point and keeps their meshes current.
  */
 export function createStreetscape({ scene, index = null, origin = CITY_ORIGIN, heightAt = () => 0, roadsFor = async () => [], fetcher, cacheStorage, live = true,
-  onChange = () => {}, onStatus = () => {}, now = () => Date.now(), radius = 420, maxCells = 14 } = {}) {
+  onChange = () => {}, onStatus = () => {}, now = () => Date.now(), radius = 420, maxCells = 14, physics = null } = {}) {
   const source = createStreetSource({ index, origin, fetcher, cacheStorage, live }), size = source.size;
   const group = new THREE.Group(); group.name = 'Street surfaces'; scene?.add(group);
   const materials = { road: asphaltMaterial(), walk: pavementMaterial(), marks: paintMaterial() };
@@ -803,8 +818,47 @@ export function createStreetscape({ scene, index = null, origin = CITY_ORIGIN, h
   };
   const report = () => { if (!disposed) onStatus(status()); };
 
+  const fenceMaterial = new THREE.MeshStandardMaterial({ color: 0x424b48, roughness: .7 });
+  let fenceGeometry;
+  function installFence(cell, panels) {
+    if (!fenceGeometry) {
+      // A unit panel along local Z, stretched to fit each surveyed edge.
+      const writer = new MeshWriter();
+      const box = (width, height, depth, y, z) => {
+        const part = new THREE.BoxGeometry(width, height, depth).translate(0, y, z);
+        const { position, normal } = part.attributes;
+        for (const i of part.index.array) writer.push(position.getX(i), position.getY(i), position.getZ(i),
+          normal.getX(i), normal.getY(i), normal.getZ(i));
+        part.dispose();
+      };
+      box(.05, .05, 1, .9, 0);
+      box(.05, .04, 1, .25, 0);
+      for (let i = 0; i < 7; i++) box(.045, 1, .016, .5, i / 7 - .49);
+      fenceGeometry = writer.geometry();
+    }
+    const mesh = new THREE.InstancedMesh(fenceGeometry, fenceMaterial, panels.length);
+    mesh.name = 'Median fence panels'; mesh.castShadow = true; mesh.frustumCulled = false;
+    const matrix = new THREE.Matrix4(), scale = new THREE.Vector3();
+    panels.forEach((body, i) => {
+      matrix.makeRotationY(Math.atan2(body.tx, body.tz)).scale(scale.set(1, 1, 2 * body.half)).setPosition(body.x, body.y, body.z);
+      mesh.setMatrixAt(i, matrix);
+      if (physics) body.draw = propInstance(mesh, i, body, matrix);
+    });
+    group.add(mesh);
+    cell.meshes.push(mesh);
+    cell.fence = mesh;
+    cell.panels = panels;
+    physics?.replace(cell.key, panels);
+  }
   function release(cell) {
-    for (const mesh of cell.meshes || []) { group.remove(mesh); mesh.geometry.dispose(); }
+    for (const mesh of cell.meshes || []) {
+      group.remove(mesh);
+      if (mesh === cell.fence) {
+        physics?.replace(cell.key, []);
+        mesh.dispose();
+      } else mesh.geometry.dispose();
+    }
+    cell.fence = null; cell.panels = null;
     cell.meshes = null; cell.grid = null; cell.lamps = null; cell.trees = null; cell.parking = null; cell.walks = null; cell.ready = false; lampsStale = treesStale = parkingStale = walksStale = true;
   }
   function install(cell, built) {
@@ -816,6 +870,7 @@ export function createStreetscape({ scene, index = null, origin = CITY_ORIGIN, h
       mesh.name = `Street ${name} ${cell.key}`; mesh.receiveShadow = true; mesh.castShadow = name === 'walk'; mesh.renderOrder = order;
       group.add(mesh); cell.meshes.push(mesh);
     }
+    if (built.fences.length) installFence(cell,built.fences);
     cell.grid = built.grid; cell.lamps = built.lamps; cell.trees = built.trees; cell.parking = built.parking; cell.walks = built.walks; cell.surfaces = built.surfaces; cell.ready = true; cell.revision = terrainRevision;
     lampsStale = treesStale = parkingStale = walksStale = true;
   }
@@ -891,6 +946,7 @@ export function createStreetscape({ scene, index = null, origin = CITY_ORIGIN, h
         if (!overview) wanted = select(focus, radius);
         for (const cell of cells.values()) {
           const keep = wanted.has(cell.key);
+          if (cell.fence && cell.fence.visible!==keep) physics?.replace(cell.key,keep?cell.panels:[]);
           for (const mesh of cell.meshes || []) mesh.visible = keep;
           if (!keep && cell.loading) { cell.controller?.abort(); cell.controller = null; cell.loading = false; }
         }
@@ -967,6 +1023,7 @@ export function createStreetscape({ scene, index = null, origin = CITY_ORIGIN, h
       disposed = true;
       for (const cell of cells.values()) { cell.controller?.abort(); release(cell); }
       cells.clear(); wanted.clear();
+      fenceGeometry?.dispose(); fenceMaterial.dispose();
       for (const material of Object.values(materials)) material.dispose();
       scene?.remove(group);
     },

@@ -6,6 +6,8 @@
 // What they look like is drawn: the green wire basket found on most corners,
 // and the glass shelter with a lit advertising panel at one end.
 import * as THREE from './vendor/three.module.min.js';
+import { propId } from './street-objects.js';
+import { propInstance } from './prop-instance.js';
 
 const CELL = 32;
 const keyOf = (x, z) => `${Math.floor(x / CELL)},${Math.floor(z / CELL)}`;
@@ -72,13 +74,14 @@ function basketGeometry() {
   const fill = new THREE.CircleGeometry(.27, 12); fill.rotateX(-Math.PI / 2); fill.translate(0, .62, 0);
   return merge([[wall, [.07, .2, .13]], [rim, [.05, .14, .09]], [fill, [.035, .034, .032]]]);
 }
+const BENCH_TOP = .495;
 function shelterGeometry() {
   // Steel: roof, four posts and a bench. Faces +Z, toward the roadway.
   const parts = [], steel = [.11, .115, .12], seat = [.2, .2, .21];
   const box = (w, h, d, x, y, z, tone) => { const g = new THREE.BoxGeometry(w, h, d); g.translate(x, y, z); parts.push([g, tone]); };
   box(4.4, .07, 1.5, 0, 2.5, 0, steel);
   for (const x of [-2.1, 2.1]) for (const z of [-.68, .68]) box(.07, 2.5, .07, x, 1.25, z, steel);
-  box(1.9, .05, .38, -.6, .47, -.42, seat); box(.05, .47, .34, -1.45, .235, -.42, steel); box(.05, .47, .34, .25, .235, -.42, steel);
+  box(1.9, .05, .38, -.6, BENCH_TOP - .025, -.42, seat); box(.05, .47, .34, -1.45, .235, -.42, steel); box(.05, .47, .34, .25, .235, -.42, steel);
   return merge(parts);
 }
 function merge(parts) {
@@ -103,7 +106,7 @@ export const SETBACK = { basket: .6, shelter: 1.25 };
  * Draw the baskets and shelters around the player. `data` is
  * street-life.json; it may arrive later through setData().
  */
-export function createStreetProps({ scene = null, heightAt = () => 0, data = null, range = 170, capacity = 220 } = {}) {
+export function createStreetProps({ scene = null, heightAt = () => 0, data = null, range = 170, capacity = 220, physics = null } = {}) {
   const group = new THREE.Group(); group.name = 'Litter baskets and bus shelters'; scene?.add(group);
   const paint = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: .6, metalness: .35, side: THREE.DoubleSide }); paint.name = 'Street furniture';
   const glass = new THREE.MeshStandardMaterial({ color: 0xbfd3d8, roughness: .08, metalness: .1, transparent: true, opacity: .28, depthWrite: false, side: THREE.DoubleSide }); glass.name = 'Shelter glass';
@@ -117,12 +120,13 @@ export function createStreetProps({ scene = null, heightAt = () => 0, data = nul
   meshes.baskets.castShadow = meshes.shelters.castShadow = true;
   meshes.adverts.instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(40 * 3), 3);
   let points = { baskets: indexPoints(data?.baskets), shelters: indexPoints(data?.shelters) };
+  const seats = [];
   let source = null, kerbs = null, at = null, stale = true, standing = null;
   const matrix = new THREE.Matrix4(), place = new THREE.Vector3(), turn = new THREE.Quaternion(), one = new THREE.Vector3(1, 1, 1), up = new THREE.Vector3(0, 1, 0);
   // A few poster colours; which a shelter shows depends only on where it stands.
   const POSTERS = [[2.6, 2.5, 2.3], [2.4, .9, .5], [.6, 1.6, 2.6], [2.5, 2.0, .6], [.7, 2.2, 1.4], [2.2, .7, 1.6]];
   return {
-    group, meshes,
+    group, meshes, seats,
     setData(next) { points = { baskets: indexPoints(next?.baskets), shelters: indexPoints(next?.shelters) }; stale = true; },
     get counts() { return { baskets: meshes.baskets.count, shelters: meshes.shelters.count }; },
     /**
@@ -136,6 +140,8 @@ export function createStreetProps({ scene = null, heightAt = () => 0, data = nul
       if (!stale && at && Math.hypot(focus.x - at.x, focus.z - at.z) < 30) return false;
       stale = false; at = { x: focus.x, z: focus.z };
       let baskets = 0, shelters = 0;
+      seats.length = 0;
+      const bodies = [];
       for (const [x, z] of points.baskets.near(focus.x, focus.z, range)) {
         if (baskets >= capacity) break;
         const kerb = snapToKerb(kerbs, x, z, 9);
@@ -150,6 +156,11 @@ export function createStreetProps({ scene = null, heightAt = () => 0, data = nul
           break;
         }
         place.set(px, heightAt(px, pz), pz); turn.identity(); matrix.compose(place, turn, one);
+        if (physics) {
+          const body = { id:propId('basket',x,z), x:px, y:place.y, z:pz, radius:.30, height:.88 };
+          body.draw = propInstance(meshes.baskets,baskets,body,matrix);
+          bodies.push(body);
+        }
         meshes.baskets.setMatrixAt(baskets++, matrix);
       }
       for (const [x, z] of points.shelters.near(focus.x, focus.z, range)) {
@@ -159,6 +170,9 @@ export function createStreetProps({ scene = null, heightAt = () => 0, data = nul
         if (!kerb || kerb.room < 2.2) continue;
         const px = kerb.x - kerb.nx * SETBACK.shelter, pz = kerb.z - kerb.nz * SETBACK.shelter;
         place.set(px, heightAt(px, pz), pz); turn.setFromAxisAngle(up, Math.atan2(kerb.nx, kerb.nz)); matrix.compose(place, turn, one);
+        for (const along of [-1.1, -.1]) {
+          seats.push({ y:place.y, x:px + kerb.nz*along - kerb.nx*.42, z:pz - kerb.nx*along - kerb.nz*.42, heading:Math.atan2(kerb.nx,kerb.nz), shelter:true, seatKind:'bench', seatHeight:BENCH_TOP, seatDepth:.38 });
+        }
         for (const name of ['shelters', 'glazing', 'adverts']) meshes[name].setMatrixAt(shelters, matrix);
         const poster = POSTERS[Math.abs(Math.round(x * 7 + z * 13)) % POSTERS.length];
         meshes.adverts.instanceColor.setXYZ(shelters++, poster[0], poster[1], poster[2]);
@@ -166,9 +180,11 @@ export function createStreetProps({ scene = null, heightAt = () => 0, data = nul
       meshes.baskets.count = baskets; meshes.shelters.count = meshes.glazing.count = meshes.adverts.count = shelters;
       for (const mesh of Object.values(meshes)) mesh.instanceMatrix.needsUpdate = true;
       meshes.adverts.instanceColor.needsUpdate = true;
+      physics?.replace('basket', bodies);
       return true;
     },
     dispose() {
+      physics?.replace('basket', []);
       for (const mesh of Object.values(meshes)) { mesh.geometry.dispose(); mesh.dispose(); }
       paint.dispose(); glass.dispose(); advert.dispose(); group.removeFromParent();
     },

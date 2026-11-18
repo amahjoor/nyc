@@ -1,7 +1,9 @@
 import * as THREE from './vendor/three.module.min.js';
 import { shared, supportsFloatTargets } from './gfx-common.js';
 import { createLeafMaterial } from './foliage.js';
+import { propId } from './street-objects.js';
 import { VehicleLights } from './vehicle-lights.js';
+import { propInstance } from './prop-instance.js';
 
 // Street furniture and the light it gives. Lamp posts stand where the
 // streetscape places them along surveyed kerbs. After dark their pools of light
@@ -109,7 +111,7 @@ void main() {
 /**
  * @param {object} options scene to add furniture to; renderer for the light map; getLamps returns lamp records.
  */
-export function createStreetLife({ scene, renderer = null, getLamps = () => [], getTrees = () => [] } = {}) {
+export function createStreetLife({ scene, renderer = null, getLamps = () => [], getTrees = () => [], physics = null } = {}) {
   const accelerated = supportsFloatTargets(renderer);
   const group = new THREE.Group(); group.name = 'Street furniture'; scene?.add(group);
   const poleMaterial = new THREE.MeshStandardMaterial({ color: 0x4a4d4b, roughness: .55, metalness: .7 }); poleMaterial.name = 'Lamp post';
@@ -156,7 +158,7 @@ export function createStreetLife({ scene, renderer = null, getLamps = () => [], 
   if (target) { target.texture.name = 'City light map'; shared.uNycLightMap.value = target.texture; }
 
   const dummy = new THREE.Object3D(), clearColor = new THREE.Color(), tint = new THREE.Color();
-  let lamps = [], lampSource = null, treeSource = null, treeCount = 0, treeFocus = null, disposed = false;
+  let lamps = [], lampBodies = [], lampSource = null, treeSource = null, treeCount = 0, treeFocus = null, disposed = false;
   function placeTrees(list, focus) {
     treeSource = list; treeFocus = { x: focus.x, z: focus.z };
     // Nearest first, so a crowded district thins from the edge and not at random.
@@ -164,6 +166,7 @@ export function createStreetLife({ scene, renderer = null, getLamps = () => [], 
     for (const tree of list) { const distance = Math.hypot(tree.x - focus.x, tree.z - focus.z); if (distance < TREE_RANGE) near.push([distance, tree]); }
     if (near.length > MAX_TREES) near.sort((a, b) => a[0] - b[0]);
     treeCount = Math.min(near.length, MAX_TREES);
+    const stems = [];
     for (let i = 0; i < treeCount; i++) {
       const tree = near[i][1], form = treeForm(tree);
       // A stable number per tree varies its lean, turn and shade of green.
@@ -181,19 +184,36 @@ export function createStreetLife({ scene, renderer = null, getLamps = () => [], 
         dummy.rotation.set(0, angle * 1.7, 0); dummy.scale.set(form.radius * size, form.crown * .56 * size, form.radius * size); dummy.updateMatrix();
         boughs.setMatrixAt(i * 2 + k, dummy.matrix); boughs.setColorAt(i * 2 + k, tint);
       }
+      if (physics) {
+        const stem = { x: tree.x, y: tree.y, z: tree.z, radius: form.girth * .5, height: top };
+        if (form.girth < .16) {
+          stem.kind = 'sapling';
+          stem.id = propId('sapling', tree.x, tree.z);
+          stem.crownRadius = form.radius;
+          const parts = [propInstance(trunks, i, stem), propInstance(crowns, i, stem),
+            propInstance(boughs, i * 2, stem), propInstance(boughs, i * 2 + 1, stem)];
+          stem.draw = pose => { for (const draw of parts) draw(pose); };
+        }
+        stems.push(stem);
+      }
     }
     for (const mesh of [trunks, crowns, boughs]) { mesh.count = mesh === boughs ? treeCount * 2 : treeCount; mesh.instanceMatrix.needsUpdate = true; if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true; }
+    physics?.replace('tree', stems);
   }
   function placeLamps(list) {
     lamps = list.slice(0, MAX_LAMPS); lampSource = list;
+    lampBodies = [];
     lamps.forEach((lamp, i) => {
       dummy.position.set(lamp.x, lamp.y, lamp.z);
       // The arm reaches along local +X, out over the carriageway.
-      dummy.rotation.set(0, Math.atan2(-lamp.nz, lamp.nx), 0); dummy.updateMatrix();
+      dummy.rotation.set(0, Math.atan2(-lamp.nz, lamp.nx), 0); dummy.scale.setScalar(1); dummy.updateMatrix();
       posts.setMatrixAt(i, dummy.matrix); lenses.setMatrixAt(i, dummy.matrix);
+      if (physics) lampBodies.push({ ...lamp, id:propId('lamp',lamp.x,lamp.z), radius:.13, height:8.2,
+        draw:propInstance(posts,i,lamp,dummy.matrix,lenses) });
     });
     posts.count = lenses.count = lamps.length;
     posts.instanceMatrix.needsUpdate = lenses.instanceMatrix.needsUpdate = true;
+    physics?.replace('lamp', lampBodies);
   }
   return {
     group,
@@ -225,8 +245,10 @@ export function createStreetLife({ scene, renderer = null, getLamps = () => [], 
         place.setXYZW(count, x, z, radius, height); glow.setXYZ(count, r, g, b); count++;
       };
       const reach = LIGHT_MAP_SPAN / 2 + 18;
-      for (const lamp of lamps) {
+      for (let i = 0; i < lamps.length; i++) {
+        const lamp = lamps[i];
         if (Math.abs(lamp.x - focus.x) > reach || Math.abs(lamp.z - focus.z) > reach) continue;
+        if (lampBodies[i]?.pose) continue;
         // Most lamps are warm LED; a few old sodium heads remain.
         const sodium = ((lamp.x * 13.7 + lamp.z * 7.3) % 1 + 1) % 1 < .14, k = lights * (sodium ? 2.5 : 3.1);
         add(lamp.x + lamp.nx * 2.3, lamp.z + lamp.nz * 2.3, 21, lamp.y - .2, k, k * (sodium ? .6 : .82), k * (sodium ? .25 : .58));
@@ -245,6 +267,7 @@ export function createStreetLife({ scene, renderer = null, getLamps = () => [], 
     dispose() {
       if (disposed) return;
       disposed = true;
+      physics?.replace('tree', []); physics?.replace('lamp', []);
       posts.geometry.dispose(); lenses.geometry.dispose(); poleMaterial.dispose(); lensMaterial.dispose(); quad.dispose(); splatMaterial.dispose(); target?.dispose();
       for (const mesh of [trunks, crowns, boughs]) mesh.geometry.dispose();
       barkMaterial.dispose(); leafMaterial.dispose();

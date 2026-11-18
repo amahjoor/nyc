@@ -914,6 +914,27 @@ test('walking A/D keys follow the visible camera right axis after orbiting',asyn
   }finally{app.close();}
 });
 
+test('surveyed street furniture in the live scene uses the same positions for drawing and collisions', async () => {
+  const app = await bootHarness();
+  try {
+    app.click('start-button'); app.click('view-button');
+    const sim = app.simulation(), { scene } = app.window.nycGame.graphics;
+    await app.until(() => {
+      app.frames();
+      return sim.streetObjects.groups.get('lamp')?.length && sim.streetObjects.groups.get('basket')?.length;
+    }, 'street props did not load');
+    for (const [kind, mesh] of [['lamp', scene.getObjectByName('Street lamps')], ['basket', app.window.nycGame.props.meshes.baskets]]) {
+      const bodies = sim.streetObjects.groups.get(kind);
+      assert.equal(mesh.count, bodies.length);
+      const matrix = new THREE.Matrix4(), body = bodies.find(b => !b.pose);
+      mesh.getMatrixAt(bodies.indexOf(body), matrix);
+      assert.ok(Math.hypot(matrix.elements[12] - body.x, matrix.elements[14] - body.z) < .002);
+      assert.ok(sim.isBlocked(body.x, body.z, .1, { baseHeight: body.y }));
+    }
+    assert.equal(app.errors.length, 0, app.errors[0]?.stack);
+  } finally { app.close(); }
+});
+
 test('first person follows the walker at eye level and keeps their heading while strafing',async()=>{
   const app=await bootHarness();
   try{
