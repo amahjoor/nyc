@@ -1,3 +1,4 @@
+import { formatMoney } from './money.js';
 // The player's phone: what is nearby, who to call, and what is in the wallet.
 //
 // It is a panel of the page, built in index.html; this module fills it in and
@@ -77,7 +78,7 @@ export function createPhone({ $, places = () => [], state = () => ({}), onDirect
     const now = state();
     $('phone').hidden = !open;
     if (!open) return;
-    $('phone-clock').textContent = now.clock || ''; $('phone-cash').textContent = `$${Math.round(now.cash || 0).toLocaleString('en-US')}`;
+    $('phone-clock').textContent = now.clock || ''; $('phone-cash').textContent = formatMoney(now.cash || 0);
     $('phone-title').textContent = TITLES[screen];
     for (const name of SCREENS) $(`phone-${name}`).hidden = name !== screen;
     $('phone-back').hidden = screen === 'home';
@@ -100,6 +101,7 @@ export function createPhone({ $, places = () => [], state = () => ({}), onDirect
       $('phone-place-note').textContent = [formatDistance(Math.hypot(chosen.x - now.x, chosen.z - now.z)), about.status, about.grade].filter(Boolean).join(' · ');
     }
     if (screen === 'contacts') {
+      $('phone-contact-dispatch').disabled = Boolean(now.jobActive);
       $('phone-contact-mechanic-note').textContent = `Comes out and mends the car you are in · $${CALL_OUT} + repair`;
       $('phone-contact-cab-note').textContent = `Brings your cab to the nearest street · $${DELIVERY}`;
     }
@@ -127,7 +129,7 @@ export function createPhone({ $, places = () => [], state = () => ({}), onDirect
       $('phone-ride-page').textContent = `${listPage + 1} / ${pages}`; $('phone-ride-prev').disabled = listPage <= 0; $('phone-ride-next').disabled = listPage >= pages - 1;
     }
     if (screen === 'wallet') {
-      $('phone-wallet-cash').textContent = `$${Math.round(now.cash || 0).toLocaleString('en-US')}`;
+      $('phone-wallet-cash').textContent = formatMoney(now.cash || 0);
       $('phone-wallet-fares').textContent = String(now.fares || 0); $('phone-wallet-miles').textContent = (now.miles || 0).toFixed(1); $('phone-wallet-lights').textContent = String(now.redLights || 0);
     }
   }

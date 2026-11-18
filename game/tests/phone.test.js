@@ -56,7 +56,7 @@ test('every part of the phone the game fills in is on the page', () => {
   for (const id of ids) assert.equal(html.split(`id="${id}"`).length, 2, `${id} appears once`);
   for (const category of CATEGORIES) assert.match(html, new RegExp(`id="phone-chip-${category.id}">${category.label}<`));
   assert.match(html, /<section id="phone" class="phone" hidden/);
-  assert.match(html, /Take out \/ put away the phone<\/span><kbd>P<\/kbd>/);
+  assert.match(html, /Take out \/ put away the phone<\/span><kbd>↑<\/kbd>/);
 });
 
 test('the phone opens on its home screen, lists what is nearby, and sends the player to a place', () => {
@@ -66,7 +66,7 @@ test('the phone opens on its home screen, lists what is nearby, and sends the pl
   assert.equal(phone.open, false);
   phone.toggle();
   assert.deepEqual([phone.open, $('phone').hidden, $('phone-home').hidden, $('phone-nearby').hidden, $('phone-back').hidden], [true, false, false, true, true]);
-  assert.deepEqual([$('phone-clock').textContent, $('phone-cash').textContent, $('phone-title').textContent, $('phone-search').value], ['1:00 PM', '$1,234', 'PHONE', '']);
+  assert.deepEqual([$('phone-clock').textContent, $('phone-cash').textContent, $('phone-title').textContent, $('phone-search').value], ['1:00 PM', '$1,234.40', 'PHONE', '']);
   // Nearby: six to a page, nearest first.
   click('phone-app-nearby');
   assert.deepEqual([phone.screen, $('phone-nearby').hidden, $('phone-home').hidden, $('phone-back').hidden, $('phone-title').textContent], ['nearby', false, true, false, 'NEARBY']);
@@ -101,7 +101,7 @@ test('the phone opens on its home screen, lists what is nearby, and sends the pl
   phone.setOpen(true);
   assert.equal(phone.screen, 'home', 'it opens on the home screen again');
   click('phone-app-wallet');
-  assert.deepEqual([$('phone-wallet-cash').textContent, $('phone-wallet-fares').textContent, $('phone-wallet-miles').textContent, $('phone-wallet-lights').textContent], ['$1,234', '3', '2.3', '2']);
+  assert.deepEqual([$('phone-wallet-cash').textContent, $('phone-wallet-fares').textContent, $('phone-wallet-miles').textContent, $('phone-wallet-lights').textContent], ['$1,234.40', '3', '2.3', '2']);
   click('phone-back'); click('phone-app-contacts'); click('phone-contact-dispatch');
   assert.deepEqual([sent, phone.open], [['HOTEL EDISON', 'job'], false]);
   phone.setOpen(true); click('phone-app-map');
