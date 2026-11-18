@@ -13,7 +13,8 @@ const MENUS = {
   beauty: [['Manicure', 20, 'groom'], ['Haircut and style', 65, 'groom']],
   barber: [['Haircut', 30, 'groom'], ['Shave', 20, 'groom']],
 };
-const KINDS = { pizza: [['Slice', 3.5, 'meal'], ['Two slices and a soda', 8, 'meal'], ['Soda', 2.5, 'pep']], coffee: MENUS.cafe, pharmacy: [['Bottle of water', 2.5, 'pep'], ['Aspirin', 7, 'gift']], hotel: [['A room for the night', 280, 'sleep']] };
+const KINDS = { newsstand: [['Newspaper', 3, 'gift'], ['Bottle of water', 2, 'pep'], ['Candy bar', 2, 'pep'], ['Lottery scratch-off', 2, 'lottery']], fruitstand: [['Banana', .5, 'pep'], ['Bag of oranges', 4, 'pep'], ['Cut fruit', 5, 'meal']],
+  pizza: [['Slice', 3.5, 'meal'], ['Two slices and a soda', 8, 'meal'], ['Soda', 2.5, 'pep']], coffee: MENUS.cafe, pharmacy: [['Bottle of water', 2.5, 'pep'], ['Aspirin', 7, 'gift']], hotel: [['A room for the night', 280, 'sleep']] };
 
 /** What is sold at a place: rows of { name, price, effect }; none where nothing is sold over a counter. */
 export function menuFor(place) {

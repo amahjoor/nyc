@@ -407,11 +407,13 @@ export class Simulation {
   }
 
   /**
-   * Buy something over the counter of the room the player is in: `item` is a
-   * row of menuFor(). Returns whether it was bought.
+   * Buy something over the counter of the room the player is in, or with
+   * `street` at a stand on the sidewalk: `item` is a row of menuFor().
+   * Returns whether it was bought.
    */
-  buy(item) {
-    if (!this.room || !item) return false;
+  buy(item, { street = false } = {}) {
+    // Over a counter indoors, or at a stand on the sidewalk on foot.
+    if (!item || !(this.room || (street && this.player.mode === 'walk'))) return false;
     if (this.cash < item.price) { this._say(`${item.name} is $${item.price.toFixed(2)}. You have $${Math.floor(this.cash)}.`); return false; }
     this.cash -= item.price; this.spent = (this.spent || 0) + item.price;
     if (PEP[item.effect]) { this.pep = Math.max(this.pep || 0, PEP[item.effect]); this._say(`${item.name}. $${item.price.toFixed(2)}.`); }

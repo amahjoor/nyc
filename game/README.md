@@ -181,7 +181,7 @@ Where a quarter or more of a tract speaks one language other than English at hom
 
 ## Newsstands and fruit stands
 
-The city's business licences, already bundled with the other places, include 263 newsstands and 1,395 fruit and vegetable stands. `stands.js` puts each at the kerb nearest its licensed address: a steel kiosk with papers on its counter, or a cart of crates under an umbrella, with someone minding it through the day. What a stand looks like is the common kind; nothing can be bought at one yet.
+The city's business licences, already bundled with the other places, include 263 newsstands and 1,395 fruit and vegetable stands. `stands.js` puts each at the kerb nearest its licensed address: a steel kiosk with papers on its counter, or a cart of crates under an umbrella, with someone minding it through the day. What a stand looks like is the common kind. On foot at one that is minded, **G** lists what it sells: a paper, water or a scratch-off at a newsstand, fruit at a cart. Prices are the game's.
 
 ## The figures
 

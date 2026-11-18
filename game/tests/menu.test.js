@@ -30,6 +30,12 @@ test('buying is done indoors, costs what it says, and a coffee quickens the step
   assert.ok(quick > stride() * 1.08);
   sim.cash = 1000; sim.heat = 2; sim.health = 40;
   assert.equal(sim.buy(menuFor(place('hotel'))[0]), true); assert.deepEqual([sim.cash, sim.heat, sim.health], [720, 0, 100]);
+  // At a stand there is no room to be in: it is bought on the sidewalk, on foot.
+  sim.leaveRoom();
+  const banana = menuFor(place('fruitstand'))[0], cash = sim.cash;
+  assert.equal(sim.buy(banana), false); assert.equal(sim.buy(banana, { street: true }), true); assert.equal(sim.cash, cash - .5);
+  assert.ok(menuFor(place('newsstand')).some(item => item.name === 'Newspaper'));
+  sim.enterRoom(room);
   const before = sim.cash; sim.buy(menuFor(place('bodega')).find(item => item.effect === 'lottery'));
   assert.ok(sim.cash >= before - 2 && /Scratched/.test(sim.notice));
 });

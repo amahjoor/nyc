@@ -22,7 +22,7 @@ import { createCityLife, manhattanCore, characterAt } from './citylife.js';
 import { createStreetSigns } from './street-signs.js';
 import { createCrowd, dress, seeded, KIT } from './crowd.js';
 import { createStreetProps } from './street-props.js';
-import { createPlaceSource, joinPlaceSources, indexFootprints, solveFrontages } from './places.js';
+import { createPlaceSource, placeName, joinPlaceSources, indexFootprints, solveFrontages } from './places.js';
 import { createStorefronts } from './storefronts.js';
 import { createPhone, describePlace } from './phone.js';
 import { createFleet } from './fleet.js';
@@ -71,7 +71,7 @@ let sheds=null, shedMesh=null;
 // Sidewalk cafes: the addresses licensed for one, and the tables set out nearby.
 let dining=null, diningMesh=null, diners=[];
 // Newsstands and fruit stands at the kerb, and whoever minds each.
-let standMesh=null, vendors=[];
+let standMesh=null, vendors=[], standHere=null;
 let subway=null, subwayStairs=null, stairHere=null, kerbIndex=null, kerbsFor=null;
 // Which cars are registered where (fleet.js): the whole city's mix until the counts by ZIP code have loaded.
 let fleet=createFleet(null);
@@ -116,6 +116,12 @@ function action(name) {
     if(!menu.length)announce('Nothing is sold over the counter here.');
     else if(!counterHere)announce('Go up to whoever is serving.');
     else phone.openList(sim.room.name,menu.map(item=>({item,name:item.name.toUpperCase(),note:'$'+item.price.toFixed(2)})),({item})=>{if(sim.buy(item))saveProgress();});
+    return;
+  }
+  if(name==='shop'&&standHere&&started&&!paused&&!traveling&&bootReady&&!cityView&&!mapOpen&&sim.player.mode==='walk') {
+    // At a stand on the sidewalk: what it sells.
+    const place=standHere.place;
+    phone.openList(placeName(place),menuFor(place).map(item=>({item,name:item.name.toUpperCase(),note:'$'+item.price.toFixed(2)})),({item})=>{if(sim.buy(item,{street:true}))saveProgress();});
     return;
   }
   if(name==='shop') { if(started&&!paused&&!traveling&&bootReady&&!cityView&&!mapOpen&&shopHere)phone?.openShop(shopHere);return; }
@@ -604,7 +610,7 @@ function frame(now) {
         vendors=stands.map(stand=>{
           const spot=vendorOf(stand),random=seeded((Math.round(stand.x*13+stand.z*29)>>>0)||1),look=dress('casual',random,demographics.tracts?demographics.tonesAt(stand.x,stand.z,.3):null);
           look.kit=(look.kit&(KIT.longHair|KIT.shortSleeves))|(random()<.35?KIT.woman:0);
-          return {x:spot.x,y:groundHeight(spot.x,spot.z),z:spot.z,heading:spot.heading,phase:0,stride:0,look,fruit:stand.kind==='fruitstand'};
+          return {x:spot.x,y:groundHeight(spot.x,spot.z),z:spot.z,heading:spot.heading,phase:0,stride:0,look,fruit:stand.kind==='fruitstand',stand};
         });
       }
       if(dining&&diningMesh){
@@ -641,8 +647,15 @@ function frame(now) {
     // A bus stop within a couple of steps.
     stopHere=null;
     if(started&&!cityView&&!mapOpen&&!driving&&!sim.room&&!stairHere&&busStops)for(const stop of busStops.stops){if(Math.hypot(stop.x-sim.player.x,stop.z-sim.player.z)<3){stopHere=stop;break;}}
-    if(stairHere||stopHere)facing=null;
-    $('place-hint').hidden=(!facing&&!stairHere&&!stopHere)||Boolean(sim.room);
+    // A stand that someone is minding, within a couple of steps of its counter.
+    standHere=null;
+    if(started&&!cityView&&!mapOpen&&!driving&&!sim.room&&!stairHere&&!stopHere)for(const vendor of vendors){
+      const open=vendor.fruit?gfx.hours>=7&&gfx.hours<20:gfx.hours>=5&&gfx.hours<23;
+      if(open&&Math.hypot(vendor.stand.x-sim.player.x,vendor.stand.z-sim.player.z)<3.2){standHere=vendor.stand;break;}
+    }
+    if(stairHere||stopHere||standHere)facing=null;
+    $('place-hint').hidden=(!facing&&!stairHere&&!stopHere&&!standHere)||Boolean(sim.room);
+    if(standHere)$('place-hint').textContent=placeName(standHere.place)+' · G TO BUY';
     if(stopHere)$('place-hint').textContent=stopHere.stop.name+' · '+stopHere.stop.lines.slice(0,5).join(' ')+' · E FOR THE BUS';
     if(stairHere)$('place-hint').textContent=stairHere.station.name.toUpperCase()+' · '+stairHere.station.routes+' · E FOR THE SUBWAY';
     shopHere=null;doorHere=null;
