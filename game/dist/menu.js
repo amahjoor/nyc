@@ -1,6 +1,10 @@
 // What a place sells over its counter. The registers say what kind of place
 // each is, not its prices: the menus and what they cost are the game's.
+import { dishStyle,drinkStyle } from './food-catalog.js';
+export {plateStyles} from './food-catalog.js';
 import { KIND } from './places.js';
+import { groceries, groceryPrice, groceryStore } from './grocery-stock.js';
+import { fittingStock } from './shop-stock.js';
 
 const MENUS = {
   bodega: [['Coffee, regular', 1.5, 'pep'], ['Bacon, egg and cheese', 5.5, 'meal'], ['Chopped cheese', 7, 'meal'], ['Lottery scratch-off', 2, 'lottery'], ['Bottle of water', 2, 'pep']],
@@ -16,7 +20,7 @@ const MENUS = {
 const KINDS = {
   // What the commoner kinds of place are known for.
   american: [['Coffee', 2.5, 'pep'], ['Eggs, home fries and toast', 11, 'meal'], ['Burger deluxe', 16, 'meal'], ['Slice of pie', 6, 'meal']],
-  chinese: [['Egg roll', 2.5, 'pep'], ['Pork fried rice', 8, 'meal'], ['General Tso\'s chicken combo', 12.5, 'meal'], ['Can of soda', 1.5, 'pep']],
+  chinese: [['Egg roll', 2.5, 'pep'], ['Pork fried rice', 8, 'meal'], ['General Tso\'s chicken combo', 12.5, 'meal'], ['Can of soda', 1.5, 'pep'], ['Spring rolls', 4.5, 'meal']],
   mediterranean: [['Chicken over rice', 9, 'meal'], ['Lamb gyro', 8, 'meal'], ['Falafel sandwich', 7, 'meal'], ['Can of soda', 1.5, 'pep']],
   mexican: [['Taco', 4.5, 'meal'], ['Burrito', 12, 'meal'], ['Chips and guacamole', 7, 'pep'], ['Horchata', 4, 'pep']],
   latin: [['Pernil with rice and beans', 12, 'meal'], ['Empanada', 3, 'pep'], ['Cafe con leche', 2.5, 'pep'], ['Morir sonando', 5, 'pep']],
@@ -47,9 +51,30 @@ const KINDS = {
   newsstand: [['Newspaper', 3, 'gift'], ['Bottle of water', 2, 'pep'], ['Candy bar', 2, 'pep'], ['Lottery scratch-off', 2, 'lottery']], fruitstand: [['Banana', .5, 'pep'], ['Bag of oranges', 4, 'pep'], ['Cut fruit', 5, 'meal']],
   pizza: [['Slice', 3.5, 'meal'], ['Two slices and a soda', 8, 'meal'], ['Soda', 2.5, 'pep']], coffee: MENUS.cafe, pharmacy: [['Bottle of water', 2.5, 'pep'], ['Aspirin', 7, 'gift']], hotel: [['A room for the night', 280, 'sleep']] };
 
+// The generic menu headings also identify old saved orders. Give the daily
+// specials a preparation belonging to this kitchen while preserving those IDs.
+const housePlates={
+  bbq:['Cornbread','Barbecue ribs with slaw'],kosher:['Potato knish','Pastrami on rye'],
+  asian:['Scallion pancake','Vegetable stir-fry'],african:['Fried plantains','Jollof rice with chicken'],
+  french:['Quiche Lorraine','Steak frites'],seafood:['Fish sandwich','Grilled salmon with potatoes'],
+  european:['Mushroom soup','Roast chicken with potatoes'],
+};
 /** What is sold at a place: rows of { name, price, effect }; none where nothing is sold over a counter. */
 export function menuFor(place) {
-  return (KINDS[place.kind] || MENUS[KIND[place.kind]?.group] || []).map(([name, price, effect]) => ({ name, price, effect }));
+  const stock=fittingStock(place);
+  const extras=(KINDS[place.kind] || MENUS[KIND[place.kind]?.group] || []).map(([name, price, effect]) => ({ name, price, effect }));
+  const house=housePlates[place.kind];
+  if(house){extras[0].preparation=house[0];extras[1].preparation=house[1];}
+  const replaced = new Set(['Haircut','Haircut and style','T-shirt','Sneakers','Silver ring']);
+  if(groceryStore(place))return [...Object.values(groceries).map(p=>({name:p.name,price:groceryPrice(place,p),effect:p.effect,product:p.id})),...extras.filter(i=>!['Bottle of water','Fruit','Bag of groceries'].includes(i.name))];
+  return [...stock.map(item=>({effect:'gift',...item})), ...extras.filter(item=>!stock.length || !replaced.has(item.name))];
+}
+// The kitchen pass, server and table all show the same preparation.
+export const plateStyle=name=>dishStyle(name)||'entree';
+export function carriedOrder(item) {
+  if(item.product)return item.product;
+  if(drinkStyle(item.name))return 'cup';
+  return dishStyle(item.name)?'tray':null;
 }
 /** How long a coffee or a meal keeps the player quick on their feet, in seconds. */
 export const PEP = { pep: 90, meal: 240 };

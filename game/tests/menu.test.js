@@ -24,7 +24,8 @@ test('buying is done indoors, costs what it says, and a coffee quickens the step
   Object.assign(sim.player,{x:room.x,z:room.z});
   assert.ok(sim.enterRoom(room)); sim.cash = 5;
   assert.equal(sim.buy(menuFor(place('italian')).at(-1)), false); assert.equal(sim.cash, 5, 'lunch is more than five dollars');
-  assert.equal(sim.buy(coffee), true); assert.deepEqual([sim.cash, sim.pep, sim.spent], [1.5, PEP.pep, 3.5]);
+  assert.equal(sim.buy(coffee), true); assert.deepEqual([sim.cash, sim.shopping.inventory['meal-coffee-coffee'], sim.spent], [1.5, 1, 3.5]);
+  assert.ok(sim.shopping.consume('meal-coffee-coffee')); assert.equal(sim.pep,PEP.pep);
   // Quicker on their feet for a minute and a half, then as before.
   const stride = () => { Object.assign(sim.player,{x:room.x+1.35,z:room.z-1.1}); sim.player.velocityX = sim.player.velocityZ = 0; for (let i = 0; i < 12; i++) sim.step({ moveX: 0, moveZ: -1 }, 1 / 60); return sim.room.b - 1.1; };
   const quick = stride(); sim.pep = 0;
@@ -35,7 +36,7 @@ test('buying is done indoors, costs what it says, and a coffee quickens the step
   for(let i=0;i<180&&sim.room;i++)sim.step({ moveX: Math.max(-1,Math.min(1,room.x-sim.player.x)),moveZ:1 },1/60);
   assert.equal(sim.room,null);
   const banana = menuFor(place('fruitstand'))[0], cash = sim.cash;
-  assert.equal(sim.buy(banana), false); assert.equal(sim.buy(banana, { street: true }), true); assert.equal(sim.cash, cash - .5);
+  assert.equal(sim.buy(banana), false); assert.equal(sim.buy(banana, { street: true, place:place('fruitstand') }), true); assert.equal(sim.cash, cash - .5); assert.equal(sim.shopping.inventory['meal-fruitstand-banana'],1);
   assert.ok(menuFor(place('newsstand')).some(item => item.name === 'Newspaper'));
   assert.ok(sim.enterRoom(room));
   const before = sim.cash; sim.buy(menuFor(place('bodega')).find(item => item.effect === 'lottery'));

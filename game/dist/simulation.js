@@ -1,3 +1,4 @@
+import { Shopping,foodId,pantryItem } from './shopping.js';
 import { carCondition, collisionLoad, impactVehicle, repairVehicle, stepVehicleFire, doorPanel, tearDoor } from './vehicle-damage.js';
 import { resetVehicleDynamics, stepVehicleDynamics, stopVehicleRotation, vehicleTravelSpeed } from './vehicle-dynamics.js';
 import { startKick, tryVault, beginEntry, stepMove, fireGun, reloadGun, toggleGun, carUnder } from './player-moves.js';
@@ -8,7 +9,7 @@ import { roadLevelAt, trafficAtHeight } from './road-level.js';
 import { drawVehicle, drawPaint, drawTaxi, WHEEL } from './fleet.js';
 import { walkRoom, roomPoint, roomLocal, DOOR } from './room.js';
 import { seatApproach, seatClip, stepSeating } from './seating.js';
-import { PEP, scratch } from './menu.js';
+import { PEP, scratch,menuFor } from './menu.js';
 import { Police, MAX_STARS } from './police.js';
 import { vehicleHandling, repairCost, offersAt, PARTS, RESPRAY_PRICE, RESPRAYS, CALL_OUT, DELIVERY, WHEELS, WHEELS_PRICE, PLATES_PRICE } from './garage.js';
 import { plateFor } from './license-plates.js';
@@ -258,6 +259,7 @@ export class Simulation {
     this.heat = 0;
     this.health = 100;
     this.cash = 0;
+    this.shopping=new Shopping(this);
     this.deliveries = 0;
     this.mission = emptyMission();
     this.notice = 'Welcome to SoHo. Walk to the yellow cab and press E.';
@@ -455,12 +457,17 @@ export class Simulation {
    * `street` at a stand on the sidewalk: `item` is a row of menuFor().
    * Returns whether it was bought.
    */
-  buy(item, { street = false } = {}) {
+  buy(item, { street = false, place = this.room?.place } = {}) {
     // Over a counter indoors, or at a stand on the sidewalk on foot.
     if (!item || !(this.room || (street && this.player.mode === 'walk'))) return false;
     if (this.cash < item.price) { this._say(`${item.name} is $${item.price.toFixed(2)}. You have $${Math.floor(this.cash)}.`); return false; }
     this.cash -= item.price; this.spent = (this.spent || 0) + item.price;
-    if (PEP[item.effect]) { this.pep = Math.max(this.pep || 0, PEP[item.effect]); this._say(`${item.name}. $${item.price.toFixed(2)}.`); }
+    if(street && !place)place=[{kind:'fruitstand'},{kind:'newsstand'}].find(stand=>menuFor(stand).some(row=>row.name===item.name));
+    const id=place && foodId(place,item);
+    if(id && pantryItem(id)){
+      this.shopping.receive(id);
+      this._say(`${item.name}. $${item.price.toFixed(2)}. Added to inventory.`);
+    }else if (PEP[item.effect]) { this.pep = Math.max(this.pep || 0, PEP[item.effect]); this._say(`${item.name}. $${item.price.toFixed(2)}.`); }
     else if (item.effect === 'lottery') { const prize = scratch(this._random()); this.cash += prize; this._say(prize ? `Scratched it: $${prize}.` : 'Scratched it: nothing.'); }
     else if (item.effect === 'sleep') { this.health = 100; this.heat = 0; this.pep = PEP.meal; this._say('A night in a bed. The police have lost interest.', 6); }
     else if (item.effect === 'drink') { this.pep = 0; this._say(`${item.name}. $${item.price.toFixed(2)}. Take the subway home.`); }
@@ -480,6 +487,7 @@ export class Simulation {
 
   leaveRoom() {
     if (!this.room || this.room.b > 0 || Math.abs(this.room.a) > DOOR / 2) return false;
+    this.shopping.leave(this.doorway);
     this.room = null;
     return true;
   }
@@ -759,6 +767,7 @@ export class Simulation {
     const target = this._travelSpawn(spawn);
     this.transport?.abandon();
     this.bike = null;
+    this.shopping.interrupt();
     this.room = null; this.seat = null; this.doorway = null;
     const previousCab = this.cars.find(car => car.id === 'player-taxi');
     this.city = { ...this.city, spawn: target };
@@ -1417,6 +1426,7 @@ export class Simulation {
   }
 
   _restoreCondition() {
+    this.shopping.interrupt();
     this.room = null; this.seat = null; this.doorway = null;
     if (this.player.mode === 'bike') this.player.mode = 'walk';
     this.bike = null;
@@ -1452,6 +1462,7 @@ export class Simulation {
 
   _tick(input, dt) {
     this.elapsed += dt;
+    this.shopping.tick();
     if (this.streetObjects.moving.size) this.streetObjects.step(dt,
       (x,z,r,y)=>this._contact(x,z,r,false,y), (x,z)=>this.groundHeight(x,z));
     this.noticeTime = Math.max(0, this.noticeTime - dt);
