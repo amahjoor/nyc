@@ -117,7 +117,7 @@ export function puck(outline,h,{edge=.25,dome=0,bump=0,freq=.5,seed=0,n=28,sharp
     const droop=sag?-sag*Math.max(0,1-s*3)*(.5+.5*sn(px*.4+seed,0,pz*.4)):0;
     return [px,y+lift*(dome*(1-(1-s)*(1-s))+wobble)+droop*lift,pz];
   });
-  return loft([ring(1,0,0),ring(inset*1.6,0,0),ring(0,e,0),ring(0,h-e,.35),ring(inset,h,.8),ring(.3,h,1),ring(.58,h,1),ring(.82,h,1),ring(1,h,1)]);
+  return loft([ring(1,0,0),ring(inset*1.6,0,0),ring(0,e,0),ring(0,h-e,.35),ring(inset,h,.8),ring(.16,h,1),ring(.3,h,1),ring(.45,h,1),ring(.6,h,1),ring(.75,h,1),ring(.9,h,1),ring(1,h,1)]);
 }
 /**
  * A tube along a path of [x, y, z]. `ry` flattens it, `taper(t)` scales it along
@@ -164,11 +164,12 @@ export function bit(kind){
   else if(kind==='leaf')g=finish([-.5,.02,0, 0,0,.28, .5,.1,0, 0,0,-.28, 0,.12,0],[0,1,4,1,2,4,2,3,4,3,0,4]);
   else if(kind==='cube')g=new T.BoxGeometry(1,1,1);
   else if(kind==='bead')g=blob({detail:0,bump:0});
+  else if(kind==='seed')g=blob({r:[.5,.2,.27],detail:0,bump:0});
   else if(kind==='pea')g=blob({detail:1,bump:0});
   else if(kind==='ring')g=loft([circle(.5,8),circle(.5,8),circle(.3,8),circle(.3,8)].map((ring,j)=>ring.map(([x,z])=>[x,j===1||j===2?.22:0,z])));
   else if(kind==='shard')g=finish([-.5,0,-.3, .5,0,-.25, .1,.06,.45, 0,.12,0],[0,3,1,1,3,2,2,3,0,0,1,2]);
   else throw Error('No such bit: '+kind);
-  if(g.index && kind!=='pea' && kind!=='bead'){g=g.toNonIndexed();g.computeVertexNormals();}
+  if(g.index && kind!=='pea' && kind!=='bead' && kind!=='seed'){g=g.toNonIndexed();g.computeVertexNormals();}
   bits.set(kind,g);return g;
 }
 
@@ -259,7 +260,8 @@ export function kitchen(key,level=2){
      * Put a solid on the bench.
      * at, rot [x, y, z], scale; color and paint; gloss 0 matt to 1 wet;
      * ware for crockery, cutlery and wrappers, which outlast the food;
-     * drop to rest it on what is under it (at[1] then lifts or sinks it);
+     * drop to rest it on what is under it (at[1] then lifts or sinks it; settle 1
+     * perches it on the highest point, 0 beds it into the heap);
      * drape to lay it over what is under it, sagging no more than that many centimetres;
      * inside for the colour it shows when bitten; whole to be eaten in one piece.
      */
@@ -278,17 +280,42 @@ export function kitchen(key,level=2){
         P.fromBufferAttribute(gp,i).applyMatrix4(m4);pos[i*3]=P.x;pos[i*3+1]=P.y;pos[i*3+2]=P.z;
         if(P.y<minY)minY=P.y;if(P.y>maxY)maxY=P.y;if(P.x<minX)minX=P.x;if(P.x>maxX)maxX=P.x;if(P.z<minZ)minZ=P.z;if(P.z>maxZ)maxZ=P.z;
       }
-      const cx=(minX+maxX)/2,cz=(minZ+maxZ)/2;
+      let cx=(minX+maxX)/2,cz=(minZ+maxZ)/2;
       if(o.drop){
-        // Rest on the highest thing under the middle of the footprint.
-        const rx=(maxX-minX)*.3,rz=(maxZ-minZ)*.3;let rest=field.at(cx,cz);
-        for(let i=0;i<6;i++)rest=Math.max(rest,field.at(cx+Math.cos(i*TAU/6)*rx,cz+Math.sin(i*TAU/6)*rz));
+        // Settle into what is under the footprint: nearer its middle height than its
+        // highest point, or a heap would climb into a tower.
+        const rx=(maxX-minX)*.3,rz=(maxZ-minZ)*.3,settle=o.settle??.35,under=new Array(7);
+        const restAt=(px,pz)=>{
+          under[0]=field.at(px,pz);for(let i=0;i<6;i++)under[i+1]=field.at(px+Math.cos(i*TAU/6)*rx,pz+Math.sin(i*TAU/6)*rz);
+          under.sort((a,b)=>a-b);return under[3]+(under[6]-under[3])*settle;
+        };
+        let rest=restAt(cx,cz),sx=0,sz=0;
+        const bounds=o.within&&local(o.within[0],o.within[1]).clone();
+        // A piece on a heap rolls to the lowest place nearby, inside the heap's bounds.
+        for(let pass=0;pass<(o.roll||0);pass++){
+          let best=rest,bx=sx,bz=sz;const step=Math.max(rx,rz)*2.2,turn=R()*TAU;
+          for(let i=0;i<6;i++){
+            const tx=sx+Math.cos(turn+i*TAU/6)*step,tz=sz+Math.sin(turn+i*TAU/6)*step;
+            if(bounds && Math.hypot(cx+tx-bounds.x,cz+tz-bounds.z)>o.within[2])continue;
+            const h=restAt(cx+tx,cz+tz);if(h<best-.15){best=h;bx=tx;bz=tz;}
+          }
+          if(best===rest)break;
+          rest=best;sx=bx;sz=bz;
+        }
+        if(sx||sz){for(let i=0;i<pos.length;i+=3){pos[i]+=sx;pos[i+2]+=sz;}minX+=sx;maxX+=sx;minZ+=sz;maxZ+=sz;}
         const lift=rest-minY+at[1];for(let i=1;i<pos.length;i+=3)pos[i]+=lift;
-        minY+=lift;maxY+=lift;
+        minY+=lift;maxY+=lift;cx+=sx;cz+=sz;
       }
       if(o.drape){
-        const limit=o.drape===true?Infinity:o.drape,hang=field.at(cx,cz)-limit;
-        for(let i=0;i<pos.length;i+=3)pos[i+1]+=Math.max(field.at(pos[i],pos[i+2]),hang);
+        // `wide` keeps it up a little past an edge before it falls.
+        // Heights were modelled above the surface, so a frame already standing on it is not counted twice.
+        const limit=o.drape===true?Infinity:o.drape,hang=field.at(cx,cz)-limit,w=o.wide||0,stood=frame?frame.elements[13]:0;
+        if(stood)for(let i=1;i<pos.length;i+=3)pos[i]-=stood;
+        for(let i=0;i<pos.length;i+=3){
+          const x=pos[i],z=pos[i+2];let under=field.at(x,z);
+          if(w)under=Math.max(under,field.at(x+w,z),field.at(x-w,z),field.at(x,z+w),field.at(x,z-w));
+          pos[i+1]+=Math.max(under,hang);
+        }
         minY=Infinity;maxY=-Infinity;for(let i=1;i<pos.length;i+=3){if(pos[i]<minY)minY=pos[i];if(pos[i]>maxY)maxY=pos[i];}
       }
       base.set(o.color??0xffffff);
@@ -317,19 +344,23 @@ export function kitchen(key,level=2){
     /** Crockery and other things that stay when the food is gone. */
     ware(g,o={}){return k.add(g,{gloss:.72,...o,ware:true});},
     /** Scatter `n` small bits over a disc, each lying on whatever is there. */
-    sprinkle(kind,n,{x=0,z=0,r=4,color=0xffffff,size=.4,onFood=0,flat=false,gloss=.2,ware=false,lift=.02,bias=1,stretch=1}={}){
+    sprinkle(kind,n,{x=0,z=0,r=4,color=0xffffff,size=.4,onFood=0,flat=false,gloss=.2,ware=false,lift=.02,bias=1,stretch=1,tilt=.9}={}){
       const g=bit(kind),colors=[color].flat();
       for(let i=0;i<n;i++){
         const [px,pz]=k.spot(x,z,r,bias),y=k.top(px,pz);
         if(y<onFood)continue;
         const s=size*(.75+.5*R());
-        k.add(g,{at:[px,y+lift+(flat?0:s*.12),pz],rot:[flat?0:(R()-.5)*.9,R()*TAU,flat?0:(R()-.5)*.9],scale:[s*stretch,s,s],color:colors[Math.floor(R()*colors.length)],gloss,ware,cast:false,whole:true});
+        k.add(g,{at:[px,y+lift+(flat?0:s*.12),pz],rot:[flat?0:(R()-.5)*tilt,R()*TAU,flat?0:(R()-.5)*tilt],scale:[s*stretch,s,s],color:colors[Math.floor(R()*colors.length)],gloss,ware,cast:false,whole:true});
       }
     },
     /** Trail a sauce over the serving along [x, z] points. */
     drizzle(points,r,color,{gloss=.75,ry=r*.45}={}){
-      const path=new T.CatmullRomCurve3(points.map(([x,z])=>new T.Vector3(x,0,z))).getPoints(points.length*5);
-      k.add(tube(path.map(p=>[p.x,k.top(p.x,p.z)+ry*.5,p.z]),r,{sides:5,ry,curve:false}),{color,gloss,cast:false,whole:false});
+      // Sampled closely enough to run down the sides of what it crosses.
+      const line=new T.CatmullRomCurve3(points.map(([x,z])=>new T.Vector3(x,0,z))),path=line.getSpacedPoints(Math.max(8,Math.ceil(line.getLength()/.4)));
+      const high=path.map(p=>k.top(p.x,p.z));
+      // Thick sauce bridges a narrow gap and does not run to the bottom of it.
+      for(let pass=0;pass<4;pass++)for(let i=1;i<high.length-1;i++)high[i]=Math.max(high[i],(high[i-1]+high[i+1])/2-.12);
+      k.add(tube(path.map((p,i)=>[p.x,high[i]+ry*.5,p.z]),r,{sides:5,ry,curve:false}),{color,gloss,cast:false,whole:false});
     },
   };
   return k;

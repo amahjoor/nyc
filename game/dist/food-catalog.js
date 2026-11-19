@@ -1,41 +1,62 @@
-// Stable model names are shared by menu orders, hands, tables and saved meals.
+// Which model each thing on a menu is served as. Model names are stable: orders,
+// hands, tables and saved meals all refer to them.
 const plates={
-  'Cornbread':'cornbread','Barbecue ribs with slaw':'bbq-ribs','Potato knish':'knish','Pastrami on rye':'pastrami',
-  'Scallion pancake':'scallion-pancake','Vegetable stir-fry':'stir-fry','Fried plantains':'plantains','Jollof rice with chicken':'jollof',
-  'Quiche Lorraine':'quiche','Steak frites':'steak-frites','Fish sandwich':'fish-sandwich','Grilled salmon with potatoes':'grilled-salmon',
-  'Mushroom soup':'mushroom-soup','Roast chicken with potatoes':'chicken-potatoes',
-  'Spring rolls':'spring-rolls','Egg roll':'egg-roll','Pork fried rice':'fried-rice',"General Tso's chicken combo":'tso',
-  'Chicken over rice':'chicken-rice','Lamb gyro':'gyro','Falafel sandwich':'falafel','Taco':'taco','Burrito':'burrito','Chips and guacamole':'guacamole',
-  'Pernil with rice and beans':'pernil','Empanada':'empanada','Beef patty':'beef-patty','Jerk chicken with rice and peas':'jerk','Oxtail':'oxtail',
-  'Miso soup':'miso','Salmon roll':'sushi','Ramen':'ramen','Kimbap':'kimbap','Bibimbap':'bibimbap',
-  'Samosa':'samosa','Chicken tikka masala':'tikka','Pad thai':'pad-thai','Green curry':'green-curry',
-  'Three pieces and a biscuit':'fried-chicken','Wings':'wings','Fries':'fries','Cheeseburger':'burger','Burger deluxe':'burger-deluxe',
-  'Eggs, home fries and toast':'eggs','Slice of pie':'pie','Turkey hero':'hero','Soup':'soup','Bag of chips':'chips',
-  'Roll with butter':'butter-roll','Black and white cookie':'bw-cookie','Loaf of rye':'rye','Pastry':'croissant',
-  'Glazed doughnut':'doughnut','Half dozen':'doughnut-box','Bagel with cream cheese':'bagel','Bagel with lox':'lox',
-  'Acai bowl':'acai','Cone':'cone','Sundae':'sundae','Spaghetti pomodoro':'pasta','Veal parmigiana':'parm',
-  'Strip steak':'steak','Creamed spinach':'spinach','Bacon, egg and cheese':'bec','Chopped cheese':'chopped-cheese',
-  'Sandwich from the deli counter':'deli-sandwich','Rotisserie chicken':'roast-chicken','Slice':'pizza','Two slices and a soda':'pizza-combo',
+  // by the slice
+  'Slice':'pizza','Pepperoni slice':'pizza-pepperoni','Sicilian slice':'pizza-sicilian','White slice':'pizza-white','Two slices and a soda':'pizza-combo',
+  'Garlic knots':'garlic-knots','Calzone':'calzone','Margherita pie':'pizza-margherita','Margherita pizza':'pizza-margherita',
+  // counters and carts
+  'Egg roll':'egg-roll','Spring rolls':'spring-rolls','Pork fried rice':'fried-rice',"General Tso's chicken combo":'tso','Chicken lo mein':'lo-mein',
+  'Beef with broccoli':'beef-broccoli','Pork dumplings':'dumplings','Wonton soup':'wonton-soup','Roast pork bun':'pork-bun',
+  'Chicken over rice':'chicken-rice','Lamb over rice':'lamb-rice','Lamb gyro':'gyro','Falafel sandwich':'falafel','Chicken shawarma':'shawarma',
+  'Hummus and pita':'hummus','Greek salad':'greek-salad','Spinach pie':'spanakopita','Baklava':'baklava',
+  'Taco':'taco','Carnitas tacos':'tacos','Burrito':'burrito','Chips and guacamole':'guacamole','Quesadilla':'quesadilla','Nachos':'nachos','Elote':'elote','Tamales':'tamales','Churros':'churros',
+  'Pernil with rice and beans':'pernil','Empanada':'empanada','Pollo guisado':'pollo-guisado','Mofongo':'mofongo','Cubano':'cubano','Tostones':'tostones','Sweet plantains':'plantains','Arepa':'arepa','Flan':'flan',
+  'Beef patty':'beef-patty','Jerk chicken with rice and peas':'jerk','Oxtail':'oxtail','Curry goat':'curry-goat','Doubles':'doubles','Chicken roti':'roti','Festival':'festival',
+  'Cornbread':'cornbread','Barbecue ribs with slaw':'bbq-ribs','Brisket plate':'brisket','Pulled pork sandwich':'pulled-pork','Mac and cheese':'mac-cheese','Collard greens':'collards','Banana pudding':'banana-pudding',
+  'Potato knish':'knish','Pastrami on rye':'pastrami','Matzo ball soup':'matzo-ball','Corned beef Reuben':'reuben','Potato latkes':'latkes','Hot dog':'hot-dog','Half-sour pickles':'pickle-plate',
+  'Scallion pancake':'scallion-pancake','Vegetable stir-fry':'stir-fry','Pho':'pho','Banh mi':'banh-mi','Summer rolls':'summer-rolls',
+  'Fried plantains':'plantains','Jollof rice with chicken':'jollof','Suya':'suya','Egusi with fufu':'egusi','Injera platter':'injera','Meat pie':'meat-pie','Puff puff':'puff-puff',
+  'Miso soup':'miso','Salmon roll':'sushi','Ramen':'ramen','Nigiri set':'nigiri','Chicken katsu curry':'katsu-curry','Gyoza':'gyoza','Shrimp tempura':'tempura','Edamame':'edamame','Onigiri':'onigiri','Mochi':'mochi',
+  'Kimbap':'kimbap','Bibimbap':'bibimbap','Korean fried chicken':'korean-fried-chicken','Bulgogi':'bulgogi','Tteokbokki':'tteokbokki','Kimchi stew':'kimchi-jjigae','Japchae':'japchae',
+  'Pad thai':'pad-thai','Green curry':'green-curry','Tom yum soup':'tom-yum','Papaya salad':'papaya-salad','Chicken satay':'satay','Mango sticky rice':'mango-sticky-rice',
+  'Samosa':'samosa','Chicken tikka masala':'tikka','Saag paneer':'saag-paneer','Chicken biryani':'biryani','Garlic naan':'naan','Masala dosa':'dosa','Chana masala':'chana','Gulab jamun':'gulab-jamun',
+  'Three pieces and a biscuit':'fried-chicken','Wings':'wings','Fries':'fries','Chicken sandwich':'chicken-sandwich','Tenders':'tenders','Coleslaw':'coleslaw',
+  'Cheeseburger':'burger','Burger deluxe':'burger-deluxe','Pub burger':'burger-deluxe','Double cheeseburger':'burger-double','Bacon burger':'bacon-burger','Onion rings':'onion-rings','Sliders':'sliders','Mozzarella sticks':'mozz-sticks',
+  'Turkey hero':'hero','Italian hero':'italian-hero','Chicken cutlet hero':'cutlet-hero','Grilled cheese':'grilled-cheese','BLT':'blt','Soup':'soup','Bag of chips':'chips','Chocolate chip cookie':'cookie',
+  'Bacon, egg and cheese':'bec','Egg and cheese on a roll':'egg-cheese','Chopped cheese':'chopped-cheese','Sandwich from the deli counter':'deli-sandwich','Rotisserie chicken':'roast-chicken',
+  // bakeries and cafes
+  'Roll with butter':'butter-roll','Black and white cookie':'bw-cookie','Loaf of rye':'rye','Pastry':'croissant','Croissant':'croissant','Cheesecake':'cheesecake','Cannoli':'cannoli',
+  'Cupcake':'cupcake','Rugelach':'rugelach','Challah':'challah','Chocolate babka':'babka','Blueberry muffin':'muffin',
+  'Glazed doughnut':'doughnut','Chocolate frosted doughnut':'doughnut-chocolate','Sprinkle doughnut':'doughnut-sprinkle','Jelly doughnut':'doughnut-jelly','Boston cream':'boston-cream','Half dozen':'doughnut-box',
+  'Bagel with cream cheese':'bagel','Bagel with lox':'lox','Everything bagel with butter':'bagel-everything','Bacon, egg and cheese on a bagel':'bagel-bec','Bialy':'bialy',
+  'Acai bowl':'acai','Avocado toast':'avocado-toast','Fruit cup':'cut-fruit',
+  'Cone':'cone','Sundae':'sundae','Soft serve':'soft-serve','Two scoops in a cup':'ice-cream-cup','Banana split':'banana-split','Ice cream sandwich':'ice-cream-sandwich','Italian ice':'italian-ice',
+  // dining rooms
+  'Spaghetti pomodoro':'pasta','Veal parmigiana':'parm','Spaghetti and meatballs':'meatballs','Lasagna':'lasagna','Fettuccine Alfredo':'alfredo','Caprese salad':'caprese','Fried calamari':'calamari','Tiramisu':'tiramisu',
+  'Eggs, home fries and toast':'eggs','Slice of pie':'pie','Pancakes':'pancakes','Western omelette':'omelette','Turkey club':'club','Meatloaf':'meatloaf','Caesar salad':'caesar',
+  'Quiche Lorraine':'quiche','Steak frites':'steak-frites','French onion soup':'onion-soup','Croque monsieur':'croque','Moules frites':'moules','Duck confit':'duck-confit','Creme brulee':'creme-brulee','Crepe':'crepe',
+  'Fish sandwich':'fish-sandwich','Grilled salmon with potatoes':'grilled-salmon','Fish and chips':'fish-chips','Lobster roll':'lobster-roll','Oysters on the half shell':'oysters','Clam chowder':'chowder','Shrimp cocktail':'shrimp-cocktail','Steamed lobster':'lobster',
+  'Strip steak':'steak','Creamed spinach':'spinach','Ribeye':'ribeye','Wedge salad':'wedge-salad','Baked potato':'baked-potato','Thick-cut bacon':'bacon-slab',
+  'Mushroom soup':'mushroom-soup','Roast chicken with potatoes':'chicken-potatoes','Pierogi':'pierogi','Bratwurst with sauerkraut':'bratwurst','Schnitzel':'schnitzel','Borscht':'borscht','Goulash':'goulash','Apple strudel':'strudel',
+  'Soft pretzel':'pretzel',"Shepherd's pie":'shepherds-pie',
+  // stands, and the headings older saves ordered under
+  'Banana':'banana','Bag of oranges':'oranges','Cut fruit':'cut-fruit','Fruit':'fruit','Apple':'fruit','Mango with chili':'mango-cup','Candy bar':'chocolate','Popcorn':'popcorn',
   'Slice or small plate':'small-plate','Lunch special':'lunch-special','Lunch':'lunch','Dinner':'dinner',
-  'Banana':'banana','Bag of oranges':'oranges','Cut fruit':'cut-fruit','Fruit':'fruit','Candy bar':'chocolate','Popcorn':'popcorn',
 };
-// Vessel, beverage, topping. Vessels have an inner wall and a separate liquid surface.
-export const drinkRecipes={
-  coffee:['paper',0x41271c,'coffee'],espresso:['demitasse',0x482616,'crema'],latte:['china',0xb5825b,'foam'],
-  'iced-coffee':['tumbler',0x76432e,'ice'],soda:['tumbler',0x542e23,'ice'],'soda-can':['can',0x51221c,''],
-  beer:['pint',0xd58b2e,'head'],'ginger-beer':['bottle',0xaf8343,''],cocktail:['coupe',0xe69370,'citrus'],
-  martini:['martini',0xe4e4d2,'olive'],'vodka-soda':['highball',0xcfdbd9,'lime'],water:['bottle',0xb9dbe0,''],
-  wine:['bottle',0x662537,''],horchata:['tumbler',0xe4d2ad,'cinnamon'],'morir-sonando':['tumbler',0xf4b373,'citrus'],
-  'green-tea':['teacup',0xa3ab54,''],'barley-tea':['teacup',0xab7438,''],'thai-tea':['tumbler',0xe3974c,'ice'],
-  'green-juice':['highball',0x719442,''],smoothie:['smoothie',0xc67483,'straw'],lassi:['smoothie',0xefad45,'straw'],shake:['fluted',0xecd2af,'cream'],
+const drinks={
+  'Coffee':'coffee','Coffee, regular':'coffee','Iced coffee':'iced-coffee','Vietnamese iced coffee':'iced-coffee','Espresso':'espresso','Cafe con leche':'latte','Latte':'latte','Cappuccino':'cappuccino',
+  'Matcha latte':'matcha','Hot chocolate':'hot-chocolate','Tea':'tea','Hot tea':'green-tea','Masala chai':'chai','Green tea':'green-tea','Barley tea':'barley-tea',
+  'Soda':'soda','Can of soda':'soda-can','Bottle of soda':'soda-bottle','Lemonade':'lemonade','Iced tea':'iced-tea','Sweet tea':'iced-tea','Thai iced tea':'thai-tea','Horchata':'horchata','Morir sonando':'morir-sonando',
+  'Agua de jamaica':'jamaica','Sorrel':'sorrel','Bissap':'sorrel','Bubble tea':'boba','Egg cream':'egg-cream','Ginger beer':'ginger-beer','Bottle of water':'water',
+  'Orange juice':'orange-juice','Carrot juice':'carrot-juice','Green juice':'green-juice','Wheatgrass shot':'wheatgrass','Smoothie':'smoothie','Mango lassi':'lassi','Protein shake':'protein-shake','Shake':'shake',
+  'Beer':'beer','Stout':'stout','Cocktail':'cocktail','Martini':'martini','Margarita':'margarita','Mojito':'mojito','Old fashioned':'old-fashioned','Whiskey':'whiskey','Vodka soda':'vodka-soda',
+  'Glass of red wine':'red-wine','Glass of white wine':'white-wine','Champagne':'champagne','Tequila shot':'shot','Sake':'sake','Soju':'soju','Bottle of wine':'wine',
 };
-const drinks={'Coffee':'coffee','Coffee, regular':'coffee','Iced coffee':'iced-coffee','Espresso':'espresso','Cafe con leche':'latte',
-  'Soda':'soda','Can of soda':'soda-can','Beer':'beer','Ginger beer':'ginger-beer','Cocktail':'cocktail','Martini':'martini',
-  'Vodka soda':'vodka-soda','Bottle of water':'water','Bottle of wine':'wine','Horchata':'horchata','Morir sonando':'morir-sonando',
-  'Green tea':'green-tea','Barley tea':'barley-tea','Thai iced tea':'thai-tea','Green juice':'green-juice','Smoothie':'smoothie','Mango lassi':'lassi','Shake':'shake'};
 export const dishStyle=name=>plates[name];
 export const drinkStyle=name=>drinks[name];
 export const plateStyles=Object.freeze([...new Set(Object.values(plates))]);
+export const drinkStyles=Object.freeze([...new Set(Object.values(drinks))]);
+/** The model a menu item is served as: at a table coffee comes in a mug, to go in a paper cup. */
 export function servingFor(item,dineIn=false){
   const name=typeof item==='string'?item:item?.preparation||item?.name;
   if(plates[name])return 'plate-'+plates[name];
@@ -43,6 +64,7 @@ export function servingFor(item,dineIn=false){
   if(drink==='coffee')return dineIn?'mug':'cup';
   return drink?'drink-'+drink:null;
 }
+// A serving is full, part eaten (@1) or finished (@0).
 export const portionKey=(base,level)=>level===2?base:base+'@'+level;
 export const portionBase=key=>key?.split('@')[0];
 export const portionLevel=key=>key?.endsWith('@0')?0:key?.endsWith('@1')?1:2;

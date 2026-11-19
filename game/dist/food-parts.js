@@ -1,7 +1,7 @@
 // Ingredients. Each sets itself down on the bench where it is told, on top of
 // whatever is already there, so a dish is put together the way a cook plates it.
 import * as T from './vendor/three.module.min.js';
-import { blob,lathe,loft,puck,tube,sheet,brick,circle,TAU,fbm,sn,smooth,clamp,mottle,toward,browned,pale,spots,outward,upward } from './food-kit.js';
+import { bit as bitOf,blob,lathe,loft,puck,tube,sheet,brick,circle,TAU,fbm,sn,smooth,clamp,mottle,toward,browned,pale,spots,outward,upward } from './food-kit.js';
 
 export const C={
   bun:0xc88a3a,bunPale:0xe8c98f,crumb:0xf2e2bc,toast:0xb06f2c,rye:0x8a5a34,ryeCrumb:0xc9a67a,crust:0x9a5a22,
@@ -32,7 +32,7 @@ export function bunTop(k,x,z,{r=4.7,h=3,color=C.bun,seeds='sesame',kaiser=false,
   k.drop(g,x,z,{lift,rot:[tilt,k.rand(TAU),0],color,gloss:.42,inside:C.crumb,paint:[pale(C.bunPale,.85),browned(C.crust,.5,.5),mottle(.07,.7)],whole:false});
   if(seeds){
     const tall=k.top(x,z);
-    k.sprinkle('grain',seeds==='sesame'?46:60,{x,z,r:r*.74,color:seeds==='sesame'?[0xf3e3b8,0xe9d39c]:seeds==='poppy'?[0x2a2a30,0x3a3a44]:[0xf3e3b8,0x2a2a30,0xe0c890,0xd9c9a0],size:seeds==='sesame'?.42:.3,onFood:tall-h*.55,gloss:.3});
+    k.sprinkle('seed',seeds==='sesame'?46:60,{x,z,r:r*.74,color:seeds==='sesame'?[0xf3e3b8,0xe9d39c]:seeds==='poppy'?[0x2a2a30,0x3a3a44]:[0xf3e3b8,0x2a2a30,0xe0c890,0xd9c9a0],size:seeds==='sesame'?.5:.34,onFood:tall-h*.55,gloss:.3});
   }
 }
 /** The heel of the roll. */
@@ -44,7 +44,7 @@ export function longRoll(k,x,z,yaw,{length=16,width=5.6,h=1.6,top=false,color=C.
   const g=puck(roundedPath(length,width,width*.48),h,{edge:.55,dome:top?dome:.05,bump:top?.12:.03,freq:.3,seed:k.rand(9),n:36});
   k.at(x,z,yaw,()=>{
     k.drop(g,0,0,{lift,color,gloss:top?.4:.2,inside:C.crumb,whole:false,paint:top?[pale(C.bunPale,.8),browned(C.crust,.55,.4),mottle(.07,.6)]:[toward(C.crumb,(P,N)=>smooth(.75,.95,N.y)),mottle(.05,.8)]});
-    if(top && seeds)k.sprinkle('grain',50,{r:width*.42,color:[0xf3e3b8,0xe9d39c],size:.4,onFood:k.top(0,0)-.8,stretch:1,bias:.9});
+    if(top && seeds)k.sprinkle('seed',50,{r:width*.42,color:[0xf3e3b8,0xe9d39c],size:.5,onFood:k.top(0,0)-.8,stretch:1,bias:.9});
   },{tilt});
 }
 function roundedPath(w,d,r){
@@ -53,13 +53,13 @@ function roundedPath(w,d,r){
     for(let i=0;i<=n;i++){const a=a0+i/n*Math.PI/2;out.push([cx+Math.cos(a)*r,cz+Math.sin(a)*r]);}
   return out;
 }
-export { roundedPath };
+export { roundedPath,bitOf,wobbly as wobble };
 const LOAF=[[-4.6,-4.3],[4.6,-4.3],[4.75,1.6],[5.3,2.5],[5.1,3.9],[3.4,4.75],[0,5.05],[-3.4,4.75],[-5.1,3.9],[-5.3,2.5],[-4.75,1.6]];
 /** A slice of bread, toasted or not. */
 export function slice(k,x,z,yaw,{s=1,h=1.1,color=C.crumb,crust=C.toast,toasted=0,lift=0,tilt=null,shape=LOAF}={}){
   const g=puck(shape.map(([a,b])=>[a*s,b*s]),h,{edge:.18,n:40,bump:.03,freq:.9,seed:k.rand(9)});
   k.at(x,z,yaw,()=>k.drop(g,0,0,{lift,color,gloss:.15,inside:C.crumb,whole:false,
-    paint:[toasted?toward(C.toast,(P,N,L)=>toasted*(.45+.4*fbm(L.x*.5,1,L.z*.5))*smooth(.3,.9,Math.abs(N.y))):null,toward(crust,(P,N)=>smooth(.75,.35,Math.abs(N.y))),mottle(.06,1.4)].filter(Boolean)}),{tilt});
+    paint:[toasted?toward(C.toast,(P,N,L)=>toasted*(.68+.3*fbm(L.x*.5,1,L.z*.5))*smooth(.3,.9,Math.abs(N.y))):null,toward(crust,(P,N)=>smooth(.75,.35,Math.abs(N.y))),mottle(.06,1.4)].filter(Boolean)}),{tilt});
 }
 /** A triangle of flatbread: pita, naan, a quesadilla wedge. */
 export function flatbread(k,x,z,yaw,{outline=[[-4,-3],[4.6,-2.2],[-.4,4.6]],h=.5,color=C.pita,blister=0x9a6a34,cover=.22,drape=true,lift=.03,dome=.12}={}){
@@ -69,20 +69,20 @@ export function flatbread(k,x,z,yaw,{outline=[[-4,-3],[4.6,-2.2],[-.4,4.6]],h=.5
 // ---- meat, cheese, salad ------------------------------------------------------
 /** A burger patty. */
 export function patty(k,x,z,{r=4.6,h=1.15,color=C.beef}={}){
-  k.drop(puck(wobbly(r,14,.05,k.rand(9)),h,{edge:.42,dome:.12,bump:.16,freq:1.1,seed:k.rand(9),n:30}),x,z,{color,gloss:.38,inside:C.beefIn,whole:false,paint:[mottle(.2,1.6),spots(C.char,.2,1.6,k.rand(9))]});
+  k.drop(puck(wobbly(r,14,.05,k.rand(9)),h,{edge:.42,dome:.1,bump:.09,freq:1.1,seed:k.rand(9),n:30}),x,z,{color,gloss:.38,inside:C.beefIn,whole:false,paint:[mottle(.16,1.6),spots(0x3a2218,.14,1.9,k.rand(9))]});
 }
 /** A slice of cheese melting over whatever it lies on. */
 export function cheeseSlice(k,x,z,yaw,{w=8.6,color=C.cheese,sag=1.25,gloss=.5}={}){
-  const g=sheet((u,v)=>{const a=(u-.5)*w,b=(v-.5)*w,round=Math.max(0,Math.max(Math.abs(a),Math.abs(b))-w*.44);return [a,.07-round*.2,b];},10,10);
-  k.at(x,z,yaw,()=>k.add(g,{at:[0,0,0],drape:sag,color,gloss,paint:mottle(.04,.6),whole:false}),{y:-k.top(x,z)});
+  const g=sheet((u,v)=>{const a=(u-.5)*w,b=(v-.5)*w,round=Math.max(0,Math.max(Math.abs(a),Math.abs(b))-w*.44);return [a,.12-round*.2,b];},16,16);
+  k.at(x,z,yaw,()=>k.add(g,{at:[0,0,0],drape:sag,wide:.55,color,gloss,paint:mottle(.04,.6),whole:false}),{y:-k.top(x,z)});
 }
 /** A ruffled leaf of lettuce. */
 export function lettuce(k,x,z,{r=5.4,color=C.lettuce,ruffle=.5,lift=.05}={}){
   const seed=k.rand(9),g=sheet((u,v)=>{
-    const a=u*TAU,d=v*r*(1+.1*Math.sin(a*5+seed*4)),wave=ruffle*v*v*(Math.sin(a*9+seed)+.6*Math.sin(a*14.3+seed*2));
-    return [Math.cos(a)*d,wave*.55+.1,Math.sin(a)*d];
-  },40,5);
-  k.add(g,{at:[x,lift,z],drape:.9,color,gloss:.32,whole:false,paint:[toward(C.lettucePale,(P,N,L)=>smooth(r*.75,0,Math.hypot(L.x,L.z))*.8),mottle(.1,1.2)]});
+    const a=u*TAU,d=v*r*(1+.1*Math.sin(a*5+seed*4)),wave=ruffle*v*v*(1.2+Math.sin(a*9+seed)+.6*Math.sin(a*14.3+seed*2));
+    return [Math.cos(a)*d,wave*.5+.12-v*v*v*.9,Math.sin(a)*d];
+  },40,6);
+  k.add(g,{at:[x,lift,z],drape:.5,wide:.4,color,gloss:.32,whole:false,paint:[toward(C.lettucePale,(P,N,L)=>smooth(r*.75,0,Math.hypot(L.x,L.z))*.8),mottle(.1,1.2)]});
 }
 /** Slices of tomato fanned over a spot. */
 export function tomatoSlices(k,x,z,n=2,{r=3.1,spread=1.6,yaw=0}={}){
@@ -99,13 +99,13 @@ export function onionRings(k,x,z,n=3,{color=C.redOnion,r=2.6}={}){
   });
 }
 /** Pickle chips. */
-export function pickles(k,x,z,n=3,{spread=2.2}={}){
+export function pickles(k,x,z,n=3,{spread=1.7}={}){
   many(k,n,()=>{const [px,pz]=k.spot(x,z,spread);k.drop(puck(circle(1.35,10),.3,{edge:.1,n:14}),px,pz,{color:C.pickle,gloss:.55,paint:[outward(0x56661f,1,1.35,.8),toward(0xa9b860,(P,N,L)=>N.y>.5?.5*smooth(1,.2,Math.hypot(L.x,L.z)):0)],whole:true});});
 }
 /** A wavy rasher of bacon. */
 export function bacon(k,x,z,yaw,{length=11,width=2.4,lift=.1}={}){
   const seed=k.rand(9),g=sheet((u,v)=>[(u-.5)*length,.28*Math.sin(u*13+seed)+.12*Math.sin(u*29+v*3),(v-.5)*width*(1+.08*Math.sin(u*17+seed))],22,4);
-  k.at(x,z,yaw,()=>k.add(g,{at:[0,lift+.3,0],drape:1.1,color:C.bacon,gloss:.5,whole:false,paint:[toward(C.fat,(P,N,L)=>smooth(.25,.45,Math.abs(Math.sin(L.z*2.6+.9)))*.75),mottle(.12,2)]}));
+  k.at(x,z,yaw,()=>k.add(g,{at:[0,lift+.3,0],drape:1.1,wide:.4,color:C.bacon,gloss:.5,whole:false,paint:[toward(C.fat,(P,N,L)=>smooth(.25,.45,Math.abs(Math.sin(L.z*2.6+.9)))*.75),mottle(.12,2)]}));
 }
 /** A fried egg, sunny side up. */
 export function friedEgg(k,x,z,{r=4.2}={}){
@@ -116,8 +116,8 @@ export function friedEgg(k,x,z,{r=4.2}={}){
 /** A folded pile of sliced deli meat. */
 export function slicedMeat(k,x,z,yaw,{length=13,width=5,layers=6,color=C.pastrami,edge=0x3a231c,h=.34}={}){
   k.at(x,z,yaw,()=>many(k,layers,i=>{
-    const seed=k.rand(9),g=sheet((u,v)=>[(u-.5)*length*(1-.03*i),.22*Math.sin(u*9+seed)+.14*Math.sin(v*7+seed*2+u*4),(v-.5)*width*(1+.1*Math.sin(u*6+seed))],18,5);
-    k.add(g,{at:[k.rand(-.5,.5),h*.5+.04,k.rand(-.35,.35)],drape:1.6,color,gloss:.42,whole:false,paint:[toward(edge,(P,N,L)=>smooth(width*.38,width*.5,Math.abs(L.z))*.8),mottle(.12,1.3)]});
+    const seed=k.rand(9),g=sheet((u,v)=>[(u-.5)*length*(1-.03*i),h*.4*(1+Math.sin(u*9+seed))+h*.25*Math.sin(v*7+seed*2+u*4),(v-.5)*width*(1+.1*Math.sin(u*6+seed))],18,5);
+    k.add(g,{at:[k.rand(-.5,.5),h*.3,k.rand(-.35,.35)],drape:1.6,wide:.4,color,gloss:.42,whole:false,paint:[toward(edge,(P,N,L)=>smooth(width*.38,width*.5,Math.abs(L.z))*.8),mottle(.12,1.3)]});
   }));
 }
 /** A breaded cutlet. */
@@ -125,12 +125,12 @@ export function cutlet(k,x,z,yaw,{w=12,d=8,h=1.5,color=C.fried}={}){
   k.at(x,z,yaw,()=>k.drop(puck(wobbly(w/2,14,.12,k.rand(9),d/2),h,{edge:.5,dome:.25,bump:.22,freq:1.3,seed:k.rand(9),n:32}),0,0,{color,gloss:.24,inside:C.chickenIn,whole:false,paint:[mottle(.16,2.2),spots(C.friedDark,.3,1.7,k.rand(9)),pale(0xe2b56a,.3)]}));
 }
 /** A rough chunk of something cooked, resting where it falls. */
-export function chunk(k,x,z,{r=1.5,color=C.chicken,dark=C.friedDark,cover=.3,gloss=.4,bump=.2,inside=null,squash=.75,detail=2,lift=-.1}={}){
+export function chunk(k,x,z,{r=1.5,color=C.chicken,dark=C.friedDark,cover=.3,gloss=.4,bump=.2,inside=null,squash=.75,detail=2,lift=-.1,within=null}={}){
   const s=typeof r==='number'?[r*k.rand(.85,1.15),r*squash,r*k.rand(.85,1.15)]:r;
-  return k.drop(blob({r:s,bump,freq:1.1/Math.max(.6,s[0]*.6),seed:k.rand(40),detail,flat:.12}),x,z,{lift,rot:[0,k.rand(TAU),0],color,gloss,inside,paint:[mottle(.14,1.6),spots(dark,cover,1.5,k.rand(9))]});
+  return k.drop(blob({r:s,bump,freq:1.1/Math.max(.6,s[0]*.6),seed:k.rand(40),detail,flat:.12}),x,z,{lift,roll:within?4:0,within,rot:[0,k.rand(TAU),0],color,gloss,inside,paint:[mottle(.14,1.6),spots(dark,cover,1.5,k.rand(9))]});
 }
 /** A heap of `n` chunks about a spot. */
-export function chunks(k,x,z,n,o={}){many(k,n,()=>{const [px,pz]=k.spot(x,z,o.spread??3,o.bias??1);chunk(k,px,pz,o);});}
+export function chunks(k,x,z,n,o={}){const spread=o.spread??3;many(k,n,()=>{const [px,pz]=k.spot(x,z,spread,o.bias??1);chunk(k,px,pz,{within:[x,z,spread*1.15],...o});});}
 /** A craggy piece of fried chicken; `bone` gives it a drumstick's handle. */
 export function friedPiece(k,x,z,yaw,{r=3,color=C.fried,bone=false,gloss=.26,dark=C.friedDark,long=1.25}={}){
   k.at(x,z,yaw,()=>{
@@ -143,11 +143,11 @@ export function friedPiece(k,x,z,yaw,{r=3,color=C.fried,bone=false,gloss=.26,dar
   });
 }
 /** French fries, tumbled. */
-export function fries(k,x,z,n=22,{r=4,color=C.potato,thick=.42,length=6.5,bias=1}={}){
+export function fries(k,x,z,n=22,{r=4,color=C.potato,thick=.42,length=6.5,bias=1,along=null,stray=.5}={}){
   many(k,n,()=>{
     const len=length*k.rand(.55,1.1),bend=k.rand(-.5,.5),[px,pz]=k.spot(x,z,r,bias);
     const g=tube([[-len/2,0,0],[0,k.rand(0,.25),bend],[len/2,0,0]],thick,{sides:4,spin:Math.PI/4,facet:true,steps:6});
-    k.drop(g,px,pz,{lift:-.08,rot:[k.rand(-.16,.16),k.rand(TAU),k.rand(-.3,.3)],color,gloss:.3,inside:0xf3e3a8,whole:true,flat:true,paint:[toward(0xb97a2a,(P,N,L)=>smooth(len*.3,len*.5,Math.abs(L.x))*.7),mottle(.08,1.5)]});
+    k.drop(g,px,pz,{lift:-.08,rot:[k.rand(-.16,.16),along===null?k.rand(TAU):along+k.rand(-stray,stray),k.rand(-.3,.3)],color,gloss:.3,inside:0xf3e3a8,whole:true,flat:true,paint:[toward(0xb97a2a,(P,N,L)=>smooth(len*.3,len*.5,Math.abs(L.x))*.7),mottle(.08,1.5)]});
   });
 }
 /** A sausage or a frankfurter. */
@@ -161,7 +161,7 @@ export function riceMound(k,x,z,{r=5,rz=r,h=2.2,color=C.rice,grains=null,n=70,fl
   const seed=k.rand(9);
   k.drop(puck(wobbly(r,16,.08,seed,rz),.5,{edge:.45,dome:h,bump:.3,freq:.9,seed,n:32}),x,z,{lift:-.05,color,gloss:.22,inside:color,whole:false,paint:mottle(.07,2.6)});
   const floor=k.top(x,z)-h-.2;
-  k.sprinkle('grain',n,{x,z,r:Math.min(r,rz)*.95,color:grains||[color,new T.Color(color).multiplyScalar(.9).getHex(),new T.Color(color).lerp(new T.Color(0xffffff),.35).getHex()],size:.62,onFood:floor,gloss:.25});
+  k.sprinkle('seed',n,{x,z,r:Math.min(r,rz)*.95,stretch:1.25,color:grains||[color,new T.Color(color).multiplyScalar(.9).getHex(),new T.Color(color).lerp(new T.Color(0xffffff),.35).getHex()],size:.62,onFood:floor,gloss:.25});
   if(flecks)k.sprinkle(flecks.kind||'cube',flecks.n||24,{x,z,r:Math.min(r,rz)*.9,color:flecks.color,size:flecks.size||.42,onFood:floor,gloss:.35});
 }
 /** A tangle of noodles coiled over a spot. */
@@ -182,7 +182,7 @@ export function noodles(k,x,z,{r=5,h=1.6,color=C.noodle,n=18,thick=.26,sides=4,g
 /** Home fries, diced potato, cubes of anything. */
 export function dice(k,x,z,n,{r=3,size=1.2,color=C.potato,dark=0xa9692a,gloss=.3,bias=1}={}){
   many(k,n,()=>{const [px,pz]=k.spot(x,z,r,bias),s=size*k.rand(.75,1.15);
-    k.drop(brick(s,s*.8,s*k.rand(.8,1.2),.14,{n:12}),px,pz,{lift:-.06,rot:[k.rand(-.3,.3),k.rand(TAU),k.rand(-.3,.3)],color,gloss,paint:[spots(dark,.34,1.4,k.rand(9)),mottle(.1,2)],whole:true});});
+    k.drop(brick(s,s*.8,s*k.rand(.8,1.2),.14,{n:12}),px,pz,{lift:-.06,roll:3,within:[x,z,r*1.15],rot:[k.rand(-.3,.3),k.rand(TAU),k.rand(-.3,.3)],color,gloss,paint:[spots(dark,.34,1.4,k.rand(9)),mottle(.1,2)],whole:true});});
 }
 
 // ---- vegetables and garnish -----------------------------------------------------
@@ -195,12 +195,12 @@ export function broccoli(k,x,z,{s=1}={}){
 }
 /** Shredded lettuce or cabbage, in a loose heap. */
 export function shreds(k,x,z,n=40,{r=3,color=[C.lettuce,C.lettucePale,0x9cc456],size=1.5,gloss=.3}={}){
-  k.sprinkle('fleck',n,{x,z,r,color,size,stretch:1,gloss,lift:.1});
+  k.sprinkle('fleck',n,{x,z,r,color,size:size*.36,stretch:3.6,gloss,lift:.1,tilt:.3});
 }
 /** Chopped herbs or sliced scallion over the food. */
 export function herbs(k,x,z,n=24,{r=4,color=[C.herb,C.leaf,0x74a83c],size=.5,onFood=0}={}){k.sprinkle('leaf',n,{x,z,r,color,size,onFood,gloss:.3});}
 export function scallions(k,x,z,n=14,{r=4,onFood=0,size=.62}={}){k.sprinkle('ring',n,{x,z,r,color:[C.scallion,0x8fc05a,0xd9e6b0],size,onFood,gloss:.4,flat:true});}
-export function sesame(k,x,z,n=30,{r=4,onFood=0,color=[0xf3e3b8,0xe9d39c]}={}){k.sprinkle('grain',n,{x,z,r,color,size:.36,onFood,gloss:.3});}
+export function sesame(k,x,z,n=30,{r=4,onFood=0,color=[0xf3e3b8,0xe9d39c]}={}){k.sprinkle('seed',n,{x,z,r,color,size:.45,onFood,gloss:.3});}
 /** A spoonful of something soft: sour cream, guacamole, mash, whipped cream. */
 export function dollop(k,x,z,{r=2,h=1.3,color=C.cream,gloss=.5,bump=.14,freq=1.1,paint=null,lift=-.15}={}){
   return k.drop(blob({r:[r,h,r*.94],bump,freq,seed:k.rand(40),detail:2,flat:.18}),x,z,{lift,color,gloss,whole:false,paint:[mottle(.05,1.4),paint].filter(Boolean)});
@@ -286,4 +286,8 @@ export function grillMarks(k,x,z,yaw,{n=4,length=5,gap=1.3,color=C.char,cross=fa
     const cs=Math.cos(yaw+turn),ss=Math.sin(yaw+turn);
     for(let i=0;i<n;i++){const o=(i-(n-1)/2)*gap;k.drizzle([[-length/2,o],[0,o],[length/2,o]].map(([a,b])=>[x+a*cs+b*ss,z-a*ss+b*cs]),.2,color,{gloss:.3,ry:.05});}
   }
+}
+/** A pickle spear beside the sandwich. */
+export function spear(k,x,z,yaw,{length=8.5}={}){
+  k.at(x,z,yaw,()=>k.drop(tube([[-length/2,0,0],[0,0,.5],[length/2,0,0]],1.05,{sides:8,ry:.75,taper:t=>.6+.4*Math.sin(t*Math.PI)}),0,0,{color:C.pickle,gloss:.55,inside:0xb9c46a,whole:false,paint:[toward(0xb9c46a,(P,N)=>smooth(.5,1,N.y)*.6),spots(0x56661f,.25,1.6,k.rand(9)),mottle(.08,2)]}));
 }
