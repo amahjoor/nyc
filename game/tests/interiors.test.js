@@ -86,7 +86,7 @@ test('the player goes in on foot, is kept in the room, and comes out on the side
   const door = new ShopDoor(); sim.doorway = { plan: room, door, floor: 0 };
   Object.assign(sim.player, { x: 10, y: 0, z: 1.5, angle: Math.PI });
   let maximumStep = 0;
-  for (let i = 0; i < 60 && !sim.room; i++) {
+  for (let i = 0; i < 120 && !sim.room; i++) {
     const z = sim.player.z;
     door.step(1/60); sim.step({moveZ:-1},1/60);
     maximumStep = Math.max(maximumStep, Math.abs(z-sim.player.z));
@@ -173,7 +173,10 @@ test('a two-way closer responds on contact, clears the body, then settles', () =
 test('a diner keeps their seat occupied until they have risen into the aisle', () => {
   const plan=planRoom(front('pizza')), spot=plan.seats[0], [x,z]=roomPoint(plan,spot.a,spot.b);
   const view={plan,floor:0,occupied:new Set([spot])}, actor={x,z,heading:0,sitting:true,spot,seat:spot};
-  fleeShop(view,actor);
+  fleeShop(view,actor,.4);
+  stepEscape(view,actor,.3);
+  assert.deepEqual([actor.x,actor.z],[x,z]);
+  stepEscape(view,actor,.11);
   assert.ok(actor.seat.leaving);
   stepEscape(view,actor,.2);
   assert.ok(actor.sitting && actor.seat.weight<1 && view.occupied.has(spot));
@@ -202,4 +205,65 @@ test('a sidewalk customer walks through the door, orders once and resumes their 
   assert.ok(inside&&waited&&opened);assert.deepEqual(sales,[[plan.place,menuItem.price]]);
   assert.equal(person.state,'walk');assert.equal(view.visitor,null);
   assert.ok(Math.hypot(person.x-plan.x-1,person.z-plan.z-2)<.001);
+});
+
+test('a treadmill runner steps down, waits for a blocked doorway and pushes through when it clears', () => {
+  const plan = planRoom(front('gym')), view = {plan,floor:4,actors:[],occupied:new Set(),door:new ShopDoor()};
+  populateShop(view);
+  const runner = view.actors.find(actor => actor.spot.treadmill);
+  const [startX,startZ] = [runner.x,runner.z];
+  const barrier = {a:0,b:.25,w:plan.width,d:.12,solid:true};
+  plan.things.push(barrier);
+  fleeShop(view,runner,.2);
+  stepEscape(view,runner,.1);
+  assert.deepEqual([runner.x,runner.z,runner.lift], [startX,startZ,.265]);
+  stepEscape(view,runner,.25);
+  assert.ok(runner.lift > 0 && runner.lift < .265);
+  const memory = runner.robbery;
+  for (let i=0;i<150;i++) assert.equal(stepEscape(view,runner,.05),false);
+  assert.equal(runner.lift,0);
+  assert.equal(runner.y,view.floor);
+  assert.equal(runner.clip,'cower');
+  plan.things.splice(plan.things.indexOf(barrier),1);
+  let outside=false, opened=false;
+  for (let i=0;i<250 && !outside;i++) {
+    view.door.step(.05);
+    outside=stepEscape(view,runner,.05);
+    opened ||= view.door.angle < -.4;
+  }
+  assert.ok(opened && outside);
+  assert.strictEqual(runner.robbery,memory);
+});
+
+test('an escaping employee reroutes around a player who stays in the aisle', () => {
+  const plan={width:5,depth:7,x:0,z:0,tx:1,tz:0,nx:0,nz:1,things:[]};
+  const view={plan,floor:0,door:new ShopDoor()}, actor={x:0,z:-6,y:0};
+  const player={x:0,z:-3,y:0,mode:'walk'};
+  const street=[];
+  fleeShop(view,actor,0);
+  for(let i=0;i<200&&!actor.gone;i++) {
+    stepEscape(view,actor,.05,person=>street.push(person),player);
+    assert.ok(Math.hypot(actor.x-player.x,actor.z-player.z)>.36);
+  }
+  assert.deepEqual(street,[actor]);
+  assert.ok(actor.z>1);
+  stepEscape(view,actor,.05,person=>street.push(person),player);
+  assert.equal(street.length,1);
+});
+
+test('staff and waiting customers can share the exit of a bank or reception room', () => {
+  for (const kind of ['bank', 'clinic']) {
+    const plan = planRoom({...front(kind, 6), x:0}, building(6.1));
+    const view = {plan, floor:0, door:new ShopDoor(), actors:[], occupied:new Set()};
+    populateShop(view);
+    assert.ok(view.actors.some(a => a.sitting), kind);
+    const street = new Set();
+    view.actors.forEach((actor, i) => fleeShop(view, actor, i * .3));
+    for (let i = 0; i < 400 && street.size < view.actors.length; i++) {
+      view.door.step(.05);
+      for (const actor of view.actors) stepEscape(view, actor, .05, escaped => street.add(escaped));
+    }
+    assert.equal(street.size, view.actors.length, kind);
+    for (const actor of street) assert.ok(actor.z > 1 && actor.robbery, kind);
+  }
 });

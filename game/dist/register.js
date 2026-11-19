@@ -2,13 +2,15 @@
 // coordinates place the drawer, its operator side, and the interaction.
 import { crossesFixture, roomLocal, roomPoint, walkRoom } from './room.js';
 import { fleeShop, stepEscape } from './shop-life.js';
+import { checkoutAxes, CHECKOUT_WIDTH, CHECKOUT_DEPTH } from './checkout-model.js';
 import { menuFor } from './menu.js';
 
 const clamp = (n, low, high) => Math.min(high, Math.max(low,n));
 
-function reachableFloor(room) {
-  const step = .35, radius = .405;
+function reachableFloor(room, extra) {
+  const step = .28, radius = .32;
   const solids = room.things.filter(t => t.solid);
+  if(extra)solids.push(extra);
   const queue = [{a:0,b:.5}], seen = new Set(['0,0']);
   for (let i=0; i<queue.length; i++) {
     const p = queue[i];
@@ -26,52 +28,114 @@ function reachableFloor(room) {
 
 export function planRegister(room) {
   if (!room.staff.length || !menuFor(room.place).length) return null;
-  const floor = reachableFloor(room);
-  const fixtures = room.things.filter(t => t.shape==='register');
-  let best = Infinity, register = null;
-  for (const [index,staff] of room.staff.entries()) for (const t of room.things) {
-    if (!t.solid || t.y!==0 || t.h<.73 || t.h>1.22 || t.w<.38 || t.d<.32) continue;
-    const longA=t.w>=t.d;
-    const positions=fixtures.filter(pos=>Math.abs(pos.y-t.h)<.1 && Math.abs(pos.a-t.a)<=t.w/2 && Math.abs(pos.b-t.b)<=t.d/2);
-    for (const offset of [0,.5,-.5]) positions.push({a:staff.a+(longA?offset:0),b:staff.b+(longA?0:offset)});
-    for (const pos of positions) {
-      const a=clamp(pos.a,t.a-t.w/2+.19,t.a+t.w/2-.19);
-      const b=clamp(pos.b,t.b-t.d/2+.16,t.b+t.d/2-.16);
-      const staffDistance=Math.hypot(staff.a-a,staff.b-b);
-      if (staffDistance>2.6) continue;
-      // Small items, display cases and shelf stock also occupy the countertop.
-      const crowded=room.things.some(other=>other!==t && other.shape!=='register' && other.y + other.h>t.h+.085 &&
-        other.y<t.h+.43 && Math.abs(other.a-a)<other.w/2+.18 && Math.abs(other.b-b)<other.d/2+.16);
-      if (crowded) continue;
-      for (const p of floor) {
-        const da=p.a-a, db=p.b-b, distance=Math.hypot(da,db);
-        if (distance>1.15 || distance<.4) continue;
-        const alignment=((staff.a-a)*da+(staff.b-b)*db)/Math.max(.01,staffDistance*distance);
-        const fixtureBonus=pos.shape==='register' && alignment>0 ? 2 : 0;
-        const score=staffDistance+distance-2*alignment+(t.shape?1:0)-fixtureBonus;
-        if (score>=best || !clearView(room,p,{a,b})) continue;
-        best=score;
-        register={a,b,up:t.h+.025,da:da/distance,db:db/distance,clerk:index};
+  const floor=reachableFloor(room), markers=room.things.filter(t=>t.shape==='register');
+  const cashier=room.staff.findIndex(s=>s.checkout || s.role==='cashier');
+  const operators=cashier>=0?[[cashier,room.staff[cashier]]]:[...room.staff.entries()];
+  let best=Infinity, register=null;
+  const overlaps=(t,a,b,ra,rb)=>Math.abs(a-t.a)<ra+t.w/2 && Math.abs(b-t.b)<rb+t.d/2;
+  function consider(surface,staff,clerk,da,db,requested,rank,support=null){
+    const axes=checkoutAxes(room,da,db);
+    const ra=(Math.abs(axes.ua)*CHECKOUT_WIDTH+Math.abs(axes.va)*CHECKOUT_DEPTH)/2;
+    const rb=(Math.abs(axes.ub)*CHECKOUT_WIDTH+Math.abs(axes.vb)*CHECKOUT_DEPTH)/2;
+    if(surface.w<2*ra+.025 || surface.d<2*rb+.025)return;
+    const a=clamp(requested.a,surface.a-surface.w/2+ra+.012,surface.a+surface.w/2-ra-.012);
+    const b=clamp(requested.b,surface.b-surface.d/2+rb+.012,surface.b+surface.d/2-rb-.012);
+    const xa=staff.a-a, xb=staff.b-b, gap=Math.hypot(xa,xb);
+    const facing=da*xa+db*xb;
+    if(gap<.46 || gap>1.48 || facing<.24 || facing/gap<.35)return;
+    // Thin stone or steel worktops in older layouts sit on top of the cabinet.
+    let up=surface.h;
+    const slabs=room.things.filter(t=>!t.shape && !t.solid && t.h<=.085 && Math.abs(t.y-surface.h)<.012 &&
+      Math.abs(a-t.a)+ra<=t.w/2+.008 && Math.abs(b-t.b)+rb<=t.d/2+.008);
+    for(const slab of slabs)up=Math.max(up,slab.y+slab.h);
+    if(room.things.some(t=>t!==surface && t.shape!=='register' && t.y+t.h>up+.003 &&
+      t.y<up+.41 && overlaps(t,a,b,ra+.009,rb+.009)))return;
+    // Keep customers able to approach the counter. Their approach never sets
+    // the orientation of the operator display or drawer.
+    if(!floor.some(p=>Math.hypot(p.a-a,p.b-b)<1.5 && clearView(room,p,{a,b})))return;
+    const displacement=Math.hypot(a-requested.a,b-requested.b);
+    const score=rank+gap+displacement*2+(1-facing/gap)*1.5;
+    if(score>=best)return;
+    if(support==='podium'){
+      const after=reachableFloor(room,surface);
+      const nearStaff=p=>Math.hypot(p.a-staff.a,p.b-staff.b)<.57;
+      if(!after.some(p=>Math.hypot(p.a-a,p.b-b)<1.5 && clearView(room,p,{a,b})) ||
+        floor.some(nearStaff) && !after.some(nearStaff))return;
+    }
+    best=score;register={a,b,up,da,db,clerk};
+    if(support==='shelf')register.mounted=true;
+    if(support==='podium')register.podium=surface;
+  }
+  const counters=room.things.filter(t=>t.solid && t.y===0 && t.h>=.78 && t.h<=1.22 &&
+    (!t.shape || ['serviceDesk','tellerPod','checkoutCounter','branchDesk','showcase'].includes(t.shape)));
+  for(const t of counters){
+    const anchors=markers.filter(m=>Math.abs(m.y-t.h)<=.10 && overlaps(t,m.a,m.b,.015,.015));
+    for(const [index,staff] of operators){
+      if(Math.max(Math.abs(staff.a-t.a)-t.w/2,Math.abs(staff.b-t.b)-t.d/2)>1.65)continue;
+      const longA=t.w>=t.d, face=longA?[0,Math.sign(staff.b-t.b)]:[Math.sign(staff.a-t.a),0];
+      const end=longA?[Math.sign(staff.a-t.a),0]:[0,Math.sign(staff.b-t.b)];
+      const options=anchors.map(m=>({point:m,rank:0}));
+      for(const offset of [0,-.40,.40,-.80,.80,-1.2,1.2])
+        options.push({point:{a:longA?staff.a+offset:t.a,b:longA?t.b:staff.b+offset},rank:anchors.length?4:t.shape==='showcase'?11:8});
+      for(const {point,rank} of options){
+        if(face[0]||face[1])consider(t,staff,index,...face,point,rank);
+        if(end[0]||end[1])consider(t,staff,index,...end,point,rank+2);
       }
     }
   }
-  if (register) return register;
-
-  // Tiny rooms can have a serving hatch instead of a counter. Mount the
-  // terminal flush with a wall or display so the existing aisle stays clear.
-  const staff=room.staff[0], half=room.width/2;
-  const walls=[{a:-half,b:room.depth/2,w:0,d:room.depth},{a:half,b:room.depth/2,w:0,d:room.depth},{a:0,b:room.depth,w:room.width,d:0}];
-  const supports=walls.concat(room.things.filter(t=>t.solid && t.y===0 && t.h>=.9));
-  for (const p of floor) for (const t of supports) {
-    const edgeA=clamp(p.a,t.a-t.w/2,t.a+t.w/2), edgeB=clamp(p.b,t.b-t.d/2,t.b+t.d/2);
-    const gap=Math.hypot(p.a-edgeA,p.b-edgeB);
-    if (gap<.4 || gap>1.05) continue;
-    const da=(p.a-edgeA)/gap, db=(p.b-edgeB)/gap;
-    const a=edgeA+.17*da, b=edgeB+.17*db;
-    if (Math.abs(a)<.9 && b<1.5) continue;
-    const score=Math.hypot(staff.a-a,staff.b-b)+gap;
-    if (score>=best || !clearView(room,p,{a,b})) continue;
-    best=score;register={a,b,up:.96,da,db,clerk:0,mounted:true};
+  if(register)return register;
+  // A compact shop can use a bracketed POS shelf on an opaque wall. Its
+  // front faces into the room, and its rear edge touches its support.
+  const half=room.width/2;
+  for(const [index,staff] of operators){
+    for(const [da,db] of [[1,0],[-1,0],[0,-1]]){
+      const sideStart=da?(room.returns?.find(e=>e.side===-da)?.length||0):0;
+      const low=da?Math.max(.85,sideStart+.30):-half+.34, high=da?room.depth-.34:half-.34;
+      for(let pos=low;pos<=high+.001;pos+=.23){
+        const a=da?-da*(half-.225):pos,b=da?pos:room.depth-.225;
+        if(room.things.some(t=>t.y+t.h>.84 && t.y<1.38 && overlaps(t,a,b,da?.225:.28,da?.28:.225)))continue;
+        const shelf={a,b,w:da?.46:.62,d:da?.62:.46,h:.97};
+        consider(shelf,staff,index,da,db,shelf,0,'shelf');
+      }
+    }
+  }
+  if(register)return register;
+  // Where masonry or glazing occupies the walls, fit a narrow cashier podium
+  // beside the attendant. Keep the door, existing furniture and staff lane free.
+  for(const [index,staff] of operators){
+    for(const [da,db] of [[-1,0],[1,0],[0,-1],[0,1]]){
+      for(const side of [0,-.40,.40,-.67,.67])for(const distance of [.72,.92,1.13]){
+        const a=staff.a-da*distance+db*side,b=staff.b-db*distance-da*side;
+        const w=da?.50:.61,d=da?.61:.50;
+        if(Math.abs(a)+w/2>half-.06 || b-d/2<.12 || b+d/2>room.depth-.06 ||
+          Math.abs(a)<w/2+.48 && b-d/2<1.45)continue;
+        const podium={a,b,w,d,h:.96,y:0,solid:true,shape:'checkoutCounter',face:[-da,-db],
+          color:'#706653',more:{trim:'#a99c87'}};
+        if(room.things.some(t=>t.y<1.30 && overlaps(t,a,b,w/2+.018,d/2+.018)) ||
+          room.staff.some(person=>overlaps(podium,person.a,person.b,.25,.25)))continue;
+        // Reach the station from the shop door even after installing the podium.
+        const prefer=1+staff.da*da+staff.db*db;
+        consider(podium,staff,index,da,db,podium,prefer,'podium');
+      }
+    }
+  }
+  if(register)return register;
+  // Fully occupied counters need a staffed side station. Preserve the cook or
+  // technician at their machine and fit the attendant beside an available wall.
+  for(const p of floor){
+    if(p.b<1.55 || room.staff.some(s=>Math.hypot(s.a-p.a,s.b-p.b)<.65))continue;
+    for(const [da,db] of [[1,0],[-1,0],[0,-1]]){
+      const a=da?-da*(half-.225):p.a,b=da?p.b:room.depth-.225;
+      const gap=(p.a-a)*da+(p.b-b)*db;
+      if(gap<.50 || gap>1.02 || Math.abs(a)>.001+half-(da?.20:.33) || b>room.depth-(da?.34:.20) ||
+        da && b-.34<(room.returns?.find(e=>e.side===-da)?.length||0))continue;
+      if(room.things.some(t=>t.y+t.h>.78 && t.y<1.38 && overlaps(t,a,b,da?.23:.30,da?.30:.23)))continue;
+      const shelf={a,b,w:da?.46:.62,d:da?.62:.46,h:.97};
+      const attendant={a:p.a,b:p.b,da:-da,db:-db,facing:db<0?2:da>0?1:3,role:'cashier'};
+      const before=best;
+      consider(shelf,attendant,room.staff.length,da,db,shelf,Math.hypot(a-room.staff[0].a,b-room.staff[0].b),'shelf');
+      if(best<before)register.attendant=attendant;
+    }
   }
   return register;
 }
@@ -99,7 +163,8 @@ const between = (from,to,t) => ({x:mix(from.x,to.x,t),y:mix(from.y,to.y,t),z:mix
 
 // Cash and hand positions use world X/Z and height above this room's floor.
 function drawerPoint(room) {
-  const t=room.register, [x,z]=roomPoint(room,t.a+.30*t.da,t.b+.30*t.db);
+  const t=room.register, axes=checkoutAxes(room,t.da,t.db);
+  const [x,z]=roomPoint(room,t.a+.30*axes.va,t.b+.30*axes.vb);
   return {x,z,y:t.up+.083};
 }
 
@@ -130,7 +195,7 @@ function escapeClerk(view,work) {
     work.save();
   }
   view.handoff={phase:'escaping',age:0};
-  fleeShop(view,view.clerk);
+  fleeShop(view,view.clerk,0); // The clerk has already had time to react at the till.
 }
 
 export function updateClerk(view, sim, yaw, pitch, dt, work, {outside, palm, firstPerson=false, playerHand}={}) {
@@ -141,12 +206,13 @@ export function updateClerk(view, sim, yaw, pitch, dt, work, {outside, palm, fir
   if (view.closed && !closed) {
     // A room can stay streamed in for the entire closure.
     for (const actor of view.actors) {
+      if (actor.escape && !actor.gone) continue;
       const s=actor.spot, [x,z]=roomPoint(room,s.a,s.b), [fx,fz]=roomPoint(room,s.a+s.da,s.b+s.db);
       const sitting=room.seats.includes(s);
       if (sitting && active && sim.seat && Math.hypot(sim.seat.x-x,sim.seat.z-z)<.2) {
         actor.gone=true; view.occupied.delete(s); continue;
       }
-      Object.assign(actor,{x,z,heading:Math.atan2(fx-x,fz-z),escape:null,gone:false,clip:null,from:null,stride:0,lift:s.lift||0,sitting,seat:sitting?s:null});
+      Object.assign(actor,{x,z,heading:Math.atan2(fx-x,fz-z),escape:null,robbery:null,gone:false,clip:null,from:null,stride:0,lift:s.lift||0,sitting,seat:sitting?s:null});
       if (actor.sitting) view.occupied.add(s);
     }
     view.handoff=null;
@@ -155,17 +221,24 @@ export function updateClerk(view, sim, yaw, pitch, dt, work, {outside, palm, fir
   if (closed && !view.handoff) for (const actor of view.actors) actor.gone=true;
   if (!dt) return;
   let event=view.handoff;
-  if (clerk && !clerk.gone && !event && armed && canNotice(view,p,clerk)) {
+  if (clerk && !clerk.gone && !clerk.escape && !event && armed && canNotice(view,p,clerk)) {
     event=view.handoff={phase:'startled',age:0,safeTime:0};
     work.alarm(view,'The clerk spots the pistol and raises their hands. Store alarm reported.');
   }
   // Anyone who sees the pistol can react before the clerk. The alarm also
   // reaches people seated behind shelves and customers on their way to pay.
-  if (view.visitor?.visit && armed && canNotice(view,p,view.visitor)) view.visitor.visit.scared=true;
+  for(const visitor of view.visitors?.size ? view.visitors : [view.visitor])
+    if(visitor?.visit && (event || armed && canNotice(view,p,visitor))) fleeShop(view,visitor);
   for (const actor of view.actors) {
     if (actor.gone) continue;
     if (!actor.escape && actor!==clerk && (event || armed && canNotice(view,p,actor))) fleeShop(view,actor);
-    if (actor.escape) stepEscape(view,actor,dt,outside);
+    if (actor.escape) stepEscape(view,actor,dt,outside,p);
+    else if (actor.machine && !actor.serviceOwner && !(event && actor===clerk)) {
+      const [x,z]=roomPoint(room,actor.machine.a,actor.machine.b);
+      actor.heading=Math.atan2(x-actor.x,z-actor.z);
+      actor.clip='reach';
+      actor.time=.45+.32*Math.sin(sim.elapsed*2.2);
+    }
   }
   if (!till || !clerk) return;
   const drawer=drawerPoint(room);
@@ -176,7 +249,7 @@ export function updateClerk(view, sim, yaw, pitch, dt, work, {outside, palm, fir
     const watched=armed && (dx*Math.sin(yaw)+dz*Math.cos(yaw))*Math.cos(pitch)>.12*d &&
       clearView(room,roomLocal(room,p.x,p.z),roomLocal(room,clerk.x,clerk.z),true);
     event.safeTime=watched?0:(event.safeTime||0)+dt;
-    if (!view.take && (!active || event.safeTime>1.45)) {
+    if (!view.take && (!active || event.safeTime>1.45 || closed && event.age>1)) {
       escapeClerk(view,work); event=view.handoff;
     } else if (event.phase!=='alarmed') {
       if (event.phase==='startled' && event.age>=.55) event.phase='opening';
@@ -204,14 +277,14 @@ export function updateClerk(view, sim, yaw, pitch, dt, work, {outside, palm, fir
       }
       const giveYaw=Math.atan2(p.x-clerk.x,p.z-clerk.z);
       clerk.heading=drawerYaw+t*Math.atan2(Math.sin(giveYaw-drawerYaw),Math.cos(giveYaw-drawerYaw));
-      clerk.clip=taking?'pickUp':'reach';
+      clerk.clip=taking?'pickUp':'giveCash';
       clerk.time=taking?clamp((event.age-.55)*.56,0,.51):mix(.34,.76,t);
       if (phase==='giving' && event.age<1.78) {
         clerk.from='pickUp'; clerk.fromTime=.51;
         clerk.fade=1-smooth((event.age-1.45)/.33);
       }
       const extension=taking?.52:.6;
-      const grip=palm?.(clerk) || {x:clerk.x+Math.sin(clerk.heading)*extension,y:taking?1.12:1.32,z:clerk.z+Math.cos(clerk.heading)*extension};
+      const grip=palm?.(clerk) || {x:clerk.x+Math.sin(clerk.heading)*extension,y:taking?drawer.y+.17:1.32,z:clerk.z+Math.cos(clerk.heading)*extension};
       if (taking) cash=between(drawer,grip,smooth((event.age-1.06)/.28));
       else cash=grip;
     }
@@ -246,5 +319,8 @@ export function updateClerk(view, sim, yaw, pitch, dt, work, {outside, palm, fir
     }
   }
   view.cashPoint=cash;
-  view.group.userData.updateTill(open,cash,dt,firstPerson ? hand : null,p);
+  const receipt=view.closed || view.handoff ? null : work.receipt?.(room.place) || null;
+  const payingCash=receipt?.cash && sim.elapsed-receipt.at<.95;
+  view.group.userData.updateTill(open||payingCash,cash,dt,firstPerson ? hand : null,p,
+    open||payingCash ? work.balance(room.place) : 0,receipt);
 }

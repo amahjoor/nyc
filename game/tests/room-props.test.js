@@ -35,7 +35,109 @@ test('each trade has the fittings that mark it', () => {
   assert.ok(holds(plan('pizza', 9, 12), 'pizza').length >= 3, 'pies along the counter');
   for (const kind of ['pizza', 'chinese', 'mediterranean']) assert.equal(holds(plan(kind, 9, 12), 'menuboard')[0].more.lines, menuFor(place(kind)).length, `the ${kind} menu has a line for each thing sold`);
   // A plain place is left as interiors.js made it.
-  for (const kind of ['bank', 'hotel', 'barber']) assert.equal(shapes(plan(kind, 9, 12)).size, 0, kind);
+  for (const kind of ['hotel']) assert.equal(shapes(plan(kind, 9, 12)).size, 0, kind);
+});
+
+test('hot lunch counters keep their food pans, cashier and stove in separate working spaces', () => {
+  for(const [width,depth] of [[4,4],[4,7],[7,9],[9,12]]){
+    const room=plan('latin',width,depth), till=room.register, desk=holds(room,'checkoutCounter')[0],
+      pans=holds(room,'hotServery')[0], stove=holds(room,'kitchenRange')[0];
+    assert.ok(till && pans && stove && counterPath(room));
+    assert.ok(Math.abs(pans.a-stove.a)>=(pans.w+stove.w)/2 || Math.abs(pans.b-stove.b)>=(pans.d+stove.d)/2);
+    assert.ok(Math.abs(till.a-pans.a)>pans.w/2+.18 || Math.abs(till.b-pans.b)>pans.d/2+.18);
+    if(width===4){
+      assert.equal(pans.y,desk.h);assert.equal(pans.solid,false);
+      assert.ok(Math.abs(pans.a-desk.a)+pans.w/2<=desk.w/2);
+    }else{
+      assert.equal(pans.y,0);assert.equal(pans.solid,true);
+      assert.ok(pans.b-pans.d/2>=desk.b+desk.d/2);
+    }
+  }
+});
+
+test('pharmacy pickup, cutting stations and deli displays fit their shops', () => {
+  const examples = [
+    ['pharmacy','CVS/PHARMACY','CVS pharmacy'], ['pharmacy','DUANE READE','Duane Reade'],
+    ['pharmacy','WALGREENS','Walgreens'], ['salon','ARROJO STUDIO'], ['barber','FIRST CLASS BARBER SHOP'],
+    ['bodega','HEALTHY & FRESH GOURMET DELI','deli'], ['bodega','172 PRINCE MARKET','produce'],
+  ];
+  for (const [kind,name,detail] of examples) for (const [width,deep] of [[4,4],[5.4,6],[7,8],[9,12]]) {
+    const f=front(kind,width,.63,-1);f.place.name=name;
+    const room=planRoom(f,building(f,deep+.001)), label=name+' '+width+' × '+deep;
+    assert.ok(room.register && counterPath(room),label);
+    if (kind==='pharmacy') {
+      assert.equal(room.finish.title,detail);
+      assert.ok(holds(room,'careShelves').every(s=>s.more.label && (s.h<=1.5 || Math.abs(s.a)>room.width/2-.5)),label);
+      assert.ok(holds(room,'rxCabinet').every(c=>c.b>room.register.b),label);
+      assert.ok(room.things.some(t=>t.y>2.8 && t.d>.7),label);
+    } else if (kind==='bodega') {
+      assert.equal(room.finish.corner,detail);assert.ok(room.grocerySlots.length,label);
+      if(detail==='deli'){
+        assert.ok(holds(room,'showcase').some(c=>c.more.items==='deliRolls'),label);
+        assert.ok(room.finish.specials.length,label);
+        if(width>=7)assert.ok(room.staff.some(s=>s.role==='deliCook'),label);
+      }else if(width>=7)assert.ok(holds(room,'produceCrate').length,label);
+    } else {
+      assert.equal(room.staff[room.register.clerk].role,'cashier',label);
+      const stations=holds(room,'stylingStation');
+      assert.ok(stations.length && stations.length===holds(room,'cuttingChair').length,label);
+      assert.ok(stations.every(s=>room.seats.some(c=>c.b===s.b && c.da===-1 && c.seatKind==='lounge')),label);
+      for (const sink of holds(room,'shampooBasin')) {
+        assert.ok(stations.every(s=>Math.abs(s.a-sink.a)>=(s.w+sink.w)/2 || Math.abs(s.b-sink.b)>=(s.d+sink.d)/2),label);
+      }
+      const built=buildRoom(room);
+      assert.ok(built.getObjectByName('Styling mirrors'),label);built.userData.dispose();
+    }
+  }
+});
+
+test('bank and reception layouts fit the storefront and leave a route to both sides of the desk', () => {
+  for (const kind of ['bank', 'clinic', 'dentist', 'vet', 'massage', 'travel']) {
+    for (const [width, deep] of [[4,4], [4.25,6], [4.5,8], [6,6], [7,8], [9,14]]) {
+      const room = plan(kind, width, deep), desks = holds(room, 'serviceDesk'), label = `${kind} ${width} × ${deep}`;
+      assert.ok(desks.length && room.seats.length && counterPath(room), label);
+      const aisle = shopAisle({plan:room});
+      for (const staff of room.staff) assert.ok(aisle.route(staff, {a:0,b:.5}), label);
+      if (kind === 'bank') {
+        assert.equal(desks.length, room.staff.length, label);
+        assert.equal(room.things.filter(t => t.glass && t.shape === 'tellerPane').length, desks.length, label);
+        assert.ok(holds(room, 'cashMachine').length, label);
+        const till = room.register;
+        assert.ok(till && desks.some(d => Math.abs(d.a - till.a) < d.w / 2 && Math.abs(d.b - till.b) < d.d / 2), label);
+      }
+    }
+  }
+});
+
+test('chain bank lobbies keep their signs, clear approaches and staffed counters in narrow and deep branches', () => {
+  for (const [name, key] of [['Bank of America','bank-of-america'],['Chase Bank','chase-bank'],['Citi','citibank'],
+    ['TD Bank','td-bank-n-a'],['Wells Fargo','wells-fargo'],['Capital One','capital-one']]) {
+    for (const [width, deep, mirror] of [[4,4,1],[4.5,6,-1],[6,9,1],[7,10,-1],[9,14,1]]) {
+      const f=front('bank',width,.51,mirror); f.place.name=name;
+      f.returns=[{side:1,length:2.1}];
+      const room=planRoom(f,building(f,deep+.001)), label=name+' '+width+' × '+deep;
+      assert.equal(room.finish.bank.key,key);
+      assert.ok(holds(room,'branchATM').length && room.seats.length && counterPath(room),label);
+      const pods=holds(room,'tellerPod'), desk=holds(room,'branchDesk');
+      assert.equal(pods.length,room.staff.length,label);
+      assert.equal(desk.length,Number(width>=5.8 && room.depth>=8.4),label);
+      assert.ok(pods.some(p=>Math.abs(p.a-room.register.a)<p.w/2 && Math.abs(p.b-room.register.b)<p.d/2),label);
+      const aisle=shopAisle({plan:room});
+      for(const staff of room.staff) assert.ok(aisle.route(staff,{a:0,b:.5}),label);
+      const solids=room.things.filter(t=>t.solid);
+      for(let i=0;i<solids.length;i++) for(const b of solids.slice(i+1)) {
+        const a=solids[i];
+        assert.ok(Math.abs(a.a-b.a)>=(a.w+b.w)/2 || Math.abs(a.b-b.b)>=(a.d+b.d)/2,
+          label+' overlaps '+a.shape+' and '+b.shape);
+      }
+      const view={plan:room,floor:0,actors:[],occupied:new Set()};
+      populateShop(view);
+      assert.ok(view.clerk && view.actors.includes(view.clerk),label);
+      const built=buildRoom(room);
+      assert.ok(built.children[0].geometry.attributes.position.count/3<9000,label);
+      built.userData.dispose();
+    }
+  }
 });
 
 test('fitness chains and studios keep their equipment and a route from the door at every size', () => {
