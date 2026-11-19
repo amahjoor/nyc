@@ -99,6 +99,27 @@ test('address search centers a named destination and ignores results after the m
   assert.equal(results.children.length, 0);
 });
 
+test('typing and submitting island names pin their surveyed arrival points offline', async t => {
+  const { regions } = JSON.parse(readFileSync(new URL('../dist/landscape-index.json', import.meta.url)));
+  const presets = regions.map(region => ({ ...region.view, name: region.name }));
+  let lookups = 0;
+  const { map, byId } = fixture(t, { getPresets: () => presets, lookupAddress: async () => { lookups++;return []; } });
+  map.setOpen(true);
+  const field = byId('game-map-address'), results = byId('game-map-search-results');
+  for (const [prefix, query, name] of [['Ellis', 'ellis island', 'Ellis Island'], ['Governor’s', "Governor's Island", 'Governors Island']]) {
+    field.value = prefix;field.fire('input');
+    assert.equal(results.children[0].textContent, name);
+    field.value = query;field.fire('input');
+    await Promise.all(byId('game-map-search').fire('submit'));
+    assert.deepEqual(results.children.map(button => button.textContent), [name]);
+    results.children[0].fire('click');
+    const { x, z } = presets.find(place => place.name === name);
+    assert.deepEqual(map.getState().pin, { x, z, name });
+    assert.deepEqual([map.view.x, map.view.z], [x, z]);
+  }
+  assert.equal(lookups, 0);
+});
+
 test('wheel zoom keeps its cursor anchor, has bounds, and full city includes every borough extent', t => {
   const { map, canvas, city } = fixture(t);map.setOpen(true);
   const anchor = { x: 650, y: 240 }, before = mapScreenToWorld(anchor, map.getState().view);
@@ -292,4 +313,17 @@ test('doors are redrawn when they or the hour change, dim when shut, and left of
   canvas.calls.length = 0;map.showCity();assert.equal(alphas(), 0);
   // With no doors there is no legend.
   map.setDoors([], 12);assert.equal(byId('game-map-legend').hidden, true);
+});
+
+test('the Bike lanes control toggles the same neighborhood geometry on the map and minimap', t=>{
+  const {map,byId,canvas}=fixture(t);
+  map.bikeLanes={within:()=>[{points:[[0,0],[20,0]]}]};
+  const mini=byId('minimap'), button=byId('game-map-bike-lanes');
+  const painted=element=>element.calls.some(call=>call.key==='stroke' && call.strokeStyle==='#80c4a4');
+  map.setOpen(true);map.drawMini();
+  assert.ok(painted(canvas) && painted(mini));
+  canvas.calls.length=mini.calls.length=0;
+  button.fire('click');map.drawMini();
+  assert.equal(button.attributes.get('aria-pressed'),'false');
+  assert.ok(!painted(canvas) && !painted(mini));
 });
