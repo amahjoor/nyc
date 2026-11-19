@@ -16,6 +16,7 @@ import * as THREE from './vendor/three.module.min.js';
 import { shared } from './gfx-common.js';
 import { ATLAS_CELL_HEIGHT } from './facade.js';
 import { isOpen, signFor, brandKey, placeName } from './places.js';
+import { bankIdentity, drawBankName } from './bank.js';
 import { roomPoint } from './room.js';
 import { buildRoom } from './interiors.js';
 
@@ -51,7 +52,7 @@ export function rasterFronts(fronts, originX, originZ, data, nearest) {
       if (along > half + .5 || out > FRONT_DEPTH) continue;
       // The closest wall takes a corner texel. Neighbours on one wall split it along the frontage.
       const o = z * MAP_SPAN + x;
-      const distance = out + .01 * along;
+      const distance = out + .01 * along + (along > half ? 2 : 0);
       if (distance < nearest[o]) { nearest[o] = distance; data[o * 2] = row & 255; data[o * 2 + 1] = row >> 8; }
     }
   }
@@ -120,8 +121,14 @@ export function createStorefronts({ createCanvas = () => document.createElement(
   let pending = [], windowsVisible = false, floorRevision = -1, closureRevision = -1;
   let faces = [], faceRows = new Map(), active = null, closingDoor = null;
   function release(view) {
-    if (view.visitor?.visit?.view === view) {
-      view.visitor.gone = true; view.visitor.visit = null;
+    for (const person of new Set([...(view.visitors||[]), view.visitor])) {
+      if (person?.visit?.view !== view) continue;
+      person.visit.detach?.(); person.visit=null;
+      if (person.driverCar?.errand) {
+        const front=view.front;
+        Object.assign(person,{x:front.x+front.nx*1.4,z:front.z+front.nz*1.4,state:'walk',sitting:false,seat:null});
+        person.driverCar.errand.closed=true;
+      } else person.gone=true;
     }
     view.group.userData.dispose(); rooms.delete(view.plan.place.id);
   }
@@ -157,17 +164,19 @@ export function createStorefronts({ createCanvas = () => document.createElement(
     for (const front of shown) {
       const id = front.place.id;
       const existing=rooms.get(id);
-      const visiting = existing?.visitor?.visit || existing?.actors.some(actor=>actor.escape?.length && !actor.gone) || existing?.handoff?.phase==='alarmed';
+      const visiting = existing?.visitor?.visit || existing?.cleanups?.length || existing?.actors.some(actor=>actor.escape && !actor.gone) || (existing?.handoff && existing.clerk && !existing.clerk.gone);
       const occupied = active?.plan.place.id === id || closingDoor?.plan.place.id === id;
       if (!visiting && !occupied && (!visible || wanted.size >= MAX_ROOMS || Math.hypot(front.x - focus.x, front.z - focus.z) > WINDOW_RANGE || !isOpen(front.place.kind, hours) || isClosed(front.place))) continue;
       if (visiting && (!visible || Math.hypot(front.x - focus.x, front.z - focus.z) > WINDOW_RANGE + 12) && !occupied) continue;
       let view = rooms.get(id);
-      if (view && view !== active && view.front !== front &&
+      if (view && !visiting && view !== active && view.front !== front &&
           (['x','z','tx','tz','nx','nz','width','skew'].some(key => view.front[key] !== front[key]) || JSON.stringify(view.front.returns) !== JSON.stringify(front.returns))) {
         release(view); view = null;
       }
       if (view) {
-        view.front = front; view.floor = floorFor(view.plan); view.group.position.y = view.floor;
+        // Finish the visit against the doorway its occupants are walking through.
+        if (!visiting) view.front = front;
+        view.floor = floorFor(view.plan); view.group.position.y = view.floor;
         panes(view); wanted.add(id);
       } else {
         const plan = roomFor(front);
@@ -244,10 +253,13 @@ export function createStorefronts({ createCanvas = () => document.createElement(
         tableData.fill(0); lettered = 0;
         faces.forEach((front, i) => {
           const logo = logos.get(brandKey(placeName(front.place))) || null;
+          const identity = !logo && front.place.kind === 'bank' ? bankIdentity(front.place) : null;
+          const wordmark = identity?.key === 'bank-of-america' || identity?.key === 'chase-bank';
           const sign = signFor(front.place, front.language || null), o = (i + 1) * ROW_SIZE, [br, bg, bb] = linear(logo ? logo.background : sign.background), [lr, lg, lb] = linear(sign.lettering);
           tableData[o] = br; tableData[o + 1] = bg; tableData[o + 2] = bb; tableData[o + 3] = 1;
           tableData[o + 4] = lr; tableData[o + 5] = lg; tableData[o + 6] = lb; tableData[o + 7] = { A: 1, B: 2, C: 3 }[front.place.grade] || 0;
-          tableData[o + 12] = front.x; tableData[o + 13] = front.z; tableData[o + 14] = front.width / 2; tableData[o + 15] = (TRIM[front.place.kind] || 0) + (logo ? LOGO_TRIM : 0);
+          tableData[o + 16] = front.nx; tableData[o + 17] = front.nz;
+          tableData[o + 12] = front.x; tableData[o + 13] = front.z; tableData[o + 14] = front.width / 2; tableData[o + 15] = (TRIM[front.place.kind] || 0) + (logo || wordmark ? LOGO_TRIM : 0);
           if (!wanted.has(front.place.id) || !context) return;
           let cell = where.get(front.place.id);
           if (cell === undefined) {
@@ -255,7 +267,9 @@ export function createStorefronts({ createCanvas = () => document.createElement(
             if (free >= cells) return;
             cell = free; held[cell] = front.place.id; where.set(front.place.id, cell);
             const { px, py } = rect(cell);
-            if (logo) drawLogo(context, logo, px, py, ATLAS.cellWidth, ATLAS.cellHeight); else drawSign(context, sign, px, py, ATLAS.cellWidth, ATLAS.cellHeight);
+            if (logo) drawLogo(context, logo, px, py, ATLAS.cellWidth, ATLAS.cellHeight);
+            else if (wordmark) drawBankName(context, identity, px, py, ATLAS.cellWidth, ATLAS.cellHeight, sign.background);
+            else drawSign(context, sign, px, py, ATLAS.cellWidth, ATLAS.cellHeight);
             drawn = true;
           }
           const r = rect(cell);

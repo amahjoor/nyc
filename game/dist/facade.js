@@ -608,17 +608,15 @@ NycFacade nycFacade( vec4 facade, vec4 styleIn, vec3 wallNormal, float facing, v
 	}
 
 	// --- Street storey ------------------------------------------------------------
-	// Shops come two bays at a time. One whose middle lies on the street front
-	// of a place the city's registers put here is that place's (storefronts.js).
+	// Unassigned shops repeat by bay. Named signs use the same physical wall
+	// interval as the room aperture, including on the return of a corner shop.
 	float shopShift = floor( seed * 2.0 ), shopIndex = floor( ( bayIndex + shopShift ) * 0.5 );
 	float streetStorey = ground > 0.0 ? ground : storey;
 	vec4 tenantSign = vec4( 0.0 ), tenantInk = vec4( 0.0 ), tenantLabel = vec4( 0.0 ), tenantAt = vec4( 0.0 );
 	float tenant = 0.0, tenantMiddle = 0.0;
 	#ifdef USE_FOG
-	if ( uNycPlaceRect.w > 0.5 && ! blank && v < streetStorey ) {
-		float middleU = clamp( ( 2.0 * shopIndex - shopShift + 1.0 ) * bayWidth, 0.5 * bayWidth, wallLength - 0.5 * bayWidth );
-		vec2 middle = nycFacadeWorld.xz + along.xz * ( middleU - u );
-		vec2 placeAt = ( middle - uNycPlaceRect.xy ) * uNycPlaceRect.z;
+	if ( uNycPlaceRect.w > 0.5 && v < streetStorey ) {
+		vec2 placeAt = ( nycFacadeWorld.xz - uNycPlaceRect.xy ) * uNycPlaceRect.z;
 		if ( placeAt.x > 0.0 && placeAt.x < 1.0 && placeAt.y > 0.0 && placeAt.y < 1.0 ) {
 			vec2 row = floor( textureLod( uNycPlaceMap, placeAt, 0.0 ).rg * 255.0 + 0.5 );
 			tenant = row.x + 256.0 * row.y;
@@ -627,12 +625,11 @@ NycFacade nycFacade( vec4 facade, vec4 styleIn, vec3 wallNormal, float facing, v
 			int row = int( tenant );
 			tenantSign = texelFetch( uNycPlaceTable, ivec2( 0, row ), 0 ); tenantInk = texelFetch( uNycPlaceTable, ivec2( 1, row ), 0 );
 			tenantLabel = texelFetch( uNycPlaceTable, ivec2( 2, row ), 0 ); tenantAt = texelFetch( uNycPlaceTable, ivec2( 3, row ), 0 );
-			// The shop front nearest the middle of the place's stretch of wall is
-			// its own and carries the name. Others are, only if they lie wholly
-			// within that stretch: a supermarket has several, a nail salon one.
-			float aside = abs( dot( middle - tenantAt.xy, along.xz ) );
-			tenantMiddle = step( aside, bayWidth );
-			if ( aside > bayWidth && aside + bayWidth > tenantAt.z ) tenant = 0.0;
+			vec2 outward = texelFetch( uNycPlaceTable, ivec2( 4, row ), 0 ).xy;
+			vec2 offset = nycFacadeWorld.xz - tenantAt.xy;
+			float aside = dot( offset, vec2( outward.y, -outward.x ) );
+			if ( abs( aside ) > tenantAt.z || abs( dot( offset, outward ) ) > 0.85 || abs( dot( wallNormal.xz, outward ) ) < 0.94 ) tenant = 0.0;
+			tenantMiddle = 1.0;
 		}
 	}
 	#endif
@@ -640,7 +637,7 @@ NycFacade nycFacade( vec4 facade, vec4 styleIn, vec3 wallNormal, float facing, v
 	if ( ( ground > 0.0 && above < 0.0 && ! glassWall ) || ( tenanted && v < streetStorey ) ) {
 		// A building with no street storey of its own gives a tenant its first floor.
 		float storeyHeight = tenanted ? streetStorey : ground, height = v / storeyHeight;
-		if ( ( shop || tenanted ) && ! blank ) {
+		if ( tenanted || ( shop && ! blank ) ) {
 			// Each shop takes two bays: plate glass over a low bulkhead, under a sign band.
 			float shopSeed = nycHash12( vec2( shopIndex, seed * 173.0 ) );
 			float glazing = nycPulse( cellU, 0.05, 0.9, cellPixel.x ) * nycBox( height, 0.13, 0.74, pixel.y / storeyHeight );
@@ -655,6 +652,8 @@ NycFacade nycFacade( vec4 facade, vec4 styleIn, vec3 wallNormal, float facing, v
 			vec3 logoColor = vec3( 0.0 );
 			if ( tenanted ) {
 				signColor = tenantSign.rgb; open = tenantSign.a;
+				shopWidth = 2.0 * tenantAt.z;
+				across = 0.5 - dot( nycFacadeWorld.xz - tenantAt.xy, along.xz ) / shopWidth;
 				// The lettering keeps its proportions whatever the shape of the band.
 				float fit = ( shopWidth / bandHeight ) / 8.0;
 				vec2 stretch = vec2( max( fit, 1.0 ) * 1.04, max( 1.0 / fit, 1.0 ) * 1.06 );

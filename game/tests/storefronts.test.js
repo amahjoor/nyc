@@ -171,6 +171,15 @@ test('a chain whose logo has been fetched is signed with it, in its own colours;
   store.dispose();
 });
 
+test('Bank of America and Chase have full-colour fascia signs before optional logos load', () => {
+  const surface=canvas(), store=createStorefronts({createCanvas:()=>surface});
+  store.update([front('Bank of America','bank',2),front('Chase Bank','bank',12),front('Neighborhood Bank','bank',22)],{x:0,z:0},12);
+  const table=store.textures.table.image.data, stride=4*store.textures.table.image.width;
+  assert.deepEqual([1,2,3].map(row=>table[row*stride+15]>=LOGO_TRIM),[true,true,false]);
+  assert.ok(surface.drawn.some(item=>item.text==='Bank of America') && surface.drawn.some(item=>item.text==='CHASE'));
+  store.dispose();
+});
+
 test('a corner carries one tenant and one room around both street faces', () => {
   const building = { id:'corner', polygon:[[0,0],[24,0],[24,18],[0,18]] };
   for (const polygon of [building.polygon, [...building.polygon].reverse(), [[0,0],[24,0],[29,18],[5,18]]]) {
