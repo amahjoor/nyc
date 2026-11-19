@@ -2466,30 +2466,60 @@ test('transit map and curbside boarding follow a scheduled bus to its downstream
   }finally{app.close();}
 });
 
-test('first person shows both bare hands and the animated kicking foot, then restores the full outfit',async()=>{
+test('first person keeps the relaxed arms, tracks the posed eyes through turns, and shows the kicking foot',async()=>{
   const app=await bootHarness();
   try {
     app.click('start-button');app.click('view-button');app.frames();
     const game=app.window.nycGame;
     await app.until(()=>game.playerBody,'player outfit did not load');
-    const body=game.playerBody, full=body.meshes.map(m=>m.geometry);
-    app.click('first-person-button');app.frames(55);
+    const body=game.playerBody, camera=game.graphics.camera, player=app.simulation().player;
+    const joint=name=>body.bones[body.rig.index.get(name)];
+    const armNames=['upperarm_l','lowerarm_l','hand_l','upperarm_r','lowerarm_r','hand_r'];
+    app.frames(55);
+    const resting=armNames.map(name=>joint(name).quaternion.clone());
+    const checkEyes=()=>assert.ok(camera.position.distanceTo(body.eyePosition(new THREE.Vector3()))<1e-6,
+      'the camera reaches the current eye position on the same frame');
     function inView(name) {
-      const eye=app.camera(),camera=new THREE.PerspectiveCamera(eye.fov,16/9,eye.near,eye.far);
-      camera.position.copy(eye.position);camera.quaternion.copy(eye.quaternion);camera.updateMatrixWorld();
-      const point=body.bones[body.rig.index.get(name)].getWorldPosition(new THREE.Vector3()).project(camera);
+      const point=joint(name).getWorldPosition(new THREE.Vector3()).project(camera);
       return Math.abs(point.x)<1 && Math.abs(point.y)<1 && Math.abs(point.z)<1;
     }
+    function drag(dx,dy){
+      const canvas=app.elements.get('world');
+      canvas.dispatch('pointerdown',{clientX:0,clientY:0,pointerId:1});
+      canvas.dispatch('pointermove',{clientX:dx,clientY:dy,pointerId:1});
+      canvas.dispatch('pointerup',{pointerId:1});
+    }
+    app.click('first-person-button');app.frames(1,0);
+    checkEyes();
     assert.ok(body.mesh.visible);
-    assert.ok(inView('hand_l') && inView('hand_r'),'both wrists inside the idle eye camera');
-    const skin=body.meshes.find(m=>m.name==='skin/body');
-    assert.ok(skin.visible && skin.geometry.index.count<full[body.meshes.indexOf(skin)].index.count);
-    const sim=app.simulation();
+    assert.ok(armNames.every((name,i)=>joint(name).quaternion.angleTo(resting[i])<1e-6));
+    drag(420,500);app.frames();
+    assert.equal(body.mesh.rotation.y,player.angle);
+    assert.ok(inView('hand_l') && inView('hand_r'),'looking down reveals both relaxed wrists');
+
+    const skin=body.meshes.find(m=>m.name==='skin/body'), full=skin.geometry.index.count;
+    const countFor=cam=>{
+      skin.onBeforeRender(null,null,cam);
+      const count=skin.geometry.drawRange.count;
+      skin.onAfterRender();
+      return Math.min(count,full);
+    };
+    const belowNeck=countFor(camera);
+    assert.ok(belowNeck>0 && belowNeck<full);
+    assert.equal(countFor(new THREE.PerspectiveCamera()),full,'the mirror draws the head');
+
+    drag(0,-500);app.frames();
+    app.key('KeyW');app.key('ShiftLeft');
+    for(let i=0;i<10;i++){app.frames(1,65);checkEyes();}
+    drag(-550,0);app.frames(1,16);checkEyes();
+    assert.equal(body.mesh.rotation.y,player.angle);
+    app.key('KeyW',false);app.key('ShiftLeft',false);app.frames(45);
     app.key('KeyQ');app.key('KeyQ',false);
-    while(sim.player.move && sim.player.move.t<.27)app.frames();
-    assert.ok(sim.player.move && inView('foot_r'),'extended foot inside the camera at contact');
-    app.frames(45);
-    app.click('first-person-button');app.frames(2);
-    assert.ok(body.mesh.visible && body.meshes.every((m,i)=>m.geometry===full[i]));
+    while(player.move && player.move.t<.27)app.frames();
+    assert.ok(player.move && inView('foot_r'),'the extended foot is visible at contact');
+    app.click('first-person-button');app.frames();
+    assert.ok(body.mesh.visible);
+    assert.equal(countFor(camera),full,'third person restores the head');
+    assert.equal(app.errors.length,0,app.errors[0]?.stack);
   } finally {app.close();}
 });
