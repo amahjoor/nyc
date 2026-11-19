@@ -5,7 +5,7 @@ import * as THREE from '../dist/vendor/three.module.min.js';
 import { prepareTerrain, sampleTerrain, Landscape } from '../dist/landscape.js';
 import { createParkGroundUniforms, bindParkGround, setParkTreeFade } from '../dist/park-ground.js';
 import { createParkTrees, buildTreeForms, treeLook, TREE_RANGE } from '../dist/park-trees.js';
-import { createCentralPark } from '../dist/central-park.js';
+import { createMappedPark } from '../dist/mapped-parks.js';
 
 const close = (actual, expected, tolerance = 1e-5) => assert.ok(Math.abs(actual - expected) <= tolerance, `${actual} should be ${expected}`);
 const read = path => JSON.parse(readFileSync(new URL(`../dist/${path}`, import.meta.url)));
@@ -143,7 +143,7 @@ test('Central Park waits for its terrain before standing its trees, and paints t
   const requests = [];
   const fetcher = async url => { requests.push(url);return url.endsWith('.bin') ? { ok: true, arrayBuffer: async () => bytes(url.replace(/^\.\//, '')) } : { ok: true, json: async () => read(url.replace(/^\.\//, '')) }; };
   const textures = { surface: new THREE.Texture(), canopy: new THREE.Texture() };
-  const park = createCentralPark({ scene: new THREE.Scene(), landscape, fetcher, loadTextures: async () => textures });
+  const park = createMappedPark({ scene: new THREE.Scene(), landscape, fetcher, loadTextures: async () => textures });
   const manifest = await park.ready;
   assert.equal(manifest.id, 'central-park');
   assert.equal(ground.surface, textures.surface);assert.deepEqual(ground.frame, manifest.frame);
@@ -173,7 +173,7 @@ test('the park hands its bridges to the city\'s decks while it is near, and take
   const decks = { setExtraStructures: (features, material) => given.push({ count: features.length, lids: features.filter(feature => feature.cover === 'ground').length, material }) };
   const landscape = { parkGround: createParkGroundUniforms(), setParkGround: () => {}, getStatus: () => ({ activeRegions: [] }) };
   const fetcher = async url => url.endsWith('.bin') ? { ok: true, arrayBuffer: async () => bytes(url.replace(/^\.\//, '')) } : { ok: true, json: async () => read(url.replace(/^\.\//, '')) };
-  const park = createCentralPark({ scene: new THREE.Scene(), landscape, fetcher, streetDetail: () => decks, loadTextures: async () => ({ surface: new THREE.Texture(), canopy: new THREE.Texture() }) });
+  const park = createMappedPark({ scene: new THREE.Scene(), landscape, fetcher, streetDetail: () => decks, loadTextures: async () => ({ surface: new THREE.Texture(), canopy: new THREE.Texture() }) });
   const manifest = await park.ready, inside = { x: 2655, z: -6005 };
   park.update({ x: -8000, z: 9000 });
   assert.equal(given.length, 0, 'far off, nothing is asked for');

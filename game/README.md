@@ -351,7 +351,7 @@ The importer downloads roughly 449 MB of original crown/height data to the exter
 
 ### Central Park
 
-The aerial photograph was taken in March. Trees are bare, lawns are straw, and the rule that tells turf from paving called most of Central Park paving: it was drawn as a grey slab with no trees north of 66th Street, on terrain sampled every 70 m. The park is now built from what is mapped and measured inside it (`scripts/build-central-park.py`), in a frame 930 m by 4,200 m turned 28.9° to follow the avenues.
+The aerial photograph was taken in March. Trees are bare, lawns are straw, and the rule that tells turf from paving called most of Central Park paving: it was drawn as a grey slab with no trees north of 66th Street, on terrain sampled every 70 m. The park is now built from what is mapped and measured inside it (`scripts/build-park.py`, which builds every park listed in it), in a frame 930 m by 4,200 m turned 28.9° to follow the avenues.
 
 | | From the source | Drawn or assumed |
 |---|---|---|
@@ -362,7 +362,7 @@ The aerial photograph was taken in March. Trees are bare, lawns are straw, and t
 | Paths, drives, plazas | The city's 2022 outlines of interior sidewalks, plazas and roadbeds; paths the survey lacks from OpenStreetMap's lines, at 2 to 5 m wide by kind | Weathered asphalt throughout. The Mall's paving, the brick and the hexagonal blocks are not told apart |
 | Lawns, woods, rock, sand, courts, playgrounds | OpenStreetMap areas: 90 lawns, 149 woods, 112 outcrops of rock, 57 of sand or clay, 74 playing surfaces and playgrounds; the survey's 25 ballfield infields | How each looks. Ground no one has mapped as anything is drawn as rough grass, worn to earth under the crowns. Ground steeper than about 40° is drawn as rock |
 
-`park-ground.js` draws that ground in the terrain's own shader from two images: one holds, for each metre, the distance to the nearest edge of path, lawn, bare earth and rock, which keeps those edges sharp between pixels; the other, at two metres, holds how much is under crowns, woodland, court, and inside the park. `park-trees.js` draws the trees at three levels of detail: the few hundred within 48 m of the camera with boughs and limbs, cells of 140 m at 130 triangles a tree out to about 170 m, and 26 triangles a tree beyond, to 1.5 km. Past that, and on the city map, the crowns are painted on the ground. Trunks within 90 m of the player stop a walker or a car. `central-park.js` loads the two ground maps (2.1 MB) with the game, so the park is green on the city map too, and the tree records when the player comes within 3.2 km.
+`park-ground.js` draws that ground in the terrain's own shader from two images: one holds, for each metre, the distance to the nearest edge of path, lawn, bare earth and rock, which keeps those edges sharp between pixels; the other, at two metres, holds how much is under crowns, woodland, court, and inside the park. `park-trees.js` draws the trees at three levels of detail: the few hundred within 48 m of the camera with boughs and limbs, cells of 140 m at 130 triangles a tree out to about 170 m, and 26 triangles a tree beyond, to 1.5 km. Past that, and on the city map, the crowns are painted on the ground. Trunks within 90 m of the player stop a walker or a car. `mapped-parks.js` keeps every park listed in `dist/parks.json`. It loads each park's two ground maps with the game, and its tree records when the player comes within 3.2 km. The terrain shader holds one park's maps at a time: the park nearest the player has them, and from the city map the largest, so Central Park is green there too.
 
 A car on a transverse road stays in its cutting and passes under the park; the drives and paths cross above it on the lids. `transport-surfaces.js` treats a lid, and each of the park's bridges, as the street level where it lies: whatever is not already down in the gap, or following a road the city codes below grade, stands on it. A few bumps of about a metre remain where a drive meets a surveyed bridge whose outline is narrower than the gap the elevation model shows.
 
@@ -371,7 +371,8 @@ Not built: the stonework of the arches, the perimeter wall, benches, lamps, Beth
 ```sh
 python3 -m venv /tmp/nyc-park-venv
 /tmp/nyc-park-venv/bin/pip install numpy scipy rasterio pyproj shapely pyshp py7zr pillow
-/tmp/nyc-park-venv/bin/python scripts/build-central-park.py --download --cache /tmp/nyc-central-park
+/tmp/nyc-park-venv/bin/python scripts/build-park.py --park central-park --download --cache /tmp/nyc-parks
+/tmp/nyc-park-venv/bin/python scripts/build-park.py --park liberty-island --download --cache /tmp/nyc-parks
 ```
 
 The first build downloads the same 449 MB of crown data, the elevation model around the park and a 74 MB OpenStreetMap extract, and takes about twelve minutes, most of it reading the crowns, which are kept so that a rebuild takes under two. What ships is 1.25 MB of heights, 2.1 MB of ground maps, 0.55 MB of tree records and 72 KB of bridges. The ground maps and the furniture list in `dist/central-park/` are derived from OpenStreetMap and remain under the Open Database Licence.
@@ -389,6 +390,19 @@ The building survey measures the statue as it measures an apartment house: an ou
 | Her figure | Nothing | The folds of the robe, the face, the hair, the hand on the torch and the flame are sculpted by rule in `liberty.js`, in about 17,000 triangles. It is not a scan. The colour and streaking of the copper, the gilt of the flame, and the floodlighting after dark are drawn |
 
 **Statue of Liberty** in the city picker sets you down on the flagpole plaza behind her. The survey's own prism for the statue is folded away so that it does not stand inside her. There is no ferry to the island yet, and the pedestal cannot be entered.
+
+Liberty Island itself is drawn the way Central Park is, and from the city's survey alone: nothing on it comes from OpenStreetMap.
+
+| | From the source | Drawn or assumed |
+|---|---|---|
+| Shore | The surveyed shoreline: one closed line round 5.7 hectares, with the three piers the survey outlines | In `boroughs.json` it takes the place of the borough outline's 34 points, some of them tens of metres out in the bay. The piers' decks, which the elevation model does not see, are set at the heights the survey gives them: 1.5 to 3.1 m |
+| Ground | A height every 2.5 m from the one-metre lidar model | |
+| Plaza and paths | The survey's plaza and interior sidewalk outlines: a quarter of the island | Weathered asphalt and the game's plaza paving |
+| Lawns | Nothing maps them | Whatever of the island is not paved, built on or seawall is drawn as mown lawn: half the island |
+| Seawall | The survey's outline of it | Drawn as stone |
+| Trees | 409 crowns from the 2013–14 lidar | As in Central Park; 68 crowns with no clear ground under them are left out |
+
+The land around the city (`dist/context-land.json`) is a picture of hundred-metre cells, smoothed when it is drawn. Cells of the city's own land at the water's edge used to count as land in it, which spread a shelf of olive "country" up to a hundred metres into the water round Liberty Island and along every waterfront. Those cells are now cleared, as the ones just outside the city already were: the city's own terrain is what shows at its shore.
 
 Reproduce the AI stage in a separate Python 3.13 environment:
 
@@ -444,12 +458,13 @@ The full map is available to render and explore, but this is a historical city m
 | Land around the city | `dist/context-land.json`, `dist/assets/context/land.png`, `scripts/build-context-land.mjs` | [Terrain Tiles](https://registry.opendata.aws/terrain-tiles/) (Mapzen; USGS 3DEP, SRTM, ETOPO1 and other public sources), sampled to a 100 m silhouette |
 | Surveyed pavement and transport | `dist/street-detail-index.json`, `dist/street-detail/`, `scripts/import-street-detail.py` | NYC OTI 2022 planimetrics: [roadbeds](https://data.cityofnewyork.us/d/i36f-5ih7), [sidewalks](https://data.cityofnewyork.us/d/52n9-sdep), [curbs](https://data.cityofnewyork.us/d/5xvt-8cbk), [parking lots](https://services6.arcgis.com/yG5s3afENB5iO9fj/arcgis/rest/services/Parking_Lot_2022/FeatureServer/13), [transport structures](https://services6.arcgis.com/yG5s3afENB5iO9fj/arcgis/rest/services/Transport_Structure_2022/FeatureServer/25), [capture rules](https://github.com/CityOfNewYork/nyc-planimetrics/blob/main/Capture_Rules.md) |
 | Address search | `dist/geocoder.js`, requested on submission | [NYC Planning GeoSearch](https://geosearch.planninglabs.nyc/docs/), Property Address Directory |
-| Shorelines | `dist/boroughs.json` | NYC Department of City Planning borough boundaries, shoreline clipped |
+| Shorelines | `dist/boroughs.json` | NYC Department of City Planning borough boundaries, shoreline clipped; Liberty Island's from NYC OTI 2022 planimetrics (`Shoreline_2022`, `Hydro_Structure_2022`) |
+| Liberty Island ground | `dist/landscape/liberty-island-terrain.*`, `dist/liberty-island/`, `scripts/build-park.py` | The 2017 DEM and the lidar crowns above; NYC OTI 2022 planimetrics (`Shoreline_2022`, `Sidewalk_2022`, `Plaza_2022`, `Hydro_Structure_2022`, `BUILDING_view`) |
 | Aerial images | Public NYC tile service, runtime cache | NYC OTI / NYS, [2024 metadata](https://github.com/CityOfNewYork/nyc-geo-metadata/blob/main/Metadata/Metadata_AerialImagery.md), [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/) |
 | Terrain | `dist/landscape-index.json`, `dist/landscape/`, `scripts/import-landscape.py` | [NYC 2017 topobathymetric DEM](https://elevation.its.ny.gov/arcgis/rest/services/NYC_TopoBathymetric_2017_1_meter/ImageServer) |
 | Inland water | `dist/landscape/` | [NYC OTI 2022 hydrography](https://data.cityofnewyork.us/d/pjs3-c3z5) |
 | Tree crowns and heights | `dist/landscape/`, `dist/central-park/trees.bin` | [Qin Ma (2022), Trees in New York City](https://doi.org/10.6084/m9.figshare.20522895.v2), CC BY 4.0, 2013–2014 LiDAR |
-| Central Park ground and outlines | `dist/landscape/central-park-terrain.*`, `dist/central-park/`, `scripts/build-central-park.py` | The 2017 DEM above; NYC OTI 2022 planimetrics (`Park_2022`, `Sidewalk_2022`, `Plaza_2022`, `Roadbed_2022` at `services6.arcgis.com/yG5s3afENB5iO9fj`); lawns, woods, rock, sand, playing surfaces and unsurveyed paths © [OpenStreetMap](https://www.openstreetmap.org/copyright) contributors, Open Database Licence 1.0 |
+| Central Park ground and outlines | `dist/landscape/central-park-terrain.*`, `dist/central-park/`, `scripts/build-park.py` | The 2017 DEM above; NYC OTI 2022 planimetrics (`Park_2022`, `Sidewalk_2022`, `Plaza_2022`, `Roadbed_2022` at `services6.arcgis.com/yG5s3afENB5iO9fj`); lawns, woods, rock, sand, playing surfaces and unsurveyed paths © [OpenStreetMap](https://www.openstreetmap.org/copyright) contributors, Open Database Licence 1.0 |
 | AI imagery review | `dist/reconstruction/`, `dist/road-reconstruction/`, `scripts/reconstruct-imagery.py` | [Meta SAM ViT-B](https://huggingface.co/facebook/sam-vit-base), Apache 2.0, and NYC 2024 aerials, CC BY 4.0 |
 | SoHo photo references | `dist/assets/references/`, `dist/facade-profiles.json` | Individual author, license and original URL in the manifest and in-game source panel |
 

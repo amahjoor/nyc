@@ -6,7 +6,7 @@ import * as THREE from './vendor/three.module.min.js';
 // lawns the colour of straw. Read as it is, a park in that photograph is grey
 // and brown, and the rule that tells turf from paving calls most of it
 // paving. Inside a park that has its own ground maps (see
-// scripts/build-central-park.py) the photograph is therefore not consulted
+// scripts/build-park.py) the photograph is therefore not consulted
 // at all. Two images in the park's frame say what is there:
 //
 //   surface  the distance, in metres, to the edge of the nearest path, lawn,

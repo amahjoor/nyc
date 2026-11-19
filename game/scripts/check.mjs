@@ -124,25 +124,34 @@ for(const path of landscapePaths){
   }
 }
 if(landscapeBytes!==landscape.stats.bytes)throw new Error('Landscape manifest byte count does not match its assets');
-// Central Park: its ground maps and tree records must be those its description names.
+// Parks drawn from maps: each one's ground maps, tree records and bridges must be those its description names.
 {
-  const park=JSON.parse(await readFile(resolve(root,'dist/central-park/park.json'),'utf8'));
-  const region=landscape.regions.find(region=>region.id===park.id);
-  if(!region||JSON.stringify(park.origin)!==JSON.stringify(landscape.origin))throw new Error('Central Park does not match the landscape it stands in');
-  const records=await readFile(resolve(root,'dist/central-park',park.trees.url));
-  if(records.length!==park.trees.count*park.trees.record.length*2||park.trees.count!==region.stats.trees)throw new Error('Central Park tree records do not match their count');
-  const decks=JSON.parse(await readFile(resolve(root,'dist/central-park',park.structures.url),'utf8')).structures;
-  if(decks.length!==park.structures.count||new Set(decks.map(deck=>deck.id)).size!==decks.length)throw new Error('Central Park bridges do not match their count');
-  for(const deck of decks){
-    if(deck.kind!=='transport'||deck.elevationStatus!=='surveyed'||deck.polygon.length<3||deck.polygon.length!==deck.elevations.polygon.length
-      ||!deck.elevations.polygon.every(Number.isFinite))throw new Error(`Invalid Central Park bridge: ${deck.id}`);
+  const {parks}=JSON.parse(await readFile(resolve(root,'dist/parks.json'),'utf8'));
+  if(!parks.some(entry=>entry.id==='central-park'))throw new Error('Central Park is missing from the mapped parks');
+  for(const entry of parks){
+    if(!/^\.\/[a-z0-9-]+\/$/.test(entry.base))throw new Error(`Invalid park folder: ${entry.base}`);
+    const folder=resolve(root,'dist',entry.base),park=JSON.parse(await readFile(resolve(folder,'park.json'),'utf8'));
+    const region=landscape.regions.find(region=>region.id===(park.region||park.id));
+    if(park.id!==entry.id||!region||JSON.stringify(park.origin)!==JSON.stringify(landscape.origin)||JSON.stringify(park.bounds)!==JSON.stringify(entry.bounds))throw new Error(`${entry.id} does not match the landscape it stands in`);
+    const records=await readFile(resolve(folder,park.trees.url));
+    if(records.length!==park.trees.count*park.trees.record.length*2||park.trees.count!==region.stats.trees)throw new Error(`${entry.id}: tree records do not match their count`);
+    if(park.structures){
+      const decks=JSON.parse(await readFile(resolve(folder,park.structures.url),'utf8')).structures;
+      if(decks.length!==park.structures.count||new Set(decks.map(deck=>deck.id)).size!==decks.length)throw new Error(`${entry.id}: bridges do not match their count`);
+      for(const deck of decks){
+        if(deck.kind!=='transport'||deck.elevationStatus!=='surveyed'||deck.polygon.length<3||deck.polygon.length!==deck.elevations.polygon.length
+          ||!deck.elevations.polygon.every(Number.isFinite))throw new Error(`Invalid bridge in ${entry.id}: ${deck.id}`);
+      }
+    }
+    for(const map of [park.surface,park.canopy]){
+      const image=await readFile(resolve(folder,map.url));
+      // A PNG states its size in bytes 16 to 23.
+      if(image.readUInt32BE(16)!==Math.round(park.size.width/map.metresPerPixel)||image.readUInt32BE(20)!==Math.round(park.size.depth/map.metresPerPixel))throw new Error(`${entry.id}: ground map has the wrong size: ${map.url}`);
+    }
   }
-  if(!decks.some(deck=>deck.cover==='ground'))throw new Error('Central Park has no lids over its transverse roads');
-  for(const map of [park.surface,park.canopy]){
-    const image=await readFile(resolve(root,'dist/central-park',map.url));
-    // A PNG states its size in bytes 16 to 23.
-    if(image.readUInt32BE(16)!==Math.round(park.size.width/map.metresPerPixel)||image.readUInt32BE(20)!==Math.round(park.size.depth/map.metresPerPixel))throw new Error(`Central Park ground map has the wrong size: ${map.url}`);
-  }
+  // Central Park's sunken roads must each have a lid.
+  const central=JSON.parse(await readFile(resolve(root,'dist/central-park/structures.json'),'utf8')).structures;
+  if(!central.some(deck=>deck.cover==='ground'))throw new Error('Central Park has no lids over its transverse roads');
 }
 // Both reviews retain evidence for accepted and rejected candidates. A rejected
 // model result must stay rejected in the package, including its empty geometry.

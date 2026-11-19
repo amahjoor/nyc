@@ -1,0 +1,1 @@
+{"version":1,"parks":[{"id":"central-park","name":"Central Park","base":"./central-park/","bounds":{"minX":1608.6356303503296,"maxX":4454.229451794065,"minZ":-8616.163,"maxZ":-4490.372371337095}},{"id":"liberty-island","name":"Liberty Island","base":"./liberty-island/","bounds":{"minX":-3964.912,"maxX":-3418.6586568162643,"minZ":3486.403515192856,"maxZ":3981.1116577688963}}]}

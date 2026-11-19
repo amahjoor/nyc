@@ -166,8 +166,9 @@ export function treeLook(x, z, height, radius) {
  * @param {Uint16Array} options.records six numbers a tree (see park.json `trees`)
  * @param {number[]} options.scale and options.offset: how to read them
  * @param {{x:number,z:number,cos:number,sin:number}} options.frame the park's frame
+ * @param {string} [options.name] what its trunks are called among the street's objects: one name a park
  */
-export async function createParkTrees({ scene = null, records, scale, offset, frame, physics = null, cell = TREE_CELL, range = TREE_RANGE, pause = null } = {}) {
+export async function createParkTrees({ scene = null, records, scale, offset, frame, physics = null, cell = TREE_CELL, range = TREE_RANGE, pause = null, name = 'park-trees' } = {}) {
   // Fifty thousand trees take a tenth of a second to lay out: given `pause`, that is spread over frames.
   let since = performance.now();
   const breathe = async () => { if (pause && performance.now() - since > 6) { await pause(); since = performance.now(); } };
@@ -272,7 +273,7 @@ export async function createParkTrees({ scene = null, records, scale, offset, fr
      */
     update(eye, focus = eye, visible = true) {
       group.visible = visible;
-      if (!visible) { if (shown && physics) { physics.replace('park-trees', []); stemsAt = null; } shown = false; return; }
+      if (!visible) { if (shown && physics) { physics.replace(name, []); stemsAt = null; } shown = false; return; }
       shown = true;
       let changed = false;
       for (const block of blocks.values()) {
@@ -295,13 +296,13 @@ export async function createParkTrees({ scene = null, records, scale, offset, fr
             stems.push({ kind: 'tree', x: tree.x, y: tree.y, z: tree.z, radius: Math.max(.12, tree.look.spread * TRUNK * .9), height: tree.height * CROWN_BASE });
           }
         }
-        physics.replace('park-trees', stems);
+        physics.replace(name, stems);
       }
     },
     /** Trees whose trunks stand within `radius` of a point. */
     near(x, z, radius) { return trees.filter(tree => Math.hypot(tree.x - x, tree.z - z) <= radius); },
     dispose() {
-      physics?.replace('park-trees', []);
+      physics?.replace(name, []);
       for (const piece of pieces) for (const mesh of [...piece.mid, piece.far]) mesh.dispose();
       for (const block of blocks.values()) block.far.dispose();
       for (const mesh of near) mesh.dispose();
