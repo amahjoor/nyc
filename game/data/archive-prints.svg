@@ -1,0 +1,30 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="640" height="320" viewBox="0 0 640 320">
+ <defs>
+  <g id="wing">
+   <path d="M157 156Q127 118 63 87L18 78Q41 96 40 121Q53 151 91 158Q58 156 50 171Q80 218 127 196L155 172Z" fill="#c8b6a3"/>
+   <g fill="none" stroke="#51434c" stroke-width="3">
+    <path d="M150 155Q96 105 42 91M142 156Q85 119 45 111M132 158q-40-23-81-25m67 26q-35-11-55-8m75 16q-32 0-71 11m72-8q-26 17-53 24"/>
+    <path d="M53 97q17 27 8 36m10-27q24 30 12 37m12-23q21 14 15 29"/>
+   </g>
+   <path d="M60 127Q82 121 104 148Q79 159 60 127Z" fill="#735b68"/><path d="M70 132q13-3 22 11q-14 1-22-11" fill="#ccbda8"/>
+   <path d="M83 174q21-11 37-9q-17 19-37 9" fill="#735b68"/>
+  </g>
+ </defs>
+ <g text-anchor="middle" font-family="Liberation Sans" fill="#c8b6a3">
+  <text x="160" y="49" font-size="29" font-weight="bold" letter-spacing="4">AUDITORIUM</text>
+  <path d="M30 61h260M52 228h216" stroke="#ad9186" stroke-width="2"/>
+  <use href="#wing"/><use href="#wing" transform="translate(320 0) scale(-1 1)"/>
+  <path d="M154 136q6-9 12 0l-2 41-4 13-4-13Z" fill="#ba8a78"/><path d="M157 138q-6-20-16-20m21 20q8-20 18-22" stroke="#ba8a78" stroke-width="2" fill="none"/>
+  <text x="160" y="251" font-family="Liberation Serif" font-size="16" letter-spacing="3">NIGHT FLIGHT</text>
+  <text x="160" y="269" font-size="8" letter-spacing="2">NEW YORK  /  MATINEE SERIES</text>
+ </g>
+ <g transform="translate(351 32)">
+  <rect x="0" y="0" width="257" height="250" rx="1" fill="none" stroke="#d5d3b4" stroke-width="3"/>
+  <g fill="none" stroke="#e2ddbf" stroke-width="3">
+   <path d="M8 99C50 55 62 94 103 69S181 19 248 53M8 109C54 67 62 106 106 80S184 33 248 64M8 120C59 79 66 120 110 92S190 44 248 76M8 133C62 93 72 134 115 106S191 58 248 91M8 150C72 110 84 150 123 121S198 75 248 107M8 168C78 130 93 166 132 138S207 93 248 123"/>
+   <path d="M155 168l33-58 31 58Zm33-76v27m-11 38h23" stroke="#e9b478"/>
+  </g>
+  <path d="M8 183h241" stroke="#d5d3b4" stroke-width="2"/>
+  <g fill="#e2ddbf" font-family="Liberation Sans"><text x="10" y="207" font-size="18" font-weight="bold" letter-spacing="2">EAST RIVER</text><text x="10" y="227" font-size="10" letter-spacing="2">TIDAL STUDY    /    FIELD NOTES</text></g>
+ </g>
+</svg>

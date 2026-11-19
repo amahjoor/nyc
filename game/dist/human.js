@@ -18,6 +18,8 @@
 //
 // No DOM and no three.js here: this runs in a worker (body-worker.js).
 import { qmul, qinv, qrot, restWorld } from './body.js';
+import { fitPatrolUniform } from './patrol-uniform.js';
+import { easeOverWaist, coveredShaft } from './garment-fit.js';
 
 const clamp = (value, low, high) => Math.max(low, Math.min(high, value));
 const sub = (a, b) => [a[0] - b[0], a[1] - b[1], a[2] - b[2]];
@@ -224,7 +226,7 @@ export function createHuman(meta, bodyBin, partsBin, motion) {
    * `design.wear` is the list of parts worn, by 'kind/id'; `detail` is
    * 'close', or 'near' and 'far' for the same person in fewer points.
    */
-  function build(design, { detail = 'close', painted = false } = {}) {
+  function build(design, { detail = 'close', painted = false, skinOnly = false } = {}) {
     const P = shape(design);
     // Stood on the ground and brought to the height asked for, about the point under the hips.
     let low = Infinity, high = -Infinity;
@@ -251,15 +253,23 @@ export function createHuman(meta, bodyBin, partsBin, motion) {
       const weight = new Float32Array(4);
       pieces.push(piece('skin', 'body', skin.corners, skin.uv, skin.triangles, P, N, i => baseIndex.subarray(i * 4, i * 4 + 4), i => { for (let j = 0; j < 4; j++) weight[j] = baseWeight[i * 4 + j] / 255; return weight; }, hidden));
     }
-    for (const part of worn) {
+    // The crowd shares its fitted clothes across both draw distances. When
+    // it asks for the detailed skin, applying the masks above is sufficient.
+    const visible=skinOnly && !design.uniform ? [] : worn;
+    const under=!painted && visible.find(p=>p.slot==='bottom');
+    const fittedUnder=under ? fit(under,P) : null;
+    for (const part of visible) {
       if (painted && part.kind !== 'hair' && part.kind !== 'hat') continue;
-      const laid = fit(part, P);
-      const made = piece(part.kind, part.id, part.corners, part.uv, part.triangles, laid.at, part.points, i => laid.bone.subarray(i * 4, i * 4 + 4), i => laid.pull.subarray(i * 4, i * 4 + 4), null);
-      Object.assign(made, { map: part.map, normalMap: part.normal, clear: part.clear, twoSided: part.twoSided, depth: part.depth, shade: part.shade, slot: part.slot });
+      const laid = part===under ? fittedUnder : fit(part, P);
+      if(part.overWaist && fittedUnder)easeOverWaist(laid,fittedUnder,under,rig);
+      const shaft=part.kind==='shoes' && under?.overBoot ? coveredShaft(laid,fittedUnder,tall) : null;
+      const made = piece(part.kind, part.id, part.corners, part.uv, part.triangles, laid.at, part.points, i => laid.bone.subarray(i * 4, i * 4 + 4), i => laid.pull.subarray(i * 4, i * 4 + 4), shaft);
+      Object.assign(made, { map: part.map, normalMap: part.normal, clear: part.clear, twoSided: part.twoSided, depth: part.depth, shade: part.shade, dyeBase:part.dyeBase, slot: part.slot });
       pieces.push(made);
     }
     // Where the face is, for whoever frames it or hangs something on it.
     const marks = {}; for (const name of ['eye_l', 'eye_r', 'crown', 'chin', 'jaw']) marks[name] = place(P, name);
+    if (design.uniform) fitPatrolUniform(pieces, rig, marks, design.uniform);
     return { pieces, rig, height: tall, marks };
   }
 

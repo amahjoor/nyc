@@ -10,20 +10,21 @@
 // points of the body, so that whatever shape the body takes they still fit
 // over it. All of it was released by its authors as CC0.
 //
-// This reads the two downloads unpacked under assets-src/makehuman (the
-// program's `data` folder, for the body, its targets and its skeleton, and
-// the "system assets" pack for everything worn), and writes:
+// Reads the body, targets and skeleton from MakeHuman's data folder, the
+// system assets from pack/files, and community clothing from fetch-fashion.mjs.
+// All sources live under assets-src/makehuman. It writes:
 //
 //   dist/human/human.json   what is where in the other two, and the names
 //   dist/human/body.bin     the body: points, faces, weights, targets
 //   dist/human/parts.bin    what is worn: meshes and how they are tied on
 //   dist/human/tex/*.webp   skins, cloth, hair, eyes
 //
-// usage: node scripts/build-human.mjs [--no-textures]
+// usage: node scripts/build-human.mjs [--no-textures] [--refresh-wardrobe]
 import { readFileSync, writeFileSync, mkdirSync, existsSync, readdirSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { join, basename } from 'node:path';
+import { fashionPieces, fashionFolder, cutFashion, skinUnderCloth, bakeFashion } from './fashion-materials.mjs';
 
 const ROOT = fileURLToPath(new URL('../assets-src/makehuman/', import.meta.url));
 const DATA = join(ROOT, 'repo/makehuman/data'), PACK = join(ROOT, 'pack/files'), OUT = fileURLToPath(new URL('../dist/human/', import.meta.url));
@@ -194,12 +195,12 @@ const bodyMeta = {
 // --- What is worn ------------------------------------------------------------------------------------
 const parts = createBin(), partList = [], textures = new Map();
 /** A texture to be converted: returns the name it will have under dist/human/tex. */
-function texture(folder, file, { size = 1024, alpha = false } = {}) {
+function texture(folder, file, { size = 1024, alpha = false, wardrobe = false, prefix = '' } = {}) {
   if (!file) return null;
   const from = join(folder, basename(file));
   if (!existsSync(from)) { console.warn('missing texture', from); return null; }
-  const name = basename(file).replace(/\.[a-z]+$/i, '') + '.webp';
-  textures.set(name, { from, size, alpha });
+  const name = prefix + basename(file).replace(/\.[a-z]+$/i, '') + '.webp';
+  textures.set(name, { from, size, alpha, wardrobe });
   return name;
 }
 const small = new Map();
@@ -214,6 +215,25 @@ function shadeOver(file, uv) {
   }
   return count ? Number((sum / count).toFixed(4)) : null;
 }
+// A suit shares one picture across multiple garments. Find the predominant
+// dye on this piece, so recolouring the cloth can spare contrasting trim.
+function dyeBaseOver(file, uv, triangles) {
+  const pixels=small.get(file), bins=new Map();
+  for(let i=0;i<triangles.length;i+=3){
+    const [a,b,c]=triangles.slice(i,i+3).map(v=>2*v);
+    const area=Math.abs((uv[b]-uv[a])*(uv[c+1]-uv[a+1])-(uv[c]-uv[a])*(uv[b+1]-uv[a+1]));
+    const x=Math.min(127,Math.max(0,Math.floor((uv[a]+uv[b]+uv[c])*128/3)));
+    const y=Math.min(127,Math.max(0,Math.floor((1-(uv[a+1]+uv[b+1]+uv[c+1])/3)*128)));
+    const colour=pixels.subarray((y*128+x)*3,(y*128+x)*3+3);
+    const key=(colour[0]>>4)*256+(colour[1]>>4)*16+(colour[2]>>4);
+    const bin=bins.get(key) || {area:0,sum:[0,0,0]};
+    bin.area+=area;
+    for(let k=0;k<3;k++)bin.sum[k]+=colour[k]*area;
+    bins.set(key,bin);
+  }
+  const best=[...bins.values()].sort((a,b)=>b.area-a.area)[0];
+  return best?.area ? '#'+best.sum.map(v=>Math.round(v/best.area).toString(16).padStart(2,'0')).join('') : null;
+}
 
 /** "12 - 20 31" as a list of points. */
 function pointList(text) {
@@ -221,7 +241,7 @@ function pointList(text) {
   for (let i = 0; i < words.length; i++) { if (words[i + 1] === '-') { for (let p = Number(words[i]); p <= Number(words[i + 2]); p++) out.push(p); i += 2; } else if (words[i] !== '') out.push(Number(words[i])); }
   return out;
 }
-function part(kind, id, folder, clo) {
+function part(kind, id, folder, clo, design=null) {
   const file = join(folder, clo), keys = readKeys(file), text = lines(file);
   const mesh = readObj(join(folder, keys.obj_file[0]));
   // Each of its points: three points of the body, how much of each, and how far off them it stands.
@@ -240,17 +260,20 @@ function part(kind, id, folder, clo) {
   const scale = axis => { const words = keys[axis + '_scale']?.[0].split(/\s+/).map(Number); return words ? [words[0], words[1], words[2] * METRE] : null; };
   const shape = corners(mesh);
   const material = keys.material ? readKeys(join(folder, keys.material[0])) : {};
-  const size = kind === 'skin' ? 2048 : kind === 'eyes' || kind === 'brows' || kind === 'lashes' ? 512 : 1024;
+  const wardrobe=Boolean(design) || ['suit','hat','shoes'].includes(kind);
+  const size = wardrobe ? 1536 : kind === 'skin' ? 2048 : kind === 'eyes' || kind === 'brows' || kind === 'lashes' ? 512 : 1024;
   const clear = material.transparent?.[0] === 'True' || kind === 'hair' || kind === 'brows' || kind === 'lashes';
   const common = {
     scale: { x: scale('x'), y: scale('y'), z: scale('z') }, depth: Number(keys.z_depth?.[0] ?? 50),
     mapFile: material.diffuseTexture?.[0] && existsSync(join(folder, basename(material.diffuseTexture[0]))) ? join(folder, basename(material.diffuseTexture[0])) : null,
-    map: texture(folder, material.diffuseTexture?.[0], { size, alpha: clear }), normal: texture(folder, material.normalmapTexture?.[0], { size }),
+    map: design ? 'fashion/'+design.id+'.webp' : texture(folder, material.diffuseTexture?.[0], { size, alpha: clear, wardrobe }),
+    normal: texture(folder, material.normalmapTexture?.[0], { size:wardrobe?1024:size, wardrobe, prefix:design && design.pack!=='system'?'fashion/'+design.source+'-':'' }),
     clear, twoSided: material.backfaceCull?.[0] === 'False' || kind === 'hair',
     tags: (keys.tag || []).map(tag => tag.toLowerCase()).filter(tag => !/makehuman/.test(tag)),
   };
   /** Write out some of the mesh's points (all of them if not told which) as a part of its own. */
   const emit = (kind, id, keep, hidden, extra = {}) => {
+    if(design && design.pack==='system' && id!==design.source+'-'+design.slot)return;
     const renumber = new Int32Array(mesh.v.length).fill(-1), kept = [];
     for (let i = 0; i < mesh.v.length; i++) if (!keep || keep[i]) { renumber[i] = kept.length; kept.push(i); }
     const pick = (array, width) => { const out = new array.constructor(kept.length * width); kept.forEach((i, n) => { for (let k = 0; k < width; k++) out[n * width + k] = array[i * width + k]; }); return out; };
@@ -262,13 +285,27 @@ function part(kind, id, folder, clo) {
     }
     // How light the picture is over this part, so that it can be given any colour and keep its own light and shade.
     const shade = common.mapFile ? shadeOver(common.mapFile, uv) : null;
-    const made = { kind, id, points: kept.length, shade, tie: parts.put(pick(tie, 3)), share: parts.put(pick(share, 3)), off: parts.put(pick(off, 3)),
+    const offsets=pick(off,3);
+    if(design){
+      const rest=kept.map(i=>[0,1,2].map(k=>off[i*3+k]+[0,1,2].reduce((sum,j)=>sum+positions[tie[i*3+j]*3+k]*share[i*3+j],0)));
+      cutFashion(design,rest,offsets);
+      if(!hidden.length)hidden=skinUnderCloth(rest,point,triangles,positions);
+      if(TEXTURES)bakeFashion(design,rest,point,uv,triangles,common.mapFile,join(OUT,'tex',common.map));
+    }
+    const made = { kind, id:design?.id || id, points: kept.length, shade, tie: parts.put(pick(tie, 3)), share: parts.put(pick(share, 3)), off: parts.put(offsets),
       corners: parts.put(index(point)), uv: parts.put(packUv(uv)), triangles: parts.put(index(triangles)), hidden: hidden.length ? parts.put(pack16(hidden)) : null, ...common, ...extra };
     delete made.mapFile;
+    if(design){
+      if(design.overWaist)made.overWaist=true;
+      if(design.overBoot)made.overBoot=true;
+      made.dyeBase=design.colour;
+      const channels=design.colour.slice(1).match(/../g).map(hex=>{const c=parseInt(hex,16)/255;return c<=.04045?c/12.92:((c+.055)/1.055)**2.4;});
+      made.shade=.2126*channels[0]+.7152*channels[1]+.0722*channels[2];
+    }else if(wardrobe && common.mapFile)made.dyeBase=dyeBaseOver(common.mapFile,uv,triangles);
     partList.push(made);
     return made;
   };
-  if (kind !== 'suit') return emit(kind, id, null, hidden);
+  if (kind !== 'suit') return emit(kind, id, null, hidden, design ? {slot:design.slot}: {});
   // An outfit is several garments in one mesh: whatever is joined together is one of them. Each is put
   // out by itself, so that the top of one outfit can be worn with the bottom of another.
   const group = Array.from({ length: mesh.v.length }, (_, i) => i), find = i => { while (group[i] !== i) { group[i] = group[group[i]]; i = group[i]; } return i; };
@@ -308,6 +345,11 @@ for (const id of ['low-poly', 'high-poly']) part('eyes', id, join(PACK, 'eyes', 
 for (const id of folders('teeth')) part('teeth', id, join(PACK, 'teeth', id), cloIn(join(PACK, 'teeth', id)));
 // Lighter bodies for people further off: the same person in fewer points.
 for (const id of ['proxy741', 'male1591', 'female1605']) part('body', id, join(PACK, 'proxymeshes', id), cloIn(join(PACK, 'proxymeshes', id)));
+for(const design of fashionPieces){
+  const folder=fashionFolder(ROOT,design);
+  const kind=design.pack==='system'?'suit':design.slot==='shoes'?'shoes':'garment';
+  part(kind,design.source,folder,cloIn(folder),design);
+}
 
 // Skins and eyes are pictures only.
 const skins = [];
@@ -333,9 +375,9 @@ writeFileSync(join(OUT, 'human.json'), JSON.stringify({
 }));
 if (TEXTURES) {
   let done = 0;
-  for (const [name, { from, size, alpha }] of textures) {
+  for (const [name, { from, size, alpha, wardrobe }] of textures) {
     const to = join(OUT, 'tex', name);
-    if (!existsSync(to)) execFileSync('magick', [from, '-resize', `${size}x${size}>`, '-quality', alpha ? '90' : '86', '-define', 'webp:method=5', to]);
+    if (!existsSync(to) || (wardrobe && process.argv.includes('--refresh-wardrobe'))) execFileSync('magick', [from, '-resize', `${size}x${size}>`, '-quality', wardrobe ? '93' : alpha ? '90' : '86', '-define', 'webp:method=5', to]);
     done++;
   }
   console.log(`${done} textures`);

@@ -32,7 +32,7 @@ export function skinFor(design, skins) {
   let best = null, least = Infinity;
   for (const skin of skins) {
     if (skin.sex !== woman || skin.age !== age) continue;
-    const mean = srgb(skin.mean), score = Math.abs(Math.log(light / luma(mean))) - .2 * (shares[skin.race === 'caucasian' ? 'european' : skin.race] || 0) + (skin.variant - 1) * .01;
+    const mean = srgb(skin.mean), score = Math.abs(Math.log(Math.max(light,.00001) / luma(mean))) - .2 * (shares[skin.race === 'caucasian' ? 'european' : skin.race] || 0) + (skin.variant - 1) * .01;
     if (score < least) { least = score; best = skin; }
   }
   const mean = srgb(best.mean);
@@ -45,6 +45,13 @@ function ancestry(design) {
 /** The skin a design's forebears would give it, if it does not say. */
 export function toneOf(design) { const shares = ancestry(design); return toHex(blend([TONE.african, TONE.asian, TONE.european], [shares.african, shares.asian, shares.european])); }
 
+// A separate lapel cut from the same cloth follows its jacket's dye.
+// A shirt under that jacket can share the image but have a different ground colour.
+export function sharesGarmentDye(piece, main) {
+  return main && (piece.id===main.id || (main.dyeBase && piece.dyeBase===main.dyeBase &&
+    piece.slot===main.slot && piece.map===main.map));
+}
+
 /**
  * What a design wears and how it is coloured.
  * @returns {{wear: string[], look: object}} for human.build({ ...design, wear }) and human-mesh.js
@@ -54,16 +61,22 @@ export function lookOf(design, human) {
   const put = (id, colour) => {
     if (!id || id === 'none') return;
     // What comes with a garment is worn with it: the shirt under a jacket, its collar.
-    const stem = id.replace(/\d*$/, '');
-    for (const part of garments) if (part.id === id || (part.id.startsWith(stem) && part.id !== id && /\d$/.test(part.id) && !/\d$/.test(id))) { wear.push('garment/' + part.id); if (colour && part.id === id) colours['garment/' + part.id] = colour; }
+    const stem = id.replace(/\d*$/, ''), main=garments.find(p=>p.id===id);
+    for (const part of garments) if (part.id === id || (part.id.startsWith(stem) && part.id !== id && /\d$/.test(part.id) && !/\d$/.test(id))) {
+      wear.push('garment/'+part.id);
+      if (colour && sharesGarmentDye(part,main)) colours['garment/'+part.id]=colour;
+    }
   };
   put(design.bottom || 'male_casualsuit04-bottom', design.bottomColour); put(design.top || 'male_casualsuit04-top', design.topColour);
   if (design.shoes !== 'none') wear.push('shoes/' + (design.shoes || 'shoes02'));
   if (design.hat && design.hat !== 'none') wear.push('hat/' + design.hat);
+  if (design.shoeColour) colours['shoes/' + design.shoes] = design.shoeColour;
+  if (design.hatColour) colours['hat/' + design.hat] = design.hatColour;
   if (design.hair && design.hair !== 'none') wear.push('hair/' + design.hair);
   wear.push('eyes/low-poly', 'brows/' + (design.brows || 'eyebrow001'), 'lashes/' + ((design.sex ?? 0) > .5 ? 'eyelashes02' : 'eyelashes01'), 'teeth/teeth_base');
   const skin = skinFor(design, human.skins), hair = design.hairColour || HAIR_COLOURS.darkBrown;
-  return { wear: wear.filter(key => human.has(key)), look: { skin: skin.map, tone: skin.tone, hair, brows: design.browColour || hair, iris: (design.eyes || 'brown') + '_eye.webp', colours } };
+  return { wear: wear.filter(key => human.has(key)), look: { skin: skin.map, tone: skin.tone, hair, brows: design.browColour || hair, iris: (design.eyes || 'brown') + '_eye.webp', colours,
+    beard:design.beard, glasses:design.glasses, bag:design.bag, trimColour:design.trimColour } };
 }
 
 // --- Somebody -------------------------------------------------------------------------------------
