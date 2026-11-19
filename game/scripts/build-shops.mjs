@@ -12,7 +12,7 @@
 import { mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { projectPoint } from '../dist/streetscape.js';
-import { KINDS, osmKind, tradeName, mergePlaces, packPlace, placeCellKey, PLACE_CELL } from '../dist/places.js';
+import { KINDS, osmKind, fitnessDiscipline, tradeName, mergePlaces, packPlace, placeCellKey, PLACE_CELL } from '../dist/places.js';
 
 const argument = name => process.argv.includes(name) ? process.argv[process.argv.indexOf(name) + 1] : null;
 const out = argument('--out') || new URL('../dist', import.meta.url).pathname;
@@ -36,13 +36,13 @@ for (const element of elements) {
   if (!kind || lat === undefined || Object.keys(tags).some(key => /^(disused|abandoned|was|proposed|construction):/.test(key))) continue;
   const [x, z] = projectPoint(Number(lon), Number(lat)).map(Math.round);
   if (!Number.isFinite(x) || !Number.isFinite(z) || Math.abs(x) > 40000 || Math.abs(z) > 40000) continue;
-  entries.push({ kind, x, z, name: tradeName(tags.name || tags.brand || '', { trading: true }), bin: 0, rank: 0 });
+  entries.push({ kind, discipline: kind === 'gym' ? fitnessDiscipline(tags) : undefined, x, z, name: tradeName(tags.name || tags.brand || '', { trading: true }), bin: 0, rank: 0 });
 }
 const places = mergePlaces(entries), cells = new Map();
 for (const place of places) { const key = placeCellKey(place.x, place.z); if (!cells.has(key)) cells.set(key, []); cells.get(key).push(place); }
 rmSync(join(out, 'shops'), { recursive: true, force: true });
 mkdirSync(join(out, 'shops'), { recursive: true });
-const index = { version: 1, generated: new Date().toISOString().slice(0, 10), asOf: osm3s?.timestamp_osm_base || '', cellSize: PLACE_CELL, kinds: KINDS.map(kind => kind.id), row: ['x', 'z', 'kind', 'name', 'bin', 'area', 'grade'],
+const index = { version: 1, generated: new Date().toISOString().slice(0, 10), asOf: osm3s?.timestamp_osm_base || '', cellSize: PLACE_CELL, kinds: KINDS.map(kind => kind.id), row: ['x', 'z', 'kind', 'name', 'bin', 'area', 'grade', 'discipline?'],
   licence: { name: 'Open Database Licence 1.0', url: 'https://opendatacommons.org/licenses/odbl/1-0/', attribution: '© OpenStreetMap contributors', page: 'https://www.openstreetmap.org/copyright' },
   counts: {}, total: places.length, cells: {} };
 for (const place of places) index.counts[place.kind] = (index.counts[place.kind] || 0) + 1;

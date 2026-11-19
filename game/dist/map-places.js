@@ -5,7 +5,7 @@
 // each place is a dot in its kind's colour, and closer still, named. The
 // places are those of place-names.json (scripts/build-place-search.mjs):
 // every named place in the registers and from OpenStreetMap.
-import { KINDS } from './places.js';
+import { KINDS, facilityIndex } from './places.js';
 
 /** The kinds of place the map can show, each a set of kinds or groups from places.js and a colour. */
 export const MAP_CATEGORIES = [
@@ -35,7 +35,8 @@ const CELL = 250, LANDMARK = MAP_CATEGORIES.findIndex(category => category.id ==
 /** `data` is place-names.json: { kinds, places: [[name, x, z, kind, borough]] }. */
 export function createPlaceLayer(data = null) {
   const grid = new Map(), totals = new Array(MAP_CATEGORIES.length).fill(0), places = [];
-  for (const [name, x, z, kind] of data?.places || []) {
+  for (const [name, x, z, recorded] of data?.places || []) {
+    const kind = facilityIndex(recorded, name, data.kinds);
     const category = data.kinds[kind] === 'Landmark' ? LANDMARK : CATEGORY_OF[kind];
     if (category === undefined || category < 0) continue;
     const place = { name, x, z, kind: data.kinds[kind] || '', category };

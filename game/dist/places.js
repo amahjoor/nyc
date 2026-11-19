@@ -43,6 +43,34 @@ export const KINDS = [
 
 export const KIND = Object.fromEntries(KINDS.map(kind => [kind.id, kind]));
 
+// A food permit can cover the refreshment counter inside a club. Resolve the
+// public-facing trade before assigning a map category, frontage, menu or room.
+// Explicit concessions and unrelated retailers keep their recorded trade.
+const FOOD_PERMITS = new Set(['american', 'juice', 'coffee', 'bar', 'club', 'bodega', 'grocery', 'supermarket']);
+export function facilityKind(kind, name = '') {
+  if (kind === 'secondhand' || kind === 'electronics') {
+    if (/\bverizon\b|^t-mobile\b|^at&t\b/i.test(name)) return 'phones';
+    if (/\bguitars?\b/i.test(name) && !/pawn|cash for/i.test(name)) return 'music';
+  }
+  if (kind === 'secondhand' && /\bjewel(?:ry|lery|lers?|ers?)\b/i.test(name) &&
+      !/\b(?:pawn\w*|loans?|cash|buyers?|barber|shoe)\b/i.test(name)) return 'jewelry';
+  if (!FOOD_PERMITS.has(kind)) return kind;
+  if (['american', 'bodega', 'grocery'].includes(kind) && /\bcoffee(?: roasters| house| shop| bar)?$/i.test(name) &&
+      !/\b(?:bagel|bakery|pizza|sandwich)\b/i.test(name)) return 'coffee';
+  if (/\b(?:juice|cafe|café|bar|sportsbar|kitchen|grill|deli|grocery|market|restaurant|coffee|hotel|spa|management)\b/i.test(name)) return kind;
+  if (/^(?:life\s*time(?: fitness| athletic)?|equinox|soulcycle|cyclebar|fitness factory)$/i.test(name) ||
+      /^(?:retro fitness|push fitness club)(?: [–-] | of ).+/i.test(name) ||
+      /\b(?:gym|fitness|yoga|pilates)(?: (?:club|studio|center|nyc?|go!))?$/i.test(name) ||
+      /\bcrossfit\b/i.test(name)) return 'gym';
+  return kind;
+}
+
+// The citywide search bundle also contains landmarks and older label lists.
+export function facilityIndex(index, name, labels) {
+  const recorded = KINDS[index];
+  return recorded && labels[index] === recorded.label ? KIND[facilityKind(recorded.id, name)].index : index;
+}
+
 // The health department's cuisine descriptions, gathered into kinds.
 const CUISINES = [
   [/^pizza/, 'pizza'], [/^chinese/, 'chinese'], [/^coffee/, 'coffee'], [/^bakery/, 'bakery'], [/^donuts/, 'donuts'], [/^(juice|fruits)/, 'juice'],
@@ -167,7 +195,9 @@ export function mergePlaces(entries) {
     if (a.kind === b.kind && ['hotel', 'pharmacy', 'liquor', 'parking', 'repair', 'bodyshop', 'dealer', 'theatre', 'club', 'bar'].includes(a.kind) && (shares(a.name, b.name) || !a.name || !b.name)) return true;
     return false;
   };
-  for (const entry of [...entries].sort((a, b) => (a.rank || 0) - (b.rank || 0))) {
+  for (const raw of [...entries].sort((a, b) => (a.rank || 0) - (b.rank || 0))) {
+    const kind=facilityKind(raw.kind,raw.name);
+    const entry=kind===raw.kind ? raw : {...raw,kind,grade:kind==='gym'?'':raw.grade};
     if (!Number.isFinite(entry.x) || !Number.isFinite(entry.z) || !KIND[entry.kind]) continue;
     if (near(entry.x, entry.z).some(other => same(entry, other))) continue;
     kept.push(entry);
@@ -179,10 +209,14 @@ export function mergePlaces(entries) {
 }
 
 /** A place as it is stored: [x, z, kind index, name, building number, floor area in square feet, inspection grade]. */
-export const packPlace = place => [Math.round(place.x), Math.round(place.z), KIND[place.kind].index, place.name || '', place.bin || 0, Math.round(place.area || 0), place.grade || ''];
+export const packPlace = place => {
+  const row = [Math.round(place.x), Math.round(place.z), KIND[place.kind].index, place.name || '', place.bin || 0, Math.round(place.area || 0), place.grade || ''];
+  if (place.discipline) row.push(place.discipline);
+  return row;
+};
 export function unpackPlace(row, id) {
-  const kind = KINDS[row[2]];
-  return kind ? { id, x: row[0], z: row[1], kind: kind.id, group: kind.group, name: row[3] || '', bin: row[4] || 0, area: row[5] || 0, grade: row[6] || '' } : null;
+  const recorded = KINDS[row[2]], kind = recorded && KIND[facilityKind(recorded.id, row[3])];
+  return kind ? { id, x: row[0], z: row[1], kind: kind.id, group: kind.group, name: row[3] || '', bin: row[4] || 0, area: row[5] || 0, grade: kind.id === 'gym' ? '' : row[6] || '', ...(kind.id === 'gym' && row[7] ? { discipline: row[7] } : {}) } : null;
 }
 
 // ---------------------------------------------------------------------------
@@ -242,6 +276,13 @@ const OSM_KINDS = { clothes: 'clothes', shoes: 'shoes', bank: 'bank', laundry: '
   department_store: 'department', sports: 'sports', stationery: 'stationery', music: 'music', art: 'art', bag: 'bags', copyshop: 'copyshop', tailor: 'tailor', travel_agency: 'travel', massage: 'massage', houseware: 'housewares',
   post_office: 'postoffice', cinema: 'cinema', veterinary: 'vet', dentist: 'dentist', clinic: 'clinic' };
 export const osmKind = tags => OSM_KINDS[tags?.shop] || OSM_KINDS[tags?.amenity] || OSM_KINDS[tags?.leisure] || null;
+
+export function fitnessDiscipline(tags) {
+  const sports = String(tags?.sport || '').split(';').map(s => s.trim());
+  for (const [sport, discipline] of [['yoga', 'yoga'], ['pilates', 'pilates'], ['cycling', 'cycling'], ['weightlifting', 'strength'], ['powerlifting', 'strength'], ['bodybuilding', 'strength']]) {
+    if (sports.includes(sport)) return discipline;
+  }
+}
 
 // ---------------------------------------------------------------------------
 // Where on its building a place has its front
@@ -363,18 +404,38 @@ export function solveFrontages(places, footprints, isStreet, { reach = 28 } = {}
   }
   const fronts = [];
   for (const [building, list] of claims) {
-    // No more fronts than the building's street walls have room for.
-    const room = Math.max(1, Math.floor(streetWalls(building).reduce((sum, wall) => sum + wall.length, 0) / 5.5));
-    list.sort((a, b) => (PRIORITY[a.place.group] ?? 3) - (PRIORITY[b.place.group] ?? 3) || a.place.id.localeCompare(b.place.id));
-    const kept = list.slice(0, room);
-    // Neighbours on one wall are moved apart until each has its own stretch of it.
-    for (let pass = 0; pass < 4; pass++) for (let i = 0; i < kept.length; i++) for (let j = i + 1; j < kept.length; j++) {
-      const a = kept[i], b = kept[j];
-      if (Math.abs(a.tx * b.tx + a.tz * b.tz) < .9 || Math.abs((b.x - a.x) * a.nx + (b.z - a.z) * a.nz) > 2) continue;
-      const gap = (b.x - a.x) * a.tx + (b.z - a.z) * a.tz, need = (Math.min(a.width, 9) + Math.min(b.width, 9)) / 2 * .8;
-      if (Math.abs(gap) >= need) continue;
-      const push = (need - Math.abs(gap)) / 2, way = gap >= 0 ? 1 : -1;
-      a.x -= a.tx * push * way; a.z -= a.tz * push * way; b.x += a.tx * push * way; b.z += a.tz * push * way;
+    // Allocate actual intervals on each street wall. A cluster at a single
+    // registry address must never open two rooms through the same glass.
+    const kept = [];
+    for (const wall of streetWalls(building)) {
+      const claims = list.filter(front => primaryWalls.get(front) === wall);
+      const along = front => (front.x - wall.a[0]) * wall.tx + (front.z - wall.a[1]) * wall.tz;
+      claims.sort((a, b) => (PRIORITY[a.place.group] ?? 3) - (PRIORITY[b.place.group] ?? 3) ||
+        // Keep the mapped entrance when two sources describe the same tenant.
+        Number(b.place.id.startsWith('o')) - Number(a.place.id.startsWith('o')) || a.place.id.localeCompare(b.place.id));
+      const tenants = [];
+      for (const front of claims) {
+        if (front.place.name && tenants.some(other => other.place.name === front.place.name &&
+            other.place.kind === front.place.kind && Math.abs(along(other) - along(front)) < 15)) continue;
+        tenants.push(front);
+        if (tenants.length >= Math.max(1, Math.floor(wall.length / 5.5))) break;
+      }
+      const total = tenants.reduce((sum, front) => sum + front.width, 0);
+      // Preserve at least a small shop per tenant before sharing spare wall.
+      const minimum = Math.min(5, wall.length), available = wall.length - minimum * tenants.length;
+      const scale = total > wall.length ? available / (total - minimum * tenants.length) : 1;
+      tenants.sort((a, b) => along(a) - along(b));
+      let start = 0, remaining = tenants.reduce((sum, front) => {
+        front.width = minimum + (front.width - minimum) * scale;
+        return sum + front.width;
+      }, 0);
+      for (const front of tenants) {
+        start = Math.max(start, Math.min(wall.length - remaining, along(front) - front.width / 2));
+        const center = start + front.width / 2;
+        front.x = wall.a[0] + center * wall.tx; front.z = wall.a[1] + center * wall.tz;
+        start += front.width; remaining -= front.width;
+        kept.push(front);
+      }
     }
     // A street-facing return belongs to the same tenant up to the next shop.
     for (const front of kept) {
@@ -385,7 +446,7 @@ export function solveFrontages(places, footprints, isStreet, { reach = 28 } = {}
       for (const side of [-1, 1]) {
         const end = side < 0 ? wall.a : wall.b;
         const gap = side < 0 ? along : wall.length - along;
-        if (Math.abs(gap - half) > .85 || wall.length < 5) continue;
+        if (Math.abs(gap - half) > .04 || wall.length < 5) continue;
         const other = streetWalls(building).find(edge => edge !== wall &&
           (edge.a === end || edge.b === end) && (edge.nx * front.tx + edge.nz * front.tz) * side > .87);
         if (!other) continue;
