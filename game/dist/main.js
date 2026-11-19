@@ -233,7 +233,8 @@ function cityPresets(){
 let chaseHeight=null, chaseEyeOffset=null;
 let firstPerson=false, headAnchor, headTurn=0, headPitch=0, driverCabin=null, snapChase=false;
 let gameMap, mapOpen=false, routePlanner=null, plannerReady=null, activeRoute=null, routeDestination=null, routeGuidance=null, routeEpoch=0, rerouteAt=0;
-let yaw=0, pitch=.38, lookIdle=0, elapsed=0, lastFrame=0, hudTime=0, qualityTimer=0, slowFrames=0;
+let sampledSeconds=0, sampledFrames=0, recentFrameMs=0;
+let yaw=0, pitch=.38, lookIdle=0, elapsed=0, lastFrame=0, hudTime=0, qualityTimer=0, slowSeconds=0;
 const carModels = new Map(), distantCars=[];
 // Cars are drawn as far as the simulation keeps traffic in sight. Traffic
 // nearer than MODEL_RANGE gets a model of its own and keeps it out to
@@ -498,6 +499,11 @@ function togglePause(force) {
   if(paused&&mapOpen)gameMap.setOpen(false);
   input.clear();
   if(paused && !$('pause-dialog').open && !$('help-dialog').open && !$('sources-dialog').open) {
+    const performanceLine=$('street-performance');
+    if(performanceLine){
+      performanceLine.hidden=!recentFrameMs;
+      if(recentFrameMs)performanceLine.textContent='Recent street performance · '+Math.round(1000/recentFrameMs)+' FPS · '+Math.round(recentFrameMs)+' ms per frame';
+    }
     const car = sim.vehicle || sim.getNearbyCar();
     $('pause-car').hidden = !car;
     if (car) {
@@ -1178,7 +1184,10 @@ function updateCamera(dt) {
 function frame(now) {
   requestAnimationFrame(frame);
   // A death or an arrest is watched at a third of the speed.
-  const dt=Math.min(.05,(now-(lastFrame||now))/1000)*(sim?.ending?.36:1);lastFrame=now;
+  const elapsedSeconds=Math.max(0,(now-(lastFrame||now))/1000);
+  const frameSeconds=Math.min(.25,elapsedSeconds);
+  const dt=frameSeconds*(sim?.ending ? .36 : 1);lastFrame=now;
+  if(sim)sim.paintedCrossings=streetscape?.paintedCrossings(sim.junctions);
   let controls={forward:0,turn:0,brake:false,run:false,moveX:0,moveZ:0};
   if(started){
     // Keep polling controller button edges while paused so Start can resume.
@@ -1433,8 +1442,18 @@ function frame(now) {
   if(aloft)for(const thing of [crowd?.mesh,signs?.group,props?.group,subwayStairs?.group,busStops?.group,shedMesh?.mesh,diningMesh?.mesh,standMesh?.mesh,bikeDocks?.group,trashMesh?.mesh])if(thing)thing.visible=false;
   if(figures)figures.group.visible=crowd.mesh.visible;
   gfx.render();
-  qualityTimer+=dt;if(dt>.035)slowFrames++;
-  if(highQuality&&qualityTimer>5){if(slowFrames>90){highQuality=false;applyQuality();announce('Switched to balanced graphics for smoother streets.');}qualityTimer=0;slowFrames=0;}
+  if(started && !paused && !mapOpen && !cityView && !traveling && !document.hidden && elapsedSeconds>0){
+    sampledSeconds+=elapsedSeconds;sampledFrames++;
+    if(sampledSeconds>=1){recentFrameMs=1000*sampledSeconds/sampledFrames;sampledSeconds=sampledFrames=0;}
+    if(highQuality){
+      qualityTimer+=elapsedSeconds;
+      if(elapsedSeconds>.035)slowSeconds+=elapsedSeconds;
+      if(qualityTimer>=5){
+        if(slowSeconds>qualityTimer*.64){highQuality=false;applyQuality();announce('Switched to balanced graphics for smoother streets.');}
+        qualityTimer=slowSeconds=0;
+      }
+    }
+  }
 }
 
 function setView(mode){
