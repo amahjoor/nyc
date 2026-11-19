@@ -1,0 +1,126 @@
+// FHWA MUTCD Figure 2B-13, R6-1. Coordinates are in inches on a 36 × 12 face.
+export function paintOneWay(ctx, width, height, right) {
+  ctx.save();
+  ctx.scale(width / 36, height / 12);
+  ctx.fillStyle = '#f3f3ee';
+  ctx.beginPath(); ctx.roundRect(0, 0, 36, 12, 1.5); ctx.fill();
+  ctx.fillStyle = '#111';
+  ctx.beginPath(); ctx.roundRect(.5, .5, 35, 11, 1); ctx.fill();
+  ctx.save();
+  if (right) { ctx.translate(36, 0); ctx.scale(-1, 1); }
+  ctx.fillStyle = '#f3f3ee';
+  ctx.fillRect(7.82, 3.375, 25.18, 5.25);
+  ctx.beginPath();
+  ctx.moveTo(8.73, 1.37);
+  ctx.bezierCurveTo(8.84, 1.3, 8.98, 1.25, 9.12, 1.25);
+  ctx.bezierCurveTo(9.5, 1.25, 9.81, 1.56, 9.81, 1.94);
+  ctx.bezierCurveTo(9.81, 2.02, 9.8, 2.11, 9.77, 2.18);
+  ctx.lineTo(8.31, 6);
+  ctx.lineTo(9.77, 9.82);
+  ctx.bezierCurveTo(9.8, 9.89, 9.81, 9.98, 9.81, 10.06);
+  ctx.bezierCurveTo(9.81, 10.44, 9.5, 10.75, 9.12, 10.75);
+  ctx.bezierCurveTo(8.98, 10.75, 8.84, 10.7, 8.73, 10.63);
+  ctx.lineTo(2, 6);
+  ctx.closePath();
+  ctx.moveTo(8.73, 1.37);
+  ctx.fill('evenodd');
+  ctx.restore();
+  // Shift the upright legend by the same distance as the shaft changes sides.
+  if (right) ctx.translate(-5.16, 0);
+  ctx.fillStyle = '#111';
+  // O
+  ctx.beginPath();
+  ctx.moveTo(10.89, 7.42);
+  ctx.bezierCurveTo(11.33, 7.42, 11.67, 7.02, 11.67, 6);
+  ctx.bezierCurveTo(11.67, 4.98, 11.33, 4.57, 10.89, 4.57);
+  ctx.bezierCurveTo(10.46, 4.57, 10.11, 4.98, 10.11, 6);
+  ctx.bezierCurveTo(10.11, 7.02, 10.46, 7.42, 10.89, 7.42);
+  ctx.moveTo(12.31, 6);
+  ctx.bezierCurveTo(12.31, 6.14, 12.34, 8.07, 10.89, 8.07);
+  ctx.bezierCurveTo(9.43, 8.07, 9.47, 6.14, 9.47, 6);
+  ctx.bezierCurveTo(9.47, 5.86, 9.43, 3.93, 10.89, 3.93);
+  ctx.bezierCurveTo(12.34, 3.93, 12.31, 5.86, 12.31, 6);
+  ctx.fill('evenodd');
+  // N
+  ctx.beginPath();
+  ctx.moveTo(13.82, 5.29);
+  ctx.lineTo(13.82, 8);
+  ctx.lineTo(13.19, 8);
+  ctx.lineTo(13.19, 4);
+  ctx.lineTo(13.82, 4);
+  ctx.lineTo(15.28, 6.55);
+  ctx.lineTo(15.28, 4);
+  ctx.lineTo(15.91, 4);
+  ctx.lineTo(15.91, 8);
+  ctx.lineTo(15.35, 8);
+  ctx.closePath();
+  ctx.moveTo(13.82, 5.29);
+  ctx.fill('evenodd');
+  // E
+  ctx.beginPath();
+  ctx.moveTo(16.87, 4);
+  ctx.lineTo(19.23, 4);
+  ctx.lineTo(19.23, 4.63);
+  ctx.lineTo(17.5, 4.63);
+  ctx.lineTo(17.5, 5.61);
+  ctx.lineTo(18.67, 5.61);
+  ctx.lineTo(18.67, 6.26);
+  ctx.lineTo(17.5, 6.26);
+  ctx.lineTo(17.5, 7.35);
+  ctx.lineTo(19.35, 7.35);
+  ctx.lineTo(19.35, 8);
+  ctx.lineTo(16.87, 8);
+  ctx.closePath();
+  ctx.moveTo(16.87, 4);
+  ctx.fill('evenodd');
+  // W
+  ctx.beginPath();
+  ctx.moveTo(23.76, 8);
+  ctx.lineTo(23.13, 5.43);
+  ctx.lineTo(22.51, 8);
+  ctx.lineTo(21.94, 8);
+  ctx.lineTo(21.35, 4);
+  ctx.lineTo(22, 4);
+  ctx.lineTo(22.31, 6.11);
+  ctx.lineTo(22.82, 4);
+  ctx.lineTo(23.44, 4);
+  ctx.lineTo(23.96, 6.11);
+  ctx.lineTo(24.27, 4);
+  ctx.lineTo(24.92, 4);
+  ctx.lineTo(24.32, 8);
+  ctx.closePath();
+  ctx.moveTo(23.76, 8);
+  ctx.fill('evenodd');
+  // A
+  ctx.beginPath();
+  ctx.moveTo(26.45, 6.23);
+  ctx.lineTo(27.26, 6.23);
+  ctx.lineTo(26.86, 5.11);
+  ctx.closePath();
+  ctx.moveTo(27.48, 6.88);
+  ctx.lineTo(26.23, 6.88);
+  ctx.lineTo(25.83, 8);
+  ctx.lineTo(25.16, 8);
+  ctx.lineTo(26.54, 4);
+  ctx.lineTo(27.17, 4);
+  ctx.lineTo(28.56, 8);
+  ctx.lineTo(27.88, 8);
+  ctx.closePath();
+  ctx.moveTo(27.48, 6.88);
+  ctx.fill('evenodd');
+  // Y
+  ctx.beginPath();
+  ctx.moveTo(30.36, 8);
+  ctx.lineTo(29.72, 8);
+  ctx.lineTo(29.72, 6.26);
+  ctx.lineTo(28.31, 4);
+  ctx.lineTo(29.07, 4);
+  ctx.lineTo(30.03, 5.54);
+  ctx.lineTo(31, 4);
+  ctx.lineTo(31.75, 4);
+  ctx.lineTo(30.36, 6.26);
+  ctx.closePath();
+  ctx.moveTo(30.36, 8);
+  ctx.fill('evenodd');
+  ctx.restore();
+}

@@ -1136,7 +1136,7 @@ function frame(now) {
   if(struckSeen.size>200)struckSeen.clear();
   // Signals show what the simulation's traffic is obeying, on the same clock.
   signs.group.visible=!cityView||Boolean(viewOverride);
-  if(signs.group.visible)signs.update(sim.junctions,lit,sim.elapsed);
+  if(signs.group.visible)signs.update(sim.junctions,lit,sim.elapsed,streetscape?.walks(),sim.paintedCrossings);
   // How much traffic, and whose cabs, follows the hour and the neighbourhood.
   // It joins the streets where the camera is not looking.
   lifeTimer-=dt;

@@ -248,6 +248,40 @@ export function insideIndexed(index, x, z) {
   return inside;
 }
 
+/** Match a painted street mouth to one approaching arm inside its own intersection outline. */
+export function matchPaintedCrossings(junctions, crossings) {
+  const grid = new Map(), matches = new Map(), scores = new Map();
+  for (const j of junctions) {
+    const key = Math.floor(j.x / 64) + ',' + Math.floor(j.z / 64);
+    if (!grid.has(key)) grid.set(key, []);
+    grid.get(key).push(j);
+  }
+  for (const crossing of crossings) {
+    const { a, b, nx, nz, outline } = crossing;
+    const mx = (a.x + b.x) / 2, mz = (a.z + b.z) / 2;
+    let best = null;
+    for (let gx = Math.floor(outline.minX / 64); gx <= Math.floor(outline.maxX / 64); gx++)
+      for (let gz = Math.floor(outline.minZ / 64); gz <= Math.floor(outline.maxZ / 64); gz++)
+        for (const j of grid.get(gx + ',' + gz) || []) {
+          if (!insideIndexed(outline, j.x, j.z)) continue;
+          const dx = mx - j.x, dz = mz - j.z;
+          j.arms.forEach((arm, index) => {
+            const ux = Math.sin(arm.angle), uz = Math.cos(arm.angle), alignment = ux * nx + uz * nz;
+            const lateral = Math.abs(dx * uz - dz * ux), along = dx * ux + dz * uz;
+            if (alignment < .6 || along <= 0 || lateral > arm.width / 2 + 2) return;
+            const score = lateral + along * .12 + (1 - alignment) * 10;
+            if (!best || score < best.score) best = { j, index, score };
+          });
+        }
+    if (!best) continue;
+    const { j, index, score } = best;
+    if (!matches.has(j.plan)) { matches.set(j.plan, []); scores.set(j.plan, []); }
+    if (score >= (scores.get(j.plan)[index] ?? Infinity)) continue;
+    matches.get(j.plan)[index] = crossing; scores.get(j.plan)[index] = score;
+  }
+  return matches;
+}
+
 /** A coarse grid over indexed polygons, for "which outline is this point in". */
 class SurfaceGrid {
   constructor(size = 16) { this.size = size; this.cells = new Map(); }
@@ -357,7 +391,7 @@ function paint(writer, heightAt, ax, az, bx, bz, width, color) {
  */
 export async function buildCell(surfaces, roads, { heightAt = () => 0, bounds = null, pause = async () => {}, excluded = null, census = null } = {}) {
   const road = new MeshWriter(), walk = new MeshWriter(3), marks = new MeshWriter(3);
-  const grid = new SurfaceGrid(), lamps = [], entries = [], trees = [], planted = [], kerbs = [], parking = [], walks = [];
+  const grid = new SurfaceGrid(), lamps = [], entries = [], trees = [], planted = [], kerbs = [], parking = [], walks = [], crossings = [];
   const sample = (x, z) => { const value = heightAt(x, z); return finite(value) ? value : 0; };
   const owned = surface => {
     if (!bounds) return true;
@@ -576,20 +610,28 @@ export async function buildCell(surfaces, roads, { heightAt = () => 0, bounds = 
       const tx = dx / length, tz = dz / length;
       // Ladder crossing: bars along the direction of travel, a pace apart.
       const bars = Math.floor((length - .8) / 1.1), start = (length - (bars - 1) * 1.1) / 2;
+      let firstBar, lastBar;
       for (let k = 0; k < bars; k++) {
         const s = start + k * 1.1, x = a[0] + tx * s, z = a[1] + tz * s;
         if (!carriageway(x + nx * 3.6, z + nz * 3.6)) continue;
+        const centre = { x: x + nx * 2.2, z: z + nz * 2.2 };
+        firstBar ??= centre; lastBar = centre;
         paint(marks, sample, x + nx * .7, z + nz * .7, x + nx * 3.7, z + nz * 3.7, .55, WHITE);
       }
+      if (!firstBar || firstBar === lastBar) continue;
+      const crossing = { a: firstBar, b: lastBar, nx, nz, outline: entry.index, stopLine: null };
+      crossings.push(crossing);
       // The stop line sits a car's length back, across the lanes that arrive here.
       const mx = (a[0] + b[0]) / 2, mz = (a[1] + b[1]) / 2, flow = flowAt(mx + nx * 6, mz + nz * 6, nx, nz);
       if (flow === 'away') continue;
       const ox = nx * 5.2, oz = nz * 5.2;
       if (!carriageway(mx + ox, mz + oz)) continue;
       // Traffic keeps right: arriving lanes are on the right of the way in.
-      const rightward = (-nz) * tx + nx * tz > 0;
+      const rightward = nz * tx - nx * tz > 0;
       const from = flow === 'both' ? (rightward ? length / 2 + .2 : .5) : .5, to = flow === 'both' ? (rightward ? length - .5 : length / 2 - .2) : length - .5;
-      paint(marks, sample, a[0] + tx * from + ox, a[1] + tz * from + oz, a[0] + tx * to + ox, a[1] + tz * to + oz, .4, WHITE);
+      const line = { ax: a[0] + tx * from + ox, az: a[1] + tz * from + oz, bx: a[0] + tx * to + ox, bz: a[1] + tz * to + oz };
+      crossing.stopLine = line;
+      paint(marks, sample, line.ax, line.az, line.bx, line.bz, .4, WHITE);
     }
   }
   // --- Kerbside parking ---------------------------------------------------------
@@ -679,7 +721,7 @@ export async function buildCell(surfaces, roads, { heightAt = () => 0, bounds = 
     const first = run.points[0], last = run.points.at(-1);
     run.id = `walk:${Math.round(first[0] * 2)}:${Math.round(first[1] * 2)}:${Math.round(last[0] * 2)}:${Math.round(last[1] * 2)}`;
   }
-  return { road, walk, marks, grid, lamps, trees, fences, parking, walks, surfaces: drawn };
+  return { road, walk, marks, grid, lamps, trees, fences, parking, walks, crossings, surfaces: drawn };
 }
 
 // --- Materials ------------------------------------------------------------------
@@ -807,6 +849,7 @@ export function createStreetscape({ scene, index = null, origin = CITY_ORIGIN, h
   if (stairOpenings) for (const material of Object.values(materials)) stairOpenings.clip(material);
   const cells = new Map();
   let wanted = new Set(), disposed = false, serial = 0, terrainRevision = 0, selection = '', active = 0, replacement = null;
+  let crossingCache;
   let lampList = [], treeList = [], parkingList = [], walkList = [], lampsStale = true, treesStale = true, parkingStale = true, walksStale = true;
   const excluded = surface => replacement && surface.polygon.some(([x, z]) => x >= replacement.minX && x <= replacement.maxX && z >= replacement.minZ && z <= replacement.maxZ);
   // Counts describe the cells in use around the player, not everything cached.
@@ -860,7 +903,7 @@ export function createStreetscape({ scene, index = null, origin = CITY_ORIGIN, h
       } else mesh.geometry.dispose();
     }
     cell.fence = null; cell.panels = null;
-    cell.meshes = null; cell.grid = null; cell.lamps = null; cell.trees = null; cell.parking = null; cell.walks = null; cell.ready = false; lampsStale = treesStale = parkingStale = walksStale = true;
+    cell.meshes = null; cell.grid = null; cell.lamps = null; cell.trees = null; cell.parking = null; cell.walks = null; cell.crossings = null; cell.ready = false; lampsStale = treesStale = parkingStale = walksStale = true;
   }
   function install(cell, built) {
     release(cell);
@@ -874,7 +917,7 @@ export function createStreetscape({ scene, index = null, origin = CITY_ORIGIN, h
       group.add(mesh); cell.meshes.push(mesh);
     }
     if (built.fences.length) installFence(cell,built.fences);
-    cell.grid = built.grid; cell.lamps = built.lamps; cell.trees = built.trees; cell.parking = built.parking; cell.walks = built.walks; cell.surfaces = built.surfaces; cell.ready = true; cell.revision = terrainRevision;
+    cell.grid = built.grid; cell.lamps = built.lamps; cell.trees = built.trees; cell.parking = built.parking; cell.walks = built.walks; cell.crossings = built.crossings; cell.surfaces = built.surfaces; cell.ready = true; cell.revision = terrainRevision;
     lampsStale = treesStale = parkingStale = walksStale = true;
   }
   async function load(cell) {
@@ -995,6 +1038,15 @@ export function createStreetscape({ scene, index = null, origin = CITY_ORIGIN, h
         for (const key of wanted) { const cell = cells.get(key); if (cell?.walks) walkList.push(...cell.walks); }
       }
       return walkList;
+    },
+    paintedCrossings(junctions) {
+      const walks = this.walks();
+      if (walks !== crossingCache?.walks || junctions !== crossingCache?.junctions) {
+        const crossings = [];
+        for (const key of wanted) crossings.push(...(cells.get(key)?.crossings || []));
+        crossingCache = { walks, junctions, matches: matchPaintedCrossings(junctions, crossings) };
+      }
+      return crossingCache.matches;
     },
     parking() {
       if (parkingStale) {

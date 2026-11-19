@@ -9,6 +9,9 @@
 // them. Which lamp is lit comes from signal-plan.js; where the hardware
 // stands is worked out here from each junction's streets.
 import * as THREE from './vendor/three.module.min.js';
+import { paintStop, paintNoEntry } from './regulatory-signs.js';
+import { paintOneWay } from './one-way-sign.js';
+import { laneLayout } from './lanes.js';
 import { vehicleAspect, crossingAspect } from './signal-plan.js';
 
 const TAU = Math.PI * 2;
@@ -18,8 +21,9 @@ const unit = angle => [Math.sin(angle), Math.cos(angle)];
 /** Lens centres above the bottom of a three-lamp head, red on top: twelve-inch lenses. */
 export const HEAD = { width: .36, height: 1.07, depth: .22, lens: .15, lamps: [.89, .535, .18] };
 export const PEDESTRIAN_HEAD = { size: .46, depth: .16, height: 2.75 };
-const MAST = { height: 6.5, pole: 7.3, reach: [3.6, 9] };
-const SIGN_HEIGHT = 3.15, NAME = { width: 1.1, height: .24 }, ARROW = { width: .92, height: .31 }, STOP = { size: .76, height: 2.3 };
+const MAST = { height: 6.5, pole: 7.3, maxReach: 12 };
+const POLE_HEAD_BOTTOM = 3.05;
+const NAME = { width: 1.1, height: .24 }, ARROW = { width: .9144, height: .3048 }, STOP = { size: .76, height: 2.3 };
 
 /**
  * Sign text the way the city sets it: "W 42 ST" becomes "W 42 St", avenues
@@ -39,7 +43,7 @@ export function signText(name) {
     if (/^\d/.test(upper)) return upper.replace(/(ST|ND|RD|TH)$/, '');
     if (upper.length <= 2 && /^[NSEW]{1,2}$/.test(upper)) return upper;
     return upper[0] + upper.slice(1).toLowerCase();
-  }).join(' ').slice(0, 22);
+  }).join(' ');
 }
 
 /**
@@ -50,15 +54,15 @@ export function signText(name) {
  *
  * Returns positions in the plane; heights are added when drawn:
  *   corners     [{ x, z }] one for each pair of neighbouring streets
- *   signals     [{ x, z, heading, reach, across: [dx, dz], group, corner }] a mast for each approach
+ *   signals     [{ x, z, heading, reach, across: [dx, dz], heads, group, corner }] head distances along each mast
  *   crossings   [{ x, z, heading, group, corner }] pedestrian heads, `group` being the street crossed
  *   stops       [{ x, z, heading }] stop signs
  *   names       [{ x, z, heading, text }] street-name signs, readable from both sides
  *   arrows      [{ x, z, heading, right }] ONE WAY signs; `right` if the arrow points to the reader's right
  * `heading` is the way a face looks, toward whoever reads it.
  */
-export function layoutJunction(junction, { raised = null } = {}) {
-  const { x, z, plan, arms } = junction, layout = { corners: [], signals: [], crossings: [], stops: [], names: [], arrows: [] };
+export function layoutJunction(junction, { raised = null, crossings = [] } = {}) {
+  const { x, z, plan, arms } = junction, layout = { corners: [], signals: [], crossings: [], stops: [], names: [], arrows: [], noEntry: [] };
   if (!plan || !Array.isArray(arms)) return layout;
   const order = arms.map((arm, index) => ({ arm, index, angle: mod(arm.angle, TAU) })).filter(entry => plan.groups[entry.index] >= 0).sort((a, b) => a.angle - b.angle);
   if (order.length < 3) return layout;
@@ -70,7 +74,14 @@ export function layoutJunction(junction, { raised = null } = {}) {
     const outward = [ua[0] + ub[0], ua[1] + ub[1]], length = Math.hypot(...outward) || 1;
     let px = x + ua[0] * alpha + ub[0] * beta + outward[0] / length * 1.7, pz = z + ua[1] * alpha + ub[1] * beta + outward[1] / length * 1.7;
     // Corners are rounded, and outlines differ from centrelines: step back onto the sidewalk.
-    if (raised) for (let step = 0; step < 6 && !raised(px, pz); step++) { px += outward[0] / length * .6; pz += outward[1] / length * .6; }
+    if (raised) {
+      let surface = raised(px, pz);
+      for (let step = 0; step < 6 && surface === false; step++) {
+        px += outward[0] / length * .6; pz += outward[1] / length * .6;
+        surface = raised(px, pz);
+      }
+      if (surface === false) continue;
+    }
     layout.corners.push({ x: px, z: pz, between: [a.index, b.index], angles: [a.angle, b.angle] });
   }
   if (!layout.corners.length) return layout;
@@ -82,8 +93,18 @@ export function layoutJunction(junction, { raised = null } = {}) {
     if (plan.control === 'signal') {
       // Far side, driver's right: where the eye already is when waiting at the line.
       const corner = best((dx, dz) => dx * (-u[0] + right[0]) + dz * (-u[1] + right[1]));
-      const reach = Math.max(MAST.reach[0], Math.min(MAST.reach[1], arm.width * .62));
-      layout.signals.push({ x: corner.x, z: corner.z, heading: angle, reach, across: [-right[0], -right[1]], group, corner: layout.corners.indexOf(corner) });
+      const lateral = (corner.x - x) * right[0] + (corner.z - z) * right[1];
+      const lanes = laneLayout(arm.width, !arm.outbound);
+      const offsets = lanes.driven
+        ? Array.from({ length: lanes.count }, (_, i) => lanes.first + i * lanes.step)
+        : [Math.min(2.5, Math.max(.65, arm.width * .19))];
+      // At a T the available pole may be on the left. Reach toward the lanes from either kerb.
+      const direction = lateral >= (offsets[0] + offsets.at(-1)) / 2 ? -1 : 1;
+      const spans = offsets.map(offset => (offset - lateral) * direction)
+        .filter(span => span >= HEAD.width && span + .18 <= MAST.maxReach).sort((a, b) => a - b);
+      const heads = spans.length > 1 ? [spans[0], spans.at(-1)] : spans;
+      const reach = heads.length ? heads.at(-1) + .18 : 0;
+      layout.signals.push({ x: corner.x, z: corner.z, heading: angle, reach, heads, across: [direction * right[0], direction * right[1]], group, corner: layout.corners.indexOf(corner) });
       used.add(corner);
     } else if (plan.control === 'allway' || group === 1) {
       // Near side, driver's right, before the crossing.
@@ -92,89 +113,200 @@ export function layoutJunction(junction, { raised = null } = {}) {
       used.add(corner);
     }
   }
+  // Stand on the right of a driver about to enter against traffic. If that corner
+  // is missing at a T, only the other corner of the same street mouth is eligible.
+  const noEntryCorners = new Map();
+  for (const { arm, index, angle } of order) {
+    if (!arm.oneway || !arm.inbound || arm.outbound) continue;
+    const corner = layout.corners.find(c => c.between[1] === index) ?? layout.corners.find(c => c.between[0] === index);
+    if (!corner) continue;
+    if (!noEntryCorners.has(corner)) noEntryCorners.set(corner, []);
+    noEntryCorners.get(corner).push(angle + Math.PI);
+    used.add(corner);
+  }
   layout.corners.forEach((corner, n) => {
     const [a, b] = corner.between, [angleA, angleB] = corner.angles;
     if (plan.control === 'signal') {
       // Each corner shows a head to whoever is walking toward it on either crossing.
-      layout.crossings.push({ x: corner.x, z: corner.z, heading: angleB + Math.PI, group: plan.groups[a], corner: n });
-      layout.crossings.push({ x: corner.x, z: corner.z, heading: angleA + Math.PI, group: plan.groups[b], corner: n });
+      if (!crossings[a]) layout.crossings.push({ x: corner.x, z: corner.z, heading: angleB + Math.PI, group: plan.groups[a], corner: n });
+      if (!crossings[b]) layout.crossings.push({ x: corner.x, z: corner.z, heading: angleA + Math.PI, group: plan.groups[b], corner: n });
     }
     // Names and arrows on alternate corners, as the city spaces them; on every corner that already has a pole at a stop sign.
-    if (n % 2 && plan.control === 'signal') return;
     if (plan.control !== 'signal' && !used.has(corner)) return;
+    const roadsideHead = layout.signals.some(signal => signal.corner === n && !signal.reach);
+    const hardwareTop = roadsideHead ? POLE_HEAD_BOTTOM + HEAD.height : plan.control === 'signal'
+      ? PEDESTRIAN_HEAD.height + PEDESTRIAN_HEAD.size / 2 : STOP.height + STOP.size / 2;
+    const poleInset = layout.signals.some(signal => signal.corner === n && signal.reach) ? .135 : .055;
+    let bladeBottom = hardwareTop + .12;
+    for (const heading of noEntryCorners.get(corner) || []) {
+      const height = bladeBottom + STOP.size / 2;
+      layout.noEntry.push({ x: corner.x, z: corner.z, heading, height });
+      bladeBottom += STOP.size + .08;
+      corner.signTop = bladeBottom;
+    }
+    if (n % 2 && plan.control === 'signal') return;
     for (const [index, angle] of [[a, angleA], [b, angleB]]) {
       const arm = arms[index], text = signText(arm.name);
       // A sign names the street it is parallel to, and reads from both sides.
-      if (text) layout.names.push({ x: corner.x, z: corner.z, heading: angle + Math.PI / 2, text }, { x: corner.x, z: corner.z, heading: angle - Math.PI / 2, text });
+      const mount = size => {
+        const [dx, dz] = unit(angle), reach = size.width / 2 + poleInset;
+        const position = { x: corner.x, z: corner.z, dx: dx * reach, dz: dz * reach, height: bladeBottom + size.height / 2 };
+        bladeBottom += size.height + .05;
+        return position;
+      };
       if (arm.oneway && arm.inbound !== arm.outbound) {
+        const position = mount(ARROW);
         // Traffic on this street runs toward the junction along an inbound arm, away along an outbound one.
         const flow = arm.inbound ? unit(angle + Math.PI) : unit(angle);
         for (const heading of [angle + Math.PI / 2, angle - Math.PI / 2]) {
           const reader = [Math.cos(heading), -Math.sin(heading)];
-          layout.arrows.push({ x: corner.x, z: corner.z, heading, right: flow[0] * reader[0] + flow[1] * reader[1] > 0 });
+          layout.arrows.push({ ...position, heading, right: flow[0] * reader[0] + flow[1] * reader[1] > 0 });
         }
       }
+      if (text) {
+        const width = bladeWidth(text), position = mount({ width, height: NAME.height });
+        for (const heading of [angle + Math.PI / 2, angle - Math.PI / 2]) layout.names.push({ ...position, heading, text, width });
+      }
+    }
+    corner.signTop = bladeBottom;
+  });
+  layout.poles = layout.corners.map(corner => ({ x: corner.x, z: corner.z, height: Math.max(plan.control === 'signal' ? POLE_HEAD_BOTTOM + HEAD.height : 3.85, corner.signTop || 0), mast: layout.signals.some(signal => signal.reach && layout.corners[signal.corner] === corner) }))
+    .filter((pole, n) => pole.mast || plan.control === 'signal' || used.has(layout.corners[n]));
+  if (plan.control === 'signal') crossings.forEach((stripe, arm) => {
+    const ends = [stripe.a, stripe.b];
+    for (const [side, end] of ends.entries()) {
+      const opposite = ends[1 - side], dx = end.x - opposite.x, dz = end.z - opposite.z;
+      const span = Math.hypot(dx, dz);
+      // Reuse a corner pole only on this bank of this crossing.
+      let post = null, nearest = Math.min(5, span / 2);
+      for (const corner of layout.corners) {
+        if (!corner.between.includes(arm)) continue;
+        const d = Math.hypot(corner.x - end.x, corner.z - end.z);
+        if (d < nearest) { nearest = d; post = corner; }
+      }
+      if (!post) {
+        for (let inset = 1.2; inset <= 4.2; inset += .5) {
+          const px = end.x + dx / span * inset, pz = end.z + dz / span * inset;
+          if (raised?.(px, pz) === false) continue;
+          post = { x: px, z: pz, height: 3.05, mast: false };
+          const existing = layout.poles.find(p => Math.hypot(p.x - px, p.z - pz) < .85);
+          if (existing) post = existing; else layout.poles.push(post);
+          break;
+        }
+      }
+      if (post) layout.crossings.push({ x: post.x, z: post.z, heading: Math.atan2(opposite.x - post.x, opposite.z - post.z), group: plan.groups[arm] });
     }
   });
-  layout.poles = layout.corners.map(corner => ({ x: corner.x, z: corner.z, mast: layout.signals.some(signal => layout.corners[signal.corner] === corner) }))
-    .filter((pole, n) => pole.mast || plan.control === 'signal' || used.has(layout.corners[n]));
   return layout;
 }
 
 // --- Sign faces, painted once -------------------------------------------------------
 const GREEN = '#00694b', ROWS = 64;
-function paintAtlas(canvas, names) {
-  const context = canvas.getContext('2d'), width = canvas.width, row = canvas.height / ROWS;
-  context.clearRect(0, 0, width, canvas.height);
+function bladeWidth(text) {
+  return Math.max(.68, Math.min(3.6, .22 + text.length * .086));
+}
+function paintAtlas(canvas, names, columns) {
+  const context = canvas.getContext('2d'), width = canvas.width / columns, row = canvas.height / ROWS;
+  context.clearRect(0, 0, canvas.width, canvas.height);
   context.textBaseline = 'middle'; context.textAlign = 'center';
-  // Row 0: ONE WAY, arrow to the right; row 1: to the left. Rows 2 and 3 and 4: STOP, the hand, the walking figure.
-  for (const [n, direction] of [[0, 1], [1, -1]]) {
-    const y = n * row;
-    context.fillStyle = '#0c0c0c'; context.fillRect(0, y, width, row);
-    context.save(); context.translate(width / 2, y + row / 2); context.scale(direction, 1);
-    context.fillStyle = '#f3f3ee'; context.beginPath();
-    const w = width * .44, h = row * .3;
-    context.moveTo(-w, -h); context.lineTo(w * .52, -h); context.lineTo(w * .52, -row * .43); context.lineTo(w, 0); context.lineTo(w * .52, row * .43); context.lineTo(w * .52, h); context.lineTo(-w, h); context.closePath(); context.fill();
-    context.restore();
-    context.fillStyle = '#0c0c0c'; context.font = `700 ${Math.round(row * .42)}px "Arial Narrow", Arial, sans-serif`;
-    context.fillText('ONE WAY', width / 2 - direction * width * .07, y + row / 2 + 1);
-  }
+  // Rows 0 and 1 hold the ONE WAY arrows. Street names begin at row 5.
+  paintOneWay(context, width, row, true);
+  context.save(); context.translate(0, row);
+  paintOneWay(context, width, row, false);
+  context.restore();
   context.font = `600 ${Math.round(row * .62)}px "Helvetica Neue", Arial, sans-serif`;
   names.forEach((text, n) => {
-    const y = (n + 5) * row;
+    const cell = n + 5, y = cell % ROWS * row;
+    context.save(); context.translate(Math.floor(cell / ROWS) * width, 0);
     context.fillStyle = '#f3f3ee'; context.fillRect(0, y, width, row);
     context.fillStyle = GREEN; context.fillRect(4, y + 3, width - 8, row - 6);
-    context.fillStyle = '#f6f6f1'; context.fillText(text, width / 2, y + row / 2 + 1, width - 28);
+    // Paint in physical blade proportions before stretching into the atlas row.
+    const pixels = row * bladeWidth(text) / NAME.height;
+    context.save(); context.scale(width / pixels, 1);
+    context.fillStyle = '#f6f6f1'; context.fillText(text, pixels / 2, y + row / 2 + 1, pixels - 12);
+    context.restore(); context.restore();
   });
 }
 function paintSymbols(canvas) {
-  // Three squares side by side: STOP, the raised hand, the walking figure.
+  // Atlas cells: STOP, raised hand, walking figure, DO NOT ENTER.
   const context = canvas.getContext('2d'), s = canvas.height;
   context.clearRect(0, 0, canvas.width, s);
-  context.save(); context.translate(s / 2, s / 2);
-  const octagon = radius => { context.beginPath(); for (let i = 0; i < 8; i++) { const a = Math.PI / 8 + i * Math.PI / 4; context[i ? 'lineTo' : 'moveTo'](Math.cos(a) * radius, Math.sin(a) * radius); } context.closePath(); };
-  context.fillStyle = '#f3f3ee'; octagon(s * .5); context.fill();
-  context.fillStyle = '#b01c22'; octagon(s * .455); context.fill();
-  context.fillStyle = '#f6f6f1'; context.font = `700 ${Math.round(s * .3)}px "Arial Narrow", Arial, sans-serif`; context.textAlign = 'center'; context.textBaseline = 'middle';
-  context.fillText('STOP', 0, s * .015);
-  context.restore();
-  // The hand: a palm and four fingers, thumb to the side.
-  context.save(); context.translate(s * 1.5, s / 2); context.fillStyle = '#ffffff';
-  const bar = (x, y, w, h, r) => { context.beginPath(); context.roundRect ? context.roundRect(x, y, w, h, r) : context.rect(x, y, w, h); context.fill(); };
-  bar(-s * .17, -s * .02, s * .34, s * .32, s * .08);
-  [[-.165, -.24, .2], [-.075, -.31, .3], [.015, -.3, .29], [.105, -.23, .22]].forEach(([fx, fy, fh]) => bar(s * fx, s * fy, s * .068, s * (fh + .1), s * .034));
-  context.save(); context.rotate(-.75); bar(-s * .30, s * .0, s * .075, s * .2, s * .037); context.restore();
-  context.restore();
-  // The walking figure, mid-stride.
-  context.save(); context.translate(s * 2.5, s / 2); context.fillStyle = '#ffffff'; context.strokeStyle = '#ffffff'; context.lineCap = 'round'; context.lineJoin = 'round';
-  context.beginPath(); context.arc(s * .03, -s * .3, s * .065, 0, TAU); context.fill();
-  const stroke = (points, w) => { context.lineWidth = s * w; context.beginPath(); points.forEach(([px, py], i) => context[i ? 'lineTo' : 'moveTo'](s * px, s * py)); context.stroke(); };
-  stroke([[.01, -.2], [-.03, .03]], .1);                     // body
-  stroke([[-.03, .03], [.09, .17], [.07, .34]], .065);       // leading leg
-  stroke([[-.03, .03], [-.1, .18], [-.2, .31]], .065);       // trailing leg
-  stroke([[0, -.17], [.13, -.06], [.19, .04]], .05);         // forward arm
-  stroke([[0, -.17], [-.12, -.08], [-.15, .03]], .05);       // back arm
-  context.restore();
+  paintStop(context, s);
+  context.save(); context.translate(3 * s, 0); paintNoEntry(context, s); context.restore();
+  // Filled silhouettes from FHWA MUTCD Figure 4I-1, panel B, in a 100-unit square.
+  // Upraised hand.
+  context.save();
+  context.translate(s * 1, 0); context.scale(s / 100, s / 100);
+  context.fillStyle = '#fff'; context.beginPath();
+  context.moveTo(27.5, 91.4);
+  context.bezierCurveTo(28.3, 90.4, 29.1, 89.4, 29.2, 87.8);
+  context.lineTo(29.2, 75.8);
+  context.bezierCurveTo(29.2, 70.6, 27.4, 69.7, 25.7, 68.1);
+  context.bezierCurveTo(22.9, 65.4, 23.3, 61.7, 23.5, 56.9);
+  context.bezierCurveTo(23.9, 43.5, 24.4, 35.4, 24.5, 22.9);
+  context.bezierCurveTo(24.5, 21.3, 25.8, 20.0, 27.4, 20.0);
+  context.bezierCurveTo(29.0, 20.0, 30.3, 21.3, 30.3, 22.9);
+  context.lineTo(31.3, 43.2);
+  context.lineTo(32.6, 43.2);
+  context.bezierCurveTo(32.8, 33.9, 33.2, 24.5, 33.2, 15.2);
+  context.bezierCurveTo(33.2, 13.6, 34.5, 12.3, 36.1, 12.3);
+  context.bezierCurveTo(37.7, 12.3, 39.0, 13.6, 39.0, 15.2);
+  context.bezierCurveTo(39.0, 15.2, 39.0, 15.3, 39.0, 15.3);
+  context.lineTo(39.4, 43.2);
+  context.lineTo(40.8, 43.2);
+  context.bezierCurveTo(41.1, 32.7, 41.9, 21.9, 41.9, 11.4);
+  context.bezierCurveTo(41.9, 9.8, 43.2, 8.5, 44.8, 8.5);
+  context.bezierCurveTo(46.4, 8.5, 47.7, 9.8, 47.7, 11.4);
+  context.bezierCurveTo(47.7, 11.4, 47.7, 11.4, 47.7, 11.4);
+  context.lineTo(48.3, 43.2);
+  context.lineTo(50.1, 43.2);
+  context.bezierCurveTo(50.2, 33.8, 50.3, 24.4, 50.4, 15.1);
+  context.bezierCurveTo(50.4, 13.5, 51.7, 12.3, 53.3, 12.3);
+  context.bezierCurveTo(54.8, 12.3, 56.1, 13.6, 56.2, 15.2);
+  context.lineTo(57.6, 52.5);
+  context.bezierCurveTo(57.6, 53.2, 58.2, 53.7, 58.9, 53.7);
+  context.bezierCurveTo(59.3, 53.7, 60.2, 53.5, 60.9, 52.4);
+  context.lineTo(67.4, 42.9);
+  context.bezierCurveTo(69.9, 39.4, 73.2, 38.7, 77.1, 40.2);
+  context.bezierCurveTo(74.7, 44.7, 69.7, 55.9, 64.7, 62.1);
+  context.bezierCurveTo(62.0, 66.3, 53.1, 70.4, 53.1, 75.8);
+  context.lineTo(53.1, 86.7);
+  context.bezierCurveTo(53.1, 89.0, 55.4, 91.5, 55.3, 91.4);
+  context.closePath();
+  context.moveTo(27.5, 91.4);
+  context.fill(); context.restore();
+  // Walking person.
+  context.save();
+  context.translate(s * 2, 0); context.scale(s / 100, s / 100);
+  context.fillStyle = '#fff'; context.beginPath();
+  context.moveTo(53.6, 8.5);
+  context.bezierCurveTo(50.3, 8.5, 47.6, 11.2, 47.6, 14.6);
+  context.bezierCurveTo(47.6, 17.9, 50.3, 20.6, 53.6, 20.6);
+  context.bezierCurveTo(57.0, 20.6, 59.7, 17.9, 59.7, 14.6);
+  context.bezierCurveTo(59.7, 11.2, 57.0, 8.5, 53.6, 8.5);
+  context.moveTo(72.0, 46.8);
+  context.lineTo(59.3, 38.3);
+  context.bezierCurveTo(58.7, 35.8, 56.2, 24.8, 51.3, 22.2);
+  context.bezierCurveTo(46.5, 19.0, 28.6, 32.2, 28.5, 32.3);
+  context.lineTo(28.5, 51.5);
+  context.lineTo(32.4, 50.8);
+  context.lineTo(33.9, 35.5);
+  context.bezierCurveTo(35.4, 35.2, 36.8, 34.9, 38.3, 34.6);
+  context.bezierCurveTo(35.1, 42.9, 33.9, 50.8, 35.7, 56.1);
+  context.lineTo(28.0, 87.8);
+  context.lineTo(33.2, 91.5);
+  context.lineTo(44.5, 62.1);
+  context.lineTo(49.7, 67.7);
+  context.lineTo(57.0, 89.8);
+  context.lineTo(63.9, 87.3);
+  context.lineTo(57.7, 64.0);
+  context.lineTo(50.4, 51.0);
+  context.lineTo(53.2, 41.4);
+  context.lineTo(56.2, 45.3);
+  context.lineTo(70.0, 49.8);
+  context.closePath();
+  context.moveTo(72.0, 46.8);
+  context.fill(); context.restore();
 }
 
 /**
@@ -189,20 +321,27 @@ export function createStreetSigns({ scene, heightAt = () => 0, raised = null, cr
   // A lit lamp is brighter than daylight on the wall behind it; an unlit one is nearly black.
   const lamp = new THREE.MeshBasicMaterial({ color: 0xffffff, toneMapped: false, fog: false }); lamp.name = 'Signal lamps';
   const atlasCanvas = createCanvas(); atlasCanvas.width = 512; atlasCanvas.height = ROWS * 64;
-  const symbolCanvas = createCanvas(); symbolCanvas.width = 768; symbolCanvas.height = 256;
+  const symbolCanvas = createCanvas(); symbolCanvas.width = 1024; symbolCanvas.height = 256;
   const atlas = new THREE.CanvasTexture(atlasCanvas), symbols = new THREE.CanvasTexture(symbolCanvas);
   for (const texture of [atlas, symbols]) { texture.colorSpace = THREE.SRGBColorSpace; texture.anisotropy = 4; }
   paintSymbols(symbolCanvas);
   // One quad for every flat sign; each instance picks its own rectangle of a texture.
   const cut = (material, attribute) => {
     material.onBeforeCompile = shader => {
-      shader.vertexShader = `attribute vec4 ${attribute};\n${shader.vertexShader}`.replace('#include <uv_vertex>', `#include <uv_vertex>\n#ifdef USE_MAP\nvMapUv = ${attribute}.xy + vMapUv * ${attribute}.zw;\n#endif`);
+      shader.vertexShader = `attribute vec4 ${attribute};\n${shader.vertexShader}`.replace('#include <uv_vertex>', `#include <uv_vertex>\n#ifdef USE_MAP\nvMapUv = ${attribute}.xy + vMapUv * ${attribute}.zw;\n#endif\n#ifdef USE_EMISSIVEMAP\nvEmissiveMapUv = vMapUv;\n#endif`);
     };
     return material;
   };
   // Retroreflective sheeting: lit like anything else by day, and never quite dark at night.
-  const face = cut(new THREE.MeshStandardMaterial({ map: atlas, roughness: .55, metalness: 0, emissive: 0xffffff, emissiveMap: atlas, emissiveIntensity: .12 }), 'aCell'); face.name = 'Street sign faces';
-  const stopFace = cut(new THREE.MeshStandardMaterial({ map: symbols, roughness: .55, metalness: 0, alphaTest: .5, emissive: 0xffffff, emissiveMap: symbols, emissiveIntensity: .12 }), 'aCell'); stopFace.name = 'Stop sign faces';
+  const face = cut(new THREE.MeshStandardMaterial({ map: atlas, alphaTest: .4, roughness: .55, metalness: 0, emissive: 0xffffff, emissiveMap: atlas, emissiveIntensity: .12 }), 'aCell'); face.name = 'Street sign faces';
+  const stopFace = cut(new THREE.MeshStandardMaterial({ side: THREE.DoubleSide, map: symbols, roughness: .55, metalness: 0, alphaTest: .5, emissive: 0xffffff, emissiveMap: symbols, emissiveIntensity: .12 }), 'aCell'); stopFace.name = 'Stop sign faces';
+  const mapBoard = stopFace.onBeforeCompile;
+  stopFace.onBeforeCompile = shader => {
+    mapBoard(shader);
+    shader.fragmentShader = shader.fragmentShader
+      .replace('#include <map_fragment>', '#include <map_fragment>\nif (!gl_FrontFacing) diffuseColor.rgb = vec3(0.38);')
+      .replace('#include <emissivemap_fragment>', '#include <emissivemap_fragment>\nif (!gl_FrontFacing) totalEmissiveRadiance = vec3(0.0);');
+  };
   const figure = cut(new THREE.MeshBasicMaterial({ map: symbols, transparent: true, depthWrite: false, toneMapped: false, fog: false }), 'aCell'); figure.name = 'Pedestrian signal figures';
 
   const quad = () => new THREE.PlaneGeometry(1, 1);
@@ -219,7 +358,7 @@ export function createStreetSigns({ scene, heightAt = () => 0, raised = null, cr
     poles: make('Signal poles', pole, steel, capacity >> 2), arms: make('Signal mast arms', beam, steel, capacity >> 3),
     heads: make('Signal heads', box, housing, capacity >> 1), lamps: make('Signal lamps', disc, lamp, capacity * 2),
     walkers: make('Pedestrian signal housings', box.clone(), dark, capacity >> 1), figures: make('Pedestrian signal figures', quad(), figure, capacity, 'aCell'),
-    faces: make('Street sign faces', quad(), face, capacity, 'aCell'), stops: make('Stop signs', quad(), stopFace, capacity >> 2, 'aCell'),
+    faces: make('Street sign faces', quad(), face, capacity, 'aCell'), noEntry: make('Do not enter signs', quad(), stopFace, capacity >> 2, 'aCell'), stops: make('Stop signs', quad(), stopFace, capacity >> 2, 'aCell'),
   };
   for (const name of ['poles', 'arms', 'heads', 'walkers']) meshes[name].castShadow = true;
   meshes.lamps.instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(capacity * 2 * 3), 3);
@@ -230,90 +369,81 @@ export function createStreetSigns({ scene, heightAt = () => 0, raised = null, cr
     position.set(x, y, z); euler.set(0, heading, tilt); quaternion.setFromEuler(euler); scale.set(sx, sy, sz);
     matrix.compose(position, quaternion, scale); mesh.setMatrixAt(i, matrix);
   };
-  // What each lamp and figure is waiting on: [junction, kind, group, role].
-  let lamps = [], figures = [], shown = '', names = [];
-  const OFF = [.035, .03, .03], LIT = { red: [5.2, .25, .12], yellow: [5.2, 3.1, .12], green: [.1, 4.6, 1.5] }, HAND = [5.4, 1.5, .08], WALK = [4.6, 4.6, 4.3];
+  // Keep the plan and approach group for each live display.
+  let lamps = [], figures = [], shown = '', names = null;
+  const OFF = [.035, .03, .03], LIT = { red: [5.2, .25, .12], yellow: [5.2, 3.1, .12], green: [.1, 4.6, 1.5] }, HAND = [3.2, .20, .008], WALK = [4.6, 4.6, 4.3];
 
   function rebuild(junctions, distant) {
-    const count = { poles: 0, arms: 0, heads: 0, lamps: 0, walkers: 0, figures: 0, faces: 0, stops: 0 };
+    const count = { poles: 0, arms: 0, heads: 0, lamps: 0, walkers: 0, figures: 0, faces: 0, stops: 0, noEntry: 0 };
     lamps = []; figures = [];
-    const wanted = [...new Set(junctions.flatMap(junction => junction.layout.names.map(name => name.text)))].slice(0, ROWS - 5);
-    if (wanted.join('|') !== names.join('|')) { names = wanted; paintAtlas(atlasCanvas, names); atlas.needsUpdate = true; }
-    const cells = meshes.faces.geometry.getAttribute('aCell'), stopCells = meshes.stops.geometry.getAttribute('aCell'), figureCells = meshes.figures.geometry.getAttribute('aCell');
+    const wanted = [...new Set(junctions.flatMap(junction => junction.layout.names.map(name => name.text)))];
+    const columns = Math.ceil((wanted.length + 5) / ROWS);
+    if (!names || wanted.join('|') !== names.join('|')) {
+      names = wanted;
+      const width = Math.min(4096, 512 * columns);
+      if (atlasCanvas.width !== width) { atlas.dispose(); atlasCanvas.width = width; }
+      paintAtlas(atlasCanvas, names, columns); atlas.needsUpdate = true;
+    }
+    const cells = meshes.faces.geometry.getAttribute('aCell'), stopCells = meshes.stops.geometry.getAttribute('aCell');
     const room = (name, n = 1) => count[name] + n <= meshes[name].instanceMatrix.count;
+    function drawSignal(signal, plan, detailed) {
+      const headCount = signal.heads.length || 1;
+      if (!room('lamps', headCount * 3)) return;
+      if (detailed && (!room('heads', headCount) || (signal.reach && !room('arms')))) return;
+      const y = heightAt(signal.x, signal.z), [ax, az] = signal.across, facing = unit(signal.heading);
+      // The arm rises a little toward its tip, as a cantilever is built to.
+      const armHeading = Math.atan2(ax, az) - Math.PI / 2, rise = Math.atan2(.45, signal.reach);
+      if (detailed && signal.reach) place(meshes.arms, count.arms++, signal.x, y + MAST.height, signal.z, armHeading, Math.hypot(signal.reach, .45), 1, 1, rise);
+      // When no lane is within cantilever reach, keep a roadside signal on the pole.
+      const spots = signal.heads.length ? signal.heads.map(along => [along, MAST.height + .45 * along / signal.reach - HEAD.height]) : [[.28, POLE_HEAD_BOTTOM]];
+      for (const [along, bottom] of spots) {
+        const hx = signal.x + ax * along, hz = signal.z + az * along;
+        if (detailed) place(meshes.heads, count.heads++, hx - facing[0] * .02, y + bottom + HEAD.height / 2, hz - facing[1] * .02, signal.heading, HEAD.width, HEAD.height, HEAD.depth);
+        ['red', 'yellow', 'green'].forEach((colour, n) => {
+          place(meshes.lamps, count.lamps, hx + facing[0] * (HEAD.depth / 2 + .012), y + bottom + HEAD.lamps[n], hz + facing[1] * (HEAD.depth / 2 + .012), signal.heading, HEAD.lens, HEAD.lens, 1);
+          lamps[count.lamps++] = { plan, group: signal.group, colour };
+        });
+      }
+    }
     for (const junction of junctions) {
       const { layout, plan } = junction;
       const ground = (x, z) => heightAt(x, z);
       for (const item of layout.poles || []) {
         if (!room('poles')) break;
-        const y = ground(item.x, item.z), tall = item.mast ? MAST.pole : SIGN_HEIGHT + .7;
+        const y = ground(item.x, item.z), tall = item.mast ? MAST.pole : item.height;
         place(meshes.poles, count.poles++, item.x, y, item.z, 0, item.mast ? 1.25 : .62, tall, item.mast ? 1.25 : .62);
       }
-      for (const signal of layout.signals) {
-        if (!room('arms') || !room('heads', 3) || !room('lamps', 9)) break;
-        const y = ground(signal.x, signal.z), [ax, az] = signal.across, facing = unit(signal.heading);
-        // The arm rises a little toward its tip, as a cantilever is built to.
-        const armHeading = Math.atan2(ax, az) - Math.PI / 2, rise = Math.atan2(.45, signal.reach);
-        place(meshes.arms, count.arms++, signal.x, y + MAST.height, signal.z, armHeading, Math.hypot(signal.reach, .45), 1, 1, rise);
-        // Two heads over the roadway and one on the pole.
-        const spots = [[signal.reach * .96, MAST.height + .45 * .96 - HEAD.height - .12], [signal.reach * .52, MAST.height + .45 * .52 - HEAD.height - .12], [.34, 3.05]];
-        for (const [along, bottom] of spots) {
-          const hx = signal.x + ax * along, hz = signal.z + az * along;
-          place(meshes.heads, count.heads++, hx - facing[0] * .02, y + bottom + HEAD.height / 2, hz - facing[1] * .02, signal.heading, HEAD.width, HEAD.height, HEAD.depth);
-          ['red', 'yellow', 'green'].forEach((colour, n) => {
-            place(meshes.lamps, count.lamps, hx + facing[0] * (HEAD.depth / 2 + .012), y + bottom + HEAD.lamps[n], hz + facing[1] * (HEAD.depth / 2 + .012), signal.heading, HEAD.lens, HEAD.lens, 1);
-            lamps[count.lamps++] = { plan, group: signal.group, colour };
-          });
-        }
-      }
+      for (const signal of layout.signals) drawSignal(signal, plan, true);
       for (const crossing of layout.crossings) {
-        if (!room('walkers') || !room('figures', 2)) break;
+        if (!room('walkers') || !room('figures')) break;
         const y = ground(crossing.x, crossing.z), facing = unit(crossing.heading), size = PEDESTRIAN_HEAD.size;
         const cx = crossing.x + facing[0] * .2, cz = crossing.z + facing[1] * .2;
         place(meshes.walkers, count.walkers++, cx, y + PEDESTRIAN_HEAD.height, cz, crossing.heading, size, size, PEDESTRIAN_HEAD.depth);
-        ['hand', 'walk'].forEach((role, n) => {
-          place(meshes.figures, count.figures, cx + facing[0] * (PEDESTRIAN_HEAD.depth / 2 + .01), y + PEDESTRIAN_HEAD.height, cz + facing[1] * (PEDESTRIAN_HEAD.depth / 2 + .01), crossing.heading, size * .86, size * .86, 1);
-          figureCells.setXYZW(count.figures, (n + 1) / 3, 0, 1 / 3, 1);
-          figures[count.figures++] = { plan, group: crossing.group, role };
-        });
+        place(meshes.figures, count.figures, cx + facing[0] * (PEDESTRIAN_HEAD.depth / 2 + .01), y + PEDESTRIAN_HEAD.height, cz + facing[1] * (PEDESTRIAN_HEAD.depth / 2 + .01), crossing.heading, size * .86, size * .86, 1);
+        figures[count.figures++] = { plan, group: crossing.group };
       }
-      for (const stop of layout.stops) {
-        if (!room('stops', 1)) break;
-        const y = ground(stop.x, stop.z), facing = unit(stop.heading);
-        place(meshes.stops, count.stops, stop.x + facing[0] * .1, y + STOP.height, stop.z + facing[1] * .1, stop.heading, STOP.size, STOP.size, 1);
-        stopCells.setXYZW(count.stops++, 0, 0, 1 / 3, 1);
+      for (const name of ['stops', 'noEntry']) {
+        const mesh = meshes[name], cells = mesh.geometry.getAttribute('aCell');
+        for (const sign of layout[name]) {
+          if (!room(name)) break;
+          const facing = unit(sign.heading), offset = name === 'stops' ? .1 : .18;
+          place(mesh, count[name], sign.x + facing[0] * offset, ground(sign.x, sign.z) + (sign.height ?? STOP.height), sign.z + facing[1] * offset, sign.heading, STOP.size, STOP.size, 1);
+          cells.setXYZW(count[name]++, name === 'stops' ? 0 : .75, 0, .25, 1);
+        }
       }
-      // Names above, arrows below; two streets share a pole at different heights.
-      const stacked = new Map();
       for (const [list, size, row] of [[layout.names, NAME, null], [layout.arrows, ARROW, 0]]) for (const sign of list) {
         if (!room('faces')) break;
-        const key = `${sign.x.toFixed(1)},${sign.z.toFixed(1)},${mod(sign.heading, Math.PI).toFixed(2)},${row === null ? 'n' : 'a'}`, pole = `${sign.x.toFixed(1)},${sign.z.toFixed(1)},${row === null ? 'n' : 'a'}`;
-        if (!stacked.has(key)) { stacked.set(key, stacked.get(pole) || 0); stacked.set(pole, (stacked.get(pole) || 0) + 1); }
-        const level = stacked.get(key), facing = unit(sign.heading), base = row === null ? SIGN_HEIGHT + .42 : SIGN_HEIGHT - .12;
-        const y = ground(sign.x, sign.z) + base + level * (size.height + .05) * (row === null ? 1 : -1);
-        // A blade is bolted to the pole by one end and reaches out along its street.
-        const out = [Math.cos(sign.heading), -Math.sin(sign.heading)], side = row === null ? size.width / 2 + .1 : 0;
-        const lean = Math.sign(Math.sin(mod(sign.heading, Math.PI) - .01)) || 1;
-        place(meshes.faces, count.faces, sign.x + out[0] * side * lean * (sign.heading === mod(sign.heading, Math.PI) ? 1 : -1) + facing[0] * .02, y, sign.z + out[1] * side * lean * (sign.heading === mod(sign.heading, Math.PI) ? 1 : -1) + facing[1] * .02, sign.heading, size.width, size.height, 1);
+        const facing = unit(sign.heading), y = ground(sign.x, sign.z) + sign.height;
+        place(meshes.faces, count.faces, sign.x + sign.dx + facing[0] * .005, y, sign.z + sign.dz + facing[1] * .005, sign.heading, sign.width ?? size.width, size.height, 1);
         const index = row === null ? names.indexOf(sign.text) + 5 : (sign.right ? 0 : 1);
-        cells.setXYZW(count.faces++, 0, 1 - (Math.max(index, 0) + 1) / ROWS, 1, 1 / ROWS);
+        cells.setXYZW(count.faces++, Math.floor(index / ROWS) / columns, 1 - (index % ROWS + 1) / ROWS, 1 / columns, 1 / ROWS);
       }
     }
     // Further down the avenue only the lamps can be seen: the string of
     // lights that runs to the horizon on every long street.
-    for (const junction of distant) for (const signal of junction.layout.signals) {
-      if (!room('lamps', 6)) break;
-      const y = heightAt(signal.x, signal.z), [ax, az] = signal.across, facing = unit(signal.heading);
-      for (const along of [signal.reach * .96, signal.reach * .52]) {
-        const hx = signal.x + ax * along, hz = signal.z + az * along, bottom = MAST.height + .45 * along / signal.reach - HEAD.height - .12;
-        ['red', 'yellow', 'green'].forEach((colour, n) => {
-          place(meshes.lamps, count.lamps, hx + facing[0] * (HEAD.depth / 2 + .012), y + bottom + HEAD.lamps[n], hz + facing[1] * (HEAD.depth / 2 + .012), signal.heading, HEAD.lens, HEAD.lens, 1);
-          lamps[count.lamps++] = { plan: junction.plan, group: signal.group, colour };
-        });
-      }
-    }
+    for (const junction of distant) for (const signal of junction.layout.signals) drawSignal(signal, junction.plan, false);
     for (const [name, mesh] of Object.entries(meshes)) { mesh.count = count[name]; mesh.instanceMatrix.needsUpdate = true; }
-    cells.needsUpdate = stopCells.needsUpdate = figureCells.needsUpdate = true;
+    cells.needsUpdate = stopCells.needsUpdate = meshes.noEntry.geometry.getAttribute('aCell').needsUpdate = true;
     lamps.length = count.lamps; figures.length = count.figures;
   }
 
@@ -326,12 +456,14 @@ export function createStreetSigns({ scene, heightAt = () => 0, raised = null, cr
     get poles() { return standing; },
     /**
      * `junctions` is the simulation's list ({ id, x, z, plan, arms }); `time`
-     * is the simulation's clock in seconds, the one traffic obeys.
+     * is the simulation's clock in seconds. A change in sidewalkRevision refreshes the pole positions.
      */
-    update(junctions = [], focus = { x: 0, z: 0 }, time = 0) {
+    update(junctions = [], focus = { x: 0, z: 0 }, time = 0, sidewalkRevision = null, paintedCrossings = null) {
       // Which junctions are in range is looked at again only when the player
       // has moved a few metres or the junctions themselves have changed.
-      const moved = !sorted || junctions !== sorted.junctions || junctions.length !== sorted.count || Math.hypot(focus.x - sorted.x, focus.z - sorted.z) > 6;
+      const roadsChanged = junctions !== sorted?.junctions;
+      const sidewalksChanged = sidewalkRevision !== sorted?.sidewalkRevision || paintedCrossings !== sorted?.paintedCrossings;
+      const moved = roadsChanged || sidewalksChanged || junctions.length !== sorted.count || Math.hypot(focus.x - sorted.x, focus.z - sorted.z) > 6;
       if (moved) {
         const near = [], beyond = [];
         for (const junction of junctions) {
@@ -339,15 +471,14 @@ export function createStreetSigns({ scene, heightAt = () => 0, raised = null, cr
           const d = Math.hypot(junction.x - focus.x, junction.z - focus.z);
           if (d < range) near.push(junction); else if (d < farRange && junction.plan.control === 'signal') beyond.push(junction);
         }
-        sorted = { junctions, count: junctions.length, x: focus.x, z: focus.z, near, beyond, key: `${near.map(junction => junction.id).join(',')}|${beyond.map(junction => junction.id).join(',')}` };
+        sorted = { junctions, sidewalkRevision, paintedCrossings, count: junctions.length, x: focus.x, z: focus.z, near, beyond, key: `${near.map(junction => junction.id).join(',')}|${beyond.map(junction => junction.id).join(',')}` };
       }
       const { near, beyond, key } = sorted;
-      if (key !== shown) {
-        // Layouts are kept: a junction's hardware does not move. Up close it
-        // is laid out again, now that the sidewalks around it are known.
+      if (key !== shown || roadsChanged || sidewalksChanged) {
+        // Reuse layouts while their road graph and local sidewalk survey are current.
         const next = new Map(), nextFar = new Map();
-        for (const junction of near) next.set(junction.id, known.get(junction.id) || { ...junction, layout: layoutJunction(junction, { raised }) });
-        for (const junction of beyond) nextFar.set(junction.id, far.get(junction.id) || known.get(junction.id) || { ...junction, layout: layoutJunction(junction) });
+        for (const junction of near) next.set(junction.id, (!roadsChanged && !sidewalksChanged && known.get(junction.id)) || { ...junction, layout: layoutJunction(junction, { raised, crossings: paintedCrossings?.get(junction.plan) }) });
+        for (const junction of beyond) nextFar.set(junction.id, (!roadsChanged && (far.get(junction.id) || known.get(junction.id))) || { ...junction, layout: layoutJunction(junction) });
         known = next; far = nextFar; shown = key;
         standing = [...known.values()].flatMap(junction => junction.layout.poles || []);
         rebuild([...known.values()], [...far.values()]);
@@ -370,16 +501,19 @@ export function createStreetSigns({ scene, heightAt = () => 0, raised = null, cr
       }
       if (changed) colours.needsUpdate = true;
       changed = false;
+      const figureCells = meshes.figures.geometry.getAttribute('aCell');
       for (let i = 0; i < figures.length; i++) {
-        const figure = figures[i], aspect = ask(figure.plan)[2 + figure.group], hand = figure.role === 'hand';
-        // Walk: the figure. Don't walk: the hand, flashing while there is still time to finish crossing.
-        const on = hand ? aspect === 'dont' || (aspect === 'flash' && blink) : aspect === 'walk';
-        if (figure.on === on) continue;
-        figure.on = on; changed = true;
-        const value = on ? (hand ? HAND : WALK) : [0, 0, 0];
-        glow.setXYZ(i, value[0], value[1], value[2]);
+        const figure = figures[i], aspect = ask(figure.plan)[2 + figure.group];
+        const blank = aspect === 'flash' && !blink;
+        const cell = blank ? 0 : aspect === 'walk' ? 2 : 1;
+        if (figure.cell === cell) continue;
+        figure.cell = cell; changed = true;
+        // During the dark half of a flash, sample a single transparent texel.
+        figureCells.setXYZW(i, blank ? .26 : cell / 4, blank ? .02 : 0, blank ? 0 : .25, blank ? 0 : 1);
+        const colour = cell === 2 ? WALK : HAND;
+        glow.setXYZ(i, ...colour);
       }
-      if (changed) glow.needsUpdate = true;
+      if (changed) glow.needsUpdate = figureCells.needsUpdate = true;
     },
     dispose() {
       for (const mesh of Object.values(meshes)) { mesh.geometry.dispose(); mesh.dispose(); }

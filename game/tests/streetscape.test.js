@@ -3,7 +3,7 @@ import { StreetObjects } from '../dist/street-objects.js';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import * as THREE from '../dist/vendor/three.module.min.js';
-import { convertRows, convertFeatures, convertTrees, cellQuery, layerQuery, treeQuery, cellBounds, projectPoint, indexPolygon, insideIndexed, signedArea, buildCell, createStreetSource, createStreetscape,
+import { convertRows, convertFeatures, convertTrees, cellQuery, layerQuery, treeQuery, cellBounds, projectPoint, matchPaintedCrossings, indexPolygon, insideIndexed, signedArea, buildCell, createStreetSource, createStreetscape,
   ROAD_LIFT, SIDEWALK_LIFT, KERB_HEIGHT, DATASETS, LAYERS, PLANIMETRIC_SERVICE, TREE_DATASET, STREET_SERVICE } from '../dist/streetscape.js';
 import { worldToGeographic } from '../dist/city-ground.js';
 import { Simulation } from '../dist/simulation.js';
@@ -411,4 +411,18 @@ test('in surveyed SoHo the kerbs fill with parked cars and traffic passes them u
   const empty = run(false), lined = run(true);
   assert.ok(lined.placed > 60, `${lined.placed} cars parked within 150 m`);
   assert.deepEqual(lined.traffic, empty.traffic, 'forty-five seconds of traffic is the same with the kerbs full');
+});
+
+test('painted mouths select their street and carriageway, and the stop stripe spans the arriving lanes', async () => {
+  const { roads, surfaces } = crossroads(), built = await buildCell(surfaces, roads);
+  const arms = [0, Math.PI/2, Math.PI, -Math.PI/2].map(angle => ({angle, width:10}));
+  const j = {x:0,z:0,plan:{},arms}, neighbour = {...j, x:12, plan:{}};
+  const matches = matchPaintedCrossings([neighbour,j], built.crossings);
+  assert.equal(matches.has(neighbour.plan), false);
+  const painted = matches.get(j.plan);
+  assert.equal(painted.filter(Boolean).length, 4);
+  assert.equal(painted[1].stopLine, null);
+  const south = painted[0];
+  assert.ok(south.a.z > 6 && south.b.z > 6);
+  assert.ok(south.stopLine.az > south.a.z && Math.min(south.stopLine.ax, south.stopLine.bx) > 0);
 });
