@@ -74,6 +74,19 @@ test('street donations, wallet theft and till theft have different consequences'
   const h = fixture();h.work.street();h.leaveCounter();h.work.rob(h.shop);assert.equal(h.sim.cash, 0);
 });
 
+test('a greeting opens an in-person reply and leaves the other conversation options available', () => {
+  const f=fixture();
+  f.work.street();f.choose('Say hello');
+  assert.equal(f.screen().message,'Hey, how’s it going?');
+  f.person.resident={id:0};
+  f.person.state='rest';
+  f.work.street();f.choose('Say hello');
+  assert.equal(f.screen().inPerson,true);
+  assert.match(f.screen().message,/slept outside/);
+  assert.equal(f.sim.cash,0);
+  f.choose('Ask for spare change');assert.equal(f.sim.cash,4);
+});
+
 test('tills use the shop category and its own completed sales, including after reload', () => {
   const payout=(kind,sales=[])=>{
     const f=fixture();f.shop.kind=kind;
@@ -90,4 +103,79 @@ test('tills use the shop category and its own completed sales, including after r
   const {closures,...olderSave}=f.work.record;f.work.restore(olderSave);assert.ok(f.work.isClosed(f.shop));
   f.restock();assert.equal(f.work.isClosed(f.shop),false);f.work.sale(f.shop,3.5);
   assert.equal(f.work.balance(f.shop),before+3.5);
+});
+
+test('taking a shift saves it to My work until released or completed',()=>{
+  const f=fixture();
+  f.work.board();f.choose('Finance associate');f.choose('Take shift');
+  f.work.restore(JSON.parse(JSON.stringify(f.work.record)));
+  f.work.board();assert.equal(f.screen().rows.find(row=>row.active).name,'Finance associate');
+  f.choose('Fast-food crew');assert.ok(!f.screen().rows.some(row=>row.name==='Take shift'));
+  f.work.board();f.choose('Finance associate');f.choose('Release shift');
+  assert.ok(!f.screen().rows.some(row=>row.active));
+});
+
+test('every advertised workplace has four distinct playable decisions and pays its advertised maximum',()=>{
+  for(const [job,site] of Object.entries(EMPLOYERS).filter(([,site])=>site.decisions)){
+    const f=fixture();
+    f.work.board();f.choose(site.role);f.choose('Take shift');
+    Object.assign(f.sim.player,{x:site.x+200,z:site.z});
+    f.choose('Clock in');assert.equal(f.work.record.shift,null);
+    Object.assign(f.sim.player,{x:site.x,z:site.z});
+    f.work.board();f.choose(site.role);f.choose('Clock in');
+    const tasks=new Set();
+    for(let block=0;block<4;block++){
+      const message=f.screen().message;
+      tasks.add(message);
+      f.work.restore(structuredClone(f.work.record));f.work.job(job);
+      assert.equal(f.screen().message,message);
+      const decision=site.decisions.find(([prompt])=>prompt===message);
+      const counts=message.match(/\d+/g)?.map(Number);
+      const answer=decision?decision[1]:String(counts[0]*counts[1]-counts[2]);
+      assert.equal(f.sim.cash,0);f.choose(answer);
+    }
+    assert.equal(tasks.size,4,site.role);
+    assert.equal(f.sim.cash,site.wage+site.bonus*4);
+    assert.equal(f.work.record.booked,null);
+  }
+});
+
+test('a newspaper carrier makes distinct local drops and collects one paycheck on the last block',()=>{
+  const f=fixture();
+  f.sim.city.missionPoints=Array.from({length:5},(_,i)=>({name:'Stop '+i,x:f.sim.player.x+65*(i+1),z:f.sim.player.z}));
+  f.work.board();f.choose('Newspaper carrier');f.choose('Start paper round');
+  const mission=f.sim.mission;
+  assert.equal(new Set(mission.stops).size,3);
+  assert.equal(f.work.jobs().filter(row=>row.active).map(row=>row.name).join(),'Newspaper carrier');
+  for(const stop of mission.stops){
+    assert.equal(f.sim.cash,0);
+    Object.assign(f.sim.player,stop);f.sim._updateMission(1);
+  }
+  assert.equal(mission.phase,'complete');assert.ok(f.sim.cash>=54 && f.sim.cash<=66);
+  const balance=f.sim.cash;f.sim._updateMission(1);assert.equal(f.sim.cash,balance);
+});
+
+test('daily cash uses local turnover, payment tender and the previous seven game days',()=>{
+  const f=fixture(),w=f.work, b={id:'counter',kind:'bank',name:'Neighborhood Bank'},
+    designer={...b,kind:'clothes',name:'LOUIS VUITTON'}, clothing={...designer,name:'Neighborhood Clothing'},
+    lunch={...b,kind:'chinese',name:'Neighborhood Kitchen'};
+  w.advanceShopClock(0,9);
+  assert.ok(w.balance(b)>w.balance(designer) && w.balance(designer)>w.balance(clothing) && w.balance(clothing)>w.balance(lunch));
+  const open=w.balance(lunch);w.advanceShopClock(0,17);
+  const current=w.balance(lunch);assert.ok(current>open);
+  w.sale(lunch,1600,'card');assert.equal(w.balance(lunch),current);
+  w.sale(lunch,4.53,'cash');assert.equal(w.balance(lunch),current+4.53);
+  const saved=structuredClone(w.record);w.restore(saved);w.advanceShopClock(0,17);assert.equal(w.balance(lunch),current+4.53);
+  const quiet=fixture().work;quiet.advanceShopClock(0,17);
+  const other={...lunch,id:'other'},daily=new Set([current]);
+  for(let d=1;d<=8;d++){
+    w.advanceShopClock(d%7,17);quiet.advanceShopClock(d%7,17);
+    assert.equal(w.record.sales[lunch.id],undefined);
+    const baseline=quiet.balance(lunch);daily.add(baseline);
+    if(d<=7)assert.ok(w.balance(lunch)>baseline);
+    else assert.equal(w.balance(lunch),baseline);
+    assert.equal(w.balance(other),quiet.balance(other));
+  }
+  assert.ok(daily.size>1,'unvisited branches have busier and quieter days');
+  w.restore({sales:{counter:14.36}});w.advanceShopClock(0,17);assert.equal(w.balance(lunch),current+14.36);
 });

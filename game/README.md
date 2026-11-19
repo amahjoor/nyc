@@ -48,7 +48,7 @@ Choose **Meadow Lake road reconstruction** in the city picker and select **Spawn
 | Melon / indy grab | Hold J / L in the air | LT / RT |
 | Handbrake / slide | Space | X |
 | Show total money | Z | D-pad down |
-| Delivery job (Phone → Contacts → Dispatch) | N | Y |
+| Delivery job (Phone → Work) | N | Y |
 | Look around | Drag mouse | Right stick |
 | Open / close street map | M | View / Back |
 | Pause | Escape | Start |
@@ -290,10 +290,11 @@ Someone minds each one. Standing by whoever is serving, **G** shows what the pla
 
 ## Earning money
 
-On the street, open the phone with **↑** and choose **Work**.
+Open **Work** on the phone to browse 23 on-site jobs plus food delivery, coffee vending and neighborhood paper rounds. Search by role, employer or neighborhood, filter by sector, or sort by distance or base pay. Select a shift and choose **Take shift**. **My work** lists accepted shifts, an active delivery and your coffee cart.
 
-- **Fast-food crew** and **Finance associate** mark their workplaces on the map. Arrive on foot, open Work again and clock in. Four decisions take your shift from 9 AM to 5 PM. The grill pays $80 plus $8 per correct tray. The office pays $120 plus $12 per correctly posted balance. An unfinished shift resumes from the same ticket.
+- Every on-site listing marks its workplace on the map. Theater ushers seat ticket holders, mailroom clerks sort parcels, bike mechanics diagnose faults and hotel desk agents match guests to rooms. Arrive on foot, open Work again and clock in. Four decisions take your shift from 9 AM to 5 PM. The grill pays $80 plus $8 per correct tray. The office pays $120 plus $12 per correctly posted balance. An unfinished shift resumes from the same ticket.
 - **Food courier** offers a restaurant pickup and a customer drop-off. Stop at both gold markers in order to earn the fee and a time-based tip.
+- **Newspaper carrier** pays $18 per stop plus a time bonus for completing a two- or three-stop paper round.
 - **Coffee cart** costs $60 with six cups included. Six more cost $12. Approach a pedestrian and select **Offer coffee nearby** to sell a cup for $5.
 - **Street interactions** opens with **G** beside a pedestrian. You can ask a passerby for change or steal their wallet.
 - **Shop registers** hold an opening balance and the shop’s sales. Press **E** at the operator side to reach into the drawer. A clerk who spots your drawn pistol raises their hands, opens the drawer and holds out the cash. Step close and press **E** to take it. Customers head for the door, and the clerk flees when you turn away, holster the pistol or leave. A robbed shop closes for ten real minutes, including across saves. A clerk who escapes before you take the money closes the shop for one minute.

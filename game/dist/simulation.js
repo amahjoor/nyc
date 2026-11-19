@@ -1390,6 +1390,27 @@ export class Simulation {
     return true;
   }
 
+  startPaperRoute() {
+    if(this.mission.phase==='active' || this.player.mode==='passenger'){
+      this._say('Finish your current trip first.');return false;
+    }
+    const stops=[];
+    let last=this.player, length=0;
+    const blocks=(this.city.missionPoints||[]).filter(p=>Number.isFinite(p.x)&&Number.isFinite(p.z)&&distance(p,this.player)<1200);
+    while(stops.length<3){
+      const options=blocks.filter(p=>distance(p,this.player)>30 && stops.every(stop=>distance(stop,p)>35)
+        && !this.isBlocked(p.x,p.z,.6)).sort((a,b)=>distance(last,a)-distance(last,b));
+      if(!options.length)break;
+      const next=options[Math.floor(this._random()*Math.min(3,options.length))];
+      length+=distance(last,next);stops.push(next);last=next;
+    }
+    if(stops.length<2){this._say('No paper round available on these blocks.');return false;}
+    const totalTime=90+Math.ceil(length/2.8);
+    this.mission={phase:'active',kind:'paper',stops,index:0,target:stops[0],reward:stops.length*18,totalTime,timeLeft:totalTime};
+    this._say('Papers loaded. Take the first bundle to '+stops[0].name+'.',6);
+    return true;
+  }
+
   reset() {
     if (this.transport?.active) {
       const stop = this.transport.active.home;
@@ -2174,14 +2195,18 @@ export class Simulation {
     }
     if (this.player.mode === 'transport' && !this.player.grounded) return;
     if (distance(this.player, this.mission.target) < 10 && playerTravelSpeed(this.player) < 3) {
-      if (this.mission.meal && this.room) return;
+      if ((this.mission.meal || this.mission.kind==='paper') && this.room) return;
+      if(this.mission.kind==='paper' && this.mission.index+1<this.mission.stops.length){
+        this.mission.target=this.mission.stops[++this.mission.index];
+        this._say('Bundle delivered. Next stop: '+this.mission.target.name+'.',5);return;
+      }
       if (this.mission.stage === 'pickup') {
         this.mission.target = this.mission.dropoff;
         this.mission.stage = 'dropoff';
         this._say(`Order collected. Deliver to ${this.mission.target.name}.`, 6);
         return;
       }
-      const bonus = this.mission.meal ? Math.round(12 * this.mission.timeLeft / this.mission.totalTime) :
+      const bonus = this.mission.meal || this.mission.kind==='paper' ? Math.round(12 * this.mission.timeLeft / this.mission.totalTime) :
         Math.round(this.mission.timeLeft / this.mission.totalTime * 50 / 5) * 5;
       const payout = this.mission.reward + bonus;
       this.cash += payout;
