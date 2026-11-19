@@ -1444,6 +1444,7 @@ function setView(mode){
   chaseLookAhead.set(0,0,0);
   if(mode==='city'&&!cityView){cityFocus=null;cityZoom=1;}
   cityView=mode==='city';aerialView=mode==='aerial';input.clear();
+  if(cityView)phone?.setOpen(false);
   headAnchor=undefined;input.lookDelta=0;input.lookVertical=0;
   updatePerspectiveButton();
   $('view-button').textContent=cityView?'STREET CAMERA':aerialView?'CITY OVERVIEW':'AERIAL VIEW';

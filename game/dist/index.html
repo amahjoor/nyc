@@ -76,59 +76,257 @@
   </section>
   <section id="phone" class="phone" hidden aria-label="Phone">
     <div class="phone-glass">
-      <header class="phone-status"><span class="phone-reception" aria-hidden="true"><i></i> NYC</span><time id="phone-clock"></time><span class="phone-battery" aria-hidden="true"></span></header>
-      <div class="phone-toolbar" id="phone-toolbar" hidden><button id="phone-back">Back</button><strong id="phone-title">Phone</strong><span id="phone-cash"></span></div>
+      <header class="phone-status"><span class="phone-network" aria-label="Cellular signal">▂▃▅▇ <b>3G</b></span><time id="phone-clock"></time><span class="phone-signal" aria-label="Battery"><i></i></span></header>
+      <div class="phone-toolbar" id="phone-toolbar" hidden>
+        <button id="phone-back" aria-label="Back">‹ Back</button>
+        <strong id="phone-title"></strong>
+      </div>
       <div id="phone-home" class="phone-screen phone-apps">
+        <div class="charles-photos" aria-hidden="true"><span></span><span></span><span></span></div>
         <div class="app-grid">
-        <button id="phone-app-nearby" class="phone-app" title="Food, shops and garages around you"><i class="app-icon icon-nearby" aria-hidden="true"></i><b>Nearby</b></button>
-        <button id="phone-app-work" class="phone-app" title="Jobs, deliveries and street income"><i class="app-icon icon-work" aria-hidden="true"></i><b>Work</b></button>
-        <button id="phone-app-transport" class="phone-app" title="Go to a runway, dock or station"><i class="app-icon icon-transport" aria-hidden="true"></i><b>Transport</b></button>
+          <button id="phone-app-settings" class="phone-app"><i class="app-icon icon-settings" aria-hidden="true"></i><b>Settings</b></button>
+          <button id="phone-app-work" class="phone-app"><i class="app-icon icon-work" aria-hidden="true"></i><b>Work</b></button>
+          <button id="phone-app-rides" class="phone-app"><i class="app-icon icon-rides" aria-hidden="true"></i><b>D Ride</b></button>
         </div>
         <div class="app-dock">
-        <button id="phone-app-contacts" class="phone-app" title="Dispatch"><i class="app-icon icon-contacts" aria-hidden="true"></i><b>Contacts</b></button>
-        <button id="phone-app-wallet" class="phone-app" title="Cash and your record"><i class="app-icon icon-wallet" aria-hidden="true"></i><b>Wallet</b></button>
-        <button id="phone-app-map" class="phone-app" title="Streets and directions"><i class="app-icon icon-map" aria-hidden="true"></i><b>Map</b></button>
+          <button id="phone-app-contacts" class="phone-app"><i class="app-icon icon-contacts" aria-hidden="true"></i><b>Contacts</b></button>
+          <button id="phone-app-bank" class="phone-app"><i class="app-icon icon-bank" aria-hidden="true"></i><b>Bank</b></button>
+          <button id="phone-app-map" class="phone-app"><i class="app-icon icon-map" aria-hidden="true"></i><b>Maps</b></button>
         </div>
       </div>
-    <div id="phone-nearby" class="phone-screen" hidden>
-      <div class="phone-chips"><button id="phone-chip-all">ALL</button><button id="phone-chip-eat">EAT</button><button id="phone-chip-coffee">COFFEE</button><button id="phone-chip-deli">DELI</button><button id="phone-chip-drinks">DRINKS</button><button id="phone-chip-hair">HAIR</button><button id="phone-chip-cars">CARS</button><button id="phone-chip-more">MORE</button></div>
-      <input id="phone-search" type="search" value="" placeholder="Search by name" aria-label="Search places by name" autocomplete="off">
-      <div class="phone-list">
-        <button id="phone-row-0" class="phone-row" hidden><b id="phone-row-0-name"></b><span id="phone-row-0-note"></span></button>
-        <button id="phone-row-1" class="phone-row" hidden><b id="phone-row-1-name"></b><span id="phone-row-1-note"></span></button>
-        <button id="phone-row-2" class="phone-row" hidden><b id="phone-row-2-name"></b><span id="phone-row-2-note"></span></button>
-        <button id="phone-row-3" class="phone-row" hidden><b id="phone-row-3-name"></b><span id="phone-row-3-note"></span></button>
-        <button id="phone-row-4" class="phone-row" hidden><b id="phone-row-4-name"></b><span id="phone-row-4-note"></span></button>
-        <button id="phone-row-5" class="phone-row" hidden><b id="phone-row-5-name"></b><span id="phone-row-5-note"></span></button>
-        <p id="phone-empty" class="phone-empty" hidden>Nothing listed near here.</p>
+      <div id="phone-settings" class="phone-screen" hidden>
+        <h3>Display</h3>
+        <div class="settings-group">
+          <button id="phone-open-wallpaper" class="setting-row"><span>Wallpaper</span><span id="phone-paper-name" class="setting-value"></span><i class="setting-chevron" aria-hidden="true">›</i></button>
+          <button id="phone-pref-dark" class="setting-row" role="switch" aria-checked="false"><span>Dark appearance</span><i class="setting-switch" aria-hidden="true"></i></button>
+          <button id="phone-pref-large" class="setting-row" role="switch" aria-checked="false"><span>Larger text</span><i class="setting-switch" aria-hidden="true"></i></button>
+          <button id="phone-pref-motion" class="setting-row" role="switch" aria-checked="false"><span>Reduce motion</span><i class="setting-switch" aria-hidden="true"></i></button>
+        </div>
+        <h3>Time</h3>
+        <div class="settings-group">
+          <button id="phone-pref-clock" class="setting-row" role="switch" aria-checked="false"><span>24-hour time</span><i class="setting-switch" aria-hidden="true"></i></button>
+        </div>
       </div>
-      <div class="phone-pager"><button id="phone-prev" aria-label="Previous page">‹</button><span id="phone-page"></span><button id="phone-next" aria-label="Next page">›</button></div>
-    </div>
-    <div id="phone-place" class="phone-screen phone-place" hidden>
-      <b id="phone-place-name"></b><span id="phone-place-kind"></span><span id="phone-place-note"></span>
-      <button id="phone-directions" class="primary-button">DIRECTIONS</button>
-    </div>
-    <div id="phone-contacts" class="phone-screen" hidden>
-      <button id="phone-contact-dispatch" class="phone-row"><b>DISPATCH</b><span>Take the next delivery</span></button>
-      <button id="phone-contact-mechanic" class="phone-row"><b>MECHANIC</b><span id="phone-contact-mechanic-note"></span></button>
-      <button id="phone-contact-cab" class="phone-row"><b>MY CAB</b><span id="phone-contact-cab-note"></span></button>
-    </div>
-    <div id="phone-list" class="phone-screen" hidden>
-      <p id="phone-list-message" role="status" hidden></p>
-      <button id="phone-ride-0" class="phone-row" hidden><b id="phone-ride-0-name"></b><span id="phone-ride-0-note"></span></button>
-      <button id="phone-ride-1" class="phone-row" hidden><b id="phone-ride-1-name"></b><span id="phone-ride-1-note"></span></button>
-      <button id="phone-ride-2" class="phone-row" hidden><b id="phone-ride-2-name"></b><span id="phone-ride-2-note"></span></button>
-      <button id="phone-ride-3" class="phone-row" hidden><b id="phone-ride-3-name"></b><span id="phone-ride-3-note"></span></button>
-      <button id="phone-ride-4" class="phone-row" hidden><b id="phone-ride-4-name"></b><span id="phone-ride-4-note"></span></button>
-      <button id="phone-ride-5" class="phone-row" hidden><b id="phone-ride-5-name"></b><span id="phone-ride-5-note"></span></button>
-      <div class="phone-pager"><button id="phone-ride-prev" aria-label="Previous page">‹</button><span id="phone-ride-page"></span><button id="phone-ride-next" aria-label="Next page">›</button></div>
-    </div>
-    <div id="phone-wallet" class="phone-screen phone-wallet" hidden>
-      <span>Total money</span><b id="phone-wallet-cash"></b>
-      <dl><dt>Deliveries made</dt><dd id="phone-wallet-fares"></dd><dt>Miles covered</dt><dd id="phone-wallet-miles"></dd><dt>Red lights run</dt><dd id="phone-wallet-lights"></dd></dl>
-    </div>
+      <div id="phone-wallpaper" class="phone-screen" hidden>
+        <div class="wallpaper-choices" role="group" aria-label="Home screen wallpaper">
+          <button id="phone-wall-earth" data-paper="earth" aria-pressed="false"><i></i>Earth</button>
+          <button id="phone-wall-soho" data-paper="soho" aria-pressed="false"><i></i>SoHo</button>
+          <button id="phone-wall-tide" data-paper="tide" aria-pressed="false"><i></i>Tide</button>
+          <button id="phone-wall-six-seven" data-paper="six-seven" aria-pressed="false"><i></i>67</button>
+          <button id="phone-wall-charles" data-paper="charles" aria-pressed="false"><i class="charles-photos" aria-hidden="true"><span></span><span></span><span></span></i>Charles</button>
+        </div>
+      </div>
+      <div id="phone-nearby" class="phone-screen" hidden>
+        <input id="phone-search" class="phone-search" type="search" placeholder="Search places" aria-label="Search places" autocomplete="off">
+        <div class="phone-chips">
+          <button id="phone-chip-all">ALL</button>
+          <button id="phone-chip-eat">EAT</button>
+          <button id="phone-chip-coffee">COFFEE</button>
+          <button id="phone-chip-deli">DELI</button>
+          <button id="phone-chip-drinks">DRINKS</button>
+          <button id="phone-chip-hair">HAIR</button>
+          <button id="phone-chip-cars">CARS</button>
+          <button id="phone-chip-more">MORE</button>
+        </div>
+        <div class="phone-list">
+          <button id="phone-row-0" class="phone-row" hidden><b id="phone-row-0-name"></b><span id="phone-row-0-note"></span></button>
+          <button id="phone-row-1" class="phone-row" hidden><b id="phone-row-1-name"></b><span id="phone-row-1-note"></span></button>
+          <button id="phone-row-2" class="phone-row" hidden><b id="phone-row-2-name"></b><span id="phone-row-2-note"></span></button>
+          <button id="phone-row-3" class="phone-row" hidden><b id="phone-row-3-name"></b><span id="phone-row-3-note"></span></button>
+          <button id="phone-row-4" class="phone-row" hidden><b id="phone-row-4-name"></b><span id="phone-row-4-note"></span></button>
+          <button id="phone-row-5" class="phone-row" hidden><b id="phone-row-5-name"></b><span id="phone-row-5-note"></span></button>
+        </div>
+        <p id="phone-empty" class="phone-empty" hidden>No matching places nearby.</p>
+        <div class="phone-pager" id="phone-nearby-pager">
+          <button id="phone-prev" aria-label="Previous page">‹</button>
+          <span id="phone-page"></span>
+          <button id="phone-next" aria-label="Next page">›</button>
+        </div>
+      </div>
+      <div id="phone-place" class="phone-screen phone-place" hidden>
+        <span id="phone-place-kind" class="section-letter"></span><b id="phone-place-name"></b>
+        <p id="phone-place-note"></p>
+        <button id="phone-directions" class="phone-action">Get directions</button>
+      </div>
+      <div id="phone-contacts" class="phone-screen" hidden>
+        <input id="phone-contact-search" class="phone-search" type="search" placeholder="Search contacts" aria-label="Search contacts" autocomplete="off">
+        <small class="section-letter" id="phone-letter-M">M</small>
+        <button class="contact-row" id="phone-contact-mechanic"><i class="monogram mechanic">M</i>Mechanic<span aria-hidden="true">›</span></button>
+        <p id="phone-contact-empty" class="phone-empty" hidden>No matching contacts.</p>
+      </div>
+      <div id="phone-contact" class="phone-screen" hidden>
+        <div class="contact-card">
+          <i id="phone-contact-avatar" class="monogram"></i><strong id="phone-contact-name"></strong><span id="phone-contact-role"></span>
+        </div>
+        <div class="phone-sheet">
+          <small>Service</small>
+          <p id="phone-contact-note"></p>
+        </div>
+        <button id="phone-contact-call" class="phone-action">Call</button>
+        <button id="phone-cab-delivery" class="phone-action"></button>
+      </div>
+      <div id="phone-list" class="phone-screen" hidden>
+        <div id="phone-job-tools" hidden>
+          <input id="phone-job-search" class="phone-search" type="search" placeholder="Role, employer or neighborhood" aria-label="Role, employer or neighborhood" autocomplete="off">
+          <div class="phone-segments">
+            <button id="phone-job-all">Find jobs</button>
+            <button id="phone-job-mine">My work</button>
+          </div>
+          <div class="job-filters"><button id="phone-job-sector" aria-controls="phone-job-options" aria-expanded="false">All sectors</button><button id="phone-job-sort" aria-controls="phone-job-options" aria-expanded="false">Featured</button></div>
+          <div id="phone-job-options" class="job-options" hidden>
+            <button id="phone-job-option-0" hidden></button>
+            <button id="phone-job-option-1" hidden></button>
+            <button id="phone-job-option-2" hidden></button>
+            <button id="phone-job-option-3" hidden></button>
+            <button id="phone-job-option-4" hidden></button>
+            <button id="phone-job-option-5" hidden></button>
+            <button id="phone-job-option-6" hidden></button>
+            <button id="phone-job-option-7" hidden></button>
+            <button id="phone-job-option-8" hidden></button>
+          </div>
+          <p id="phone-job-count" class="job-count" aria-live="polite"></p>
+        </div>
+        <p id="phone-list-message" role="status" hidden></p>
+        <div class="phone-list">
+          <button id="phone-ride-0" class="phone-row" hidden><small class="job-company" id="phone-ride-0-company" hidden></small><b id="phone-ride-0-name"></b><span id="phone-ride-0-note"></span><small class="job-pay" id="phone-ride-0-pay" hidden></small></button>
+          <button id="phone-ride-1" class="phone-row" hidden><small class="job-company" id="phone-ride-1-company" hidden></small><b id="phone-ride-1-name"></b><span id="phone-ride-1-note"></span><small class="job-pay" id="phone-ride-1-pay" hidden></small></button>
+          <button id="phone-ride-2" class="phone-row" hidden><small class="job-company" id="phone-ride-2-company" hidden></small><b id="phone-ride-2-name"></b><span id="phone-ride-2-note"></span><small class="job-pay" id="phone-ride-2-pay" hidden></small></button>
+          <button id="phone-ride-3" class="phone-row" hidden><small class="job-company" id="phone-ride-3-company" hidden></small><b id="phone-ride-3-name"></b><span id="phone-ride-3-note"></span><small class="job-pay" id="phone-ride-3-pay" hidden></small></button>
+          <button id="phone-ride-4" class="phone-row" hidden><small class="job-company" id="phone-ride-4-company" hidden></small><b id="phone-ride-4-name"></b><span id="phone-ride-4-note"></span><small class="job-pay" id="phone-ride-4-pay" hidden></small></button>
+          <button id="phone-ride-5" class="phone-row" hidden><small class="job-company" id="phone-ride-5-company" hidden></small><b id="phone-ride-5-name"></b><span id="phone-ride-5-note"></span><small class="job-pay" id="phone-ride-5-pay" hidden></small></button>
+        </div>
+        <p id="phone-job-empty" class="phone-empty" hidden></p>
+        <div class="phone-pager" id="phone-list-pager">
+          <button id="phone-ride-prev" aria-label="Previous page">‹</button>
+          <span id="phone-ride-page"></span>
+          <button id="phone-ride-next" aria-label="Next page">›</button>
+        </div>
+      </div>
+      <div id="phone-bank" class="phone-screen" hidden>
+        <div class="account-card">
+          <span>Everyday checking</span><small>Available balance</small><b id="phone-bank-balance"></b>
+        </div>
+        <div class="savings-row">
+          <span>Savings</span><strong id="phone-bank-savings"></strong>
+        </div>
+        <button id="phone-bank-transfer" class="phone-action">Transfer money</button>
+        <button id="phone-bank-invest" class="phone-row investment-entry"><b>Investments</b><span id="phone-bank-invested"></span></button>
+        <h3>Recent activity</h3>
+        <div class="phone-sheet bank-activity">
+          <p id="phone-bank-empty">No transactions yet.</p>
+          <div class="activity-row" id="phone-activity-0" hidden>
+            <span><strong id="phone-activity-0-name"></strong><small id="phone-activity-0-time"></small></span><b id="phone-activity-0-amount"></b>
+          </div>
+          <div class="activity-row" id="phone-activity-1" hidden>
+            <span><strong id="phone-activity-1-name"></strong><small id="phone-activity-1-time"></small></span><b id="phone-activity-1-amount"></b>
+          </div>
+          <div class="activity-row" id="phone-activity-2" hidden>
+            <span><strong id="phone-activity-2-name"></strong><small id="phone-activity-2-time"></small></span><b id="phone-activity-2-amount"></b>
+          </div>
+          <div class="activity-row" id="phone-activity-3" hidden>
+            <span><strong id="phone-activity-3-name"></strong><small id="phone-activity-3-time"></small></span><b id="phone-activity-3-amount"></b>
+          </div>
+          <div class="activity-row" id="phone-activity-4" hidden>
+            <span><strong id="phone-activity-4-name"></strong><small id="phone-activity-4-time"></small></span><b id="phone-activity-4-amount"></b>
+          </div>
+          <div class="activity-row" id="phone-activity-5" hidden>
+            <span><strong id="phone-activity-5-name"></strong><small id="phone-activity-5-time"></small></span><b id="phone-activity-5-amount"></b>
+          </div>
+          <div class="activity-row" id="phone-activity-6" hidden>
+            <span><strong id="phone-activity-6-name"></strong><small id="phone-activity-6-time"></small></span><b id="phone-activity-6-amount"></b>
+          </div>
+          <div class="activity-row" id="phone-activity-7" hidden>
+            <span><strong id="phone-activity-7-name"></strong><small id="phone-activity-7-time"></small></span><b id="phone-activity-7-amount"></b>
+          </div>
+          <div class="activity-row" id="phone-activity-8" hidden>
+            <span><strong id="phone-activity-8-name"></strong><small id="phone-activity-8-time"></small></span><b id="phone-activity-8-amount"></b>
+          </div>
+          <div class="activity-row" id="phone-activity-9" hidden>
+            <span><strong id="phone-activity-9-name"></strong><small id="phone-activity-9-time"></small></span><b id="phone-activity-9-amount"></b>
+          </div>
+          <div class="activity-row" id="phone-activity-10" hidden>
+            <span><strong id="phone-activity-10-name"></strong><small id="phone-activity-10-time"></small></span><b id="phone-activity-10-amount"></b>
+          </div>
+          <div class="activity-row" id="phone-activity-11" hidden>
+            <span><strong id="phone-activity-11-name"></strong><small id="phone-activity-11-time"></small></span><b id="phone-activity-11-amount"></b>
+          </div>
+          <div class="activity-row" id="phone-activity-12" hidden>
+            <span><strong id="phone-activity-12-name"></strong><small id="phone-activity-12-time"></small></span><b id="phone-activity-12-amount"></b>
+          </div>
+          <div class="activity-row" id="phone-activity-13" hidden>
+            <span><strong id="phone-activity-13-name"></strong><small id="phone-activity-13-time"></small></span><b id="phone-activity-13-amount"></b>
+          </div>
+          <div class="activity-row" id="phone-activity-14" hidden>
+            <span><strong id="phone-activity-14-name"></strong><small id="phone-activity-14-time"></small></span><b id="phone-activity-14-amount"></b>
+          </div>
+          <div class="activity-row" id="phone-activity-15" hidden>
+            <span><strong id="phone-activity-15-name"></strong><small id="phone-activity-15-time"></small></span><b id="phone-activity-15-amount"></b>
+          </div>
+        </div>
+      </div>
+      <div id="phone-market" class="phone-screen" hidden>
+        <div class="account-card"><span>Investment portfolio</span><small>Market value</small><b id="phone-market-value"></b><span id="phone-market-return"></span></div>
+        <h3>Local companies</h3>
+        <div class="phone-list">
+          <button id="phone-stock-BGL" class="phone-row"><b>Five Borough Bagel</b><span id="phone-stock-BGL-quote"></span></button>
+          <button id="phone-stock-PIER" class="phone-row"><b>Pier Street Freight</b><span id="phone-stock-PIER-quote"></span></button>
+          <button id="phone-stock-LUMA" class="phone-row"><b>Luma Studios</b><span id="phone-stock-LUMA-quote"></span></button>
+        </div>
+        <p class="phone-empty">Fictional share prices update every 30 seconds.</p>
+      </div>
+      <div id="phone-order" class="phone-screen" hidden>
+        <div class="account-card"><span id="phone-order-name"></span><small>Price per share</small><b id="phone-order-price"></b></div>
+        <figure class="stock-history"><canvas id="phone-stock-chart" width="520" height="100" role="img" aria-labelledby="phone-stock-change"></canvas><figcaption id="phone-stock-change"></figcaption></figure>
+        <p id="phone-order-position"></p><p id="phone-order-cash"></p>
+        <label for="phone-order-shares">Shares</label><input id="phone-order-shares" class="phone-search" type="number" min="1" step="1" value="1">
+        <p id="phone-order-total"></p>
+        <div class="phone-segments"><button id="phone-order-buy">Buy shares</button><button id="phone-order-sell">Sell shares</button></div>
+        <p id="phone-order-status" role="status"></p>
+      </div>
+      <div id="phone-transfer" class="phone-screen" hidden>
+        <label for="phone-bank-direction">Transfer between accounts</label>
+        <select id="phone-bank-direction"><option value="save">Checking → Savings</option><option value="withdraw">Savings → Checking</option></select>
+        <label for="phone-bank-amount">Amount in dollars</label>
+        <input id="phone-bank-amount" type="number" min="0.01" step="0.01" inputmode="decimal" placeholder="0.00">
+        <button id="phone-bank-confirm" class="phone-action">Confirm transfer</button>
+        <p id="phone-bank-message" role="status"></p>
+      </div>
+      <div id="phone-maps" class="phone-screen" hidden>
+        <canvas id="phone-map-preview" width="440" height="210" aria-label="Map around your current location"></canvas>
+        <h3 id="phone-map-street"></h3>
+        <button id="phone-map-nearby" class="phone-row"><b>Nearby</b><span id="phone-map-nearby-note">Browse places around you</span></button>
+        <button id="phone-map-full" class="phone-action">Open street map</button>
+        <button id="phone-map-stops" class="phone-action">Stations, docks & runways</button>
+      </div>
+      <div id="phone-rides" class="phone-screen" hidden>
+        <div class="ride-map"><canvas id="phone-ride-map" width="600" height="284" aria-label="Pickup map"></canvas><span id="phone-ride-eta" hidden></span></div>
+        <div id="phone-driver" class="ride-driver" hidden>
+          <img id="phone-driver-photo" width="57" height="57" alt="">
+          <div><b id="phone-driver-name"></b><span id="phone-driver-vehicle"></span></div>
+          <strong id="phone-driver-rating"></strong>
+        </div>
+        <div class="ride-route">
+          <small>Pickup</small><b id="phone-ride-street"></b><small>Drop-off</small><b id="phone-ride-destination">Choose a destination</b>
+        </div>
+        <div id="phone-ride-picker">
+          <input id="phone-ride-search" class="phone-search" type="search" placeholder="Enter a drop-off address" aria-label="Drop-off address or place" maxlength="160" autocomplete="off">
+          <div class="phone-list">
+            <button id="phone-destination-pin" class="phone-row" hidden><b>Selected map pin</b><span id="phone-destination-pin-note"></span></button>
+            <button id="phone-destination-0" class="phone-row" hidden><b id="phone-destination-0-name"></b><span id="phone-destination-0-note"></span></button>
+            <button id="phone-destination-1" class="phone-row" hidden><b id="phone-destination-1-name"></b><span id="phone-destination-1-note"></span></button>
+            <button id="phone-destination-2" class="phone-row" hidden><b id="phone-destination-2-name"></b><span id="phone-destination-2-note"></span></button>
+            <button id="phone-destination-3" class="phone-row" hidden><b id="phone-destination-3-name"></b><span id="phone-destination-3-note"></span></button>
+            <button id="phone-destination-4" class="phone-row" hidden><b id="phone-destination-4-name"></b><span id="phone-destination-4-note"></span></button>
+          </div>
+        </div>
+        <p class="ride-summary" id="phone-ride-summary" role="status"></p>
+        <button id="phone-ride-request" class="phone-action">Request pickup</button>
+        <button id="phone-ride-board" class="phone-action">Board & ride to destination</button>
+        <button id="phone-ride-cancel" class="phone-action">Cancel</button>
+      </div>
     </div>
     <button id="phone-home-key" class="phone-home-key" aria-label="Home" title="Home"></button>
+    <canvas id="phone-thumb" aria-hidden="true"></canvas>
     <button id="phone-close" class="phone-sleep" aria-label="Put away phone" title="Put away phone (Esc)"></button>
   </section>
   <section id="game-map" class="game-map" hidden role="dialog" aria-modal="true" aria-label="Street map">

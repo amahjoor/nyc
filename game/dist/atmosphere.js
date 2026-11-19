@@ -250,10 +250,11 @@ export const TIME_PRESETS = [
   { id: 'night', label: 'NIGHT', hours: 23.25 },
 ];
 
-export function formatClock(hours) {
+export function formatClock(hours, twentyFourHour = false) {
   const clock = ((hours % DAY_HOURS) + DAY_HOURS) % DAY_HOURS;
   let h = Math.floor(clock), m = Math.round((clock - h) * 60);
   if (m === 60) { m = 0; h = (h + 1) % 24; }
+  if (twentyFourHour) return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
   return `${h % 12 || 12}:${String(m).padStart(2, '0')} ${h < 12 ? 'AM' : 'PM'}`;
 }
 

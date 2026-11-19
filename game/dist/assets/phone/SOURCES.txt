@@ -1,0 +1,17 @@
+Earth wallpaper — NASA, Apollo 17 crew, photograph AS17-148-22727 (1972).
+https://images.nasa.gov/details/as17-148-22727
+https://images-assets.nasa.gov/image/as17-148-22727/as17-148-22727~small.jpg
+
+Charles wallpaper — three photographs supplied by the player, displayed from
+top to bottom as the wide seated portrait, close seated portrait and standing portrait.
+67 wallpaper — original generated illustration for the in-game phone.
+
+Classic navigation bar, back button, contact section header and pinstripes —
+iUI Project Members, default theme, release 0.4.1. License in vendor/iui/LICENSE.txt.
+https://github.com/iui/iUI/tree/REL-0.4.1/web-app/iui/t/default
+
+Driver headshots in assets/rides are rendered from the game's street cast.
+The number in each filename identifies the character seated in the assigned cab.
+
+Thumb reach and press — two poses of the game’s textured player hand, rendered
+with the thumb pad at the same image coordinates and tinted to the player in game.
