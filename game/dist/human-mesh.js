@@ -2,19 +2,37 @@
 // body and everything worn over it, each a skinned mesh of its own with its
 // own picture, all hung from one skeleton.
 import * as THREE from './vendor/three.module.min.js';
+import { fitAccessories } from './human-accessories.js';
 
 const loader = new THREE.TextureLoader(), pictures = new Map();
 /** A picture from dist/human/tex, loaded once however many people wear it. */
 export function picture(name, { colour = true, base = './human/tex/' } = {}) {
   if (!name) return null;
-  const key = base + name;
+  const url = new URL(name, new URL(base, import.meta.url)).href;
+  const key = (colour ? 'colour/' : 'data/') + url;
   if (!pictures.has(key)) {
-    const texture = loader.load(key);
+    const texture = loader.load(url);
     texture.colorSpace = colour ? THREE.SRGBColorSpace : THREE.NoColorSpace; texture.anisotropy = 8;
     pictures.set(key, texture);
   }
   return pictures.get(key);
 }
+
+// Tints apply to the main fabric. A different ink (e.g. orange piping on a
+// blue tee) and bright undyed details retain the colour from the photograph.
+export const CLOTH_DYE = `
+vec3 dyeCloth(vec3 texel, vec3 dye, vec4 base) {
+  if (all(lessThan(abs(dye-base.rgb),vec3(.00001)))) return texel;
+  float light = dot(texel, vec3(.2126,.7152,.0722));
+  float relative = light * base.w;
+  if (base.r < 0.) return dye * min(pow(relative,.8),2.6);
+  vec3 cloth = dye * min(pow(relative,.8), 3.5);
+  vec3 ink = texel / max(dot(texel,vec3(1.)),.008);
+  vec3 ground = base.rgb / max(dot(base.rgb,vec3(1.)),.008);
+  float accent = smoothstep(.20,.45,length(ink-ground))*smoothstep(.025,.13,max(texel.r,max(texel.g,texel.b)));
+  float highlight = smoothstep(2.8,6.,relative)*smoothstep(.32,.74,light);
+  return mix(cloth,texel,max(accent,highlight));
+}`;
 
 // A picture's own colour set aside, and its light and shade kept: hair of any colour from one head of hair,
 // a shirt of any colour from one shirt. `amount` is how much of the picture's own colour is given up.
@@ -52,7 +70,7 @@ export function materialFor(piece, look = {}) {
   }
   if (kind === 'eyes') return new THREE.MeshStandardMaterial({ map: picture(look.iris || 'brown_eye.webp'), roughness: .12, metalness: 0, envMapIntensity: 1.4 });
   if (kind === 'teeth') return new THREE.MeshStandardMaterial({ map: picture(piece.map), roughness: .35 });
-  if (kind === 'hair') return tinted(new THREE.MeshStandardMaterial({ map: picture(piece.map), color: hex(look.hair || '#2a211c'), roughness: .5, alphaTest: .32, side: THREE.DoubleSide, transparent: false }), piece.shade);
+  if (kind === 'hair') return tinted(new THREE.MeshStandardMaterial({ map: picture(piece.map), color: hex(look.hair || '#2a211c'), roughness: .86, envMapIntensity:.32, alphaTest: .32, alphaToCoverage:true, side: THREE.DoubleSide }), piece.shade);
   if (kind === 'brows' || kind === 'lashes') {
     const material = tinted(new THREE.MeshStandardMaterial({ map: picture(piece.map), color: hex(kind === 'brows' ? look.brows || look.hair || '#2a211c' : '#120d0b'), roughness: .8, transparent: true, alphaTest: .04, depthWrite: false, side: THREE.DoubleSide }), piece.shade);
     material.polygonOffset = true; material.polygonOffsetFactor = -2; material.polygonOffsetUnits = -2;
@@ -61,7 +79,19 @@ export function materialFor(piece, look = {}) {
   // Cloth and leather.
   const colour = look.colours?.[kind + '/' + piece.id];
   const material = new THREE.MeshStandardMaterial({ map: picture(piece.map), normalMap: picture(piece.normalMap, { colour: false }), roughness: kind === 'shoes' ? .5 : .85, metalness: 0, side: piece.twoSided ? THREE.DoubleSide : THREE.FrontSide, alphaTest: piece.clear ? .5 : 0 });
-  if (colour) { material.color.copy(hex(colour)); tinted(material, piece.shade); }
+  if (colour) {
+    material.color.copy(hex(colour));
+    if (piece.dyeBase && !piece.fixedColour) {
+      const base=hex(piece.dyeBase);
+      material.onBeforeCompile=shader=>{
+        shader.uniforms.uDyeBase={value:new THREE.Vector4(base.r,base.g,base.b,1/Math.max(.02,piece.shade))};
+        shader.fragmentShader=CLOTH_DYE+'\nuniform vec4 uDyeBase;\n'+shader.fragmentShader.replace('#include <map_fragment>',`
+          vec4 fabric = texture2D(map,vMapUv);
+          diffuseColor.rgb = dyeCloth(fabric.rgb,diffuseColor.rgb,uDyeBase);
+          diffuseColor.a *= fabric.a;`);
+      };
+    } else tinted(material, piece.shade);
+  }
   return material;
 }
 
@@ -78,6 +108,7 @@ export function createHumanMesh(built, look = {}) {
   // The skin hangs from the pose the body was modelled in, not from the skeleton's own rest.
   const one = new THREE.Vector3(1, 1, 1), inverses = rig.bind.map(bind => new THREE.Matrix4().compose(new THREE.Vector3(...bind.p), new THREE.Quaternion(...bind.q), one).invert());
   const skeleton = new THREE.Skeleton(bones, inverses), meshes = [];
+  const accessories = fitAccessories(built,look,bones,inverses);
   for (const piece of built.pieces) {
     const geometry = new THREE.BufferGeometry();
     geometry.setAttribute('position', new THREE.BufferAttribute(piece.position, 3));
@@ -95,9 +126,66 @@ export function createHumanMesh(built, look = {}) {
     mesh.renderOrder = piece.kind === 'brows' || piece.kind === 'lashes' ? 2 : piece.kind === 'hair' ? 1 : 0;
     group.add(mesh); mesh.bind(skeleton, new THREE.Matrix4()); meshes.push(mesh);
   }
+  const head = rig.index.get('Head'), neck = rig.index.get('neck_01');
+  const eyes = new THREE.Vector3(...built.marks.eye_l)
+    .lerp(new THREE.Vector3(...built.marks.eye_r), .5).applyMatrix4(inverses[head]);
+  let eyeCamera = null, eyeReady = false;
+
+  // The renderer also uses these meshes for shadows and mirrors. Restrict the
+  // index range only during the eye camera's draw, then restore the full mesh.
+  function restrictEyeDraw(mesh, count) {
+    const geometry = mesh.geometry;
+    mesh.onBeforeRender = (renderer, scene, camera) => {
+      if (camera === eyeCamera) geometry.setDrawRange(0, count);
+    };
+    mesh.onAfterRender = () => geometry.setDrawRange(0, Infinity);
+  }
+
+  function setFirstPerson(camera) {
+    eyeCamera = camera;
+    if (!camera || eyeReady) return;
+    for (const [i, mesh] of meshes.entries()) {
+      if (/^(hair|eyes|teeth|brows|lashes)$/.test(built.pieces[i].kind)) {
+        restrictEyeDraw(mesh, 0);
+        continue;
+      }
+      const geometry = mesh.geometry, {skinIndex, skinWeight} = geometry.attributes;
+      const above = new Uint8Array(skinIndex.count);
+      for (let v = 0; v < above.length; v++) {
+        let weight = 0;
+        for (let k = 0; k < 4; k++) {
+          const joint = skinIndex.getComponent(v, k);
+          if (joint === head || joint === neck) weight += skinWeight.getComponent(v, k);
+        }
+        above[v] = weight > .5;
+      }
+      const indices = geometry.index.array;
+      const isHead = j => above[indices[j]] || above[indices[j+1]] || above[indices[j+2]];
+      let count = 0;
+      for (let j = 0; j < indices.length; j += 3) if (!isHead(j)) count += 3;
+      if (count === indices.length) continue;
+      if (count) {
+        // Place body triangles first, preserving the order within each group.
+        const sorted = new indices.constructor(indices.length);
+        let bodyIndex = 0, headIndex = count;
+        for (let j = 0; j < indices.length; j += 3) {
+          const hidden = isHead(j), target = hidden ? headIndex : bodyIndex;
+          if (hidden) headIndex += 3;
+          else bodyIndex += 3;
+          sorted[target] = indices[j]; sorted[target+1] = indices[j+1]; sorted[target+2] = indices[j+2];
+        }
+        geometry.index.array = sorted;
+        geometry.index.needsUpdate = true;
+      }
+      restrictEyeDraw(mesh, count);
+    }
+    for (const mesh of accessories) if (mesh.parent === bones[head]) restrictEyeDraw(mesh, 0);
+    eyeReady = true;
+  }
   const pelvis = rig.index.get('pelvis');
   return {
-    mesh: group, meshes, bones, rig,
+    mesh: group, meshes, bones, rig, setFirstPerson,
+    eyePosition(target) { return bones[head].localToWorld(target.copy(eyes)); },
     pose(local) {
       for (let i = 0; i < bones.length; i++) { const q = local.q[i]; bones[i].quaternion.set(q[0], q[1], q[2], q[3]); }
       if (local.pelvis) bones[pelvis].position.fromArray(local.pelvis);
@@ -114,6 +202,6 @@ export function createHumanMesh(built, look = {}) {
     },
     /** Stand as the movements' skeleton stands before anything moves it: arms straight out. */
     rest() { rig.bones.forEach((bone, i) => { bones[i].quaternion.fromArray(bone.q); bones[i].position.fromArray(bone.t); }); },
-    dispose() { for (const mesh of meshes) { mesh.geometry.dispose(); mesh.material.dispose(); } skeleton.dispose(); },
+    dispose() { for (const mesh of [...meshes,...accessories]) { mesh.geometry.dispose(); mesh.material.dispose(); } skeleton.dispose(); },
   };
 }

@@ -8,33 +8,92 @@
 // census tract says live there (demographics.js) without anybody having to be
 // made before they are needed.
 import { somebody, mulberry } from './human-looks.js';
+import { UNIT, UNIFORMS, unitHash } from './police-units.js';
+import { FASHION_LOOKS } from './fashion.js';
 
 export const GROUPS = ['white', 'black', 'asian', 'hispanic', 'other'];
 export const KINDS = 10;
+/** Visible kit bits on the lightweight crowd mesh. */
+export const KIT = { backpack: 1, bag: 2, cap: 4, longHair: 8, shortSleeves: 16, shorts: 32, woman: 64, patrol: 128 };
 const CHILD = 0, OLD = 1, OLDER = 2, OFFICE = [7, 8], RUNNER = 9;
-/** Two more, in uniform: a man and a woman of the police. */
-export const OFFICERS = [GROUPS.length * 2 * KINDS, GROUPS.length * 2 * KINDS + 1];
-export const MEMBERS = OFFICERS[1] + 1;
+// The same roster supplies the patrol-car occupants and the crew on foot.
+const patrol = [
+  ['white',1.79,0xd2a78a,'short02'], ['black',1.66,0x875c46,'ponytail01'],
+  ['hispanic',1.74,0xb98565,'short04'], ['asian',1.63,0xc59778,'short02'],
+  ['black',1.83,0x694731,'short01'], ['white',1.70,0xd9b393,'ponytail01'],
+];
+export const OFFICERS = patrol.map((_,i) => GROUPS.length * 2 * KINDS + i);
+const wardrobes = Object.keys(UNIFORMS);
+// Specialist units share two fitted people per wardrobe, keeping the number
+// of GPU pose sheets independent of the number of units on the roster.
+const uniformCast = patrol.map((_,slot)=>({wardrobe:'patrol',slot}));
+for (let i=1;i<wardrobes.length;i++) for (let j=0;j<2;j++)
+  uniformCast.push({wardrobe:wardrobes[i],slot:(i*2+j)%patrol.length});
+export const MEMBERS = OFFICERS[0] + uniformCast.length;
+
+export function patrolLookForMember(member) {
+  const {slot,wardrobe}=uniformCast[member-OFFICERS[0]], [,height,skin] = patrol[slot];
+  const style=UNIFORMS[wardrobe];
+  return {member,outfit:'patrol',wardrobe,top:parseInt(style.coat.slice(1),16),bottom:0x202939,hair:0x211d1b,
+    skin,height,build:1,pace:1.4,kit:(style.cap==='none'?0:KIT.patrol|KIT.cap) | (slot % 2 ? KIT.woman : 0)};
+}
+
+export function patrolAppearance(carId, seat = 0, unitId = 'patrol') {
+  const unit=UNIT[unitId] || UNIT.patrol, family=wardrobes.indexOf(unit.uniform), hash=unitHash(carId)+seat;
+  const member=family===0 ? OFFICERS[hash%patrol.length] : OFFICERS.at(-1)+1+(family-1)*2+hash%2;
+  return {...patrolLookForMember(member),unit:unit.id};
+}
 
 /** What a number says about who it is, without making them. */
 export function memberInfo(id) {
-  if (id >= OFFICERS[0]) return { officer: true, woman: id === OFFICERS[1], child: false, old: false, group: 'other', kind: 3 };
+  if (id >= OFFICERS[0]) {
+    const {slot,wardrobe}=uniformCast[id-OFFICERS[0]];
+    return {officer:true,woman:Boolean(slot%2),child:false,old:false,group:patrol[slot][0],kind:3,slot,wardrobe};
+  }
   const kind = id % KINDS, woman = Math.floor(id / KINDS) % 2 === 1, group = GROUPS[Math.floor(id / (KINDS * 2))];
   // The census's "Asian" is South Asia and East Asia both, and its "white" takes in the Middle East: a third of each cast is of the one, the rest of the other.
   const line = group === 'asian' ? (kind % 3 === 2 ? 'southAsian' : 'eastAsian') : group === 'white' && kind === 5 ? 'arab' : null;
   return { officer: false, woman, child: kind === CHILD, old: kind === OLD || kind === OLDER, group, kind, line, outfit: OFFICE.includes(kind) ? 'business' : kind === RUNNER ? 'athletic' : 'casual' };
 }
 
-/** The design a number stands for. `human` is the figure (human.js), for its dials. */
+const walkStyles = Array.from({length:MEMBERS}, (_,id)=>{
+  const roll=mulberry(Math.imul(id+1,0x9e3779b1))();
+  return roll<.35?'relaxed':roll>.68?'purposeful':'natural';
+});
+export const castWalkStyle = id => walkStyles[id] ?? 'natural';
+
+// Deal outfits across the existing adult cast, independently of their face,
+// ancestry and walk cycle. A returning customer keeps the same garments.
+const streetLooks=new Map(), deal=mulberry(0x5b0f2179);
+for(const occasion of ['casual','business','athletic']){
+  const members=Array.from({length:OFFICERS[0]},(_,id)=>id).filter(id=>{
+    const info=memberInfo(id);
+    return !info.child && info.outfit===occasion;
+  });
+  for(let i=members.length-1;i>0;i--){
+    const j=Math.floor(deal()*(i+1));
+    [members[i],members[j]]=[members[j],members[i]];
+  }
+  const looks=FASHION_LOOKS.filter(look=>look.occasion===occasion);
+  members.slice(0,Math.ceil(members.length*.68)).forEach((id,i)=>streetLooks.set(id,looks[i%looks.length]));
+}
+export const fashionForMember=id=>streetLooks.get(id);
+
+/** The design a number stands for. */
 export function designOf(id, human) {
-  const info = memberInfo(id), random = mulberry(0x9e3779b1 ^ Math.imul(id + 1, 2654435761));
+  const info = memberInfo(id), face=info.officer ? OFFICERS[info.slot] : id;
+  const random = mulberry(0x9e3779b1 ^ Math.imul(face + 1, 2654435761));
   if (info.officer) {
-    const design = somebody(random, human, { sex: info.woman ? 1 : 0, age: 28 + Math.floor(random() * 18), outfit: 'business' });
-    return { ...design, weight: Math.min(.35, design.weight), top: 'male_casualsuit03-top', bottom: 'male_elegantsuit01-bottom', topColour: '#1b2a4a', bottomColour: '#141b2c', shoes: 'shoes01', hat: 'none', hair: info.woman ? 'ponytail01' : design.hair === 'long01' ? 'short02' : design.hair };
+    const [,height,skin,hair] = patrol[info.slot];
+    const design = somebody(random, human, { sex: Number(info.woman), shares: GROUPS.map(g => Number(g===info.group)), age: 28 + Math.floor(random() * 18) });
+    return { ...design, walkStyle:castWalkStyle(id), uniform:info.wardrobe, height, tone:'#'+skin.toString(16), hair,
+      top:'male_casualsuit02-top', topColour:null, bottom:'male_elegantsuit01-bottom', bottomColour:'#202939',
+      shoes:'shoes01', shoeColour:'#25292d', hat:'none' };
   }
   const shares = GROUPS.map(group => group === info.group ? 1 : 0);
   const age = info.kind === CHILD ? 10 + Math.floor(random() * 7) : info.kind === OLD ? 68 + Math.floor(random() * 18) : info.kind === OLDER ? 52 + Math.floor(random() * 14) : info.kind === RUNNER ? 19 + Math.floor(random() * 22) : 18 + Math.floor(random() * 32);
-  return somebody(random, human, { shares, sex: info.woman ? 1 : 0, age, kind: info.line || (info.group === 'white' ? 'european' : null), outfit: info.outfit });
+  return {...somebody(random, human, { shares, sex: info.woman ? 1 : 0, age, kind: info.line || (info.group === 'white' ? 'european' : null), outfit: info.outfit }),
+    ...fashionForMember(id)?.clothes,walkStyle:castWalkStyle(id)};
 }
 
 /**
@@ -46,7 +105,7 @@ export function memberFor(random, tones = null, outfit = 'casual', woman = rando
   let at = random() * shares.reduce((sum, share) => sum + share, 0), group = 0;
   for (; group < shares.length - 1; group++) { at -= shares[group]; if (at <= 0) break; }
   const r = random();
-  let kind = outfit === 'suit' || outfit === 'office' ? (r < .8 ? OFFICE[r < .4 ? 0 : 1] : r < .9 ? OLDER : 3 + Math.floor(random() * 4))
+  let kind = outfit === 'staff' ? OFFICE[r < .5 ? 0 : 1] : outfit === 'suit' || outfit === 'office' ? (r < .8 ? OFFICE[r < .4 ? 0 : 1] : r < .9 ? OLDER : 3 + Math.floor(random() * 4))
     : outfit === 'athletic' ? (r < .75 ? RUNNER : 3 + Math.floor(random() * 4))
     : r < .06 ? CHILD : r < .15 ? OLD : r < .28 ? OLDER : r < .34 ? RUNNER : r < .42 ? OFFICE[r < .38 ? 0 : 1] : 3 + Math.floor(random() * 4);
   // Among those the census calls Asian here, how many speak the languages of the subcontinent at home.

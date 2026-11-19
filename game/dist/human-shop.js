@@ -1,6 +1,7 @@
 // Where people are made to order: in a worker where there is one, here otherwise.
 import { loadHuman } from './human.js';
 import { lookOf } from './human-looks.js';
+import { streetFigure } from './human-crowd.js';
 import { designOf } from './human-cast.js';
 
 /** A rig sent from the worker, made whole again. */
@@ -13,12 +14,11 @@ export function reviveRig(plain) {
  * what human.js builds for the design dressed as human-looks.js dresses it, and the colours
  * and pictures human-mesh.js needs to draw it. `motion` is dist/motion.json.
  */
-export function createHumanShop(motion, { worker = true, base = new URL('./human/', import.meta.url).href } = {}) {
+export function createHumanShop(motion, { worker = true, moves, base = new URL('./human/', import.meta.url).href } = {}) {
   let thread = null, next = 1, here = null; const waiting = new Map();
   const local = async (design, detail, member) => {
     const human = await (here ||= loadHuman(motion, base)), who = design || designOf(member, human), dressed = lookOf(who, human);
-    // A street figure needs pictures cut and painted, which is the worker's work: without one there are none.
-    if (detail === 'street') throw new Error('street figures are made in a worker');
+    if (detail === 'street') return streetFigure(human,moves,who,base);
     return { ...human.build({ ...who, wear: dressed.wear }, { detail }), look: dressed.look };
   };
   if (worker && typeof Worker !== 'undefined') {
