@@ -1,3 +1,4 @@
+import { drivingCity } from './fixtures/parked-cab.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
@@ -154,7 +155,7 @@ test('all registered passenger and working cars reach and sustain their advertis
 test('a shop-fitted car reaches the quoted numbers through throttle, brake and steering input', () => {
   const stock = of('Chevrolet','Corvette',2023,'coupe');
   const city = { bounds:{minX:-25000,maxX:25000,minZ:-25000,maxZ:25000},buildings:[],roads:[],spawn:{x:0,z:0,angle:0},missionPoints:[] };
-  const sim = new Simulation(city), car = sim.getNearbyCar();
+  const sim = drivingCity(city), car = sim.getNearbyCar();
   car.identity = { make:'Chevrolet',model:'Corvette',shape:'coupe',performance:stock };
   sim.cash = 2000; sim.interact();
   for (const part of ['engine','brakes','tyres']) assert.ok(sim.garage('repair',part));

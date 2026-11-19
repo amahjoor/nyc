@@ -50,14 +50,12 @@ test('courtyards remain empty and their walls push the player toward free space'
   }
 });
 
-test('real survey leaves the original spawn, taxi and every delivery destination clear', () => {
+test('real survey leaves the original spawn and every delivery destination clear', () => {
   const city = applySurvey(sourceCity, survey);
   const sim = new Simulation(city);
   assert.equal(sim.isBlocked(city.spawn.x, city.spawn.z, 0.4), false);
   assert.equal(sim.isBlocked(sim.player.x, sim.player.z, 0.4), false);
-  assert.equal(sim.getNearbyCar()?.id, 'player-taxi');
-  const taxi = sim.cars.find(car => car.id === 'player-taxi');
-  assert.equal(sim._carContact(taxi.x, taxi.z, taxi.angle), null);
+  assert.equal(sim.cars.includes(sim.ownedCab),false);
   assert.ok(city.missionPoints.length >= 6);
   for (const point of city.missionPoints) assert.equal(sim.isBlocked(point.x, point.z, 1), false, point.name);
 });

@@ -1,3 +1,4 @@
+import { drivingCity } from './fixtures/parked-cab.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { BODY_HANDLING, PARTS, RESPRAYS, RESPRAY_PRICE, CALL_OUT, DELIVERY, WHEELS, WHEELS_PRICE, PLATES_PRICE, repairCost, offersAt, handlingFor, shopRows } from '../dist/garage.js';
@@ -39,7 +40,7 @@ test('a car drives by its figures: a coupe pulls harder and tops out higher than
 });
 
 test('a garage mends, resprays and fits parts for cash, to the car that is driven in', () => {
-  const sim = new Simulation(town());
+  const sim = drivingCity(town());
   assert.equal(sim.vehicle, null); assert.equal(sim.garage('repair', 'repair'), false, 'on foot there is nothing to work on');
   sim.interact();
   const cab = sim.vehicle;
@@ -78,7 +79,7 @@ test('a garage mends, resprays and fits parts for cash, to the car that is drive
 });
 
 test('the mechanic comes out to the car, and the cab can be brought round', () => {
-  const sim = new Simulation(town());
+  const sim = drivingCity(town());
   sim.cash = 500;
   assert.equal(sim.callMechanic(), false, 'on foot');
   assert.equal(sim.summonCab(), false, 'the cab is right there');

@@ -64,8 +64,8 @@ test('all actual Central Park destination chunks become ready and permit a clear
     isReadyAt: (x, z, radius) => stream.isReadyAt(x, z, radius) });
   assert.equal(sim.isBlocked(sim.player.x, sim.player.z, .35), false);
   assert.ok(Math.hypot(sim.player.x - region.view.x, sim.player.z - region.view.z) < 100);
-  assert.ok(sim.getNearbyCar(), 'the arrival street fits the starter cab');
-  assert.equal(sim.interact(), true);
+  assert.equal(sim.cars.includes(sim.ownedCab),false);
+  assert.equal(sim.player.mode,'walk');
 });
 
 function geometryBuffer(triangles) {

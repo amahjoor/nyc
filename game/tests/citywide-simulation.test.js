@@ -1,3 +1,4 @@
+import { drivingCity } from './fixtures/parked-cab.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { Simulation } from '../dist/simulation.js';
@@ -58,7 +59,7 @@ test('traffic loses every stale graph reference and keeps its directed route acr
 
 test('driving pauses at loaded coverage without heat or damage and continues as coverage expands', () => {
   const loadedBounds = { minX: -100, maxX: 100, minZ: -100, maxZ: 30 };
-  const sim = new Simulation(city({ loadedBounds }));
+  const sim = drivingCity(city({ loadedBounds }));
   sim.interact();
   advance(sim, 6, { forward: 1 });
   assert.ok(sim.player.z > 20 && sim.player.z < 28, `stopped at ${sim.player.z}`);
@@ -75,7 +76,7 @@ test('driving pauses at loaded coverage without heat or damage and continues as 
 
 test('irregular streaming coverage blocks walking and cars before missing geometry', () => {
   let readyLimit = 25;
-  const sim = new Simulation(city({ isReadyAt: (x, z, radius) => z + radius < readyLimit }));
+  const sim = drivingCity(city({ isReadyAt: (x, z, radius) => z + radius < readyLimit }));
   sim.interact();
   advance(sim, 5, { forward: 1 });
   assert.ok(sim.player.z < 23);
@@ -91,7 +92,7 @@ test('irregular streaming coverage blocks walking and cars before missing geomet
   assert.equal(walker.isBlocked(walker.player.x, walker.player.z, 0.4), false);
 });
 
-test('travel snaps to a loaded street, supplies a safe taxi, and preserves completed and active progress', () => {
+test('travel snaps to a loaded street, and preserves completed and active progress', () => {
   const sim = new Simulation(city());
   sim.cash = 450;
   sim.deliveries = 2;
@@ -106,7 +107,7 @@ test('travel snaps to a loaded street, supplies a safe taxi, and preserves compl
   assert.ok(Math.abs(sim.player.z - 7000) < 10);
   assert.equal(sim.player.mode, 'walk');
   assert.equal(sim.isBlocked(sim.player.x, sim.player.z, 0.4), false);
-  assert.equal(sim.getNearbyCar()?.id, 'player-taxi');
+  assert.equal(sim.cars.includes(sim.ownedCab),false);
   for (const car of sim.cars) assert.equal(sim._carContact(car.x, car.z, car.angle), null);
   assert.equal(sim.cash, 450);
   assert.equal(sim.deliveries, 2);

@@ -1,3 +1,4 @@
+import { drivingCity } from './fixtures/parked-cab.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { Simulation } from '../dist/simulation.js';
@@ -188,7 +189,7 @@ test('no helicopter below three stars', () => {
 });
 
 test('from two stars a patrol rams the car it is chasing', () => {
-  const sim = alone(new Simulation(grid()));
+  const sim = alone(drivingCity(grid()));
   sim.interact();
   assert.equal(sim.player.mode, 'drive');
   const car = sim.vehicle, edge = sim._nearestEdge(car.x, car.z + 60).edge;
@@ -346,7 +347,7 @@ test('a death or an arrest is watched before what follows it', () => {
 });
 
 test('a car driven into is dented and shoved off its line, and its driver goes on after a while', () => {
-  const sim = alone(new Simulation(grid())); sim.interact();
+  const sim = alone(drivingCity(grid())); sim.interact();
   const car = sim.cars.find(item => item.controlled);
   assert.ok(car, 'driving');
   sim.cars = [car];

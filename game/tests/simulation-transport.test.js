@@ -1,7 +1,7 @@
+import { drivingCity, parkCab } from './fixtures/parked-cab.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { Simulation } from '../dist/simulation.js';
 import { TransportSurfaces } from '../dist/transport-surfaces.js';
 import { prepareTerrain, sampleTerrain } from '../dist/landscape.js';
 
@@ -12,7 +12,7 @@ function fixture(t, { ramp = true, subtype = 'bridge', spawn = { x: 0, z: -12 },
     polygon: [[-8, north], [8, north], [8, 120], [-8, 120]], holes: [],
     elevations: { polygon: ramp ? [0, 0, 12, 12] : [6, 6, 6, 6], holes: [] },
     elevationStatus: 'surveyed', elevationUnits: 'meters', verticalDatum: 'NAVD88' }]);
-  const sim = new Simulation({ bounds: { minX: -500, maxX: 500, minZ: -500, maxZ: 500 }, spawn,
+  const sim = drivingCity({ bounds: { minX: -500, maxX: 500, minZ: -500, maxZ: 500 }, spawn,
     roads, buildings: [], sampleSurface: (x, z, options) => decks.sampleSurface(x, z, options) || { elevation: 0, normal: { x: 0, y: 1, z: 0 } } });
   return { sim, decks };
 }
@@ -20,11 +20,12 @@ function advance(sim, seconds, input) { for (let i = 0; i < seconds * 120; i++) 
 
 test('walking climbs a surveyed ramp continuously while an overhead bridge leaves the lower road unchanged', t => {
   const { sim } = fixture(t);sim.cars = [];
-  advance(sim, 12, { moveZ: 1 });
+  for (let i=0; i<36*120 && sim.player.z<40; i++) sim.step({moveZ:1},1/120);
   assert.ok(sim.player.z > 35 && sim.player.z < 45);
   assert.ok(Math.abs(sim.player.y - sim.player.z * .1) < 1e-4);
   const { sim: lower } = fixture(t, { ramp: false });lower.cars = [];
-  advance(lower, 12, { moveZ: 1 });
+  for (let i=0; i<36*120 && lower.player.z<40; i++) lower.step({moveZ:1},1/120);
+  assert.ok(lower.player.z>=40);
   assert.equal(lower.player.y, 0);
 });
 
@@ -58,9 +59,10 @@ test('travel and recovery discard a previous deck level before sampling the dest
   const { sim } = fixture(t, { ramp: false });
   sim.player.y = 6;sim.cars[0].y = 6;
   sim.travelTo({ x: 0, z: 30 });
+  assert.equal(sim.cars.includes(sim.ownedCab),false);
+  parkCab(sim);
   assert.equal(sim.player.y, 0);assert.ok(sim.cars.every(car => car.y === 0));
-  sim.player.y = 6;sim.cars[0].y = 6;
-  sim.reset();
+  sim.player.y = 6;sim.reset();
   assert.equal(sim.player.y, 0);assert.equal(sim.cars[0].y, 0);
   sim.step({}, 1 / 60);
   assert.equal(sim.player.y, 0);assert.equal(sim.cars[0].y, 0);
@@ -113,7 +115,7 @@ test('drivers only yield to somebody crossing their own level of a stacked road'
 
 test('pedestrian-only ramp elevation is available to walking but excluded for driving', t => {
   const { sim } = fixture(t, { subtype: 'pedestrian bridge' });
-  sim.cars = [];advance(sim, 8, { moveZ: 1 });
+  sim.cars = [];advance(sim, 24, { moveZ: 1 });
   assert.ok(sim.player.y > 2);
   const { sim: driver } = fixture(t, { subtype: 'pedestrian bridge' });
   assert.equal(driver.interact(), true);
@@ -179,7 +181,7 @@ test('actual Central Park road samples no longer mix deck and ground wheel level
   ];
   for (const location of cases) {
     const angle = Math.atan2(location.dx, location.dz);
-    const sim = new Simulation({ bounds: { minX: -10000, maxX: 10000, minZ: -10000, maxZ: 10000 },
+    const sim = drivingCity({ bounds: { minX: -10000, maxX: 10000, minZ: -10000, maxZ: 10000 },
       roads: [], buildings: [], spawn: { x: 0, z: 0 }, sampleSurface });
     const car = sim.cars[0];
     Object.assign(car, { x: location.x - Math.sin(angle) * .25, z: location.z - Math.cos(angle) * .25, angle, y: undefined, transportId: null });

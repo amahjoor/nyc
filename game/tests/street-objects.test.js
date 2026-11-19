@@ -1,7 +1,7 @@
+import { drivingCity } from './fixtures/parked-cab.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import * as THREE from '../dist/vendor/three.module.min.js';
-import { Simulation } from '../dist/simulation.js';
 import { buildCell } from '../dist/streetscape.js';
 import { createStreetLife } from '../dist/streetlife.js';
 import { createStreetProps, SETBACK } from '../dist/street-props.js';
@@ -9,7 +9,7 @@ import { createSubwayEntrances } from '../dist/subway.js';
 import { StreetObjects } from '../dist/street-objects.js';
 
 function game(roads = []) {
-  return new Simulation({ bounds: { minX: -500, maxX: 500, minZ: -500, maxZ: 500 },
+  return drivingCity({ bounds: { minX: -500, maxX: 500, minZ: -500, maxZ: 500 },
     roads, buildings: [], spawn: { x: 0, z: 0, angle: 0 } });
 }
 
@@ -85,7 +85,7 @@ test('a walker moves the visible litter basket, which settles against a solid ob
   const z = -SETBACK.basket;
   Object.assign(sim.player, { x: 0, z: z - 2, y: 0 });
   sim.streetObjects.replace('tree', [{ x: 0, z: z + 2.3, y: 0, radius: .3, height: 4 }]);
-  step(sim, 50, { moveZ: 1 });
+  step(sim, 150, { moveZ: 1 });
   Object.assign(sim.player, { x: 5, z: 4, velocityZ: 0 });
   step(sim, 300);
   const [pose] = sim.streetObjects.damage.values();

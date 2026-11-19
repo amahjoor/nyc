@@ -9,13 +9,15 @@ function city(overrides = {}) {
     roads: [street], buildings: [], missionPoints: [], sampleSurface: (x, z) => ({ elevation: 10 + x * .01 + z * .02 }), ...overrides };
 }
 
-test('an exact park pin preserves its coordinates and places the courtesy cab on a nearby mapped street', () => {
+test('an exact park pin preserves its coordinates and only delivers a cab after calling the mechanic', () => {
   const sim = new Simulation(city());sim.cash = 350;sim.deliveries = 2;
   const mission = sim.mission;
   sim.travelTo({ x: 45.1234, z: 38.4567, exact: true, name: 'Park lawn' });
   assert.equal(sim.player.x, 45.1234);assert.equal(sim.player.z, 38.4567);
   assert.equal(sim.player.mode, 'walk');assert.equal(sim.player.y, 10 + 45.1234 * .01 + 38.4567 * .02);
   assert.equal(sim.city.spawn.exact, true);assert.equal(sim.cash, 350);assert.equal(sim.deliveries, 2);assert.equal(sim.mission, mission);
+  assert.equal(sim.cars.includes(sim.ownedCab),false);
+  assert.ok(sim.summonCab());
   const taxi = sim.cars.find(car => car.id === 'player-taxi');
   assert.ok(taxi);assert.ok(Math.abs(taxi.x) < 3, 'the taxi stays in the real street, not beside the off-road pin');
   assert.ok(Math.hypot(taxi.x - sim.player.x, taxi.z - sim.player.z) > 30);
@@ -28,7 +30,7 @@ test('exact dry ground can be reached without a road or fabricated nearby car', 
   sim.travelTo({ x: 321.234, z: 210.987, exact: true });
   assert.equal(sim.player.x, 321.234);assert.equal(sim.player.z, 210.987);
   assert.equal(sim.player.mode, 'walk');assert.equal(sim.cars.length, 0);assert.equal(sim.getNearbyCar(), null);
-  assert.match(sim.notice, /Explore on foot/);
+  assert.match(sim.notice, /Arrived/);
 });
 
 test('exact pins reject blocked, unloaded and out-of-bounds locations without moving the current player', () => {
@@ -78,8 +80,8 @@ test('unsafe or distant mapped roads do not force a starter cab onto the selecte
   }
 });
 
-test('ordinary neighborhood travel retains its existing street snapping and nearby starter cab', () => {
+test('ordinary neighborhood travel retains its existing street snapping without a starter cab', () => {
   const sim = new Simulation(city());sim.travelTo({ x: 45, z: 38 });
   assert.ok(Math.abs(sim.player.x) < 3);assert.notEqual(sim.player.x, 45);
-  assert.equal(sim.getNearbyCar()?.id, 'player-taxi');
+  assert.equal(sim.cars.includes(sim.ownedCab),false);
 });

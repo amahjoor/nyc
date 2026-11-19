@@ -1,6 +1,6 @@
+import { drivingCity } from './fixtures/parked-cab.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { Simulation } from '../dist/simulation.js';
 
 const STEP = 1 / 120;
 const radians = degrees => degrees * Math.PI / 180;
@@ -8,7 +8,7 @@ const angleDelta = (from, to) => Math.atan2(Math.sin(to - from), Math.cos(to - f
 const clamp = (value, minimum, maximum) => Math.min(maximum, Math.max(minimum, value));
 
 function driving(speed = 15, overrides = {}) {
-  const sim = new Simulation({
+  const sim = drivingCity({
     bounds: { minX: -2000, maxX: 2000, minZ: -2000, maxZ: 2000 },
     roads: [], buildings: [], spawn: { x: 0, z: 0, angle: 0 },
     missionPoints: [{ x: 100, z: 100, name: 'Destination' }], ...overrides,
@@ -244,17 +244,10 @@ test('entry and exit clear residual yaw and drift while unsafe sideways entry re
   assert.equal(car.x, start.x);assert.equal(car.z, start.z);assert.equal(car.angle, start.angle);
 });
 
-test('travel replaces a drifting vehicle with a stationary destination cab', () => {
+test('travel returns the drifting vehicle to the garage until requested again', () => {
   const { sim, car } = driving();
-  Object.assign(car, { velocityX: 8, yawRate: .6, slipAngle: .3 });
-  sim.travelTo({ x: 100, z: 100, angle: Math.PI / 2 });
-  assert.equal(sim.player.mode, 'walk');assert.equal(sim.cars.includes(car), false);
-  const arrived = sim.cars.find(item => item.id === 'player-taxi');
-  for (const field of ['speed', 'velocityX', 'velocityZ', 'yawRate', 'slipAngle', 'lateralAcceleration', 'longitudinalAcceleration']) {
-    assert.equal(arrived[field], 0, `${field} starts clean after travel`);
-  }
-  assert.ok(sim.interact());
-  const start = { x: arrived.x, z: arrived.z, angle: arrived.angle };
-  run(sim, arrived, .5, {});
-  assert.equal(arrived.x, start.x);assert.equal(arrived.z, start.z);assert.equal(arrived.angle, start.angle);
+  sim.travelTo({ x:100,z:100,angle:Math.PI/2 });
+  assert.equal(sim.player.mode,'walk');
+  assert.equal(sim.cars.includes(car),false);
+  assert.equal(sim.ownedCab.controlled,false);
 });
