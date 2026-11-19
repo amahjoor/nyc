@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="1024" height="1024" viewBox="0 0 1000 1000">
+  <!-- Height field in jacket UV space. Middle grey is the uncreased cloth. -->
+  <defs>
+    <filter id="soft" x="-.2" y="-.2" width="1.4" height="1.4"><feGaussianBlur stdDeviation="2.6"/></filter>
+    <pattern id="twill" width="5" height="5" patternUnits="userSpaceOnUse">
+      <path d="M-1 1l2-2M-1 6l7-7M4 6l2-2" fill="none" stroke="#a2a2a2" stroke-width="1.2"/>
+    </pattern>
+    <g id="folds" fill="none" stroke-linecap="round" stroke-linejoin="round">
+      <!-- Front panels bow away from the zip and bunch above the waistband. -->
+      <path d="M421 92q29 24 63 33t43 11m173-42q-24 17-35 20t-30 15M429 149q14 25 43 40m221-30q-18 20-39 28
+               M408 230q26 27 71 34t62 20m153-57q-24 19-64 32t-54 20M413 293q34-9 61 0t58 15m157-17q-26 14-48 16t-50 13
+               M434 345q41-16 66-8t45 13m148-14q-33 15-72 15"/>
+      <!-- Back yoke, side tension and folds above the belt. -->
+      <path d="M19 72q27 24 63 29m238-31q-23 24-61 33M4 151q21 40 70 59m259-55q-27 32-63 47
+               M17 222q20 25 76 37t72 22m147-57q-17 21-58 40t-63 28M8 293q36-4 71 6t64 19m178-5q-22-5-58 3t-69 7"/>
+      <!-- Rotated sleeve islands, from upper arm through each elbow and cuff. -->
+      <path d="M746 211q36 13 76 12t73 15m77-17q-20 13-49 18M749 258q48 18 84 12t83 14m66-4q-29-5-58 10
+               M763 288q27-5 57 7t66 13m-112 38q48-8 75 2m99-17q-23 10-38 20
+               M741 745q43 20 84 13t78 19m82-23q-28 13-53 16M759 798q29-3 57 9t66 16m93-15q-23-4-61 14
+               M765 833q26-5 54 8t55 15m96-17q-21 12-64 17M790 891q35-10 69 3"/>
+    </g>
+  </defs>
+  <rect width="1000" height="1000" fill="#808080"/>
+  <g filter="url(#soft)">
+    <use xlink:href="#folds" stroke="#686868" stroke-width="8" transform="translate(0 4)"/>
+    <use xlink:href="#folds" stroke="#a6a6a6" stroke-width="5"/>
+  </g>
+  <rect width="1000" height="1000" fill="url(#twill)" opacity=".065"/>
+</svg>
