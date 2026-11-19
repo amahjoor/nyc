@@ -160,7 +160,7 @@ function cityPresets(){
   const places=[
     ...roadIndex.places,
     ...BOARDINGS.map(transportDestination),
-    ...parks.map(region=>({...region.view,name:region.name})),
+    ...parks.flatMap(region=>[{...region.view,name:region.name},...(region.presets||[])]),
     {...STATUE.arrival,name:'Statue of Liberty',borough:'Manhattan',exact:true},
     ...streets.map(region=>({...region.view,name:region.exploreName||region.name})),
   ];

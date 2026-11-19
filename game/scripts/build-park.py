@@ -11,7 +11,8 @@ for it, OpenStreetMap.
 
   central-park    4 km by 800 m, turned 29 degrees with the avenues; its lawns, woods and rock from
                   OpenStreetMap; its four transverse roads cut through under their bridges
-  liberty-island  the island inside its surveyed seawall: plaza, paths and lawn, from the survey alone
+  liberty-island, ellis-island, governors-island: surveyed shorelines, piers, walks and lawns
+  prospect-park   Brooklyn crowns, surveyed water and bridges, and mapped woodland and trails
 
 Dependencies (in a virtual environment): numpy scipy rasterio pyproj shapely
 pyshp py7zr pillow.
@@ -54,6 +55,28 @@ PARKS = {
         # On the flagpole plaza behind the statue, looking at her (liberty.js). No street reaches the island,
         # so a visitor is set down at exactly this spot.
         "view": (-3693.7, 3708.5, .588), "exact": True,
+    },
+    "ellis-island": {
+        "name": "Ellis Island", "borough": "Manhattan", "bbox": (-74.0449, 40.6954, -74.0365, 40.7018),
+        "outline": ("shoreline", (-74.0395, 40.6994)),
+        "layers": ("Park_2022", "Sidewalk_2022", "Plaza_2022", "Roadbed_2022", "Hydro_Structure_2022", "BUILDING_view"),
+        "osm": False, "transverses": False, "lawn": "rest",
+        # A surveyed promenade on the museum side of the ferry basin.
+        "view": (-3141.955, 2715.799, -2.1), "exact": True,
+    },
+    "governors-island": {
+        "name": "Governors Island", "borough": "Manhattan", "bbox": (-74.0283, 40.6803, -74.0090, 40.6963),
+        "outline": ("shoreline", (-74.019, 40.689)),
+        "layers": ("Park_2022", "Sidewalk_2022", "Plaza_2022", "Roadbed_2022", "Hydro_Structure_2022", "BUILDING_view"),
+        "osm": False, "transverses": False, "lawn": "rest",
+        "view": (-1025.222, 3592.533, -1.15), "exact": True,
+    },
+    "prospect-park": {
+        "name": "Prospect Park", "borough": "Brooklyn", "bbox": (-73.9844, 40.6501, -73.9568, 40.6734),
+        "outline": ("park", "Prospect Park"), "layers": ("Park_2022", "Sidewalk_2022", "Plaza_2022", "Roadbed_2022"),
+        "osm": True, "transverses": False, "bridges": True, "replaces": ("prospect-lake",),
+        "view": (2365.935, 6233.852, .72), "exact": True,
+        "presets": [{"name": "Brooklyn · Prospect Lake", "x": 2717.742, "z": 7473.467, "heading": 0}],
     },
 }
 BBOX = PARKS["central-park"]["bbox"]   # set for the park being built by configure()
@@ -144,7 +167,9 @@ def survey_layer(cache, name, download):
             fetch(f"{SURVEY}/{name}/FeatureServer/{LAYERS[name]}/query?{query}", page_path)
             page = json.loads(page_path.read_bytes())
             page_path.unlink()
-            got = page.get("features", [])
+            if "features" not in page:
+                raise ValueError(f"Invalid {name} survey response: {page.get('error', page)}")
+            got = page["features"]
             features += got
             offset += len(got)
             if len(got) < 1000:
@@ -214,7 +239,7 @@ def elevation_model(cache, download):
     return model
 
 
-def crown_sources(cache, download):
+def crown_sources(cache, download, borough):
     import py7zr
     for name, (url, size, md5) in CROWNS.items():
         path = cache / name
@@ -232,7 +257,8 @@ def crown_sources(cache, download):
                 raise ValueError("Unsafe tree archive path")
             archive.extractall(target)
         (target / ".complete").write_text("verified source archive extracted\n")
-    return next(path for path in target.rglob("*.shp") if path.name.lower().startswith("manh"))
+    prefix = {"Manhattan": "manh", "Brooklyn": "brooklyn"}[borough]
+    return next(path for path in target.rglob("*.shp") if path.name.lower().startswith(prefix))
 
 
 # --- The park's frame --------------------------------------------------------------
@@ -512,7 +538,7 @@ def grid_height(heights, x, z):
     return np.where(u + v <= 1, a + (b - a) * u + (c - a) * v, d + (c - d) * (1 - u) + (b - d) * (1 - v))
 
 
-def crown_candidates(cache, download, frame, park):
+def crown_candidates(cache, download, frame, park, borough):
     """Every crown the lidar found over the park: where its top is, how tall, and its outline. Kept in the cache."""
     import pickle
     import numpy as np
@@ -528,7 +554,7 @@ def crown_candidates(cache, download, frame, park):
     kept = cache / f"crowns-{frame.x:.0f}-{frame.z:.0f}-{frame.angle:.4f}.pickle"
     if kept.exists():
         return [(x, z, top, low, wkb.loads(outline)) for x, z, top, low, outline in pickle.loads(kept.read_bytes())]
-    path = crown_sources(cache.parent, download)
+    path = crown_sources(cache.parent, download, borough)
     source = CRS.from_wkt(path.with_suffix(".prj").read_text())
     to_source = Transformer.from_crs(4326, source, always_xy=True)
     to_wgs = Transformer.from_crs(source, 4326, always_xy=True)
@@ -551,7 +577,9 @@ def crown_candidates(cache, download, frame, park):
             window = from_bounds(*lidar.bounds, raster.transform).round_offsets().round_lengths()
             if window.width < 1 or window.height < 1:
                 continue
-            band = raster.read(1, window=window, boundless=True, fill_value=0).astype(np.float64)
+            outside = (window.col_off < 0 or window.row_off < 0 or
+                       window.col_off + window.width > raster.width or window.row_off + window.height > raster.height)
+            band = raster.read(1, window=window, boundless=outside, fill_value=0).astype(np.float64)
             covered = geometry_mask([mapping(lidar)], out_shape=band.shape, transform=raster.window_transform(window), invert=True)
             # The canopy model is in decimetres; outside 2 to 60 m it is not vegetation.
             valid = covered & (band >= 20) & (band <= 600)
@@ -993,6 +1021,8 @@ def build(cache, output, park_id="central-park", download=False, preview=None):
         structures = covers + bridges
         print(f"Structures: {len(covers)} lids over the transverse roads, {len(bridges)} surveyed bridges")
         heights = carve(heights, cuts)
+    elif place.get("bridges"):
+        structures, _ = survey_bridges(cache, download, frame, park)
     # Trees stand on the ground as it ships: the same rounded heights the game will sample.
     shipped = np.clip(np.round((heights - HEIGHT_OFFSET) / HEIGHT_SCALE), 0, 65535) * HEIGHT_SCALE + HEIGHT_OFFSET
     near = park.buffer(3)
@@ -1000,7 +1030,7 @@ def build(cache, output, park_id="central-park", download=False, preview=None):
                + [geometry for name in ("Roadbed_2022", "Sidewalk_2022", "Plaza_2022", "BUILDING_view") for properties, geometry in survey.get(name, [])
                   if geometry.intersects(near) and properties.get("SUB_FEATURE_CODE") != 380000 and (name != "Plaza_2022" or not place["osm"])]
                + osm_areas["building"] + [cut["cut"].buffer(3) for cut in cuts])
-    trees, crowns = tree_records(crown_candidates(cache, download, frame, park), frame, park, row_walks, blocked, shipped)
+    trees, crowns = tree_records(crown_candidates(cache, download, frame, park, place["borough"]), frame, park, row_walks, blocked, shipped)
     surface, over, shares = ground_cover(frame, park, survey, osm_areas, osm_lines, water, crowns, rest_is_lawn=place.get("lawn") == "rest", ground=ground)
     if place["outline"][0] == "shoreline":
         print("Shore: took the place of", redraw_shore(output, frame, ground, place["borough"]), "coarse outline(s) in boroughs.json")
@@ -1023,6 +1053,10 @@ def build(cache, output, park_id="central-park", download=False, preview=None):
                "nodeOrder": "row-major in the park's frame: across the park first, then downtown; nodes include bounds",
                "range": [float(decoded.min()), float(decoded.max())],
                "note": "Lake beds are cut below the mapped water, and sunken roads are cut through under their bridges and tunnels; neither is measured."}
+    if piers:
+        terrain["note"] = "Pier footprints are raised to deck level above the bathymetric grid."
+    elif water and not cuts:
+        terrain["note"] = "Lake beds are cut up to 1.8 m below the mapped water surface."
     (land / f"{park_id}-terrain.json").write_text(json.dumps(terrain, separators=(",", ":")) + "\n")
     features = {"version": 1, "water": [{key: value for key, value in feature.items() if key != "local"} for feature in water], "canopies": []}
     (land / f"{park_id}-features.json").write_text(json.dumps(features, separators=(",", ":")) + "\n")
@@ -1051,7 +1085,10 @@ def build(cache, output, park_id="central-park", download=False, preview=None):
     }
     if structures:
         manifest["structures"] = {"url": "./structures.json", "count": len(structures),
-                                  "note": "Bridges the survey outlines, and a lid over each stretch of sunken road that runs under a drive or a hillside: the terrain there is cut down to the roadway, and the lid stands at the heights the elevation model has."}
+                                  "note": ("Bridges the survey outlines, and a lid over each stretch of sunken road that runs under a drive or a hillside: the terrain there is cut down to the roadway, and the lid stands at the heights the elevation model has."
+                                           if cuts else "Bridge decks interpolated between the 2022 surveyed outline elevations.")}
+    if place.get("bridges"):
+        manifest["sources"]["outlines"]["title"] += ", Transport_Structure_2022"
     if place["osm"]:
         manifest["sources"]["cover"] = {"title": "OpenStreetMap", "attribution": "© OpenStreetMap contributors", "license": "ODbL 1.0", "url": "https://www.openstreetmap.org/copyright", "extractDate": osm_date,
                                         "use": "lawns, woods, rock, sand, playing fields, playgrounds, unsurveyed paths, benches, lamps and statues"}
@@ -1071,6 +1108,8 @@ def build(cache, output, park_id="central-park", download=False, preview=None):
               "terrainUrl": f"./landscape/{park_id}-terrain.json", "featuresUrl": f"./landscape/{park_id}-features.json", "sourceId": "nyc-dem-2017",
               "view": {"x": round(float(view[0]), 3), "z": round(float(view[1]), 3), "heading": view[2], **({"angle": view[2], "exact": True} if place.get("exact") else {})},
               "stats": {"water": len(water), "canopies": 0, "trees": int(len(trees)), "terrainNodes": int(rows * columns)}}
+    if place.get("presets"):
+        region["presets"] = place["presets"]
     stale = set(place.get("replaces", ()))
     others = [other for other in index["regions"] if other["id"] != park_id and other["id"] not in stale]
     order = list(PARKS)

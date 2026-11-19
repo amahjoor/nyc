@@ -331,7 +331,7 @@ Cars have individual top speeds, 0–60 times, braking distances and cornering g
 
 The [Meadow Lake road pilot](docs/road-pilot.md) adds a roughly 350 × 460 m terrain patch, 27 road/parking surfaces and 65 reviewed paint fragments. A roughly one-metre DEM is constrained by 47 vetted survey points and blended into the surrounding terrain at its boundary. Rendering and tire contact use the same triangles. Actual Segment Anything inference excludes reviewed vehicles from pavement color samples; classical image processing and visual review extract visible paint. This is a bounded, supervised reconstruction pipeline. Sparse bridge measurements, hidden structures and unmeasured curb dimensions remain unresolved. [The evidence page](dist/road-pilot-review.html) links source snapshots, accepted and rejected candidates, and limitations. Rebuild commands and model requirements are in the workflow document.
 
-The city picker includes all of Central Park and detailed areas around Prospect Lake, Meadow Lake, the Bronx Botanical Garden ponds, and Clove Lake, plus the Brooklyn Bridge ground-level approaches and Meadow Lake’s eastern road and parking area. Coarse measured terrain spans the rest of the city. Arrival snaps to an actual nearby road. Walk toward the park or press **V** for the aerial camera.
+The city picker includes Central Park, Prospect Park, Ellis Island, Governors Island, Liberty Island, and detailed areas around Meadow Lake, the Bronx Botanical Garden ponds, and Clove Lake, plus the Brooklyn Bridge ground-level approaches and Meadow Lake’s eastern road and parking area. Coarse measured terrain spans the rest of the city. Arrival snaps to an actual nearby road. Walk toward the park or press **V** for the aerial camera.
 
 `landscape.js` drapes the official aerial atlas over the 2017 topobathymetric DEM. The citywide grid is roughly 63–72 metres; park grids are roughly 2.4–3.9 metres. A grid may be turned from north, as Central Park's is, and a large one ships its heights as two bytes a node beside its description and is drawn in pieces 160 m square, those beyond 650 m of the player with every fourth node (`terrain-chunks.js`). Fine-grid edges blend into the coarse measurements over 20 metres, and physics uses the same triangle interpolation. This avoids separate visual and driving surfaces. Cars sample four wheel supports for slope; actors, camera targets, pins and building foundations use measured height.
 
@@ -349,7 +349,7 @@ python3 -m venv /tmp/nyc-landscape-venv
 /tmp/nyc-landscape-venv/bin/python scripts/import-landscape.py --download --all-regions --cache /tmp/nyc-landscape
 ```
 
-The importer downloads roughly 449 MB of original crown/height data to the external cache, verifies checksums, projects into the game's metre grid, and bundles only sampled/clipped assets. Additional areas can use `--bbox WEST SOUTH EAST NORTH --region-id safe-slug --name "Area name"`. Existing regions are retained. `--all-regions` still rebuilds the first patch around Central Park's Pond; run the Central Park build after it, which takes that patch's place.
+The importer downloads roughly 449 MB of original crown/height data to the external cache, verifies checksums, projects into the game's metre grid, and bundles only sampled/clipped assets. Additional areas can use `--bbox WEST SOUTH EAST NORTH --region-id safe-slug --name "Area name"`. Existing regions are retained. `--all-regions` still rebuilds the first patch around Central Park's Pond; run the Central Park and Prospect Park builds afterward to replace the smaller Pond and Prospect Lake patches.
 
 ### Central Park
 
@@ -364,7 +364,7 @@ The aerial photograph was taken in March. Trees are bare, lawns are straw, and t
 | Paths, drives, plazas | The city's 2022 outlines of interior sidewalks, plazas and roadbeds; paths the survey lacks from OpenStreetMap's lines, at 2 to 5 m wide by kind | Weathered asphalt throughout. The Mall's paving, the brick and the hexagonal blocks are not told apart |
 | Lawns, woods, rock, sand, courts, playgrounds | OpenStreetMap areas: 90 lawns, 149 woods, 112 outcrops of rock, 57 of sand or clay, 74 playing surfaces and playgrounds; the survey's 25 ballfield infields | How each looks. Ground no one has mapped as anything is drawn as rough grass, worn to earth under the crowns. Ground steeper than about 40° is drawn as rock |
 
-`park-ground.js` draws that ground in the terrain's own shader from two images: one holds, for each metre, the distance to the nearest edge of path, lawn, bare earth and rock, which keeps those edges sharp between pixels; the other, at two metres, holds how much is under crowns, woodland, court, and inside the park. `park-trees.js` draws the trees at three levels of detail: the few hundred within 48 m of the camera with boughs and limbs, cells of 140 m at 130 triangles a tree out to about 170 m, and 26 triangles a tree beyond, to 1.5 km. Past that, and on the city map, the crowns are painted on the ground. Trunks within 90 m of the player stop a walker or a car. `mapped-parks.js` keeps every park listed in `dist/parks.json`. It loads each park's two ground maps with the game, and its tree records when the player comes within 3.2 km. The terrain shader holds one park's maps at a time: the park nearest the player has them, and from the city map the largest, so Central Park is green there too.
+`park-ground.js` draws that ground in the terrain's own shader from two images: one holds, for each metre, the distance to the nearest edge of path, lawn, bare earth and rock, which keeps those edges sharp between pixels; the other, at two metres, holds how much is under crowns, woodland, court, and inside the park. `park-trees.js` draws the trees at three levels of detail: the few hundred within 48 m of the camera with boughs and limbs, cells of 140 m at 130 triangles a tree out to about 170 m, and 26 triangles a tree beyond, to 1.5 km. Past that, and on the city map, the crowns are painted on the ground. Trunks within 90 m of the player stop a walker or a car. `mapped-parks.js` keeps every park listed in `dist/parks.json`. It loads each park's two ground maps with the game, and its tree records when the player comes within 3.2 km. Each detailed terrain region uses its own park textures. The coarse city terrain uses the nearest park’s textures at street level and Central Park’s textures in the overview.
 
 A car on a transverse road stays in its cutting and passes under the park; the drives and paths cross above it on the lids. `transport-surfaces.js` treats a lid, and each of the park's bridges, as the street level where it lies: whatever is not already down in the gap, or following a road the city codes below grade, stands on it. A few bumps of about a metre remain where a drive meets a surveyed bridge whose outline is narrower than the gap the elevation model shows.
 
@@ -378,6 +378,20 @@ python3 -m venv /tmp/nyc-park-venv
 ```
 
 The first build downloads the same 449 MB of crown data, the elevation model around the park and a 74 MB OpenStreetMap extract, and takes about twelve minutes, most of it reading the crowns, which are kept so that a rebuild takes under two. What ships is 1.25 MB of heights, 2.1 MB of ground maps, 0.55 MB of tree records and 72 KB of bridges. The ground maps and the furniture list in `dist/central-park/` are derived from OpenStreetMap and remain under the Open Database Licence.
+
+### Ellis Island, Governors Island and Prospect Park
+
+The city picker includes all three destinations. Ellis and Governors arrivals stand on mapped walks. Their shorelines, piers, roadbeds, walks, plazas, building footprints and seawalls come from NYC’s 2022 planimetrics. The renderer treats the remaining open land as lawn. Surveyed pier heights lift the decks above the water. The 2013–14 lidar supplies 135 tree crowns on Ellis and 3,150 on Governors, so recent plantings can differ from the game. [NYC planimetric data](https://github.com/CityOfNewYork/nyc-geo-metadata) · [Tree crown data](https://doi.org/10.6084/m9.figshare.20522895.v2)
+
+Prospect Park uses the main NYC park outline, with 2.5 m terrain spacing, 34,736 Brooklyn tree crowns and 10 mapped water bodies. The **Brooklyn · Prospect Lake** picker entry still leads to the earlier lakeside destination. The full park adds surveyed bridge decks and mapped woodland, lawns and trails. The ground maps and furniture records in `dist/prospect-park/` incorporate OpenStreetMap data under ODbL 1.0. [© OpenStreetMap contributors](https://www.openstreetmap.org/copyright)
+
+To reproduce these assets with the same Python environment as Central Park, run:
+
+```sh
+for park in ellis-island governors-island prospect-park; do
+  python scripts/build-park.py --park "$park" --download --cache /tmp/nyc-parks
+done
+```
 
 ### Statue of Liberty
 

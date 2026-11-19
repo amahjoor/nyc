@@ -1,4 +1,4 @@
-import { loadParkTextures, setParkTreeFade, createParkGroundMaterial } from './park-ground.js';
+import { bindParkGround, loadParkTextures, setParkTreeFade, createParkGroundMaterial } from './park-ground.js';
 import { createParkTrees, TREE_RANGE } from './park-trees.js';
 
 // Parks drawn from maps of what is in them, not from the aerial photograph:
@@ -7,9 +7,8 @@ import { createParkTrees, TREE_RANGE } from './park-trees.js';
 // like any other surveyed region; this module adds what only a mapped park
 // has. `parks.json` lists them, and scripts/build-park.py builds each one.
 //
-// The terrain shader holds one park's ground maps at a time, so the park
-// nearest the player has them. From the city map it is the largest park,
-// the only one that shows at that scale.
+// Detailed terrain uses each park’s own maps. The coarse citywide terrain
+// uses the nearest park at street level and the largest park in the overview.
 
 const distanceTo = (bounds, point) => Math.hypot(Math.max(bounds.minX - point.x, 0, point.x - bounds.maxX), Math.max(bounds.minZ - point.z, 0, point.z - bounds.maxZ));
 
@@ -25,6 +24,7 @@ const distanceTo = (bounds, point) => Math.hypot(Math.max(bounds.minX - point.x,
 export function createMappedPark({ scene = null, landscape, physics = null, streetDetail = () => null, fetcher = globalThis.fetch?.bind(globalThis),
   base = './central-park/', loadTextures = loadParkTextures, onStatus = () => {}, treeReach = 3200, bind = true } = {}) {
   let manifest = null, trees = null, treesLoading = null, textures = null, disposed = false, error = null, painted = null, bound = bind;
+  let regionGround = null;
   let structures = null, structuresLoading = null, decks = null, lidMaterial = null;
   const status = () => ({ id: manifest?.id || null, ready: Boolean(manifest), ground: Boolean(textures), trees: trees?.count || 0, treeCells: trees?.drawn || null, sourceTrees: manifest?.trees.count || 0, error });
   const report = () => { if (!disposed) onStatus(status()); };
@@ -39,6 +39,8 @@ export function createMappedPark({ scene = null, landscape, physics = null, stre
     try {
       textures = await loadTextures(data, base);
       if (disposed) { textures.surface.dispose(); textures.canopy.dispose(); return null; }
+      regionGround = landscape?.regionParkGround?.get(data.region || data.id);
+      if (regionGround) bindParkGround(regionGround, ground());
       if (bind) landscape?.setParkGround(ground());
     } catch (failure) { error = failure.message; }
     report();
@@ -88,25 +90,28 @@ export function createMappedPark({ scene = null, landscape, physics = null, stre
       if (near && manifest.structures && !structures && !structuresLoading) structuresLoading = loadStructures().catch(failure => { error = failure.message; report(); });
       const target = near && structures ? streetDetail() : null;
       if (target !== decks) {
-        decks?.setExtraStructures([]);
-        if (target) { lidMaterial ||= createParkGroundMaterial(landscape.parkGround); target.setExtraStructures(structures, lidMaterial); }
+        decks?.clearExtraStructures(structures);
+        if (target) { lidMaterial ||= createParkGroundMaterial(regionGround || landscape.parkGround); target.setExtraStructures(structures, lidMaterial); }
         decks = target;
       }
       // Trees stand on the park's own terrain, so they wait for it.
       const standing = Boolean(trees) && !overview && Boolean(landscape?.getStatus().activeRegions.includes(manifest.region || manifest.id));
       trees?.update(eye || focus, focus, standing);
-      if (bound && painted !== standing && landscape) {
+      if (painted !== standing && landscape) {
         painted = standing;
         // Where no tree is drawn, the crowns are painted on the ground instead.
-        setParkTreeFade(landscape.parkGround, standing ? TREE_RANGE.far - 350 : 0, standing ? TREE_RANGE.far : 1);
+        const near = standing ? TREE_RANGE.far - 350 : 0, far = standing ? TREE_RANGE.far : 1;
+        if (regionGround) setParkTreeFade(regionGround, near, far);
+        if (bound) setParkTreeFade(landscape.parkGround, near, far);
       }
     },
     getStatus: status,
     dispose() {
       if (disposed) return;
       disposed = true;
+      if (regionGround) bindParkGround(regionGround, null);
       if (bind) landscape?.setParkGround(null);
-      decks?.setExtraStructures([]); lidMaterial?.dispose();
+      decks?.clearExtraStructures(structures); lidMaterial?.dispose();
       trees?.dispose(); textures?.surface.dispose(); textures?.canopy.dispose();
     },
   };
@@ -139,7 +144,7 @@ export function createMappedParks({ landscape, fetcher = globalThis.fetch?.bind(
     get trees() { return this.park('central-park')?.trees || null; },
     update(focus, view = {}) {
       if (disposed) return;
-      // One park's ground at a time: the nearest when walking the city, the largest when looking at the whole of it.
+      // Choose the fallback for the coarse city terrain.
       const drawn = parks.filter(park => park.ground);
       const next = drawn.sort((a, b) => view.overview ? area(b) - area(a) : a.distance(focus) - b.distance(focus))[0] || null;
       if (next !== holder || next?.ground?.surface !== held) { holder = next; held = next?.ground?.surface || null; landscape?.setParkGround(next?.ground || null); onStatus(status()); }

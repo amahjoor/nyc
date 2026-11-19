@@ -494,7 +494,9 @@ export class Landscape {
       image.src = new URL('./assets/airfield-surfaces.png', import.meta.url).href;
     }
     this.terrainOverlays = new Map();this.retainedTerrainRegions = new Map();
-    // One mapped park's ground at a time is drawn into every terrain material; large grids are detailed this far out.
+    // Neighboring islands can be visible together. Give each mapped terrain its own texture bindings.
+    this.regionParkGround = new Map(index.regions.filter(region => region.stats?.trees != null)
+      .map(region => [region.id, createParkGroundUniforms()]));
     this.parkGround = createParkGroundUniforms();this.detailRange = 650;
   }
 
@@ -550,7 +552,7 @@ export class Landscape {
   }
 
   _build(terrain, features, regionId = null) {
-    const group = new THREE.Group(), material = createTerrainMaterial(this.airportTexture, this.parkGround);
+    const group = new THREE.Group(), material = createTerrainMaterial(this.airportTexture, this.regionParkGround.get(regionId) || this.parkGround);
     this.stairOpenings?.clip(material);
     // A large region is drawn in pieces, the far ones coarsely (see terrain-chunks.js).
     const chunks = regionId && terrain.width * terrain.height > 200_000 && terrain.renderedHeights.every(finite) ? buildTerrainChunks(terrain) : null;
@@ -908,6 +910,6 @@ export class Landscape {
     for (const controller of this.pending.values()) controller.abort();this.pending.clear();
     if (this.base) this._release(this.base);for (const entry of this.cache.values()) this._release(entry);
     for (const entry of this.terrainOverlays.values()) this._release(entry);this.terrainOverlays.clear();
-    this.cache.clear();this.wanted.clear();this.preparing.clear();this.retainedTerrainRegions.clear();this.errors.clear();this.scene?.remove(this.group);
+    this.regionParkGround.clear();this.cache.clear();this.wanted.clear();this.preparing.clear();this.retainedTerrainRegions.clear();this.errors.clear();this.scene?.remove(this.group);
   }
 }

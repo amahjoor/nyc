@@ -327,7 +327,9 @@ test('decks from outside the bundled cells join them once each, and leave when t
   t.after(() => { detail.dispose();turf.dispose(); });
   detail.update({ x: 10, z: 10 });await tick();detail.update({ x: 10, z: 10 });
   assert.equal(detail.getStatus().transport.surfaces, 0);
-  detail.setExtraStructures([deck, { ...deck }], turf);
+  const parkDecks = [deck, { ...deck }];
+  detail.setExtraStructures(parkDecks, turf);
+  detail.clearExtraStructures([deck]); // An earlier park can finish unloading after this one arrives.
   assert.equal(detail.getStatus().transport.surfaces, 1, 'the same deck given twice is one deck');
   assert.equal(detail.sampleSurface(30, 25, { referenceHeight: 5, mode: 'walk' }).transportId, deck.id);
   const lids = detail.group.children.flatMap(child => child.children).find(mesh => mesh.name.startsWith('Decks that carry the ground'));

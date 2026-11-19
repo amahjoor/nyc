@@ -31,7 +31,7 @@ export function createParkGroundUniforms() {
 export function bindParkGround(uniforms, park) {
   const valid = Boolean(park?.surface && park?.canopy && park.frame && park.size);
   uniforms.parkUse.value = valid;
-  if (!valid) return;
+  if (!valid) { uniforms.parkSurface.value = null; uniforms.parkCanopy.value = null; return; }
   uniforms.parkSurface.value = park.surface; uniforms.parkCanopy.value = park.canopy;
   uniforms.parkFrame.value.set(park.frame.x, park.frame.z, park.frame.cos, park.frame.sin);
   uniforms.parkSize.value.set(park.size.width, park.size.depth);

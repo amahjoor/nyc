@@ -15,7 +15,8 @@ const inRing = (x, z, ring) => { let inside = false;for (let i = 0, j = ring.len
 
 function fixture() {
   let active = [], ground = null, binds = 0;
-  const landscape = { parkGround: createParkGroundUniforms(), setParkGround: park => { ground = park;binds++; }, getStatus: () => ({ activeRegions: active }) };
+  const regionParkGround = new Map(read('parks.json').parks.map(({ id }) => [id, createParkGroundUniforms()]));
+  const landscape = { regionParkGround, parkGround: createParkGroundUniforms(), setParkGround: park => { ground = park;binds++; }, getStatus: () => ({ activeRegions: active }) };
   const requests = [];
   const fetcher = async url => { requests.push(url);return url.endsWith('.bin') ? { ok: true, arrayBuffer: async () => bytes(url.replace(/^\.\//, '')) } : { ok: true, json: async () => read(url.replace(/^\.\//, '')) }; };
   const loadTextures = async (manifest, base) => ({ surface: Object.assign(new THREE.Texture(), { name: base + 'surface' }), canopy: new THREE.Texture() });
@@ -24,7 +25,7 @@ function fixture() {
 
 test('the parks the game draws from maps are listed, and each is a region of measured ground', () => {
   const { parks } = read('parks.json'), regions = read('landscape-index.json').regions;
-  assert.deepEqual(parks.map(park => park.id), ['central-park', 'liberty-island']);
+  assert.deepEqual(parks.map(park => park.id), ['central-park', 'liberty-island', 'ellis-island', 'governors-island', 'prospect-park']);
   for (const entry of parks) {
     const park = read(`${entry.base.slice(2)}park.json`), region = regions.find(region => region.id === entry.id);
     assert.equal(park.id, entry.id);assert.deepEqual(park.bounds, entry.bounds);assert.deepEqual(region.bounds, entry.bounds);
@@ -59,20 +60,48 @@ test('Liberty Island: the ground inside the surveyed seawall, its plaza and lawn
   }
 });
 
+test('the new island arrivals are on measured dry land inside their surveyed shorelines', () => {
+  const { regions } = read('landscape-index.json');
+  const shores = read('boroughs.json').boroughs.find(entry => entry.name === 'Manhattan').polygons;
+  for (const id of ['ellis-island', 'governors-island']) {
+    const region = regions.find(r => r.id === id), { x, z } = region.view, park = read(id + '/park.json');
+    const data = read('landscape/' + id + '-terrain.json'), raw = new Uint16Array(bytes('landscape/' + id + '-terrain.bin'));
+    const grid = prepareTerrain({ ...data, heights: Float32Array.from(raw, h => h * data.heightEncoding.scale + data.heightEncoding.offset) });
+    assert.equal(region.view.exact, true);
+    assert.equal(shores.filter(p => inRing(x, z, p.outer)).length, 1);
+    assert.ok(sampleTerrain(grid, x, z).elevation > .5);
+    assert.equal(grid.dx, 2.5);
+    assert.ok(park.ground.paved > .1 && park.ground.lawn > .3 && park.trees.count > 100);
+  }
+});
+
+test('Prospect Park includes the Brooklyn crowns, the lake and the surveyed bridge decks', () => {
+  const park = read('prospect-park/park.json');
+  const region = read('landscape-index.json').regions.find(r => r.id === park.id);
+  assert.equal(region.borough, 'Brooklyn');
+  assert.ok(region.stats.trees > 10000 && region.stats.terrainNodes > 400000);
+  assert.ok(read('landscape/prospect-park-features.json').water.some(feature => /prospect/i.test(feature.name)));
+  assert.ok(park.structures.count > 0 && park.sources.cover.attribution.includes('OpenStreetMap'));
+  assert.equal(region.presets[0].name, 'Brooklyn · Prospect Lake');
+});
+
 test('the terrain is given the ground of the park the player is in, and of the largest from the city map', async () => {
   const f = fixture(), parks = createMappedParks({ scene: new THREE.Scene(), landscape: f.landscape, fetcher: f.fetcher, loadTextures: f.loadTextures });
   await parks.ready;
   assert.deepEqual(f.requests.slice(0, 1), ['./parks.json']);
   assert.ok(f.requests.includes('./central-park/park.json') && f.requests.includes('./liberty-island/park.json'));
-  assert.equal(parks.parks.length, 2);assert.equal(f.ground, null, 'nothing is given until somebody is somewhere');
+  assert.equal(parks.parks.length, 5);assert.equal(f.ground, null, 'nothing is given until somebody is somewhere');
   parks.update({ x: 2655, z: -6005 });
   assert.equal(f.ground.surface.name, './central-park/surface');assert.equal(parks.getStatus().ground, 'central-park');
   parks.update({ x: 2700, z: -6000 });assert.equal(f.binds, 1, 'it is given once, not every frame');
+  for (const id of ['ellis-island', 'governors-island', 'prospect-park']) {
+    assert.equal(f.landscape.regionParkGround.get(id).parkSurface.value.name, './' + id + '/surface');
+  }
   parks.update({ x: STATUE.arrival.x, z: STATUE.arrival.z });
   assert.equal(f.ground.surface.name, './liberty-island/surface');
   assert.deepEqual(f.ground.frame, parks.park('liberty-island').manifest.frame);
-  // The Battery is nearer the island than the park.
-  parks.update({ x: -1500, z: 1500 });assert.equal(parks.getStatus().ground, 'liberty-island');
+  // The Battery is closest to Governors Island.
+  parks.update({ x: -1500, z: 1500 });assert.equal(parks.getStatus().ground, 'governors-island');
   parks.update({ x: -1500, z: 1500 }, { overview: true });assert.equal(parks.getStatus().ground, 'central-park', 'the city map shows Central Park green');
   parks.dispose();assert.equal(f.ground, null);
 });

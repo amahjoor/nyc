@@ -304,6 +304,9 @@ export function createStreetDetail(index, { scene, orthophoto, heightAt = null, 
       if (disposed) return;
       extra = Array.isArray(features) ? features : [];transport.setGroundMaterial(groundMaterial);rebuild();
     },
+    clearExtraStructures(features) {
+      if (extra === features) this.setExtraStructures([]);
+    },
     sampleSurface: (x, z, options) => transport.sampleSurface(x, z, options),
     surfacesAt: (x, z, mode) => transport.surfacesAt(x, z, mode),
     getStatus: status,

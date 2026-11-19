@@ -26,7 +26,7 @@ test('park ground uniforms carry the frame, the maps and how far trees are drawn
   assert.deepEqual(uniforms.parkSize.value.toArray(), [930, 4200]);
   setParkTreeFade(uniforms, 1150, 1500);assert.deepEqual(uniforms.parkTreeFade.value.toArray(), [1150, 1500]);
   bindParkGround(uniforms, null);assert.equal(uniforms.parkUse.value, false);
-  // Every terrain material of a landscape reads the same set.
+  // The citywide terrain uses the overview bindings.
   const landscape = new Landscape({ scene: new THREE.Scene(), index: { version: 1, regions: [] }, fetcher: async () => ({ ok: false }) });
   landscape.setParkGround({ frame: { x: 0, z: 0, cos: 1, sin: 0 }, size: { width: 1, depth: 1 }, surface, canopy });
   assert.equal(landscape.parkGround.parkUse.value, true);
@@ -170,7 +170,8 @@ test('Central Park waits for its terrain before standing its trees, and paints t
 
 test('the park hands its bridges to the city\'s decks while it is near, and takes them back', async () => {
   const given = [];
-  const decks = { setExtraStructures: (features, material) => given.push({ count: features.length, lids: features.filter(feature => feature.cover === 'ground').length, material }) };
+  const decks = { setExtraStructures: (features, material) => given.push({ count: features.length, lids: features.filter(feature => feature.cover === 'ground').length, material }),
+    clearExtraStructures: () => given.push({ count: 0 }) };
   const landscape = { parkGround: createParkGroundUniforms(), setParkGround: () => {}, getStatus: () => ({ activeRegions: [] }) };
   const fetcher = async url => url.endsWith('.bin') ? { ok: true, arrayBuffer: async () => bytes(url.replace(/^\.\//, '')) } : { ok: true, json: async () => read(url.replace(/^\.\//, '')) };
   const park = createMappedPark({ scene: new THREE.Scene(), landscape, fetcher, streetDetail: () => decks, loadTextures: async () => ({ surface: new THREE.Texture(), canopy: new THREE.Texture() }) });
