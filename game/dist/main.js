@@ -61,6 +61,8 @@ import { offersAt, shopRows, vehicleHandling } from './garage.js';
 import { planRoom, roomKind, hasRoom } from './interiors.js';
 import { doorBlips } from './map-blips.js';
 import { createDemographics } from './demographics.js';
+import { createTransitNetwork, busJourney } from './transit-network.js';
+import { clockTime } from './subway-service.js';
 import { createBuses, createBusStops } from './bus.js';
 import { createSheds, planSheds, createShedMesh } from './sheds.js';
 import { createDining, planDining, createDiningMesh, seatsOf } from './dining.js';
@@ -117,6 +119,65 @@ const roomSightline=new THREE.Ray(),roomBounds=new THREE.Box3(),roomHit=new THRE
 let demographics=createDemographics(null);
 // The buses: their stops, those drawn nearby, and the one the player is waiting at.
 let buses=null, busStops=null, stopHere=null;
+let transitNetwork=null, transitRequest=null, busTimesRequest=null, busRide=null;
+const loadData=async file=>{const response=await fetch('./'+file,{signal:AbortSignal.timeout(20000)});if(!response.ok)throw new Error('The city data could not load. Reload to try again.');return response.json();};
+function loadTransitNetwork(){
+  if(!transitRequest)transitRequest=loadData('transit-network.json').then(data=>{
+    transitNetwork=createTransitNetwork(data);
+    buses=createBuses(transitNetwork.busData);
+    return transitNetwork;
+  }).catch(error=>{transitRequest=null;throw error;});
+  return transitRequest;
+}
+
+function loadBusTimes(){
+  if(!busTimesRequest)busTimesRequest=loadData('bus-timetable.json').then(data=>{
+    if(data.week!==transitNetwork.week||data.profiles.length!==transitNetwork.patterns.length)throw new Error('Timetable version mismatch');
+    return data;
+  }).catch(error=>{busTimesRequest=null;throw error;});
+  return busTimesRequest;
+}
+
+async function openBusDepartures(pole){
+  const available=()=>!mapOpen&&!paused&&!traveling&&!busRide&&!sim.room&&sim.player.mode==='walk'&&Math.hypot(sim.player.x-pole.x,sim.player.z-pole.z)<3;
+  try{
+    const network=await loadTransitNetwork(),times=await loadBusTimes();
+    if(!available())return;
+    const stop=network.stops[pole.stop.networkIndex]||network.nearby(pole.stop,20).find(s=>s.id.startsWith('bus:')&&s.name===pole.stop.name);
+    if(!stop){announce('No scheduled service at this stop.');return;}
+    const now=weekday*86400+gfx.hours*3600,plan=gameMap.transit.trip?.legs[0];
+    const rows=network.departures(stop,now,times).map(service=>{
+      const {pattern,time}=service,days=Math.floor(time/86400)-Math.floor(now/86400);
+      return {service,name:pattern.line.name+' toward '+pattern.head,note:clockTime(time)+(days?' · '+['Mon','Tue','Wed','Thu','Fri','Sat','Sun'][Math.floor(time/86400)%7]:'')+' · next '+network.stops[pattern.stops[service.k+1]].name};
+    });
+    interaction.openList(stop.name,rows,({service})=>{
+      const p=service.pattern,choices=[];
+      for(let i=service.k+1;i<p.stops.length;i++)if(!p.noExit.has(i)){
+        choices.push({i,name:network.stops[p.stops[i]].name,note:clockTime(service.base+service.offsets[i])+' · '+(i-service.k)+' stops'});
+      }
+      interaction.openList(p.line.name+' toward '+p.head,choices,({i})=>{
+        const journey=busJourney(network,service,i);
+        busRide={journey,clock:journey.time,paint:0,arriving:false};
+        gameMap.transit.setNetwork(network);
+        gameMap.transit.startRide(journey,finishBusRide);
+      },{available,message:'Choose where to get off.',index:choices.findIndex(c=>p.stops[c.i]===plan?.to.index)});
+    },{available,cash:sim.cash,message:rows.length?'Choose a departure · $'+FARE.toFixed(2):'No departures from this stop.',index:rows.findIndex(r=>r.service.pattern===plan?.pattern)});
+  }catch{if(available())announce('The bus timetable could not load. Press E to retry.');}
+}
+
+async function finishBusRide(){
+  const ride=busRide;
+  if(!ride||ride.arriving)return;
+  ride.arriving=true;
+  const {journey}=ride,stop=journey.destination;
+  const arrived=await travel({x:stop.x,z:stop.z,name:stop.name,exact:true,busExit:true});
+  busRide=null;gameMap.setPlayer(sim.player);gameMap.transit.endRide();gameMap.setOpen(false);
+  if(!arrived){announce('Could not load the destination. You are still at the boarding stop.');return;}
+  if(sim.cash<FARE)sim.offence('fare');else sim.cash-=FARE;
+  gfx.setHours((journey.arrival%86400)/3600);weekday=Math.floor(journey.arrival/86400)%7;clockWas=gfx.hours;
+  saveProgress('Bus ride');announce(journey.pattern.line.name+' · '+stop.name+' · '+clockTime(journey.arrival));
+}
+
 // Sidewalk sheds: the buildings permitted one, and those standing nearby.
 let sheds=null, shedMesh=null;
 // Sidewalk cafes: the addresses licensed for one, and the tables set out nearby.
@@ -364,6 +425,9 @@ function action(name,event) {
   if(name==='interact'){
     if(phone?.open)return;
     if(sim.seat){sim.stand();return;}
+    if(sim.player.mode==='walk'&&!sim.room&&!stairHere&&stopHere){
+      openBusDepartures(stopHere);return;
+    }
     if(beginRegisterTake(sim,work))return;
     const seat=nearestSeat();
     if(seat&&sim.sit(seat))return;
@@ -1122,7 +1186,13 @@ function frame(now) {
     // Walking follows the view currently on screen, including the aerial view
     // and camera smoothing, rather than an intended chase-camera angle.
     camera.getWorldDirection(cameraForward);
-    controls=input.sample(Math.atan2(cameraForward.x,cameraForward.z),dt);
+    controls=input.sample(Math.atan2(cameraForward.x,cameraForward.z),dt,sim.player.mode==='walk'&&!paused&&!mapOpen,sim.player.mode==='skate'&&!paused&&!mapOpen&&!cityView&&!traveling&&!interaction?.open);
+    if(busRide&&!busRide.arriving){
+      busRide.clock=Math.min(busRide.journey.arrival,busRide.clock+dt*45);
+      busRide.paint-=dt;
+      if(busRide.paint<=0){gameMap.transit.updateRide(busRide.clock);busRide.paint=.16;}
+      if(busRide.clock>=busRide.journey.arrival)finishBusRide();
+    }
     // Nobody steers a player they cannot see: they stand where they were put until the shot comes down.
     if(switchShot.active)controls={forward:0,turn:0,brake:false,run:false,moveX:0,moveZ:0};
     if(switchShot.active!==switchShotLive){switchShotLive=switchShot.active;for(const id of ['hud','mission-panel','wanted','touch-controls'])$(id).classList.toggle('switch-shot',switchShotLive);}
@@ -1630,12 +1700,18 @@ async function travel(place,recovery=null){
       if(!place)throw new Error(`The ${recovery.facility} location is unavailable.`);
     }
     const roads=await roadStream.loadAround(place,1000);
-    const target=place.exact?place:nearestStreet(roads,place,600);
+    let target=place.exact?place:nearestStreet(roads,place,600);
     if(!target)throw new Error('Choose a point closer to a street. Water and unmapped areas cannot be arrival points.');
     if(place.exact&&!landscape?.getStatus().baseReady)throw new Error('Measured ground is unavailable. Wait for the terrain to load before spawning at this pin.');
     // Street surfaces are worth a short wait, but never hold up an arrival.
     await Promise.all([world.prepareAt(target,300),landscape?.prepareAt(target),streetscape?.prepareAt(target),place.roadPilot?ensureRoadPilot():nearRoadPilot(target)?ensureRoadPilot().catch(()=>null):null]);
     if(place.exact&&!landscape?.getStatus().baseWaterReady)throw new Error('Mapped water data is unavailable. Try again when it has loaded before spawning at this pin.');
+    if(place.busExit){
+      const edge=kerbIndex&&snapToKerb(kerbIndex,place.x,place.z,14);
+      const x=edge?edge.x-edge.nx*.9:place.x,z=edge?edge.z-edge.nz*.9:place.z;
+      const safe=sim._findSafePoint(x,z,.38);
+      if(Math.hypot(safe.x-place.x,safe.z-place.z)<20)target={...place,x:safe.x,z:safe.z};
+    }
     // Data readiness is a prerequisite for changing the player position.
     placeDestinations=[];
     sim.setActiveCity({roads,buildings,missionPoints:destinationsFor(roads,target)},{spawn:{...target,name:place.name,exact:Boolean(place.exact)}});
@@ -1704,7 +1780,7 @@ function updateDirections(){
 }
 
 async function boot() {
-  const loadData=async file=>{const response=await fetch('./'+file,{signal:AbortSignal.timeout(20000)});if(!response.ok)throw new Error('The city data could not load. Reload to try again.');return response.json();};
+
   const [seed,index,streets,land]=await Promise.all(['city.json','city-index.json','road-index.json','boroughs.json'].map(loadData));
   // What stands where, for dressing buildings decoded on the page itself; the background decoders fetch their own.
   await lotsReady();
@@ -1777,7 +1853,7 @@ async function boot() {
   sim.dockedBikes=bikeDocks.available;
   loadData('bikes.json').then(data=>{bikeShare=createBikeShare(data);frontsFor=null;}).catch(()=>{});
   loadData('sheds.json').then(data=>{sheds=createSheds(data);frontsFor=null;}).catch(()=>{});
-  loadData('bus-stops.json').then(data=>{buses=createBuses(data);}).catch(()=>{});
+  loadTransitNetwork().catch(()=>loadData('bus-stops.json').then(data=>{if(!transitNetwork)buses=createBuses(data);}).catch(()=>{}));
   loadData('transit.json').then(data=>{subway=createSubway(data);}).catch(()=>{});
   sim.setFleet(fleet);
   // Every car in the street is one the game draws (vehicle-generator.js). The scanned exteriors in assets/vehicles are
@@ -1856,7 +1932,7 @@ async function boot() {
   }).catch(()=>{$('road-reconstruction-status').textContent='Road image review unavailable. Surveyed surfaces remain active.';});
   avatar=createPerson(0xd7774e,{courier:true});avatar.traverse(object=>object.layers.enable(ROOM_LAYER));scene.add(avatar);marker=createMissionMarker();enterHint=createEnterHint();policeScene=createPoliceScene(scene,(x,z)=>groundHeight(x,z));carSmoke=createCarSmoke(scene);doorDebris=createDoorDebris(scene);
   hud=new HUD(city);applyQuality();
-  gameMap=new GameMap({city,searchLocal:findLocally,onPlacesWanted:loadPlaceNames,onPin:requestDirections,
+  gameMap=new GameMap({city,loadTransit:loadTransitNetwork,getPresets:cityPresets,searchLocal:findLocally,onPlacesWanted:loadPlaceNames,onPin:requestDirections,
     onSpawn:pin=>travel({...pin,exact:true}),
     onOpenChange:open=>{if(open)interaction?.close();mapOpen=open;input.clear();input.lookDelta=0;input.lookVertical=0;if(!open)canvas.focus();markDoors();}});
   hud.attachMap(gameMap);
