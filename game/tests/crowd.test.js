@@ -67,7 +67,7 @@ test('the figure is one closed, tagged mesh a person\'s height', () => {
     // Left limbs are on the left.
     if (body.getY(i) === 1 || body.getY(i) === 3) assert.ok(position.getX(i) < 0);
   }
-  assert.deepEqual([...parts].sort(), [0, 1, 2, 3, 4, 5]); assert.deepEqual([...limbs].sort(), [0, 1, 2, 3, 4]); assert.deepEqual([...kits].sort(), [0, 1, 2, 3, 4]);
+  assert.deepEqual([...parts].sort(), [0, 1, 2, 3, 4, 5, 6]); assert.deepEqual([...limbs].sort(), [0, 1, 2, 3, 4]); assert.deepEqual([...kits].sort(), [0, 1, 2, 3, 4, 8]);
   // Every triangle faces the way its normals say, so the figure is solid from outside.
   const normal = geometry.getAttribute('normal'), a = new THREE.Vector3(), b = new THREE.Vector3(), c = new THREE.Vector3(), n = new THREE.Vector3();
   let inward = 0;
@@ -204,6 +204,21 @@ test('with no signal, or a bold New Yorker, the gap in traffic decides', () => {
     for (let i = 0; i < 60; i++) crowd.update(1 / 60, { walks, focus: { x: 0, z: 0 }, hours: 13, time: red + i / 60, junctions: [j], cars: [] });
     assert.equal(person.state !== 'wait', bold);
   }
+  const crowd=start(), lead=waiting(crowd), queuePoint={x:10,z:-5.35};
+  Object.assign(lead,{...queuePoint,queuePoint,bold:false,look:{...lead.look,build:1,height:1.72,pace:1.5}});
+  for(let i=1;i<=2;i++)crowd.people.push({...lead,z:lead.z-i*.85,s:lead.s-i*.85,shove:[0,0]});
+  const crossed=new Set();
+  for(let i=0;i<480;i++){
+    const held=i<60;
+    crowd.update(.05,{walks,focus:{x:0,z:0},hours:13,time:red,junctions:held?[j]:[],cars:[]});
+    for(const [index,p] of crowd.people.entries()){
+      if(held)assert.equal(p.state,'wait');
+      if(p.run===hop.run)crossed.add(p);
+      for(const q of crowd.people.slice(index+1))assert.ok(Math.hypot(p.x-q.x,p.z-q.z)>=.64,'space at a shared crossing');
+    }
+  }
+  assert.equal(crossed.size,3,'the entire queue makes it across when the street clears');
+  crowd.dispose();
 });
 
 test('cars only strike, startle or nudge pedestrians on the same road level', () => {
@@ -266,6 +281,11 @@ test('the player and shop staff are drawn after the crowd, with their own stride
   assert.deepEqual([gait.getX(n), gait.getY(n), gait.getZ(n), gait.getW(n)], [1.5, .5, 0, 64], 'the shader clock does not move them');
   assert.deepEqual([top.getX(n), top.getY(n), top.getZ(n)], [1, 0, 0]);
   assert.deepEqual([gait.getX(n + 1), gait.getY(n + 1)], [0, 0], 'standing');
+  crowd.setExtras([{x:7,y:2,z:-3,look},{x:7,y:-8,z:-3,look,subway:true}]);
+  crowd.update(.016,{...context,enclosedSubway:true});
+  assert.ok(crowd.count>0,'street pedestrians continue to simulate above the train');
+  assert.equal(mesh.count,1);
+  mesh.getMatrixAt(0,matrix);assert.equal(at.setFromMatrixPosition(matrix).y,-8);
   crowd.setExtras(null); crowd.update(.016, context);
   assert.equal(mesh.count, crowd.count);
   crowd.dispose();
@@ -279,9 +299,10 @@ test('a punch staggers the person in front, and they swing back', () => {
   assert.equal(hit, crowd.people[0]);
   assert.equal(hit.state, 'fight');
   assert.equal(hit.hp, 2);
-  assert.ok(Math.hypot(hit.shove[0], hit.shove[1]) > 0.5);
+  assert.ok(hit.reaction.vz>2 && hit.reaction.vx>0);
   const player = { x: 0, z: 0, mode: 'walk' };
   crowd.update(0.2, { walks, focus: { x: 0, z: 0 }, hours: 12, time: 0, junctions: [], cars: [], player });
+  assert.ok(hit.z>1.45,'the target moves away as the impulse dissipates');
   assert.equal(crowd.threats.length, 1);
   assert.equal(crowd.threats[0].kind, 'fight');
   for (let i = 0; i < 8 && crowd.damage === 0; i++) crowd.update(0.2, { walks, focus: { x: 0, z: 0 }, hours: 12, time: i, junctions: [], cars: [], player });
@@ -291,5 +312,220 @@ test('a punch staggers the person in front, and they swing back', () => {
   assert.equal(hit.state, 'down');
   crowd.update(0.05, { walks, focus: { x: 0, z: 0 }, hours: 12, time: 3, junctions: [], cars: [], player });
   assert.equal(crowd.threats[0].kind, 'down');
+  crowd.dispose();
+});
+
+test('a shop witness gets up after a sprint collision and keeps fleeing through a sidewalk reload', () => {
+  const walks = [run('front',[0,0],[120,0],[0,-1])];
+  let blocked = false, obstacleX = Infinity;
+  const crowd = createCrowd({life:life(0),blocked:(x,z)=>blocked ||
+    x>obstacleX && x<obstacleX+2 && Math.abs(z-1.2)<2});
+  const frame = {walks,focus:{x:5,z:1},junctions:[],cars:[],time:0};
+  const tick = (n,player) => {
+    for (let i=0;i<n;i++) {
+      frame.time+=1/30;
+      crowd.update(1/30,{...frame,player});
+    }
+  };
+  try {
+    tick(1);
+    const robbery={x:5,z:3,heading:Math.PI/2};
+    crowd.fleeOntoStreet({x:5,z:1,y:0,heading:Math.PI,look:dress('casual',seeded(7)),robbery});
+    const [person]=crowd.people;
+    tick(45);
+    assert.ok(person.x>10 && Math.abs(person.z-1)<.3);
+    tick(1,{x:person.x-.3,z:person.z,y:0,mode:'walk',velocityX:7});
+    assert.equal(crowd.bumps[0].hard,true);
+    assert.equal(person.state,'down');
+    frame.walks=[];
+    tick(110);
+    assert.equal(person.state,'flee');
+    assert.strictEqual(crowd.people[0],person);
+    const where = [person.x,person.z];
+    blocked=true; tick(240);
+    assert.deepEqual([person.x,person.z],where);
+    blocked=false; obstacleX=where[0]+2; frame.walks=[...walks]; tick(240);
+    assert.strictEqual(person.robbery,robbery);
+    assert.equal(person.state,'flee');
+    assert.ok(person.x>where[0]+20);
+    frame.focus={x:-140,z:0}; tick(300);
+    assert.ok(!crowd.people.includes(person),'witness leaves the simulation beyond the local crowd range');
+  } finally { crowd.dispose(); }
+});
+
+function sidewalk(depth, population=0, blocked, length=60) {
+  const path = run('block',[0,0],[0,length],[-1,0],depth);
+  const crowd = createCrowd({life:life(population/path.length),random:seeded(8),blocked});
+  const frame = {walks:[path],focus:{x:1,z:30},hours:12,junctions:[],cars:[],time:0};
+  crowd.update(0,frame);
+  crowd.people.length=0;
+  const walker = (z,way,pace,lane=depth/2) => {
+    const look = {...dress('casual',seeded(4)),height:1.72,build:1,pace};
+    const p = {run:path,s:z,way,lane,x:lane,z,y:0,look,state:'walk',age:2,sample:1,shove:[0,0],phase:0,heading:way>0?0:Math.PI};
+    crowd.people.push(p); return p;
+  };
+  return {crowd,walker,step(dt){frame.time+=dt;crowd.update(dt,frame);}};
+}
+
+test('oncoming walkers pass on a wide sidewalk and yield in a narrow queue', () => {
+  for (const hz of [12,60]) {
+    const {crowd,walker,step}=sidewalk(3.4);
+    const a=walker(25,1,1.5), b=walker(35,-1,1.65);
+    for(let i=0;i<hz*8;i++){
+      const old=[a.x,a.z,b.x,b.z];step(1/hz);
+      assert.ok(Math.hypot(a.x-b.x,a.z-b.z)>=.64,'shoulders stay apart on every step');
+      for(const [j,p] of [a,b].entries()){
+        assert.ok(p.x>=.3 && p.x<3.15,'stays inside the kerb');
+        assert.ok(Math.hypot(p.x-old[2*j],p.z-old[2*j+1])<=p.look.pace/hz+1e-6,'no teleport');
+      }
+    }
+    assert.ok(a.z>b.z+6,'both finish the pass and continue');
+    crowd.dispose();
+  }
+  const {crowd,walker,step}=sidewalk(.95);
+  const rear=walker(20,1,2), front=walker(21.5,1,.8);
+  for(let i=0;i<150;i++){step(.05);assert.ok(front.z>rear.z && Math.hypot(rear.x-front.x,rear.z-front.z)>=.64);}
+  assert.ok(front.z>26 && rear.z>24,'the queue moves at the leader’s pace');
+  crowd.dispose();
+
+  const alley=sidewalk(.95);
+  const north=alley.walker(20,1,1.4), south=alley.walker(24,-1,1.4);
+  for(let i=0;i<160;i++){
+    alley.step(.05);
+    assert.ok(south.z>north.z && Math.hypot(north.x-south.x,north.z-south.z)>=.64);
+  }
+  assert.ok(south.z>26 && north.z>25,'one gives way when a head-on pass is impossible');
+  alley.crowd.dispose();
+
+  const overlap=sidewalk(3.4);
+  const first=overlap.walker(20,1,1.2), second=overlap.walker(20,-1,1.2);
+  overlap.step(.05);
+  assert.ok(Math.hypot(first.x-second.x,first.z-second.z)>=.64,'walkers placed on the same spot separate');
+  overlap.crowd.dispose();
+});
+
+test('a packed sidewalk keeps pace through a slowdown without weaving or overlapping', () => {
+  for(const hz of [15,60]){
+    const {crowd,walker,step}=sidewalk(4,40);
+    try {
+      const rows=[];
+      for(let i=0;i<10;i++)rows.push(Array.from({length:4},(_,j)=>walker(18+.87*i,1,i===9?1.05:1.6,.5+j)));
+      if(hz===60)crowd.people.reverse();
+      const tail=rows[0][1], leaders=rows.at(-1);
+      for(let i=0;i<hz*16;i++){
+        if(i===hz*5)for(const leader of leaders)leader.look.pace=0;
+        if(i===hz*9)for(const leader of leaders)leader.look.pace=1.25;
+        step(1/hz);
+        assert.equal(crowd.people.length,40);
+        for(let r=0;r<rows.length;r++)for(const p of rows[r]){
+          assert.ok(Math.abs(p.x-p.lane)<.03,'a moving file holds its line');
+          if(r)for(const q of rows[r-1])assert.ok(Math.hypot(q.x-p.x,q.z-p.z)>=.64);
+        }
+        if(i===hz*4)assert.ok(Math.abs(tail.walkSpeed-1.05)<.12,'the rear keeps pace with the front');
+      }
+      assert.ok(tail.z>30 && Math.abs(tail.walkSpeed-1.25)<.12,'the entire queue gets moving again');
+    } finally { crowd.dispose(); }
+  }
+});
+
+test('a faster follower commits to an open passing lane', () => {
+  const {crowd,walker,step}=sidewalk(2.2,2);
+  try {
+    const follower=walker(20,1,1.65), leader=walker(20.97,1,1.03);
+    let side=0, reversals=0;
+    for(let i=0;i<360;i++){
+      const x=follower.x;
+      step(1/30);
+      const lateral=(follower.x-x)*30;
+      if(Math.abs(lateral)>.08){
+        if(side && side!==Math.sign(lateral))reversals++;
+        side=Math.sign(lateral);
+      }
+      assert.ok(Math.hypot(follower.x-leader.x,follower.z-leader.z)>=.64);
+    }
+    assert.ok(follower.z>leader.z+3 && Math.abs(follower.x-follower.lane)<.1);
+    assert.ok(reversals<=2,'a pass and merge back should not weave every frame');
+  } finally { crowd.dispose(); }
+});
+
+test('a queue uses the opening in a blocked sidewalk or turns back at a closure', () => {
+  for(const depth of [2.6,3.6])for(const closed of [false,true]){
+    const blocked=(x,z)=>z>=48 && z<=50 && (closed || x<=depth-1);
+    const {crowd,walker,step}=sidewalk(depth,10,blocked,110);
+    try {
+      const file=Array.from({length:10},(_,i)=>walker(46-i*1.1,1,1.45,.72));
+      for(let frame=0;frame<900;frame++){
+        step(1/30);
+        for(const [i,p] of file.entries()){
+          assert.ok(!blocked(p.x,p.z) && p.x>=.31 && p.x<=depth-.27);
+          for(let j=0;j<i;j++)assert.ok(Math.hypot(p.x-file[j].x,p.z-file[j].z)>=.64);
+        }
+      }
+      assert.ok(file.every(p=>closed ? p.z<32 && p.way===-1 : p.z>54 && p.way===1));
+    } finally { crowd.dispose(); }
+  }
+});
+
+test('arrivals spread along a newly loaded sidewalk', () => {
+  const block=run('frontage',[0,0],[0,80],[-1,0],3.2);
+  const crowd=createCrowd({life:life(.25),capacity:100,random:seeded(40)});
+  try {
+    crowd.update(0,{walks:[block],focus:{x:1,z:40},time:0});
+    assert.equal(crowd.count,20);
+    assert.equal(new Set(crowd.people.map(p=>Math.floor(p.s/4))).size,20);
+  } finally { crowd.dispose(); }
+});
+
+test('opposing files take turns through a one-person opening and clear the waiting line', () => {
+  for(const [depth,hz] of [[2.6,15],[3.6,60]]){
+    const blocked=(x,z)=>z>=48 && z<=50 && x<=depth-1;
+    const {crowd,walker,step}=sidewalk(depth,10,blocked,110);
+    try {
+      const north=Array.from({length:5},(_,i)=>walker(46-i*1.1,1,1.45,.72));
+      const south=Array.from({length:5},(_,i)=>walker(52+i*1.1,-1,1.45,.72));
+      const all=[...north,...south];
+      if(hz===60)crowd.people.reverse();
+      for(let frame=0;frame<hz*32;frame++){
+        step(1/hz);
+        for(const p of all){
+          assert.ok(!blocked(p.x,p.z) && p.x>=.31 && p.x<=depth-.27);
+          for(const q of crowd.nearbyPeople(p))assert.ok(Math.hypot(p.x-q.x,p.z-q.z)>=.64);
+        }
+      }
+      assert.ok(north.every(p=>p.z>54) && south.every(p=>p.z<43));
+    } finally { crowd.dispose(); }
+  }
+});
+
+test('opposing groups form streams and get through a crowded block', () => {
+  const {crowd,walker,step}=sidewalk(4.5,48), start=[];
+  try {
+    for(let row=0;row<16;row++)for(let file=0;file<3;file++){
+      const way=row<8?1:-1, z=20+row*.97+(way<0?3:0);
+      start.push({person:walker(z,way,1.5+file*.05,.75+file*1.5),z,way});
+    }
+    for(let i=0;i<420;i++){
+      step(1/30);
+      for(const {person} of start)for(const other of crowd.nearbyPeople(person)){
+        assert.ok(Math.hypot(person.x-other.x,person.z-other.z)>=.64);
+      }
+    }
+    assert.equal(crowd.count,48);
+    for(const {person,z,way} of start)assert.ok(way*(person.z-z)>13,'everyone gets through in their original direction');
+  } finally { crowd.dispose(); }
+});
+
+test('new arrivals have standing room and walkers can pass beneath people on another level', () => {
+  const walks=corner(), crowd=createCrowd({life:life(.35),capacity:150,random:seeded(24)});
+  const frame={walks,focus:{x:0,z:0},time:0,hours:12,junctions:[],cars:[]};
+  crowd.update(0,frame);
+  for(const [i,p] of crowd.people.entries())for(const q of crowd.people.slice(i+1))
+    assert.ok(Math.hypot(p.x-q.x,p.z-q.z)>=.32*(p.look.build*p.look.height+q.look.build*q.look.height)/1.72);
+  const p=crowd.people.find(p=>p.s>15 && p.s<p.run.length-15);
+  crowd.people.splice(0,crowd.people.length,p);
+  const at=along(p.run,p.s), sx=p.x,sz=p.z;
+  crowd.setExtras([{x:p.x+at.tx*p.way,y:5,z:p.z+at.tz*p.way,look:p.look}]);
+  for(let i=0;i<20;i++) crowd.update(.03,{...frame,time:i*.03});
+  assert.ok(Math.abs(Math.hypot(p.x-sx,p.z-sz)-p.look.pace*.6)<.001);
   crowd.dispose();
 });
