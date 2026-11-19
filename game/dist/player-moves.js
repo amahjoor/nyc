@@ -1,3 +1,6 @@
+import { meleeMoves, nextStrike } from './melee-moves.js';
+import { vehicleTop } from './vehicle-generator.js';
+import { GRAVITY } from './character-physics.js';
 import { doorPanel } from './vehicle-damage.js';
 // What the player can do on foot besides walk, run, jump and punch: kick, get
 // over a car, climb onto something, and the few seconds it takes to open a
@@ -14,7 +17,7 @@ const CAR = { along: 1.95, across: .88, cabin: 1.02, roof: 1.42, deck: .92 };
 const TALL = { suv: { roof: 1.72, deck: 1.08 }, minivan: { roof: 1.74, deck: 1.05 }, pickup: { roof: 1.76, deck: 1.1 }, van: { roof: 2.1, deck: 1.2, cabin: 1.5 } };
 const bodyOf = car => TALL[car.type === 'taxi' || car.type === 'police' ? 'sedan' : car.shape || car.type] || CAR;
 /** Whether a car is too tall to swing the legs over: it is climbed, however fast it is come at. */
-export const tooTallToVault = car => bodyOf(car).roof > 1.6;
+export const tooTallToVault = car => (car.identity?.asset?.design?.H ?? bodyOf(car).roof)>1.6;
 /** The pistol: rounds in it, seconds between shots, seconds to change the magazine, and how far a shot carries. */
 export const GUN = { rounds: 12, gap: .3, reload: 1.7, range: 70 };
 
@@ -22,9 +25,15 @@ export const GUN = { rounds: 12, gap: .3, reload: 1.7, range: 70 };
 export function carTop(car, x, z, margin = 0) {
   const dx = x - car.x, dz = z - car.z, sin = Math.sin(car.angle), cos = Math.cos(car.angle);
   const along = dx * sin + dz * cos, across = dx * cos - dz * sin;
+  const design=car.identity?.asset?.design;
+  const ground=(car.y||0)+across*Math.tan(car.roll||0)-along*Math.tan(car.pitch||0);
+  if(design){
+    const top=vehicleTop(design,along,across,margin);
+    return top===null ? null : ground+top+.025;
+  }
   if (Math.abs(along) > CAR.along + margin || Math.abs(across) > CAR.across + margin) return null;
   const body = bodyOf(car);
-  return (car.y || 0) + (Math.abs(along) < (body.cabin || CAR.cabin) ? body.roof : body.deck);
+  return ground + (Math.abs(along) < (body.cabin || CAR.cabin) ? body.roof : body.deck);
 }
 
 /** The car under somebody's feet at this height, and how high it stands there: { car, top } or null. */
@@ -41,7 +50,7 @@ export function carUnder(sim, x, z, y) {
 /** Take the pistol out, or put it away. */
 export function toggleGun(sim) {
   const player = sim.player;
-  if (player.mode !== 'walk' || sim.seat || sim.ending || player.move) return false;
+  if (player.mode !== 'walk' || player.reaction || sim.seat || sim.ending || player.move) return false;
   player.armed = !player.armed;
   if (player.armed) {
     player.rounds ??= GUN.rounds;
@@ -53,7 +62,7 @@ export function toggleGun(sim) {
 
 export function reloadGun(sim) {
   const p=sim.player;
-  if (!p.armed || p.mode!=='walk' || sim.seat || sim.ending || p.move || p.reloading>0 || !(p.rounds<GUN.rounds)) return false;
+  if (!p.armed || p.mode!=='walk' || p.reaction || sim.seat || sim.ending || p.move || p.reloading>0 || !(p.rounds<GUN.rounds)) return false;
   p.reloading=GUN.reload;
   return true;
 }
@@ -61,7 +70,7 @@ export function reloadGun(sim) {
 /** Pull the trigger. Returns whether a shot went off; whoever asked works out what it hit, from the 'shot' event. */
 export function fireGun(sim) {
   const player = sim.player;
-  if (!player.armed || player.mode !== 'walk' || sim.seat || player.move || (player.fireWait || 0) > 0 || (player.reloading || 0) > 0) return false;
+  if (!player.armed || player.mode !== 'walk' || player.reaction || sim.seat || player.move || (player.fireWait || 0) > 0 || (player.reloading || 0) > 0) return false;
   if (player.rounds===0) { reloadGun(sim); return false; }
   player.rounds = (player.rounds ?? GUN.rounds) - 1;
   player.fireWait = GUN.gap; player.firedAt = sim.elapsed;
@@ -71,10 +80,14 @@ export function fireGun(sim) {
 }
 
 /** A kick. Returns whether it comes out; whoever asked resolves who it lands on, about a third of the way through. */
-export function startKick(sim) {
+export function startKick(sim, low = false) {
   const player = sim.player;
-  if (player.mode !== 'walk' || sim.room || sim.seat || player.move || player.grounded === false || (player.swing || 0) > .08) return false;
-  player.move = { kind: 'kick', t: 0, T: MOVE.kick };
+  if (player.mode !== 'walk' || player.reaction || sim.room || sim.seat || player.move || player.grounded === false || (player.swing || 0) > .08) return false;
+  const under=player.standing && carUnder(sim,player.x,player.z,player.y);
+  const roof=under && under.car.id===player.standing.id && Math.abs(player.y-under.top)<.3;
+  const clip=nextStrike(player,roof?'roof':low?'low':'kick');
+  player.move = { kind: roof?'stomp':low?'lowKick':'kick', clip, t:0, T:meleeMoves[clip].seconds };
+  if (roof) player.move.vehicleId=under.car.id;
   player.guard = 4;
   return true;
 }
@@ -85,38 +98,51 @@ export function startKick(sim) {
  */
 export function tryVault(sim) {
   const player = sim.player;
-  if (player.mode !== 'walk' || sim.room || player.move || player.grounded === false) return false;
+  if (player.mode !== 'walk' || player.reaction || sim.room || player.move || player.grounded === false) return false;
   const dx = Math.sin(player.angle), dz = Math.cos(player.angle), y = Number.isFinite(player.y) ? player.y : 0;
   const car = sim._nearCar(player.x + dx * .85, player.z + dz * .85, RADIUS, null, y);
-  // Walked up to, a car is climbed onto; run at, it is gone over, unless it stands too tall for that.
-  if (car && (tooTallToVault(car.car) || Math.hypot(player.velocityX || 0, player.velocityZ || 0) < 5.5) && !(y > (car.car.y || 0) + .5)) {
-    for (const reach of [1.25, 1.6, .95, 2]) {
-      const x = player.x + dx * reach, z = player.z + dz * reach, top = carTop(car.car, x, z, -.1);
-      if (top === null) continue;
-      player.move = { kind: 'climb', t: 0, T: MOVE.climb, from: { x: player.x, z: player.z, y }, to: { x, z, y: top }, transportId: player.transportId || null };
-      player.velocityX = player.velocityZ = 0;
-      return true;
-    }
+  const vehicle=car?.car || sim.cars.find(other=>Math.hypot(other.x-player.x,other.z-player.z)<5 &&
+    Math.abs((other.y||0)-y)<1 && carTop(other,player.x+dx,player.z+dz,.15)!==null);
+  if (vehicle && (Math.abs(vehicle.speed||0)>2.5 || y>(vehicle.y||0)+.5)) return false;
+  const from={x:player.x,y,z:player.z};
+  const point=d=>({x:from.x+dx*d,z:from.z+dz*d});
+  const surface=(at,reference)=>sim._sampleSurface?.(at.x,at.z,{referenceHeight:reference,mode:'walk',transportId:player.transportId});
+  const top=at=>vehicle ? carTop(vehicle,at.x,at.z) : surface(at,y+2.5)?.elevation;
+  const reachHeight=y+Math.min(2.45,(player.height??1.78)*1.29);
+  // Find the first elevated surface in reach. Keep its actual edge as the handhold.
+  let grip;
+  for(let d=.08;d<=1.3;d+=.08){
+    const at=point(d), height=top(at);
+    if(height!=null && height>y+.5 && height<reachHeight){grip={...at,y:height};break;}
   }
-  if (car && tooTallToVault(car.car)) return false;
-  if (car) {
-    // The first clear ground on the far side, if it is near enough to swing the legs over to.
-    for (let reach = 1.5; reach <= 4.4; reach += .25) {
-      const x = player.x + dx * reach, z = player.z + dz * reach;
-      if (sim._nearCar(x, z, RADIUS, null, y) || sim.isBlocked(x, z, RADIUS)) continue;
-      player.move = { kind: 'vault', t: 0, T: MOVE.vault, from: { x: player.x, z: player.z }, to: { x, z }, lift: .62 };
-      player.velocityX = player.velocityZ = 0;
+  if(!grip) return false;
+  const speed=Math.hypot(player.velocityX||0,player.velocityZ||0);
+  const support=vehicle ? {id:vehicle.id,x:vehicle.x,z:vehicle.z,angle:vehicle.angle,y:vehicle.y||0} : null;
+  if(vehicle && !tooTallToVault(vehicle) && speed>=5.5){
+    for(let reach=1.5;reach<=4.4;reach+=.2){
+      const to=point(reach);
+      if(sim._nearCar(to.x,to.z,RADIUS,null,y) || sim.isBlocked(to.x,to.z,RADIUS)) continue;
+      to.y=surface(to,y)?.elevation ?? y;
+      let apex=Math.max(to.y+.2,grip.y+.1);
+      for(let d=.2;d<reach;d+=.2) apex=Math.max(apex,(top(point(d))??y)+.1);
+      const launch=Math.sqrt(2*GRAVITY*(apex-y));
+      const T=(launch+Math.sqrt(2*GRAVITY*(apex-to.y)))/GRAVITY;
+      player.move={kind:'vault',t:0,T,from,to,grip,launch,support};
+      player.grounded=false; player.vy=launch;
       return true;
     }
     return false;
   }
-  if (!sim._sampleSurface) return false;
-  const ax = player.x + dx * .75, az = player.z + dz * .75;
-  const top = sim._sampleSurface(ax, az, { referenceHeight: y + 2.5, mode: 'walk', transportId: null }), rise = Number(top?.elevation) - y;
-  if (!(rise > .5 && rise < 2.45) || sim.isBlocked(ax, az, RADIUS, { baseHeight: y + rise })) return false;
-  player.move = { kind: 'climb', t: 0, T: MOVE.climb, from: { x: player.x, z: player.z, y }, to: { x: ax, z: az, y: y + rise }, transportId: top.transportId || null };
-  player.velocityX = player.velocityZ = 0;
-  return true;
+  for(const depth of [.48,.28,.12]){
+    const to={x:grip.x+dx*depth,z:grip.z+dz*depth};
+    to.y=top(to);
+    if(to.y==null || to.y<=y+.5 || to.y>reachHeight || sim.isBlocked(to.x,to.z,RADIUS,{baseHeight:to.y})) continue;
+    player.move={kind:'climb',t:0,T:MOVE.climb*(.8+.15*(to.y-y)),from,to,grip,support,
+      transportId:vehicle ? player.transportId : surface(to,to.y)?.transportId};
+    player.velocityX=player.velocityZ=player.vy=0;
+    return true;
+  }
+  return false;
 }
 
 /**
@@ -197,22 +223,47 @@ export function stepMove(sim, dt) {
   const passed = at => before < at && move.t >= at, events = sim.moveEvents || (sim.moveEvents = []);
   const smooth = t => { t = Math.max(0, Math.min(1, t)); return t * t * (3 - 2 * t); };
   player.speed = 0;
-  if (move.kind === 'kick') { if (passed(.27)) events.push({ kind: 'kick', x: player.x, z: player.z, angle: player.angle }); }
+  if (move.kind==='kick' || move.kind==='lowKick' || move.kind==='stomp') {
+    if (passed(meleeMoves[move.clip ?? move.kind].contact)) events.push({kind:'kick',clip:move.clip,
+      low:move.kind==='lowKick', roof:move.kind==='stomp', vehicleId:move.vehicleId,
+      x:player.x,y:player.y,z:player.z,angle:player.angle});
+  }
   else if (move.kind === 'getOut') {
     const t = smooth(move.t/move.T);
     player.x = move.from.x+(move.to.x-move.from.x)*t;
     player.z = move.from.z+(move.to.z-move.from.z)*t;
-  } else if (move.kind === 'vault') {
-    const t = smooth(move.t / move.T);
-    player.x = move.from.x + (move.to.x - move.from.x) * t; player.z = move.from.z + (move.to.z - move.from.z) * t;
-    // Lifted over the car and set down again; the height is the picture's, not the ground's.
-    player.lift = Math.sin(Math.min(1, move.t / move.T) * Math.PI) * move.lift;
-    if (passed(.01)) events.push({ kind: 'vault' });
-  } else if (move.kind === 'climb') {
-    const up = smooth((move.t - .22) / .6), over = smooth((move.t - .7) / .45);
-    player.y = move.from.y + (move.to.y - move.from.y) * up; player.grounded = true; player.vy = 0;
-    player.x = move.from.x + (move.to.x - move.from.x) * over; player.z = move.from.z + (move.to.z - move.from.z) * over;
-    if (passed(.01)) events.push({ kind: 'climb' });
+  } else if (move.kind==='climb' || move.kind==='vault') {
+    const t=Math.min(1,move.t/move.T), {from,to,grip,support}=move;
+    if(support){
+      const car=sim.cars.find(item=>item.id===support.id);
+      if(!car || Math.abs(car.speed||0)>2.5) {player.move=null;player.grounded=false;return null;}
+      if(move.kind==='climb'){
+        const turn=car.angle-support.angle, c=Math.cos(turn), s=Math.sin(turn);
+        for(const pt of [from,to,grip]){
+          const x=pt.x-support.x,z=pt.z-support.z;
+          pt.x=car.x+x*c+z*s;pt.z=car.z+z*c-x*s;pt.y+=(car.y||0)-support.y;
+        }
+        player.angle+=turn;
+        Object.assign(support,{x:car.x,z:car.z,y:car.y||0,angle:car.angle});
+      }
+    }
+    const x0=player.x,z0=player.z,y0=player.y;
+    if(move.kind==='vault'){
+      const seconds=t*move.T;
+      player.x=from.x+(to.x-from.x)*t; player.z=from.z+(to.z-from.z)*t;
+      player.y=from.y+move.launch*seconds-.5*GRAVITY*seconds*seconds;
+      player.vy=move.launch-GRAVITY*seconds;
+    } else {
+      const approach=smooth(t/.27), over=smooth((t-.39)/.55);
+      const braceX=grip.x-.34*Math.sin(player.angle), braceZ=grip.z-.34*Math.cos(player.angle);
+      player.x=from.x+(braceX-from.x)*approach+(to.x-braceX)*over;
+      player.z=from.z+(braceZ-from.z)*approach+(to.z-braceZ)*over;
+      player.y=from.y+(to.y-from.y)*smooth((t-.12)/.68);
+      player.vy=dt>0 ? (player.y-y0)/dt : 0;
+    }
+    player.grounded=false;
+    if(dt>0){player.velocityX=(player.x-x0)/dt;player.velocityZ=(player.z-z0)/dt;}
+    if(passed(.01)) events.push({kind:move.kind});
   } else {
     // At a car door.
     const t = smooth(move.t / .22);
@@ -235,7 +286,11 @@ export function stepMove(sim, dt) {
   }
   if (move.t < move.T) return move;
   player.move = null; player.lift = 0;
-  if (move.kind === 'climb') { player.y = move.to.y; player.x = move.to.x; player.z = move.to.z; player.transportId = move.transportId; }
+  if (move.kind==='climb' || move.kind==='vault') {
+    Object.assign(player,move.to,{grounded:true,vy:0,transportId:move.transportId||null});
+    player.standing=move.kind==='climb' ? move.support : null;
+    if(move.kind==='vault'){player.velocityX=(move.to.x-move.from.x)/move.T;player.velocityZ=(move.to.z-move.from.z)/move.T;}
+  }
   if (move.kind === 'door' || move.kind === 'breakIn' || move.kind === 'carjack') {
     const car = sim.cars.find(item => item.id === move.car);
     if (car) {

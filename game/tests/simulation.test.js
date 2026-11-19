@@ -1,3 +1,4 @@
+import { drivingCity } from './fixtures/parked-cab.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
@@ -19,6 +20,94 @@ function city(overrides = {}) {
 function advance(simulation, seconds, input = {}, fps = 60) {
   for (let i = 0; i < Math.round(seconds * fps); i++) simulation.step(input, 1 / fps);
 }
+
+test('walking, jogging and sprinting cover the same distance at 10 and 60 FPS', () => {
+  const distances = [];
+  for (const gait of [{},{jog:true},{run:true}]) {
+    const positions=[10,60].map(fps=>{
+      const sim=new Simulation(city());sim.cars=[];
+      advance(sim,3,{moveZ:1,...gait},fps);
+      return sim.player.z;
+    });
+    assert.ok(Math.abs(positions[0]-positions[1])<.001);
+    distances.push(positions[0]);
+  }
+  assert.ok(distances[0]>5 && distances[0]<6 && distances[1]>11 && distances[1]<12 && distances[2]>22);
+});
+
+test('a skateboard coasts, carves, ollies, brakes, and passes a hard impact to the rider', () => {
+  for(const fps of [10,60]){
+    const sim=new Simulation(city()), p=sim.player;sim.cars=[];
+    assert.ok(sim.toggleSkateboard());
+    advance(sim,1.5,{forward:1},fps);const speed=p.speed;
+    assert.ok(speed>4);
+    advance(sim,.5,{turn:1},fps);
+    assert.ok(p.speed<speed && p.speed>speed-1 && p.angle<-.3);
+    advance(sim,.1,{handbrake:true},fps);
+    assert.ok(!p.grounded && p.y>.2);
+    assert.equal(sim.toggleSkateboard(),false);
+    advance(sim,.8,{},fps);assert.ok(p.grounded);
+    advance(sim,2,{forward:-1},fps);assert.equal(p.speed,0);
+    assert.ok(sim.interact());assert.equal(p.mode,'walk');
+    assert.ok(sim.toggleSkateboard());
+    sim.pushPlayer(3,0,{fall:true,lift:1});assert.equal(p.mode,'walk');assert.ok(p.reaction.fall && !p.board);
+  }
+});
+
+test('a knockdown carries momentum until ground contact and gives control back after recovery', () => {
+  const snapshots = [];
+  for (const fps of [30, 120]) {
+    const sim = new Simulation(city()), p = sim.player;
+    sim.cars = [];
+    Object.assign(p, { x: 0, z: 0, y: 5, grounded: false });
+    sim.pushPlayer(4, 2, { fall: true, lift: 1.2, rest: .2 });
+    assert.equal(p.angle,0);
+    advance(sim, .3, { moveX: -1 }, fps);
+    assert.ok(p.x > 1 && p.z > .5 && p.y > 4.6 && p.y < 5.1);
+    assert.equal(p.reaction.recover, 0);
+    assert.ok(p.reaction.angle > .5 && p.vy < 0);
+    assert.ok(p.angle < -.2 && p.angle > Math.atan2(-4,-2));
+    snapshots.push([p.x, p.y, p.z]);
+    advance(sim, 4, {}, fps);
+    assert.equal(p.reaction, null); assert.equal(p.grounded, true); assert.equal(p.y, 0);
+    const x = p.x;
+    advance(sim, .5, { moveX: -1 }, fps);
+    assert.ok(p.x < x - .5);
+  }
+  assert.ok(snapshots[0].every((v,i) => Math.abs(v-snapshots[1][i]) < .04));
+});
+
+test('jumping inside a raised shop lands on its own floor', () => {
+  const sim = new Simulation(city()), p = sim.player;
+  sim.cars = []; Object.assign(p, { x: 0, z: 0, y: 3 });
+  const room = { name: 'Cafe', x: 0, z: 0, nx: 0, nz: -1, tx: 1, tz: 0, width: 6, depth: 8, things: [] };
+  assert.ok(sim.enterRoom(room)); p.z = 2;
+  advance(sim, .1, { handbrake: true });
+  assert.ok(p.y > 3.25 && p.vy > 0 && !p.grounded);
+  advance(sim, 1.2);
+  assert.equal(p.y, 3); assert.equal(p.grounded, true);
+});
+
+test('a van side blocks an airborne walker and its roof carries the player after a climb', () => {
+  const sim = new Simulation(city()), p = sim.player;
+  const van = sim._makeCar('van', 'sedan', { x: 0, z: 3 }, Math.PI/2);
+  van.shape = 'van'; sim.cars = [van]; sim.moves = true;
+  Object.assign(p, { x:0, y:1, z:1.6, angle:0, grounded:false, vy:2, velocityZ:3 });
+  advance(sim, .4, { moveZ:1 });
+  assert.ok(p.z < 2, 'feet below the roof stay outside');
+  Object.assign(p, { y:0, z:1.6, angle:0, grounded:true, vy:0, velocityZ:0 });
+  sim.step({ handbrake:true },1/60);
+  assert.equal(p.move?.kind,'climb');
+  advance(sim,.45);
+  assert.ok(p.y>0 && p.y<2.1 && !p.grounded);
+  advance(sim,1.3);
+  assert.equal(p.standing?.id,van.id);
+  const dx=p.x-van.x, dz=p.z-van.z;
+  van.x+=.2; van.angle+=Math.PI/2;
+  sim.step({},1/60);
+  assert.ok(Math.abs(p.x-van.x-dz)<.02 && Math.abs(p.z-van.z+dx)<.02);
+  assert.ok(Math.abs(p.y-2.1)<.02 && p.grounded);
+});
 
 test('a seat owns the approach, hold and exit, including an interrupted descent', () => {
   for (const fps of [20, 120]) {
@@ -51,14 +140,12 @@ test('approaching a backrest uses a clear side and rejects a seat behind shelter
   assert.equal(seatApproach(player,{...seat,shelter:true}),null);
 });
 
-test('spawn leaves room beside a nearby driveable taxi', () => {
+test('arriving on foot does not summon a personal taxi', () => {
   const sim = new Simulation(city());
-  assert.equal(sim.player.mode, 'walk');
-  assert.equal(sim.getNearbyCar()?.id, 'player-taxi');
-  assert.equal(sim._nearCar(sim.player.x, sim.player.z, 0.4), null);
-  assert.equal(sim.interact(), true);
-  assert.equal(sim.player.mode, 'drive');
-  assert.equal(sim.player.vehicleId, 'player-taxi');
+  assert.equal(sim.player.mode,'walk');
+  assert.equal(sim.cars.includes(sim.ownedCab),false);
+  sim.reset();
+  assert.equal(sim.getNearbyCar(),null);
 });
 
 test('riding a docked bike, braking, parking beside it and remounting', () => {
@@ -98,7 +185,7 @@ test('a coasting car hits cross traffic side-on while the player is on foot', ()
 
 test('player and unoccupied cars make physical contact with pedestrians at street level', () => {
   for (const controlled of [false, true]) {
-    const sim = new Simulation(city());
+    const sim = drivingCity(city());
     if (controlled) sim.interact();
     sim.police._random = () => 0;
     const car = sim.cars[0];
@@ -122,7 +209,7 @@ test('player and unoccupied cars make physical contact with pedestrians at stree
 
 test('a moving car pushes a walker or cyclist clear and inflicts one impact', () => {
   for (const cycling of [false, true]) {
-    const sim = new Simulation(city());
+    const sim = drivingCity(city());
     const car = sim.cars[0];
     Object.assign(car, { x: 0, z: -5, angle: 0, parked: false, _loose: 3, speed: 14, velocityZ: 14 });
     if (cycling) {
@@ -138,7 +225,7 @@ test('a moving car pushes a walker or cyclist clear and inflicts one impact', ()
 
 test('acceleration and steering are consistent at 30, 60 and 144 Hz', () => {
   const states = [30, 60, 144].map(fps => {
-    const sim = new Simulation(city());
+    const sim = drivingCity(city());
     sim.interact();
     advance(sim, 4, { forward: 1 }, fps);
     advance(sim, 1, { forward: 1, turn: 0.3 }, fps);
@@ -156,7 +243,7 @@ test('acceleration and steering are consistent at 30, 60 and 144 Hz', () => {
 
 test('forward and reverse follow the vehicle nose at every cardinal heading', () => {
   for (const angle of [0, Math.PI / 2, Math.PI, -Math.PI / 2]) for (const forward of [-1, 1]) {
-    const sim = new Simulation(city({ spawn: { x: 0, z: 0, angle } }));
+    const sim = drivingCity(city({ spawn: { x: 0, z: 0, angle } }));
     sim.interact();
     const start = { ...sim.player };
     advance(sim, 1, { forward });
@@ -169,7 +256,7 @@ test('forward and reverse follow the vehicle nose at every cardinal heading', ()
 
 test('right and left steering follow the chase camera in forward and reverse at every heading', () => {
   for (const angle of [0, Math.PI / 2, Math.PI, -Math.PI / 2]) for (const turn of [-1, 1]) for (const forward of [-1, 1]) {
-    const sim = new Simulation(city({ spawn: { x: 0, z: 0, angle } }));
+    const sim = drivingCity(city({ spawn: { x: 0, z: 0, angle } }));
     sim.interact();
     const start = { ...sim.player }, car = sim.cars.find(car => car.controlled);
     advance(sim, 0.8, { forward, turn });
@@ -185,7 +272,7 @@ test('right and left steering follow the chase camera in forward and reverse at 
 
 test('brake overrides either accelerator and holds a stationary vehicle still', () => {
   for (const forward of [-1, 1]) {
-    const sim = new Simulation(city());sim.interact();
+    const sim = drivingCity(city());sim.interact();
     const initial = { ...sim.player };
     advance(sim, 2, { forward, brake: true });
     assert.equal(sim.player.speed, 0);
@@ -198,7 +285,7 @@ test('brake overrides either accelerator and holds a stationary vehicle still', 
 
 test('opposing throttle stops before engaging the other direction', () => {
   for (const direction of [-1, 1]) for (const initialSpeed of [0.19, 10]) {
-    const sim = new Simulation(city());sim.interact();
+    const sim = drivingCity(city());sim.interact();
     const car = sim.cars.find(car => car.controlled);car.speed = direction * initialSpeed;
     let stopped = false, neutralSteps = 0;
     for (let step = 0; step < 240; step++) {
@@ -215,7 +302,7 @@ test('opposing throttle stops before engaging the other direction', () => {
 });
 
 test('high-speed steering stays controlled and released steering recenters smoothly', () => {
-  const high = new Simulation(city()), low = new Simulation(city());high.interact();low.interact();
+  const high = drivingCity(city()), low = drivingCity(city());high.interact();low.interact();
   const highCar = high.cars.find(car => car.controlled), lowCar = low.cars.find(car => car.controlled);
   highCar.speed = 30;lowCar.speed = 4;
   high.step({ forward: 1, turn: 1 }, 1 / 120);
@@ -252,7 +339,7 @@ test('traffic lanes lie to each driver’s right on roads in every cardinal dire
 });
 
 test('brakes stop without turning forward speed into reverse speed', () => {
-  const sim = new Simulation(city());
+  const sim = drivingCity(city());
   sim.interact();
   advance(sim, 3, { forward: 1 });
   assert.ok(sim.player.speed > 10);
@@ -261,7 +348,7 @@ test('brakes stop without turning forward speed into reverse speed', () => {
 });
 
 test('high speed and a long frame cannot tunnel through a thin building', () => {
-  const sim = new Simulation(city({ buildings: [{ polygon: [[-30, 22], [30, 22], [30, 22.3], [-30, 22.3]] }] }));
+  const sim = drivingCity(city({ buildings: [{ polygon: [[-30, 22], [30, 22], [30, 22.3], [-30, 22.3]] }] }));
   sim.interact();
   const car = sim.cars.find(item => item.controlled);
   car.z = 18;
@@ -274,7 +361,7 @@ test('high speed and a long frame cannot tunnel through a thin building', () => 
 });
 
 test('a sideways impact with a parked car cancels closing velocity and rotation', () => {
-  const sim = new Simulation(city());sim.interact();
+  const sim = drivingCity(city());sim.interact();
   const car = sim.cars.find(item => item.controlled);
   car.speed = 3;sim.step({}, 1 / 120);
   Object.assign(car, { x: 0, z: 0, velocityX: 18 });
@@ -300,7 +387,7 @@ test('walking slides along a wall and cannot cross it', () => {
 });
 
 test('a car stays inside world bounds without damage or heat from the map limit', () => {
-  const sim = new Simulation(city({ bounds: { minX: -40, maxX: 40, minZ: -40, maxZ: 40 } }));
+  const sim = drivingCity(city({ bounds: { minX: -40, maxX: 40, minZ: -40, maxZ: 40 } }));
   sim.interact();
   advance(sim, 6, { forward: 1 });
   assert.ok(sim.player.z <= 37.961);
@@ -310,7 +397,7 @@ test('a car stays inside world bounds without damage or heat from the map limit'
 });
 
 test('you can bail out of a moving car, and a stop still uses the open door', () => {
-  const sim = new Simulation(city({ buildings: [{ polygon: [[-8, -8], [-1.5, -8], [-1.5, 12], [-8, 12]] }] }));
+  const sim = drivingCity(city({ buildings: [{ polygon: [[-8, -8], [-1.5, -8], [-1.5, 12], [-8, 12]] }] }));
   assert.equal(sim.interact(), true);
   const car = sim.cars.find(item => item.controlled);
   const started = { x: car.x, z: car.z };
@@ -339,21 +426,21 @@ test('jumping leaves the ground and a ledge becomes a fall', () => {
   assert.equal(flat.player.y, 3);
   flat.step({ handbrake: true }, 1 / 60);
   assert.equal(flat.player.grounded, false);
-  assert.ok(flat.player.y > 3.08);
+  assert.ok(flat.player.y > 3.05 && flat.player.vy>3.9);
   for (let i = 0; i < 180 && flat.player.grounded === false; i++) flat.step({}, 1 / 120);
   assert.equal(flat.player.grounded, true);
   assert.equal(flat.player.y, 3);
   assert.equal(flat.health, 100, 'a hop is not a fall');
   const ledge = new Simulation(city({ sampleSurface: (x, z) => ({ elevation: z < 2 ? 8 : 0 }) }));
   assert.equal(ledge.player.y, 8);
-  advance(ledge, 2, { moveZ: 1 });
+  advance(ledge, 3, { moveZ: 1 });
   assert.ok(ledge.player.z > 2, 'you can walk off the ledge');
   assert.ok(ledge.player.y < 1, 'and fall to the ground below');
   assert.ok(ledge.health < 100, 'a long fall hurts');
 });
 
 test('delivery pays once, can be repeated, and will not complete at high speed', () => {
-  const sim = new Simulation(city());
+  const sim = drivingCity(city());
   sim.interact();
   assert.equal(sim.startMission(), true);
   assert.equal(sim.startMission(), false);
@@ -452,10 +539,8 @@ test('polygons with either winding and boundary points block placement', () => {
 test('clipped one-way exits recycle offscreen and keep actual SoHo traffic moving', () => {
   const soho = JSON.parse(readFileSync(new URL('../dist/city.json', import.meta.url), 'utf8'));
   const sim = new Simulation(soho);
-  assert.equal(sim.cars.length, 16);
-  assert.ok(sim.getNearbyCar(), 'the real spawn provides an immediately accessible cab');
-  const taxi = sim.cars.find(car => car.id === 'player-taxi');
-  assert.equal(sim._carContact(taxi.x, taxi.z, taxi.angle), null);
+  assert.equal(sim.cars.length, 15);
+  assert.equal(sim.cars.includes(sim.ownedCab),false);
   for (let second = 0; second < 120; second++) {
     advance(sim, 1);
     for (const car of sim.cars) assert.equal(sim._carContact(car.x, car.z, car.angle), null, `${car.id} entered a building or crossed the world boundary`);
@@ -468,7 +553,7 @@ test('clipped one-way exits recycle offscreen and keep actual SoHo traffic movin
 
 test('terrain grounding follows walking, vehicle wheel supports, exits and travel', () => {
   const elevation=(x,z)=>18+x*.08+z*.12;
-  const sim=new Simulation(city({sampleSurface:(x,z)=>({elevation:elevation(x,z)})}));
+  const sim=drivingCity(city({sampleSurface:(x,z)=>({elevation:elevation(x,z)})}));
   assert.equal(sim.player.y,elevation(sim.player.x,sim.player.z));
   advance(sim,.5,{moveZ:1});
   assert.equal(sim.player.y,elevation(sim.player.x,sim.player.z));
@@ -489,10 +574,10 @@ test('terrain grounding follows walking, vehicle wheel supports, exits and trave
 
 test('mapped inland water stops cars without damage and retains mapped crossings', () => {
   const water=(x,z,r)=>z+r>22?{kind:'water',nx:0,nz:-1,depth:z+r-22}:null;
-  const sim=new Simulation(city({landscapeContact:water}));
+  const sim=drivingCity(city({landscapeContact:water}));
   sim.interact();advance(sim,5,{forward:1});
   assert.ok(sim.player.z<22);assert.equal(sim.health,100);assert.equal(sim.heat,0);
-  const crossing=new Simulation(city({landscapeContact:water,roads:[{id:'bridge',name:'Mapped crossing',width:12,points:[[0,-100],[0,100]]}]}));
+  const crossing=drivingCity(city({landscapeContact:water,roads:[{id:'bridge',name:'Mapped crossing',width:12,points:[[0,-100],[0,100]]}]}));
   assert.equal(crossing.isBlocked(0,40,.5),false);
   assert.equal(crossing.isBlocked(20,40,.5),true);
   assert.equal(crossing.isBlocked(20,40,.5,{ignoreWater:true}),false,'camera can look above the water');
@@ -581,6 +666,22 @@ function lone(sim, edge, back) {
   return car;
 }
 
+test('drivers leave braking room behind a moving van and a bumper gap when it stops', () => {
+  const sim = new Simulation(crossing()), edge = edgeInto(sim, [0,400], [0,0]);
+  const leader = lone(sim,edge,280), follower = sim._makeCar('follower','sedan',sim._lanePoint(edge,.21),edge.angle,edge);
+  leader.identity = {asset:{design:{L:6}}};
+  leader._cruise = leader.speed = 6;
+  follower._cruise = follower.speed = 12;
+  sim.cars.push(follower);
+  const gap = () => Math.hypot(leader.x-follower.x,leader.z-follower.z) - 5.3;
+  advance(sim,12);
+  assert.ok(gap()>9 && gap()<14);
+  leader._cruise = 0;
+  advance(sim,14);
+  assert.ok(gap()>2 && gap()<3.5);
+  assert.ok(follower.speed<.1);
+});
+
 test('two NPC drivers make bumper contact when the follower has too little distance to brake', () => {
   const sim = new Simulation(crossing()), edge = edgeInto(sim, [0, 400], [0, 0]);
   const leader = sim._makeCar('slow', 'sedan', sim._lanePoint(edge, .5), edge.angle, edge);
@@ -642,6 +743,128 @@ test('traffic waits at a red light behind the stop line and goes on green', () =
   assert.ok(patrol._edge !== edge || patrol.x < line - 3, 'the patrol went through on red');
 });
 
+test('a hired cab waits at a red light until its passenger asks the driver to hurry',()=>{
+  const sim=new Simulation(crossing()),plan=sim.junctions[0].plan;
+  const edge=edgeInto(sim,[400,0],[0,0]), next=edgeInto(sim,[0,0],[-400,0]);
+  sim.elapsed=plan.offset+plan.lead[0]+plan.green[0]+5+plan.lead[1]+plan.green[1]+3.5;
+  const car=lone(sim,edge,30);Object.assign(car,{hired:true,_route:[next]});
+  advance(sim,6);
+  assert.equal(vehicleAspect(plan,1,sim.elapsed).aspect,'red');
+  assert.ok(car.x>stopDistance(plan,1));
+  car.rideHurry=true;car._cruise=30;
+  advance(sim,4);
+  assert.equal(vehicleAspect(plan,1,sim.elapsed).aspect,'red');
+  assert.ok(car.x<stopDistance(plan,1)-2);assert.equal(car.siren,false);
+});
+
+test('a hurried D Ride passes a queue of bikes and a car on the left, then rejoins its booked lane',()=>{
+  const sim=new Simulation(crossing()),edge=edgeInto(sim,[0,400],[0,0]);
+  const cab=lone(sim,edge,250);
+  Object.assign(cab,{hired:true,rideHurry:true,speed:0,_cruise:28});
+  const at=d=>sim._lanePoint(edge,(150+d)/edge.length);
+  const bikes=[4.2,10,15].map(d=>({...at(d),y:0,speed:0,heading:edge.angle,edge:{lane:{}}}));
+  sim.setWalkers(bikes);
+  const stopped=sim._makeCar('queued-car','sedan',at(23),edge.angle);
+  sim.cars.push(stopped);
+  let left=0;
+  for(let i=0;i<600 && cab.z>195;i++){
+    sim.step({},1/30);
+    left=Math.max(left,at(0).x-cab.x);
+    for(const bike of bikes)assert.equal(sim._nearCar(bike.x,bike.z,.35,stopped.id)?.car===cab,false);
+    assert.equal(sim._vehicleHit(cab),null);
+  }
+  assert.ok(left>2.4,'pulled left of the queue');
+  assert.ok(cab.z<196,'cleared the last stopped car');
+  assert.ok(Math.abs(cab.x-at(0).x)<.5,'returned to the booked lane');
+});
+
+test('a hurried D Ride completes a pass around moving traffic',()=>{
+  const sim=new Simulation(crossing()),edge=edgeInto(sim,[0,400],[0,0]);
+  const cab=lone(sim,edge,320),leader=sim._makeCar('leader','sedan',sim._lanePoint(edge,.24),edge.angle,edge);
+  Object.assign(cab,{hired:true,rideHurry:true,speed:14,_cruise:32});
+  leader.speed=leader._cruise=10.5;
+  sim.cars.push(leader);
+  for(let i=0;i<450 && cab.z>leader.z-12;i++){
+    sim.step({},1/30);
+    assert.equal(sim._vehicleHit(cab),null);
+  }
+  assert.ok(cab.z<leader.z-10,'accelerated past the moving car');
+});
+
+test('a hurried D Ride waits for an oncoming car before passing on a two-way street',()=>{
+  const sim=new Simulation(crossing()),edge=edgeInto(sim,[400,0],[0,0]);
+  const cab=lone(sim,edge,200);
+  Object.assign(cab,{hired:true,rideHurry:true,speed:0,_cruise:26});
+  const bike={...sim._lanePoint(edge, .515),y:0,speed:0,heading:edge.angle,edge:{lane:{}}};
+  sim.setWalkers([bike]);
+  const reverse=edgeInto(sim,[0,0],[400,0]);
+  const oncoming=sim._makeCar('oncoming','sedan',sim._lanePoint(reverse,.43),reverse.angle,reverse);
+  oncoming.speed=oncoming._cruise=11;
+  sim.cars.push(oncoming);sim.updateGrounding();
+  for(let i=0;i<25;i++){sim.step({},1/30);assert.ok(!cab._ridePlan.offset);assert.equal(sim._vehicleHit(cab),null);}
+  for(let i=0;i<450 && cab.x>175;i++){sim.step({},1/30);assert.equal(sim._vehicleHit(cab),null);}
+  assert.ok(cab.x<=175,'passed the bike once the opposing lane cleared');
+});
+
+test('a hurried D Ride yields to moving cross traffic and then clears the red light',()=>{
+  const sim=new Simulation(crossing()),edge=edgeInto(sim,[400,0],[0,0]);
+  const next=edgeInto(sim,[0,0],[-400,0]),cab=lone(sim,edge,23);
+  const plan=edge.to.plan;
+  sim.elapsed=plan.offset+plan.lead[0]+plan.green[0]+5+plan.lead[1]+plan.green[1]+3.5;
+  Object.assign(cab,{hired:true,rideHurry:true,speed:13,_cruise:32,_route:[next]});
+  const cross=edgeInto(sim,[0,400],[0,0]);
+  const traffic=sim._makeCar('crossing','sedan',sim._lanePoint(cross,.9675),cross.angle,cross);
+  traffic.speed=traffic._cruise=13;
+  sim.cars.push(traffic);sim.updateGrounding();
+  let slowest=cab.speed;
+  for(let i=0;i<240 && cab.x>-15;i++){
+    traffic.z-=traffic.speed/30;
+    sim.elapsed+=1/30;sim._traffic(cab,1/30);
+    slowest=Math.min(slowest,cab.speed);
+    assert.equal(sim._vehicleHit(cab),null);
+  }
+  assert.ok(slowest<11,'braked for the car approaching from the side');
+  assert.ok(cab.x<=-15,'continued across after the conflict cleared');
+  assert.equal(vehicleAspect(plan,edge.arrives,sim.elapsed).aspect,'red');
+});
+
+test('a driver stops with the front bumper behind the painted stripe for its approach', () => {
+  const sim = new Simulation(crossing()), plan = sim.junctions[0].plan;
+  const edge = edgeInto(sim, [400, 0], [0, 0]), lane = sim._lanePoint(edge,1);
+  const matches = [];
+  matches[edge.arrivalArm] = {nx:1,nz:0,stopLine:{ax:24,az:lane.z-3,bx:24,bz:lane.z+3}};
+  sim.paintedCrossings = new Map([[plan,matches]]);
+  sim.elapsed = plan.offset + plan.lead[0] + plan.green[0] + 5 + plan.lead[1] + plan.green[1] + 3.5;
+  const car = lone(sim,edge,65);
+  advance(sim,vehicleAspect(plan,1,sim.elapsed).remaining-2);
+  assert.ok(car.speed < .2 && car.x-2.3 >= 24 && car.x-2.3 < 27);
+});
+
+test('drivers brake on approach and a green light releases a stopped queue in sequence', () => {
+  const sim = new Simulation(crossing()), plan = sim.junctions[0].plan;
+  const edge = edgeInto(sim,[400,0],[0,0]), line = stopDistance(plan,edge.arrives);
+  const green = plan.offset + plan.lead[0] + plan.green[0] + 5 + plan.lead[1];
+  sim.elapsed = green + plan.green[1] + 4;
+  const leader = lone(sim,edge,line + 2.3 + 23);
+  leader.speed = leader._cruise = 12;
+  advance(sim,.25);
+  assert.ok(leader.speed < 11.5 && leader.speed > 9, 'brakes progressively with room before the line');
+
+  const follower = sim._makeCar('queued','sedan',sim._lanePoint(edge,1-(line+32)/edge.length),edge.angle,edge);
+  sim.cars.push(follower);
+  advance(sim,15);
+  assert.ok(leader.speed < .12 && follower.speed < .12);
+  sim.elapsed = green + .01;
+  const started = new Map();
+  for (let i=0; i<300; i++) {
+    sim.step({},1/60);
+    for (const car of [leader,follower]) if (!started.has(car) && car.speed > .2) started.set(car,i/60);
+  }
+  assert.ok(started.get(leader) > .3 && started.get(leader) < 1.1);
+  assert.ok(started.get(follower) > started.get(leader) + .4 && started.get(follower) < 3);
+  assert.ok(leader.speed > follower.speed && follower.speed > 1);
+});
+
 test('at a stop sign traffic comes to a full stop, then goes', () => {
   const sim = new Simulation(city({ roads: [street('a', 'A ST', [[0, 300], [0, -300]], 9), street('b', 'B ST', [[-300, 0], [300, 0]], 9)], spawn: { x: 150, z: 150, angle: 0 } }));
   const plan = sim.junctions[0].plan, edge = edgeInto(sim, [300, 0], [0, 0]), line = stopDistance(plan, edge.arrives);
@@ -660,7 +883,7 @@ test('at a stop sign traffic comes to a full stop, then goes', () => {
 
 test('running a red light is noticed by a camera or a patrol; yellow and green are not', () => {
   const drive = (setup = () => {}) => {
-    const sim = new Simulation(crossing({ spawn: { x: 60, z: 2, angle: -Math.PI / 2 } }));
+    const sim = drivingCity(crossing({ spawn: { x: 60, z: 2, angle: -Math.PI / 2 } }));
     sim.cars = sim.cars.filter(car => car.id === 'player-taxi');
     const cab = sim.cars[0]; Object.assign(cab, { x: 60, z: 2.2, angle: -Math.PI / 2 });
     sim.player.x = 58; sim.player.z = 4; sim.interact();
@@ -668,7 +891,7 @@ test('running a red light is noticed by a camera or a patrol; yellow and green a
     sim.cash = 80; setup(sim);
     return sim;
   };
-  const plan = new Simulation(crossing()).junctions[0].plan;
+  const plan = drivingCity(crossing()).junctions[0].plan;
   const red = plan.offset + plan.lead[0] + 4, green = plan.offset + plan.lead[0] + plan.green[0] + 5 + plan.lead[1] + 4;
   const through = sim => { for (let i = 0; i < 60 * 14 && sim.player.x > -25; i++) sim.step({ forward: 1 }, 1 / 60); assert.ok(sim.player.x < -20, 'drove through the junction'); return sim; };
   // On the side street's red, with a camera at the junction.
@@ -689,7 +912,7 @@ test('running a red light is noticed by a camera or a patrol; yellow and green a
 test('traffic thins and thickens with the hour, and its cabs are the right colour', () => {
   const roads = [];
   for (let i = -3; i <= 3; i++) { roads.push(street(`a${i}`, `A${i}`, [[i * 120, -420], [i * 120, 420]], 9)); roads.push(street(`s${i}`, `S${i}`, [[-420, i * 120], [420, i * 120]], 9)); }
-  const sim = new Simulation(city({ roads, spawn: { x: 5, z: 5, angle: 0 } }));
+  const sim = drivingCity(city({ roads, spawn: { x: 5, z: 5, angle: 0 } }));
   const moving = () => sim.cars.filter(car => car._edge && car.type !== 'police' && !car.controlled);
   const seeded = moving().length;
   advance(sim, 20);
@@ -713,7 +936,7 @@ test('traffic is kept within a few blocks of the player, and comes and goes out 
   // Two kilometres of grid: left alone, a dozen cars would be scattered across all of it.
   const roads = [];
   for (let i = -8; i <= 8; i++) { roads.push(street(`a${i}`, `A${i}`, [[i * 120, -1000], [i * 120, 1000]], 9)); roads.push(street(`s${i}`, `S${i}`, [[-1000, i * 120], [1000, i * 120]], 9)); }
-  const sim = new Simulation(city({ bounds: { minX: -1100, maxX: 1100, minZ: -1100, maxZ: 1100 }, roads, spawn: { x: 60, z: 6, angle: 0 } }));
+  const sim = drivingCity(city({ bounds: { minX: -1100, maxX: 1100, minZ: -1100, maxZ: 1100 }, roads, spawn: { x: 60, z: 6, angle: 0 } }));
   const moving = () => sim.cars.filter(car => car._edge && car.type !== 'police' && !car.controlled);
   const from = car => Math.hypot(car.x - sim.player.x, car.z - sim.player.z);
   advance(sim, 5);
@@ -848,6 +1071,66 @@ test('a wide street carries traffic in every lane: turns are made from the lane 
   assert.ok(abreast[3]._edge === beyond ? Math.abs(abreast[3].x - files[3]) < .3 : abreast[3].x < -6, 'the left-hand lane went on or left');
 });
 
+test('a driver signals and slows for the planned corner and cancels after straightening', () => {
+  const roads = [street('in','IN',[[0,180],[0,0]],9,'yes'),street('out','OUT',[[0,0],[200,0]],9,'yes')];
+  const sim = new Simulation(city({roads,spawn:{x:80,z:80,angle:0}}));
+  const edge = edgeInto(sim,[0,180],[0,0]), exit = edgeInto(sim,[0,0],[200,0]);
+  const car = lone(sim,edge,18);
+  car.speed = car._cruise = 10;
+  advance(sim,.2);
+  assert.equal(car.indicator,-1);
+  assert.ok(car.speed<10);
+  advance(sim,8);
+  assert.equal(car._edge,exit);
+  assert.ok(car.x>12);
+  assert.equal(car.indicator,0);
+});
+
+test('a blocked driver signals while waiting and the next driver eases off to admit the merge', () => {
+  const sim = new Simulation(crossing()), edge = edgeInto(sim,[0,0],[0,-400]);
+  function carAt(id,metres,lane,parked=false) {
+    const car = sim._makeCar(id,'sedan',sim._lanePoint(edge,metres/edge.length,lane),edge.angle,parked ? null : edge);
+    car._lane = lane;
+    return car;
+  }
+  const van = carAt('van',160,0,true), cab = carAt('cab',153,0), alongside = carAt('alongside',153,1,true);
+  sim.cars = [van,cab,alongside];
+  advance(sim,3);
+  assert.equal(cab._merge.to,1);
+  assert.equal(cab._lane,0);
+  const flashes = new Set();
+  for (let i=0;i<60;i++) { sim.step({},1/60); flashes.add(cab.indicator); }
+  assert.deepEqual([...flashes].sort(),[0,1]);
+  const yielding = carAt('yielding',136,1);
+  yielding._cruise = yielding.speed = 6;
+  sim.cars.push(yielding);
+  sim.cars.splice(sim.cars.indexOf(alongside),1);
+  advance(sim,.4);
+  assert.ok(yielding.speed<5.5, 'eases off for the cab before it reaches the lane');
+  advance(sim,7);
+  assert.equal(cab._lane,1);
+  assert.ok(cab.z < van.z && yielding.z > cab.z+4);
+  assert.equal(cab.indicator,0);
+});
+
+test('a signalling driver waits for a fast car that is too close to yield', () => {
+  const sim = new Simulation(crossing()), edge = edgeInto(sim,[0,0],[0,-400]);
+  const make = (id,at,lane,moving) => sim._makeCar(id,'sedan',sim._lanePoint(edge,at/edge.length,lane),edge.angle,moving ? edge : null);
+  const van = make('van',160,0,false), cab = make('cab',153,0,true), blocker = make('blocker',153,1,false);
+  sim.cars = [van,cab,blocker];
+  advance(sim,3.2);
+  const passing = make('passing',143,1,true);
+  passing.speed = passing._cruise = 11;
+  passing._lane = 1;
+  sim.cars[2] = passing;
+  advance(sim,1);
+  assert.ok(passing.speed>10 && passing.z<cab.z);
+  assert.equal(cab._lane || 0,0,'waits while the passing car is alongside');
+  advance(sim,5);
+  assert.equal(cab._lane,1);
+  assert.ok(passing.z < cab.z-4);
+});
+
 test('on a street with several lanes, traffic pulls out round a car left standing in one of them', () => {
   const sim = new Simulation(crossing());
   const beyond = edgeInto(sim, [0, 0], [0, -400]);
@@ -888,4 +1171,38 @@ test('the carriageways of a boulevard share one signal plan with the street that
   }
   // All four change together, so a car crossing the boulevard is not stopped in the middle of it.
   for (let t = 0; t < 120; t += 1.5) assert.equal(new Set(sim.junctions.map(junction => vehicleAspect(junction.plan, 1, t).aspect)).size, 1, `at ${t} s`);
+});
+
+test('a loaded flip rotates only the deck, catches a grab, and a sideways landing throws the skater',()=>{
+  const sim=new Simulation(city());sim.cars=[];sim.toggleSkateboard();
+  const p=sim.player;p.speed=4;
+  sim.step({skateTrick:'kickflip',charge:1},.001);
+  sim.step({},.20);assert.equal(p.board.trick,'kickflip');assert.ok(Math.abs(p.board.roll)>1 && p.board.spin===0);
+  advance(sim,.5,{grab:1});assert.equal(p.board.grab,1);
+  advance(sim,.5);assert.equal(p.grounded,true);assert.match(p.board.last,/Kickflip.*Indy/);
+  sim.step({skateTrick:'ollie',charge:1},1/60);
+  advance(sim,.60,{turn:1});advance(sim,.5);
+  assert.equal(p.mode,'skate');assert.ok(p.board.switch);assert.match(p.board.last,/180/);
+  sim.step({skateTrick:'ollie',charge:1},1/60);
+  advance(sim,.31,{turn:1});advance(sim,.8);
+  assert.equal(p.mode,'walk');assert.ok(p.reaction.fall);
+});
+
+test('a descending skateboard locks to the top of a streamed rail and can pop off it',()=>{
+  const sim=new Simulation(city());sim.cars=[];sim.toggleSkateboard();
+  const p=sim.player;
+  sim.streetObjects.replace('median',[{id:'rail1',kind:'rail',x:0,z:0,y:0,tx:0,tz:1,half:8,height:1,radius:.035}]);
+  Object.assign(p,{x:.07,y:1.16,z:-3,speed:3,grounded:false,vy:-1.1});
+  advance(sim,.3);assert.ok(p.board.grind);assert.equal(p.y,1);assert.equal(p.x,0);
+  const z=p.z;advance(sim,.5);assert.ok(p.z>z+1);assert.equal(p.y,1);
+  sim.step({skateTrick:'ollie',charge:.8},1/60);advance(sim,.1);assert.ok(p.y>1.35);
+  assert.equal(p.board.grind,null);assert.equal(p.board.trick,'ollie');
+});
+
+test('loading protected lane geometry moves an occupied parking space without changing the car',()=>{
+  const sim=new Simulation(city());sim.cars=[];
+  const space={id:'kerb:cycle',x:32,z:45,angle:0};
+  sim.syncParkedCars([space]);const same=sim.cars[0];
+  sim.syncParkedCars([{...space,x:35.1}]);
+  assert.equal(sim.cars[0],same);assert.equal(same.x,35.1);
 });

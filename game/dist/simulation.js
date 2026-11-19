@@ -1,10 +1,15 @@
+import { meleeMoves, nextStrike, handGroup } from './melee-moves.js';
+import { TRICKS, startTrick, animateAir, landTrick } from './skate-tricks.js';
+import { motorist, phoneGlance } from './motorists.js';
 import { Shopping,foodId,pantryItem } from './shopping.js';
-import { carCondition, collisionLoad, impactVehicle, repairVehicle, stepVehicleFire, doorPanel, tearDoor } from './vehicle-damage.js';
+import { GRAVITY, WALK_SPEED, JOG_SPEED, RUN_SPEED, receiveImpulse, stepImpulse } from './character-physics.js';
+import { carCondition, collisionLoad, impactVehicle, repairVehicle, stepVehicleFire, hasDriver, doorPanel, tearDoor } from './vehicle-damage.js';
 import { resetVehicleDynamics, stepVehicleDynamics, stopVehicleRotation, vehicleTravelSpeed } from './vehicle-dynamics.js';
-import { startKick, tryVault, beginEntry, stepMove, fireGun, reloadGun, toggleGun, carUnder } from './player-moves.js';
+import { startKick, tryVault, beginEntry, stepMove, fireGun, reloadGun, toggleGun, carTop, carUnder } from './player-moves.js';
 import { planJunction, junctionArms, vehicleAspect, stopDistance } from './signal-plan.js';
 import { laneLayout } from './lanes.js';
 import { StreetObjects } from './street-objects.js';
+import { steerHiredCab } from './ride-driving.js';
 import { roadLevelAt, trafficAtHeight } from './road-level.js';
 import { drawVehicle, drawPaint, drawTaxi, WHEEL } from './fleet.js';
 import { walkRoom, roomPoint, roomLocal, DOOR } from './room.js';
@@ -21,7 +26,7 @@ const FIXED_STEP = 1 / 120;
 const PLAYER_RADIUS = 0.4;
 const CAR_RADIUS = 0.92;
 // On foot: a short hop, then gravity. A curb is a step; anything taller is a fall.
-const GRAVITY = 18, JUMP_SPEED = 6.4, STEP_DROP = 0.65, FALL_HURT = 10;
+const JUMP_SPEED = 4.15, STEP_DROP = 0.65, FALL_HURT = 10;
 const CAR_HALF_AXLE = 1.12;
 // What stands at a New York kerb: mostly black, white and shades of grey.
 const KERB_PAINT = ['#15181b', '#15181b', '#2b2f33', '#5b6166', '#8f969b', '#8f969b', '#c9cdd0', '#e8e9e6', '#e8e9e6', '#1f2f45', '#3a5a7a', '#7a1f1f', '#27402f', '#8a7a5c'];
@@ -103,6 +108,14 @@ function carContact(car, x, z, radius, height) {
   const ax = dx - along * sin, az = dz - along * cos, gap = Math.hypot(ax, az);
   if (gap >= CAR_RADIUS + radius) return null;
   return { car, nx: gap > 1e-8 ? ax / gap : cos, nz: gap > 1e-8 ? az / gap : -sin, depth: CAR_RADIUS + radius - gap };
+}
+
+// Sample under the side of the character that touches the vehicle. Its bonnet
+// and roof can be at quite different heights even on the same chassis.
+function feetClearCar(hit,x,y,z){
+  if(!Number.isFinite(y)) return false;
+  const top=carTop(hit.car,x-hit.nx*PLAYER_RADIUS,z-hit.nz*PLAYER_RADIUS,.18);
+  return y >= (top ?? (hit.car.y||0)+.85)-.07;
 }
 
 function pointInPolygon(x, z, polygon) {
@@ -239,6 +252,7 @@ export class Simulation {
   constructor(city, { onRecovery } = {}) {
     this.city = city;
     this.onRecovery = onRecovery;
+    this.moveEvents=[];
     this.bystanders = [];
     this.streetObjects = new StreetObjects();
     this.bounds = city.bounds;
@@ -251,7 +265,7 @@ export class Simulation {
     this._graph = buildRoadGraph(city.roads || []);
     this._signalHints = typeof city.signalHints === 'function' ? city.signalHints : null;
     this._planJunctions();
-    this.player = { x: city.spawn.x, z: city.spawn.z, angle: city.spawn.angle || 0, speed: 0, mode: 'walk', vehicleId: null, velocityX: 0, velocityZ: 0, vy: 0, grounded: true, slide: 0, swing: 0 };
+    this.player = { x: city.spawn.x, z: city.spawn.z, angle: city.spawn.angle || 0, speed: 0, mode: 'walk', board: null, vehicleId: null, velocityX: 0, velocityZ: 0, vy: 0, grounded: true, slide: 0, swing: 0, reaction:null, standing:null };
     this.spotted = false;
     this.threats = [];
     this.melee = false;
@@ -373,6 +387,7 @@ export class Simulation {
       if (!plan) continue;
       const back = edge.angle + Math.PI;
       const index = edge.to.arms.findIndex(arm => Math.abs(turnDelta(arm.angle, back)) < .4);
+      edge.arrivalArm = index;
       if (index >= 0) edge.arrives = plan.groups[index];
     }
     this._insideJunction = null;
@@ -430,6 +445,8 @@ export class Simulation {
     // A new identity, so that whatever draws the car builds the right model.
     const taxi = this._random() < this._trafficMix.taxis;
     car.id = `traffic-${this._trafficSerial = (this._trafficSerial || 100) + 1}`;
+    car._lookAgain=0; car._noticedCar=null; car.onPhone=false;
+    car.driverAppearance=null; car.provokedAt=null; car.blockedForHorn=0; car.hornUntil=0; car.errand=null; car.finishedErrand=false;
     repairVehicle(car);
     car.mods = car.handling = undefined; car.driverEjected = car._driven = car._jacked = car.resprays = false;
     // Another car altogether: its own wheels again, and the next number.
@@ -485,7 +502,7 @@ export class Simulation {
     if (!room || this.player.mode !== 'walk' || this.room || (this.doorway?.closed && this.doorway.plan.place.id === room.place?.id)) return false;
     at ??= roomLocal(room, this.player.x, this.player.z);
     if (Math.abs(at.a) > DOOR / 2 || Math.abs(at.b) > .8) return false;
-    this.room = { ...room, a: at.a, b: at.b };
+    this.room = { ...room, floor: this.doorway?.floor ?? room.floor ?? this.player.y ?? 0, a: at.a, b: at.b };
     this._say(room.name, 3);
     return true;
   }
@@ -499,7 +516,7 @@ export class Simulation {
 
   sit(seat) {
     const p = this.player;
-    if (!seat || this.seat || this.ending || p.mode !== 'walk' || p.move || p.swing > .08 || p.grounded === false) return false;
+    if (!seat || this.seat || p.reaction || this.ending || p.mode !== 'walk' || p.move || p.swing > .08 || p.grounded === false) return false;
     const distance = Math.hypot(seat.x - p.x, seat.z - p.z), y = seat.y ?? p.y;
     if (!(distance <= 1.45 && Math.abs(y - p.y) <= 1.2 && Number.isFinite(seat.heading))) return false;
     const path=seat.path??seatApproach(p,seat);
@@ -671,7 +688,7 @@ export class Simulation {
       while (k + 2 < found.length && found[k + 1] < pick) k += 2;
       const edge = found[k], lane = car.type === 'police' ? 0 : Math.floor(this._random() * edge.lanes), point = this._lanePoint(edge, clamp(9 / edge.length, 0.15, 0.75), lane);
       if (this._carContact(point.x, point.z, edge.angle) || this._nearCar(point.x, point.z, 6, car.id)) continue;
-      Object.assign(car, { x: point.x, z: point.z, y: undefined, transportId: null, angle: edge.angle, speed: car._cruise * 0.6, _edge: edge, _lane: lane, _route: [], _stuckTime: 0, _steering: 0, _shiftHold: 0, _halted: null, _held: 0 });
+      Object.assign(car, { x: point.x, z: point.z, y: undefined, transportId: null, angle: edge.angle, speed: car._cruise * 0.6, _edge: edge, _lane: lane, _route: [], _stuckTime: 0, _steering: 0, _shiftHold: 0, _yellowEdge: null, _merge: null, _turn: null, _finishingTurn: null, indicator: 0, _launchDelay: 0, _halted: null, _held: 0 });
       resetVehicleDynamics(car, car.speed);
       // What comes round the corner next need not be what left.
       if (car.type !== 'police') this._styleTraffic(car);
@@ -690,13 +707,14 @@ export class Simulation {
     const focus = this._trafficFocus(), strays = [];
     let moving = 0, farthest = null, unseen = 0;
     for (const car of this.cars) {
-      if (!car._edge || car._kerb || car.controlled || car.siren) continue;
+      if (!car._edge || car.hired || car.errand || car._kerb || car.controlled || car.siren) continue;
       // A car may go from wherever one may appear.
       const seen = distance(car, this.player), hidden = seen >= this._joinDistance(car);
       if (car.type !== 'police') { moving++; if (hidden && seen > unseen) { farthest = car; unseen = seen; } }
       if (hidden && distance(car, focus) > TRAFFIC_STRAY) strays.push(car);
     }
-    if (moving > this._trafficTarget) { if (farthest) this.cars.splice(this.cars.indexOf(farthest), 1); return; }
+    this._trafficSurplus = moving - this._trafficTarget;
+    if (this._trafficSurplus > 0) { if (farthest) this.cars.splice(this.cars.indexOf(farthest), 1); return; }
     // A few at a time, farthest first: enough to keep up with a car at speed.
     strays.sort((a, b) => distance(b, focus) - distance(a, focus));
     for (const car of strays.slice(0, 3)) this._joinTraffic(car);
@@ -708,7 +726,8 @@ export class Simulation {
 
   _rebindTraffic() {
     for (const car of this.cars) {
-      const wasTraffic = !car.parked || car._streamParked;
+      if (car.hired) continue; // Keep its short, already booked approach while adjacent streets stream.
+      const wasTraffic = !car.parked || car._streamParked || car.errand;
       car._route = [];
       car._edge = null;
       if (car.controlled || !wasTraffic) continue;
@@ -724,9 +743,9 @@ export class Simulation {
         if (gap < Math.max(12, finite(edge.road.width, 10)) && (!nearest || score < nearest.score)) nearest = { edge, score };
       }
       car._edge = nearest?.edge || null;
-      if (!car._edge && this._recycleTraffic(car)) car._streamParked = false;
+      if (!car._edge && !car.errand && this._recycleTraffic(car)) car._streamParked = false;
       else car._streamParked = !car._edge;
-      car.parked = car._streamParked;
+      car.parked = car._streamParked || Boolean(car.errand && car.errand.phase!=='approach');
       if (car.parked) resetVehicleDynamics(car);
     }
     for (const car of this.cars) if (car.type === 'police') car._routeAt = 0;
@@ -747,7 +766,7 @@ export class Simulation {
     for (const edge of this._graph.edges) {
       const point = closestOnSegment(spawn.x, spawn.z, edge.from.x, edge.from.z, edge.to.x, edge.to.z);
       if (distance(point, spawn) > 250) continue;
-      for (const offset of [0, 8, -8, 20, -20]) {
+      for (const offset of [0, 8, -8, 20, -20, 36, -36]) {
         const lane = this._lanePoint(edge, clamp(point.t + offset / edge.length, 0.08, 0.92));
         candidates.push({ ...lane, angle: edge.angle, gap: distance(lane, spawn) });
       }
@@ -906,8 +925,13 @@ export class Simulation {
       car.pitch = -Math.atan2((fl + fr - rl - rr) / 2, axle.front - axle.rear);
       car.roll = Math.atan2((fr + rr - fl - rl) / 2, axle.x * 2);
     }
-    if (this.player.mode === 'transport' || this.room || this.seat) return;
-    const vehicle = this.player.mode === 'drive' && this.cars.find(car => car.id === this.player.vehicleId);
+    if (this.player.mode === 'transport' || this.subway || this.room || this.seat) return;
+    const vehicle = this.player.vehicleId && this.cars.find(car => car.id === this.player.vehicleId);
+    if(vehicle && this.player.mode==='passenger'){
+      const p=this.player;
+      p.x=vehicle.x;p.z=vehicle.z;p.angle=vehicle.angle;p.speed=vehicle.speed;
+      p.velocityX=Math.sin(vehicle.angle)*vehicle.speed;p.velocityZ=Math.cos(vehicle.angle)*vehicle.speed;
+    }
     const options = Number.isFinite(this.player.y) ? { referenceHeight: this.player.y, mode: 'walk', transportId: this.player.transportId } : undefined;
     if (vehicle) {
       this.player.y = vehicle.y;
@@ -917,7 +941,7 @@ export class Simulation {
       return;
     }
     // A jump or a fall owns its height until the feet meet a surface again.
-    if (this.player.grounded === false || this.player.standing) return;
+    if (this.player.grounded === false || this.player.standing || this.player.reaction || ['climb','vault'].includes(this.player.move?.kind)) return;
     const surface = this._sampleSurface?.(this.player.x, this.player.z, options);
     this.player.y = finite(surface?.elevation);
     if (this.doorway && this.player.mode === 'walk' && Math.abs(this.player.y - this.doorway.floor) < 1.6) {
@@ -1046,6 +1070,10 @@ export class Simulation {
   _makeCar(id, type, point, angle, edge = null) {
     const palette = TRAFFIC_PAINT;
     const car = { id, type, x: point.x, z: point.z, angle, speed: 0, color: type === 'taxi' ? YELLOW_CAB : type === 'police' ? '#f1f2e9' : palette[Math.floor(this._random() * palette.length)], parked: !edge, controlled: false, radius: CAR_RADIUS, siren: false, _edge: edge, _route: [], _stuckTime: 0, _cruise: 6 + this._random() * 3, _wait: 0, _steering: 0, _shiftHold: 0 };
+    // The existing cruise-speed draw also gives each driver a stable pace
+    // when pulling away. Keep route and fleet random draws independent.
+    car._pace = (car._cruise - 6) / 3;
+    if(type==='police')car.unit=['motorway','trunk','expressway'].includes(edge?.road?.kind)?'highway':'patrol';
     resetVehicleDynamics(car);
     this._serviceIdentity(car);
     return car;
@@ -1100,9 +1128,10 @@ export class Simulation {
     }
   }
 
-  _nearestEdge(x, z) {
+  _nearestEdge(x, z, heading=null) {
     let nearest = null;
     for (const edge of this._graph.edges) {
+      if(heading!==null && Math.cos(edge.angle-heading)<.45)continue;
       const point = closestOnSegment(x, z, edge.from.x, edge.from.z, edge.to.x, edge.to.z);
       const d = Math.hypot(x - point.x, z - point.z);
       if (!nearest || d < nearest.distance) nearest = { edge, ...point, distance: d };
@@ -1123,22 +1152,33 @@ export class Simulation {
    * @returns {number} kerbside cars now present
    */
   syncParkedCars(spaces = []) {
-    const wanted = new Set(spaces.map(space => space.id));
+    const wanted = new Map(spaces.map(space => [space.id,space]));
     let changed = false, present = 0;
     this.cars = this.cars.filter(car => {
       if (!car._kerb) return true;
       if (car.controlled) { car._kerb = false; return true; }
-      if (wanted.has(car.id)) { present++; return true; }
+      const space=wanted.get(car.id);
+      if(space){
+        const previous=car._kerbSpace||car;
+        if(space.x!==previous.x || space.z!==previous.z || space.angle!==previous.angle){
+          changed=true;
+          if(!Number.isFinite(space.x+space.z+space.angle) || distance(space,this.player)<7 ||
+             this._carContact(space.x,space.z,space.angle,car) || this._nearCar(space.x,space.z,3.6,car.id,car.y))return false;
+          Object.assign(car,{x:space.x,z:space.z,angle:space.angle,y:undefined});
+        }
+        car._kerbSpace=space;present++;return true;
+      }
       changed = true; return false;
     });
     const ids = new Set(this.cars.map(car => car.id)), sequence = this._rngState;
+    const reserved = new Set(this.cars.map(car=>car.errand?.space.id));
     for (const space of spaces) {
-      if (ids.has(space.id) || !Number.isFinite(space.x) || !Number.isFinite(space.z) || !Number.isFinite(space.angle)) continue;
+      if (reserved.has(space.id) || ids.has(space.id) || !Number.isFinite(space.x) || !Number.isFinite(space.z) || !Number.isFinite(space.angle)) continue;
       // Bumper to bumper is fine; overlapping is not.
       if (distance(space, this.player) < 7 || this._carContact(space.x, space.z, space.angle) || this._nearCar(space.x, space.z, 3.6)) continue;
       const car = this._makeCar(space.id, 'sedan', space, space.angle);
       this._registeredAppearance(car);
-      car._kerb = true; this.cars.push(car); ids.add(space.id); present++; changed = true;
+      car._kerb = true; car._kerbSpace=space; this.cars.push(car); ids.add(space.id); present++; changed = true;
     }
     this._rngState = sequence;
     if (changed) this.updateGrounding();
@@ -1150,7 +1190,7 @@ export class Simulation {
     let nearest = null;
     let best = 5;
     for (const car of this.cars) {
-      if (car.type === 'police' || car.controlled || car.destroyed || car.burningSince != null) continue;
+      if (car.type === 'police' || car.hired || car.controlled || car.destroyed || car.burningSince != null) continue;
       if (!trafficAtHeight(car, this.player.y)) continue;
       const d = distance(this.player, car);
       if (d < best) { nearest = car; best = d; }
@@ -1189,12 +1229,21 @@ export class Simulation {
 
   _say(message, seconds = 4) { this.notice = message; this.noticeTime = seconds; }
 
-  /** A swing on foot. Returns whether the punch comes out; a caller resolves who it hits. */
-  fight() {
+  /** Start the unarmed attack for what is in reach, or fire the equipped weapon. */
+  fight(target = null) {
     const player = this.player;
-    if (player.mode !== 'walk' || this.room || this.seat || this.ending || player.move || (player.swing || 0) > 0.08) return false;
+    if (player.mode !== 'walk' || player.reaction || this.room || this.seat || this.ending || player.move || (player.swing || 0) > 0.08) return false;
     if (player.armed) return fireGun(this);
-    player.swing = 0.34;
+    if (player.standing && player.grounded && this.meleeVehicle({...player,roof:true})) return startKick(this);
+    if (target?.state==='down' || target?.reaction?.fall) return startKick(this,true);
+    const car=this.meleeVehicle(player);
+    if (car && (!target || distance(player,target)>1.03)) {
+      if (!startKick(this)) return false;
+      player.move.vehicleId=car.id;
+      return true;
+    }
+    player.swingClip=nextStrike(player,handGroup(player.speed,target ? distance(player,target) : Infinity));
+    player.swing=meleeMoves[player.swingClip].seconds;
     player.guard = 4;
     return true;
   }
@@ -1204,7 +1253,7 @@ export class Simulation {
   reload() { return reloadGun(this); }
 
   /** A kick on foot (player-moves.js): slower than a punch, and it lands harder. */
-  kick() { return startKick(this); }
+  kick(target = null) { return startKick(this,target?.state==='down' || target?.reaction?.fall); }
 
   /** Punching someone is a crime. Heat climbs the same way a collision with a patrol does. */
   assault(x, z) {
@@ -1253,7 +1302,8 @@ export class Simulation {
 
   interact() {
     const player = this.player;
-    if (this.ending) return false;
+    if (this.ending || player.reaction) return false;
+    if (player.mode === 'skate') return this.toggleSkateboard();
     if (player.mode === 'transport') return this.transport.leave();
     if (player.mode === 'bike') return this._dismountBike();
     if (player.mode === 'walk') {
@@ -1265,7 +1315,7 @@ export class Simulation {
       const bike = this._entering ? null : this.getNearbyBike(car);
       if (bike) {
         this.bike = { ...bike };
-        Object.assign(player, { mode: 'bike', x: bike.x, y: bike.y, z: bike.z, angle: bike.angle, speed: 0, velocityX: 0, velocityZ: 0, vy: 0, slide: 0, swing: 0 });
+        Object.assign(player, { mode: 'bike', x: bike.x, y: bike.y, z: bike.z, angle: bike.angle, speed: 0, velocityX: 0, velocityZ: 0, vy: 0, slide: 0, swing: 0, reaction:null, standing:null });
         this._say('W pedal · A / D steer · S or Space brake · E get off');
         return true;
       }
@@ -1281,7 +1331,7 @@ export class Simulation {
       car._route = [];
       car.handling = vehicleHandling(car);
       resetVehicleDynamics(car, car.speed);
-      Object.assign(player, { mode: 'drive', vehicleId: car.id, x: car.x, z: car.z, angle: car.angle, speed: car.speed, velocityX: car.velocityX, velocityZ: car.velocityZ, vy: 0, grounded: true, slide: 0, swing: 0 });
+      Object.assign(player, { mode: 'drive', vehicleId: car.id, x: car.x, z: car.z, angle: car.angle, speed: car.speed, velocityX: car.velocityX, velocityZ: car.velocityZ, vy: 0, grounded: true, slide: 0, swing: 0, reaction:null, standing:null });
       this.updateGrounding();
       this._say('W accelerate. S brake / reverse. A / D steer. Space handbrake.');
       return true;
@@ -1289,8 +1339,12 @@ export class Simulation {
     const car = this.cars.find(item => item.id === player.vehicleId);
     if (!car) { this.reset(); return false; }
     const bailing = vehicleTravelSpeed(car) > 4;
+    const passenger=player.mode==='passenger', seat=passenger && car.passengerSeat;
+    const seatSide=seat?.side ?? (passenger?-1:1), seatAlong=seat?.along ?? 0;
+    const exits=[[2.2*seatSide,seatAlong],[-2.2*seatSide,seatAlong],[2.5,-1.8],[-2.5,-1.8],[0,-3.2],[0,3.2]];
+    if(passenger)exits.push([-3.8,0],[-3.8,2],[-3.8,-2],[3.8,0],[3.8,2],[3.8,-2]);
     let spot = null;
-    for (const [side, front] of [[2.2, 0], [-2.2, 0], [2.5, -1.8], [-2.5, -1.8], [0, -3.2], [0, 3.2]]) {
+    for (const [side, front] of exits) {
       const x = car.x + Math.cos(car.angle) * side + Math.sin(car.angle) * front;
       const z = car.z - Math.sin(car.angle) * side + Math.cos(car.angle) * front;
       const surface = this._sampleSurface?.(x, z, { referenceHeight: car.y, mode: 'walk', transportId: car.transportId });
@@ -1306,7 +1360,8 @@ export class Simulation {
     }
     if (!spot) { this._say('Both doors are blocked. Move the car into an open space.'); return false; }
     car.doorSide = Math.sign(spot.side) || 1;
-    car.doorOpen = (car.missingDoors & doorPanel(car.doorSide)) ? 0 : 1;
+    // Only the front doors have animated panels.
+    car.doorOpen = seatAlong < 0 || (car.missingDoors & doorPanel(car.doorSide)) ? 0 : 1;
     car.doorHold = bailing ? 3 : .55;
     car.controlled = false;
     car._route = [];
@@ -1330,9 +1385,9 @@ export class Simulation {
       car.parked = true;
       car._loose = 0;
       resetVehicleDynamics(car);
-      Object.assign(player, { x: spot.x, z: spot.z, mode: 'walk', vehicleId: null, transportId: car.transportId || null, speed: 0, velocityX: 0, velocityZ: 0, vy: 0, grounded: true, slide: 0, swing: 0 });
+      Object.assign(player, { x: spot.x, z: spot.z, mode: 'walk', vehicleId: null, transportId: car.transportId || null, speed: 0, velocityX: 0, velocityZ: 0, vy: 0, grounded: true, slide: 0, swing: 0, reaction:null, standing:null });
       if (this.moves) {
-        const from = { x:car.x+.38*Math.cos(car.angle), z:car.z-.38*Math.sin(car.angle) };
+        const from = { x:car.x+seatSide*.38*Math.cos(car.angle)+seatAlong*Math.sin(car.angle), z:car.z-seatSide*.38*Math.sin(car.angle)+seatAlong*Math.cos(car.angle) };
         player.move = { kind:'getOut', t:0, T:.55, car:car.id, from, to:{ x:spot.x,z:spot.z } };
         Object.assign(player,from);
         player.angle = Math.atan2(spot.x-from.x,spot.z-from.z);
@@ -1344,6 +1399,7 @@ export class Simulation {
   }
 
   startMission(food = null) {
+    if(this.player.mode==='passenger'){this._say('Finish your ride before starting a delivery.');return false;}
     if (this.mission.phase === 'active') { this._say('Finish your current delivery first.'); return false; }
     const all = (this.city.missionPoints || []).filter(point => Number.isFinite(point.x) && Number.isFinite(point.z) && !this.isBlocked(point.x, point.z, 1));
     const origin = food?.pickup || this.player;
@@ -1407,7 +1463,7 @@ export class Simulation {
     const car = this.cars.find(item => item.id === this.player.vehicleId);
     if (car) { car.controlled = false; car.parked = true; car._loose = 0; resetVehicleDynamics(car); }
     const point = this._findSafePoint(this.city.spawn.x, this.city.spawn.z, PLAYER_RADIUS);
-    Object.assign(this.player, { ...point, y: undefined, transportId: null, angle: this.city.spawn.angle || 0, speed: 0, mode: 'walk', vehicleId: null, velocityX: 0, velocityZ: 0, vy: 0, grounded: true, slide: 0, swing: 0 });
+    Object.assign(this.player, { ...point, y: undefined, transportId: null, angle: this.city.spawn.angle || 0, speed: 0, mode: 'walk', board: null, vehicleId: null, velocityX: 0, velocityZ: 0, vy: 0, grounded: true, slide: 0, swing: 0, reaction:null, standing:null });
     this.updateGrounding();
     this._restoreCondition();
     this._say('Recovered nearby. Your earnings and completed deliveries are saved.');
@@ -1416,7 +1472,8 @@ export class Simulation {
   _restoreCondition() {
     this.shopping.interrupt();
     this.room = null; this.seat = null; this.doorway = null;
-    if (this.player.mode === 'bike') this.player.mode = 'walk';
+    if (this.player.mode === 'bike' || this.player.mode === 'skate') this.player.mode = 'walk';
+    this.player.board = null;
     this.bike = null;
     this._downed = null; this.ending = null;
     this.player.armed = false; this.player.reloading = 0; this.player.standing = null;
@@ -1441,7 +1498,12 @@ export class Simulation {
     // A fixed accumulator makes handling independent of display refresh rate.
     // Capping a background-tab pause avoids simulating a long unattended chase.
     this._accumulator += clamp(finite(dt), 0, 0.25);
-    const normalized = { forward: clamp(finite(input.forward), -1, 1), turn: clamp(finite(input.turn), -1, 1), lift: clamp(finite(input.lift), -1, 1), moveX: clamp(finite(input.moveX), -1, 1), moveZ: clamp(finite(input.moveZ), -1, 1), brake: Boolean(input.brake), handbrake: Boolean(input.handbrake), run: Boolean(input.run) };
+    const normalized = { forward: clamp(finite(input.forward), -1, 1), turn: clamp(finite(input.turn), -1, 1), lift: clamp(finite(input.lift), -1, 1), moveX: clamp(finite(input.moveX), -1, 1), moveZ: clamp(finite(input.moveZ), -1, 1), brake: Boolean(input.brake), handbrake: Boolean(input.handbrake), run: Boolean(input.run), jog: Boolean(input.jog) };
+    if(this.player.mode==='skate'){
+      normalized.load=clamp(finite(input.load),0,1);normalized.manual=Math.sign(input.manual||0);
+      normalized.grab=Math.sign(input.grab||0);normalized.pushFoot=input.pushFoot===-1?-1:1;
+      if(Object.hasOwn(TRICKS,input.skateTrick))this.player.board.queued={name:input.skateTrick,charge:clamp(finite(input.charge),0,1)};
+    }
     while (this._accumulator + 1e-10 >= FIXED_STEP) {
       this._accumulator -= FIXED_STEP;
       this._tick(normalized, FIXED_STEP);
@@ -1465,7 +1527,13 @@ export class Simulation {
     }
     const jumping = Boolean(input.handbrake) && !this._jumpHeld;
     this._jumpHeld = Boolean(input.handbrake);
-    if (this.player.swing > 0) this.player.swing = Math.max(0, this.player.swing - dt);
+    if (this.player.swing > 0) {
+      const p=this.player, beforeSwing=p.swing;
+      p.swing=Math.max(0,p.swing-dt);
+      const timing=meleeMoves[p.swingClip ?? 'jab'], contact=timing.seconds-timing.contact;
+      if(beforeSwing>contact && p.swing<=contact && !this.ending && !p.reaction)
+        this.moveEvents.push({kind:'punch',clip:p.swingClip,x:p.x,y:p.y,z:p.z,angle:p.angle});
+    }
     if (this.player.mode === 'drive') {
       this._drive(input, dt);
       const vehicle = this.cars.find(car => car.id === this.player.vehicleId);
@@ -1473,13 +1541,19 @@ export class Simulation {
     } else {
       if (this.player.mode === 'transport') this.transport.step(input,dt);
       else if (this.player.mode === 'bike') this._cycle(input, dt);
-      else this._walk(input, dt, jumping);
+      else if (this.player.mode === 'skate') this._skate(input, dt, jumping);
+      else if(this.player.mode==='walk')this._walk(input, dt, jumping);
       this._insideJunction = null;
     }
     this.distanceTravelled += distance(before, this.player);
     this._trafficTimer = (this._trafficTimer || 0) - dt;
     if (this._trafficTimer <= 0) { this._trafficTimer = .5; this._balanceTraffic(); }
     for (const car of this.cars) {
+      if(car.bodyRock){
+        const age=this.elapsed-car.bodyRock.at;
+        if(age>1) delete car.bodyRock;
+        else car.bodyRock.weight=Math.sin(age*18)*Math.exp(-5*age);
+      }
       if (car.burningSince != null) {
         if (car.evacuating && this.elapsed-car.burningSince > 1 && Math.abs(car.speed) < 5) {
           car.evacuating = false; car.driverEjected = true; car.doorSide = 1;
@@ -1497,6 +1571,7 @@ export class Simulation {
           resetVehicleDynamics(car, car.speed); car._loose = 2; car._edge = null;
         }
       }
+      if (car.errand && (car.controlled || car.destroyed || car._loose>0 || car.burningSince!=null)) car.errand=null;
       if (car.destroyed) continue;
       if (car.doorOpen > 0 && this.player.move?.car !== car.id) {
         car.doorHold = Math.max(0, (car.doorHold || 0) - dt);
@@ -1512,6 +1587,7 @@ export class Simulation {
         if (relativeSpeed > 4 || obstacle && ['building','prop'].includes(obstacle.kind)) tearDoor(car);
       }
       if (car._shoved && car.parked && !(car._loose > 0) && !car.controlled) this._recover(car);
+      if (car.errand?.phase==='boarded') this._leaveParking(car);
       if (car.controlled || (car.parked && !(car._loose > 0))) continue;
       const x = car.x, z = car.z, angle = car.angle;
       if (car._loose > 0) this._coast(car, dt);
@@ -1570,27 +1646,88 @@ export class Simulation {
   _hitPeople(car) {
     const speed = vehicleTravelSpeed(car);
     if (!(speed > .02)) return;
-    if (!car.controlled && !this.room && this.player.mode !== 'drive' && this.player.mode !== 'transport') this._hitPerson(car, this.player, speed);
+    if (!car.controlled && !this.room && !this.subway?.enclosed && !this.subway?.journey.aboard && this.player.mode !== 'drive' && this.player.mode !== 'passenger' && this.player.mode !== 'transport') this._hitPerson(car, this.player, speed);
     // A crowd that answers for itself (crowd.js) is thrown, staggered and scared there.
     if (!this.peopleReact) for (const person of this._people || []) this._hitPerson(car, person, speed);
     for (const person of this.bystanders) this._hitPerson(car, person, speed, true);
   }
 
+  rockVehicle(car,dx,dz,force) {
+    const sin=Math.sin(car.angle), cos=Math.cos(car.angle);
+    car.bodyRock={at:this.elapsed,roll:(dx*cos-dz*sin)*force*.006,pitch:(dx*sin+dz*cos)*force*.003};
+  }
+
+  meleeVehicle(event) {
+    if (event.roof) {
+      const under=carUnder(this,event.x,event.z,event.y);
+      if (!this.player.grounded || !under || under.car.id!==this.player.standing?.id) return null;
+      return Math.abs(event.y-under.top)<.3 ? under.car : null;
+    }
+    const dx=Math.sin(event.angle),dz=Math.cos(event.angle);
+    return this._nearCar(event.x+dx*.75,event.z+dz*.75,.28,this.player.standing?.id,event.y ?? this.player.y)?.car;
+  }
+
+  strikeVehicle(event,power) {
+    const car=this.meleeVehicle(event);
+    if (!car || (event.vehicleId!=null && car.id!==event.vehicleId)) return false;
+    const dx=Math.sin(event.angle),dz=Math.cos(event.angle);
+    if (event.roof) {
+      this.rockVehicle(car,event.x-car.x,event.z-car.z,power);
+      car.bodyRock.heave=-.075;
+    } else this.rockVehicle(car,dx,dz,power);
+    if (car.type !== 'police' && !car.controlled && !car.hired && hasDriver(car) && Math.abs(car.speed)<.6) {
+      this._driverHorn(car);
+      if (motorist(car).confronts && car.provokedAt != null && this.elapsed-car.provokedAt < 8) {
+        const x=car.x+1.6*Math.cos(car.angle), z=car.z-1.6*Math.sin(car.angle);
+        if (!this.isBlocked(x,z,.35,{baseHeight:car.y}) && !this._nearCar(x,z,.35,car.id,car.y)) {
+          car.parked=true; car._edge=null; car.driverEjected=true; car.errand=null;
+          car.doorOpen=1; car.doorSide=1; car.doorHold=1;
+          resetVehicleDynamics(car);
+          this.moveEvents.push({kind:'driverConfronts',car,x,z,y:car.y,heading:car.angle});
+        }
+      }
+      car.provokedAt=this.elapsed;
+    }
+    return true;
+  }
+
+  pushPlayer(vx,vz,options) {
+    const p=this.player;
+    if (p.mode === 'skate' && !this.ending) { p.mode='walk'; p.board=null; }
+    if(p.mode!=='walk' || this.ending) return;
+    this.seat=null; p.standing=null; p.move=null; p.swing=0; p.armed=false;
+    receiveImpulse(p,vx,vz,options);
+  }
+
   _hitPerson(car, person, speed, bystander = false) {
+    if(person.standing?.id===car.id || person.move?.support?.id===car.id || person.absentUntil>this.elapsed) return;
     const hit = carContact(car, person.x, person.z, PLAYER_RADIUS, person.y);
-    if (!hit) return;
+    if (!hit || feetClearCar(hit,person.x,person.y,person.z)) return;
     const player = person === this.player, hard = speed > 3;
     const first = !(person.trafficHitUntil > this.elapsed);
+    const home=bystander && first && hard ? {x:person.x,z:person.z,sitting:person.sitting} : null;
     const push = hit.depth + (hard && first ? .55 : .015);
     const next = this._resolvePosition(person.x + hit.nx * push, person.z + hit.nz * push, PLAYER_RADIUS, null, person);
     person.x = next.x; person.z = next.z;
     person.trafficHitUntil = this.elapsed + .7;
     if (player) {
-      if (hard && first) this.hurt(Math.min(36, speed * 1.5), 'traffic');
+      if (hard && first) {
+        if(person.mode==='walk' || person.mode==='skate') {
+          const vx=car.velocityX || Math.sin(car.angle)*car.speed, vz=car.velocityZ || Math.cos(car.angle)*car.speed;
+          this.pushPlayer(vx*.60+hit.nx,vz*.60+hit.nz,{fall:true,lift:Math.min(4.5,speed*.21),rest:.5});
+        }
+        this.hurt(Math.min(36, speed * 1.5), 'traffic');
+      }
     } else if (person.state !== 'down' && !(person.downUntil > this.elapsed)) {
       if (bystander) {
         person.sitting = false;
         if (hard) person.downUntil = this.elapsed + 3;
+        if(home && this.peopleReact){
+          this.moveEvents.push({kind:'bystanderHit',actor:person,x:person.x,z:person.z,
+            vx:(car.velocityX??Math.sin(car.angle)*car.speed)*.65+hit.nx,
+            vz:(car.velocityZ??Math.cos(car.angle)*car.speed)*.65+hit.nz,lift:Math.min(4.5,speed*.21)});
+          Object.assign(person,home,{absentUntil:this.elapsed+60});
+        }
       } else {
         person.state = hard ? 'down' : 'flee'; person.down = hard ? 3 : 0; person.mad = 2;
       }
@@ -1631,6 +1768,118 @@ export class Simulation {
     }
   }
 
+  toggleSkateboard() {
+    const p = this.player;
+    if (this.ending || this.room || this.seat || p.move || p.reaction || p.grounded === false) return false;
+    if (p.mode === 'skate') {
+      p.mode = 'walk';
+      p.board = null;
+      this._say('Stepped off the board.');
+      return true;
+    }
+    if (p.mode !== 'walk' || p.standing) return false;
+    p.board = {phase:0,pushing:false,pushFoot:1,kickWait:0,braking:false,lean:0,pitch:0,pop:0,landing:0,
+      load:0,manual:0,spin:0,roll:0,shove:0,airTime:0,grab:0,tuck:0,switch:false,feedback:0};
+    p.mode = 'skate';
+    p.armed = false;
+    p.swing = 0;
+    this._say('Push with W or pad A/X · hold and release Space or flick the right stick ↓↑ to ollie');
+    return true;
+  }
+
+  _skate(input, dt, jumping) {
+    const p = this.player, board = p.board;
+    const grounded = p.grounded !== false, wasGrinding=Boolean(board.grind);
+    const pop=board.queued || (jumping ? {name:'ollie',charge:0} : null);
+    board.queued=null; board.feedback=Math.max(0,board.feedback-dt);
+    board.load=input.load||0; board.kickWait=Math.max(0,board.kickWait-dt);
+    board.manual=grounded && !pop && !board.load && p.speed>.6 ? input.manual||0 : 0;
+    if(wasGrinding){
+      const nextX=p.x+p.velocityX*dt,nextZ=p.z+p.velocityZ*dt;
+      const nextRail=this.streetObjects.skateRail(nextX,p.y,nextZ,p.angle);
+      if(nextRail && !pop && p.speed>1){
+        p.x=nextRail.x;p.z=nextRail.z;p.y=nextRail.y;p.angle=nextRail.angle;
+        p.speed=Math.max(0,p.speed-1.05*dt);p.velocityX=Math.sin(p.angle)*p.speed;p.velocityZ=Math.cos(p.angle)*p.speed;
+        board.grind=nextRail;return;
+      }
+      board.last='50–50 grind';board.feedback=1.6;board.grind=null;
+      p.grounded=Boolean(pop);p.vy=0;
+      if(!pop){board.airTime=0;}
+    }
+    const launch=Boolean(pop && (grounded || wasGrinding));
+    if(launch)startTrick(board,pop.name,pop.charge);
+    else if(!grounded)animateAir(board,input,dt);
+    board.landing = Math.max(0, board.landing - 4*dt);
+    board.braking = grounded && input.forward < -.05 && p.speed > .1;
+    const wasPushing=board.pushing;
+    board.pushing = grounded && !launch && !board.manual && !board.load && input.forward > .05;
+    const foot=input.pushFoot||1;
+    if(board.pushing && (!wasPushing || foot!==board.pushFoot) && board.kickWait===0){
+      p.speed=Math.min(10,p.speed+.62);board.kickWait=.32;board.pushFoot=foot;board.phase=0;
+    }
+    if (board.pushing) board.phase = (board.phase + dt * 1.36) % 1;
+    else board.phase = 0;
+    const carve = grounded ? input.turn * clamp(p.speed*.55,0,2.05)/(1+.065*p.speed) : 0;
+    p.angle -= carve * dt;
+    board.lean += (carve * .095 - board.lean) * (1 - Math.exp(-8 * dt));
+    const dx = Math.sin(p.angle), dz = Math.cos(p.angle);
+    if (grounded) {
+      const surface = this._sampleSurface?.(p.x, p.z, {mode:'walk', referenceHeight:p.y, transportId:p.transportId});
+      const n = surface?.normal;
+      const slope = n?.y > .5 ? clamp(-(n.x*dx + n.z*dz)/n.y, -.6, .6) : 0;
+      board.pitch = -Math.atan(slope);
+      const stroke = Math.max(0, Math.sin((board.phase-.16) * 2 * Math.PI));
+      const force = board.pushing ? input.forward * (1.1 + 7.8 * stroke) : 0;
+      const brake = input.brake ? 7 : Math.max(0, -input.forward) * 7;
+      p.speed = clamp(p.speed + (force - brake - (board.manual ? .62 : .25) - .019*p.speed*p.speed - 9.81*slope)*dt, 0, 10);
+
+    }
+    p.velocityX = dx*p.speed; p.velocityZ = dz*p.speed;
+    const next = this._resolvePosition(p.x+p.velocityX*dt, p.z+p.velocityZ*dt, .32, null, p, true, dt);
+    const car = this._nearCar(next.x, next.z, .32, null, p.y);
+    const hit = car && !feetClearCar(car,next.x,p.y,next.z) ? car : next.hit;
+    p.x = next.x; p.z = next.z;
+    if (hit) {
+      if (hit === car) { p.x += hit.nx*(hit.depth+.001); p.z += hit.nz*(hit.depth+.001); }
+      const closing = -(p.velocityX*hit.nx + p.velocityZ*hit.nz);
+      if (closing > 3.7 && hit.kind !== 'loading') {
+        this.pushPlayer(p.velocityX*.60,p.velocityZ*.60,{fall:true,lift:.9,rest:.28});
+        return;
+      }
+      if (closing > 0) {
+        p.velocityX += closing*hit.nx; p.velocityZ += closing*hit.nz;
+        p.speed = Math.hypot(p.velocityX,p.velocityZ);
+        if (p.speed > .1) p.angle = Math.atan2(p.velocityX,p.velocityZ);
+      }
+    }
+    if(!grounded && !launch && p.vy<=0 && p.speed>1.5 && !wasGrinding){
+      const rail=this.streetObjects.skateRail(p.x,p.y,p.z,p.angle+board.spin);
+      if(rail && (!board.trick || board.airTime>=TRICKS[board.trick].duration*.82)){
+        const forward=Math.cos(rail.angle-p.angle)>=0?rail.angle:rail.angle+Math.PI;
+        board.grind={...rail,angle:forward};p.x=rail.x;p.z=rail.z;p.y=rail.y;p.angle=forward;p.vy=0;
+        const landed=landTrick(board);
+        if(!landed.clean){
+          this.pushPlayer(p.velocityX*.65,p.velocityZ*.65,{fall:true,lift:.45,rest:.35});
+          this._say('Bailed on the rail');return;
+        }
+        board.manual=0;board.pop=board.lean=0;return;
+      }
+    }
+    this._fall(p,dt,launch);
+    if(p.mode!=='skate')return;
+    if(grounded && !launch && !p.grounded)board.airTime=0;
+    if(p.grounded && !grounded && !launch){
+      const landing=landTrick(board);
+      if(!landing.clean){
+        this.pushPlayer(p.velocityX*.65,p.velocityZ*.65,{fall:true,lift:.46,rest:.35});
+        this._say('Bailed on landing');return;
+      }
+      board.landing=1;p.speed*=1-.3*landing.error;
+    }
+    const tilt = p.grounded ? -.15*board.manual : (board.trick==='nollie' ? .27 : -.27)*clamp(p.vy/(board.takeoff||3.25),-.45,1);
+    board.pop += (tilt-board.pop)*(1-Math.exp(-18*dt));
+  }
+
   _cycle(input, dt) {
     const p = this.player;
     const acceleration = input.brake || input.handbrake || input.forward < 0 ? -8 : input.forward * 3.5 - .4 - .035 * p.speed * p.speed;
@@ -1649,33 +1898,45 @@ export class Simulation {
   _walk(input, dt, jumping = false) {
     const player = this.player;
     // A kick, a vault, a climb or a car door owns the player until it is done.
+    if (player.reaction) {
+      const reaction=player.reaction;
+      stepImpulse(player,dt,(actor,x,z)=>this._resolvePosition(x,z,PLAYER_RADIUS,null,actor,true),
+        actor=>this.room ? (this.doorway?.floor ?? this.room.floor ?? 0) : Math.max(carUnder(this,actor.x,actor.z,actor.y)?.top ?? -Infinity, this._sampleSurface?.(actor.x,actor.z,{referenceHeight:actor.y,mode:'walk',transportId:actor.transportId})?.elevation ?? 0));
+      player.velocityX=reaction.vx;player.velocityZ=reaction.vz;player.vy=reaction.vy;player.grounded=reaction.grounded;
+      player.speed=Math.hypot(reaction.vx,reaction.vz);
+      return;
+    }
     if (this.seat) {
       stepSeating(player, this.seat, dt);
       if (this.room) Object.assign(this.room, roomLocal(this.room, player.x, player.z));
       if (this.seat.leaving && this.seat.progress === 0) this.seat = null;
       return;
     }
-    if (stepMove(this, dt) || player.mode !== 'walk') return;
-    if (jumping && this.moves && tryVault(this)) return;
     // Standing on a car, the player goes where it goes.
     const stood = player.standing;
-    if (stood) {
+    if (stood && (!player.move || player.move.kind==='stomp')) {
       const car = player.grounded !== false && this.cars.find(item => item.id === stood.id);
-      if (car) { player.x += car.x - stood.x; player.z += car.z - stood.z; stood.x = car.x; stood.z = car.z; }
+      if (car) {
+        const turn=car.angle-(stood.angle??car.angle),x=player.x-stood.x,z=player.z-stood.z;
+        player.x=car.x+x*Math.cos(turn)+z*Math.sin(turn);player.z=car.z+z*Math.cos(turn)-x*Math.sin(turn);
+        player.angle+=turn; Object.assign(stood,{x:car.x,z:car.z,angle:car.angle});
+      }
       else player.standing = null;
     }
+    if (stepMove(this, dt) || player.mode !== 'walk') return;
+    if (jumping && !this.subway && this.moves && tryVault(this)) return;
     const magnitude = Math.hypot(input.moveX, input.moveZ);
     const divisor = Math.max(1, magnitude);
     // Fed or with a coffee inside them, the player walks and runs a little faster.
     this.pep = Math.max(0, (this.pep || 0) - dt);
-    const topSpeed = (input.run ? 8.6 : 4.25) * (this.pep > 0 ? 1.15 : 1);
+    const topSpeed = (input.run ? RUN_SPEED : input.jog ? JOG_SPEED : WALK_SPEED) * (this.pep > 0 ? 1.15 : 1);
     const desiredX = input.moveX / divisor * topSpeed;
     const desiredZ = input.moveZ / divisor * topSpeed;
     const air = player.grounded === false;
     const sliding = (player.slide || 0) > 0;
     if (sliding) player.slide = Math.max(0, player.slide - dt);
     // A bail-out slide keeps its momentum. In the air, steering still works, just less of it.
-    const blend = 1 - Math.exp(-(sliding ? 1.8 : air ? 4 : 13) * dt);
+    const blend = 1 - Math.exp(-(sliding ? 1.8 : air ? (magnitude>.02 ? 1.7 : .28) : input.run && magnitude>.02 ? 3.4 : 10) * dt);
     if (sliding) {
       player.velocityX = player.velocityX * (1 - blend) + desiredX * blend * 0.35;
       player.velocityZ = player.velocityZ * (1 - blend) + desiredZ * blend * 0.35;
@@ -1701,11 +1962,13 @@ export class Simulation {
         }
         if (view) {
           view.door.push(at.a + skew * at.b, at.b, moved.a + skew * moved.b, moved.b, PLAYER_RADIUS, dt);
-          if (moved.b >= 0) player.y = view.floor;
         }
         const [x, z] = roomPoint(room, moved.a, moved.b);
         player.speed = Math.hypot(x - player.x, z - player.z) / dt;
-        Object.assign(player, { x, z, vy: 0, grounded: true, slide: 0 });
+        Object.assign(player, { x, z });
+        const floor = moved.b >= 0 ? view?.floor ?? this.room?.floor ?? player.y : undefined;
+        if (floor !== undefined && player.grounded !== false) player.y = floor;
+        this._fall(player, dt, jumping, floor);
         if (!this.room && moved.b >= 0) this.enterRoom(room, moved);
         if (this.room) {
           this.room.a = moved.a; this.room.b = moved.b;
@@ -1717,8 +1980,16 @@ export class Simulation {
     let next = this._resolvePosition(player.x + player.velocityX * dt, player.z + player.velocityZ * dt, PLAYER_RADIUS, null, player, true, dt);
     const carHit = this._nearCar(next.x, next.z, PLAYER_RADIUS, null, player.y);
     // High enough to be on it or over it, a car is not in the way.
-    if (carHit && !(player.y > carHit.car.y + .8)) {
+    if (carHit && !feetClearCar(carHit,next.x,player.y,next.z)) {
       next = this._resolvePosition(next.x + carHit.nx * (carHit.depth + 0.001), next.z + carHit.nz * (carHit.depth + 0.001), PLAYER_RADIUS, null, player, true);
+      const {nx,nz,car}=carHit, closing=-(player.velocityX*nx+player.velocityZ*nz);
+      if(closing>0){player.velocityX+=nx*closing;player.velocityZ+=nz*closing;}
+      if(closing>4.8 && !(player.bumpUntil>this.elapsed)){
+        this.rockVehicle(car,-nx,-nz,closing);
+        player.x=next.x;player.z=next.z;player.bumpUntil=this.elapsed+.7;
+        this.pushPlayer(nx*closing*.26,nz*closing*.26,{fall:closing>7.4,lift:.25,rest:.18});
+        return;
+      }
     }
     player.speed = Math.hypot(next.x - player.x, next.z - player.z) / dt;
     if (next.hit) {
@@ -1731,24 +2002,24 @@ export class Simulation {
   }
 
   /** Jump, step down a curb, or fall off a ledge. Grounded feet are seated by updateGrounding. */
-  _fall(player, dt, jumping) {
-    const surface = this._sampleSurface?.(player.x, player.z, {
+  _fall(player, dt, jumping, roomFloor) {
+    const surface = roomFloor !== undefined ? { elevation: roomFloor } : this._sampleSurface?.(player.x, player.z, {
       referenceHeight: Number.isFinite(player.y) ? player.y : 0,
       mode: 'walk',
       transportId: player.transportId || null,
     });
     let ground = Number.isFinite(surface?.elevation) ? surface.elevation : (this._sampleSurface ? null : 0);
     // A car underfoot is ground too.
-    const under = this.moves && Number.isFinite(player.y) ? carUnder(this, player.x, player.z, player.y) : null;
+    const under = roomFloor === undefined && this.moves && Number.isFinite(player.y) ? carUnder(this, player.x, player.z, player.y) : null;
     if (under && (ground === null || under.top > ground)) ground = under.top;
     else if (player.grounded !== false) player.standing = null;
     if (player.grounded !== false) {
       if (under && ground === under.top && !jumping && Math.abs(ground - player.y) <= STEP_DROP) {
         player.y = ground;
-        if (player.standing?.id !== under.car.id) player.standing = { id: under.car.id, x: under.car.x, z: under.car.z };
+        if (player.standing?.id !== under.car.id) player.standing = { id: under.car.id, x: under.car.x, z: under.car.z, angle:under.car.angle };
       }
       if (jumping) {
-        player.vy = JUMP_SPEED;
+        player.vy = player.mode === 'skate' ? (player.board.takeoff||3.25) : JUMP_SPEED;
         player.grounded = false;
         player.y = (Number.isFinite(player.y) ? player.y : ground || 0) + player.vy * dt;
         return;
@@ -1769,12 +2040,13 @@ export class Simulation {
     player.vy = 0;
     player.grounded = true;
     player.transportId = surface?.transportId || null;
-    player.standing = under && ground === under.top ? { id: under.car.id, x: under.car.x, z: under.car.z } : null;
+    player.standing = under && ground === under.top ? { id: under.car.id, x: under.car.x, z: under.car.z, angle:under.car.angle } : null;
     if (impact > FALL_HURT) {
       this.health = Math.max(0, this.health - (impact - (FALL_HURT - 1)) * 3.5);
       if (this.health <= 0) this._downed = 'fall';
       else this._say(impact > 16 ? 'That was a bad fall.' : 'You landed hard.');
-      player.slide = Math.max(player.slide || 0, 0.35);
+      if (impact > 13) this.pushPlayer(player.velocityX*.75,player.velocityZ*.75,{fall:true,rest:.4});
+      else player.slide = Math.max(player.slide || 0, 0.35);
     }
   }
 
@@ -1896,6 +2168,7 @@ export class Simulation {
 
   _pickNextEdge(car) {
     const edge = car._edge;
+    if (car.hired) return car._route.shift() || null;
     if (car.type === 'police' && this.heat > 0.05 && car._route.length) {
       const next = car._route.shift();
       if (next.from.id === edge.to.id) return next;
@@ -1913,6 +2186,11 @@ export class Simulation {
       const right = edge.step < 0 ? lane === 0 : last, left = edge.step < 0 ? last : lane === 0;
       const lawful = options.filter(option => { const turn = turnDelta(edge.angle, option.angle); return Math.abs(turn) < STRAIGHT_ON || (turn < 0 ? right : left); });
       if (lawful.length) options = lawful;
+    }
+    // As rush hour ends, send surplus traffic toward the edge of the visible
+    // area. Cars can then retire out of sight even when queues move slowly.
+    if (this._trafficSurplus > 0 && car.type !== 'police') {
+      return options.reduce((best, next) => distance(next.to,this.player) > distance(best.to,this.player) ? next : best);
     }
     let total = 0;
     const weighted = options.map(option => {
@@ -1944,11 +2222,74 @@ export class Simulation {
       const edge = entrances[Math.floor(this._random() * entrances.length)];
       const point = this._lanePoint(edge, clamp(9 / edge.length, 0.15, 0.75));
       if (distance(point, this.player) < 120 || this._carContact(point.x, point.z, edge.angle) || this._nearCar(point.x, point.z, 6, car.id)) continue;
-      Object.assign(car, { x: point.x, z: point.z, y: undefined, transportId: null, angle: edge.angle, speed: car._cruise * 0.6, _edge: edge, _route: [], _stuckTime: 0, _steering: 0, _shiftHold: 0, _halted: null });
+      Object.assign(car, { x: point.x, z: point.z, y: undefined, transportId: null, angle: edge.angle, speed: car._cruise * 0.6, _edge: edge, _route: [], _stuckTime: 0, _steering: 0, _shiftHold: 0, _yellowEdge: null, _merge: null, _turn: null, _finishingTurn: null, indicator: 0, _launchDelay: 0, _halted: null });
       resetVehicleDynamics(car, car.speed);
       return true;
     }
     return false;
+  }
+
+  _mergeClear(car, edge, to, station) {
+    const center = this._lanePoint(edge, station, to);
+    const sin = Math.sin(edge.angle), cos = Math.cos(edge.angle);
+    for (const other of this.cars) {
+      if (other === car) continue;
+      // A car joining this very carriageway may still await its first wheel-height sample.
+      const sameRoad = other._edge === edge && (!Number.isFinite(other.y) || !Number.isFinite(car.y));
+      if (!sameRoad && !trafficAtHeight(other, car.y)) continue;
+      const dx = other.x - center.x, dz = other.z - center.z;
+      const along = dx * sin + dz * cos;
+      const separation = ((car.identity?.asset?.design?.L ?? 4.6) + (other.identity?.asset?.design?.L ?? 4.6)) / 2 + 2.5;
+      if (along > separation + 2 || along < -separation - 1.2 * Math.abs(other.speed)) continue;
+      // A driver who has started crossing already occupies the destination lane.
+      const entering = other._edge === edge && other._merge?.committed && other._lane === to;
+      if (entering || Math.abs(dx*cos - dz*sin) < 2.2) return false;
+    }
+    return true;
+  }
+
+  planShopStops(spaces, stores) {
+    if (!spaces.length || !stores.length) return;
+    const reserved=new Set(this.cars.map(car=>car.errand?.space.id));
+    for (const car of this.cars) {
+      const edge=car._edge;
+      if (!edge || car.errand || car.finishedErrand || car.type!=='sedan' || car.parked || car.controlled ||
+          car.hired || car.burningSince!=null || !hasDriver(car) || !motorist(car).shops ||
+          car._merge || distance(car,this.player)>80 || Math.abs(turnDelta(car.angle,edge.angle))>.2) continue;
+      const sin=Math.sin(edge.angle), cos=Math.cos(edge.angle);
+      for (const space of spaces) {
+        const dx=space.x-car.x, dz=space.z-car.z, ahead=dx*sin+dz*cos, side=dx*cos-dz*sin;
+        if (ahead<10 || ahead>30 || Math.abs(side)<1.9 || Math.abs(side)>5 ||
+            Math.abs(turnDelta(space.angle,edge.angle))>.2 || distance(car,edge.to)<ahead+10 ||
+            reserved.has(space.id) || this._nearCar(space.x,space.z,3.5,car.id,car.y)) continue;
+        const shop=stores.find(shop=>distance(space,shop)<13 && Math.abs(shop.y-car.y)<1.5 &&
+          (space.x-shop.x)*shop.nx+(space.z-shop.z)*shop.nz>1 &&
+          (shop.nx*cos-shop.nz*sin)*Math.sign(side)<-.65);
+        if (!shop) continue;
+        car.errand={space,shop,phase:'approach',side:Math.sign(side),since:this.elapsed};
+        reserved.add(space.id);
+        break;
+      }
+    }
+  }
+
+  _leaveParking(car) {
+    const trip=car.errand;
+    trip.boardedAt ??= this.elapsed;
+    const waiting=this.elapsed-trip.boardedAt;
+    car.indicator=waiting % .8 < .4 ? -trip.side : 0;
+    if (waiting<.8) return;
+    const edge=car._edge;
+    if (!edge) return;
+    const station=closestOnSegment(car.x,car.z,edge.from.x,edge.from.z,edge.to.x,edge.to.z).t;
+    if (!this._mergeClear(car,edge,car._lane||0,station)) return;
+    car.parked=false; car.errand=null; car.finishedErrand=true;
+  }
+
+  _driverHorn(car) {
+    if (this.elapsed < (car.hornUntil ?? -1) || distance(car,this.player)>60) return;
+    car.hornUntil=this.elapsed+16;
+    this.moveEvents.push({kind:'driverHorn',at:this.elapsed,x:car.x,z:car.z,y:car.y});
   }
 
   _traffic(car, dt) {
@@ -1958,13 +2299,27 @@ export class Simulation {
     let edge = car._edge, lane = car._lane || 0;
     let start = this._lanePoint(edge, 0, lane), end = this._lanePoint(edge, 1, lane);
     let projection = closestOnSegment(car.x, car.z, start.x, start.z, end.x, end.z);
-    if (this._atBoundary(edge.to) && distance(car, end) < 7) {
+    if (!car.hired && this._atBoundary(edge.to) && distance(car, end) < 7) {
       if (!this._recycleTraffic(car)) car.speed = Math.max(0, car.speed - 16 * dt);
       return;
     }
+    // Pick the exit on approach so the signal and entry speed match the
+    // turn the driver actually takes. Hired cars already have a booked route.
+    let turn = car._turn;
+    if (turn?.edge !== edge || turn.lane !== lane || car.siren || car._merge) turn = car._turn = null;
+    if (!turn && !car.siren && !car._merge && (1-projection.t)*edge.length < Math.max(16,car.speed*2.5)) {
+      const next = car.hired ? car._route[0] : this._pickNextEdge(car);
+      if (next) turn = car._turn = { edge, lane, next, angle:turnDelta(edge.angle,next.angle), since:this.elapsed };
+    }
     if ((projection.t > 0.96 && distance(car, end) < 5) || distance(car, end) < 2.8) {
-      const next = this._pickNextEdge(car);
+      const next = !car.hired && turn ? turn.next : this._pickNextEdge(car);
+      car._turn = null;
+      if (turn && turn.next === next && Math.abs(turn.angle) >= STRAIGHT_ON) {
+        car._finishingTurn = {edge:next, side:Math.sign(turn.angle), since:turn.since};
+      }
+      turn = null;
       if (next) {
+        car._yellowEdge = null;
         lane = car._lane = this._laneOnto(edge, next, lane);
         edge = car._edge = next;
         start = this._lanePoint(edge, 0, lane); end = this._lanePoint(edge, 1, lane);
@@ -1973,37 +2328,118 @@ export class Simulation {
         // A clipped one-way street can end at the map boundary. Keep its car
         // stopped there instead of inventing a U-turn against the OSM direction.
         car.speed = Math.max(0, car.speed - 14 * dt);
-        this._recycleTraffic(car);
+        if (!car.hired) this._recycleTraffic(car);
         return;
       }
     }
+    if (car._merge?.edge !== edge || car.siren) car._merge = null;
     const lookAhead = Math.max(3.5, Math.abs(car.speed) * 0.7);
     const target = this._lanePoint(edge, clamp(projection.t + lookAhead / edge.length, 0, 1), lane);
+    let parkingSpeed=Infinity;
+    const errand=car.errand;
+    if (errand?.phase==='approach') {
+      const {space}=errand, sin=Math.sin(edge.angle),cos=Math.cos(edge.angle);
+      const remaining=(space.x-car.x)*sin+(space.z-car.z)*cos;
+      if (remaining < -.7 || this.elapsed-errand.since>32 || this._nearCar(space.x,space.z,2.4,car.id,car.y)) {
+        car.errand=null;
+      } else if (distance(car,space)<.65 && car.speed<.45) {
+        car.angle=space.angle; car.parked=true; car.finishedErrand=true; car.onPhone=false;
+        resetVehicleDynamics(car); errand.phase='parked'; car.indicator=0;
+        return;
+      } else {
+        const shift=(space.x-target.x)*cos-(space.z-target.z)*sin;
+        const blend=clamp((20-remaining+lookAhead)/16,0,1);
+        target.x+=cos*shift*blend; target.z-=sin*shift*blend;
+        parkingSpeed=Math.min(4,Math.max(0,remaining)*.9);
+      }
+    }
+    const ridingFast=car.hired && (car.rideHurry || car._ridePlan?.offset);
+    const rideLimit=ridingFast?steerHiredCab(this,car,edge,lane,projection,target):Infinity;
     // A patrol held up behind traffic goes round it on the wrong side of the road.
     if (car._passing > 0) { car._passing -= dt; target.x += Math.cos(edge.angle) * 2.7; target.z -= Math.sin(edge.angle) * 2.7; }
+    // Keep steering clear until the rear axle has passed a trunk touched by the nose.
+    if (car._tree) {
+      const {body,side}=car._tree, dx=Math.sin(edge.angle), dz=Math.cos(edge.angle);
+      const along=(body.x-car.x)*dx+(body.z-car.z)*dz;
+      if(along < -3 || Math.hypot(body.x-car.x,body.z-car.z)>9) car._tree=null;
+      else {
+        const offset=(body.x-target.x)*dz-(body.z-target.z)*dx + side*(CAR_RADIUS+body.radius+.65);
+        target.x+=dz*offset; target.z-=dx*offset;
+      }
+    }
     const desiredAngle = Math.atan2(target.x - car.x, target.z - car.z);
     const delta = turnDelta(car.angle, desiredAngle);
     car.angle += clamp(delta, -1.9 * dt, 1.9 * dt);
     let desiredSpeed = (car.siren ? this.police.cruise() : car._cruise) / (1 + Math.abs(delta) * 1.8);
+    if (turn && Math.abs(turn.angle) >= STRAIGHT_ON) {
+      const entrySpeed = 3.5 + (car._pace ?? .5);
+      const room = Math.max(0,(1-projection.t)*edge.length - 4);
+      desiredSpeed = Math.min(desiredSpeed,Math.sqrt(entrySpeed**2 + 3.6*room));
+    }
+    desiredSpeed=Math.min(desiredSpeed,parkingSpeed,rideLimit);
     if (car._wait > 0) desiredSpeed = 0;
     // Signals and stop signs. A patrol answering a call goes through.
+    const glance = car.type === 'police' || car.hired || car.errand ? -1 : phoneGlance(car,this.elapsed);
+    car.onPhone = glance >= 0;
+    const pace = car._pace ?? .5;
+    const halfLength = (car.identity?.asset?.design?.L ?? 4.6) / 2;
     const plan = edge.to.plan;
-    if (plan && edge.arrives >= 0 && !car.siren) {
+    if (plan && edge.arrives >= 0 && !car.siren && !car.rideHurry) {
       // From the car's nose to the stop line.
-      const gap = (1 - projection.t) * edge.length - stopDistance(plan, edge.arrives) - 2.3;
+      const stripe = this.paintedCrossings?.get(plan)?.[edge.arrivalArm];
+      let setback = stopDistance(plan, edge.arrives);
+      if (stripe?.stopLine) {
+        const { ax, az, bx, bz } = stripe.stopLine;
+        const ux = -Math.sin(edge.angle), uz = -Math.cos(edge.angle);
+        const dot = ux * stripe.nx + uz * stripe.nz;
+        if (dot > .5) {
+          const t = ((ax - end.x) * stripe.nx + (az - end.z) * stripe.nz) / dot;
+          const lineX = bx - ax, lineZ = bz - az;
+          const along = ((end.x + ux * t - ax) * lineX + (end.z + uz * t - az) * lineZ) / (lineX * lineX + lineZ * lineZ);
+          if (along >= -.05 && along <= 1.05 && t > 0) setback = t + .2 / dot;
+        }
+      }
+      const gap = (1 - projection.t) * edge.length - setback - halfLength;
       if (gap > -1.5 && gap < 45) {
         const { aspect } = vehicleAspect(plan, edge.arrives, this.elapsed);
-        // Yellow: stop if that can be done gently, otherwise clear the junction.
-        if (aspect === 'red' || (aspect === 'yellow' && gap > car.speed * 1.4)) desiredSpeed = Math.min(desiredSpeed, Math.max(0, gap * 1.1));
-        else if (aspect === 'stop' && car._halted !== edge.id) {
-          desiredSpeed = Math.min(desiredSpeed, Math.max(0, gap * 1.1));
+        const braking = 1.8 + .6 * pace;
+        if (aspect === 'yellow') {
+          if (car._yellowEdge !== edge.id) {
+            car._yellowEdge = edge.id;
+            car._stopOnYellow = gap >= Math.max(0, car.speed) * .45 + car.speed ** 2 / (2 * braking);
+          }
+        } else car._yellowEdge = null;
+        const stopSign = aspect === 'stop' && car._halted !== edge.id;
+        if (aspect === 'red' || (aspect === 'yellow' && car._stopOnYellow) || stopSign) {
+          const room = Math.max(0, gap);
+          // Begin slowing while there is room for an ordinary deceleration.
+          // Ease through the final metre without creeping past the line.
+          const approach = Math.sqrt(2 * braking * room + 1) - 1;
+          desiredSpeed = Math.min(desiredSpeed, approach, room * 1.1);
+        }
+        if (aspect === 'stop' && plan.control === 'allway' && car._halted === edge.id && gap > -1.5 && car._wait <= 0) {
+          // At an all-way stop a single driver takes the intersection, then
+          // the next arrival crosses after the previous car clears the corner.
+          const crossing = edge.to._crossing;
+          const occupied = crossing && crossing.car !== car && crossing.until > this.elapsed &&
+            !crossing.car.parked && distance(crossing.car,edge.to) < stopDistance(plan,edge.arrives) + 6;
+          if (occupied) desiredSpeed = 0;
+          else if (gap < 1.5) {
+            if (crossing?.car === car) crossing.until = this.elapsed + 6;
+            else edge.to._crossing = {car, until:this.elapsed+6};
+          }
+        }
+        if (stopSign) {
           // A full stop at the line, a look both ways, then on.
           if (gap < 1 && car.speed < .3) { car._halted = edge.id; car._wait = 1; }
         }
       }
     }
-    let leader = null;
-    const sin = Math.sin(car.angle), cos = Math.cos(car.angle), sight = 6 + car.speed * 0.55, reach = sight + 2, level = Number.isFinite(car.y);
+    let leader = null, seenLeader = null, seenLimit = Infinity;
+    const distracted = car.onPhone && car.speed > 2;
+    const headway = 1.5, stoppedGap = 2.5;
+    const sight = halfLength + 5 + stoppedGap + headway * Math.max(car.speed, desiredSpeed);
+    const sin = Math.sin(car.angle), cos = Math.cos(car.angle), reach = Math.max(sight + 2, 14 + car.speed * car.speed / 5), level = Number.isFinite(car.y);
     for (const other of this.cars) {
       if (other === car) continue;
       const dx = other.x - car.x, dz = other.z - car.z;
@@ -2011,14 +2447,40 @@ export class Simulation {
       if (level && !trafficAtHeight(other, car.y)) continue;
       const along = dx * sin + dz * cos;
       const across = Math.abs(dx * cos - dz * sin);
+      // Treat a signalling neighbour ahead as a prospective leader only if
+      // this driver can make room with comfortable braking.
+      const request = other._merge;
+      if (!car.siren && request?.edge === edge && request.to === lane && along > 0 &&
+          !other.controlled && !other.parked && !other.destroyed) {
+        const room = along - halfLength - (other.identity?.asset?.design?.L ?? 4.6)/2 - 4;
+        if (room >= car.speed * car.speed / 5) desiredSpeed = Math.min(desiredSpeed, room / 2.8);
+      }
       if (along > 0 && along < sight && across < 1.95) {
         // From two stars a patrol does not brake for the car it is chasing.
         if (car.siren && other.controlled && this.police.rams) continue;
         // Nor, once it has pulled out to pass, for the queue it is squeezing by.
         if (car._passing > 0 && !other.controlled && other.type !== 'police') continue;
-        const limit = Math.max(0, (along - 5) * 1.2);
-        if (limit < desiredSpeed) { desiredSpeed = limit; leader = other; }
+        const bumperGap = along - halfLength - (other.identity?.asset?.design?.L ?? 4.6) / 2;
+        // Crossing traffic only occupies the lane briefly. Use the longer
+        // following interval for a leader travelling in our direction.
+        const following = other.parked || Math.cos(other.angle - car.angle) > .7;
+        if (!following && along >= 6 + car.speed * .55) continue;
+        const limit = following ? Math.max(0, (bumperGap - stoppedGap) / headway)
+          : Math.max(0, (along - 5) * 1.2);
+        if (distracted && following && other._edge && !other.controlled && !other.parked) {
+          if (limit<seenLimit) {seenLimit=limit;seenLeader=other;}
+        } else if (limit < desiredSpeed) { desiredSpeed = limit; leader = other; }
       }
+    }
+    // Sample the whole traffic scene on each look up, including an empty
+    // lane. A cut-in between looks can leave too little room to brake.
+    if (distracted) {
+      if (!(car._lookAgain > this.elapsed)) {
+        car._noticedLimit=seenLimit;car._noticedCar=seenLeader;car._lookAgain=this.elapsed+.85;
+      }
+      if (car._noticedLimit<desiredSpeed) {desiredSpeed=car._noticedLimit;leader=car._noticedCar;}
+    } else {
+      car._lookAgain=0;car._noticedCar=null;
     }
     if (car.siren) {
       car._queued = leader && car.speed < 3 ? (car._queued || 0) + dt : 0;
@@ -2026,7 +2488,7 @@ export class Simulation {
       if (car._passing > 0) desiredSpeed = Math.min(desiredSpeed, 9);
     }
     let afoot = false;
-    if (this.player.mode !== 'drive' && !this.room && trafficAtHeight(car, this.player.y)) {
+    if (this.player.mode !== 'drive' && this.player.mode !== 'passenger' && !this.room && trafficAtHeight(car, this.player.y)) {
       const dx = this.player.x - car.x, dz = this.player.z - car.z;
       const along = dx * sin + dz * cos;
       const across = Math.abs(dx * cos - dz * sin);
@@ -2038,25 +2500,32 @@ export class Simulation {
     // Standing behind something that is going nowhere (a car left in the lane,
     // the player on foot, or a car itself standing behind one of those) shuts
     // the block: others turn off before it.
+    const obstruction = afoot || leader?.parked || leader?._held>BLOCK_PATIENCE;
+    if (obstruction && car.speed < .3 && motorist(car).honks) {
+      car.blockedForHorn=(car.blockedForHorn || 0)+dt;
+      if (car.blockedForHorn>=motorist(car).patience) this._driverHorn(car);
+    } else car.blockedForHorn=0;
     const shut = car.speed < .3 && (afoot || (leader && (leader.parked || leader._crewOut || (leader.controlled && Math.abs(leader.speed) < .5) || leader._held > BLOCK_PATIENCE)));
     car._held = shut ? (car._held || 0) + dt : 0;
-    // Where there is another lane, it pulls out into it as soon as there is a gap.
-    if (car._held > PULL_OUT && edge.lanes > 1 && !car.siren) {
-      const forward = Math.sin(edge.angle), sideways = Math.cos(edge.angle);
-      for (const to of [lane + 1, lane - 1]) {
-        if (to < 0 || to >= edge.lanes) continue;
-        // How far to the driver's right the other lane is, and whether anyone is in it alongside.
-        const shift = edge.step * (to - lane);
-        let clear = true;
-        for (const other of this.cars) {
-          if (other === car || !trafficAtHeight(other, car.y)) continue;
-          const dx = other.x - car.x, dz = other.z - car.z, ahead = dx * forward + dz * sideways;
-          if (ahead > 10 || ahead < -8 - 1.2 * Math.abs(other.speed)) continue;
-          if (Math.abs(-dx * sideways + dz * forward - shift) < 2.2) { clear = false; break; }
-        }
-        if (clear) { car._lane = to; car._held = 0; break; }
+    let merge = car._merge;
+    if (merge?.committed) {
+      if (distance(car,projection) < .35) car._merge = null;
+    } else if (car._held > PULL_OUT && edge.lanes > 1 && !car.siren && !ridingFast) {
+      const candidates = [lane + 1, lane - 1].filter(to => to >= 0 && to < edge.lanes);
+      const clearLane = candidates.find(to => this._mergeClear(car,edge,to,projection.t));
+      const to = clearLane ?? merge?.to ?? candidates[0];
+      if (!merge || merge.to !== to) {
+        merge = car._merge = { edge, to, side: -Math.sign(edge.step*(to-lane)), since:this.elapsed, committed:false };
       }
-    }
+      if (clearLane === to && this.elapsed - merge.since >= 1) {
+        car._lane = to;
+        car._held = 0;
+        merge.committed = true;
+      }
+    } else car._merge = null;
+    if (car._finishingTurn && (car.siren || car._finishingTurn.edge !== edge || Math.abs(turnDelta(car.angle,edge.angle)) < .18)) car._finishingTurn = null;
+    const signal = car.errand || car._merge || car._finishingTurn || (turn && Math.abs(turn.angle) >= STRAIGHT_ON ? turn : null);
+    car.indicator = signal && (this.elapsed-signal.since) % .8 < .4 ? (signal.side ?? Math.sign(signal.angle)) : 0;
     if (car._held > BLOCK_PATIENCE) edge._blockedAt = this.elapsed;
     for (const walker of this._walkers || []) {
       const dx = walker.x - car.x, dz = walker.z - car.z;
@@ -2065,7 +2534,15 @@ export class Simulation {
       const across = Math.abs(dx * cos - dz * sin);
       if (along > 0 && along < 11 && across < 2.4) desiredSpeed = Math.min(desiredSpeed, Math.max(0, (along - 4.2) * 1.2));
     }
-    car.speed += (desiredSpeed - car.speed) * (1 - Math.exp(-2.8 * dt));
+    // A stopped queue starts in a wave as each driver sees space open up.
+    if (!car.siren && car.speed < .12 && desiredSpeed < .12 && car._wait <= 0) {
+      car._launchDelay = .35 + .45 * (1 - pace) + (car.onPhone ? .65 : 0);
+    } else if (car._launchDelay > 0 && !car.siren && car.speed < .2) {
+      if (desiredSpeed >= .12) car._launchDelay = Math.max(0, car._launchDelay - dt);
+      desiredSpeed = 0;
+    } else car._launchDelay = 0;
+    const speedChange = (desiredSpeed - car.speed) * (1 - Math.exp(-2.8 * dt));
+    car.speed += car.siren ? speedChange : Math.min(speedChange, (car.rideHurry ? 5.5 : 1.6 + pace) * dt);
     const beforeX = car.x, beforeZ = car.z;
     let x = car.x + sin * car.speed * dt, z = car.z + cos * car.speed * dt, hit = null;
     car._unchecked = (car._unchecked || 0) + Math.abs(car.speed) * dt;
@@ -2075,6 +2552,10 @@ export class Simulation {
       car._unchecked = 0; car._touching = Boolean(hit);
     }
     car.x = x; car.z = z;
+    if(hit?.body?.kind==='tree' && car._tree?.body!==hit.body){
+      const side=Math.sign(hit.nx*Math.cos(edge.angle)-hit.nz*Math.sin(edge.angle)) || 1;
+      car._tree={body:hit.body,side};
+    }
     if (hit) { car.speed *= 0.9; car._stuckTime += dt; }
     else car._stuckTime = Math.max(0, car._stuckTime - dt);
     if (hit?.kind !== 'prop' && car._stuckTime > 3 && Math.hypot(car.x - beforeX, car.z - beforeZ) < 0.015) {
