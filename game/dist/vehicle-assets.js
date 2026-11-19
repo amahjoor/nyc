@@ -35,6 +35,16 @@ export function decodeVehicleMesh(buffer, spec) {
       }
     }
   }
+  // The Accord scan labels shallow surfaces as paint, including both sloping
+  // windows. The photographed glass is still dark in its baked vertex colours.
+  if (spec.id === 'honda-accord-2018' && surface) {
+    for (let i = 0; i < position.count; i++) {
+      const x = Math.abs(position.getX(i)), y = position.getY(i), z = position.getZ(i);
+      const rear = z > -1.99 && z < -1.10 && y > 1.03 && x < .66;
+      const front = z > .39 && z < 1.22 && y > .92 && x < .72;
+      if ((rear || front) && normal.getY(i) > .65 && colors[i*3] < .52) glazing[i] = 1;
+    }
+  }
   const color = new THREE.BufferAttribute(colors, 3);
   const geometry = indices => {
     const g = new THREE.BufferGeometry();

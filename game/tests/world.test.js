@@ -280,7 +280,7 @@ test('visual suspension filters bumps while individual tires retain measured non
 test('kerbside cars are drawn as a few instanced meshes that change only when the kerb does', () => {
   const parked = createParkedCars({ capacity: 40 });
   const meshes = parked.group.children;
-  assert.equal(meshes.length, 18, 'a body and lamps for each of eight styles, tyres and wheels');
+  assert.equal(meshes.length, 8 * 4 + 10, 'each style batches its body, two tints of glass and lamps, plus shared tyres, cabins, number plates and the seven wheels a car may wear');
   assert.ok(meshes.every(mesh => mesh.isInstancedMesh && mesh.count === 0));
   const kerb = (id, x, extra = {}) => ({ id, type: 'sedan', color: '#7a1f1f', x, y: 2, z: 5, angle: Math.PI / 2, pitch: 0, roll: 0, wheelHeights: [2, 2, 2, 2], _kerb: true, ...extra });
   const cars = [kerb('kerb:1', 0), kerb('kerb:2', 6), kerb('kerb:3', 12), { id: 'traffic-1', type: 'sedan', x: 3, y: 2, z: 0, angle: 0 }, kerb('kerb:4', 18, { controlled: true })];
@@ -313,9 +313,9 @@ test('kerbside cars are drawn as a few instanced meshes that change only when th
 test('traffic beyond a few car lengths is drawn together, cabs in their own colours and with their lamps lit', () => {
   const traffic = createDistantTraffic({ capacity: 8 });
   const named = name => traffic.group.getObjectByName(name);
-  assert.equal(traffic.group.children.length, 22, 'eight body styles and two cabs, each with lamps; tyres and wheels');
+  assert.equal(traffic.group.children.length, 10 * 4 + 10, 'eight body styles and two cabs share cabin, tyre, wheel and number plate batches');
   const cars = [
-    { id: 'traffic-101', type: 'sedan', color: '#a64438', x: 10, y: 2, z: 20, angle: Math.PI / 2, pitch: .02, roll: -.01, wheelHeights: [2, 2.1, 2, 2.1] },
+    { id: 'traffic-101', type: 'sedan', color: '#a64438', x: 10, y: 2, z: 20, angle: Math.PI / 2, pitch: .02, roll: -.01, wheelHeights: [2, 2.1, 2, 2.1], _edge: {} },
     { id: 'traffic-102', type: 'taxi', color: '#f2b91c', x: 30, y: 0, z: 0, angle: 0 },
     { id: 'traffic-103', type: 'taxi', color: '#74b541', x: 40, y: 0, z: 0, angle: 0 },
   ];
@@ -342,6 +342,41 @@ test('traffic beyond a few car lengths is drawn together, cabs in their own colo
   assert.notEqual(createParkedCars({ capacity: 2 }).group.getObjectByName('Parked sedan lamps').material, nearLamps.material, 'unlike a car left at the kerb');
   // It stands as the simulation has it: on the road, tilted with it, each tyre on its own patch.
   const matrix = new THREE.Matrix4(), at = new THREE.Vector3(), nose = new THREE.Vector3(0, 0, 1), top = new THREE.Vector3(0, 1, 0);
+  const close = createCar({ ...cars[0], seed: cars[0].id });
+  updateCarVisuals(close, cars[0], 0); close.updateMatrixWorld(true);
+  for (const part of ['Cabin upholstery', 'Seated driver']) {
+    const distant = named('Distant ' + part), nearMatrix = close.getObjectByName(part).matrixWorld;
+    distant.getMatrixAt(0, matrix);
+    assert.ok(matrix.elements.every((v, i) => Math.abs(v - nearMatrix.elements[i]) < 1e-5));
+  }
+  const parkedSet = createParkedCars({capacity:1});
+  updateCarVisuals(close,{...cars[0],parked:true},0);
+  assert.equal(close.userData.detail.lamps.material,parkedSet.group.getObjectByName('Parked sedan lamps').material);
+  updateCarVisuals(close,cars[0],0);
+  assert.equal(close.userData.detail.lamps.material,nearLamps.material);
+  const indicators = named(`Distant ${carShape('sedan', cars[0].id)} lamps`).geometry.getAttribute('aIndicator');
+  for (const side of [1,-1,0]) {
+    cars[0].indicator = side;
+    updateCarVisuals(close,cars[0],0);
+    assert.equal(traffic.update(cars),true,'a stationary indicator updates on each flash');
+    assert.equal(indicators.getX(0),side);
+    const shader = {uniforms:{},vertexShader:'',fragmentShader:''};
+    close.userData.detail.lamps.material.onBeforeCompile(shader);
+    assert.equal(shader.uniforms.nycIndicator.value,side);
+  }
+  parkedSet.dispose();
+  const hip = close.userData.detail.driver.localToWorld(new THREE.Vector3(0,.56,0));
+  traffic.update(cars,(car,seat)=>{
+    assert.equal(car,cars[0]);
+    assert.ok(seat.distanceTo(hip)<1e-5);
+    return true;
+  });
+  assert.equal(named('Distant Seated driver').count,0);
+  traffic.update(cars);
+  cars[0].driverEjected = true;
+  assert.equal(traffic.update(cars), true, 'a stopped car updates when the driver leaves');
+  assert.equal(named('Distant Seated driver').count, 0);
+  assert.equal(named('Distant Cabin upholstery').count, cars.length);
   sedan.getMatrixAt(0, matrix); at.setFromMatrixPosition(matrix); nose.transformDirection(matrix); top.transformDirection(matrix);
   assert.ok(Math.abs(at.x - 10) < 1e-6 && Math.abs(at.y - 2.025) < 1e-6 && Math.abs(at.z - 20) < 1e-6 && nose.x > .99 && top.y < 1 && top.y > .99);
   const heights = [0, 1, 2, 3].map(i => { named('Distant car tyres').getMatrixAt(i, matrix); return +at.setFromMatrixPosition(matrix).y.toFixed(3); });

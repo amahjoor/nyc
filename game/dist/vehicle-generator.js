@@ -13,10 +13,11 @@ import * as THREE from './vendor/three.module.min.js';
 // length. The result has the form of an imported exterior (vehicle-assets.js).
 
 const FINISH = { paint: [.34, .22, 1], glass: [.06, .9, 1], gloss: [.1, .35, 1], trim: [.64, .09, 0], chrome: [.22, 1, 0], dark: [.9, 0, 0], plate: [.5, .1, 0],
-  lens: [.07, .85, 1], reflector: [.2, .95, 1], redlens: [.14, .25, 1], silver: [.4, .7, 0],
+  lens: [.07, .85, 1], reflector: [.2, .95, 1], redlens: [.1, .3, 1], silver: [.4, .7, 0], clearlens: [.1, .75, 1], amberlens: [.1, .3, 1],
   check: [.3, .1, 1], stripe: [.3, .2, 1], blue: [.15, .2, 1], red: [.15, .2, 1] };
 const TONE = { paint: [1, 1, 1], glass: [.1, .135, .155], gloss: [.02, .022, .025], trim: [.04, .042, .046], chrome: [.66, .68, .7], dark: [.012, .012, .014], plate: [.8, .78, .6],
-  silver: [.42, .44, .46], lens: [.05, .056, .064], reflector: [.5, .52, .55], redlens: [.2, .014, .012], head: [1, .76, .37], day: [.9, .93, 1], tail: [.46, .053, .03], amber: [1, .35, .03],
+  silver: [.42, .44, .46], lens: [.05, .056, .064], reflector: [.5, .52, .55], redlens: [.17, .008, .007], clearlens: [.5, .52, .54], amberlens: [.62, .19, .012],
+  head: [1, .76, .37], day: [.9, .93, 1], tail: [.7, .032, .016], amber: [1, .35, .03],
   cab: [1, .78, .42], check: [.02, .02, .022], stripe: [.018, .06, .165], blue: [.03, .14, .85], red: [.75, .04, .03] };
 
 const lerp = (a, b, t) => a + (b - a) * t;
@@ -111,6 +112,8 @@ export function resolveDesign(design) {
     d.tailY ??= d.beltR + .03;
   } else d.deckY ??= d.deckK * H;
   d.rearD = L - d.rearHeader;
+  // Leave distinct roof and sill stations even on a nearly vertical tailgate.
+  if (d.twoBox) d.rearD = Math.min(d.rearD, L - d.tailRun - .1);
   d.peakD = clamp(d.peak * L, d.header + .2, d.rearD - .15);
   return d;
 }
@@ -127,11 +130,36 @@ function profiles(d) {
   return { up: rounded(up), low: rounded(low) };
 }
 
+// Walking uses the longitudinal surface that was used to loft this body.
+const supportProfiles=new WeakMap();
+export function vehicleTop(design,along,across,margin=0){
+  let profile=supportProfiles.get(design);
+  if(!profile){
+    const d=resolveDesign(design);
+    profile={d,up:profiles(d).up}; supportProfiles.set(design,profile);
+  }
+  const {d,up}=profile, end=d.L/2;
+  if(Math.abs(along)>end+margin) return null;
+  const station=clamp(end-along,0,d.L);
+  const roof=sample(up,station), belt=lerp(d.beltF,d.beltR,clamp((station-d.cowl)/(d.rearD-d.cowl)));
+  const glass=clamp((roof-belt)/Math.max(.1,d.H-belt));
+  const width=d.W*.5*lerp(.96,d.tumble,glass);
+  if(Math.abs(across)>width+margin) return null;
+  const transverse=Math.min(1,Math.abs(across)/width);
+  return roof-d.crown*transverse*transverse;
+}
+
 /**
  * The loft: a grid of points, `rings[i][j]`, and the stations they stand at.
- * A half ring has 15 points; the full ring mirrors it.
+ * A half ring has 17 points; the full ring mirrors it. Points 0 to 3 are the underside, 4 to 9 the flank up
+ * to the belt line, 10 the head of the side glass, 11 the roof's edge, 12 the edge of a windscreen or rear
+ * window, 13 the inside of the black band it is bonded with, and 14 to 16 run to the middle of the car.
  */
-const HALF = 15;
+const HALF = 17;
+/** How far the roof has fallen from its middle, as shares of its half width and of its crown. */
+const CROWN = [[0, 0], [.3, .03], [.45, .065], [.6, .12], [.8, .23], [.87, .3], [.985, 1]];
+/** Metres of black band round bonded glass. */
+const FRIT = .042;
 function loft(d) {
   const { L, W, H } = d, { up, low } = profiles(d);
   const hw = W / 2, axles = [d.FO, d.FO + d.WB], yc = d.wheel, Ra = d.arch;
@@ -159,19 +187,27 @@ function loft(d) {
   if (d.shape === 'pickup' && d.doors === 4) cuts[2] = Math.min(doorC, d.cabEnd - .1), cuts[1] = lerp(cuts[0], cuts[2], .53);
   for (const c of cuts) hard.push(c - .006, c + .006);
   const pillarB = d.doors === 2 ? [cuts[1] - .02, cuts[1] + .06] : [cuts[1] - .05, cuts[1] + .05];
-  const glass = { screen: [d.cowl + .03, d.header - .03], dlo: [d.cowl + .02, d.cargo ? cuts.at(-1) - .04 : d.twoBox ? d.rearD - .06 : d.shape === 'pickup' ? d.cabEnd - .2 : d.rearD + (L - d.deck - d.rearD) * .42] };
+  // A two-box body keeps a pillar's width of metal between its last side window and its tailgate.
+  const glass = { screen: [d.cowl + .03, d.header - .03], dlo: [d.cowl + .02, d.cargo ? cuts.at(-1) - .04 : d.twoBox ? d.rearD - (d.rearPillar ?? (d.shape === 'van' ? .07 : .13)) : d.shape === 'pickup' ? d.cabEnd - .2 : d.rearD + (L - d.deck - d.rearD) * .42] };
   // Where the rear window meets the body, and how high that is.
   const foot = d.shape === 'pickup' ? d.cabEnd : d.twoBox ? Math.min(d.rearD + d.glassRun, L - d.tailRun - .02) : L - d.deck, footY = d.shape === 'pickup' ? d.bedY : d.twoBox ? d.tailY : d.deckY;
   glass.rear = d.shape === 'pickup' ? [d.rearD + .02, d.cabEnd - .01] : d.twoBox ? [d.rearD + .04, foot - .02] : [d.rearD + .05, foot - .04];
-  // An upright tail has no length to give a window: there it is wrapped on, like the lamps (rearFace).
-  const upright = d.twoBox && glass.rear[1] - glass.rear[0] < .08;
-  if (upright) glass.rear = [9, 9];
+  if (d.twoBox && foot - d.rearD < .17) {
+    const run = foot - d.rearD;
+    glass.rear = [d.rearD + .12 * run, foot - (d.cargo ? .32 : .12) * run];
+    hard.push(d.rearD, foot);
+  }
   const pillars = [pillarB];
   if (d.doors === 4 && d.twoBox && !d.cargo) pillars.push([cuts[2] - .01, cuts[2] + .08]);
   if (d.doors === 4 && !d.twoBox && d.shape !== 'pickup') pillars.push([cuts[2] - .1, cuts[2] - .04]);
+  // The band at the head and the foot of each pane is as wide on the glass as it is at the sides, however steep the pane.
+  glass.band = pane => { const slope = (top(pane[1]) - top(pane[0])) / Math.max(.01, pane[1] - pane[0]); return Math.min(FRIT / Math.hypot(1, slope), (pane[1] - pane[0]) * .22); };
+  for (const pane of [glass.screen, glass.rear]) hard.push(pane[0] + glass.band(pane), pane[1] - glass.band(pane));
   hard.push(...glass.screen, ...glass.dlo, ...glass.rear.filter(x => x < L), ...pillars.flat(), d.cowl - .03, foot - .03, foot + .03);
   if (d.shape === 'pickup') hard.push(d.cabEnd + .02, d.cabEnd + .1, L - .09, L - .05);
   if (d.sunroof) hard.push(d.header + .12, d.header + .12 + d.sunroof);
+  // Round each corner of the body in steps of equal turn, so that it is a curve and not three facets.
+  for (const turn of [.034, .134, .293, .5, .741]) hard.push(d.noseR * turn, L - d.tailR * turn);
   for (const [x] of up) soft.push(x);
   for (const [x] of low) soft.push(x);
   for (let x = 0; x <= L; x += .15) soft.push(x);
@@ -196,16 +232,20 @@ function loft(d) {
     if (bedZone(x)) {
       // An open bed: the rail, then down the inside to the floor. The tailgate closes it.
       const closed = x > L - .07, floorY = closed ? yBelt : Math.min(yBelt - .02, d.bedFloor ?? d.clear + .62);
-      half.push([xb - .02, yBelt + .012], [xb - .075, yBelt + .012], [xb - .09, floorY], [xb * .45, floorY], [0, floorY]);
+      half.push([xb - .02, yBelt + .012], [xb - .075, yBelt + .012], [xb - .088, Math.max(floorY, yBelt - .012)], [xb - .09, floorY], [xb * .6, floorY], [xb * .3, floorY], [0, floorY]);
     } else {
       // The cabin stands on the body from the windscreen's foot to the rear window's. Its pillars lean
       // in from the belt to the roof, so each window is widest at its foot.
       const g = smooth(d.cowl - .03, d.cowl + .03, x) * (1 - smooth(foot - .03, foot + .03, x));
       const rise = clamp(x < d.peakD ? (yTop - d.cowlY) / Math.max(.1, H - .04 - d.cowlY) : (yTop - footY) / Math.max(.1, H - d.rearDrop - footY));
       const n = lerp(xb * .98, roofWidth(x), rise ** .7), fit = Math.min(1, cabin / .22), rail = Math.min(.105, cabin * .3);
-      const hood = [[w * .9, yBelt + cabin * .5], [w * .76, yBelt + cabin * .84], [w * .52, yTop - cabin * .05], [w * .26, yTop], [0, yTop]];
-      const roof = [[lerp(xb, n, .86), yTop - rail], [n * .985, yTop - .046 * fit], [n * .87, yTop - .014 * fit], [n * .45, yTop - .003 * fit], [0, yTop]];
-      for (let k = 0; k < 5; k++) half.push([lerp(hood[k][0], roof[k][0], g), lerp(hood[k][1], roof[k][1], g)]);
+      const hood = [[.9, .5], [.76, .84], [.64, .915], [.52, .95], [.36, .985], [.18, 1], [0, 1]].map(([k, share]) => [w * k, yBelt + cabin * share]);
+      // Across the roof: its edge, the edge of the glass, the inside of the band round it, and on to the middle.
+      // A panel van's rear doors meet at a seam, so its last point stands just off the middle.
+      const across = [.985, .87, Math.max(.6, .87 - FRIT / Math.max(.2, n)), .6, d.cargo && x >= d.rearD ? .035 / Math.max(.2, n) : .3, 0];
+      if (across[3] > across[2] - .04) across[3] = across[2] - .12;
+      const roof = [[lerp(xb, n, .86), yTop - rail], ...across.map(k => [n * k, yTop - .046 * fit * sample(CROWN, k)])];
+      for (let k = 0; k < 7; k++) half.push([lerp(hood[k][0], roof[k][0], g), lerp(hood[k][1], roof[k][1], g)]);
     }
     const bow = d.bow * (1 - smooth(0, .5, x)) - d.sternBow * (1 - smooth(0, .4, L - x));
     // Glass is curved across the car. Everything above the belt bows with it, the hood ahead of the
@@ -216,7 +256,7 @@ function loft(d) {
     const z = L / 2 - x, point = ([px, py], s, j) => [s * px, py, z - bow * (px / hw) ** 2 + (j > 10 ? sweep * Math.max(0, 1 - (px / edge) ** 2) : 0)];
     return [...half.map((p, j) => point(p, 1, j)), ...half.slice(1, -1).map((p, j) => point(p, -1, j + 1)).reverse()];
   });
-  return { stations, rings, glass, pillars, cuts, top, belt, beltLine, width, roofWidth, floor, axles, upright, sideAt: (x, y) => flank(x)(y) };
+  return { stations, rings, glass, pillars, cuts, top, belt, beltLine, width, roofWidth, floor, axles, sideAt: (x, y) => flank(x)(y) };
 }
 
 /** Which surface the panel between ring points `j` and `j + 1` is, at `x` metres from the nose. */
@@ -229,12 +269,15 @@ function panel(d, shell, x, j) {
   if (j === 3) return d.cladding ? 'trim' : 'paint';
   if (j === 4) return d.cladding || (arch && d.archTrim) ? 'trim' : cut ? 'dark' : 'paint';
   if (j < 9) return cut && (j < 8 || !bed) ? 'dark' : j === 8 && within(glass.dlo) && !bed ? 'gloss' : 'paint';
-  if (bed) return j >= 11 ? 'trim' : j === 9 ? 'gloss' : 'paint';
+  // The bed is lined; the tailgate that closes it is painted, its top edge included.
+  if (bed) return x > d.L - .07 ? 'paint' : j >= 11 ? 'trim' : j === 9 ? 'gloss' : 'paint';
   if (j === 9) return within(glass.dlo) ? pillars.some(within) ? 'gloss' : 'glass' : 'paint';
   if (j === 10) return d.blackRoof && x > d.cowl ? 'gloss' : 'paint';
-  if (j === 11) return within(glass.rear) && d.twoBox ? 'gloss' : d.blackRoof && x > d.header ? 'gloss' : 'paint';
-  if (within(glass.screen) || within(glass.rear)) return 'glass';
-  if (d.sunroof && x > d.header + .12 && x < d.header + .12 + d.sunroof) return 'glass';
+  if (j === 11) return d.blackRoof && x > d.header ? 'gloss' : 'paint';
+  if (d.cargo && j === 15 && within(glass.rear)) return 'paint';
+  // Bonded glass has a black band all round it.
+  for (const pane of [glass.screen, glass.rear]) if (within(pane)) return j === 12 || x < pane[0] + glass.band(pane) || x > pane[1] - glass.band(pane) ? 'gloss' : 'glass';
+  if (d.sunroof && x > d.header + .12 && x < d.header + .12 + d.sunroof) return j === 12 ? 'gloss' : 'glass';
   return d.blackRoof && x > d.header ? 'gloss' : 'paint';
 }
 
@@ -323,7 +366,8 @@ function skin(d, shell, body) {
       const a = at(i, j), b = at(i, j + 1), tri = facing > 0 ? [centre, a, b] : [centre, b, a];
       const n = unit(cross(sub(tri[1], tri[0]), sub(tri[2], tri[0])));
       if (!Number.isFinite(n[0]) || Math.hypot(...sub(a, b)) < 1e-6) continue;
-      for (const p of tri) body.vertex(p, n, TONE.paint, FINISH.paint, 1);
+      // Lit as the one flat face it is: a fan of triangles each catching the sky differently reads as creases.
+      for (const p of tri) body.vertex(p, [0, 0, facing], TONE.paint, FINISH.paint, 1);
       triangles.push([...tri, n]);
     }
   }
@@ -375,39 +419,96 @@ function wrapper(d, triangles, end, body, lamps) {
   /**
    * @param {object} s  a0..a1 degrees and y0..y1 metres at the inner end. `rise` lifts the outer end,
    *   `grow` scales its height, `round` rounds the ends (0..1), `wide` is the width at the bottom
-   *   and at the top as shares of the whole, `lean` shifts the top edge outward in degrees.
+   *   and at the top as shares of the whole, `lean` shifts the top edge outward in degrees. `skirt`
+   *   closes its edges back to the skin, so that a shape standing well off it is a solid thing.
    */
-  return function wrap(s) {
-    const { a0, a1, y0, y1, kind = 'trim', off = .006, rise = 0, grow = 1, round = 0, lean = 0, both = true, wide = null } = s;
-    const cols = Math.max(2, Math.ceil(Math.abs(a1 - a0) / (s.step ?? 4.5))), rows = s.rows ?? Math.max(wide || lean ? 2 : 1, Math.min(4, Math.ceil(Math.abs(y1 - y0) / .09)));
+  /** How far out the skin is from the axis at this bearing and height: 0 where there is none. */
+  wrap.reach = (deg, y) => cast(deg, y)?.t ?? 0;
+  /** Where a number plate hangs: the point on the skin dead ahead (or astern) at height `y`, and which way the skin faces there. */
+  wrap.plate = (y, off) => { const hit = cast(0, y); return hit && { p: [0, y, hit.p[2] + sign * off], n: unit([0, hit.n[1], hit.n[2]]) }; };
+  return wrap;
+  function wrap(s) {
+    const { a0, a1, y0, y1, kind = 'trim', off = .006, rise = 0, grow = 1, round = 0, lean = 0, both = true, wide = null, skirt = off >= .02 } = s;
+    // Never fewer than four columns: a small part laid over a larger one has to turn the same corner it does.
+    const cols = Math.max(4, Math.ceil(Math.abs(a1 - a0) / (s.step ?? 3.2)));
+    // Rows close enough together to follow the skin over a crease: a few tall facets would bridge it and stand proud.
+    const rows = s.rows ?? Math.max(wide || lean ? 2 : 1, Math.min(12, Math.ceil(Math.abs(y1 - y0) * Math.max(1, grow) / .045)));
     const target = FINISH[kind] ? body : lamps, color = TONE[kind], surface = FINISH[kind], centre = (a0 + a1) / 2;
+    const emit = (p, n) => target === body ? body.vertex(p, n, color, surface, kind === 'paint' ? 1 : 0) : lamps.vertex(p, n, color);
     for (const mirror of both && (a0 !== -a1) ? [1, -1] : [1]) {
-      const grid = [], us = Array.from({ length: cols + 1 }, (_, c) => c / cols);
+      const us = Array.from({ length: cols + 1 }, (_, c) => c / cols);
       // A rounded end needs columns of its own, however narrow the shape.
       if (round) for (const k of [.12, .4, 1]) { const e = round / 2 * k; if (us.every(u => Math.abs(u - e) > .03)) us.push(e, 1 - e); }
       us.sort((a, b) => a - b);
-      for (const u of us) {
+      /** The shape's points at `u` of the way along it, or null where any of them misses the skin. */
+      const column = u => {
         const mid = (y0 + y1) / 2 + rise * u;
         // Rounded ends: the outline closes in like the end of a pill.
         const e = round ? Math.min(u, 1 - u) * 2 / round : 1, r = e < 1 ? Math.sqrt(1 - (1 - e) ** 2) : 1;
-        const halfHeight = (y1 - y0) / 2 * lerp(1, grow, u) * Math.max(r, .04);
-        const column = [];
+        const halfHeight = (y1 - y0) / 2 * lerp(1, grow, u) * Math.max(r, .04), points = [];
         for (let r2 = 0; r2 <= rows; r2++) {
           const v = r2 / rows, y = mid + halfHeight * (v * 2 - 1);
           const deg = (centre + (lerp(a0, a1, u) - centre) * (wide ? lerp(wide[0], wide[1], v) : 1) + lean * (v - .5)) * mirror;
           const hit = cast(deg, y), a = deg * RAD;
-          // Stand off along the throw, so a shape that crosses a crease stays in one sheet.
-          column.push(hit && hit.t > limit(deg) ? { p: [hit.p[0] + Math.sin(a) * off, y, hit.p[2] + sign * Math.cos(a) * off], n: hit.n } : null);
+          if (!hit || hit.t <= limit(deg)) return null;
+          const dir = [Math.sin(a), 0, sign * Math.cos(a)];
+          // Stand off along the throw, so a shape that crosses a crease stays in one sheet, and by more where
+          // the skin lies aslant to it, so the shape clears the skin by its full margin.
+          const k = off / Math.max(.45, dot(hit.n, dir));
+          points.push({ p: [hit.p[0] + dir[0] * k, y, hit.p[2] + dir[2] * k], n: hit.n, dir, depth: k + .008 });
         }
-        grid.push(column);
+        return points;
+      };
+      // Whole columns only: a shape that runs off the body ends at a clean edge, found to within a hair.
+      let grid = us.map(column);
+      for (const [from, step] of [[0, 1], [grid.length - 1, -1]]) {
+        let c = from; while (grid[c] === null && grid[c + step] === null && c + step >= 0 && c + step < grid.length) c += step;
+        if (grid[c] !== null || !grid[c + step]) continue;
+        let out = us[c], inside = us[c + step], found = null;
+        for (let k = 0; k < 5; k++) { const mid = (out + inside) / 2, trial = column(mid); if (trial) { found = trial; inside = mid; } else out = mid; }
+        grid[c] = found;
       }
-      for (let c = 0; c < us.length - 1; c++) for (let r2 = 0; r2 < rows; r2++) {
-        const q = [grid[c][r2], grid[c + 1][r2], grid[c + 1][r2 + 1], grid[c][r2 + 1]];
-        if (q.some(v => !v)) continue;
-        for (const k of mirror * sign > 0 ? [0, 1, 2, 0, 2, 3] : [0, 2, 1, 0, 3, 2]) target === body ? body.vertex(q[k].p, q[k].n, color, surface, kind === 'paint' ? 1 : 0) : lamps.vertex(q[k].p, q[k].n, color);
+      // Its own smooth surface, not the facets it was thrown onto.
+      const at = (c, r2) => grid[Math.min(grid.length - 1, Math.max(0, c))]?.[Math.min(rows, Math.max(0, r2))];
+      grid.forEach((col, c) => col?.forEach((point, r2) => {
+        const a = at(c - 1, r2) || point, b = at(c + 1, r2) || point, lo = at(c, r2 - 1), hi = at(c, r2 + 1);
+        const n = cross(sub(b.p, a.p), sub(hi.p, lo.p)), length = Math.hypot(...n);
+        if (length < 1e-9) return;
+        const facing = dot(n, point.dir) < 0 ? -1 / length : 1 / length;
+        point.smooth = [n[0] * facing, n[1] * facing, n[2] * facing];
+      }));
+      const forward = mirror * sign > 0;
+      const quad = (q, want = null) => {
+        let order = forward ? [0, 1, 2, 0, 2, 3] : [0, 2, 1, 0, 3, 2], n = null;
+        if (want) {
+          // An edge face: wound so that it looks the way it should, and lit as the flat it is.
+          n = unit(cross(sub(q[1].p, q[0].p), sub(q[2].p, q[0].p)));
+          if (dot(n, want) < 0) { n = n.map(v => -v); order = [0, 2, 1, 0, 3, 2]; } else order = [0, 1, 2, 0, 2, 3];
+        }
+        for (const k of order) emit(q[k].p, n || q[k].smooth || q[k].n);
+      };
+      const back = point => ({ p: [point.p[0] - point.dir[0] * point.depth, point.p[1], point.p[2] - point.dir[2] * point.depth] });
+      for (let c = 0; c < grid.length - 1; c++) {
+        const here = grid[c], next = grid[c + 1];
+        if (!here || !next) continue;
+        for (let r2 = 0; r2 < rows; r2++) quad([here[r2], next[r2], next[r2 + 1], here[r2 + 1]]);
+        if (!skirt) continue;
+        quad([here[rows], next[rows], back(next[rows]), back(here[rows])], [0, 1, 0]);
+        quad([here[0], next[0], back(next[0]), back(here[0])], [0, -1, 0]);
+        for (const [col, other, open] of [[here, next, !grid[c - 1]], [next, here, !grid[c + 2]]]) if (open) {
+          const out = sub(col[0].p, other[0].p);
+          for (let r2 = 0; r2 < rows; r2++) quad([col[r2], col[r2 + 1], back(col[r2 + 1]), back(col[r2])], out);
+        }
       }
     }
-  };
+  }
+}
+
+/** A part of the shape `s`: the shares [u0, u1] along it and [v0, v1] up it, keeping to its rise and its taper. */
+function inset(s, [u0, u1, v0, v1]) {
+  const h = s.y1 - s.y0, scale = u => lerp(1, s.grow ?? 1, u), middle = u => (s.y0 + s.y1) / 2 + (s.rise ?? 0) * u + h * scale(u) * ((v0 + v1) / 2 - .5);
+  return { a0: lerp(s.a0, s.a1, u0), a1: lerp(s.a0, s.a1, u1), y0: middle(u0) - h * scale(u0) * (v1 - v0) / 2, y1: middle(u0) + h * scale(u0) * (v1 - v0) / 2,
+    rise: middle(u1) - middle(u0), grow: scale(u1) / scale(u0), lean: s.lean };
 }
 
 /** A box, or a low ball, of one finish: mirrors, handles, rails, a roof light. */
@@ -429,13 +530,9 @@ function frontFace(d, wrap) {
   const layer = (s, kind, off, pad = 0, more = {}) => wrap({ ...s, ...more, y0: s.y0 - pad, y1: s.y1 + pad, a0: s.a0 - pad * 60, a1: s.a1 + pad * 60, kind, off });
   // A lamp unit: a lens, and inside it the lit parts as shares of the lens [u0, u1, v0, v1].
   const unit = (s, lens, parts) => {
-    layer(s, lens, .005);
-    for (const [kind, u0, u1, v0, v1] of parts) {
-      const h = s.y1 - s.y0, g = s.grow ?? 1, scale = u => lerp(1, g, u), mid = u => (s.y0 + s.y1) / 2 + (s.rise ?? 0) * u;
-      const ya = mid(u0) + h * scale(u0) * (v0 - .5), yb = mid(u0) + h * scale(u0) * (v1 - .5), span = u1 - u0;
-      wrap({ a0: lerp(s.a0, s.a1, u0), a1: lerp(s.a0, s.a1, u1), y0: ya, y1: yb, rise: (s.rise ?? 0) * span + (mid(u1) + h * scale(u1) * ((v0 + v1) / 2 - .5) - (mid(u0) + h * scale(u0) * ((v0 + v1) / 2 - .5)) - (s.rise ?? 0) * span),
-        grow: scale(u1) / scale(u0), round: kind === 'head' ? .5 : .2, kind, off: .011, lean: s.lean, rows: 1 });
-    }
+    layer(s, f.chrome === false ? 'gloss' : 'chrome', .0035, .007);
+    layer(s, lens, .006);
+    for (const [kind, ...share] of parts) wrap({ ...inset(s, share), round: kind === 'head' ? .5 : .2, kind, off: .011, rows: 1 });
   };
   const h = (f.lampH ?? { slim: .085, wedge: .15, block: .17, split: .04, stack: .3 }[f.lamp] ?? .1) * big;
   switch (f.lamp) {
@@ -524,47 +621,91 @@ function frontFace(d, wrap) {
   if (f.fog) for (const kind of ['gloss', 'day']) wrap({ a0: 41 - (kind === 'gloss' ? 1.5 : 0), a1: 49 + (kind === 'gloss' ? 1.5 : 0), y0: at(.2) - (kind === 'gloss' ? .015 : 0), y1: at(.2) + .05 + (kind === 'gloss' ? .015 : 0), round: .8, kind, off: kind === 'gloss' ? .005 : .009, step: 2 });
   if (f.skid) wrap({ a0: -34, a1: 34, y0: chin - .01, y1: chin + .07, wide: [.8, 1], kind: 'silver', off: .008 });
   const py = at(f.plateY ?? (f.grille === 'mouth' || f.grille === 'hex' || f.grille === 'spindle' ? .36 : .42));
-  wrap({ a0: -8.2, a1: 8.2, y0: py - .075, y1: py + .075, kind: 'plate', off: .018, rows: 1, step: 5.5 });
+  // The bracket the plate is screwed to; the plate itself is drawn on it with its own number (vehicle-plates.js).
+  wrap({ a0: -10, a1: 10, y0: py - .084, y1: py + .084, kind: 'trim', off: .008, rows: 2, step: 5 });
+  return wrap.plate(py, .016);
 }
 
-// The tail: lamps under the deck or up the pillars, the plate, a dark valance.
+// The tail. A lamp is a housing let into the body, a red lens standing on it, and under the lens what
+// lights: a strip that glows whenever the car is lit, the brighter block beside it, a clear reversing
+// lamp and, on the makes that fit one, an amber indicator. Angles are degrees round the tail, 0 dead astern.
 function rearFace(d, wrap, shell) {
   const r = { lamp: d.twoBox ? 'tall' : 'wrap', ...d.rear };
-  if (shell.upright) {
-    // The window of an upright tail, narrower toward the roof; a cargo van has a pane in each door.
-    const y0 = d.tailY + .05, y1 = d.H - d.rearDrop - .12, half = r.glassHalf ?? 38;
-    if (y1 - y0 > .12) for (const [a0, a1] of d.cargo ? [[3, half - 6]] : [[-half, half]]) {
-      const pane = { a0, a1, y0: d.cargo ? lerp(y0, y1, .3) : y0, y1, wide: d.cargo ? null : [1, .9], rows: 3 };
-      wrap({ ...pane, a0: a0 - 1.2, a1: a1 + 1.2, y0: pane.y0 - .016, y1: y1 + .016, kind: 'gloss', off: .004 });
-      wrap({ ...pane, kind: 'glass', off: .008 });
-    }
-  }
   const pickup = d.shape === 'pickup', deck = pickup ? d.bedY : d.twoBox ? d.tailY : d.deckY - .035, low = d.rearLow + .04;
-  // A red lens with the lit part inside it.
-  const unit = (s, lit = [.12, .88, .25, .75]) => {
-    wrap({ ...s, kind: 'redlens', off: .005 });
-    const hgt = s.y1 - s.y0, inset = (s.a1 - s.a0);
-    wrap({ ...s, a0: s.a0 + inset * lit[0], a1: s.a0 + inset * lit[1], y0: s.y0 + hgt * lit[2], y1: s.y0 + hgt * lit[3], rise: (s.rise ?? 0) * (lit[1] - lit[0]), kind: 'tail', off: .01, round: .3 });
+  // Where the tail turns into the flank, and whether it turns sharply: a square tail keeps its lamps on its face.
+  const corner = Math.atan(d.tailW) / RAD, square = d.tailR < .2;
+  const lamp = (s, parts) => {
+    wrap({ ...s, a0: s.a0 - .7, a1: s.a1 + .7, y0: s.y0 - .01, y1: s.y1 + .01, kind: r.bezel ?? 'gloss', off: .004 });
+    wrap({ ...s, kind: 'redlens', off: .009, skirt: true });
+    for (const [kind, ...share] of parts) if (kind) wrap({ ...inset(s, share), kind, off: .016, round: kind === 'clearlens' ? .25 : .18, rows: share[3] - share[2] > .5 ? undefined : 1 });
   };
+  const turn = r.amber ? 'amberlens' : null;
   const y1 = deck - (r.lampDrop ?? (d.twoBox ? .07 : .05)), h = r.lampH ?? .14;
-  const inner = r.lampIn ?? 30, outer = r.lampOut ?? 72;
+  const inner = r.lampIn ?? 30, outer = r.lampOut ?? (square ? corner - 1 : Math.min(74, corner + 32));
   switch (r.lamp) {
-    case 'tall': unit({ a0: r.lampIn ?? 49, a1: r.lampOut ?? 64, y0: y1 - (r.lampH ?? .16), y1: y1 + (r.lampUp ?? .34), round: .15, rows: 4, lean: r.lean ?? 3, wide: [1, .7] }, [.25, .75, .12, .88]); break;
-    case 'block': unit({ a0: r.lampIn ?? 46, a1: r.lampOut ?? 58, y0: y1 - (r.lampH ?? .4), y1, round: .08, rows: 3 }, [.2, .8, .1, .9]); break;
     case 'bar':
-      wrap({ a0: -outer, a1: outer, y0: y1 - h * .42, y1: y1 - h * .08, kind: 'redlens', off: .005 }); wrap({ a0: -outer + 3, a1: outer - 3, y0: y1 - h * .32, y1: y1 - h * .18, kind: 'tail', off: .01, rows: 1 });
-      unit({ a0: inner + 8, a1: outer, y0: y1 - h, y1, round: .25, rise: r.rise ?? .01 }); break;
-    default: unit({ a0: inner, a1: outer, y0: y1 - h, y1, round: .28, grow: r.grow ?? 1.3, rise: r.rise ?? .02 });
+      // A strip of light from side to side, and a lamp at each end of it.
+      wrap({ a0: -outer, a1: outer, y0: y1 - h * .46, y1: y1 - h * .04, kind: 'redlens', off: .007 });
+      wrap({ a0: -outer + 3, a1: outer - 3, y0: y1 - h * .32, y1: y1 - h * .18, kind: 'tail', off: .011, rows: 1 });
+      lamp({ a0: inner + 8, a1: outer, y0: y1 - h, y1, round: .25, rise: r.rise ?? .01 }, [['tail', .06, .96, .66, .9], ['tail', .5, .96, .14, .5], ['clearlens', .08, .4, .14, .5]]);
+      break;
+    case 'tall': case 'block': if (r.lamp === 'tall' || square || d.twoBox) {
+      const a0 = square ? corner - 13 : corner + 2, a1 = square ? corner - 1 : corner + 15, mid = (a0 + a1) / 2;
+      // As far up the corner as the body stands upright: on a fastback that is no way at all, and it has the lamp of a saloon.
+      const face = wrap.reach(mid, y1 - .06);
+      let up = 0; while (up < (r.lampUp ?? .34) && wrap.reach(mid, y1 + up + .03) > face - .1 - up * .28) up += .03;
+      if (r.lamp === 'tall' && up >= .15) {
+        // Up the corner of the body beside the tailgate glass, with a short lamp on the tailgate at its foot.
+        lamp({ a0, a1, y0: y1 - (r.lampH ?? .16), y1: y1 + up, round: .12 }, [['tail', .3, .7, .44, .95], ['tail', .16, .84, .08, .3], [turn, .2, .8, .33, .41]]);
+        if (!square) lamp({ a0: a0 - 15, a1: a0 - 1.5, y0: y1 - .13, y1: y1 - .01, round: .2 }, [['clearlens', .1, .52, .2, .8], ['tail', .6, .94, .2, .8]]);
+        break;
+      }
+      if (r.lamp === 'block') {
+        // An upright lamp at the corner: tail lamp, indicator and reversing lamp one above the other.
+        const tall = Math.min(r.lampH ?? .4, y1 - d.rearBumper - .04);
+        lamp({ a0, a1, y0: y1 - tall, y1, round: .08 }, [['tail', .16, .84, .62, .93], [turn || 'tail', .16, .84, .36, .56], ['clearlens', .16, .84, .08, .29]]);
+        break;
+      }
+    }
+    // Falls through: a tail with no upright corner wears its lamp round it.
+    default:
+      // Round the corner, taller at the flank: a strip along its head, the block under it, and the small lamps inboard.
+      lamp({ a0: inner, a1: outer, y0: y1 - h, y1, round: .28, grow: r.grow ?? 1.3, rise: r.rise ?? .02 }, [['tail', .05, .96, .7, .9], ['tail', .52, .96, .13, .52], ['clearlens', .07, .26, .15, .5], [turn, .3, .47, .15, .5]]);
+      break;
+  }
+  // The stop lamp at the head of the rear window, in the band the glass is bonded with.
+  if (!pickup && !d.cargo) {
+    const pane = shell.glass.rear, y = shell.top(pane[0] + shell.glass.band(pane) * .55);
+    wrap({ a0: -8.5, a1: 8.5, y0: y - .011, y1: y + .011, kind: 'tail', off: .007, rows: 1, round: .15 });
   }
   if (r.strip) wrap({ a0: -inner + 1, a1: inner - 1, y0: y1 - h * .62, y1: y1 - h * .38, kind: r.strip === 'chrome' ? 'chrome' : 'gloss', off: .009, rows: 1 });
   const py = r.plateY ?? (pickup ? d.rearBumper + .04 : lerp(d.rearBumper, deck, d.twoBox ? .5 : .42));
-  if (!pickup) wrap({ a0: -9.5, a1: 9.5, y0: py - .1, y1: py + .1, kind: 'gloss', off: .005, rows: 1, round: .08 });
-  wrap({ a0: -7.6, a1: 7.6, y0: py - .075, y1: py + .075, kind: 'plate', off: .012, rows: 1, step: 5.5 });
-  if (r.emblem !== false && !pickup) wrap({ a0: -2.4, a1: 2.4, y0: py + .15, y1: py + .222, round: 1, kind: 'chrome', off: .012, step: 1.2, rows: 3 });
-  // The lower valance, dark, with a reflector at each corner.
-  if (r.valance !== false && !pickup) wrap({ a0: -50, a1: 50, y0: low, y1: low + (r.valanceH ?? .1), wide: [1, .86], kind: 'trim', off: .006 });
-  if (pickup) wrap({ a0: -60, a1: 60, y0: d.rearBumper - .1, y1: d.rearBumper + .1, kind: r.bumper ?? 'chrome', off: .01 });
-  else wrap({ a0: 55, a1: 64, y0: low + .07, y1: low + .1, kind: 'redlens', off: .008, rows: 1 });
+  if (!pickup) {
+    // The plate sits in a recess under a lip that carries its lamps.
+    wrap({ a0: -9.5, a1: 9.5, y0: py - .1, y1: py + .1, kind: 'gloss', off: .005, rows: 2, round: .08 });
+    wrap({ a0: -8.6, a1: 8.6, y0: py + .092, y1: py + .112, kind: r.strip === 'chrome' ? 'chrome' : 'trim', off: .016, rows: 1, skirt: true });
+  }
+  const plate = wrap.plate(py, pickup ? .04 : .013);
+  if (r.emblem !== false && !pickup) wrap({ a0: -2.4, a1: 2.4, y0: py + .16, y1: py + .232, round: 1, kind: 'chrome', off: .012, step: 1.2, rows: 3 });
+  if (pickup) {
+    // A step bumper standing off the tailgate, the handle in the gate, and a reflector at each end of the bumper.
+    wrap({ a0: -corner - 6, a1: corner + 6, y0: d.rearBumper - .1, y1: d.rearBumper + .09, kind: r.bumper ?? 'chrome', off: .03, skirt: true });
+    wrap({ a0: -13, a1: 13, y0: d.rearBumper - .05, y1: d.rearBumper + .1, kind: 'trim', off: .033, rows: 1 });
+    wrap({ a0: -5.5, a1: 5.5, y0: d.bedY - .13, y1: d.bedY - .07, kind: 'gloss', off: .006, rows: 1, round: .3 });
+    return plate;
+  }
+  // The lower valance, dark, with a reflector at each corner and the exhaust through it.
+  const valance = r.valanceH ?? .1;
+  // It stops short of the corner, where the body turns under faster than a flat band can follow.
+  if (r.valance !== false) wrap({ a0: -corner + 5, a1: corner - 5, y0: low, y1: low + valance, wide: [1, .92], round: .12, kind: 'trim', off: .007 });
+  wrap({ a0: corner + 8, a1: corner + 17, y0: low + valance + .02, y1: low + valance + .05, kind: 'redlens', off: .008, rows: 1 });
+  const pipes = r.exhaust ?? 1;
+  if (pipes && r.valance !== false) for (const side of pipes > 1 ? [-1, 1] : [1]) {
+    const a = [18, 26].map(v => v * side).sort((p, q) => p - q);
+    wrap({ a0: a[0], a1: a[1], y0: low + .012, y1: low + .068, round: .9, kind: 'chrome', off: .012, both: false, step: 1.6, rows: 3 });
+    wrap({ a0: a[0] + 1.2, a1: a[1] - 1.2, y0: low + .022, y1: low + .058, round: .9, kind: 'dark', off: .014, both: false, step: 1.6, rows: 2 });
+  }
+  return plate;
 }
 
 /** Triangles for a design: the painted shell with its glass and trim, and the lamps. */
@@ -573,8 +714,7 @@ export function buildVehicle(design) {
   const body = mesh(['position', 'normal', 'color', 'aFinish', 'aPaintWeight']), lamps = mesh(['position', 'normal', 'color']);
   body.panels = [];
   const triangles = skin(d, shell, body);
-  frontFace(d, wrapper(d, triangles, 'front', body, lamps));
-  rearFace(d, wrapper(d, triangles, 'rear', body, lamps), shell);
+  const plates = { front: frontFace(d, wrapper(d, triangles, 'front', body, lamps)), rear: rearFace(d, wrapper(d, triangles, 'rear', body, lamps), shell) };
   const z = x => d.L / 2 - x, { width, belt, top, roofWidth } = shell;
   for (const side of [-1, 1]) {
     // Door mirrors, on a short arm from the corner of the glass.
@@ -598,6 +738,13 @@ export function buildVehicle(design) {
       }
     }
   }
+  if (d.twoBox && !d.cargo && d.shape !== 'van') {
+    // The wiper parked along the foot of the tailgate glass.
+    const pane = shell.glass.rear, at = pane[1] - shell.glass.band(pane) * 1.5, slope = Math.atan2(top(at - .02) - top(at + .02), .04);
+    const park = new THREE.Matrix4().compose(new THREE.Vector3(.06, top(at) + .016 * Math.cos(slope), z(at) - .016 * Math.sin(slope) - d.sternBow * .1), new THREE.Quaternion().setFromEuler(new THREE.Euler(-slope, 0, 0)), new THREE.Vector3(1, 1, 1));
+    solid(body, new THREE.BoxGeometry(.36, .014, .02), 'dark', park);
+    solid(body, new THREE.CylinderGeometry(.022, .026, .02, 10), 'dark', park.clone().multiply(new THREE.Matrix4().makeTranslation(-.18, -.004, .0)));
+  }
   // Where a patrol car's light bar sits, and anything else that stands on the roof amidships.
   const barAt = d.L / 2 + .2, roof = top(barAt);
   if (d.livery === 'taxi') {
@@ -611,7 +758,7 @@ export function buildVehicle(design) {
       solid(body, new THREE.BoxGeometry(.012, .1, (to - from) / squares), 'check', place(side * (shell.sideAt(at2, y2) + .002), y2, z(at2), 1, 1, 1));
     }
   }
-  if (d.livery === 'police') {
+  if (d.livery === 'police' || d.livery === 'emergency-service') {
     // Two blue stripes from wheel to wheel, and the bar the beacons stand on.
     const from = d.FO + d.arch + .06, to = d.FO + d.WB - d.arch - .06, pieces = Math.ceil((to - from) / .3);
     for (const side of [-1, 1]) for (let k = 0; k < pieces; k++) for (const [drop, tall] of [[.2, .055], [.29, .03]]) {
@@ -622,7 +769,7 @@ export function buildVehicle(design) {
     // Unlit lenses: a car near enough to flash carries its own lights over these (world.js).
     for (const [side, kind] of [[-1, 'blue'], [1, 'red']]) solid(body, new THREE.BoxGeometry(.4, .12, .22), kind, place(side * .38, roof + .13, z(barAt), 1, 1, 1));
   }
-  return { design: d, shell, body, lamps, roof };
+  return { design: d, shell, body, lamps, roof, plates };
 }
 
 /** A design as the game draws it: the same form as a decoded exterior file. */
@@ -632,7 +779,7 @@ export function generateVehicle(spec) {
   const panels = new Uint8Array(geometry.index.count/3);
   panels.set(built.body.panels);
   geometry.userData.panels = panels;
-  return { id: spec.id, body: geometry, lamps: built.lamps.geometry(), wheels: spec.wheels || designWheels(built.design), roof: built.roof,
+  return { id: spec.id, body: geometry, lamps: built.lamps.geometry(), wheels: spec.wheels || designWheels(built.design), roof: built.roof, plates: built.plates,
     layout: { width: built.design.W/2, height: built.design.H, hinge: built.design.L/2-built.shell.cuts[0],
       latch: built.design.L/2-built.shell.cuts[1], cowl: built.design.L/2-built.design.cowl } };
 }

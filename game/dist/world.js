@@ -1,8 +1,13 @@
-import { fitExterior, poseExterior, releaseCrumple } from './vehicle-detail.js';
+import { batchExterior, fitExterior, poseExterior, releaseCrumple } from './vehicle-detail.js';
+import { hasDriver } from './vehicle-damage.js';
+import { Parts } from './transport-models.js';
+import { OFFICERS, patrolAppearance, patrolLookForMember } from './human-cast.js';
 import { updateRide } from './vehicle-presentation.js';
 import { bodyShape } from './fleet.js';
 import { buildCar, createCarMaterial, createLampMaterial, wheelGeometry, WHEEL, BODY_SHAPES } from './vehicle-model.js';
 import * as THREE from './vendor/three.module.min.js';
+import { plateFor } from './license-plates.js';
+import { createPlateBatch, createPlateMesh, setPlateGlow } from './vehicle-plates.js';
 
 // The city mesh comes from NYC's measured 2014 CityGML survey. Only the
 // documented vertical flattening is applied; no buildings are synthesized.
@@ -315,93 +320,156 @@ export function createWorld(city, survey, { orthoTexture, orthoBounds, profiles 
 
 // Vehicles share materials; only wheels remain separate for steering/spin
 // animation. All models face +Z and sit on the ground at y=0.
-const carPaint = createCarMaterial(), carGlow = createLampMaterial();
+const carPaint = createCarMaterial({ doubleSided: true }), carGlow = createLampMaterial();
 const tireMaterial = new THREE.MeshStandardMaterial({ color: 0x17191a, roughness: .9 });
-const hubMaterial = new THREE.MeshStandardMaterial({ color: 0xa9afb0, metalness: .85, roughness: .32 });
-const { tyre: wheelTyre, rim: wheelRim } = wheelGeometry();
+const { tyre: wheelTyre } = wheelGeometry();
 // Close-up wheels have a recessed brake rotor, machined spokes and lug bolts.
 const wheelFinish = new THREE.MeshStandardMaterial({ vertexColors: true, metalness: .72, roughness: .31 });
-function roadWheel(spokes = 5, aero = false) {
+function roadWheel({ spokes = 5, aero = false, thin = false, face = 0xb1bac1, barrel = 0xc4cbd0, steel = null } = {}) {
   const batch = new Batches(), group = new THREE.Group(), radius = WHEEL.radius;
-  const lathe = profile => new THREE.LatheGeometry(profile.map(([r,x]) => new THREE.Vector2(r*radius,x)),48).rotateZ(Math.PI/2);
+  const lathe = profile => new THREE.LatheGeometry(profile.map(([r,x]) => new THREE.Vector2(r*radius,x)),30).rotateZ(Math.PI/2);
   const rotor = lathe([[.24,-.085],[.50,-.085],[.50,.085],[.24,.085]]);
   batch.add(rotor,wheelFinish,null,0x777a7b);
-  batch.add(lathe([[.55,-.12],[.61,-.131],[.65,-.122],[.65,.122],[.61,.131],[.55,.12]]),wheelFinish,null,0xc4cbd0);
-  const spoke = new THREE.BoxGeometry(.024,.154,aero ? .058 : .020);
-  const lug = new THREE.CylinderGeometry(.008,.009,.012,6).rotateZ(Math.PI/2);
-  const hub = new THREE.CylinderGeometry(.049,.049,.246,32).rotateZ(Math.PI/2);
+  batch.add(lathe([[.55,-.12],[.61,-.131],[.65,-.122],[.65,.122],[.61,.131],[.55,.12]]),wheelFinish,null,barrel);
+  const hub = new THREE.CylinderGeometry(.049,.049,.246,16).rotateZ(Math.PI/2);
   batch.add(hub,wheelFinish,null,0x888e93);
-  for (const side of [-1,1]) for (let i=0;i<spokes;i++) {
-    const angle = i*TAU/spokes, rotorMatrix = new THREE.Matrix4().makeRotationX(angle);
-    for (const fork of [-1,1]) {
-      const local = new THREE.Matrix4().makeRotationX(fork*.19).setPosition(side*.114,.121,fork*.023);
-      batch.add(spoke,wheelFinish,new THREE.Matrix4().multiplyMatrices(rotorMatrix,local),0xb1bac1);
+  if (steel !== null) {
+    // A pressed steel wheel: a dished disc with a ring of vents and a cap over the hub, the same on both faces.
+    batch.add(lathe([[.12,-.127],[.3,-.121],[.47,-.104],[.56,-.121],[.56,.121],[.47,.104],[.3,.121],[.12,.127]]),wheelFinish,null,steel);
+    const vent = new THREE.CylinderGeometry(.024,.024,.008,10).rotateZ(Math.PI/2), cap = new THREE.CylinderGeometry(.058,.066,.268,18).rotateZ(Math.PI/2);
+    batch.add(cap,wheelFinish,null,0xcfd4d8);
+    for (const side of [-1,1]) for (let i=0;i<10;i++) {
+      batch.add(vent,wheelFinish,new THREE.Matrix4().makeRotationX(i*TAU/10).multiply(new THREE.Matrix4().makeTranslation(side*.113,.137,0)),0x0c0d0e);
     }
-  }
-  for (const side of [-1,1]) for (let i=0;i<5;i++) {
-    const m = new THREE.Matrix4().makeRotationX(i*TAU/5).multiply(new THREE.Matrix4().makeTranslation(side*.124,.032,0));
-    batch.add(lug,wheelFinish,m,0x4f555b);
+  } else {
+    const spoke = new THREE.BoxGeometry(.024,.154,aero ? .058 : thin ? .013 : .020);
+    for (const side of [-1,1]) for (let i=0;i<spokes;i++) {
+      const angle = i*TAU/spokes, rotorMatrix = new THREE.Matrix4().makeRotationX(angle);
+      for (const fork of thin ? [0] : [-1,1]) {
+        const local = new THREE.Matrix4().makeRotationX(fork*.19).setPosition(side*.114,.121,fork*.023);
+        batch.add(spoke,wheelFinish,new THREE.Matrix4().multiplyMatrices(rotorMatrix,local),face);
+      }
+    }
+    const lug = new THREE.CylinderGeometry(.008,.009,.012,6).rotateZ(Math.PI/2);
+    for (const side of [-1,1]) for (let i=0;i<5;i++) {
+      const m = new THREE.Matrix4().makeRotationX(i*TAU/5).multiply(new THREE.Matrix4().makeTranslation(side*.124,.032,0));
+      batch.add(lug,wheelFinish,m,0x4f555b);
+    }
   }
   batch.finish(group);
   return group.children[0].geometry;
 }
-const alloy = roadWheel(), sportAlloy = roadWheel(8), aeroAlloy = roadWheel(5,true);
+/** The wheels there are: alloys in five patterns, and pressed steel in silver and in black. */
+export const RIMS = {
+  alloy: roadWheel(), sport: roadWheel({ spokes: 8 }), aero: roadWheel({ aero: true }), multi: roadWheel({ spokes: 14, thin: true, face: 0xc6cdd2 }),
+  dark: roadWheel({ face: 0x2c2f33, barrel: 0x3a3d42 }), steel: roadWheel({ steel: 0x9aa0a5 }), black: roadWheel({ steel: 0x15171a, barrel: 0x1c1e21 }),
+};
+const FINE = /bmw|mercedes|audi|lexus|porsche|infiniti|acura|genesis|jaguar|land-rover|cadillac|lincoln|volvo|maserati|alfa/;
+/**
+ * The wheel a car wears, whether it is drawn alone or in a batch. A patrol car runs on black steel, a cab or
+ * a trade van on steel under a cap; otherwise it is the model's: every car of one model has the same.
+ */
+function rimOf(id = '', shape = 'sedan') {
+  if (/-police$|-emergency/.test(id)) return RIMS.black;
+  if (/-taxi$|-cargo$/.test(id) || shape === 'van') return RIMS.steel;
+  if (/tesla|ioniq|polestar|lucid/.test(id)) return RIMS.aero;
+  if (shape === 'coupe') return RIMS.sport;
+  let sum = 0; for (let i = 0; i < id.length; i++) sum += id.charCodeAt(i);
+  if (FINE.test(id)) return sum % 2 ? RIMS.multi : RIMS.dark;
+  return id && sum % 6 === 0 ? RIMS.dark : id && sum % 6 === 1 ? RIMS.multi : RIMS.alloy;
+}
+const leftIndicator = createLampMaterial(1), rightIndicator = createLampMaterial(-1);
+const flashingSide = car => hasDriver(car) && !car.controlled ? car.indicator || 0 : 0;
+const parkedLamps = createLampMaterial();
+parkedLamps.name = 'Parked car lamps';
+parkedLamps.emissiveIntensity = .02;
 const bodies = new Map();
 const modelPaints = new Map();
 /** The colour of a boro taxi, as the simulation names it. */
 export const GREEN_CAB = 0x74b541;
 
 /** Lamps brighten after dark; 0 is daylight, 1 is night. Shared by every car. */
-export function setVehicleLamps(night) { carGlow.emissiveIntensity = .55 + 2.6 * Math.max(0, Math.min(1, night)); }
+export function setVehicleLamps(night) { leftIndicator.emissiveIntensity = rightIndicator.emissiveIntensity = carGlow.emissiveIntensity = .55 + 2.6 * Math.max(0, Math.min(1, night)); setPlateGlow(night); }
 
 /** The body a car has (fleet.js): however it is drawn, it is the same one. */
 export const carShape = bodyShape;
 
 /**
- * Cars drawn together. However many there are, they are a handful of
- * instanced meshes: a body and lamps for each body style, tyres and wheels.
+ * Cars of each style share instanced bodywork, glazing and lamps. The whole
+ * set shares wheels and low-detail interiors.
  * Each stands as the simulation has it, its wheels on their own patches of
  * road, but nothing turns: this is for cars at rest, and for cars too far off
  * for a turning wheel to be seen.
  */
-// The same vertices under a geometry of its own: each set of cars adds its own
-// instance paint without copying, or overwriting, the exterior they share.
-function shareGeometry(source) {
-  const geometry = new THREE.BufferGeometry();
-  for (const [name, attribute] of Object.entries(source.attributes)) geometry.setAttribute(name, attribute);
-  geometry.setIndex(source.index); geometry.boundingSphere = source.boundingSphere; geometry.boundingBox = source.boundingBox;
-  return geometry;
-}
-
 function createCarSet({ name, label, capacity, lit, select, library }) {
   const group = new THREE.Group(); group.name = name;
-  const paint = createCarMaterial({ instancedPaint: true }); paint.name = `${label} car paint, glass and trim`;
+  const paint = createCarMaterial({ instancedPaint: true }); paint.name = `${label} car paint and trim`;
   const exteriorPaint = createCarMaterial({ instancedPaint: true, doubleSided: true });
   // Traffic shows the lamps every moving car shows. Nobody leaves their lights on at the kerb.
-  const lens = lit ? carGlow : createLampMaterial();
-  if (!lit) { lens.name = `${label} car lamps`; lens.emissiveIntensity = .02; }
-  const styles = new Map(), meshes = [];
-  const add = mesh => { mesh.count = 0; mesh.frustumCulled = false; group.add(mesh); meshes.push(mesh); };
+  const lens = lit ? carGlow : parkedLamps;
+  const styles = new Map();
+  const add = mesh => { mesh.count = 0; mesh.frustumCulled = false; group.add(mesh); };
   const style = (key, type, shape, tone, model = null) => {
     // Instance tint belongs to this set. Near cars and the other set can
     // share the source without overwriting each other's paint attributes.
-    const built = model ? { body: shareGeometry(model.body), lamps: shareGeometry(model.lamps) } : buildCar({ type, shape, paint: tone });
+    const built = model || buildCar({ type, shape, paint: tone });
+    const exterior = batchExterior(built);
     const tint = new THREE.InstancedBufferAttribute(new Float32Array(capacity * 3), 3);
-    built.body.setAttribute('aPaint', tint);
-    const body = new THREE.InstancedMesh(built.body, model ? exteriorPaint : paint, capacity); body.name = `${label} ${key} bodies`; body.castShadow = true; body.receiveShadow = true;
-    const lamps = new THREE.InstancedMesh(built.lamps, lens, capacity); lamps.name = `${label} ${key} lamps`;
-    add(body); add(lamps);
-    styles.set(key, { body, lamps, tint, used: 0, idle: 0, model, painted: tone !== 0xffffff, wheels: model?.wheels || WHEEL });
+    exterior.body.setAttribute('aPaint', tint);
+    const body = new THREE.InstancedMesh(exterior.body, model ? exteriorPaint : paint, capacity); body.name = `${label} ${key} bodies`; body.castShadow = true; body.receiveShadow = true;
+    const lampGeometry = new THREE.BufferGeometry();
+    for (const [key,attr] of Object.entries(built.lamps.attributes)) lampGeometry.setAttribute(key,attr);
+    lampGeometry.setIndex(built.lamps.index);
+    const indicators = new THREE.InstancedBufferAttribute(new Float32Array(capacity),1);
+    lampGeometry.setAttribute('aIndicator',indicators);
+    const lamps = new THREE.InstancedMesh(lampGeometry, lens, capacity); lamps.name = `${label} ${key} lamps`;
+    const meshes = [body, lamps];
+    for (const [geometry, material] of exterior.windows) {
+      if (!geometry) continue;
+      const windows = new THREE.InstancedMesh(geometry, material, capacity);
+      windows.name = `${label} ${key} ${material.name}`;
+      meshes.push(windows);
+    }
+    for (const mesh of meshes) { mesh.instanceMatrix = body.instanceMatrix; add(mesh); }
+    styles.set(key, { body, lamps, indicators, meshes, tint, used: 0, idle: 0, built, model, painted: tone !== 0xffffff, wheels: model?.wheels || WHEEL, rim: rimOf(model?.id, shape),
+      cabin: cabinTransform(exterior.layout), driver: cabinTransform(exterior.layout, true) });
+  };
+  const removeStyle = item => {
+    for (const mesh of item.meshes) {
+      // The batch owns its panel indices and paint instances. Its vertices and lamps belong to the source.
+      if (mesh === item.lamps) {
+        mesh.geometry.setIndex(null);
+        for (const name of Object.keys(item.built.lamps.attributes)) mesh.geometry.deleteAttribute(name);
+        mesh.geometry.dispose();
+      } else {
+        if (item.model) for (const name of Object.keys(item.model.body.attributes)) mesh.geometry.deleteAttribute(name);
+        mesh.geometry.dispose();
+      }
+      mesh.removeFromParent(); mesh.dispose();
+    }
+    if (!item.model) { item.built.body.dispose(); item.built.lamps.dispose(); }
   };
   for (const shape of BODY_SHAPES) style(shape, 'sedan', shape, 0xffffff);
   // A cab has a roof light and a band along its doors, so it is built in its own colour.
   if (lit) { style('cab', 'taxi', 'sedan', 0xf3ba31); style('boro cab', 'taxi', 'sedan', GREEN_CAB); }
   const tyres = new THREE.InstancedMesh(wheelTyre, tireMaterial, capacity * 4); tyres.name = `${label} car tyres`; tyres.castShadow = true;
-  const rims = new THREE.InstancedMesh(wheelRim, hubMaterial, capacity * 4); rims.name = `${label} car wheels`;
-  add(tyres); add(rims);
-  const FIELDS = 10, seen = new Float64Array(capacity * FIELDS), pose = new Float64Array(FIELDS);
-  const matrix = new THREE.Matrix4(), position = new THREE.Vector3(), quaternion = new THREE.Quaternion(), euler = new THREE.Euler(0, 0, 0, 'YXZ'), one = new THREE.Vector3(1, 1, 1), color = new THREE.Color();
-  const ids = [], looks = [], colors = [], wheelScale = new THREE.Vector3();
+  // The alloys a car shows close by are the ones it shows from down the street.
+  const rims = new Map(Object.entries(RIMS).map(([pattern, geometry]) => {
+    const mesh = new THREE.InstancedMesh(geometry, wheelFinish, capacity * 4); mesh.name = `${label} car wheels, ${pattern}`; add(mesh);
+    return [geometry, mesh];
+  }));
+  // Each car's own number, front and back.
+  const plates = createPlateBatch(capacity, `${label} number plates`); group.add(plates.mesh);
+  add(tyres);
+  const interiorBatch = occupant => {
+    const template = cabinMesh(occupant, true), mesh = new THREE.InstancedMesh(template.geometry, template.material, capacity);
+    mesh.name = `${label} ${template.name}`;
+    mesh.receiveShadow = true; add(mesh); return mesh;
+  };
+  const cabins = interiorBatch(-1), drivers = new Map();
+  const FIELDS = 12, seen = new Float64Array(capacity * FIELDS), pose = new Float64Array(FIELDS);
+  const matrix = new THREE.Matrix4(), interiorMatrix = new THREE.Matrix4(), position = new THREE.Vector3(), quaternion = new THREE.Quaternion(), euler = new THREE.Euler(0, 0, 0, 'YXZ'), one = new THREE.Vector3(1, 1, 1), color = new THREE.Color();
+  const ids = [], looks = [], colors = [], worn = [], shod = [], wheelScale = new THREE.Vector3();
   let count = -1;
   const styleOf = car => {
     // A cab or a patrol car wears its own model once that is drawn: its livery is part of the exterior.
@@ -416,16 +484,26 @@ function createCarSet({ name, label, capacity, lit, select, library }) {
   return {
     group,
     get count() { return Math.max(0, count); },
-    /** Redraws only when a car has come, gone, moved or been re-seated on the ground. */
-    update(cars = []) {
+    /** A stationary row needs no new uploads until its appearance or occupancy changes. */
+    update(cars = [], drawDriver = null) {
       let n = 0, changed = false;
       for (const car of cars) {
         if (!select(car) || n >= capacity) continue;
         const wheels = car.wheelHeights || [];
         pose[0] = car.x; pose[1] = car.y || 0; pose[2] = car.z; pose[3] = car.angle || 0; pose[4] = car.pitch || 0; pose[5] = car.roll || 0;
         for (let i = 0; i < 4; i++) pose[6 + i] = Number.isFinite(wheels[i]) ? wheels[i] : pose[1];
+        pose[10] = hasDriver(car) ? driverLook(car.id,car.type,car.unit) : -1;
+        pose[11] = flashingSide(car);
         const look = styleOf(car);
-        if (ids[n] !== car.id || looks[n] !== look || colors[n] !== car.color) changed = true;
+        if (drawDriver && pose[10] >= 0) {
+          quaternion.setFromEuler(euler.set(pose[4], pose[3], pose[5], 'YXZ'));
+          matrix.compose(position.set(car.x, pose[1]+.025, car.z), quaternion, one);
+          position.set(0,.56,0).applyMatrix4(look.driver).applyMatrix4(matrix);
+          if (drawDriver(car, position)) pose[10] = -1;
+        }
+        const plate = plateFor(car);
+        if (ids[n] !== car.id || looks[n] !== look || colors[n] !== car.color || worn[n] !== plate || shod[n] !== car.rims) changed = true;
+        worn[n] = plate; shod[n] = car.rims;
         ids[n] = car.id; looks[n] = look; colors[n] = car.color;
         for (let i = 0; i < FIELDS; i++) if (seen[n * FIELDS + i] !== pose[i]) { changed = true; seen[n * FIELDS + i] = pose[i]; }
         n++;
@@ -434,6 +512,9 @@ function createCarSet({ name, label, capacity, lit, select, library }) {
       if (!changed) return false;
       count = n; ids.length = looks.length = colors.length = n;
       for (const item of styles.values()) item.used = 0;
+      for (const driver of drivers.values()) driver.count = 0;
+      for (const mesh of rims.values()) mesh.count = 0;
+      plates.begin();
       let wheel = 0, slot = 0;
       for (const car of cars) {
         if (!select(car) || slot >= n) continue;
@@ -441,7 +522,16 @@ function createCarSet({ name, label, capacity, lit, select, library }) {
         const o = slot++ * FIELDS, x = seen[o], y = seen[o + 1], z = seen[o + 2], angle = seen[o + 3];
         // The same pose a driven car takes at rest: yaw at the root, tilt on the chassis.
         position.set(x, y + .025, z); euler.set(seen[o + 4], angle, seen[o + 5], 'YXZ'); quaternion.setFromEuler(euler);
-        matrix.compose(position, quaternion, one); item.body.setMatrixAt(i, matrix); item.lamps.setMatrixAt(i, matrix);
+        matrix.compose(position, quaternion, one); item.body.setMatrixAt(i, matrix);
+        plates.add(matrix, item.built, plateFor(car));
+        cabins.setMatrixAt(slot - 1, interiorMatrix.multiplyMatrices(matrix, item.cabin));
+        item.indicators.setX(i,seen[o + 11]);
+        const occupant = seen[o + 10];
+        if (occupant >= 0) {
+          if (!drivers.has(occupant)) drivers.set(occupant, interiorBatch(occupant));
+          const driver = drivers.get(occupant);
+          driver.setMatrixAt(driver.count++, interiorMatrix.multiplyMatrices(matrix, item.driver));
+        }
         if (item.painted) item.tint.setXYZ(i, 1, 1, 1);
         else { color.set(car.color || '#8f969b'); item.tint.setXYZ(i, color.r, color.g, color.b); }
         const sin = Math.sin(angle), cos = Math.cos(angle);
@@ -451,26 +541,29 @@ function createCarSet({ name, label, capacity, lit, select, library }) {
         for (const side of [-axle.x, axle.x]) for (const reach of [axle.rear, axle.front]) {
           // Each tyre stands on its own measured patch of road.
           position.set(x + cos * side + sin * reach, seen[o + 6 + k++] + axle.radius + .035, z - sin * side + cos * reach);
-          matrix.compose(position, quaternion, wheelScale); tyres.setMatrixAt(wheel, matrix); rims.setMatrixAt(wheel, matrix); wheel++;
+          // The wheels a body shop has fitted, or the model's own.
+          const rim = rims.get(RIMS[car.rims] || item.rim);
+          matrix.compose(position, quaternion, wheelScale); tyres.setMatrixAt(wheel++, matrix); rim.setMatrixAt(rim.count++, matrix);
         }
       }
       for (const [key, item] of styles) {
-        item.body.count = item.lamps.count = item.used;
-        // A style nobody is using costs nothing, and an exterior long out of sight gives its place back.
-        item.body.visible = item.lamps.visible = item.used > 0;
-        if (item.used) { item.idle = 0; item.body.instanceMatrix.needsUpdate = item.lamps.instanceMatrix.needsUpdate = item.tint.needsUpdate = true; }
+        for (const mesh of item.meshes) { mesh.count = item.used; mesh.visible = item.used > 0; }
+        if (item.used) { item.idle = 0; item.indicators.needsUpdate = item.body.instanceMatrix.needsUpdate = item.tint.needsUpdate = true; }
         else if (item.model && ++item.idle > 900) {
-          styles.delete(key);
-          for (const mesh of [item.body, item.lamps]) { mesh.removeFromParent(); meshes.splice(meshes.indexOf(mesh), 1); mesh.dispose(); }
+          styles.delete(key); removeStyle(item);
         }
       }
-      tyres.count = rims.count = wheel; tyres.visible = rims.visible = wheel > 0; tyres.instanceMatrix.needsUpdate = rims.instanceMatrix.needsUpdate = true;
+      cabins.count = n; cabins.visible = n > 0; cabins.instanceMatrix.needsUpdate = true;
+      for (const driver of drivers.values()) { driver.visible = driver.count > 0; driver.instanceMatrix.needsUpdate = true; }
+      tyres.count = wheel; tyres.visible = wheel > 0; tyres.instanceMatrix.needsUpdate = true;
+      for (const mesh of rims.values()) { mesh.visible = mesh.count > 0; mesh.instanceMatrix.needsUpdate = true; }
+      plates.end();
       return true;
     },
     dispose() {
-      for (const item of styles.values()) { item.body.geometry.dispose(); item.lamps.geometry.dispose(); }
-      for (const mesh of meshes) mesh.dispose();
-      paint.dispose(); exteriorPaint.dispose(); if (!lit) lens.dispose(); group.removeFromParent();
+      for (const item of styles.values()) removeStyle(item);
+      for (const mesh of group.children) mesh.dispose();
+      paint.dispose(); exteriorPaint.dispose(); group.removeFromParent();
     },
   };
 }
@@ -505,10 +598,36 @@ motor.box(upholstery,.08,.06,0,.70,.12,.51,0x383b40);
 for (let i=0; i<5; i++) motor.box(upholstery,.08,.128,-.15+i*.066,.52,.017,.021,0x56595b);
 motor.box(upholstery,-.48,.04,.17,.21,.11,.32,0x26292a);
 motor.finish(engineBay);
-function cabinMesh(occupant = -1) {
-  if (interiors.has(occupant)) return interiors.get(occupant).clone();
+function driverLook(seed = '', type, unit) {
+  if (type === 'police') return patrolAppearance(seed,0,unit).member;
+  const id = String(seed);
+  let sum = 0;
+  for (let i = 0; i < id.length; i++) sum += id.charCodeAt(i);
+  return sum % 4;
+}
+
+function cabinTransform({ width, height, hinge, latch }, driver = false) {
+  const span = hinge - latch, scaleX = width / .93;
+  return new THREE.Matrix4().makeScale(scaleX, height / 1.44, Math.min(1.25, span / 1.2))
+    .setPosition(driver ? .39 * scaleX : 0, 0, latch + .36 * span);
+}
+
+function addSteeringWheel(batch,x,y,z,distant) {
+  const ring = new THREE.TorusGeometry(.16,.018,6,24);
+  batch.add(ring,upholstery,new THREE.Matrix4().setPosition(x,y,z),0x18191b);
+  batch.box(upholstery,x,y,z,.27,.036,.038,0x383b40);
+  batch.box(upholstery,x,y,z-.02,.11,.074,.04,0x28292c);
+}
+const steeringTemplate = new THREE.Group(), wheelBatch = new Batches();
+addSteeringWheel(wheelBatch,0,0,0,false);
+wheelBatch.finish(steeringTemplate,false);
+
+function cabinMesh(occupant = -1, distant = false) {
+  const key = `${occupant}:${distant}`;
+  if (interiors.has(key)) return interiors.get(key).clone();
   const batch = new Batches(), group = new THREE.Group(), matrix = new THREE.Matrix4();
-  const cushion = new THREE.SphereGeometry(1, 16, 10);
+  // The same upholstery near and far: a seat does not change its shape as the car drives off.
+  const cushion = new THREE.SphereGeometry(1, 12, 7);
   const pad = (x,y,z,w,h,d,color,tilt=0) => {
     matrix.makeRotationX(tilt).scale(new THREE.Vector3(w,h,d)).setPosition(x,y,z);
     batch.add(cushion,upholstery,matrix,color);
@@ -532,18 +651,20 @@ function cabinMesh(occupant = -1) {
     batch.box(upholstery,0,.83,.47,1.47,.021,.052,0x747778);
     batch.box(upholstery,0,.93,.48,.27,.16,.045,0x171d22);
     batch.box(upholstery,0,.93,.451,.24,.132,.008,0x354652);
-    const wheel = new THREE.TorusGeometry(.16,.018,8,36);
-    matrix.makeRotationX(.38).setPosition(.39,.86,.28);
-    batch.add(wheel,upholstery,matrix,0x18191b);
-    batch.box(upholstery,.39,.86,.28,.27,.036,.038,0x383b40);
-    batch.box(upholstery,.39,.86,.26,.11,.074,.04,0x28292c);
+    if (distant) addSteeringWheel(batch, .39,.86,.28, true);
   } else {
-    const skin = [0xaa7452,0xd2a381,0x8e5e42,0xc99574][occupant];
-    const coat = [0x32444f,0x845b4b,0x354638,0x4b485a][occupant];
+    const patrol = occupant >= OFFICERS[0] ? patrolLookForMember(occupant) : null;
+    const skin = patrol?.skin ?? [0xaa7452,0xd2a381,0x8e5e42,0xc99574][occupant];
+    const coat = patrol?.top ?? [0x32444f,0x845b4b,0x354638,0x4b485a][occupant];
     pad(0,.72,0,.19,.24,.11,coat,-.12);
     pad(0,.94,-.005,.061,.084,.057,skin);
     pad(0,1.063,-.015,.095,.131,.099,skin);
     pad(0,1.13,-.035,.099,.084,.099,0x312a27);
+    if (patrol) {
+      pad(0,1.15,-.019,.114,.059,.117,0x263951);
+      pad(0,1.134,.065,.100,.009,.09,0x181e25,.09);
+      pad(.065,.829,.095,.019,.022,.006,0xbabdb7);
+    }
     pad(0,1.055,.08,.029,.035,.028,skin);
     for (const side of [-1,1]) {
       pad(side*.042,1.082,.071,.015,.008,.009,0x423832);
@@ -556,17 +677,17 @@ function cabinMesh(occupant = -1) {
   batch.finish(group,false);
   const mesh = group.children[0]; mesh.removeFromParent();
   mesh.name = occupant < 0 ? 'Cabin upholstery' : 'Seated driver';
-  interiors.set(occupant,mesh); return mesh.clone();
+  interiors.set(key,mesh); return mesh.clone();
 }
 
-export function createCar({ type = 'sedan', color: tint = 0xbcc5bd, seed = '', shape: given = null, model = null } = {}) {
+export function createCar({ unit = 'patrol', type = 'sedan', color: tint = 0xbcc5bd, seed = '', shape: given = null, model = null, plate = null, rims = null } = {}) {
   const group = new THREE.Group(); group.name = type;
-  Object.assign(group.userData, { model, tint, given });
+  Object.assign(group.userData, { model, tint, given, unit });
   const taxi = type === 'taxi', police = type === 'police';
   // Yellow in the Manhattan core; apple green for the cabs that serve everywhere else.
   if (taxi) tint = new THREE.Color(tint).getHex() === GREEN_CAB ? GREEN_CAB : 0xf3ba31;
   if (police) tint = 0xe4e9e4;
-  const shape = carShape(type, seed, given);
+  const shape = police && unit==='esu' ? 'van' : carShape(type, seed, given);
   const key = `${type}:${shape}:${new THREE.Color(tint).getHexString()}`;
   // Identical cars share one set of geometry.
   if (!model && !bodies.has(key)) bodies.set(key, buildCar({ type, shape, paint: tint }));
@@ -577,7 +698,11 @@ export function createCar({ type = 'sedan', color: tint = 0xbcc5bd, seed = '', s
   const chassis = new THREE.Group();
   const detail = group.userData.detail = fitExterior(chassis, built, model ? modelPaints.get(tint) : carPaint);
   group.addEventListener('removed', () => releaseCrumple(detail));
-  for (const [i,side] of [1,-1].entries()) {
+  // Its own number, front and back, unless it is from a state that issues one plate.
+  const plates = detail.plates = createPlateMesh(built, plate || plateFor({ id: seed, type, color: '#' + new THREE.Color(tint).getHexString() }));
+  chassis.add(plates); group.userData.plate = plates.userData.plate; group.userData.rims = rims;
+  // A scanned exterior does not say where its doors are, and a card set by guesswork stands out through its skin.
+  if (!model || model.layout) for (const [i,side] of [1,-1].entries()) {
     const card = doorTemplate.children[0].clone();
     card.scale.set(side,detail.height,detail.hinge-detail.latch);
     detail.doors[i].add(card);
@@ -586,16 +711,27 @@ export function createCar({ type = 'sedan', color: tint = 0xbcc5bd, seed = '', s
   detail.bay.scale.set(detail.width*.70,1,(detail.bounds.max.z-detail.hood.position.z)*.59);
   detail.bay.position.set(0,detail.height*.40,detail.hood.position.z+detail.bay.scale.z*.40);
   detail.bay.visible = false; chassis.add(detail.bay);
-  const cabin = cabinMesh(), driver = detail.driver = cabinMesh(String(seed).split('').reduce((n,c)=>n+c.charCodeAt(0),0) % 4);
-  cabin.scale.set(detail.width/.93, detail.height/1.44, Math.min(1.25,(detail.hinge-detail.latch)/1.2));
-  cabin.position.z = detail.seatZ;
-  driver.scale.copy(cabin.scale); driver.position.set(.39*cabin.scale.x,0,detail.seatZ);
+  const cabin = cabinMesh(), driver = detail.driver = cabinMesh(driverLook(seed,type,unit));
+  detail.steeringWheel = steeringTemplate.children[0].clone();
+  detail.steeringWheel.position.set(.39,.86,.28);
+  detail.steeringWheel.rotation.x = .38;
+  cabin.add(detail.steeringWheel);
+  cabin.applyMatrix4(cabinTransform(detail)); driver.applyMatrix4(cabinTransform(detail, true));
   driver.visible = false;
   chassis.add(cabin,driver);
   const lamps = detail.lamps = new THREE.Mesh(built.lamps, carGlow); lamps.name = 'Car lamps';
   chassis.add(lamps); group.add(chassis); group.userData.chassis = chassis; group.userData.shape = shape;
   group.userData.lights = [];
   if (police) {
+    if(unit==='esu'){
+      const rack=new Parts();
+      for(const side of [-1,1]){
+        rack.box([side*.48,built.roof+.09,-.89],[.07,.12,1.15],0x65717a);
+        rack.lettering('EMERGENCY SERVICE',[side*(detail.width+.003),built.roof*.65,-.72],1.20,.15,side*Math.PI/2,'#254571','#f1f0e6');
+      }
+      rack.box([0,built.roof+.18,-.89],[.99,.13,1.22],0x56616a);
+      const equipment=rack.finish();equipment.name='Emergency Service utility equipment';chassis.add(equipment);
+    }
     for (const [x, tone] of [[-0.38, 0x3379fa], [0.38, 0xfa493d]]) {
       // Each light owns its material so one police car can flash independently.
       const material = new THREE.MeshStandardMaterial({ color: tone, emissive: tone, emissiveIntensity: 1.5, roughness: 0.22 });
@@ -604,7 +740,7 @@ export function createCar({ type = 'sedan', color: tint = 0xbcc5bd, seed = '', s
     }
   }
   group.userData.wheels = [];
-  const rim = /tesla|ioniq|polestar|lucid/i.test(model?.id || '') ? aeroAlloy : shape === 'coupe' ? sportAlloy : alloy;
+  const rim = RIMS[rims] || rimOf(model?.id, shape);
   for (const x of [-axle.x, axle.x]) for (const z of [axle.rear, axle.front]) {
     const wheel = new THREE.Group(); wheel.position.set(x, axle.radius + .01, z);
     const roll = new THREE.Group();
@@ -623,8 +759,12 @@ export function createCar({ type = 'sedan', color: tint = 0xbcc5bd, seed = '', s
 /** Pose a +Z-facing car using its physical heading, steering yaw and signed speed. */
 export function updateCarVisuals(mesh, car, dt) {
   poseExterior(mesh.userData.detail, car);
-  mesh.userData.detail.lamps.visible = !car.destroyed;
+  mesh.userData.detail.lamps.visible = mesh.userData.detail.plates.visible = !car.destroyed;
+  const signal = flashingSide(car);
+  mesh.userData.detail.lamps.material = signal > 0 ? leftIndicator : signal < 0 ? rightIndicator
+    : car.parked && !car.controlled ? parkedLamps : carGlow;
   const steering = Number.isFinite(car._steering) ? car._steering : 0;
+  mesh.userData.detail.steeringWheel.rotation.z = -3 * steering;
   const speed = Number.isFinite(car.speed) ? car.speed : 0;
   const seconds = Math.max(0, dt);
   const previous=mesh.userData.ride;
@@ -642,7 +782,9 @@ export function updateCarVisuals(mesh, car, dt) {
   if (chassis) {
     ride.leanRoll = THREE.MathUtils.damp(ride.leanRoll, THREE.MathUtils.clamp(lateral * .0045, -.055, .055), 7, seconds);
     ride.leanPitch = THREE.MathUtils.damp(ride.leanPitch, THREE.MathUtils.clamp(-longitudinal * .002, -.035, .035), 8, seconds);
-    chassis.rotation.set(ride.pitch+ride.leanPitch,0,ride.roll+ride.leanRoll,'YXZ');
+    const rock=car.bodyRock, weight=rock?.weight||0;
+    chassis.position.y=(rock?.heave||0)*weight;
+    chassis.rotation.set(ride.pitch+ride.leanPitch+(rock?.pitch||0)*weight,0,ride.roll+ride.leanRoll+(rock?.roll||0)*weight,'YXZ');
   }
   for (const [i,wheel] of (mesh.userData.wheels || []).entries()) {
     const measured=car.wheelHeights?.[i];

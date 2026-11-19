@@ -18,7 +18,7 @@ const v = xyz => new THREE.Vector3(...xyz);
 
 // Join static surfaces by finish. Windows and hundreds of rail posts cost the
 // same few draw calls as a small craft. Articulated parts have their own pivot.
-class Parts {
+export class Parts {
   constructor(root = new THREE.Group()) { this.root = root; this.batches = new Map(); }
   add(geometry, color, xyz, rotation = null, scale = null, finish = 'paint') {
     if (rotation) geometry.applyQuaternion(rotation.isQuaternion ? rotation : new THREE.Quaternion().setFromEuler(new THREE.Euler(...rotation)));
@@ -125,20 +125,20 @@ function wheel(p,x,y,z,r,width) {
   p.add(new THREE.CylinderGeometry(r*.6,r*.6,width,16),STEEL,[x,y,z],ax);
   p.rod([x-width*.55,y,z],[x+width*.55,y,z],r*.22,BLACK);
 }
-function helicopter(p) {
+function helicopter(p, trim=0xdf6742) {
   const body=[[-2.35,.34,1.06,1.92],[-1.35,.94,.74,2.45],[.55,1.08,.69,2.56],[1.63,.93,.77,2.27],[2.43,.36,1,1.65],[2.53,.06,1.17,1.44]];
   p.loft(body,circle,WHITE);
   for(const [a,b] of [[-.17,1.54],[1.60,Math.PI+.17]])p.wrap(body,.55,2.45,a,b,GLASS);
   for(const [a,b] of [[-.14,.84],[Math.PI-.84,Math.PI+.14]]){
     p.wrap(body,-1.28,-.50,a,b,GLASS);p.wrap(body,-.39,.44,a,b,GLASS);
   }
-  p.wrap(body,-2.30,2.45,Math.PI+.37,2*Math.PI-.37,0xdf6742,'paint');
+  p.wrap(body,-2.30,2.45,Math.PI+.37,2*Math.PI-.37,trim,'paint');
   for (const sign of [-1,1]) {
     p.rod([sign*.99,.17,-1.68],[sign*.99,.17,1.47],.085,BLACK);
     p.rod([sign*.99,.17,1.47],[sign*.99,.37,1.79],.08,BLACK);
     for (const z of [-.95,.86]) p.rod([sign*.66,.94,z],[sign*.99,.18,z-.12],.062,STEEL);
   }
-  p.loft([[-6.1,.12,1.61,1.92],[-3.65,.23,1.43,1.95],[-1.3,.53,1.16,2.13]],circle,0xdf6742);
+  p.loft([[-6.1,.12,1.61,1.92],[-3.65,.23,1.43,1.95],[-1.3,.53,1.16,2.13]],circle,trim);
   p.plate([[-6.23,1.54],[-6.43,2.98],[-6.07,3.0],[-5.53,1.68]],.11,NAVY,[.055,0,0]);
   p.box([0,1.66,-4.68],[2.05,.1,.46],WHITE);
   p.oval([0,2.43,-.67],[.58,.38,1.02],NAVY);
@@ -266,16 +266,16 @@ function kayak(p) {
     for(const s of [-1,1]) b.oval([s*.94,0,0],[.29,.035,.103],GOLD);
   });
 }
-function twoWheeler(p, moto) {
+function twoWheeler(p, moto, paint=0x1b8282) {
   const r=moto ? .327 : .116, front=moto ? .72 : .47, rear=moto ? -.73 : -.43;
   wheel(p,0,r,front,r,moto ? .16 : .06);wheel(p,0,r,rear,r,moto ? .16 : .06);
   if(moto){
     p.rod([0,.39,rear],[0,.59,.06],.073,STEEL);
     p.oval([0,.52,-.08],[.244,.255,.295],BLACK);
     for(let i=0;i<5;i++)p.box([0,.47+i*.041,.005],[.46,.019,.32],STEEL);
-    p.loft([[-.34,.15,.67,.81],[-.12,.24,.62,.96],[.20,.23,.65,1.01],[.4,.13,.73,.87]],circle,0x1b8282);
+    p.loft([[-.34,.15,.67,.81],[-.12,.24,.62,.96],[.20,.23,.65,1.01],[.4,.13,.73,.87]],circle,paint);
     p.oval([0,.793,-.47],[.196,.087,.31],BLACK);
-    p.box([0,.7,-.70],[.27,.13,.32],0x1b8282,[-.17,0,0]);
+    p.box([0,.7,-.70],[.27,.13,.32],paint,[-.17,0,0]);
     p.rod([-.21,.36,-.8],[-.21,.35,-.16],.075,STEEL);
     for(const s of [-1,1]) {
       p.rod([s*.1,r,front],[s*.1,1.04,.43],.033,STEEL);
@@ -357,20 +357,21 @@ function trainModel(p) {
 }
 
 const templates = new Map();
-export function createTransportModel(type) {
-  if (!templates.has(type)) {
+export function createTransportModel(type, {paint}={}) {
+  const key=paint===undefined?type:type+'-'+paint;
+  if (!templates.has(key)) {
     const p = new Parts(), spec = TRANSPORT[type];
     switch (spec.kind) {
-      case 'rotor': helicopter(p); break;
+      case 'rotor': helicopter(p,paint); break;
       case 'plane': fixedWing(p,type); break;
       case 'boat': if (type==='kayak') kayak(p); else poweredBoat(p,type==='ferry'); break;
-      case 'street': if(type==='bus')busModel(p);else twoWheeler(p,type==='motorcycle'); break;
+      case 'street': if(type==='bus')busModel(p);else twoWheeler(p,type==='motorcycle',paint); break;
       case 'cable': tram(p); break;
       case 'rail': trainModel(p); break;
     }
-    const model = p.finish(); model.name = spec.name; templates.set(type,model);
+    const model = p.finish(); model.name = spec.name; templates.set(key,model);
   }
-  return templates.get(type).clone();
+  return templates.get(key).clone();
 }
 
 function railway(heightAt) {

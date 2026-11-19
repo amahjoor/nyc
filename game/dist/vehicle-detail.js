@@ -1,5 +1,4 @@
-// Close-range articulated exteriors. Parts retain the original positions,
-// paint samples and normals. The distant traffic batches use the intact mesh.
+// The articulated and batched exteriors classify the same triangles as glazing.
 import * as THREE from './vendor/three.module.min.js';
 import { PANEL, doorPanel, hasDriver } from './vehicle-damage.js';
 import { EXTERIOR_PARTS } from './vehicle-generator.js';
@@ -10,7 +9,15 @@ const glass = new THREE.MeshPhysicalMaterial({
   color: 0x769399, transparent: true, opacity: .34, roughness: .09, metalness: .12,
   clearcoat: 1, clearcoatRoughness: .045, side: THREE.DoubleSide, depthWrite: false, forceSinglePass: true,
 });
-const privacy = glass.clone(); privacy.color.setHex(0x32454d); privacy.opacity = .64;
+function lightenInside(shader) {
+  shader.fragmentShader = shader.fragmentShader.replace('#include <color_fragment>',
+    '#include <color_fragment>\nif (!gl_FrontFacing) diffuseColor.a *= .16;');
+}
+glass.onBeforeCompile = lightenInside;
+const privacy = glass.clone();
+privacy.onBeforeCompile = lightenInside;
+privacy.color.setHex(0x32454d); privacy.opacity = .40;
+glass.name = 'Clear glass'; privacy.name = 'Privacy glass';
 const char = new THREE.MeshStandardMaterial({ color: 0x292727, metalness: .23, roughness: .91, side: THREE.DoubleSide });
 const cracked = glass.clone();
 cracked.onBeforeCompile = shader => {
@@ -23,12 +30,24 @@ cracked.onBeforeCompile = shader => {
     float crack = max(1.0 - smoothstep(.001, .008, rays), (1.0 - smoothstep(.015, .045, rings)) * (1.0 - smoothstep(.04,.24,r)));
     diffuseColor.rgb = mix(diffuseColor.rgb, vec3(.84,.9,.91), crack);
     diffuseColor.a = mix(diffuseColor.a, .86, crack);`);
+  lightenInside(shader);
 };
 
-function partition(built) {
-  if (exteriors.has(built.body)) return exteriors.get(built.body);
+const windshieldCracked = car => car.dents?.[PANEL.front] > .08;
+export function hasAlteredGlazing(car) {
+  return Boolean(car.brokenGlass || car.missingDoors || car.doorOpen || car.destroyed || windshieldCracked(car));
+}
+
+const glazing = { clear: glass, tinted: privacy };
+function surfaceOf(part) {
+  if (part === 'windshield' || part === 'leftGlass' || part === 'rightGlass') return 'clear';
+  return part.endsWith('Glass') ? 'tinted' : 'body';
+}
+
+function partition(built, batched = false) {
+  if (!batched && exteriors.has(built.body)) return exteriors.get(built.body);
   const source = built.body, { position, normal, aFinish, aGlazing } = source.attributes;
-  source.computeBoundingBox();
+  if (!source.boundingBox) source.computeBoundingBox();
   const bounds = source.boundingBox, length = bounds.max.z - bounds.min.z;
   const layout = built.layout || {
     width: Math.abs(built.wheels?.x || .78) + .13, height: built.roof || bounds.max.y,
@@ -38,25 +57,26 @@ function partition(built) {
   const buckets = new Map();
   for (let t = 0, end = source.index?.count ?? position.count; t < end; t += 3) {
     const a = source.index?.getX(t) ?? t, b = source.index?.getX(t+1) ?? t+1, c = source.index?.getX(t+2) ?? t+2;
-    const x = (position.getX(a)+position.getX(b)+position.getX(c))/3;
-    const y = (position.getY(a)+position.getY(b)+position.getY(c))/3;
-    const z = (position.getZ(a)+position.getZ(b)+position.getZ(c))/3;
-    const side = x > 0 ? 'left' : 'right';
-    const sideFacing = Math.abs(normal.getX(a)+normal.getX(b)+normal.getX(c)) > 1.35 && Math.abs(x) > width * .66;
     const pane = aGlazing ? (aGlazing.getX(a)+aGlazing.getX(b)+aGlazing.getX(c)) > 1.5 : Math.abs(aFinish.getX(a)-.06) < .002;
-    const door = sideFacing && z > latch && z < hinge && y > height * .19 && y < height * .97;
     let part = 'body';
-    if (pane) {
-      if (sideFacing) part = door ? side+'Glass' : side+'QuarterGlass';
-      else if (y > height*.93 && Math.abs(z) < length*.2) part = 'roofGlass';
-      else part = z > latch ? 'windshield' : 'rearGlass';
-    }
-    else if (door) part = side;
-    else if (z > cowl && Math.abs(x) < width * .94 && normal.getY(a)+normal.getY(b)+normal.getY(c) > 1.7 && y > height * .33) part = 'hood';
     if (source.userData.panels) {
       part = EXTERIOR_PARTS[source.userData.panels[t/3]];
       if (part === 'body' && pane) part = 'rearGlass';
+    } else if (pane || !batched) {
+      const x = (position.getX(a)+position.getX(b)+position.getX(c))/3;
+      const y = (position.getY(a)+position.getY(b)+position.getY(c))/3;
+      const z = (position.getZ(a)+position.getZ(b)+position.getZ(c))/3;
+      const side = x > 0 ? 'left' : 'right';
+      const sideFacing = Math.abs(normal.getX(a)+normal.getX(b)+normal.getX(c)) > 1.35 && Math.abs(x) > width * .66;
+      const door = sideFacing && z > latch && z < hinge && y > height * .19 && y < height * .97;
+      if (pane) {
+        if (sideFacing) part = door ? side+'Glass' : side+'QuarterGlass';
+        else if (y > height*.93 && Math.abs(z) < length*.2) part = 'roofGlass';
+        else part = z > latch ? 'windshield' : 'rearGlass';
+      } else if (door) part = side;
+      else if (z > cowl && Math.abs(x) < width * .94 && normal.getY(a)+normal.getY(b)+normal.getY(c) > 1.7 && y > height * .33) part = 'hood';
     }
+    if (batched) part = surfaceOf(part);
     if (!buckets.has(part)) buckets.set(part, []);
     buckets.get(part).push(a,b,c);
   }
@@ -68,12 +88,18 @@ function partition(built) {
     parts[name] = g;
   }
   const exterior = { parts, layout };
+  if (batched) return exterior;
   source.addEventListener('dispose', () => {
     for (const g of Object.values(parts)) g.dispose();
     exteriors.delete(source);
   });
   exteriors.set(source, exterior);
   return exterior;
+}
+
+export function batchExterior(built) {
+  const { parts, layout } = partition(built, true);
+  return { body: parts.body, windows: [[parts.clear, glass], [parts.tinted, privacy]], layout };
 }
 
 export function fitExterior(chassis, built, paint) {
@@ -88,17 +114,17 @@ export function fitExterior(chassis, built, paint) {
   const hood = new THREE.Group(); hood.name = 'Hood hinge';
   hood.position.set(0, height*.62, cowl); chassis.add(hood);
   for (const [name, geometry] of Object.entries(parts)) {
-    const window = name.endsWith('Glass') || name === 'windshield';
-    const material = window ? ((name.includes('Quarter') || name === 'rearGlass' || name === 'roofGlass') ? privacy : glass) : paint;
-    const mesh = new THREE.Mesh(geometry,material);
-    mesh.castShadow = !window; mesh.receiveShadow = true;
+    const pane = glazing[surfaceOf(name)];
+    const mesh = new THREE.Mesh(geometry, pane || paint);
+    // Glass shows what it reflects and what is behind it. A shadow laid across it reads as a dark patch on the pane.
+    mesh.castShadow = !pane; mesh.receiveShadow = !pane;
     mesh.name = name === 'body' ? 'Car body' : name;
     const parent = name === 'left' || name === 'leftGlass' ? doors[0] : name === 'right' || name === 'rightGlass' ? doors[1] : name === 'hood' ? hood : chassis;
     if (parent !== chassis) mesh.position.copy(parent.position).negate();
     parent.add(mesh); pieces[name] = mesh;
   }
   return { doors, hood, pieces, paint, width, height, bounds: built.body.boundingBox,
-    seatZ: latch + .36*(hinge-latch), hinge, latch };
+    hinge, latch };
 }
 
 // Identical cars share every intact vertex. Only a damaged car gets a private
@@ -181,7 +207,7 @@ export function poseExterior(detail, car) {
   hood.rotation.z = .055 * (dents[PANEL.front] || 0);
   if (pieces.windshield) {
     pieces.windshield.visible = !(broken & PANEL.front);
-    pieces.windshield.material = dents[PANEL.front] > .08 ? cracked : glass;
+    pieces.windshield.material = windshieldCracked(car) ? cracked : glass;
   }
   if (pieces.rearGlass) pieces.rearGlass.visible = !(broken & PANEL.rear);
   if (pieces.leftQuarterGlass) pieces.leftQuarterGlass.visible = !(broken & PANEL.left);

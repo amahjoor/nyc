@@ -147,6 +147,7 @@ function workingFleet(data, design, paints, performance) {
       return { identity: null, shape: left < vans ? 'van' : 'pickup', working: true };
     } : null,
     paint: paints.length === PAINTS.length && shares.some(Boolean) ? cumulative(shares) : null,
+    emergencyService:design ? {make:'Ford',model:'Transit',year:2021,shape:'van',asset:design('Ford','Transit',2021,'van','emergency-service')} : null,
     // The hybrid Interceptor's combined 318 hp and 2,250 kg are Ford's published figures.
     patrol: design ? { make: 'Ford', model: 'Police Interceptor Utility', year: 2021, shape: 'suv', asset: design('Ford', 'Police Interceptor Utility', 2021, 'suv', 'police'),
       ...(performance ? { performance: carPerformance({ make: 'Ford', model: 'Police Interceptor Utility', year: 2021, shape: 'suv' }, [null, 2250, 'A', 'H'], design('Ford', 'Police Interceptor Utility', 2021, 'suv').design) } : null) } : null,
@@ -199,6 +200,7 @@ export function createFleet(data = null, registrations = null, assets = [], desi
     zips: zips.length,
     /** The patrol car the police drive, or null when no designer draws it. */
     patrol: atWork?.patrol || null,
+    emergencyService: atWork?.emergencyService || null,
     /** The mix for the ZIP code whose middle is nearest (x, z). */
     at(x, z) {
       let nearest = null, best = Infinity;

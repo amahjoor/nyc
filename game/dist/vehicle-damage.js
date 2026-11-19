@@ -4,8 +4,8 @@ export const doorPanel = side => side > 0 ? PANEL.left : PANEL.right;
 export const carCondition = car => car.damage > 0 ? Math.min(99, Math.round(100 * (1 - car.damage))) : 100;
 
 export function hasDriver(car) {
-  return !car.destroyed && Boolean(car.controlled || (!car._crewOut && !car._abandoned && !car._driven && !car.driverEjected &&
-    (car.evacuating || car._jacked || (!car._kerb && !car.parked && car._edge))));
+  return !car.destroyed && Boolean(car.controlled || car.errand?.phase === 'boarded' || (!car._crewOut && !car._abandoned && !car._driven && !car.driverEjected &&
+    (car.hired || car.evacuating || car._jacked || (!car._kerb && !car.parked && car._edge))));
 }
 
 // For two moving bodies the normal change in velocity is proportional to

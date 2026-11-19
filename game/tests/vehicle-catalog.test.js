@@ -1,5 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import * as THREE from '../dist/vendor/three.module.min.js';
 import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { BODIES, catalogVehicles, createFleet, drawVehicle, drawTaxi, drawPaint, vehicleName } from '../dist/fleet.js';
@@ -99,6 +100,20 @@ test('every local exterior decodes to paintable panels, forward and rear lamps a
   }
 });
 
+test('the imported Accord has transparent sightlines through its sloping glass', () => {
+  const spec = art.find(model=>model.id==='honda-accord-2018');
+  const car = createCar({model:decodeVehicleMesh(bufferFor(spec.url),spec)});
+  car.updateMatrixWorld(true);
+  const {pieces} = car.userData.detail;
+  for (const [z,name] of [[1,'windshield'],[-1,'rearGlass']]) {
+    for (const x of [-.25,0,.25]) {
+      const ray = new THREE.Raycaster(new THREE.Vector3(x,1.21,0),new THREE.Vector3(0,0,z));
+      const hit = ray.intersectObjects(Object.values(pieces),false)[0];
+      assert.equal(hit?.object,pieces[name]);
+    }
+  }
+});
+
 test('a stationary car updates as its shared exterior arrives, moves between detail levels and takes a respray', async () => {
   const asset = art[0], identity = { asset }, color = '#234567';
   let loads = 0;
@@ -123,6 +138,35 @@ test('a stationary car updates as its shared exterior arrives, moves between det
   const offline = createVehicleMeshLibrary(async () => { throw Error('offline'); });
   assert.equal(offline.get(asset), null); await nextTick(); assert.equal(offline.get(asset), null);
   parked.dispose(); distant.dispose();
+});
+
+test('parked and passing cars keep the close-up window triangles and tints at a distance', () => {
+  const models = [null, generateVehicle(designFor('Toyota', 'RAV4', 2021, 'suv')), decodeVehicleMesh(bufferFor(art[0].url), art[0])];
+  const triangles = meshes => meshes.flatMap(mesh => {
+    const indices = mesh.geometry.index.array, faces = [];
+    for (let i = 0; i < indices.length; i += 3) faces.push(`${indices[i]},${indices[i + 1]},${indices[i + 2]}`);
+    return faces;
+  }).sort();
+  for (const model of models) {
+    const car = { id: 'space', type: 'sedan', shape: 'sedan', color: '#ab4341', x: 0, z: 0, _kerb: true, identity: { asset: model } };
+    const near = createCar({ ...car, seed: car.id, model }), panels = Object.values(near.userData.detail.pieces);
+    for (const createSet of [createParkedCars, createDistantTraffic]) {
+      const batch = createSet({ capacity: 1, library: { get: () => model } });
+      batch.update([car]);
+      const visible = batch.group.children.filter(mesh => mesh.count > 0);
+      const body = visible.find(mesh => mesh.name.endsWith(' bodies'));
+      assert.deepEqual(triangles([body]), triangles(panels.filter(mesh => !mesh.material.transparent)));
+      for (const material of [near.userData.detail.pieces.windshield.material, near.userData.detail.pieces.rearGlass.material]) {
+        const panes = visible.filter(mesh => mesh.material === material);
+        assert.ok(material.transparent && !material.depthWrite && panes.length === 1);
+        assert.ok(!panes[0].castShadow && panes[0].instanceMatrix === body.instanceMatrix);
+        assert.deepEqual(triangles(panes), triangles(panels.filter(mesh => mesh.material === material)));
+      }
+      assert.equal(visible.find(mesh => mesh.name.endsWith('Cabin upholstery')).count, 1);
+      assert.ok(!visible.some(mesh => mesh.name.endsWith('Seated driver')));
+      batch.dispose();
+    }
+  }
 });
 
 test('every named registration without an imported exterior gets one the game draws, an imported one first', () => {
@@ -170,7 +214,7 @@ test('a drawn exterior is a closed, paintable car of its published size with lam
       for (let i = 0; i < g.getAttribute('normal').count; i++) assert.ok(Math.abs(Math.hypot(g.getAttribute('normal').getX(i), g.getAttribute('normal').getY(i), g.getAttribute('normal').getZ(i)) - 1) < .02, spec.id);
     }
     const triangles = (mesh.body.index.count + mesh.lamps.index.count) / 3;
-    assert.ok(triangles > 3000 && triangles < 7000, `${spec.id}: ${triangles} triangles`);
+    assert.ok(triangles > 3000 && triangles < 9000, `${spec.id}: ${triangles} triangles`);
     assert.equal(finish.count, pos.count); assert.equal(weight.count, pos.count);
     const painted = weight.array.reduce((n, v) => n + v, 0) / weight.count;
     assert.ok(painted > .3 && painted < .8, `${spec.id}: ${painted} of its vertices take the paint`);

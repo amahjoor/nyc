@@ -407,6 +407,8 @@ const ROWS = [
 const TYPICAL = { sedan: [4750, 1820, 1455, 2750], coupe: [4600, 1850, 1380, 2700], hatch: [4250, 1770, 1480, 2600], wagon: [4750, 1820, 1500, 2750], suv: [4650, 1870, 1680, 2750], minivan: [5120, 1980, 1750, 3020], pickup: [5650, 2000, 1900, 3550], van: [5450, 2020, 2100, 3350] };
 const PREMIUM = new Set(['Lexus', 'Acura', 'Infiniti', 'BMW', 'Mercedes-Benz', 'Audi', 'Volvo', 'Land Rover', 'Cadillac', 'Lincoln', 'Porsche', 'Genesis', 'Jaguar', 'Maserati', 'Alfa Romeo', 'Tesla', 'Lucid', 'Polestar', 'Rivian']);
 
+const AMBER = new Set(['Toyota', 'Lexus', 'Acura', 'Infiniti', 'BMW', 'Mercedes-Benz', 'Audi', 'Volvo', 'Subaru', 'Porsche', 'MINI', 'Tesla', 'Land Rover', 'Jaguar', 'Genesis', 'Alfa Romeo', 'Maserati']);
+const ELECTRIC = new Set(['Tesla', 'Lucid', 'Rivian', 'Polestar']);
 const hash = text => { let h = 2166136261; for (const c of text) h = Math.imul(h ^ c.charCodeAt(0), 16777619); return h >>> 0; };
 
 /**
@@ -461,6 +463,9 @@ function brandLook(make, year, shape) {
     default: if (!face.grille) grille('trap', { grilleLow: .6 });
   }
   if (!face.grille) grille('trap', { grilleLow: .62, bars: 2 });
+  // Indicators behind an amber lens where the maker fits them; one tailpipe, two on a fast car, none on a battery.
+  if (AMBER.has(make)) rear.amber = true;
+  rear.exhaust = ELECTRIC.has(make) ? 0 : shape === 'coupe' || (PREMIUM.has(make) && !tall) ? 2 : 1;
   return { face, rear };
 }
 
@@ -509,7 +514,7 @@ export function designFor(make, model, year, shape, livery = null) {
   if (livery) {
     // The same car in working dress. A van registered to a trade has no windows behind the cab.
     const plain = designFor(make, model, year, shape), id = plain.id + '-' + livery;
-    if (!cache.has(id)) cache.set(id, { ...plain, id, livery, design: { ...plain.design, livery, ...(livery === 'cargo' ? { cargo: true, doors: 2 } : {}) } });
+    if (!cache.has(id)) cache.set(id, { ...plain, id, livery, design: { ...plain.design, livery, ...((livery === 'cargo' || livery === 'emergency-service') ? { cargo: true, doors: 2 } : {}) } });
     return cache.get(id);
   }
   const entry = rowsFor(make, model);

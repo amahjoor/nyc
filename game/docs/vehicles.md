@@ -34,7 +34,9 @@ Model-year coverage follows recognizable exterior changes. The CR-V scan shows t
 
 Every other named registration gets an exterior the game generates: 929 of them, one for each generation of each model in each body style. A generation is a row of model years with the car's published length, width, height and wheelbase, rounded to 5 mm. The make's grille and lamps of the period, and the body style, supply the rest. A row can override any of it, so a Wrangler stands upright on round lamps and a Prius keeps its one-line roof. 99.5% of named registrations fall on a row of their own. The remainder are models with no row yet: they are drawn as a typical car of their style with their make's face. [Design rows and makes' faces](../dist/vehicle-designs.js) · [Generator](../dist/vehicle-generator.js)
 
-These are likenesses, not surveys. Proportions, wheel positions and overall size follow the real car; panel surfaces, lamp outlines and trim are drawn from a small vocabulary of shapes. Each body is built in the browser the first time a car of that kind comes into view (about 10 ms, 3,600–5,500 triangles) and is shared by parked cars, traffic and the car the player drives. Nothing is downloaded for them. The 6% of registrations with no decoded model still use the eight shared bodies.
+The windscreen and the rear window sit in a black bonded band, with the high stop lamp in the band at the head of the rear window and a wiper parked at the foot of a tailgate's glass. A tail lamp is a dark housing, a red lens standing on it, and under the lens the strip that glows when the car is lit, the stop lamp, a clear reversing lamp and, on the makes that fit one, an amber indicator. It wraps the corner on a saloon, stands up the corner beside the tailgate glass on an SUV or minivan where the body is upright enough to carry it, and is an upright block on a van, a pickup or an older SUV. A pickup has a step bumper and a painted tailgate; other cars have a dark valance with the tailpipe through it (two on a coupe or a low premium car, none on a battery car).
+
+These are likenesses, not surveys. Proportions, wheel positions and overall size follow the real car; panel surfaces, lamp outlines and trim are drawn from a small vocabulary of shapes. Each body is built in the browser the first time a car of that kind comes into view (30–60 ms, 6,500–8,500 triangles) and is shared by parked cars, traffic and the car the player drives. Nothing is downloaded for them. The 6% of registrations with no decoded model still use the eight shared bodies.
 
 ## Cabs, patrol cars and work vans
 
@@ -71,11 +73,35 @@ In the catalog, figures describe a stock car. Pause near or inside a car to see 
 
 ## Bodywork and damage
 
-Approach a parked vehicle to see its interior. Nearby cars have clear front glazing, darker rear glazing, seats, a dashboard and a driver when occupied. Generated exteriors carry their original panel seams. Imported meshes use the available surface labels and approximate hinges. Distant cars share simpler rendering. The catalog's studio lights make the paint and glass easier to inspect from different angles.
+Parked cars and passing traffic keep the same clear front windows and darker rear windows as you approach or walk away. A car is drawn the same at any distance: cars further off are drawn in batches, with the same body, alloy wheels, seats, dashboard and seated driver they have close by, and only stop turning their wheels. An empty car shows its empty seats. Seen from a seat, or through a window, the inside of the body is cabin lining (pale under the roof, dark elsewhere), not the outside's paint, and lamps do not show or shine through it. Generated exteriors carry their original panel seams. Imported meshes use the available surface labels and approximate hinges. The catalog's studio lights make the paint and glass easier to inspect from different angles.
 
 Impact speed into the struck surface and the relative masses of colliding vehicles determine how much that side crushes. The hood can buckle, the windscreen can crack or give way, and side glazing can shatter. Entry opens a front door. A locked car may require a window break, and an occupied car's driver leaves the seat during the entry animation. A door caught open in a collision can break free and tumble onto the roadway. Heavy damage reduces propulsion. A severe front, rear or battery-area impact can start a fire. Traffic drivers can escape once their car slows, and the fire eventually leaves a burned-out wreck. The fire delay and explosion are gameplay effects. Repairs restore that particular car's panels, glass and mechanical condition. [Damage model](../dist/vehicle-damage.js) · [Articulated exterior](../dist/vehicle-detail.js)
 
 To add or correct a car, edit its row in `ROWS`: `[make, model, body, [[first year, last year, length, width, height, wheelbase, {overrides}], …]]`, with the make and model spelled as the catalog page shows them. Then look at it in the catalog and run `node --test tests/vehicle-catalog.test.js`.
+
+## Number plates
+
+Every car carries a plate with a number of its own (`license-plates.js`), the same on the car whether it is parked, in traffic or being driven:
+
+| Plate | Who carries it | Number |
+| --- | --- | --- |
+| Excelsior (white, gold band, issued since 2020) | Every car of model year 2021 on, and just under half of older ones | `KAB-1234`, beginning K or L |
+| Empire Gold (2010–2020) | Most other older cars | `FAB-1234`, beginning F, G, H or J |
+| Empire State (blue and white, to 2010) | About one car in twenty-five from 2010 or before | `DAB-1234`, beginning D or E |
+| Commercial, on either base | Trade vans and pickups | `12345-MA` |
+| Medallion, Empire Gold with T&LC | About seven yellow cabs in ten | the medallion and a letter, `5K38H` |
+| T&LC, Excelsior | Green cabs and the other yellow ones | `T123456C`, `Y123456C` |
+| New Jersey, Pennsylvania, Connecticut, Florida | About one car in eight, half of them New Jersey | each state's own |
+
+Pennsylvania and Florida issue one plate, so those cars have none on the nose. Numbers leave out I, O and Q. The shares are the game's estimate of a Manhattan street, not a count.
+
+The artwork of all eleven plates is painted once onto one sheet, and the characters onto another, as single-weight strokes like the dies a plate is stamped with. A plate's number travels with it as eight small integers and is laid over the artwork in the shader (`vehicle-plates.js`), so a thousand cars need no texture each. Plates catch a little light after dark, as reflective sheeting under a plate lamp does.
+
+A body shop fits a new set of plates for $120: the car gets the next number of its kind. Nothing in the game reads plates yet, so new plates do not shake off the police.
+
+## Wheels
+
+A car's wheels are its model's: five-spoke alloys on most, eight-spoke on coupes, multi-spoke or gunmetal on premium makes and some others, aero covers on Teslas, pressed steel under a cap on cabs and trade vans, black steel on patrol cars. They are the same wheels close by and down the street. A body shop fits any of six patterns for $350 a set.
 
 ## Where imported art would reach the most cars
 
@@ -106,3 +132,11 @@ With the local fleet in place, pass `--only honda-civic-2016` or another recipe 
 The second command rebuilds the cab and work-van mix from the TLC and the register's commercial class. The third reads both caches, requests nothing, and must be rerun whenever the catalog is. The DMV build reuses a completed five-county cache. An empty directory requests the current register. The checked-in catalog records the DMV revision, query, decoder version and vPIC data month. The November build uses the October 2026 decoding database. The separate `node scripts/build-fleet.mjs` rebuilds the ZIP centroids, shared body mix and paint counts.
 
 To add art, find the exact catalog spelling and body in the viewer. Add one recipe with the artist, license, original URL, download URL, source SHA-256, supported US years and the materials or engineering part IDs used for its exterior. The importer keeps paint, glass, trim, chrome and lamps, derives the wheel positions and writes a local glTF plus its manifest entry. Registration weights stay independent of art availability. Run `node --test tests/vehicle-catalog.test.js` and inspect the result in the catalog. [Model recipes](../data/vehicle-models.json) · [Mesh importer](../scripts/build-vehicle-meshes.py) · [Registration importer](../scripts/build-vehicle-catalog.py)
+
+### Driver behavior and calibration
+
+NHTSA observed 3.0% of passenger-vehicle drivers visibly manipulating handheld devices in its 2023 US survey. Civilian traffic uses that daytime snapshot as a target share of simulated time. As a gameplay choice, half of civilian drivers are eligible for brief, staggered phone episodes averaging 6% of their time behind the wheel. They update their response to the vehicle ahead less often during an episode. Collisions and damage depend on actual vehicle contact and closing speed. NYC DOT recorded driver inattention or distraction at 184 locations (31.8%) in its Q4 2024 serious-injury response report. The broader distraction category and the serious-injury sample cannot establish a per-trip phone crash probability. [NHTSA observational survey](https://crashstats.nhtsa.dot.gov/Api/Public/ViewPublication/813660.pdf) · [NYC DOT serious-injury report](https://a860-gpp.nyc.gov/downloads/r207tt05b?locale=en)
+
+In AAA Foundation’s 2014 national survey, 44.5% of drivers reported honking in annoyance during the preceding year, and 3.7% reported getting out to confront another driver. The game uses these as approximate shares of driver personalities. A continuously blocked driver may honk after 5–13 seconds. Repeatedly striking an occupied, stopped car can provoke a confrontation when the driver has room to exit. The delays, cooldown and escalation after a second strike are gameplay choices. [AAA Foundation survey](https://aaafoundation.org/research/prevalence-self-reported-aggressive-driving-behavior-united-states-2014/)
+
+Shopping accounted for 17% of trips across travel modes in NYC DOT’s 2024 Citywide Mobility Survey. The game borrows that share to select potential shopping trips among civilian cars. Completing one requires an open storefront and a vacant nearby space along the driver’s route. The actual share completing a shopping stop depends on the neighborhood and curb occupancy. [NYC DOT survey, trip purpose](https://www.nyc.gov/html/dot/downloads/pdf/2024-cms-report.pdf)

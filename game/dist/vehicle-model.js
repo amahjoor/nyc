@@ -197,7 +197,8 @@ export function buildCar({ type = 'sedan', shape = 'sedan', paint = 0xbcc5bd } =
   // Bumpers, grille and plates.
   box(body, 0, s.sill + .13, 2.19, wide * 1.98, .2, .12, TRIM); box(body, 0, s.sill + .13, -2.19, wide * 1.98, .2, .12, TRIM);
   box(body, 0, noseBelt - .08, 2.185, wide * .9, .16, .06, TRIM); box(body, 0, noseBelt - .08, 2.2, wide * .86, .03, .05, CHROME, FINISH.chrome);
-  box(body, 0, s.sill + .2, 2.255, .36, .12, .02, [.8, .78, .6]); box(body, 0, tailBelt - .16, -2.255, .36, .12, .02, [.8, .78, .6]);
+  // The brackets the number plates are screwed to (vehicle-plates.js draws the plates).
+  box(body, 0, s.sill + .2, 2.255, .33, .17, .02, TRIM); box(body, 0, tailBelt - .16, -2.255, .33, .17, .02, TRIM);
   for (const side of [-1, 1]) {
     // Lamps sit in the corners, a hand's width proud of the body ends.
     box(lamps, side * wide * .72, noseBelt - .06, 2.2, wide * .42, .15, .08, head);
@@ -220,7 +221,8 @@ export function buildCar({ type = 'sedan', shape = 'sedan', paint = 0xbcc5bd } =
     box(body, 0, roof + .05, -.2, 1.2, .06, .28, [.03, .035, .04]);
     for (const side of [-1, 1]) box(body, side * (along(s.wide, 0) + .006), along(s.belt, 0) - .28, -.1, .012, .2, 2.7, linear(0x254571), FINISH.paint);
   }
-  return { body: toGeometry(body), lamps: toGeometry(lamps), roof: along(s.top, -.2) };
+  return { body: toGeometry(body), lamps: toGeometry(lamps), roof: along(s.top, -.2),
+    plates: { front: { p: [0, s.sill + .2, 2.268], n: [0, 0, 1] }, rear: { p: [0, tailBelt - .16, -2.268], n: [0, 0, -1] } } };
 }
 
 /**
@@ -257,14 +259,28 @@ export function createCarMaterial({ instancedPaint = false, bodyPaint = null, do
 }
 
 /** Lamps glow in their own colour: amber-white ahead, red behind. */
-export function createLampMaterial() {
+export function createLampMaterial(indicator = 0) {
   const material = new THREE.MeshStandardMaterial({ vertexColors: true, color: 0xffffff, emissive: 0xffffff, emissiveIntensity: .55, roughness: .25 });
   material.side = THREE.DoubleSide;
   material.name = 'Vehicle lamps';
   material.onBeforeCompile = shader => {
+    shader.uniforms.nycIndicator = {value:indicator};
+    shader.vertexShader = `uniform float nycIndicator;
+#ifdef USE_INSTANCING
+attribute float aIndicator;
+#endif
+varying float vIndicator;
+` + shader.vertexShader.replace('#include <begin_vertex>', `#include <begin_vertex>
+#ifdef USE_INSTANCING
+  float side = aIndicator;
+#else
+  float side = nycIndicator;
+#endif
+  vIndicator = step(.45,position.x*side)*step(1.,abs(position.z));`);
+    shader.fragmentShader = 'varying float vIndicator;\n' + shader.fragmentShader;
     // A lens is deep in colour until its lamp is lit, and from behind it is the dark back of its housing.
     shader.fragmentShader = shader.fragmentShader.replace('#include <color_fragment>', '#include <color_fragment>\ndiffuseColor.rgb *= gl_FrontFacing ? .5 : .03;')
-      .replace('#include <emissivemap_fragment>', '#include <emissivemap_fragment>\n#ifdef USE_COLOR\ntotalEmissiveRadiance *= vColor.rgb;\n#endif\nif ( ! gl_FrontFacing ) totalEmissiveRadiance *= 0.0;');
+      .replace('#include <emissivemap_fragment>', '#include <emissivemap_fragment>\n#ifdef USE_COLOR\ntotalEmissiveRadiance *= vColor.rgb;\n#endif\ntotalEmissiveRadiance = mix(totalEmissiveRadiance,vec3(2.8,.73,.025),vIndicator);\nif ( ! gl_FrontFacing ) totalEmissiveRadiance *= 0.0;');
   };
   return material;
 }
