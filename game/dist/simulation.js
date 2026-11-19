@@ -67,11 +67,12 @@ function buildingGrid(buildings) {
     if (!building.polygon || building.polygon.length < 3) continue;
     const xs = building.polygon.map(point => point[0]);
     const zs = building.polygon.map(point => point[1]);
-    for (let gx = Math.floor(Math.min(...xs) / GRID_SIZE); gx <= Math.floor(Math.max(...xs) / GRID_SIZE); gx++) {
-      for (let gz = Math.floor(Math.min(...zs) / GRID_SIZE); gz <= Math.floor(Math.max(...zs) / GRID_SIZE); gz++) {
+    const entry={building,minX:Math.min(...xs),maxX:Math.max(...xs),minZ:Math.min(...zs),maxZ:Math.max(...zs)};
+    for (let gx = Math.floor(entry.minX / GRID_SIZE); gx <= Math.floor(entry.maxX / GRID_SIZE); gx++) {
+      for (let gz = Math.floor(entry.minZ / GRID_SIZE); gz <= Math.floor(entry.maxZ / GRID_SIZE); gz++) {
         const key = `${gx},${gz}`;
         if (!grid.has(key)) grid.set(key, []);
-        grid.get(key).push(building);
+        grid.get(key).push(entry);
       }
     }
   }
@@ -808,7 +809,9 @@ export class Simulation {
     const checked = new Set();
     for (let gx = Math.floor((x - radius) / GRID_SIZE); gx <= Math.floor((x + radius) / GRID_SIZE); gx++) {
       for (let gz = Math.floor((z - radius) / GRID_SIZE); gz <= Math.floor((z + radius) / GRID_SIZE); gz++) {
-        for (const building of this._buildings.get(`${gx},${gz}`) || []) {
+        for (const entry of this._buildings.get(`${gx},${gz}`) || []) {
+          if(x+radius<entry.minX || x-radius>entry.maxX || z+radius<entry.minZ || z-radius>entry.maxZ)continue;
+          const building=entry.building;
           if (checked.has(building)) continue;
           checked.add(building);
           if (Number.isFinite(baseHeight) && Number.isFinite(building.height)
