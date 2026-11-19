@@ -66,6 +66,10 @@
   <section id="interaction" class="interaction" hidden aria-labelledby="interaction-title">
     <header><h2 id="interaction-title"></h2><strong id="interaction-balance" aria-label="Cash on hand" hidden></strong></header>
     <p id="interaction-message" hidden></p>
+    <div id="shop-preview" hidden>
+      <canvas id="shop-mirror" aria-label="Rotatable three-dimensional preview"></canvas>
+      <div class="mirror-controls"><button type="button" id="mirror-left" aria-label="Rotate left">↶</button><button id="mirror-farther" type="button" aria-label="Zoom out">−</button><span id="mirror-status" role="status"></span><button type="button" id="mirror-closer" aria-label="Zoom in">+</button><button type="button" id="mirror-right" aria-label="Rotate right">↷</button></div>
+    </div>
     <div id="interaction-options"></div>
     <footer><span>↑ ↓ Choose · Enter Select</span><button type="button" id="interaction-close">Esc · Leave</button></footer>
   </section>

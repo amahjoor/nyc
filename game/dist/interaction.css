@@ -47,3 +47,54 @@ body:has(.wanted:not([hidden]):not(.calm)) .interaction {
   .interaction { right: max(8px, env(safe-area-inset-right)); top: max(8px, env(safe-area-inset-top)); }
   body:has(.wanted:not([hidden]):not(.calm)) .interaction { top: 90px; max-height: calc(100dvh - 100px); }
 }
+
+.interaction:has(#shop-preview:not([hidden])) { width: min(500px, calc(100vw - 24px)); }
+#shop-preview { position:relative; flex:none; background:#c9c3b9; }
+#shop-mirror { display:block; width:100%; height:clamp(110px,48dvh,490px); touch-action:none; cursor:grab; }
+#shop-mirror:active { cursor:grabbing; }
+.mirror-controls { display:flex; align-items:center; justify-content:space-between; gap:8px; padding:4px 12px; background:#292d2d; color:#f5f1ea; font-size:13px; }
+.mirror-controls button { border:0; background:transparent; color:inherit; font:22px/1.2 var(--ui); padding:2px 9px; cursor:pointer; }
+
+.package-thumb{display:inline-block;width:2.2rem;height:2.2rem;flex:none;vertical-align:middle;margin-right:.62rem;border-radius:.16rem;background:image-set(url('./assets/grocery-labels.jpg') 1x) no-repeat;background-size:303.125% 300%}
+
+body:has(.phone:not([hidden])) .interaction {
+  left: max(12px, env(safe-area-inset-left));
+  right: auto;
+  max-width: calc(100vw - 360px - clamp(12px, 3.5vw, 58px));
+}
+@media (max-width: 650px) and (orientation: portrait) {
+  body:has(.phone:not([hidden])) .interaction {
+    top: max(8px, env(safe-area-inset-top));
+    max-width: calc(100vw - 24px);
+    max-height: calc(44dvh - 16px);
+  }
+  body:has(.interaction:not([hidden])) .phone { height: min(54dvh, 618px); }
+  body:has(.phone:not([hidden])) #shop-mirror { height: 10dvh; }
+}
+@media (pointer: coarse) {
+  body:has(.phone:not([hidden])) .touch-controls { bottom: max(8px, env(safe-area-inset-bottom)); z-index: 8; }
+  body:has(.touch-controls:not([hidden])) .phone {
+    bottom: max(122px, calc(116px + env(safe-area-inset-bottom)));
+    max-height: calc(100dvh - 136px);
+  }
+}
+@media (pointer: coarse) and (max-width: 650px) and (orientation: portrait) {
+  body:has(.interaction:not([hidden])) .phone { height: calc(56dvh - 130px); }
+}
+
+@media (pointer: coarse) and (orientation: landscape) and (max-height: 600px) {
+  body:has(.touch-controls:not([hidden])) .phone {
+    right: max(6px, env(safe-area-inset-right));
+    bottom: max(6px, env(safe-area-inset-bottom));
+    width: min(336px, 44vw);
+    max-height: calc(100dvh - 12px);
+  }
+  body:has(.phone:not([hidden])) .touch-controls { right: min(360px, 48vw); }
+  body:has(.phone:not([hidden])) .interaction { max-width: calc(54vw - 16px); z-index: 9; }
+  body:has(.phone:not([hidden])) #shop-mirror { height: 20dvh; }
+}
+@media (pointer: coarse) and (orientation: portrait) and (max-height: 700px) {
+  body:has(.phone:not([hidden])) .interaction { max-height: calc(33dvh - 16px); overflow-y: auto; }
+  body:has(.phone:not([hidden])) #interaction-options { flex: none; overflow: visible; }
+  body:has(.interaction:not([hidden])) .phone { height: calc(67dvh - 130px); }
+}

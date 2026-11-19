@@ -7,6 +7,7 @@ export function createInteraction({ $, onOpenChange }) {
 
   function close() {
     if (!session) return;
+    session.onClose?.();
     session = null;
     controls = [];
     panel.hidden = true;
@@ -23,10 +24,11 @@ export function createInteraction({ $, onOpenChange }) {
     controls[selected].focus();
   }
 
-  function openList(title, rows, onPick, { message = '', cash, available = () => true, index = 0 } = {}) {
+  function openList(title, rows, onPick, { message = '', cash, available = () => true, index = 0, onClose, onRotate, onFocus } = {}) {
     if (!available()) { close(); return; }
     const opening = !session;
-    const current = { available };
+    session?.onClose?.();
+    const current = { available, onClose, onRotate };
     session = current;
     $('interaction-title').textContent = title;
     $('interaction-message').textContent = message;
@@ -41,6 +43,13 @@ export function createInteraction({ $, onOpenChange }) {
       const label = document.createElement('strong');
       label.textContent = row.name;
       button.append(label);
+      if(row.product){
+        const pack=document.createElement('i');pack.className='package-thumb';pack.setAttribute('aria-hidden','true');
+        const tile=row.product.tile;
+        if(['apple','orange'].includes(row.product.shape)){pack.style.backgroundImage='none';pack.textContent=row.product.shape==='apple'?'🍎':'🍊';}
+        else pack.style.backgroundPosition=(tile%3*49.24)+'% '+(Math.floor(tile/3)*50)+'%';
+        label.prepend(pack);
+      }
       if (row.color) {
         const swatch = document.createElement('i');
         swatch.className = 'interaction-swatch';
@@ -52,7 +61,8 @@ export function createInteraction({ $, onOpenChange }) {
         note.textContent = row.note;
         button.append(note);
       }
-      button.addEventListener('focus', () => { selected = controls.indexOf(button); });
+      button.addEventListener('focus', () => { selected = controls.indexOf(button); onFocus?.(row); });
+      if(onFocus)button.addEventListener('pointerenter',()=>{if(session===current)onFocus(row);});
       button.addEventListener('click', () => {
         if (session !== current || button.disabled) return;
         const valid = available();
@@ -62,10 +72,19 @@ export function createInteraction({ $, onOpenChange }) {
       return button;
     });
     options.replaceChildren(...buttons);
-    controls = [...buttons.filter(button => !button.disabled), leave];
+    const refresh = () => { controls = [...buttons.filter(button => !button.disabled), leave]; };
+    refresh();
     panel.hidden = false;
     if (opening) onOpenChange(true);
     focus(Math.max(0, controls.indexOf(buttons[index])));
+    const initialFocus=document.activeElement;
+    return { enable(i) {
+      if (session !== current) return;
+      const focusDefault=index===i && document.activeElement===initialFocus;
+      buttons[i].disabled = false; refresh();
+      if(focusDefault){focus(controls.indexOf(buttons[i]));return;}
+      selected = Math.max(0, controls.indexOf(document.activeElement));
+    } };
   }
 
   leave.addEventListener('focus', () => { selected = controls.indexOf(leave); });
@@ -74,6 +93,9 @@ export function createInteraction({ $, onOpenChange }) {
   function handleKey(event) {
     if (!session) return false;
     const key = event.key || event.code;
+    if (session.onRotate && (key === 'ArrowLeft' || key === 'ArrowRight')) {
+      event.preventDefault(); session.onRotate(key === 'ArrowLeft' ? -.22 : .22); return true;
+    }
     if (['ArrowUp', 'ArrowDown', 'Tab', 'Enter', 'Backspace', 'Escape'].includes(key)) {
       event.preventDefault();
       if (key === 'ArrowUp' || (key === 'Tab' && event.shiftKey)) focus(selected - 1);
@@ -85,5 +107,5 @@ export function createInteraction({ $, onOpenChange }) {
     }
     return true;
   }
-  return { get open() { return Boolean(session); }, openList, close, update, handleKey };
+  return { get open() { return Boolean(session); }, openList, close, update, handleKey, focus:()=>{if(session)focus(selected);} };
 }
