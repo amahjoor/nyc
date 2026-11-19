@@ -1,0 +1,271 @@
+import { COMPANIES, sharePrice, restoreHoldings } from './market.js';
+import { RideRoute } from './ride-route.js';
+import { vehicleHandling } from './garage.js';
+import { roadFigures, MPS_PER_MPH } from './vehicle-performance.js';
+const cents = value => Math.round(value * 100);
+
+export class PhoneBank {
+  constructor() { this.restore(null, 0); }
+  restore(record, cash) {
+    this.holdings = restoreHoldings(record?.holdings);
+    this.savings = Number.isSafeInteger(record?.savings) && record.savings >= 0 ? record.savings : 0;
+    this.entries = Array.isArray(record?.entries) ? record.entries.filter(row => row && typeof row.name === 'string' &&
+      Number.isSafeInteger(row.amount) && typeof row.clock === 'string').slice(0, 16) : [];
+    this.last = cents(cash);
+  }
+  record() { return { savings:this.savings, entries:this.entries, holdings:this.holdings }; }
+  sync(cash, clock = '', label) {
+    const balance = cents(cash), change = balance - this.last;
+    if (!Number.isSafeInteger(balance) || !change) return;
+    this.last = balance;
+    this.entries.unshift({name:label || (change > 0 ? 'Game earnings' : 'Game spending'), amount:change, clock});
+    this.entries.length = Math.min(this.entries.length, 16);
+  }
+  trade(sim, symbol, side, raw, quoted, clock, now=Date.now()) {
+    const company=COMPANIES.find(stock=>stock.symbol===symbol);
+    const shares=Number(raw);
+    if(!company || !['buy','sell'].includes(side) || !/^\d+$/.test(String(raw).trim()) ||
+       !Number.isSafeInteger(shares) || shares<1)return 'Enter a positive whole number of shares.';
+    const price=sharePrice(company,now);
+    if(price!==quoted)return 'The price changed. Review the new total and submit again.';
+    const position=this.holdings[symbol] || {shares:0,cost:0}, amount=shares*price;
+    const cash=cents(sim.cash), buying=side==='buy';
+    if(!Number.isSafeInteger(amount))return 'This order is too large.';
+    if(buying && amount>cash-(sim.rideHoldCents||0))return 'Insufficient available checking balance.';
+    if(!buying && shares>position.shares)return 'You do not own that many shares.';
+    this.sync(sim.cash,clock);
+    if(buying)this.holdings[symbol]={shares:position.shares+shares,cost:position.cost+amount};
+    else if(shares===position.shares)delete this.holdings[symbol];
+    else this.holdings[symbol]={shares:position.shares-shares,cost:Math.round(position.cost*(1-shares/position.shares))};
+    sim.cash=(cash+(buying?-amount:amount))/100;
+    this.sync(sim.cash,clock,(buying?'Bought ':'Sold ')+shares+' '+symbol);
+    return '';
+  }
+  transfer(sim, direction, raw, clock) {
+    if (!['save','withdraw'].includes(direction) || !/^\d+(?:\.\d{1,2})?$/.test(String(raw).trim())) return 'Enter an amount in dollars and cents.';
+    const amount = cents(Number(raw)), saving = direction === 'save';
+    if (!Number.isSafeInteger(amount) || amount <= 0) return 'Enter an amount greater than zero.';
+    if (amount > (saving ? cents(sim.cash)-(sim.rideHoldCents||0) : this.savings)) return 'There is not enough money in that account.';
+    this.sync(sim.cash, clock);
+    const delta = saving ? amount : -amount;
+    this.savings += delta;
+    sim.cash = (cents(sim.cash) - delta) / 100;
+    this.sync(sim.cash, clock, saving ? 'Transfer to savings' : 'Transfer from savings');
+    return '';
+  }
+}
+
+// Headshots are rendered from these same numbered members of the street cast.
+const drivers = [
+  {name:'Andre Brooks',member:27,rating:'4.96'},
+  {name:'Mina Park',member:57,rating:'4.93'},
+  {name:'Rafael Cruz',member:67,rating:'4.98'},
+];
+const gap = (a,b) => Math.hypot(a.x-b.x,a.z-b.z);
+
+// Door positions in cab-local metres. Positive X is the driver's side.
+const passengerSeats = [
+  {side:-1, along:0},
+  {side:-1, along:-.76},
+  {side:1, along:-.76},
+];
+function nearestPassengerSeat(car, player) {
+  const dx=player.x-car.x, dz=player.z-car.z;
+  const across=dx*Math.cos(car.angle)-dz*Math.sin(car.angle);
+  const along=dx*Math.sin(car.angle)+dz*Math.cos(car.angle);
+  const distance=seat=>Math.hypot(across-seat.side,along-seat.along);
+  return passengerSeats.reduce((best,seat)=>distance(seat)<distance(best)?seat:best);
+}
+
+// Follow legal incoming lanes back from the actual pickup. The resulting
+// forward itinerary is consumed by the same driver AI as ordinary traffic.
+function findApproach(sim, stop) {
+  const incoming=new Map();
+  for(const edge of sim._graph.edges){
+    if(!incoming.has(edge.to))incoming.set(edge.to,[]);
+    incoming.get(edge.to).push(edge);
+  }
+  const queue=[{path:[stop.edge],after:0,fraction:stop.fraction}];
+  const visited=new Set(); let best=null;
+  for(let i=0;i<queue.length && i<250;i++){
+    const {path,after,fraction}=queue[i], edge=path[0];
+    if(visited.has(edge))continue;
+    visited.add(edge);
+    const length=edge.length*fraction;
+    const back=Math.min(length*.9,145-after);
+    const distance=after+back;
+    if(back>0 && distance>=32 && (!best || distance>best.distance)){
+      const point=sim._lanePoint(edge,fraction-back/edge.length);
+      if(!sim._nearCar(point.x,point.z,3.5) && !sim._carContact(point.x,point.z,edge.angle)){
+        best={point,path,distance}; if(distance>=130)return best;
+      }
+    }
+    if(after+length>185)continue;
+    const before=(incoming.get(edge.from)||[]).filter(prev=>prev.from!==edge.to && !visited.has(prev));
+    before.sort((a,b)=>Math.cos(b.angle-edge.angle)-Math.cos(a.angle-edge.angle));
+    for(const prev of before)queue.push({path:[prev,...path],after:after+length,fraction:1});
+  }
+  return best;
+}
+
+export class CityRides {
+  constructor(sim, {planner, paid}) {
+    this.sim=sim; this.planner=planner; this.paid=paid;
+    this.trip=null; this.receipt=''; this.bookings=0;
+  }
+  async quote(destination) {
+    const planner=await this.planner();
+    const pickup={x:this.sim.player.x,z:this.sim.player.z};
+    const route=planner?.plan(pickup,destination);
+    if(!route?.ok) throw new Error('No street route to this destination.');
+    if(route.distance<50) throw new Error('This destination is within walking distance.');
+    return {destination,pickup,planner,distance:route.distance,fare:Math.max(7,Math.ceil(4+route.distance*.0024))};
+  }
+  pickupChanged(quote){return gap(this.sim.player,quote.pickup)>5;}
+  request(quote) {
+    const s=this.sim;
+    if(this.trip) return 'You already have a ride.';
+    if(!quote || this.pickupChanged(quote)) return 'Updating the fare from your current location.';
+    if(s.cash<quote.fare) return 'Your checking balance is too low for this fare.';
+    if(s.mission.phase==='active') return 'Finish your active delivery before taking a ride.';
+    const pickup={x:s.player.x,z:s.player.z}, stop=s._pinTaxiPlacement(pickup,null);
+    const approach=stop && findApproach(s,stop);
+    if(!approach) return 'No driver can reach this pickup. Try a different street.';
+    const driver=drivers[this.bookings++ % drivers.length], edge=approach.path[0];
+    const car=s._makeCar('ride-'+this.bookings,'taxi',approach.point,edge.angle,edge);
+    car.hired=true; car.rideDriver=driver; car._route=approach.path.slice(1);
+    s.cars.push(car); s.updateGrounding();
+    this.receipt='';
+    this.trip={...quote,pickup,stop,car,driver,cruise:car._cruise,phase:'approaching',remaining:approach.distance,
+      eta:Math.ceil(approach.distance/6),best:approach.distance,lastProgress:s.elapsed};
+    return '';
+  }
+  // The map and ETA both read the real car and the turns it still has to take.
+  approachPoints() {
+    const t=this.trip;
+    if(t?.phase==='traveling')return [t.car,t.car._edge?.to,...t.car._route.slice(0,3).map(edge=>edge.to)].filter(Boolean);
+    if(!t || t.phase!=='approaching')return [];
+    const {car,stop}=t, edges=[car._edge,...car._route];
+    return [car,...edges.slice(0,-1).map(edge=>edge.to),stop.point];
+  }
+  update() {
+    const t=this.trip, s=this.sim;
+    if(!t)return;
+    if(t.phase==='traveling'){this.updatePassenger(t);return;}
+    const {car,stop}=t;
+    if(s.ending || gap(s.player,t.pickup)>220 || !s.cars.includes(car) || car.destroyed || car.burningSince!=null || car.driverEjected){
+      this.cancel('Pickup canceled. No fare charged.'); return;
+    }
+    if(t.phase!=='approaching')return;
+    if(!car._edge){this.cancel('Your driver could not reach this street. No fare charged.');return;}
+    const atStop=gap(car,stop.point);
+    // Traffic can change lanes. A car level with the pickup in an adjacent lane
+    // has arrived even when the two lane centres are more than five metres apart.
+    const along=(car.x-stop.point.x)*Math.sin(stop.angle)+(car.z-stop.point.z)*Math.cos(stop.angle);
+    const alongside=along>=-1 && atStop<Math.max(6,(stop.edge.road.width || 10)*.8);
+    if(car._edge===stop.edge && (atStop<5 || alongside || (atStop<18 && car.speed<.8 && s.elapsed-t.lastProgress>4))){
+      t.phase='waiting'; car.parked=true; car.speed=0; car._edge=null; car._route=[];
+      t.eta=0; t.remaining=0;
+      s._say(t.driver.name+' is here. Press E by either rear door or the front passenger door to board.',7);
+      return;
+    }
+    const points=this.approachPoints();
+    t.remaining=points.slice(1).reduce((total,p,i)=>total+gap(p,points[i]),0);
+    if(t.remaining<t.best-1){t.best=t.remaining;t.lastProgress=s.elapsed;}
+    if(s.elapsed-t.lastProgress>110){this.cancel('Your driver was blocked. Request another pickup.');return;}
+    t.eta=Math.max(1,Math.ceil(t.remaining/Math.max(3,(car._cruise+car.speed)*.5)));
+    if(car._edge===stop.edge)car._cruise=Math.min(car._cruise,Math.max(2,atStop*.6));
+  }
+  canBoard() {
+    const s=this.sim,t=this.trip;
+    return t?.phase==='waiting' && s.player.mode==='walk' && !s.player.move && !s.player.reaction && !s.ending && !s.seat && !s.room &&
+      Math.hypot(s.player.x-t.car.x,s.player.z-t.car.z)<6 && Math.abs((s.player.y||0)-(t.car.y||0))<3;
+  }
+  cancel(message='Ride canceled. No fare charged.') {
+    if(!this.trip || this.trip.phase==='traveling') return;
+    this.removeCar(); this.trip=null; this.receipt=message;
+  }
+  removeCar() {
+    const i=this.sim.cars.indexOf(this.trip?.car);
+    if(i>=0)this.sim.cars.splice(i,1);
+  }
+  board() {
+    if(!this.canBoard())return false;
+    const t=this.trip,s=this.sim,car=t.car,edge=t.stop.edge;
+    if(s.cash<t.fare || s.mission.phase==='active'){this.cancel('Ride canceled. Check your balance and active deliveries.');s._say(this.receipt);return false;}
+    // Start where the driver actually stopped. If the route heads back along
+    // this block, continue to its junction before making that turn.
+    let route=t.planner.plan(car,t.destination,{startRoadId:edge.road.id});
+    const first=route.legs?.[0]?.points;
+    if(!first){this.cancel('No route from this curb. No fare charged.');s._say(this.receipt);return false;}
+    const backwards=(first[1][0]-first[0][0])*Math.sin(edge.angle)+(first[1][1]-first[0][1])*Math.cos(edge.angle)<0;
+    if(backwards)route=t.planner.plan(edge.to,t.destination,{startRoadId:edge.road.id});
+    if(!route.legs?.length){this.cancel('No route from this curb. No fare charged.');s._say(this.receipt);return false;}
+    t.itinerary=new RideRoute(route.legs);
+    t.itinerary.fill(s,car);
+    car._edge=backwards?edge:car._route.shift();
+    if(!car._edge){this.cancel();return false;}
+    Object.assign(car,{passengerSeat:nearestPassengerSeat(car,s.player),parked:false,_cruise:t.cruise,_wait:0,_turn:null});
+    t.fastSpeed=roadFigures(vehicleHandling(car)).topSpeed*MPS_PER_MPH;
+    t.phase='traveling';t.remaining=route.distance;t.lastProgress=s.elapsed;t.best=Infinity;
+    s.rideHoldCents=cents(t.fare);
+    Object.assign(s.player,{mode:'passenger',vehicleId:car.id,standing:null,move:null,armed:false,grounded:true});
+    s.updateGrounding();this.updatePassenger(t);
+    s._say('Riding with '+t.driver.name+'.',6);
+    return true;
+  }
+
+  toggleHurry() {
+    const t=this.trip;
+    if(t?.phase!=='traveling' || t.stopping)return;
+    t.car.rideHurry=!t.car.rideHurry;
+    this.sim._say(t.car.rideHurry?'Your driver is hurrying.':'Your driver is back to normal speed.');
+  }
+
+  stopEarly() {
+    if(this.trip?.phase==='traveling' && !this.trip.stopping){
+      this.trip.stopping=true;this.trip.requestedStop=true;
+      this.sim._say('Driver is stopping here. You pay for the distance ridden.');
+    }
+  }
+
+  updatePassenger(t) {
+    const s=this.sim,car=t.car;
+    const aboard=s.player.mode==='passenger' && s.player.vehicleId===car.id;
+    const interrupted=!aboard || !car._edge || !s.cars.includes(car) || s.ending || car.destroyed || car.burningSince!=null || car.driverEjected;
+    if(!interrupted){
+      t.itinerary.fill(s,car);
+      const end=s._lanePoint(car._edge,1,car._lane||0);
+      const final=t.itinerary.next===t.itinerary.legs.length && !car._route.length;
+      t.remaining=Math.max(0,t.itinerary.unloaded)+car._route.reduce((n,e)=>n+e.length,0)+gap(car,end);
+      t.tripDistance??=t.remaining;
+      if(t.remaining<t.best-1){t.best=t.remaining;t.lastProgress=s.elapsed;}
+      if(s.elapsed-t.lastProgress>120)t.stopping=true;
+      const cruise=car.rideHurry?t.fastSpeed:t.cruise;
+      car._cruise=t.stopping?0:Math.min(cruise,final?Math.sqrt(4*Math.max(0,t.remaining-2.8)):Infinity);
+      t.eta=Math.max(1,Math.ceil(t.remaining/Math.max(3,(cruise+car.speed)/2)));
+      if(!t.stopping && (!final || t.remaining>5))return;
+      car._cruise=0;
+      if(car.speed>.65)return;
+    }
+    if(aboard){
+      car.speed=0;
+      if(s.cars.includes(car) && !s.ending){
+        if(!s.interact())return;
+      }else{
+        Object.assign(s.player,s._findSafePoint(s.player.x,s.player.z,.45,car.id),{mode:'walk',vehicleId:null,speed:0,velocityX:0,velocityZ:0});
+      }
+    }
+    const arrived=!interrupted && !t.stopping;
+    s.rideHoldCents=0;this.trip=null;
+    const fraction=Math.min(1,Math.max(0,1-t.remaining/Math.max(1,t.tripDistance)));
+    const fare=arrived?t.fare:!interrupted && t.requestedStop?Math.round(t.fare*fraction):0;
+    if(fare){s.cash=(cents(s.cash)-cents(fare))/100;this.paid();}
+    this.receipt=arrived?'Arrived at '+t.destination.name+' · $'+fare : fare?'Early drop-off · $'+fare:'Ride ended. No fare charged.';
+    // Return the driver to local traffic once the passenger is clear of the door.
+    const nearby=s._nearestEdge(car.x,car.z,car.angle);
+    const next=!car.destroyed && car.burningSince==null && !car.driverEjected && nearby?.distance<12 ? nearby.edge : null;
+    Object.assign(car,{hired:false,passengerSeat:null,rideHurry:false,_ridePlan:null,_cruise:t.cruise,_edge:next,_route:[],_turn:null,_wait:2,parked:!next});
+    if(!s.ending)s._say(this.receipt,6);
+  }
+}
