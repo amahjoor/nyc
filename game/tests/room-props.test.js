@@ -6,6 +6,7 @@ import { KIND, signFor } from '../dist/places.js';
 import { menuFor } from '../dist/menu.js';
 import { walkRoom } from '../dist/room.js';
 import { counterPath, populateShop } from '../dist/shop-life.js';
+import { shopAisle } from '../dist/room-walk.js';
 
 const place = kind => ({ kind, name: 'The ' + kind + ' place', x: 40, z: -30 });
 // A front facing either way along either axis, wound either way: the four a block has.
@@ -20,8 +21,9 @@ test('each trade has the fittings that mark it', () => {
   const marks = { pizza: ['oven', 'pizza', 'menuboard'], clothes: ['mannequin', 'register'], jewelry: ['showcase', 'bust'], optician: ['frames', 'eyechart', 'examchair', 'showcase'], bodega: ['grill', 'cooler', 'register'],
     shoes: ['shoewall'], pawn: ['showcase', 'guitar', 'tv'], secondhand: ['showcase', 'guitar'], books: ['bookcase'], florist: ['flowers', 'cooler'], bikes: ['bike'], pets: ['tank'], hardware: ['pegboard'],
     electronics: ['tv', 'showcase'], music: ['guitar'], butcher: ['showcase'], fishmarket: ['showcase'], cosmetics: ['showcase'], coffee: ['espresso', 'showcase'], bakery: ['breadrack', 'showcase'],
-    mediterranean: ['spit', 'menuboard'], chinese: ['menuboard', 'cooler'], japanese: ['showcase'], pharmacy: ['cooler', 'register'], smoke: ['showcase'],
-    gym: ['treadmill', 'cableStation', 'dumbbells'], laundromat: ['laundryMachine', 'laundryCart', 'soapVendor'], postoffice: ['poBoxes', 'parcelDrop', 'mailSupplies'] };
+    mediterranean: ['spit', 'menuboard'], chinese: ['menuboard', 'cooler'], japanese: ['showcase'], pharmacy: ['cooler', 'register', 'careShelves', 'rxCabinet'], salon: ['cuttingChair','stylingStation','shampooBasin'], barber: ['cuttingChair','stylingStation'], smoke: ['showcase'],
+    gym: ['treadmill', 'cableStation', 'dumbbells'], laundromat: ['laundryMachine', 'laundryCart', 'soapVendor'], postoffice: ['poBoxes', 'parcelDrop', 'mailSupplies'],
+    bank: ['cashMachine', 'serviceDesk', 'writingDesk', 'queueRail'], clinic: ['serviceDesk', 'deskMonitor', 'planter'] };
   for (const [kind, expected] of Object.entries(marks)) {
     const room = plan(kind, 9, 12), found = shapes(room);
     for (const shape of expected) assert.ok(found.has(shape), `a ${kind} place has its ${shape}`);

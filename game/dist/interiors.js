@@ -1,3 +1,12 @@
+import {counterMenu} from './counter-menu.js';
+import {checkoutScreens,checkoutDrawer} from './checkout-display.js';
+import {checkoutAxes} from './checkout-model.js';
+import { viewHand } from './view-hand.js';
+import { ingredientMap } from './food-surface.js';
+import { buildGroceryDisplays } from './grocery-models.js';
+import { buildPharmacyPrint } from './pharmacy-display.js';
+import { buildShopPrint } from './shop-prints.js';
+import { buildSalonMirrors } from './salon-mirrors.js';
 // Going inside.
 //
 // No register holds the inside of a shop. A place's room is laid out by the
@@ -12,7 +21,7 @@ import { CEILING, roomPoint, DOOR, ShopDoor } from './room.js';
 import { roomProps, furnishRoom, OWN_STYLE_OF } from './room-props.js';
 import { planRegister } from './register.js';
 import { SHOP_WINDOW_GLSL } from './shop-window.js';
-import { buildRoomFinish } from './room-finish.js';
+import { buildRoomFinish, lightRoomSurface } from './room-finish.js';
 import { menuFor } from './menu.js';
 
 /** Kinds of place with a room to walk into, by group. */
@@ -91,20 +100,6 @@ const STYLES = {
     r.aisles(-r.half + 1.0, r.half - .7, 3.6, r.depth - 2.8, 1.8);
     r.add(0, r.depth - 1.5, r.width - 1.4, .7, 1.15, WHITE); r.add(0, r.depth - .3, r.width - .4, .5, 2.2, '#dfe5e8'); r.panel(0, 0, r.width - 1.6, .45, 2.4, '#b0303a', .56); r.staff(0, r.depth - .9, 0, -1);
   },
-  // Clothes: rails of them down both walls, tables of folded stacks, a figure in the window, fitting rooms and the till at the back.
-  clothes(r) {
-    r.floor = '#b9a98c'; r.wall = '#f0ece2';
-    for (const side of [-1, 1]) for (let b = 1.6; b < r.depth - 3.2; b += 2.0) {
-      r.add(side * (r.half - .45), b + .7, .06, 1.6, .04, STEEL, 1.55, false);
-      for (let i = 0; i < 6; i++) r.add(side * (r.half - .45), b + .1 + i * .25, .5, .16, .95, CLOTH[(r.seed + i * 3 + Math.round(b) + (side > 0 ? 2 : 0)) % CLOTH.length], .58, false);
-      r.add(side * (r.half - .45), b + .7, .55, 1.7, .5, '#d8d2c4');
-    }
-    for (let b = 3.2; b < r.depth - 3.4; b += 2.4) { r.add(0, b, 1.5, .9, .78, '#d8d2c4'); for (let i = 0; i < 3; i++) r.add(-.45 + i * .45, b, .36, .5, .14 + (i % 2) * .08, CLOTH[(r.seed + i + Math.round(b)) % CLOTH.length], .78, false); }
-    for (const side of [-1, 1]) { const a = side * (r.half - 1.0); if (r.half > 2.6) { r.add(a, 1.0, .35, .25, 1.15, '#d9d2c0'); r.add(a, 1.0, .45, .3, .55, CLOTH[(r.seed + (side > 0 ? 1 : 4)) % CLOTH.length], .8, false); r.add(a, 1.0, .2, .2, .25, '#d9d2c0', 1.38, false); } }
-    for (const side of [-1, 1]) r.add(side * (r.half - .7), r.depth - .7, 1.2, 1.3, 2.2, '#8a7a66');
-    r.add(0, r.depth - 1.3, Math.min(2.0, r.width - 4.15), .6, 1.0, BLACK); r.staff(0, r.depth - .65, 0, -1);
-    r.panel(0, 0, 1.2, .6, 2.2, '#17191b');
-  },
   // A pawnbroker, a jeweller, a buy-and-sell: glass cases round three sides, what is too big for them on the wall behind.
   cases(r) {
     r.floor = '#4a4a4e'; r.wall = '#d9d4c6';
@@ -114,16 +109,6 @@ const STYLES = {
     r.staff(0, r.depth - .8, 0, -1); r.staff(-(r.half - .65), 2.2 + run / 2, 1, 0);
     r.panel(0, 0, r.width - 2, .9, 1.7, '#c9a23f');
   },
-  // A bank: machines by the door, a rope to wait behind, the tellers behind glass, a desk to one side.
-  bank(r) {
-    r.floor = '#8f8a7c'; r.wall = '#e6e2d6';
-    for (let i = 0; i < 2; i++) { r.add(r.half - .4, 1.6 + i * 1.1, .6, .8, 1.5, '#2f3f5a'); r.add(r.half - .72, 1.6 + i * 1.1, .04, .5, .4, '#9fd0e0', .95, false); }
-    for (let b = 3.2; b < r.depth - 3.4; b += 1.3) for (const a of [-.9, .9]) r.add(a, b, .08, .08, .95, '#c9a23f');
-    r.add(-.35, r.depth - 1.9, r.width - 1.3, .7, 1.1, '#5a4636'); r.add(-.35, r.depth - 1.6, r.width - 1.3, .05, 1.1, GLASS, 1.1, false);
-    for (let i = 0; i < 3 && -r.half + 1.2 + i * 2.2 < r.half - .8; i++) r.staff(-r.half + 1.2 + i * 2.2, r.depth - 1.0, 0, -1);
-    if (r.half > 3) { r.add(-r.half + 1.1, 2.6, 1.4, .8, .76, WOOD); r.seat(-r.half + 1.1, 3.6, 0, -1, 0, '#3f4a5a'); }
-    r.panel(0, 0, r.width - 1.5, .5, 2.4, '#0f2d5c');
-  },
   // Dry cleaners: a counter across the room, and the clothes in their bags on a rail behind it.
   cleaners(r) {
     r.floor = '#9c988c'; r.wall = '#e9e6dc';
@@ -132,46 +117,11 @@ const STYLES = {
     for (let row = 0; row * .7 + back + .3 < r.depth - .3; row++) { const b = back + .3 + row * .7; r.add(0, b, r.width - .6, .05, .04, STEEL, 2.0, false); for (let a = -r.half + .5; a < r.half - .4; a += .34) r.add(a, b, .28, .1, 1.2, row % 2 ? '#dfe6ea' : CLOTH[(r.seed + Math.round(a * 3)) % CLOTH.length], .78, false); }
     r.add(-r.half + .7, 1.6, .5, 1.6, .45, '#3f4a5a');
   },
-  // Phones and electronics: tables of them under bright light, the accessories on the walls.
-  tech(r) {
-    r.floor = '#d2d0c8'; r.wall = '#f4f4f0'; r.light = { color: 0xf4f8ff, power: 80 };
-    for (let b = 2.6; b < r.depth - 3; b += 2.3) { r.add(0, b, Math.min(2.6, r.width - 3), 1.0, .9, '#e9e4d6'); for (let i = 0; i < 4; i++) r.add(-.75 + i * .5, b, .2, .34, .03, BLACK, .9, false); }
-    r.shelves(-1, 1.4, r.depth - 2.6, '#f4f4f0', ['#17191b', '#2f5f9e', '#e0b23a', '#c8452e']); r.shelves(1, 1.4, r.depth - 2.6, '#f4f4f0', ['#3aa0a0', '#17191b', '#8a4b9e', '#d9d4c2']);
-    r.add(0, r.depth - 1.4, Math.min(2.6, r.width - 2.4), .6, 1.0, WHITE); r.staff(0, r.depth - .75, 0, -1); r.panel(0, 0, 2.4, 1.0, 1.6, '#2f5f9e');
-  },
-  // A doctor's, a dentist's, a vet's: the desk behind its window, chairs round the walls, the door through to the back.
-  waiting(r) {
-    r.floor = '#a9a79c'; r.wall = '#e9ece6';
-    const back = Math.min(r.depth - 1.2, 5.6);
-    r.add(r.half - 1.4, back - .9, 2.4, .7, 1.1, WHITE); r.add(r.half - 1.4, back - .58, 2.4, .04, .9, GLASS, 1.1, false); r.staff(r.half - 1.4, back - .3, 0, -1);
-    for (let b = 1.6; b < back - 1.6; b += .75) r.seat(-r.half + .4, b, 1, 0, 0, '#3f6a7a', .55, .6);
-    for (let a = -r.half + 1.4; a < r.half - 3.2; a += .75) r.seat(a, back - .45, 0, -1, 0, '#3f6a7a', .6, .55);
-    r.add(-r.half + 1.5, 2.6, .9, .6, .42, WOOD); r.panel(-1, 2.0, 1.4, 1.0, 1.3, '#7fb0c9');
-  },
-
-  // A diner: a counter with stools down one side, booths down the other, the kitchen through the pass at the back.
-  diner(r) {
-    r.floor = '#7a6a58'; r.wall = '#e2d6bf';
-    const from = 2.6, to = r.depth - 2.6;
-    r.add(-r.half + 1.0, (from + to) / 2, .7, to - from, 1.05, '#b9b3a6'); r.add(-r.half + 1.0, (from + to) / 2, .8, to - from + .1, .05, '#7a1f2a', 1.05, false);
-    for (let b = from + .5; b < to - .2; b += .9) r.seat(-r.half + 1.75, b, -1, 0, .28, '#7a1f2a', .36, .36, .73);
-    r.staff(-r.half + .35, (from + to) / 2, 1, 0);
-    for (let b = 2.6; b < r.depth - 2.8; b += 2.1) r.booth(r.half - .85, b, '#7a1f2a');
-    r.add(0, r.depth - .3, r.width - .4, .5, 2.0, '#b9bec2'); r.add(.6, r.depth - .62, 2.2, .1, .5, BLACK, 1.1, false); r.panel(0, 0, 2.0, .5, 2.2, '#2a2c30', .56);
-  },
-  // Somewhere with tablecloths: a host's stand by the door, tables well apart, banquettes, a small bar at the back.
-  fine(r) {
-    r.floor = '#3a2c24'; r.wall = '#4a2f2a'; r.light = { color: 0xffd9a8, power: 34 };
-    r.add(-1.15, 1.75, .6, .5, 1.1, '#2a1a14'); r.staff(-1.15, 2.4, 0, -1);
-    for (let b = 3.6; b < r.depth - 3.2; b += 2.3) for (let a = -r.half + 1.5; a < r.half - .9; a += 2.5) { r.add(a, b, .9, .9, .74, '#f1ede2'); r.add(a, b, .12, .12, .22, '#c9a23f', .74, false); r.seat(a - .78, b, 1, 0, 0, '#5a1a1a', .46, .46); r.seat(a + .78, b, -1, 0, 0, '#5a1a1a', .46, .46); }
-    r.add(0, r.depth - 1.5, Math.min(3.6, r.width - 2), .6, 1.1, '#2a1a14'); r.add(0, r.depth - .25, Math.min(3.8, r.width - 1.6), .35, 1.7, '#1a1210', .8); r.bottles(0, r.depth - .3, Math.min(3.4, r.width - 2)); r.staff(0, r.depth - .9, 0, -1);
-    for (const side of [-1, 1]) r.panel(side, 3.4, 1.6, 1.1, 1.2, '#c9a23f');
-  },
   // Take-out: the counter straight ahead under a lit menu, the kitchen behind it, a fridge of drinks, a few seats.
   takeout(r) {
     r.floor = '#b5aa94'; r.wall = '#efe6cf'; r.light = { color: 0xfff6e0, power: 75 };
     const back = Math.min(r.depth - 2.2, 5.2), tone = ['#c81e1e', '#e07b12', '#0b6b2f', '#b01515'][r.seed % 4];
-    r.add(0, back, r.width - 1.4, .7, 1.1, tone); r.add(0, back, r.width - 1.3, .8, .05, STEEL, 1.1, false); r.add(r.half - 1.6, back - .1, .5, .4, .32, DARK, 1.15, false);
+    r.add(.34, back, r.width - 1.9, .7, 1.1, tone); r.add(.34, back, r.width - 1.8, .8, .05, STEEL, 1.1, false); r.add(r.half - 1.6, back - .1, .5, .4, .32, DARK, 1.15, false);
     r.staff(Math.min(1, r.half - 1.6), back + .75, 0, -1);
     r.boardAt = back + .1;
     r.add(0, r.depth - .3, r.width - .4, .5, 2.0, '#b9bec2'); r.add(-.8, r.depth - 1.0, 1.6, .7, .9, STEEL); r.add(1.1, r.depth - 1.0, .9, .7, .9, '#2a2c30');
@@ -196,8 +146,9 @@ const STYLES = {
     r.add(-r.half + 1.5, (from + to) / 2, .8, to - from, 1.05, WHITE);
     for (let b = from + .5; b < to - .3; b += .85) { r.add(-r.half + 1.5, b, .66, .66, .05, '#e0a23a', 1.05, false); r.add(-r.half + 1.5, b, .5, .5, .03, ['#c8452e', '#d9c9a0', '#b8402a'][(r.seed + Math.round(b)) % 3], 1.1, false); }
     r.add(-r.half + 1.85, (from + to) / 2, .04, to - from, .4, GLASS, 1.12, false);
-    r.add(-r.half + .4, (from + to) / 2, .7, Math.min(2.6, to - from), 1.9, '#3a3d42'); r.add(-r.half + .76, (from + to) / 2, .04, 1.2, .3, '#e07b2a', 1.0, false);
-    r.staff(-r.half + .95, from + 1.1, 1, 0);
+    const ovenB=to-.65;
+    r.add(-r.half + .4, ovenB, .7, 1.26, 1.9, '#3a3d42'); r.add(-r.half + .76, ovenB, .04, 1.2, .3, '#e07b2a', 1.0, false);
+    r.staff(-r.half + .65, ovenB-1.13, 1, 0);
     for (let b = 2.4; b < r.depth - 1.5; b += 2.0) r.table(r.half - 1.3, b, '#c8452e', '#23272b');
     r.panel(0, 0, r.width - 2, .9, 1.7, '#0b6b2f'); r.add(r.half - .4, r.depth - .8, .7, 1.0, 1.9, '#d7dde0');
   },
@@ -205,12 +156,16 @@ const STYLES = {
   halal(r) {
     r.floor = '#b9b09a'; r.wall = '#f0ead6'; r.light = { color: 0xfff6e0, power: 75 };
     const back = Math.min(r.depth - 2.2, 5.0);
-    r.add(0, back, r.width - 1.4, .7, 1.1, '#f2c400'); r.add(0, back, r.width - 1.3, .8, .05, STEEL, 1.1, false); r.staff(0, back + .75, 0, -1);
+    r.add(.34, back, r.width - 1.9, .7, 1.1, '#f2c400'); r.add(.34, back, r.width - 1.8, .8, .05, STEEL, 1.1, false); r.staff(0, back + .75, 0, -1);
     r.add(-r.half + 1.1, r.depth - .8, 1.6, .8, .9, STEEL); r.add(r.half - 1.0, r.depth - .7, .45, .45, 1.0, STEEL); r.add(r.half - 1.0, r.depth - .7, .34, .34, .8, '#8a4a2a', 1.0, false);
     r.boardAt = back + .1;
     r.add(0, r.depth - .2, r.width - .4, .3, 2.0, '#b9bec2');
-    r.add(r.half - .35, 2.6, .5, 2.4, .05, WOOD, 1.02); for (let b = 1.8; b < 3.6; b += .8) r.seat(r.half - .95, b, 1, 0, .28, DARK, .36, .36, .73);
-    r.table(-r.half + 1.25, 2.2, '#d9d2c0', '#0b5d2a');
+    r.add(r.half - .35, 2.6, .5, 2.4, .05, WOOD, 1.02); for (let b = 1.8; b < Math.min(3.6, r.depth - 1.15); b += .8) r.seat(r.half - .95, b, 1, 0, .28, DARK, .36, .36, .73);
+    if(r.width<4.8){
+      const a=-r.half+.53;
+      r.add(a,2.22,.70,.65,.74,'#d9d2c0',0,true,'table');
+      for(const side of [-1,1])r.seat(a,2.22+.54*side,0,-side,0,'#0b5d2a');
+    }else r.table(-r.half + 1.25, 2.2, '#d9d2c0', '#0b5d2a');
   },
   // Sushi and ramen: the bar with the chef behind it, stools along it, small tables, pale wood.
   sushi(r) {
@@ -221,18 +176,6 @@ const STYLES = {
     r.staff(-r.half + .55, (from + to) / 2, 1, 0);
     for (let b = 2.4; b < r.depth - 1.6; b += 1.9) r.table(r.half - 1.3, b, '#c9a876', '#2a1a14');
     r.panel(-1, from, to - from, .5, 2.2, '#7a1f2a'); r.panel(0, 0, 1.6, 1.2, 1.2, '#17191b');
-  },
-  // A coffee shop: the bar with the machine and the pastry case, a long shared table, stools at the window, a sofa at the back.
-  coffee(r) {
-    r.floor = '#6f5a44'; r.wall = '#efe7d8'; r.light = { color: 0xffe9c8, power: 55 };
-    const from = 2.4, to = Math.min(r.depth - 2.4, 7);
-    r.add(-r.half + 1.2, (from + to) / 2, .75, to - from, 1.05, '#3a2a1e'); r.add(-r.half + 1.2, (from + to) / 2, .85, to - from + .1, .05, '#d9c9a8', 1.05, false);
-    r.add(-r.half + 1.2, from + .5, .5, .6, .42, '#b8bcc0', 1.1, false); r.add(-r.half + 1.25, to - .9, .55, 1.2, .38, GLASS, 1.1, false); r.add(-r.half + 1.25, to - .9, .4, 1.0, .1, '#c9772a', 1.14, false);
-    r.staff(-r.half + .45, from + .9, 1, 0);
-    r.panel(-1, from, to - from, .8, 1.9, '#23272b');
-    if (r.half > 2.9) { const b = (from + to) / 2 + .3, a = Math.min(r.half - 1.6, 1.2); r.add(a, b, .8, 2.4, .76, '#a8845c'); for (const k of [-.75, 0, .75]) { r.seat(a - .7, b + k, 1, 0, 0, '#2a1a14', .36, .36); r.seat(a + .7, b + k, -1, 0, 0, '#2a1a14', .36, .36); } }
-    r.add(r.half - .35, 1.1, .5, 1.3, .05, '#a8845c', 1.02);
-    if (r.depth > 8) { r.seat(.5, r.depth - .6, 0, -1, 0, '#5a6a4a', 1.8, .7); r.add(.5, r.depth - 1.7, .9, .5, .4, '#a8845c'); }
   },
   // A bakery, a doughnut or bagel shop, an ice-cream parlour: the case full of what they make, the racks behind, somewhere to perch.
   bakery(r) {
@@ -273,7 +216,7 @@ const STYLES = {
   salon(r) {
     r.wall = '#f1dfe6'; r.floor = '#b8b2a8';
     r.add(r.half - 1.2, 1.6, 1.6, .6, 1.05, WHITE); r.staff(r.half - 1.2, .95, 0, 1);
-    for (let b = 3.2; b < r.depth - 2.6; b += 1.9) for (const side of [-1, 1]) { r.seat(side * (r.half - 1.1), b, side, 0, .1, '#2b2b30', .65, .65, .55); r.add(side * (r.half - 1.1), b + .28, .6, .12, .6, '#2b2b30', .55, false); r.add(side * (r.half - .12), b, .06, 1.0, 1.1, '#bcd3da', 1.0, false); r.add(side * (r.half - .25), b, .35, 1.1, .05, WHITE, .85, false); }
+    for (let b = Math.min(3.2,r.depth-1.4); b < Math.max(r.depth-2.6,3.24); b += 1.9) for (const side of [-1, 1]) { r.seat(side * (r.half - 1.1), b, side, 0, .1, '#2b2b30', .65, .65, .55); r.add(side * (r.half - 1.1), b + .28, .6, .12, .6, '#2b2b30', .55, false); r.add(side * (r.half - .12), b, .06, 1.0, 1.1, '#bcd3da', 1.0, false); r.add(side * (r.half - .25), b, .35, 1.1, .05, WHITE, .85, false); }
     for (let a = -r.half + 1.0; a < r.half - .6; a += 1.3) { r.add(a, r.depth - .45, .7, .6, .85, '#17191b'); r.add(a, r.depth - .45, .5, .4, .12, WHITE, .85, false); }
     r.staff(-r.half + 1.9, 3.2, -1, 0);
     r.seat(-r.half + .4, 1.7, 1, 0, 0, '#b65a7a', .55, 1.4);
@@ -291,10 +234,12 @@ const STYLES = {
   barber(r) {
     r.wall = '#e8e4da'; r.floor = '#2f3236';
     r.panel(-1, 2.6, Math.max(2, r.depth - 4), 1.2, 1.0, '#bcd3da'); r.add(-r.half + .25, r.depth / 2 + .6, .4, Math.max(2, r.depth - 4), .05, WOOD, .9, false);
-    for (let b = 3.2; b < r.depth - 1.4; b += 1.9) { r.seat(-r.half + 1.3, b, -1, 0, .1, '#7a1f1f', .65, .65, .55); r.add(-r.half + 1.62, b, .12, .6, .6, '#7a1f1f', .55, false); r.add(-r.half + 1.3, b, .2, .2, .12, STEEL, 0, false); }
+    for (let b = Math.min(3.2,r.depth-1.1); b < r.depth - .72; b += 1.9) { r.seat(-r.half + 1.3, b, -1, 0, .1, '#7a1f1f', .65, .65, .55); r.add(-r.half + 1.62, b, .12, .6, .6, '#7a1f1f', .55, false); r.add(-r.half + 1.3, b, .2, .2, .12, STEEL, 0, false); }
     r.staff(-r.half + 1.9, 3.2 + .9, -1, 0);
+    r.people.at(-1).role='barber';
     for (let b = 2.2; b < r.depth - 1.2; b += .7) r.seat(r.half - .4, b, -1, 0, 0, '#23272b', .55, .62);
-    r.add(r.half - 1.2, 1.5, 1.2, .5, 1.0, BLACK); r.staff(r.half - 1.2, .9, 0, 1);
+    const desk=r.half-.72;
+    r.add(desk, 1.62, Math.min(1.2,r.half-1.15), .5, 1.0, BLACK); r.staff(desk,.94,0,1);
     for (let i = 0; i < 3; i++) r.add(-.9 + i * .9, r.depth - .04, .5, .05, 1.3, ['#b01515', '#f4f1e6', '#1a3fa0'][i], 1.1, false);
   },
 
@@ -321,7 +266,9 @@ const STYLES = {
   lobby(r) {
     r.wall = '#ddd6c6'; r.floor = '#6f685e';
     r.add(0, r.depth - 1.6, Math.min(4, r.width - 2), .8, 1.1, WOOD); r.staff(0, r.depth - .9, 0, -1);
-    r.seat(-r.half + .9, 2.6, 1, 0, 0, '#3f4a5a', .9, 2.0); r.seat(r.half - .9, 2.6, -1, 0, 0, '#3f4a5a', .9, 2.0);
+    const benchLength = Math.min(2, r.depth - 2.75);
+    const sides = r.depth < 5 ? [-1] : [-1, 1];
+    for (const side of sides) r.seat(side * (r.half - .9), Math.min(2.6, r.depth - 2.55 - benchLength/2), -side, 0, 0, '#3f4a5a', .9, benchLength);
     r.panel(0, 0, Math.min(3, r.width - 2), .9, 1.6, '#2f5f9e');
   },
 };
@@ -329,7 +276,10 @@ const STYLES = {
 /** How many metres of building lie straight in from a front's door, up to 13. `inside(x, z)` says whether a point is within its building. */
 export function roomDepth(front, inside = () => true) {
   let depth = 0;
-  while (depth < 13 && inside(...roomPoint(front, 0, depth + 1))) depth++;
+  if (front.width < 4) return 0;
+  const edge = Math.min(9, front.width) / 2 - .07;
+  const lanes = [-edge, -edge / 2, 0, edge / 2, edge];
+  while (depth < 13 && lanes.every(a => inside(...roomPoint(front, a, depth + 1)))) depth++;
   return depth;
 }
 /** Whether a street front has a room to walk into: a kind of place that has one, with four metres of building behind its door. */
@@ -353,7 +303,7 @@ export function planRoom(front, inside = () => true) {
   let depth = roomDepth(front, inside);
   if (depth < 4) return null;
   depth = Math.min(12, depth - .4);
-  const width = Math.max(5, Math.min(9, front.width)), half = width / 2, seed = hashOf(`${placeName(place)}|${place.x}|${place.z}`), style = roomStyle(place);
+  const width = Math.min(9, front.width), half = width / 2, seed = hashOf(`${placeName(place)}|${place.x}|${place.z}`), style = roomStyle(place);
   const r = { width, half, depth, seed, place, things: [], people: [], seats: [], wall: '#d8d2c4', floor: '#8a8378', light: { color: 0xfff1dc, power: 60 } };
   // `shape` says how a thing is drawn where it is more than a box: 'table', 'chair', 'bench', 'stool'; `face` is the way a seat faces.
   r.add = (a, b, w, d, h, color, y = 0, solid = true, shape = null, face = null) => { const thing = { a, b, w, d, h, y, color, solid }; if (color === GLASS && !solid) thing.glass = true; if (shape) thing.shape = shape; if (face) thing.face = face; r.things.push(thing); };
@@ -396,11 +346,29 @@ export function planRoom(front, inside = () => true) {
   seats = seats.filter(spot => things.some(thing => thing.solid && thing.h <= .8 && thing.a === spot.a && thing.b === spot.b));
   // What is sold is written up where it can be read from the door: over the counter a manner of room has in its
   // middle, or else on the back wall, in front of whatever stands against it.
-  const menu = menuFor(place), board = menu.length ? { a: 0, b: r.boardAt != null ? r.boardAt - .06 : depth - .62, w: Math.min(3.4, width - 1.4), h: .78, up: 2.12, lines: menu.map(item => [item.name, item.price]) } : null;
+  const menu = menuFor(place), board = menu.length && ['eat','bar'].includes(kind) ? { a: 0, b: r.boardAt != null ? r.boardAt - .06 : depth - .62, w: Math.min(3.4, width - 1.4), h: .78, up: 2.12, lines: menu.map(item => [item.name, item.price]) } : null;
+  if (kind==='eat' && style!=='coffee' && seats.length && staff.length) {
+    staff[0].role='cook';
+    const server=staff.find(s=>s!==staff[0]);
+    if(server)server.role='server';
+    else {
+      // An open station beside the pass, with enough clearance to step into service.
+      const spots=[];
+      for(let b=.9;b<depth-.4;b+=.4) for(let a=-half+.45;a<=half-.45;a+=.4)
+        if(!things.some(t=>within({a,b},t,.24)) && Math.hypot(a-staff[0].a,b-staff[0].b)>.8)spots.push({a,b,da:0,db:-1,role:'server',facing:0});
+      spots.sort((s,t)=>Math.hypot(s.a,s.b-(depth-2.4))-Math.hypot(t.a,t.b-(depth-2.4)));
+      if(spots.length)staff.push(spots[0]);
+    }
+  }
   const returns = (front.returns || []).map(({ side, length }) => ({ side, length: Math.min(depth, length) }));
   const room = { name: placeName(place), kind, style, board, place, returns, skew: front.skew || 0, x: front.x, z: front.z, tx: front.tx, tz: front.tz, nx: front.nx, nz: front.nz, width, depth, things, staff, seats, wall: r.wall, floor: r.floor, light: r.light };
-  if (r.finish) room.finish = { ...r.finish, seed };
+  const softFloor = ['bar','chairs','lobby'].includes(kind) || ['books','clothes','liquor','music','sushi'].includes(style);
+  room.finish = { floor:softFloor ? 'wood' : 'tile', feature:r.wall, accent:r.floor, ink:'#444440',
+    title:'', line:'', zones:[], ...r.finish, seed };
+  if(r.grocerySlots){room.grocerySlots=r.grocerySlots;room.groceryTickets=r.groceryTickets;}
   room.register = planRegister(room);
+  if(room.register?.podium)room.things.push(room.register.podium);
+  if(room.register?.attendant)room.staff.push(room.register.attendant);
   return room;
 }
 
@@ -447,13 +415,24 @@ export function buildRoom(room, y = 0, { streetView = false } = {}) {
   // A dim room has a dark ceiling and its lights turned low.
   const dim = (room.light?.power ?? 60) < 45, above = dim ? tone.set(room.wall).multiplyScalar(.55).getHexString() : 'f2efe6';
   box(0, room.depth / 2, room.width - .02, room.depth - .02, .03, 0, room.floor); box(0, room.depth / 2, room.width - .02, room.depth - .02, .03, CEILING - .04, room.light?.ceiling || '#' + above);
-  if (room.light?.strip) {
+  const pendants=['coffee','jewelry','fine','diner'].includes(room.style);
+  if(room.finish?.counterService){
+    // Suspended tiles and recessed fluorescent troffers over the service line.
+    for(let a=-half+.61;a<half;a+=.61)box(a,room.depth/2,.014,room.depth-.03,.007,CEILING-.047,'#aea99e');
+    for(let b=1.22;b<room.depth;b+=1.22)box(0,b,room.width-.03,.016,.007,CEILING-.047,'#aea99e');
+    const column=Math.max(1,Math.floor(room.width*.25/.61));
+    for(let b=1.83;b<room.depth-.58;b+=3.66)for(const side of [-1,1]){
+      const a=side*(half-(column+.5)*.61);
+      box(a,b,.60,1.20,.017,CEILING-.061,'#a8a79f');
+      box(a,b,.55,1.15,.009,CEILING-.070,'#fff8df');
+    }
+  }else if (room.light?.strip) {
     for (const side of [-1, 1]) {
       const a = side * room.width * .26, length = room.depth - .8;
       box(a, room.depth / 2, .14, length, .06, CEILING - .13, '#676967');
       box(a, room.depth / 2, .084, length - .07, .022, CEILING - .15, room.light.strip);
     }
-  } else {
+  } else if (!pendants && !room.light?.recessed) {
     for (let b = 1.5; b < room.depth; b += 3) box(0, b, room.width * (dim ? .12 : .5), dim ? .12 : .5, .05, CEILING - .1, dim ? '#ffd9a0' : '#fffbe8');
   }
   // A cylinder standing on end, shaded like the boxes.
@@ -466,11 +445,65 @@ export function buildRoom(room, y = 0, { streetView = false } = {}) {
     }
     geometry.dispose();
   };
+  if (room.light?.recessed && !room.finish?.counterService) {
+    for (let b = 1.5; b < room.depth; b += 3) for (const side of [-1,1]) {
+      const a = side * room.width * .24;
+      post(a,b,.085,.014,CEILING-.054,'#95928a');
+      post(a,b,.060,.007,CEILING-.061,'#fff2d3');
+    }
+  }
+  if(pendants) for(let b=1.5;b<room.depth-.25;b+=3){
+    for(const side of [-1,1]){
+      const a=side*room.width*.24;
+      box(a,b,.018,.018,.32,CEILING-.35,'#494441');
+      post(a,b,.057,.07,CEILING-.39,'#a48964',8);
+      post(a,b,.142,.073,CEILING-.452,'#4f554b',8);
+      post(a,b,.13,.013,CEILING-.464,'#ffe8b9',8);
+    }
+  }
   const LEG = '#2a2c30', props = roomProps(room, y, position, color);
+  const paneVertices = [], surfaces=[];
+  const till=room.register;
+  if (till) {
+    if(till.mounted){
+      const wallGap=.225/Math.hypot(1,till.da*(room.skew||0));
+      const bracket=(u,v,w,d,h,up,hex)=>{
+        const axes=checkoutAxes(room,till.da,till.db);
+        box(till.a+axes.ua*u+axes.va*v,till.b+axes.ub*u+axes.vb*v,w,d,h,till.up+up,hex,false,till.da,till.db);
+      };
+      bracket(0,0,.50,wallGap*2,.035,-.035,'#8e8270');
+      for(const side of [-1,1]){
+        bracket(side*.178,-wallGap+.038,.032,.06,.176,-.207,'#69716d');
+        bracket(side*.178,-.01,.032,.31,.023,-.058,'#69716d');
+      }
+    }
+    props.draw({shape:'register',a:till.a,b:till.b,y:till.up,face:[till.da,till.db]});
+  }
   for (const thing of room.things) {
+    // A single material attribute selects close-up grain on surfaces with
+    // an identifiable finish. Thin metal parts retain their original colour.
+    let tile=0;
+    if(['shirt','chair','bench','stool','fittingRoom','weightBench'].includes(thing.shape))tile=3;
+    else if(['exerciseMat','treadmill'].includes(thing.shape))tile=4;
+    else if(['espresso','cookline','kitchenRange','packingBench','hotServery','oven','ringSample','spinBike','barbellRack','cableStation','dumbbells'].includes(thing.shape))tile=5;
+    else if(['phone','cup','plates','placeSetting'].includes(thing.shape))tile=6;
+    else if(['guitar','table','towelShelf','showcase','shoewall','breadrack'].includes(thing.shape) ||
+      !thing.shape && parseInt(thing.color.slice(1,3),16)-parseInt(thing.color.slice(5,7),16)>24)tile=1;
+    surfaces.push([position.length/3,tile]);
     const { a, b, w, d, h, y: up, color: hex, shape, face } = thing;
     // The working checkout below replaces the decorative register in the layout.
-    if (shape==='register' && room.register) continue;
+    if (shape==='register' || thing.more?.pickup) continue;
+    if (shape === 'branchPartition') {
+      const [lx,lz]=roomPoint(room,a-w/2+.038,b), [rx,rz]=roomPoint(room,a+w/2-.038,b);
+      const low=y+up+.07, high=y+up+h-.04;
+      paneVertices.push(lx,low,lz,rx,low,rz,rx,high,rz,lx,low,lz,rx,high,rz,lx,high,lz);
+    }
+    if (shape === 'tellerPane') {
+      const [lx, lz] = roomPoint(room, a - w / 2, b), [rx, rz] = roomPoint(room, a + w / 2, b);
+      const low = y + up, high = low + h;
+      paneVertices.push(lx,low,lz, rx,low,rz, rx,high,rz, lx,low,lz, rx,high,rz, lx,high,lz);
+      continue;
+    }
     // What marks the trade is drawn as itself (room-props.js): an oven, a dressed figure, a case of watches.
     if (props.draw(thing)) continue;
     if (shape === 'table') {
@@ -496,23 +529,74 @@ export function buildRoom(room, y = 0, { streetView = false } = {}) {
       box(a, b, w - .06, d - .06, .1, 0, '#1b1d20'); box(a, b, w, d, h - .14, .1, hex); box(a, b, w + .06, d + .06, .04, h - .04, '#d9d4c8');
     } else box(a, b, w, d, h, up, hex);
   }
-  let drawer, notes, takeArm;
-  const till=room.register;
-  if (till) {
-    const part=(u,v,w,d,h,up,color)=>box(till.a+u*till.db+v*till.da,till.b-u*till.da+v*till.db,w,d,h,till.up+up,color,false,till.da,till.db);
-    if(till.mounted)part(0,0,.43,.37,.05,-.05,'#656766');
-    part(0,0,.38,.32,.12,0,'#303437');
-    part(0,-.055,.06,.05,.09,.12,'#555b5e');
-    part(0,-.055,.29,.055,.18,.21,'#263338');
-    part(0,-.024,.25,.01,.14,.23,'#76bcb8');
-    part(0,.085,.19,.09,.018,.12,'#828b89');
+  // Display cases and teller windows share a transparent batch.
+  surfaces.push([position.length/3,0]);
+  for (const t of room.things) if (t.shape === 'showcase' || t.shape==='hotServery') {
+    const [da,db] = t.face, w = db ? t.w : t.d, d = db ? t.d : t.w;
+    const point = (u,v,up) => {
+      const [x,z]=roomPoint(room,t.a+db*u+da*v,t.b-da*u+db*v);
+      return [x,y+t.y+up,z];
+    };
+    const left=-w/2+.012, right=-left, front=d/2-.011, top=t.h-.014, base=t.more?.deck??Math.max(.045,t.h-.34);
+    const quad=(a,b,c,e)=>paneVertices.push(...a,...b,...c,...a,...c,...e);
+    if(t.shape==='hotServery'){
+      const edge=d*.43, sill=t.more.countertop?.15:1.01;
+      quad(point(left,edge,sill),point(right,edge,sill),point(right,edge,top),point(left,edge,top));
+      quad(point(left,edge,top),point(right,edge,top),point(right,-d*.12,top),point(left,-d*.12,top));continue;
+    }
+    quad(point(left,front,base),point(right,front,base),point(right,front,top),point(left,front,top));
+    quad(point(left,front,top),point(right,front,top),point(right,-front,top),point(left,-front,top));
   }
+  let drawer, notes, takeArm;
+
   const geometry = new THREE.BufferGeometry();
   geometry.setAttribute('position', new THREE.Float32BufferAttribute(position, 3)); geometry.setAttribute('color', new THREE.Float32BufferAttribute(color, 3));
+  const tiles=new Uint8Array(position.length/3);
+  surfaces.forEach(([start,id],i)=>tiles.fill(id,start,surfaces[i+1]?.[0]??tiles.length));
+  geometry.setAttribute('surfaceTile',new THREE.BufferAttribute(tiles,1));
   const material = new THREE.MeshBasicMaterial({ vertexColors: true, fog: false }); material.name = 'Room';
   const mesh = new THREE.Mesh(geometry, material); mesh.frustumCulled = streetView; group.add(mesh);
+  // Merchandise used during service has its own visibility. Bake it in the
+  // same coordinates as the permanent fixtures so the street-window mask applies.
+  const serviceMeshes=new Map();
+  let foodMaterial=null,windowMask=null;
+  function showProduct(fixture,shape,visible,item,level=2) {
+    let product=serviceMeshes.get(fixture);
+    if(product && (product.userData.shape!==shape || visible && (level!==product.userData.level || item?.name!==product.userData.order) || fixture.temporary && !visible || shape==='mealPlate' &&
+      (item && product.userData.order!==item.name || (!visible && fixture.index!==undefined)))){
+      product.removeFromParent();product.geometry.dispose();serviceMeshes.delete(fixture);product=null;
+    }
+    if(!product && visible){
+      const positions=[],colors=[];
+      const isMeal=shape==='mealPlate', isRing=shape==='ringSample';
+      const uv=isRing?null:[];
+      roomProps(room,y,positions,colors,uv).draw({shape,a:fixture.a+(isMeal?.1:0),b:fixture.b+(isRing?.08:0),
+        w:.32,d:.28,h:.09,y:isRing?fixture.y+fixture.h-.314:isMeal?fixture.y+fixture.h+.022:fixture.y,face:fixture.face,color:'#ddba79',more:{dish:item?.preparation||item?.name||'',level}});
+      const g=new THREE.BufferGeometry();
+      g.setAttribute('position',new THREE.Float32BufferAttribute(positions,3));g.setAttribute('color',new THREE.Float32BufferAttribute(colors,uv?4:3));
+      if(uv){
+        g.setAttribute('uv',new THREE.Float32BufferAttribute(uv,2));
+        if(!foodMaterial){
+          foodMaterial=new THREE.MeshBasicMaterial({map:ingredientMap(),vertexColors:true,transparent:true,fog:false,side:THREE.DoubleSide});
+          if(windowMask)foodMaterial.onBeforeCompile=windowMask;
+          lightRoomSurface(foodMaterial,room,y,true);
+        }
+      }
+      g.setAttribute('surfaceTile',new THREE.BufferAttribute(new Uint8Array(positions.length/3).fill(isRing?5:6),1));
+      product=new THREE.Mesh(g,isRing?material:foodMaterial);product.name=isMeal?'Served plate':isRing?'Solitaire on display':'Drink at pickup';
+      product.userData.shape=shape;product.userData.level=level;
+      product.userData.order=item?.name;serviceMeshes.set(fixture,product);group.add(product);
+    }
+    if(product) product.visible=visible;
+  }
+  group.userData.drinkAt=(pickup,kind,visible,item,level=2)=>showProduct(pickup,kind==='mug'?'drinkMug':'paperCup',visible,item,level);
+  group.userData.mealAt=(table,visible,item,level=2)=>showProduct(table,'mealPlate',visible,item,level);
+  group.userData.mealRemaining=(table,item,level)=>showProduct(table,'mealPlate',true,item,level);
+  group.userData.sampleAt=(display,visible)=>showProduct(display,'ringSample',visible);
+  if(room.style==='jewelry') for(const display of room.things.filter(t=>t.more?.items==='rings'))group.userData.sampleAt(display,true);
   // The menu, lettered, where the plan puts it. Drawn only where there is a page to draw on.
   let menuBoard = null;
+  let releaseMenu;
   if (room.board && typeof document !== 'undefined') {
     const { a, b, w, h, up, lines } = room.board, canvas = document.createElement('canvas'), scale = 256;
     canvas.width = Math.round(w * scale); canvas.height = Math.round(h * scale);
@@ -529,6 +613,7 @@ export function buildRoom(room, y = 0, { streetView = false } = {}) {
       context.textAlign = 'right'; context.fillStyle = '#f2c230'; context.fillText(`$${price.toFixed(2)}`, x1, yy);
     });
     const lettering = new THREE.CanvasTexture(canvas); lettering.colorSpace = THREE.SRGBColorSpace; lettering.anisotropy = 4;
+    if(room.finish.counterService)releaseMenu=counterMenu(canvas,context,room,lettering);
     // Read from the door, the room's `a` runs to the right or to the left according to which way round its wall was drawn.
     const right = Math.sign(room.tx * room.nz - room.tz * room.nx) || 1, corner = (u, v) => { const [x, z] = roomPoint(room, a + (u - .5) * w * right, b); return [x, y + up + v * h, z]; };
     const plane = new THREE.BufferGeometry();
@@ -536,6 +621,17 @@ export function buildRoom(room, y = 0, { streetView = false } = {}) {
     plane.setAttribute('uv', new THREE.Float32BufferAttribute([0, 0, 1, 0, 1, 1, 0, 0, 1, 1, 0, 1], 2));
     menuBoard = new THREE.Mesh(plane, new THREE.MeshBasicMaterial({ map: lettering, side: THREE.DoubleSide, fog: false })); menuBoard.name = 'Menu board'; menuBoard.frustumCulled = streetView; group.add(menuBoard);
   }
+  let caseGlass;
+  if (paneVertices.length) {
+    const surface=new THREE.BufferGeometry();
+    surface.setAttribute('position',new THREE.Float32BufferAttribute(paneVertices,3));
+    caseGlass=new THREE.Mesh(surface,new THREE.MeshBasicMaterial({color:0xb4d9d9,opacity:.10,transparent:true,depthWrite:false,side:THREE.DoubleSide,fog:false}));
+    caseGlass.name='Display case glass'; group.add(caseGlass);
+  }
+  const terminal=till && checkoutScreens(room,till,y);
+  if(terminal)group.add(terminal);
+  const print=buildPharmacyPrint(room,y);
+  if(print)group.add(print);
   const finish = buildRoomFinish(room, y);
   if (finish) group.add(finish);
   if (streetView) {
@@ -559,7 +655,7 @@ export function buildRoom(room, y = 0, { streetView = false } = {}) {
         vShopPoint.x += shopSkew * vShopPoint.z; vShopEye.x += shopSkew * vShopEye.z;`);
       shader.fragmentShader = vars + 'uniform float shopInside; uniform vec2 shopReturns;\n' + SHOP_WINDOW_GLSL + shader.fragmentShader.replace('#include <color_fragment>', `#include <color_fragment>
         bool insideEye = vShopEye.z <= 0.035 && abs(vShopEye.x) <= shopFront.w + 0.06;
-        if (shopInside < 0.5 || !insideEye) {
+        if (shopInside < 1.5 && (shopInside < 0.5 || !insideEye)) {
           vec3 ray = vShopEye - vShopPoint;
           float edge = -1.0;
           if (vShopEye.z > 0.0 && ray.z > 0.001) {
@@ -576,12 +672,30 @@ export function buildRoom(room, y = 0, { streetView = false } = {}) {
         }
         diffuseColor.rgb *= mix(0.94, 0.72, uNycNight);`);
     };
+    windowMask=material.onBeforeCompile;
     if (menuBoard) menuBoard.material.onBeforeCompile = material.onBeforeCompile;
+    if (caseGlass) caseGlass.material.onBeforeCompile = material.onBeforeCompile;
     if (finish) finish.material.onBeforeCompile = material.onBeforeCompile;
+    if (print) print.material.onBeforeCompile = material.onBeforeCompile;
+    if (terminal) terminal.material.onBeforeCompile = material.onBeforeCompile;
   } else {
     const lamp = new THREE.PointLight(room.light?.color ?? 0xfff1dc, room.light?.power ?? 60, room.depth * 2.5, 1.6), [lx, lz] = roomPoint(room, 0, room.depth / 2);
     lamp.position.set(lx, y + CEILING - .5, lz); group.add(lamp);
   }
+  const artwork=buildShopPrint(room,y);
+  if(artwork){
+    for(const m of artwork.material){
+      if(streetView)m.onBeforeCompile=material.onBeforeCompile;
+      lightRoomSurface(m,room,y,true);
+    }
+    group.add(artwork);
+  }
+  const disposeMirrors=buildSalonMirrors(room,y,group,streetView?material.onBeforeCompile:null);
+  const groceries=room.grocerySlots && buildGroceryDisplays(room,y,streetView?material.onBeforeCompile:null);
+  if(groceries){group.add(groceries.group);group.userData.syncGroceries=groceries.sync;}
+  lightRoomSurface(material,room,y);
+  if(print)lightRoomSurface(print.material,room,y,true);
+  if(finish)lightRoomSurface(finish.material,room,y,true);
   // Origin at the jamb. The rotation sign follows the footprint winding.
   const hinge = new THREE.Group(), leaf = new THREE.Group(), [hx, hz] = roomPoint(room, -DOOR / 2, 0);
   hinge.position.set(hx, y, hz); hinge.rotation.y = Math.atan2(-room.tz, room.tx); hinge.add(leaf); group.add(hinge);
@@ -609,16 +723,19 @@ export function buildRoom(room, y = 0, { streetView = false } = {}) {
       const part=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),new THREE.MeshBasicMaterial({color}));
       group.add(part);return part;
     };
-    drawer=movingPart(.32,.055,.25,0x22272a);drawer.name='Register drawer';
+    drawer=checkoutDrawer();group.add(drawer);
     notes=movingPart(.158,.028,.073,0x92aa83);notes.name='Cash from clerk';
     const band=new THREE.Mesh(new THREE.BoxGeometry(.034,.029,.075),new THREE.MeshBasicMaterial({color:0xe7dcc1}));
     notes.add(band);
     const [x,z]=roomPoint(room,till.a,till.b);
-    const [tx,tz]=roomPoint(room,till.a+till.da,till.b+till.db);
+    const axes=checkoutAxes(room,till.da,till.db);
+    const [tx,tz]=roomPoint(room,till.a+axes.va,till.b+axes.vb);
     const heading=Math.atan2(tx-x,tz-z);
     drawer.rotation.y=notes.rotation.y=heading;
     let slide=0;
-    group.userData.updateTill=(open,cash,dt,hand,player)=>{
+    group.userData.updateTill=(open,cash,dt,hand,player,amount=0,receipt=null)=>{
+      terminal?.userData.receipt(receipt);
+      if(open)drawer.userData.showCash(amount);
       slide=THREE.MathUtils.damp(slide,open ? .25 : 0,12,dt);
       drawer.position.set(x+(.06+slide)*Math.sin(heading),y+till.up+.045,z+(.06+slide)*Math.cos(heading));
       notes.visible=Boolean(cash);
@@ -626,17 +743,14 @@ export function buildRoom(room, y = 0, { streetView = false } = {}) {
       if (hand) {
         if (!takeArm) {
           takeArm=new THREE.Group(); takeArm.name='Reaching hand'; group.add(takeArm);
-          const skin=new THREE.MeshBasicMaterial({color:0xae8064});
-          const finger=(sx,sy,sz,dx,dy,dz)=>{
-            const mesh=new THREE.Mesh(new THREE.SphereGeometry(1,10,7),skin);
-            mesh.scale.set(sx,sy,sz);mesh.position.set(dx,dy,dz);takeArm.add(mesh);
-          };
-          finger(.049,.027,.065,0,0,-.025);
-          for (let i=0;i<4;i++) finger(.011,.013,.035,(i-1.5)*.023,-.005,.031-Math.abs(i-1)*.005);
-          finger(.015,.018,.036,-.047,.006,-.007);
+          const handModel=viewHand();
+          handModel.group.rotation.set(0,0,-Math.PI/2);
+          handModel.group.rotateX(Math.PI/2);
+          takeArm.add(handModel.group);takeArm.userData.hand=handModel;
           const sleeve=new THREE.Mesh(new THREE.CylinderGeometry(.042,.069,1,10),new THREE.MeshBasicMaterial({color:0x4b5558}));
           group.add(sleeve);takeArm.userData.sleeve=sleeve;
         }
+        takeArm.userData.hand.pose('pinch','index_03_l');
         const sleeve=takeArm.userData.sleeve, angle=Math.atan2(x-player.x,z-player.z);
         takeArm.position.set(hand.x,y+hand.y+.018,hand.z); takeArm.rotation.y=angle;
         const wrist=takeArm.position.clone().add(new THREE.Vector3(-.075*Math.sin(angle),0,-.075*Math.cos(angle)));
@@ -650,9 +764,19 @@ export function buildRoom(room, y = 0, { streetView = false } = {}) {
     group.userData.updateTill(false,false,0);
   }
   group.userData.dispose = () => {
-    for(const root of [drawer,notes,takeArm,takeArm?.userData.sleeve])root?.traverse(part=>{part.geometry?.dispose();part.material?.dispose();});
+    takeArm?.userData.hand.dispose();
+    for(const root of [drawer,notes,takeArm?.userData.sleeve])root?.traverse(part=>{part.geometry?.dispose();part.material?.dispose();});
+    groceries?.dispose();
+    disposeMirrors?.();
+    if(artwork){artwork.geometry.dispose();for(const m of artwork.material)m.dispose();}
+    for(const product of serviceMeshes.values())product.geometry.dispose();
+    foodMaterial?.dispose();
     for (const part of leaf.children) part.geometry.dispose();
+    if (caseGlass) { caseGlass.geometry.dispose(); caseGlass.material.dispose(); }
+    releaseMenu?.();
     if (menuBoard) { menuBoard.geometry.dispose(); menuBoard.material.map.dispose(); menuBoard.material.dispose(); }
+    terminal?.userData.dispose();
+    if (print) { print.material.map.dispose(); print.material.dispose(); print.geometry.dispose(); }
     if (finish) { finish.material.map.dispose(); finish.material.dispose(); finish.geometry.dispose(); }
     frame.dispose(); glass.dispose(); geometry.dispose(); material.dispose(); group.removeFromParent();
   };

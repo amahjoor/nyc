@@ -3,6 +3,91 @@
 const steel = '#989fa2', chrome = '#c7cdcb', rubber = '#26282a', alloy = '#52585a';
 
 export const BUSINESS_FIXTURES = {
+  cashMachine(t, w, d, h, enamel, { accent }) {
+    const face = d * .23;
+    t.box(0, -.03, w - .10, d - .08, .11, 0, alloy);
+    t.box(0, -d * .12, w, d * .70, h - .11, .11, enamel);
+    t.box(0, d * .04, w - .06, d * .89, .78, .12, '#485557');
+    for (const side of [-1, 1]) {
+      t.box(side * (w / 2 - .035), .02, .065, d - .05, h - .13, .12, enamel);
+      t.plate(side * w * .40, face + .007, .021, .38, 1.03, '#e7ebdc', true);
+    }
+    t.box(0, 0, w, d, .12, h - .12, enamel);
+    t.plate(0, face + .005, w * .75, .37, h - .59, '#222d32');
+    t.plate(0, face + .009, w * .65, .28, h - .545, '#8ec4c5', true);
+    t.plate(-w * .07, face + .012, w * .39, .032, h - .36, '#35585e');
+    for (let i = 0; i < 3; i++) t.plate((i - 1) * w * .19, face + .014, w * .15, .05, h - .49, '#e6f1df');
+    t.box(0, d * .14, w - .09, d * .69, .055, .9, '#bbc3bf');
+    t.box(-.11, d * .33, .23, .15, .018, .955, '#434b4e');
+    for (let i = 0; i < 3; i++) for (let j = 0; j < 3; j++)
+      t.box(-.17 + i * .06, d * .33 + (j - 1) * .043, .044, .028, .009, .974, chrome);
+    t.plate(w * .28, face + .012, .14, .036, 1.03, accent, true);
+    t.plate(0, d * .485 + .002, w * .47, .064, .67, rubber);
+    t.box(0, d * .455, w * .50, d * .09, .022, .658, chrome);
+  },
+
+  serviceDesk(t, w, d, h, timber, { trim, top }) {
+    t.box(0, -.02, w - .13, d - .10, .13, 0, '#49443d');
+    t.box(0, 0, w - .05, d - .04, h - .16, .10, timber);
+    const panels = Math.ceil(w / .68), pitch = (w - .10) / panels;
+    for (let i = 1; i < panels; i++)
+      t.plate(-w / 2 + .05 + i * pitch, d / 2 - .019, .013, h - .24, .14, '#514137');
+    for (const side of [-1, 1]) for (let i = 0; i < 4; i++)
+      t.box(side * (w / 2 - .07 - .043 * i), d / 2 - .015, .018, .027, h - .25, .14, timber);
+    t.box(0, 0, w - .025, d - .015, .025, h - .085, trim);
+    t.box(0, 0, w, d, .060, h - .060, top);
+  },
+
+  deskMonitor(t, w, d, h, frame) {
+    t.box(0, 0, w * .53, d, .023, 0, alloy);
+    t.box(0, 0, .052, .043, .13, .023, alloy);
+    t.box(0, 0, w, .038, h - .14, .14, frame);
+    t.plate(0, .021, w - .032, h - .18, .156, '#729393');
+    t.plate(-w * .18, .023, w * .34, .016, h - .08, '#c2d5c8');
+    t.box(0, -.023, w * .27, .010, .015, h - .07, alloy);
+  },
+
+  writingDesk(t, w, d, h, timber) {
+    for (const side of [-1, 1]) t.box(side * (w / 2 - .10), -.025, .065, d - .10, h - .07, .035, timber);
+    t.box(0, -d * .29, w - .17, .04, .22, h - .35, timber);
+    t.box(0, 0, w, d, .055, h - .055, '#bc9971');
+    t.box(-w * .16, .035, .32, .21, .014, h, '#ebe4d2');
+    for (let i = 0; i < 3; i++) t.box(-w * .18, .02 + i * .035, .19, .007, .003, h + .014, '#a39d8e');
+    t.box(w * .15, .04, .018, .14, .017, h, '#333f42');
+    for (let i = 0; i < 3; i++) {
+      t.box(w * .28, -d * .30 + i * .038, .17, .019, .22 - i * .036, h, i === 1 ? '#b98c67' : '#f0e8d6');
+    }
+  },
+
+  queueRail(t, w, d, h, belt) {
+    for (const v of [-(d - w) / 2, (d - w) / 2]) {
+      t.can(0, v, w / 2, .035, .035, alloy);
+      t.post(0, v, .033, h - .09, .07, chrome);
+      t.can(0, v, .053, .09, h - .09, alloy);
+    }
+    t.box(0, 0, .018, d - w, .058, h - .072, belt);
+  },
+
+  wallSconce(t, w, d, h, brass) {
+    t.box(0, -d * .36, w, d * .24, h, 0, brass);
+    t.post(0, .015, w * .29, h - .12, .06, '#fff2d0');
+    for (const up of [.045, h - .088]) t.can(0, .015, w * .32, .043, up, brass);
+  },
+
+  barbellRack(t,w,d,h,frame,{accent}) {
+    for (const side of [-1,1]) {
+      const u=side*w*.34;
+      t.box(u,0,.086,d,.07,.035,frame);
+      t.box(u,-.21,.072,.084,h-.13,.10,frame);
+      t.box(u,-.14,.084,.14,.055,1.33,chrome);
+      for(let i=0;i<9;i++) t.plate(u,-.165,.019,.021,.65+i*.095,rubber);
+      for(let i=0;i<2;i++) t.rodU(side*(w*.39+i*.045),-.12,.039,.18-i*.024,1.41,i ? rubber : accent);
+    }
+    t.box(0,-.21,w*.73,.07,.063,h-.11,frame);
+    t.rodU(0,-.12,w*.97,.017,1.41,chrome);
+    t.box(0,.09,w*.80,d*.74,.032,.033,'#a88969');
+  },
+
   treadmill(t, w, d, h, frame, { accent }) {
     const motor = -d * .34;
     t.box(0, .02, w, d - .06, .14, .09, frame);

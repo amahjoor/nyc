@@ -272,6 +272,18 @@ Walk into the glazed door of an open shop to push it inward, or walk back throug
 
 Planet Fitness has purple cardio lanes and cable stations. Equinox has a strength floor with dumbbell racks and benches. Life Time has lounge seating, towels and wood-framed reformers. Named yoga, Pilates and cycling studios get their own equipment. Members jog on occupied treadmills. Laundromats have front-loading washers, stacked dryers and, where space allows, folding tables and soap dispensers. Post offices have PO boxes, parcel drops and a staffed mailing counter.
 
+Bank of America, Chase, Citi, TD, Wells Fargo and Capital One branches have a self-service lobby, individual teller stations and a consultation desk when the footprint allows. [In-game branch interior](docs/bank-interior.jpg)
+
+The lobby uses cropped and tinted CC0 material photographs from Poly Haven. [American walnut veneer](https://polyhaven.com/a/american_walnut_veneer) · [Terrazzo tiles](https://polyhaven.com/a/terrazzo_tiles)
+
+The framed neighborhood photograph is a cropped monochrome version of Paul Sableman's *Gunther Building*, used under CC BY 2.0. [Photograph](https://commons.wikimedia.org/wiki/File:Gunther_Building_(12668867454).jpg) · [License](https://creativecommons.org/licenses/by/2.0/)
+
+In CVS, Walgreens and Duane Reade, the prescription pickup desk is visible down the main aisle. Salons and barbershops have staffed cutting chairs, working mirrors and a service menu by reception. Corner delis display sandwiches and prices at the counter, and produce markets put a fruit stand near the entrance when there is room. [Duane Reade from the sidewalk](docs/duane-reade-storefront.jpg) · [Inside four SoHo shops](docs/neighborhood-interiors.jpg)
+
+The framed hairstyle and skincare photographs were generated with built-in ImageGen. The image description is embedded in the JPEG comment. [Shop poster artwork](dist/assets/shop-editorials.jpg)
+
+Takeout restaurants have an open cook line, pickup counter and a lighted menu with the shop's prices. Hot lunch counters display food in stainless pans under glass. Narrow rooms fit the pans on the checkout counter, and deeper rooms have a walk-along serving case. The menu photographs were generated with built-in ImageGen. The complete prompt is embedded in the artwork's JPEG comment. [Pinch Chinese and Sullivan Taqueria in game](docs/checkout-and-lunch-counters.jpg) · [Menu photography](dist/assets/counter-menu.jpg)
+
 The board over the counter or on the back wall lists the menu and its prices. Dim rooms have a darker ceiling and smaller, warmer lights.
 
 Someone minds each one. Standing by whoever is serving, **G** shows what the place sells (`menu.js`): coffee and a bacon, egg and cheese at a bodega, a slice at a pizzeria, a haircut at a barber's, a room at a hotel. A coffee or a meal makes the player a little quicker on foot for a while, a scratch-off pays back about half what it costs, and a night in a hotel mends the car and loses the police. Menus and prices are the game's. Customers occupy some of the seats. Press **E** beside a free chair to sit, and **E** again to stand. Passing pedestrians can also come inside, order something and leave. You can see the street through the windows and doorway.
