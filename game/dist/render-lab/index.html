@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#101316"><title>Render Atlas · NYC After Hours</title>
+<link rel="icon" href="./mark.svg" type="image/svg+xml"><link rel="stylesheet" href="./atlas.css">
+</head>
+<body>
+<header class="top">
+  <div class="brand"><svg class="brand-mark" aria-hidden="true" width="32" height="32" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40"><rect width="40" height="40" rx="9" fill="#b4f28c"/><g stroke="#15221b" fill="none" stroke-linecap="round" stroke-linejoin="round" stroke-width="2.1"><path d="m20 6 13 7.3v13.4L20 34 7 26.7V13.3z M7 13.3 20 21l13-7.7 M20 21v13"/><path d="m13 10 13 7.5v6.2l-6 3.4"/></g></svg><span>Render Atlas</span></div>
+  <div class="project">NYC After Hours <span>/</span> <strong>Developer tools</strong></div>
+  <div id="engine" class="engine">Starting renderer</div>
+</header>
+<div class="workspace">
+<aside class="sidebar"><div class="side-head">Workspace</div>
+  <nav aria-label="Collections" id="collections"></nav>
+  <div class="side-head review-head">Review</div>
+  <button id="flag-filter" class="nav-row" type="button"><i data-icon="flag"></i><span>Flagged assets</span><small id="flag-count">0</small></button>
+  <div class="side-foot"><i data-icon="layers"></i><div>Game assets<small><a href="./credits.html">Asset credits</a></small></div></div>
+</aside>
+<main>
+  <div class="page-head"><div><div class="kicker"><span class="rule"></span>Development workspace</div><h1>Asset inspector</h1></div>
+  <label class="search"><i data-icon="search"></i><input id="search" type="search" placeholder="Search assets…" aria-label="Search assets"><kbd>/</kbd></label></div>
+  <label class="mobile-filter">Collection <select id="mobile-collection"></select></label>
+  <div id="notice" role="status" hidden></div>
+  <section id="inspection" class="inspection" aria-label="Selected asset">
+    <div id="stage" class="stage">
+      <canvas id="viewport" tabindex="0" aria-label="Live 3D preview. Drag to orbit, use the arrow keys to rotate, or plus and minus to zoom."></canvas>
+      <div class="view-top"><span class="view-label"><i data-icon="cube"></i>3D viewport</span><button id="expand" class="stage-btn" title="Expand viewport" aria-label="Expand viewport"><i data-icon="expand"></i></button></div>
+      <canvas id="comparison-canvas" tabindex="0" hidden aria-label="Comparison model. Drag to orbit both views."></canvas>
+      <div id="compare-labels" hidden><span id="label-a"></span><span id="label-b"></span></div>
+      <div id="stage-message" class="stage-message" role="status">Loading model…</div>
+      <div class="view-bottom"><span class="gesture"><i data-icon="orbit"></i>Drag to orbit <b>·</b> Scroll to zoom</span>
+      <div class="stage-tools"><button id="zoom-out" title="Zoom out" aria-label="Zoom out"><i data-icon="minus"></i></button><button id="zoom-in" title="Zoom in" aria-label="Zoom in"><i data-icon="plus"></i></button><button id="reset" title="Reset camera" aria-label="Reset camera"><i data-icon="reset"></i></button></div></div>
+    </div>
+    <aside class="details"><div class="type" id="asset-type"></div><h2 id="asset-name"></h2><div id="asset-context"></div>
+      <div class="ins-group"><h3 id="variant-title">Model state</h3><div id="variants" class="segments"></div><label id="compare-pick" hidden>Compare with <select id="compare-state"></select></label></div>
+      <div class="ins-group"><h3>Model details</h3><dl id="facts"></dl></div>
+      <div class="ins-group"><h3>Viewport</h3><div class="switch-row"><button id="grid" aria-pressed="true"><i data-icon="ground"></i>Grid</button><button id="wire" aria-pressed="false"><i data-icon="mesh"></i>Wireframe</button><button id="compare" aria-pressed="false"><i data-icon="panel"></i>Compare</button></div></div>
+      <div class="review-action"><button id="flag"><i data-icon="flag"></i><span>Flag for review</span></button><button id="copy" title="Copy asset link" aria-label="Copy asset link"><i data-icon="link"></i></button></div>
+      <label id="note-label" hidden>Review note<textarea id="note" placeholder="What needs attention?" rows="2"></textarea><small>Saved in this browser</small></label>
+    </aside>
+  </section>
+  <section class="library" aria-labelledby="library-title"><div class="lib-head"><div><h2 id="library-title">Asset library</h2><span id="total" aria-live="polite"></span></div><label class="sort"><span>Sort</span><select id="sort" aria-label="Sort assets"><option value="featured">Featured</option><option value="az">Name A–Z</option><option value="za">Name Z–A</option></select></label></div>
+    <div id="cards" class="cards"></div><div id="empty" class="empty" hidden><i data-icon="search"></i><h3>No matching assets</h3><p id="empty-info"></p><button id="clear">Show all assets</button></div>
+    <div class="pages" id="pages" hidden><span id="range"></span><div><button id="prev" aria-label="Previous page"><i data-icon="prev"></i></button><span id="page"></span><button id="next" aria-label="Next page"><i data-icon="next"></i></button></div></div>
+  </section>
+</main></div>
+<noscript>This gallery needs JavaScript to load the game models.</noscript>
+<script type="module" src="./atlas.js"></script>
+</body></html>

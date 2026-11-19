@@ -17,6 +17,8 @@ cd game
 npm run dev
 ```
 
+Open [Render Atlas](http://localhost:5173/render-lab/) to inspect the live models independently of gameplay. Search by item, shop, model ID or renderer. Select a serving state, footprint, storefront or vehicle year in the inspector. Flags and review notes are saved in the current browser. Each selected model and state has a copyable URL. To build the standalone gallery from the current game assets, run `node scripts/build-render-atlas.mjs` from `game/`. It writes the static site to `game/render-atlas-site/dist/`.
+
 Open http://localhost:5173 in a desktop browser with WebGL 2 and hardware acceleration. The game also includes touch buttons and standard gamepad controls. Internet access is required while exploring: official NYC geometry and aerial imagery stream directly from public services, and street outlines and street trees outside the bundled neighbourhoods come from NYC Open Data. The geographic index, road cells and Three.js are bundled.
 
 The game opens on Lower Manhattan from the harbor in the early evening, and the clock runs: about 75 seconds to the hour, so dusk and night follow within a few minutes. **TIME** in the top bar, or **T**, skips to the next of morning, midday, golden hour, dusk and night. Serving over HTTP is required because browsers restrict ES modules and data fetches from `file://` URLs.

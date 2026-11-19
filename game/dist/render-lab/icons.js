@@ -1,0 +1,30 @@
+const paths={
+ cube:'<path d="M12 2.8 21 8v9l-9 5.2L3 17V8z M3 8l9 5.2L21 8 M12 13.2v9 M7.5 5.4l9 5.2"/>',
+ layers:'<path d="m3 8 9-5 9 5-9 5z M3 12l9 5 9-5 M3 16l9 5 9-5"/>',
+ grid:'<rect x="3" y="3" width="7" height="7" rx="1.2"/><rect x="14" y="3" width="7" height="7" rx="1.2"/><rect x="3" y="14" width="7" height="7" rx="1.2"/><rect x="14" y="14" width="7" height="7" rx="1.2"/>',
+ search:'<circle cx="10.5" cy="10.5" r="6.5"/><path d="m16 16 4.5 4.5"/>',
+ flag:'<path d="M5 21V4c5-4 9 4 15 0v10c-6 4-10-4-15 0"/>',
+ food:'<path d="M3 13h18c-.9 4.2-3.8 6.3-9 6.3s-8-2-9-6.3z M7 20.5h10 M8 10c2-2-1-3 1-5 M12 9c2-2-1-3 1-5 M16 10c2-2-1-3 1-5"/>',
+ drinks:'<path d="M5 8h12v7a5 5 0 0 1-5 5h-2a5 5 0 0 1-5-5z M17 9h2a3 3 0 0 1 0 6h-2 M7 4h7"/>',
+ groceries:'<path d="M3 10h18l-2 10H5z M7 10l4-7 M17 10l-4-7 M8 13v4 M12 13v4 M16 13v4"/>',
+ interiors:'<path d="M3 10V7l2-4h14l2 4v3 M3 10c0 3 4 3 4 0 0 3 5 3 5 0 0 3 5 3 5 0 0 3 4 3 4 0 M5 12v9h14v-9 M9 21v-6h4v6"/>',
+ merchandise:'<path d="M12 3h8v8L10 21l-7-7z"/><circle cx="16.5" cy="6.5" r="1"/>',
+ fixtures:'<path d="M5 3v18 M19 3v18 M3 12h18 M3 19h18 M7 6h4v6 M14 7h3v5"/>',
+ vehicles:'<path d="m3 14 2-6h12l4 5v5H3z M5 12h13"/><circle cx="7" cy="18" r="2"/><circle cx="17" cy="18" r="2"/>',
+ people:'<circle cx="12" cy="7" r="3.3"/><path d="M5 21v-3a7 7 0 0 1 14 0v3"/>',
+ scene:'<rect x="3" y="8" width="18" height="13" rx="1.5"/><path d="m3 8-1-4 17-3 1 4z M7 3l2 3 M13 2l2 3 m-5 7 5 3-5 3z"/>',
+ street:'<path d="M4 21V7l6-3v17 M10 10l9-3v14 M2 21h20 M6 9v1m0 3v1m8-2v1m3-1v1"/>',
+ orbit:'<circle cx="12" cy="12" r="3"/><ellipse cx="12" cy="12" rx="10" ry="5" transform="rotate(-28 12 12)"/>',
+ expand:'<path d="M9 3H3v6 M15 3h6v6 M3 15v6h6 M21 15v6h-6"/>',
+ reset:'<path d="M4 10a8 8 0 1 1 1 7 M4 4v6h6"/>',
+ plus:'<path d="M12 5v14 M5 12h14"/>',minus:'<path d="M5 12h14"/>',
+ next:'<path d="m9 5 7 7-7 7"/>',prev:'<path d="m15 5-7 7 7 7"/>',
+ mesh:'<path d="m12 3 9 17H3z M12 3v10 M3 20l9-7 9 7"/>',
+ ground:'<path d="m2 15 10-10 10 10-10 7z M6 11l11 7 M9 8l11 7 M7 18l11-7 M4 16l11-8"/>',
+ link:'<path d="m9 15 6-6 M14 7l1.8-1.8a3.6 3.6 0 1 1 5 5L18 13 M10 17l-1.8 1.8a3.6 3.6 0 1 1-5-5L6 11"/>',
+ close:'<path d="m6 6 12 12 M18 6 6 18"/>',check:'<path d="m4 12 5 5L20 6"/>',
+ list:'<path d="M8 6h13 M8 12h13 M8 18h13 M3 6h.5 M3 12h.5 M3 18h.5"/>',
+ panel:'<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M9 4v16"/>'
+};
+export function icon(name){return '<svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.65" stroke-linecap="round" stroke-linejoin="round">'+(paths[name]||paths.layers)+'</svg>';}
+export const collectionIcon=name=>({'Prepared food':'food',Drinks:'drinks',Groceries:'groceries',Interiors:'interiors',Merchandise:'merchandise',Fixtures:'fixtures','Service scenes':'scene',People:'people',Vehicles:'vehicles',Transport:'vehicles','Street furniture':'street','Street objects':'street'})[name]||'layers';
