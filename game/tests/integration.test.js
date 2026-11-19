@@ -853,6 +853,13 @@ test('a late street refresh cannot replace the roads of a newly selected borough
   }finally{app.releaseRoads();app.close();}
 });
 
+function checkWalkingEye(app) {
+  const body=app.window.nycGame.playerBody, p=app.simulation().player;
+  const expected=body?.mesh.visible ? body.eyePosition(new THREE.Vector3())
+    : new THREE.Vector3(p.x,p.y+(body?.rig.height??1.76)-.12,p.z);
+  assert.ok(app.camera().position.distanceTo(expected)<1e-6,'level view follows the current walking eye');
+}
+
 function cameraRight(app){
   const right=new THREE.Vector3(1,0,0).applyQuaternion(app.camera().quaternion);
   right.y=0;return right.normalize();
@@ -1081,7 +1088,7 @@ test('a shop visit keeps the same room and occupants on both sides of its swingi
     assert.ok(camera.layers.isEnabled(0));assert.equal(shared.uNycRoom.value.w,1,'the coplanar exterior facade is cut away');assert.equal(shared.uNycRoomSide.value.z,sim.room.width/2);
     assert.ok(camera.position.y>=floor+1.45&&camera.position.y<=floor+1.901);
     app.click('first-person-button');app.frames();
-    assert.ok(Math.abs(camera.position.y-floor-((app.window.nycGame.playerBody?.rig.height ?? 1.76)-.12))<1e-6&&camera.layers.test(room.children[0].layers));
+    checkWalkingEye(app);assert.ok(camera.layers.test(room.children[0].layers));
     app.click('city-button');app.frames();assert.ok(camera.layers.isEnabled(0)&&!camera.layers.isEnabled(1));assert.equal(shared.uNycRoom.value.w,0,'seen from above, the building is whole');
     app.click('city-button');app.frames();assert.ok(camera.layers.isEnabled(1));assert.equal(shared.uNycRoom.value.w,1);
     // Pick a free seat with standing room on the aisle side of its furniture.
@@ -1194,12 +1201,7 @@ test('first person follows the walker at eye level and keeps their heading while
     assert.equal(app.state().firstPersonView,true);
     assert.equal(app.state().cityView,false);
     const p=app.simulation().player, canvas=app.elements.get('world');
-    const checkEye=()=>{
-      const eye=app.camera().position;
-      assert.equal(eye.x,p.x);assert.equal(eye.z,p.z);
-      assert.ok(Math.abs(eye.y-p.y-((app.window.nycGame.playerBody?.rig.height ?? 1.76)-.12))<1e-6);
-    };
-    checkEye();
+    checkWalkingEye(app);
     app.key('ArrowUp');app.key('ArrowUp',false);
     assert.equal(app.elements.get('phone').hidden,false);
     const initial=app.camera().quaternion;
@@ -1214,7 +1216,7 @@ test('first person follows the walker at eye level and keeps their heading while
     assert.ok(new THREE.Vector3(p.x-start.x,0,p.z-start.z).dot(right)>.02);
     assert.ok(app.camera().quaternion.angleTo(facing)<1e-6);
     app.key('Space');app.frames(5);app.key('Space',false);
-    assert.ok(p.y>start.y+.15,'the eye rises with a jump');checkEye();
+    assert.ok(p.y>start.y+.15,'the eye rises with a jump');checkWalkingEye(app);
     app.key('KeyM');app.key('KeyB');assert.equal(app.state().firstPersonView,true);
     app.click('game-map-close');app.key('Escape');
     app.click('first-person-button');app.frames();
@@ -1256,7 +1258,7 @@ test('right-stick click moves the camera to the driver seat in the same car mode
     assert.equal(app.state().firstPersonView,true);
     app.key('KeyE');app.frames();
     assert.equal(sim.player.mode,'walk');assert.equal(exterior.visible,true);
-    assert.equal(app.camera().position.x,sim.player.x);
+    checkWalkingEye(app);
     pad.buttons[11].pressed=true;app.frames(3);
     assert.equal(app.state().firstPersonView,false);
     assert.equal(app.errors.length,0,app.errors[0]?.stack);
@@ -2492,7 +2494,7 @@ test('first person keeps the relaxed arms, tracks the posed eyes through turns, 
     app.click('first-person-button');app.frames(1,0);
     checkEyes();
     assert.ok(body.mesh.visible);
-    assert.ok(armNames.every((name,i)=>joint(name).quaternion.angleTo(resting[i])<1e-6));
+    assert.ok(armNames.every((name,i)=>joint(name).quaternion.equals(resting[i])));
     drag(420,500);app.frames();
     assert.equal(body.mesh.rotation.y,player.angle);
     assert.ok(inView('hand_l') && inView('hand_r'),'looking down reveals both relaxed wrists');

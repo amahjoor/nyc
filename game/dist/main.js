@@ -1443,6 +1443,9 @@ function updateFirstPerson(look,vertical){
       const mesh=playerBody.mesh;
       mesh.rotation.y=p.angle;
       playerBody.eyePosition(eyeGoal);
+      // Lean over the collar as the gaze lowers toward the hands and feet.
+      const lean=.08*height*Math.sin(Math.max(0,headPitch));
+      eyeGoal.x+=lean*Math.sin(yaw);eyeGoal.z+=lean*Math.cos(yaw);
       const dx=eyeGoal.x-p.x, dz=eyeGoal.z-p.z, reach=Math.hypot(dx,dz);
       if(reach>.24 && (sim.room || subwayVisit || sim.isBlocked(eyeGoal.x,eyeGoal.z,.2))){
         // At a wall keep the leaning body and its eye together inside the
