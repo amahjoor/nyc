@@ -1,7 +1,9 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import { GLTFLoader } from '../dist/vendor/GLTFLoader.min.js';
 import * as THREE from '../dist/vendor/three.module.min.js';
-import { STATUE, buildStatueGeometry, createStatueOfLiberty } from '../dist/liberty.js';
+import { STATUE, createStatueOfLiberty } from '../dist/liberty.js';
 import { MONUMENTS, monumentAt, replacedByMonument } from '../dist/monuments.js';
 import { chooseStyle, STYLE_INDEX, FLAG } from '../dist/facade.js';
 import { decodeI3S } from '../dist/city-stream.js';
@@ -21,55 +23,67 @@ test('she stands where the survey has her, as tall as it has her, facing the har
   close(Math.atan2(dx, dz), STATUE.arrival.angle, .05);
 });
 
-test('the figure has her published proportions: head, raised torch, tablet and seven rays', () => {
-  const { figure, flame } = buildStatueGeometry();
-  const p = figure.attributes.position, n = figure.attributes.normal, c = figure.attributes.color;
-  assert.ok(p.count / 3 > 8000 && p.count / 3 < 30000, `${p.count / 3} triangles`);
-  // Heel to torch is 46.05 m: the flame's tip is the top of everything.
-  close(flame.boundingBox.max.y, 46.05, .06);
-  assert.ok(figure.boundingBox.max.y < flame.boundingBox.max.y && figure.boundingBox.min.y > -1 && figure.boundingBox.min.y < -.5, 'she stands on a low plinth');
-  // The torch is in her right hand: with +z ahead of her and y up, her right is -x. The tablet is on her left.
-  let torchSide = 0, tabletSide = 0, headTop = -Infinity, widest = 0;
-  for (let i = 0; i < p.count; i++) {
-    const x = p.getX(i), y = p.getY(i), z = p.getZ(i);
-    if (y > 38) torchSide += x;
-    if (y > 20 && y < 26 && z > 3.2) tabletSide += x;
-    // Everything above the shoulders that is not the raised arm is head, diadem and rays.
-    if (x > -2.6) headTop = Math.max(headTop, y);
-    // Below the arms there is only the robe.
-    if (y > 2 && y < 16) widest = Math.max(widest, Math.hypot(x, z));
-    close(Math.hypot(n.getX(i), n.getY(i), n.getZ(i)), 1, 1e-3);
-    assert.ok(c.getY(i) >= c.getX(i) && c.getY(i) >= c.getZ(i), 'weathered copper is green throughout');
+function asset(detail) {
+  const file = readFileSync(new URL(`../dist/liberty-island/statue-${detail}.glb`, import.meta.url));
+  return file.buffer.slice(file.byteOffset, file.byteOffset + file.byteLength);
+}
+
+test('both local GLBs include the credited sculpture at the surveyed height and an increasingly detailed silhouette', async () => {
+  for (const detail of ['harbor', 'island']) {
+    const buffer = asset(detail), header = new DataView(buffer);
+    assert.equal(header.getUint32(0, true), 0x46546c67);
+    assert.equal(header.getUint32(8, true), buffer.byteLength);
+    const doc = JSON.parse(new TextDecoder().decode(new Uint8Array(buffer, 20, header.getUint32(12, true))));
+    assert.match(doc.asset.extras.author, /e-sfera/);
+    assert.match(doc.asset.extras.license, /CC-BY-4.0/);
+    const parts = doc.meshes[0].primitives;
+    assert.deepEqual(parts.map(p => doc.materials[p.material].name), ['Granite', 'Copper', 'Gold']);
+    const triangles = parts.reduce((total, p) => total + doc.accessors[p.indices].count / 3, 0);
+    if (detail === 'island') {
+      assert.ok(triangles > 40000 && triangles < 60000);
+      const node = doc.nodes.find(node => node.mesh === 0);
+      const topOf = part => node.translation[1] + node.scale[1] * doc.accessors[part.attributes.POSITION].max[1];
+      close(topOf(parts[0]), STATUE.pedestal.height, .02);
+      close(topOf(parts[2]), STATUE.pedestal.height + STATUE.height, .02);
+      assert.equal(doc.images.length, 2);
+      assert.ok(doc.images.every(image => Number.isInteger(image.bufferView)));
+      assert.ok(doc.materials.every(m => m.normalTexture && m.pbrMetallicRoughness.baseColorTexture));
+    } else {
+      assert.ok(triangles < 5000 && buffer.byteLength < 100000);
+      const { scene } = await new GLTFLoader().parseAsync(buffer, '');
+      scene.updateMatrixWorld(true);
+      const box = new THREE.Box3().setFromObject(scene, true);
+      close(box.max.y, STATUE.height + STATUE.pedestal.height, .15);
+      assert.ok(box.min.y < 0 && box.max.x - box.min.x > 85);
+      const flame = scene.getObjectsByProperty('isMesh', true).find(mesh => mesh.material.name === 'Gold');
+      assert.ok(new THREE.Box3().setFromObject(flame, true).max.x < 0, 'the torch is on her right');
+    }
   }
-  assert.ok(torchSide < 0 && tabletSide > 0);
-  // The top of her head is at 33.86 m; the rays of the diadem stand up to three metres above it.
-  assert.ok(headTop > 34.5 && headTop < 37.5, `rays reach ${headTop} m`);
-  // Thirty-five feet through the waist with the robe: about eleven metres across at the widest.
-  assert.ok(widest > 4.5 && widest < 6.2, `${widest} m from the axis`);
-  for (let i = 0; i < flame.attributes.color.count; i++) assert.ok(flame.attributes.color.getX(i) > flame.attributes.color.getZ(i) * 2, 'the flame is gilded');
-  figure.dispose();flame.dispose();
 });
 
-test('she is seated on the pedestal, turned to face 147 degrees, and follows the ground when it changes', () => {
+test('travel swaps levels only when ready and keeps the monument on the measured ground', async () => {
   let ground = 4.4;
-  const scene = new THREE.Scene(), statue = createStatueOfLiberty({ scene, heightAt: () => ground });
-  assert.equal(scene.children.length, 1);
-  close(statue.base, 4.4 + STATUE.pedestal.height);
-  const scale = STATUE.height / 46.05;
-  close(statue.group.position.y, statue.base + .9 * scale);
-  close(statue.group.position.x, STATUE.x);close(statue.group.position.z, STATUE.z);
-  close(statue.group.scale.y, scale);close(statue.group.rotation.y, STATUE.facing);
-  // The tip of the flame in the world: the pedestal's top plus her surveyed height.
-  const box = new THREE.Box3().setFromObject(statue.group);
-  close(box.max.y, statue.base + .9 * scale + STATUE.height, .1);
-  // Her own +z is turned to south-east: +x and +z in the world.
-  const ahead = new THREE.Vector3(0, 0, 1).applyQuaternion(statue.group.quaternion);
-  assert.ok(ahead.x > .5 && ahead.z > .8);
-  ground = 3.1;statue.update();
-  close(statue.base, 3.1 + STATUE.pedestal.height);
-  statue.setTerrainSampler(() => NaN);close(statue.base, STATUE.pedestal.height, 1e-9);
-  assert.ok(statue.group.children.every(mesh => mesh.castShadow));
-  statue.dispose();assert.equal(scene.children.length, 0);
+  const loads = new Map(), scene = new THREE.Scene();
+  const load = name => new Promise(resolve => { assert.ok(!loads.has(name)); loads.set(name, resolve); });
+  const statue = createStatueOfLiberty({ scene, heightAt: () => ground, load });
+  const far = { x: 0, y: 100, z: 0 }, near = { x: STATUE.x, y: 100, z: STATUE.z };
+  statue.update(far); statue.update(far);
+  assert.deepEqual([...loads.keys()], ['harbor']);
+  const distant = new THREE.Group(), detailed = new THREE.Group();
+  loads.get('harbor')(distant); await Promise.resolve();
+  assert.equal(distant.visible, true);
+  statue.update(near);
+  assert.equal(distant.visible, true, 'distant geometry covers the island download');
+  loads.get('island')(detailed); await Promise.resolve();
+  assert.equal(detailed.visible, true); assert.equal(distant.visible, false);
+  statue.update(far);
+  assert.equal(distant.visible, true); assert.equal(detailed.visible, false);
+  close(statue.base, ground + STATUE.pedestal.height);
+  close(statue.group.rotation.y, STATUE.facing);
+  close(statue.group.position.x, STATUE.x); close(statue.group.position.z, STATUE.z);
+  ground = 3.1; statue.update(near); close(statue.group.position.y, ground);
+  statue.setTerrainSampler(() => NaN); close(statue.base, STATUE.pedestal.height);
+  statue.dispose(); assert.equal(scene.children.length, 0);
 });
 
 test('the fort and pedestal are faced in stone, and no other building is', () => {
@@ -102,14 +116,16 @@ function tile(prisms) {
   return buffer;
 }
 
-test('the surveyed prism she replaces is folded away, and the mass beside it is left as surveyed', () => {
-  assert.equal(replacedByMonument('339282'), true);assert.equal(replacedByMonument(339279), false);
+test('the surveyed fort and statue are hidden while both collision footprints and nearby buildings survive', () => {
+  assert.equal(replacedByMonument('339282'), true);assert.equal(replacedByMonument(339279), true);
   const origin = { lat: 40.7235, lon: -74.0015 }, node = { center: [-74.0445, 40.6893, 0] };
-  const decoded = decodeI3S(tile([{ id: 339279, lon: 0, lat: 0, size: .0004, base: 4, height: 43 }, { id: 339282, lon: 0, lat: 0, size: .00005, base: 47, height: 46.6 }]), node, origin, { heightAt: () => 4.4 });
-  const [fort, prism] = decoded.anchors, p = decoded.positions;
+  const decoded = decodeI3S(tile([{ id: 339279, lon: 0, lat: 0, size: .0004, base: 4, height: 43 }, { id: 339282, lon: 0, lat: 0, size: .00005, base: 47, height: 46.6 }, { id: 100, lon: .002, lat: .002, size: .00005, base: 3, height: 9 }]), node, origin, { heightAt: () => 4.4 });
+  const [fort, prism, other] = decoded.anchors, p = decoded.positions;
   assert.equal(prism.featureId, '339282');
   const spread = anchor => { let low = Infinity, high = -Infinity; for (let i = anchor.start; i < anchor.end; i++) { low = Math.min(low, p[i * 3 + 1]);high = Math.max(high, p[i * 3 + 1]); } return [low, high]; };
-  close(spread(fort)[0], 4.4, 1e-4);close(spread(fort)[1], 47.4, 1e-3);
+  close(spread(other)[0], 4.4, 1e-4);close(spread(other)[1], 13.4, 1e-3);
+  assert.deepEqual(spread(fort), [Math.fround(4.4), Math.fround(4.4)]);
+  assert.ok(decoded.buildings.some(building => building.featureId === '339279'));
   assert.deepEqual(spread(prism), [Math.fround(4.4), Math.fround(4.4)], 'nothing of it stands up');
   for (let i = prism.start; i < prism.end; i++) { assert.equal(p[i * 3], p[prism.start * 3]);assert.equal(p[i * 3 + 2], p[prism.start * 3 + 2]); }
   assert.equal(decoded.buildings.filter(building => building.featureId === '339282').length, 1, 'its footprint is still known to the simulation');

@@ -1103,7 +1103,7 @@ function frame(now) {
   landscape?.setLocalOrthophoto(ground.localOrthophoto);
   landscape?.update(sim.player,{overview:cityView||!started});
   centralPark?.update(sim.player,{overview:cityView||!started,eye:camera.position});
-  (statue||=createStatueOfLiberty({scene,heightAt:terrainHeight})).update();
+  (statue||=createStatueOfLiberty({scene,heightAt:terrainHeight})).update(camera.position);
   streetDetail?.setLocalOrthophoto(ground.localOrthophoto);
   streetDetail?.update(sim.player,{overview:cityView||!started||aloft});
   streetscape?.update(sim.player,{overview:cityView||!started||aloft});
