@@ -6,6 +6,8 @@ The city's shapes are surveyed. How they look is drawn: every wall is dressed as
 
 Explore Manhattan, Brooklyn, Queens, the Bronx and Staten Island from the city view, then arrive on an actual mapped street to walk or drive. The game retains delivery jobs, local traffic, police attention and saved earnings.
 
+The [radio station planner](docs/radio.md) has the proposed custom stations, editable tracklists and live NYC-area radio links.
+
 ## Play locally
 
 Requires Node.js 20+ to serve and test the project. There are no npm dependencies to install.
