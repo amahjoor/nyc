@@ -216,7 +216,9 @@ Where a quarter or more of a tract speaks one language other than English at hom
 
 ## The buses
 
-`scripts/build-transit.mjs` also bundles the MTA's bus stops in effect: 13,740 stops and the routes that call at each (`dist/bus-stops.json`). A stop is drawn as a pole with its round blue sign, half a metre in from the nearest kerb. On foot beside one, **E** lists the other stops its routes call at, nearest first, and choosing one puts you there for the $2.90 fare; without it you ride anyway and the police may take an interest. The list does not give the order of a route's stops, so both directions are offered from every stop, and the stop across the street is left out. Buses themselves are not drawn, a ride takes no time, and the sign does not letter the route numbers.
+Open **M → Transit** to explore subway lines and bus routes, or pin a destination to plan a commute with up to two transfers. Walking links are approximate. At a bus pole press **E**, pick a departure by line, headsign and time, then choose a downstream stop. The ride follows the published shape on the map and advances the game clock to arrival. **Skip to arrival** completes the same ride. A completed bus trip costs the in-game $3 fare.
+
+The offline network uses the MTA subway and six bus GTFS feeds for the week of November 16, 2026. To rebuild for another service week, run `python scripts/build-transit-network.py --cache /path/to/feed-cache --week YYYY-MM-DD` with a Monday covered by all seven archives. The importer downloads missing archives and writes `dist/transit-network.json` and `dist/bus-timetable.json`. Use a fresh cache to download newer feeds.
 
 ## Sidewalk sheds
 
@@ -460,6 +462,7 @@ The full map is available to render and explore, but this is a historical city m
 | Sidewalk cafes | `dist/dining.json`, `scripts/build-dining.mjs` | NYC Open Data: [Dining Out NYC Locations](https://data.cityofnewyork.us/d/fpeh-f7ci) |
 | Other shops | `dist/shops-index.json`, `dist/shops/`, `scripts/build-shops.mjs` | © [OpenStreetMap](https://www.openstreetmap.org/copyright) contributors, Open Database Licence 1.0 |
 | Sidewalk sheds | `dist/sheds.json`, `scripts/build-sheds.mjs` | NYC Open Data: [DOB NOW: Build – Approved Permits](https://data.cityofnewyork.us/d/rbx6-tga4) |
+| Bus and subway routes | `dist/transit-network.json`, `dist/bus-timetable.json`, `scripts/build-transit-network.py` | [MTA static GTFS](https://www.mta.info/developers) |
 | Bus stops | `dist/bus-stops.json`, `scripts/build-transit.mjs` | New York State Open Data: [MTA bus stops](https://data.ny.gov/d/2ucp-7wg5) |
 | Residents | `dist/demographics.json`, `scripts/build-demographics.mjs` | U.S. Census Bureau, [American Community Survey 2019-2023](https://www.census.gov/programs-surveys/acs/data/summary-file.html), tables B03002 and C16001; tract positions from NYC Open Data [2020 census tracts](https://data.cityofnewyork.us/d/63ge-mke6) |
 | Street trees | `dist/streetscape.js`, requested per cell | [2015 Street Tree Census](https://data.cityofnewyork.us/d/uvpi-gqnh), NYC Parks |

@@ -29,10 +29,13 @@ test('a ride is to another stop a route from here calls at, nearest first, and n
 });
 
 test('a pole stands half a metre in from the kerb at each stop, its sign across the sidewalk', () => {
-  const scene = new THREE.Scene(), buses = createBuses({ stops: [[0, 0, 'A', 'M1'], [60, 1, 'B', 'M1'], [900, 0, 'C', 'M1']] });
+  const scene = new THREE.Scene(), buses = createBuses({ stops: [[0, 0, 'A', 'M1'], [60, 1, 'B', 'M1 M55'], [900, 0, 'C', 'M1']] });
   // A kerb along x at z = 2, its roadway to the south.
-  const stops = createBusStops({ scene, heightAt: () => 3, kerb: x => x < 30 ? { x, z: 2, nx: 0, nz: 1, tx: 1, tz: 0 } : null });
+  const labels = [];
+  const ctx = new Proxy({ fillText: text => labels.push(text) }, { get: (target, key) => target[key] ?? (() => {}) });
+  const stops = createBusStops({ createCanvas: () => ({ getContext: () => ctx }), scene, heightAt: () => 3, kerb: x => x < 30 ? { x, z: 2, nx: 0, nz: 1, tx: 1, tz: 0 } : null });
   assert.equal(stops.update(buses, { x: 10, z: 0 }), true);
+  assert.deepEqual(labels, ['NO STANDING', 'M1', 'NO STANDING', 'M1', 'M55']);
   assert.deepEqual(stops.stops.map(shown => [shown.stop.name, shown.x, shown.z]), [['A', 0, 1.45], ['B', 60, 1]], 'with no kerb in reach a stop stays where the list puts it');
   const poles = scene.getObjectByName('Bus stop poles'), signs = scene.getObjectByName('Bus stop signs'), matrix = new THREE.Matrix4(), at = new THREE.Vector3(), face = new THREE.Vector3(0, 0, 1);
   assert.deepEqual([poles.count, signs.count], [2, 2]);
@@ -41,4 +44,15 @@ test('a pole stands half a metre in from the kerb at each stop, its sign across 
   assert.equal(stops.update(buses, { x: 20, z: 0 }), false, 'nothing is redone for a few steps');
   assert.equal(stops.update(buses, { x: 20, z: 0 }, new Map()), true, 'but it is when the kerbs change');
   stops.dispose(); assert.equal(scene.children.length, 0);
+});
+
+test('boarding clearance follows only the snapped boarding kerb and refreshes with the kerbs', () => {
+  const buses = createBuses({ stops: [[0, 0, 'STOP', 'B9']] });
+  const spaces = [[0, 1], [9, 1], [14, 1], [0, 7], [1, -2]].map(([x,z]) => ({x,z,angle:Math.PI/2}));
+  spaces.push({x:1,z:1,angle:0});
+  const edge = {x:0,z:0,nx:0,nz:1,tx:1,tz:0}, kerbs = {};
+  assert.deepEqual(buses.availableParking(spaces, null, () => null), spaces);
+  const allowed = buses.availableParking(spaces, kerbs, () => edge);
+  assert.deepEqual(allowed, spaces.slice(2));
+  assert.equal(buses.availableParking(spaces, kerbs, () => edge), allowed);
 });
