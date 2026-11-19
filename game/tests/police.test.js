@@ -30,6 +30,29 @@ function patrolAt(sim, x, z, angle = 0) {
   return car;
 }
 
+test('officers find an open spot when someone is standing beside the patrol car', () => {
+  const sim=alone(new Simulation(grid({roads:[]})));
+  const car=patrolAt(sim,0,25), walker={x:1.7,z:25,y:0};
+  sim.setWalkers([],[walker]);
+  assert.ok(sim.police._dismount(car));
+  assert.equal(sim.police.officers.length,2);
+  for(const officer of sim.police.officers)assert.ok(Math.hypot(officer.x-walker.x,officer.z-walker.z)>=.64);
+});
+
+test('one officer cuffs a stopped suspect while the partner covers the arrest', () => {
+  const sim = alone(new Simulation(grid({ roads: [] }))), police = sim.police, p = sim.player;
+  sim.heat = 1;
+  assert.ok(police._dismount(patrolAt(sim, 2, 47)));
+  const [near, partner] = police.officers;
+  Object.assign(near, { x: p.x + 1.5, z: p.z, sees: true });
+  Object.assign(partner, { x: p.x - 3, z: p.z, sees: true });
+  police.report(); police.state = 'chase'; police.arrest = .6;
+  police._officers(1 / 60);
+  assert.ok(near.cuffing && !near.aiming);
+  assert.ok(partner.aiming && !partner.cuffing);
+  assert.equal(police.shots.length, 0);
+});
+
 test('crimes add up to five stars and no further', () => {
   const sim = alone(new Simulation(grid({ roads: [] })));
   assert.equal(sim.stars, 0);
@@ -244,6 +267,13 @@ test('a crime nobody saw never happened, and one somebody saw counts when their 
   assert.equal(sim.offence('assault', { x: 6, z: 50 }), null);
 });
 
+test('a clerk’s call about an unpaid exit sends dispatch to the shop after the call arrives',()=>{
+  const sim=alone(new Simulation(grid()));sim.cars=[];sim.police._random=()=>0;
+  assert.equal(sim.offence('theft',{x:56,z:62,witnessReport:true}),'called');
+  assert.equal(sim.stars,0);advance(sim,5);
+  assert.equal(sim.stars,1);assert.deepEqual(sim.police.lastKnown,{x:56,z:62});
+});
+
 test('each kind of crime brings only so many stars however often it is done', () => {
   const sim = alone(new Simulation(grid())); sim.cars = [];
   const charge = (kind, times) => { for (let i = 0; i < times; i++) sim.offence(kind, { seen: true }); return sim.stars; };
@@ -329,4 +359,17 @@ test('a car driven into is dented and shoved off its line, and its driver goes o
   advance(sim, 1.5);
   assert.ok(Math.hypot(other.x - at.x, other.z - at.z) > 1.5, 'it was moved');
   assert.ok(other._shoved);
+});
+
+test('a specialist crew joins a high wanted level and keeps its assignment when leaving its car',()=>{
+  const sim=alone(new Simulation(grid()));
+  sim.heat=4;
+  for(let i=0;i<8;i++)sim.police._dispatch();
+  const units=patrols(sim).filter(car=>car.unit==='esu');
+  assert.equal(units.length,1);
+  const car=units[0];
+  assert.equal(car.shape,'van');
+  Object.assign(car,{x:2,z:47,speed:0});
+  assert.ok(sim.police._dismount(car));
+  assert.deepEqual(sim.police.officers.map(officer=>officer.unit),['esu','esu']);
 });

@@ -1,4 +1,7 @@
 import * as THREE from './vendor/three.module.min.js';
+import { planPolicePosts, createPoliceDetails } from './police-details.js';
+import { equipmentFor, placeEquipment, createPoliceHelicopter } from './police-equipment.js';
+import { UNIT } from './police-units.js';
 
 // What of the police is drawn apart from their cars and their officers (which
 // are drawn with the traffic and the crowd): the helicopter and its
@@ -7,36 +10,12 @@ const TRACERS = 12, TRACER_LIFE = 0.09;
 // The pool the searchlight throws: its radius on the ground in metres, and how bright (a street lamp is about 3).
 const SEARCHLIGHT = { radius: 10, glow: [2.9, 3.05, 3.4] };
 
-function createHelicopter() {
-  const group = new THREE.Group();
-  const body = new THREE.MeshStandardMaterial({ color: 0x1c2a4a, metalness: .35, roughness: .5 });
-  const trim = new THREE.MeshStandardMaterial({ color: 0xe9ecef, metalness: .2, roughness: .55 });
-  const glass = new THREE.MeshStandardMaterial({ color: 0x0c1218, metalness: .7, roughness: .15 });
-  const part = (geometry, material, x, y, z, sx = 1, sy = 1, sz = 1) => { const mesh = new THREE.Mesh(geometry, material); mesh.position.set(x, y, z); mesh.scale.set(sx, sy, sz); group.add(mesh); return mesh; };
-  // Heading zero faces +Z, as everything in the simulation does.
-  part(new THREE.SphereGeometry(1, 16, 12), body, 0, 0, 0, 1.05, 1.1, 2.3);
-  part(new THREE.SphereGeometry(1, 14, 10), glass, 0, .12, 1.25, .9, .85, 1.25);
-  part(new THREE.BoxGeometry(.32, .36, 4.6), body, 0, .35, -4);
-  part(new THREE.BoxGeometry(2.2, .12, .5), trim, 0, 0, -.1);
-  part(new THREE.BoxGeometry(.1, 1.3, .7), trim, 0, 1, -6.1);
-  part(new THREE.CylinderGeometry(.12, .12, .5, 8), body, 0, 1.3, 0);
-  for (const side of [-1, 1]) {
-    part(new THREE.BoxGeometry(.1, .1, 3.4), trim, side * .95, -1.45, .1);
-    part(new THREE.BoxGeometry(.07, .6, .07), trim, side * .8, -1.15, .9);
-    part(new THREE.BoxGeometry(.07, .6, .07), trim, side * .8, -1.15, -.7);
-  }
-  const rotor = new THREE.Group(); rotor.position.y = 1.58; group.add(rotor);
-  const blade = new THREE.MeshBasicMaterial({ color: 0x15181b, transparent: true, opacity: .55 });
-  for (const turn of [0, Math.PI / 2]) { const mesh = new THREE.Mesh(new THREE.BoxGeometry(11.5, .05, .34), blade); mesh.rotation.y = turn; rotor.add(mesh); }
-  const tail = new THREE.Mesh(new THREE.BoxGeometry(.05, 1.9, .16), blade); tail.position.set(.24, .55, -6.1); group.add(tail);
-  const red = part(new THREE.SphereGeometry(.16, 8, 6), new THREE.MeshBasicMaterial({ color: 0xff2b2b }), 0, -1.12, -.3);
-  const lamp = part(new THREE.SphereGeometry(.3, 10, 8), new THREE.MeshBasicMaterial({ color: 0xfff6d0 }), 0, -1, 1.6);
-  group.userData = { rotor, tail, red, lamp };
-  return group;
-}
-
 export function createPoliceScene(scene, heightAt = () => 0) {
-  const helicopter = createHelicopter(); helicopter.visible = false; scene.add(helicopter);
+  const details = createPoliceDetails(), equipment = new Map(), field = new THREE.Group();
+  field.name = 'Police field details';
+  scene.add(field);
+  let previousPlan;
+  const helicopter = createPoliceHelicopter(); helicopter.visible = false; scene.add(helicopter);
   // The searchlight. What it lights is lit through the city's light map (the
   // caller passes `spots` on to it), so the street, the cars and the people
   // under it are bright and the rest of the block is not; all that is drawn
@@ -60,7 +39,55 @@ export function createPoliceScene(scene, heightAt = () => 0) {
   }
   const down = new THREE.Vector3(0, -1, 0), toward = new THREE.Vector3();
   return {
-    helicopter,
+    helicopter, details,
+    plan(context, revision) {
+      const last = previousPlan;
+      if (last && last.fronts === context.fronts && last.kerbs === context.kerbs &&
+          last.entrances === context.entrances && last.park === context.park && last.parkRegions === context.parkRegions && last.revision === revision &&
+          Math.hypot(context.focus.x - last.x, context.focus.z - last.z) < 15) return;
+      previousPlan = { ...context, revision, x:context.focus.x, z:context.focus.z };
+      details.set(planPolicePosts(context));
+      for (const [id, entry] of equipment) {
+        if (details.actors.some(actor => actor.id === id && actor.unit === entry.unit)) continue;
+        if (entry.model) field.remove(entry.model);
+        equipment.delete(id);
+      }
+    },
+    drawDetails(shown, dt, context, extras, pedestrians, police) {
+      field.visible = shown;
+      police.fieldOfficers.length = 0;
+      if (!shown) return;
+      details.step(dt, context);
+      for (const actor of details.actors) {
+        const {id, unit, post} = actor;
+        if (!equipment.has(id)) {
+          const model = equipmentFor(post.unit.activity);
+          if (model) field.add(model);
+          equipment.set(id, {unit, model});
+        }
+        const model = equipment.get(id).model;
+        const near = Math.hypot(actor.x - context.player.x, actor.z - context.player.z) < 160;
+        if (model) {
+          model.visible = near && (!['dog','horse'].includes(post.unit.activity) || Boolean(model.userData.animal));
+          if (near) placeEquipment(model, actor, context.waterLevel);
+        }
+        if (!near) continue;
+        extras.push({...actor, member:actor.look.member, y:actor.y + actor.rideLift, cycling:Boolean(actor.ride)});
+        if (post.unit.activity !== 'boat') pedestrians.push(actor);
+        if (post.unit.sworn) police.fieldOfficers.push(actor);
+      }
+    },
+    identify(player, officers) {
+      let label = null, closest = 5;
+      for (const actor of [...(field.visible ? details.actors : []), ...officers]) {
+        const dx = actor.x-player.x, dz = actor.z-player.z, distance = Math.hypot(dx,dz);
+        if (distance >= closest || Math.abs(player.y-actor.y) > 2.5 ||
+            (distance > 1.4 && dx*Math.sin(player.angle)+dz*Math.cos(player.angle) < distance*.3)) continue;
+        closest = distance;
+        label = (UNIT[actor.unit] || UNIT.patrol).name;
+      }
+      return label;
+    },
     /** What the searchlight is lighting now, for the light map: [] or one { x, z, y, radius, glow }. */
     spots,
     update(police, time, shown = true) {
@@ -75,7 +102,7 @@ export function createPoliceScene(scene, heightAt = () => 0) {
         helicopter.userData.tail.rotation.x = time * 50;
         helicopter.userData.red.visible = Math.sin(time * 7) > .4;
         // From the lamp under the nose down to where the light lands.
-        const fromX = unit.x + Math.sin(unit.angle) * 1.6, fromY = unit.y - 1, fromZ = unit.z + Math.cos(unit.angle) * 1.6;
+        const fromX = unit.x + Math.sin(unit.angle) * 1.6, fromY = unit.y - .71, fromZ = unit.z + Math.cos(unit.angle) * 1.6;
         const ground = heightAt(unit.light.x, unit.light.z) || 0;
         toward.set(unit.light.x - fromX, ground - fromY, unit.light.z - fromZ);
         const length = toward.length() || 1, spread = unit.leaving ? 0 : 7;

@@ -1,5 +1,8 @@
+import { receiveImpulse, stepImpulse, followFloor } from './character-physics.js';
 import { trafficAtHeight } from './road-level.js';
+import { hasStandingRoom, limitPedestrianStep, walkTowards } from './pedestrian-motion.js';
 import { resetVehicleDynamics } from './vehicle-dynamics.js';
+import { patrolAppearance } from './human-cast.js';
 
 // The police: how wanted the player is, who is sent, how they hunt, and how it
 // ends. The simulation owns the cars and moves them along the streets; this
@@ -77,7 +80,7 @@ export function hitChance(away, speed, driving, settle = AIM.settle, following =
   if (following) chance *= .7;
   return clamp(chance, .02, .85);
 }
-export const OFFICER_LOOK = { top: 0x1b2a4a, bottom: 0x141b2c, skin: 0xb98563, hair: 0x14110f, kit: 4, height: 1.8 };
+export const OFFICER_LOOK = patrolAppearance('');
 
 export class Police {
   constructor(sim) {
@@ -91,10 +94,11 @@ export class Police {
   /** Everything forgotten at once: the player was arrested, put in hospital, or has travelled. */
   clear() {
     this.state = 'clear';
+    this.fieldOfficers = [];
     this.lastKnown = null;
     this.evade = 0; this.evadeTotal = 0;
     this.searchTime = 0; this.chaseTime = 0;
-    this.officers = []; this.shots = [];
+    this.officers = []; this.downOfficers=[]; this.shots = [];
     this.helicopter = null;
     this.arrest = 0; this.cornered = false;
     // Calls on their way in, who has died, and what the police last saw the player in.
@@ -140,11 +144,11 @@ export class Police {
   /** Whether a police unit is where it would see something done at this place. */
   watching(at) {
     const sim = this.sim;
-    if (sim.room) return false;
+    if (sim.room || sim.subway?.belowStreet) return false;
     const canSeeLevel = observer => !Number.isFinite(at.y) || trafficAtHeight(observer, at.y);
     if (this.state === 'chase' && distance(at, sim.player) < 14 && canSeeLevel(sim.player)) return true;
     for (const car of sim.cars) if (car.type === 'police' && !car._abandoned && !car._crewOut && distance(car, at) < WATCH && canSeeLevel(car) && sim._hasSight(car, at)) return true;
-    for (const officer of this.officers) if (distance(officer, at) < WATCH && canSeeLevel(officer) && sim._hasSight(officer, at)) return true;
+    for (const officer of [...this.officers,...this.fieldOfficers]) if (distance(officer, at) < WATCH && canSeeLevel(officer) && sim._hasSight(officer, at)) return true;
     return false;
   }
 
@@ -154,7 +158,7 @@ export class Police {
    * gets through, a few seconds on; seen by nobody it never happened.
    * Returns 'seen', 'called' or null.
    */
-  offence(kind, { x, y, z, message = '', seen = false } = {}) {
+  offence(kind, { x, y, z, message = '', seen = false, witnessReport = false } = {}) {
     const sim = this.sim, spec = OFFENCES[kind], player = sim.player;
     if (!spec) throw new Error(`no such offence: ${kind}`);
     const at = { x: Number.isFinite(x) ? x : player.x, z: Number.isFinite(z) ? z : player.z };
@@ -162,8 +166,8 @@ export class Police {
     if (kind === 'killing') this.killed++;
     if (kind === 'officerDown') this.fallen++;
     if (seen || spec.certain || this.watching(at)) { this._charge(kind, at, message); return 'seen'; }
-    const near = spec.reach > 0 ? sim.witnesses(at.x, at.z, spec.reach, at.y) : 0;
-    if (!near || this._random() >= 1 - Math.pow(1 - spec.call, near)) return null;
+    const near = !witnessReport && spec.reach > 0 ? sim.witnesses(at.x, at.z, spec.reach, at.y) : 0;
+    if (!witnessReport && (!near || this._random() >= 1 - Math.pow(1 - spec.call, near))) return null;
     this.calls.push({ kind, at, message, due: sim.elapsed + 4 + this._random() * 5 });
     if (!(sim.heat > 0)) sim._say('Somebody saw that. They are calling the police.', 4);
     return 'called';
@@ -196,6 +200,11 @@ export class Police {
   update(dt) {
     const sim = this.sim, player = sim.player;
     while (this.shots.length && sim.elapsed - this.shots[0].at > 0.3) this.shots.shift();
+    for(let i=this.downOfficers.length-1;i>=0;i--){
+      const officer=this.downOfficers[i];
+      if(sim.elapsed-officer.downAt>12) this.downOfficers.splice(i,1);
+      else this._stepReaction(officer,dt);
+    }
     if (this.calls.length) this._answer();
     if (!(sim.heat > 0)) {
       sim.heat = 0; sim.spotted = false;
@@ -246,7 +255,7 @@ export class Police {
 
   /** Can anyone see the player? Sets `_sees` on each car, `sees` on each officer and the helicopter. */
   _look() {
-    const sim = this.sim, player = sim.player, hidden = Boolean(sim.room), chase = this.state === 'chase';
+    const sim = this.sim, player = sim.player, hidden = Boolean(sim.room || sim.subway?.belowStreet), chase = this.state === 'chase';
     // Searching, they look for what they last saw: in another car, or out of the one they were after, the player has to be close to be known.
     const changed = !chase && this.known !== null && this._ride() !== this.known;
     const range = chase ? SIGHT.chase : changed ? SIGHT.changed : SIGHT.search, close = changed ? SIGHT.close * .5 : SIGHT.close;
@@ -265,7 +274,7 @@ export class Police {
       car._sees = !car._crewOut && !car._abandoned && sees(car);
       if (car._sees) seen = true;
     }
-    for (const officer of this.officers) { officer.sees = sees(officer); if (officer.sees) seen = true; }
+    for (const officer of this.officers) { officer.sees = !officer.reaction && sees(officer); if (officer.sees) seen = true; }
     const helicopter = this.helicopter;
     if (helicopter) { helicopter.sees = !hidden && !helicopter.leaving && this._fromAbove(helicopter); if (helicopter.sees) seen = true; }
     return seen;
@@ -287,18 +296,22 @@ export class Police {
   _dispatch() {
     const sim = this.sim, player = sim.player, edges = sim._graph.edges;
     if (!edges.length) return;
-    let answering = 0, patrols = 0, stray = null;
+    let answering = 0, patrols = 0, stray = null, hasESU = false;
     for (const car of sim.cars) {
       if (car.type !== 'police') continue;
       patrols++;
       if (car._abandoned || (car.parked && !car._crewOut)) continue;
       const away = distance(car, player);
+      if (car.unit==='esu') hasESU=true;
       if (away < 480) answering++;
       else if (!car._crewOut && !stray) stray = car;
     }
     if (stray && sim._joinTraffic(stray)) { stray._direct = false; stray._routeAt = 0; answering++; }
-    if (answering < UNITS[this.stars] && patrols < MAX_PATROLS) {
+    const specialist = this.stars>=4 && !hasESU;
+    if ((answering < UNITS[this.stars] || specialist) && patrols < MAX_PATROLS) {
       const car = sim._makeCar(`police-r${++this._serial}`, 'police', { x: player.x + 1e6, z: player.z }, 0, edges[0]);
+      car.unit = specialist ? 'esu' : 'patrol';
+      if(specialist){car.shape='van';sim._serviceIdentity(car);}
       car._dispatched = true;
       if (sim._joinTraffic(car)) sim.cars.push(car);
     }
@@ -402,16 +415,35 @@ export class Police {
     if (!car._edge) sim._recycleTraffic(car);
   }
 
+  _nearbyPeople(actor,reach) {
+    const sim=this.sim;
+    const people=[...this.officers,...this.downOfficers,...(sim._people || []),...sim.bystanders];
+    if(sim.player.mode==='walk')people.push(sim.player);
+    return people.filter(p=>p!==actor && !p.gone && !(p.absentUntil>sim.elapsed) &&
+      Math.abs(p.x-actor.x)<reach && Math.abs(p.z-actor.z)<reach);
+  }
+
   /** Two officers out of a stopped patrol car. */
   _dismount(car) {
     const sim = this.sim;
     if (this.officers.length + 2 > MAX_OFFICERS) return false;
+    const occupants=this._nearbyPeople(car,5), exits=[];
+    for(const side of [-1,1]){
+      const x=car.x-Math.cos(car.angle)*side*1.7,z=car.z+Math.sin(car.angle)*side*1.7;
+      let exit;
+      for(const along of [0,.85,-.85,1.7,-1.7]){
+        const at=sim._resolvePosition(x+along*Math.sin(car.angle),z+along*Math.cos(car.angle),OFFICER.radius);
+        const point={x:at.x,z:at.z,y:sim.groundHeight(at.x,at.z),side};
+        if(hasStandingRoom(point,occupants)){exit=point;break;}
+      }
+      if(!exit)return false;
+      exits.push(exit);occupants.push(exit);
+    }
     car._crewOut = true; car.speed = 0;
     resetVehicleDynamics(car);
-    for (const side of [-1, 1]) {
-      const at = sim._resolvePosition(car.x - Math.cos(car.angle) * side * 1.7, car.z + Math.sin(car.angle) * side * 1.7, OFFICER.radius);
-      this.officers.push({ id: `officer-${++this._serial}`, carId: car.id, x: at.x, z: at.z, y: sim.groundHeight(at.x, at.z), angle: car.angle, speed: 0,
-        health: OFFICER.health, phase: this._random() * 6, stride: 0, fire: 0.7 + this._random(), sees: false, aiming: false, returning: false, goal: null, side: side, dodge: 0 });
+    for (const {x,z,y,side} of exits) {
+      this.officers.push({ id: `officer-${++this._serial}`, carId: car.id, x,z,y, angle: car.angle, speed: 0,
+        health: OFFICER.health, phase: this._random() * 6, stride: 0, fire: 0.7 + this._random(), sees: false, aiming: false, returning: false, goal: null, side, unit:car.unit || 'patrol', uniform:side>0 ? 1 : 0, dodge: 0 });
     }
     return true;
   }
@@ -423,10 +455,29 @@ export class Police {
     this._rebind(car);
   }
 
+  _stepReaction(officer,dt) {
+    const x=officer.x,z=officer.z;
+    stepImpulse(officer,dt,(actor,x,z)=>this.sim._resolvePosition(x,z,OFFICER.radius,null,actor,true),
+      actor=>this.sim._sampleSurface?.(actor.x,actor.z,{referenceHeight:actor.y,mode:'walk'})?.elevation ?? this.sim.groundHeight(actor.x,actor.z));
+    limitPedestrianStep(officer,x,z,this._nearbyPeople(officer,Math.hypot(officer.x-x,officer.z-z)+1));
+    officer.speed=officer.stride=0;
+    officer.aiming=officer.cuffing=false;
+  }
+
   _officers(dt) {
     const sim = this.sim, player = sim.player, stars = this.stars, chase = this.state === 'chase', clear = this.state === 'clear';
     const driving = player.mode === 'drive', speed = this._playerSpeed();
+    let arresting=null;
+    if(chase && this.arrest>.45 && !driving && !sim.room){
+      let nearest=2.4;
+      for(const officer of this.officers){
+        const gap=distance(officer,player);
+        if(!officer.reaction && officer.sees && gap<nearest){arresting=officer;nearest=gap;}
+      }
+    }
     for (const officer of [...this.officers]) {
+      if(officer.reaction){this._stepReaction(officer,dt);continue;}
+      officer.cuffing=officer===arresting;
       const car = sim.cars.find(other => other.id === officer.carId) || null, away = distance(officer, player);
       // Left behind with no car to go back to.
       if (away > 150 || (clear && !car)) { this._board(officer, car); continue; }
@@ -441,6 +492,8 @@ export class Police {
         target = player;
         if (shooting && officer.sees) { hold = OFFICER.hold; officer.aiming = true; }
         else if (driving) hold = 2.6;
+        if(!officer.cuffing && officer.sees && !driving && speed<3.2 && away<8) officer.aiming=true;
+        if(officer.cuffing){hold=1;officer.aiming=false;}
       } else if (this.cornered || this.searchTime < 3) { target = this.lastKnown; hold = 1.5; }
       else {
         // Looking around on foot, near where the player was last seen.
@@ -458,29 +511,46 @@ export class Police {
       if (officer.dodge > 0) { officer.dodge -= dt; heading += officer.side * 1.25; }
       const before = { x: officer.x, z: officer.z };
       if (wanted > 0.05) {
-        let next = sim._resolvePosition(officer.x + Math.sin(heading) * wanted * dt, officer.z + Math.cos(heading) * wanted * dt, OFFICER.radius, null, null, true);
+        const others = this._nearbyPeople(officer,3+wanted*dt);
+        walkTowards(officer,officer.x+Math.sin(heading)*gap,officer.z+Math.cos(heading)*gap,wanted*dt,others);
+        let next = sim._resolvePosition(officer.x,officer.z, OFFICER.radius, null, null, true);
         const bump = sim._nearCar(next.x, next.z, OFFICER.radius, null, officer.y);
         if (bump) next = sim._resolvePosition(next.x + bump.nx * (bump.depth + 0.001), next.z + bump.nz * (bump.depth + 0.001), OFFICER.radius, null, null, true);
         officer.x = next.x; officer.z = next.z;
+        limitPedestrianStep(officer,before.x,before.z,others);
+        if (officer.x!==before.x || officer.z!==before.z) heading=Math.atan2(officer.x-before.x,officer.z-before.z);
       }
       const moved = distance(before, officer);
       // Walked into something: go round it, the other way from last time.
       if (wanted > 0.5 && moved < wanted * dt * 0.35 && !(officer.dodge > 0)) { officer.side = -officer.side; officer.dodge = 0.9; }
       const struck = sim._nearCar(officer.x, officer.z, OFFICER.radius + .15, null, officer.y);
       if (struck && Math.abs(struck.car.speed) > 4) {
-        this._down(officer, 'You ran down an officer.', struck.car.controlled ? 1.5 : 0);
+        const car=struck.car, speed=Math.abs(car.speed);
+        const rolling=car.controlled || car._loose>0;
+        const vx=rolling ? car.velocityX : Math.sin(car.angle)*car.speed;
+        const vz=rolling ? car.velocityZ : Math.cos(car.angle)*car.speed;
+        officer.health-=speed*7;
+        receiveImpulse(officer,vx*.65,vz*.65,{fall:true,lift:Math.min(4.5,speed*.21),rest:officer.health<=0 ? Infinity : .65});
+        if(officer.health<=0) this._down(officer, 'You ran down an officer.', car.controlled ? 1.5 : 0);
+        else if(car.controlled) this.offence('hitOfficer',{x:officer.x,z:officer.z,message:'You hit an officer with the car.'});
         continue;
       }
       officer.speed = moved / dt;
       officer.phase += moved * 3.3;
       officer.stride = Math.min(1, officer.speed / 1.2);
-      if (moved > 0) officer.y = sim.groundHeight(officer.x, officer.z);
+      if(moved>0 || officer.airborne){
+        const floor=sim._sampleSurface?.(officer.x,officer.z,{referenceHeight:officer.y,mode:'walk'})?.elevation ?? sim.groundHeight(officer.x,officer.z);
+        if(followFloor(officer,floor,dt)>9.5){
+          receiveImpulse(officer,Math.sin(heading),Math.cos(heading),{fall:true,rest:.3});
+          continue;
+        }
+      }
       const facing = officer.aiming || moved < 1e-4 ? Math.atan2(player.x - officer.x, player.z - officer.z) : heading;
       officer.angle += turnDelta(officer.angle, facing) * (1 - Math.exp(-12 * dt));
       // Nobody shoots on the run. Standing with the player in sight, the gun
       // comes up, the aim settles over a couple of seconds, and it is lost
       // again whenever the officer has to move or the player goes out of sight.
-      const steady = shooting && officer.sees && away < OFFICER.range && officer.speed < 1 && !sim.ending;
+      const steady = shooting && !officer.cuffing && officer.sees && away < OFFICER.range && officer.speed < 1 && !sim.ending;
       officer.settle = steady ? Math.min(AIM.settle, (officer.settle || 0) + dt) : Math.max(0, (officer.settle || 0) - dt * 3);
       if (steady && officer.settle >= AIM.raise) {
         officer.fire -= dt;
@@ -510,6 +580,10 @@ export class Police {
   _down(officer, message, heat) {
     const car = this.sim.cars.find(other => other.id === officer.carId) || null;
     this.officers.splice(this.officers.indexOf(officer), 1);
+    if(!officer.reaction?.fall) receiveImpulse(officer,0,0,{fall:true,rest:Infinity});
+    officer.aiming=officer.cuffing=false;
+    officer.downAt=this.sim.elapsed;
+    this.downOfficers.push(officer);
     if (car) {
       car._lost = (car._lost || 0) + 1;
       // A car with nobody left to drive it stays where it stopped.
@@ -521,12 +595,24 @@ export class Police {
     if (heat) this.offence('officerDown', { x: officer.x, z: officer.z, message });
   }
 
-  /** The player's punch, thrown from (x, z) along `angle`. True if it landed on an officer. */
-  strike(x, z, angle, power = 1) {
+  meleeTarget(x,z,angle,y=this.sim.player.y) {
+    let best=null, reach=2;
     for (const officer of this.officers) {
-      const dx = officer.x - x, dz = officer.z - z, d = Math.hypot(dx, dz);
-      if (d > 2 || dx * Math.sin(angle) + dz * Math.cos(angle) < 0.3 * d) continue;
+      const dx=officer.x-x, dz=officer.z-z, d=Math.hypot(dx,dz);
+      if (officer.health<=0 || d>reach || (officer.reaction?.fall && d>1.25) ||
+          Math.abs(officer.y-y)>1.3 || dx*Math.sin(angle)+dz*Math.cos(angle)<.3*d) continue;
+      best=officer; reach=d;
+    }
+    return best;
+  }
+
+  strike(x, z, angle, power = 1, y=this.sim.player.y, low=false) {
+    const officer=this.meleeTarget(x,z,angle,y);
+    if (officer && (!low || officer.reaction?.fall)) {
       officer.health -= 40 * power;
+      const fall=officer.health<=0 || power>1;
+      receiveImpulse(officer,Math.sin(angle)*3.4*power,Math.cos(angle)*3.4*power,
+        {fall,rest:officer.health<=0 ? Infinity : .35,clip:'hitChest',lift:fall ? .5 : 0});
       if (officer.health <= 0) this._down(officer, 'Officer down. Every unit is coming.', 1);
       else this.offence('hitOfficer', { x: officer.x, z: officer.z, message: 'You hit a police officer.' });
       return true;
@@ -559,7 +645,7 @@ export class Police {
     if (!helicopter) {
       if (!needed) return;
       const bearing = this._random() * TAU, x = player.x + Math.sin(bearing) * 380, z = player.z + Math.cos(bearing) * 380;
-      helicopter = this.helicopter = { x, z, y: (player.y || 0) + HELICOPTER.height + 20, angle: bearing + Math.PI, vx: 0, vz: 0, light: { x, z }, orbit: bearing, sees: false, leaving: false };
+      helicopter = this.helicopter = { unit:'aviation', x, z, y: (player.y || 0) + HELICOPTER.height + 20, angle: bearing + Math.PI, vx: 0, vz: 0, light: { x, z }, orbit: bearing, sees: false, leaving: false };
       this.sim._say('A police helicopter is on its way.', 5);
     }
     helicopter.leaving = !needed;
@@ -595,10 +681,11 @@ export class Police {
     const sim = this.sim, player = sim.player, driving = player.mode === 'drive', speed = this._playerSpeed();
     let rate = 0;
     if (sim.room) {
-      if (this.cornered) for (const officer of this.officers) if (distance(officer, this.lastKnown) < 3.5) rate = 0.5;
+      if (this.cornered) for (const officer of this.officers) if (!officer.reaction && distance(officer, this.lastKnown) < 3.5) rate = 0.5;
     } else {
       for (const officer of this.officers) {
         const away = distance(officer, player);
+        if (officer.reaction || Math.abs(officer.y-player.y)>2) continue;
         if (driving ? away < 3.8 && speed < 1.5 : away < 2.4 && speed < 3.2) rate = 1;
       }
       if (!rate && speed < 1.2) for (const car of sim.cars) if (car.type === 'police' && car._sees && distance(car, player) < 8) rate = 0.45;

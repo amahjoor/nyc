@@ -443,7 +443,10 @@ export class Simulation {
 
   /** Which model a cab or a patrol car is. Drawn from its name, so the same car is the same model whenever the fleet arrives. */
   _serviceIdentity(car) {
-    if (car.type === 'police') { car.identity = this._fleet?.patrol || null; return; }
+    if (car.type === 'police') {
+      car.identity = (car.unit==='esu' ? this._fleet?.emergencyService : this._fleet?.patrol) || null;
+      return;
+    }
     const paintedCab = car.id === 'player-taxi' && car.resprays > 0;
     if (car.type !== 'taxi' && !paintedCab) return;
     let hash = 0;
