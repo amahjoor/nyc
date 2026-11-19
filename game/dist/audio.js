@@ -40,6 +40,18 @@ export class CityAudio {
     rotor.connect(rotorFilter).connect(chop).connect(this.rotorGain).connect(this.master); rotor.start();
     this.noise = buffer;
   }
+  trainDoors() {
+    if(!this.ctx || !this.enabled)return;
+    const c=this.ctx;
+    for(const [delay,pitch] of [[0,690],[.27,490]]){
+      const start=c.currentTime+delay,tone=c.createOscillator(),gain=c.createGain();
+      tone.type='sine';tone.frequency.value=pitch;
+      gain.gain.setValueAtTime(.001,start);gain.gain.exponentialRampToValueAtTime(.13,start+.018);
+      gain.gain.exponentialRampToValueAtTime(.001,start+.34);
+      tone.connect(gain).connect(this.master);tone.start(start);tone.stop(start+.35);
+      tone.onended=()=>{tone.disconnect();gain.disconnect();};
+    }
+  }
   gunshot() {
     if (!this.ctx || !this.enabled) return;
     const c = this.ctx, source = c.createBufferSource(), filter = c.createBiquadFilter(), gain = c.createGain();
@@ -81,11 +93,11 @@ export class CityAudio {
     crack.connect(gain); rumble.connect(gain); gain.connect(this.master);
     crack.start(now,0,.65); rumble.start(now); rumble.stop(now+.86);
   }
-  horn() {
+  horn(distance = 0) {
     if (!this.ctx || !this.enabled) return;
     const c=this.ctx, gain=c.createGain(), osc=c.createOscillator();
     osc.type='sawtooth'; osc.frequency.value=220;
-    gain.gain.setValueAtTime(.14,c.currentTime); gain.gain.exponentialRampToValueAtTime(.001,c.currentTime+.35);
+    gain.gain.setValueAtTime(.14/(1+(distance/13)**2),c.currentTime); gain.gain.exponentialRampToValueAtTime(.001,c.currentTime+.35);
     osc.connect(gain).connect(this.master); osc.start(); osc.stop(c.currentTime+.36);
   }
 }

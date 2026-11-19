@@ -18,14 +18,21 @@ export function createStairwellOpenings(range, capacity) {
   texture.needsUpdate = true;
   const bounds = new THREE.Vector4();
   const enabled = { value: false };
-  const uniforms = { stairGrid: { value: texture }, stairBounds: { value: bounds }, stairOpen: enabled };
+  const cabin=new THREE.Vector4(0,0,0,0),cabinDir=new THREE.Vector2();
+  const uniforms = { stairCabin:{value:cabin},stairCabinDir:{value:cabinDir},stairGrid: { value: texture }, stairBounds: { value: bounds }, stairOpen: enabled };
   let count = 0;
 
   const fragment = /* glsl */`
     uniform sampler2D stairGrid;
     uniform vec4 stairBounds;
     uniform bool stairOpen;
+    uniform vec4 stairCabin;
+    uniform vec2 stairCabinDir;
     bool insideStairwell(vec3 world) {
+      if(stairCabin.w>.5 && abs(world.y-stairCabin.y)<1.){
+        vec2 d=world.xz-stairCabin.xz;
+        if(abs(dot(d,stairCabinDir))<.78 && abs(dot(d,vec2(stairCabinDir.y,-stairCabinDir.x)))<.78)return true;
+      }
       if (!stairOpen || any(lessThan(world.xz, stairBounds.xy)) || any(greaterThanEqual(world.xz, stairBounds.zw))) return false;
       ivec2 cell = ivec2(floor((world.xz - stairBounds.xy) / ${CELL}.0));
       vec2 bucket = texelFetch(stairGrid, cell, 0).rg;
@@ -43,6 +50,11 @@ export function createStairwellOpenings(range, capacity) {
   `;
 
   return {
+    cabinAt(portal) {
+      if(!portal){cabin.w=0;return;}
+      cabin.set(portal.x,portal.y,portal.z,1);
+      cabinDir.set(Math.sin(portal.angle),Math.cos(portal.angle));
+    },
     update(frames) {
       count = frames.length;
       enabled.value = count > 0;

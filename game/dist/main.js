@@ -69,7 +69,7 @@ import { createCollection, planTrash, createTrashMesh } from './trash.js';
 import { aboveTheStreet } from './aloft.js';
 import { createBikeShare, planBikeDocks, createBikeDocks } from './bikes.js';
 import { menuFor } from './menu.js';
-import { createSubway, createSubwayEntrances, FARE } from './subway.js';
+import { createSubway, createSubwayEntrances, SUBWAY_LAYER, FARE } from './subway.js';
 import { indexKerbs, snapToKerb } from './street-props.js';
 import { formatDistance } from './phone.js';
 
@@ -130,7 +130,7 @@ let viewHeight=0, aloft=false;
 let collection=null, trashMesh=null, weekday=(new Date().getDay()+6)%7, clockWas=null;
 // Citi Bike: the stations, and the docks drawn nearby.
 let bikeShare=null, bikeDocks=null, bikeRows=[], borrowedDock=null;
-let subway=null, subwayStairs=null, stairHere=null, kerbIndex=null, kerbsFor=null;
+let subwayVisit=null, subwayView=null, previewPortal=null, subway=null, subwayStairs=null, stairHere=null, kerbIndex=null, kerbsFor=null;
 // Which cars are registered where (fleet.js): the whole city's mix until the counts by ZIP code have loaded.
 let fleet=createFleet(null);
 const vehicleMeshes=createVehicleMeshLibrary();
@@ -212,6 +212,53 @@ function openGarage(place, index=0) {
     if(sim.garage(place.kind,row.job,row.color??row.choice))saveProgress();
     openGarage(place,i);
   },{cash:sim.cash,index,available:()=>shopHere===place&&Boolean(sim.vehicle)});
+}
+
+function finishSubway(){
+  if(!subwayVisit)return;
+  subwayVisit.dispose();subwayVisit=null;sim.subway=null;
+  subwayStairs.openings.cabinAt(null);previewPortal=null;subwayView.root.visible=false;
+  stairHere=null;chaseHeight=null;chaseEyeOffset=null;snapChase=false;
+}
+
+function startSubway(entrance){
+  if(subwayVisit||!subway?.table.platforms[entrance.stop]||entrance.entry===false)return;
+  if(aerialView)setView('street');
+  subwayView ||= subway.preview(scene);
+  subwayView.root.visible=true;
+  sim.doorway=null;
+  subwayVisit=subway.visit(entrance,weekday*86400+gfx.hours*3600,{
+    $,interaction,sim,view:subwayView,heightAt:groundHeight,
+    stairSurface:(x,z)=>subwayStairs.surfaceAt(x,z),
+    resolveExit(station,stop){
+      if(station===entrance.station && stop===entrance.stop && station.exits?.some(e=>e[0]===entrance.source.x && e[1]===entrance.source.z))return entrance;
+      const exits=station.exits||station.entrances;
+      const same=exits.filter(e=>e[3]===stop),choices=same.length?same:exits;
+      const [x,z,kind,platform]=choices.reduce((a,b)=>Math.hypot(a[0]-station.x,a[1]-station.z)<Math.hypot(b[0]-station.x,b[1]-station.z)?a:b);
+      return subwayStairs.portals.find(e=>e.station===station && e.source.x===x && e.source.z===z && e.kind===kind)
+        || subwayStairs.resolve({x,z,kind,stop:platform,station},subway);
+    },
+    turnCamera:delta=>{yaw+=delta;},chime:()=>audio.trainDoors(),pay:()=>saveProgress('Transit fare'),
+    exit:()=>{const name=subwayVisit.journey.station.name;finishSubway();announce(name+' · Street exit');}
+  });
+  sim.subway=subwayVisit;
+}
+
+// Detect the open end of the actual street model in the player's direction
+// of travel. Crossing sideways on the sidewalk never opens a station.
+function enterSubwayOnFoot(controls){
+  const p=sim.player;
+  if(subwayVisit||!subway||p.mode!=='walk'||p.move||p.reaction||sim.room||sim.seat||sim.ending||interaction?.open)return;
+  for(const e of subwayStairs.portals){
+    const dx=p.x-e.x,dz=p.z-e.z;
+    if(Math.abs(dx)>3||Math.abs(dz)>3||e.entry===false)continue;
+    const s=Math.sin(e.angle),c=Math.cos(e.angle),along=dx*s+dz*c;
+    if(controls.moveX*s+controls.moveZ*c<.15 || Math.abs(dx*c-dz*s)>.54)continue;
+    const stair=e.kind===0;
+    if(along<(stair?-2.13:-.18)||along>(stair?2.15:.55))continue;
+    const level=subwayStairs.surfaceAt(p.x,p.z)?.elevation??e.y;
+    if(Math.abs(p.y-level)<.65){startSubway(e);break;}
+  }
 }
 
 function action(name,event) {
@@ -1321,6 +1368,7 @@ function frame(now) {
 }
 
 function setView(mode){
+  if(subwayVisit)return;
   interaction?.close();
   if(mode!=='aerial'||!aerialView)aerialTracking=false;
   chaseLookAhead.set(0,0,0);
@@ -1378,12 +1426,12 @@ function floorFor(room){
 // far as places are loaded. Past 300 m fewer of the streets are known, and fewer doors are found than are there.
 function markDoors(){
   if(!gameMap||!placeSource)return;
-  const stairs=subwayStairs?.entrances;
+  const stairs=subwayStairs?.portals;
   if(!doorsFor||doorsFor.fronts!==fronts||doorsFor.stairs!==stairs||doorsFor.wide!==mapOpen){
     doorsFor={fronts,stairs,wide:mapOpen};
     const at=frontsFor||sim.player;
     const beyond=mapOpen?solveFrontages(placeSource.near(at.x,at.z,700).filter(place=>Math.hypot(place.x-at.x,place.z-at.z)>250),footprints,(x,z)=>Boolean(streetscape?.surfaceAt(x,z))):[];
-    doors=doorBlips([...fronts,...beyond].filter(front=>hasRoom(front,(x,z)=>insideShopBuilding(front,x,z))),mapOpen&&subway?subway.entrancesNear(at.x,at.z,700).filter(entrance=>entrance.kind===0):stairs);
+    doors=doorBlips([...fronts,...beyond].filter(front=>hasRoom(front,(x,z)=>insideShopBuilding(front,x,z))),mapOpen&&subway?subway.entrancesNear(at.x,at.z,700):stairs);
   }
   if(doorsFor.closures!==work.closureRevision){
     doorsFor.closures=work.closureRevision;

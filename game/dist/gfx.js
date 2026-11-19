@@ -197,9 +197,10 @@ export class Graphics {
   render() {
     const { renderer, scene, camera } = this;
     shareSceneUniforms(scene);
+    const exposure=this.subwayInterior?1.12:this.state.exposure;
     if (!this.accelerated) {
       this.fill.intensity = 1;
-      if (renderer.capabilities) renderer.toneMappingExposure = Math.min(3, this.state.exposure);
+      if (renderer.capabilities) renderer.toneMappingExposure = Math.min(3,exposure);
       renderer.render(scene, camera);
       return;
     }
@@ -208,17 +209,17 @@ export class Graphics {
     // A jump in the time of day must relight at once; drift can wait its turn.
     const environment = this.sky.renderReflection(renderer, this.state, this.elapsed, this._jumped());
     if (scene.environment !== environment) scene.environment = environment;
-    scene.environmentIntensity = ENVIRONMENT_INTENSITY;
+    scene.environmentIntensity = this.subwayInterior ? .12 : ENVIRONMENT_INTENSITY;
     for (const pass of this.passes) pass(renderer, scene, camera);
     const state = this.state;
     // Shafts belong to a low sun; a high one only washes the frame out.
     const lowSun = THREE.MathUtils.smoothstep(state.sunElevation, -1.5, 2) * (1 - THREE.MathUtils.smoothstep(state.sunElevation, 16, 34));
     this.post.render(scene, camera, {
-      exposure: state.exposure, night: state.night, time: this.elapsed,
-      bloom: THREE.MathUtils.lerp(.06, .13, state.night),
+      exposure, night: state.night, time: this.elapsed,
+      bloom: this.subwayInterior ? .025 : THREE.MathUtils.lerp(.06,.13,state.night),
       // Indoors the contact shading meant for streets blots a room's furniture: most of it is let go.
       occlusion: this.overview ? 0 : 1 - .7 * (this.indoorDepth || 0),
-      sunDirection: state.keyIsMoon ? null : this._sunDirection, shafts: this.overview ? 0 : .5 * lowSun,
+      sunDirection: state.keyIsMoon ? null : this._sunDirection, shafts: this.subwayInterior || this.overview ? 0 : .5 * lowSun,
     });
   }
 

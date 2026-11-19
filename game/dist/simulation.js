@@ -1618,7 +1618,7 @@ export class Simulation {
     }
     this.updateGrounding();
     this.police.update(dt);
-    this._updateMission(dt);
+    this._updateMission(dt,Boolean(this.subway));
     if (this.health <= 0 && !this.ending) {
       const cause = this._downed || 'wreck';
       const reason = { fire: 'Caught in a vehicle fire.', fight: 'You got knocked out.', police: 'Shot by the police.', fall: 'That fall put you down.', traffic: 'You were run down.' };
@@ -1945,6 +1945,13 @@ export class Simulation {
       player.velocityZ += (desiredZ - player.velocityZ) * blend;
     }
     if (magnitude > 0.02 && !sliding) player.angle += turnDelta(player.angle, Math.atan2(desiredX, desiredZ)) * (1 - Math.exp(-16 * dt));
+    if(this.subway){
+      const subway=this.subway,floor=subway.walk(player,dt);
+      this._fall(player,dt,jumping,floor);
+      const headroom=subway.ceiling(floor)-(player.height||1.76);
+      if(player.y>headroom && player.vy>0){player.y=headroom;player.vy=0;}
+      return;
+    }
     const view = this.doorway, room = this.room || view?.plan;
     if (room) {
       const at = roomLocal(room, player.x, player.z);
@@ -2630,7 +2637,7 @@ export class Simulation {
     return true;
   }
 
-  _updateMission(dt) {
+  _updateMission(dt, ridingSubway=false) {
     if (this.mission.phase !== 'active') return;
     this.mission.timeLeft = Math.max(0, this.mission.timeLeft - dt);
     if (this.mission.timeLeft <= 0) {
@@ -2638,7 +2645,7 @@ export class Simulation {
       this._say('Delivery timed out. Press N to try another job.', 6);
       return;
     }
-    if (this.player.mode === 'transport' && !this.player.grounded) return;
+    if (ridingSubway || this.player.mode === 'transport' && !this.player.grounded) return;
     if (distance(this.player, this.mission.target) < 10 && playerTravelSpeed(this.player) < 3) {
       if ((this.mission.meal || this.mission.kind==='paper') && this.room) return;
       if(this.mission.kind==='paper' && this.mission.index+1<this.mission.stops.length){
