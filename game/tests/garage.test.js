@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { BODY_HANDLING, PARTS, RESPRAYS, RESPRAY_PRICE, CALL_OUT, DELIVERY, repairCost, offersAt, handlingFor, shopRows } from '../dist/garage.js';
+import { BODY_HANDLING, PARTS, RESPRAYS, RESPRAY_PRICE, CALL_OUT, DELIVERY, WHEELS, WHEELS_PRICE, PLATES_PRICE, repairCost, offersAt, handlingFor, shopRows } from '../dist/garage.js';
+import { plateFor } from '../dist/license-plates.js';
 import { BODIES, bodyShape } from '../dist/fleet.js';
 import { stepVehicleDynamics, resetVehicleDynamics } from '../dist/vehicle-dynamics.js';
 import { Simulation } from '../dist/simulation.js';
@@ -63,6 +64,14 @@ test('a garage mends, resprays and fits parts for cash, to the car that is drive
   assert.equal(sim.garage('bodyshop', 'respray', '#1f3a6a'), true);
   assert.deepEqual([cab.color, cab.type, cab.shape, sim.cash], ['#1f3a6a', 'sedan', 'sedan', 1e6 - 1650 - RESPRAY_PRICE]);
   assert.equal(sim.garage('bodyshop', 'respray', '#1f3a6a'), false, 'it is that colour already');
+  // New plates are a new number; new wheels are one of the patterns the shop keeps. A repair shop does neither.
+  const before = plateFor(cab).text, paid = sim.cash;
+  assert.equal(sim.garage('repair', 'plates'), false); assert.equal(sim.garage('repair', 'wheels', 'dark'), false);
+  assert.equal(sim.garage('bodyshop', 'plates'), true);
+  assert.notEqual(plateFor(cab).text, before); assert.equal(sim.cash, paid - PLATES_PRICE); assert.ok(sim.notice.includes(plateFor(cab).text), sim.notice);
+  assert.equal(sim.garage('bodyshop', 'wheels', 'chrome spinners'), false, 'not a wheel it keeps');
+  assert.equal(sim.garage('bodyshop', 'wheels', 'dark'), true); assert.deepEqual([cab.rims, sim.cash], ['dark', paid - PLATES_PRICE - WHEELS_PRICE]);
+  assert.equal(sim.garage('bodyshop', 'wheels', 'dark'), false, 'it is on those already');
   // Not while the car is moving.
   for (let i = 0; i < 120; i++) sim.step({ forward: 1 }, 1 / 60);
   assert.equal(sim.garage('repair', 'engine'), false); assert.match(sim.notice, /Stop the car/);
@@ -98,7 +107,13 @@ test('the counter lists what the shop does, and the page has a place for each', 
     { job: 'repair', name: 'REPAIR', note: 'NOTHING TO MEND', price: null }, { job: 'engine', name: 'ENGINE', note: 'STAGE 3 · FULLY FITTED', price: null },
     { job: 'brakes', name: 'BRAKES', note: 'Stage 1 · $250 · 60–0 mph 129 → 118 ft', price: 250 }, { job: 'tyres', name: 'TYRES', note: 'Stage 2 · $600 · Cornering grip 0.93 → 1.00 g', price: 600 }]);
   const elements = new Map(), $ = id => { if (!elements.has(id)) { const listeners = {}, attributes = {}; elements.set(id, { hidden: false, disabled: false, textContent: '', value: '', setAttribute: (k, v) => { attributes[k] = v; }, getAttribute: k => attributes[k], addEventListener: (n, f) => { (listeners[n] ||= []).push(f); }, fire: n => (listeners[n] || []).forEach(f => f({})) }); } return elements.get(id); };
-  const paints = shopRows('bodyshop', { color: RESPRAYS[2][1] }).slice(1);
+  const counter = shopRows('bodyshop', { id: 'car-7', color: RESPRAYS[2][1], rims: 'multi' }), paints = counter.filter(row => row.job === 'respray');
+  // After the paint: a new set of plates, with the number now on the car, and the wheels the shop keeps.
+  assert.deepEqual(counter.find(row => row.job === 'plates'), { job: 'plates', name: 'New plates', note: plateFor({ id: 'car-7', color: RESPRAYS[2][1] }).text + ' · $' + PLATES_PRICE, price: PLATES_PRICE });
+  const wheels = counter.filter(row => row.job === 'wheels');
+  assert.deepEqual(wheels.map(row => row.choice), WHEELS.map(([, pattern]) => pattern));
+  assert.deepEqual(wheels.map(row => row.price), WHEELS.map(([, pattern]) => pattern === 'multi' ? null : WHEELS_PRICE));
+  assert.ok(shopRows('repair', { id: 'car-7' }).every(row => row.job !== 'plates' && row.job !== 'wheels'));
   assert.deepEqual(paints.map(row => row.color), RESPRAYS.map(([, color]) => color));
   assert.equal(paints[2].price, null);
   assert.equal(paints[3].price, RESPRAY_PRICE);

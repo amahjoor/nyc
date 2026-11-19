@@ -10,7 +10,8 @@ import { walkRoom, roomPoint, roomLocal, DOOR } from './room.js';
 import { seatApproach, seatClip, stepSeating } from './seating.js';
 import { PEP, scratch } from './menu.js';
 import { Police, MAX_STARS } from './police.js';
-import { vehicleHandling, repairCost, offersAt, PARTS, RESPRAY_PRICE, RESPRAYS, CALL_OUT, DELIVERY } from './garage.js';
+import { vehicleHandling, repairCost, offersAt, PARTS, RESPRAY_PRICE, RESPRAYS, CALL_OUT, DELIVERY, WHEELS, WHEELS_PRICE, PLATES_PRICE } from './garage.js';
+import { plateFor } from './license-plates.js';
 
 // Simulation units are metres and seconds. A heading of zero points along +Z.
 // This module deliberately has no renderer or browser dependencies.
@@ -426,6 +427,8 @@ export class Simulation {
     car.id = `traffic-${this._trafficSerial = (this._trafficSerial || 100) + 1}`;
     repairVehicle(car);
     car.mods = car.handling = undefined; car.driverEjected = car._driven = car._jacked = car.resprays = false;
+    // Another car altogether: its own wheels again, and the next number.
+    car.rims = undefined; car.plates = (car.plates || 0) + 1;
     car.type = taxi ? 'taxi' : 'sedan';
     // A cab is one of the city's cabs. Any other car is one of those registered round here, or a van or a pickup at work.
     const fleet = taxi ? null : this._fleetAt(car);
@@ -524,6 +527,17 @@ export class Simulation {
       car.color = choice;
       if (car.type === 'taxi') { car.type = 'sedan'; car.identity = car.identity?.plain || null; car.shape = car.identity?.shape || 'sedan'; }
       car.resprays = (car.resprays || 0) + 1; return true;
+    }
+    if (job === 'plates' && offers.respray) {
+      if (this.cash < PLATES_PRICE) return pay(PLATES_PRICE, '');
+      // The next set issued to this car: a new number on whichever plate a car of its kind is given.
+      car.plates = (car.plates || 0) + 1;
+      return pay(PLATES_PRICE, 'New plates: ' + plateFor(car).text + '. $' + PLATES_PRICE + '.');
+    }
+    if (job === 'wheels' && offers.respray && WHEELS.some(([, pattern]) => pattern === choice)) {
+      if (car.rims === choice) { this._say('It is on those already.'); return false; }
+      if (!pay(WHEELS_PRICE, `Wheels fitted. $${WHEELS_PRICE}.`)) return false;
+      car.rims = choice; return true;
     }
     if (PARTS[job] && offers.parts) {
       const stage = car.mods?.[job] || 0, price = PARTS[job].prices[stage];

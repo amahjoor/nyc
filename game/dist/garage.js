@@ -2,6 +2,7 @@ import { upgradePreview } from './vehicle-stats.js';
 import { carCondition } from './vehicle-damage.js';
 import { carPerformance } from './vehicle-performance.js';
 import { bodyShape } from './fleet.js';
+import { plateFor, PLATES_PRICE } from './license-plates.js';
 // What a garage does to a car, and what it charges.
 //
 // Auto repair shops and body shops are real places (places.js). A repair
@@ -24,6 +25,10 @@ export const PARTS = {
 export const RESPRAY_PRICE = 180;
 /** Paint a body shop keeps: name and colour. */
 export const RESPRAYS = [['BLACK', '#15181b'], ['WHITE', '#e8e9e6'], ['SILVER', '#b4b9bd'], ['GREY', '#5b6166'], ['BLUE', '#1f3a6a'], ['RED', '#8a1f1f'], ['GREEN', '#27402f'], ['ORANGE', '#c4601a']];
+/** Wheels a body shop fits: name and pattern (world.js draws them), and what a set costs. */
+export const WHEELS = [['FIVE-SPOKE ALLOYS', 'alloy'], ['EIGHT-SPOKE ALLOYS', 'sport'], ['MULTI-SPOKE ALLOYS', 'multi'], ['GUNMETAL ALLOYS', 'dark'], ['AERO COVERS', 'aero'], ['BLACK STEEL', 'black']];
+export const WHEELS_PRICE = 350;
+export { PLATES_PRICE };
 /** What the mechanic charges to come out, on top of the repair, and to bring the player's cab round. */
 export const CALL_OUT = 90, DELIVERY = 60;
 
@@ -77,6 +82,14 @@ export function shopRows(kind, car = {}) {
   if (offers.respray) for (const [name, color] of RESPRAYS) {
     const current = color === car.color;
     rows.push({ job: 'respray', color, name: 'Respray · ' + name, note: current ? 'CURRENT PAINT' : '$' + RESPRAY_PRICE, price: current ? null : RESPRAY_PRICE });
+  }
+  if (offers.respray) {
+    // A new set of plates is a new number; the shop reads the old one back.
+    if (car.id !== undefined) rows.push({ job: 'plates', name: 'New plates', note: plateFor(car).text + ' · $' + PLATES_PRICE, price: PLATES_PRICE });
+    for (const [name, pattern] of WHEELS) {
+      const current = car.rims === pattern;
+      rows.push({ job: 'wheels', choice: pattern, name: 'Wheels · ' + name, note: current ? 'FITTED' : '$' + WHEELS_PRICE, price: current ? null : WHEELS_PRICE });
+    }
   }
   return rows;
 }

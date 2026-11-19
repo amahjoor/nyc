@@ -207,7 +207,7 @@ function openGarage(place, index=0) {
   const rows=shopRows(place.kind,sim.vehicle);
   for(const row of rows)row.disabled=row.price===null;
   interaction.openList(placeName(place),rows,(row,i)=>{
-    if(sim.garage(place.kind,row.job,row.color))saveProgress();
+    if(sim.garage(place.kind,row.job,row.color??row.choice))saveProgress();
     openGarage(place,i);
   },{cash:sim.cash,index,available:()=>shopHere===place&&Boolean(sim.vehicle)});
 }
