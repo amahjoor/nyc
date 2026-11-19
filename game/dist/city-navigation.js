@@ -1,6 +1,7 @@
 import * as THREE from './vendor/three.module.min.js';
 import { worldToGeographic } from './city-ground.js';
 import { searchDestinations } from './geocoder.js';
+import { matchPresets } from './local-search.js';
 
 const flatHeight = () => 0;
 const finiteHeight = (heightAt, x, z) => { const height=heightAt(x,z);return Number.isFinite(height)?height:0; };
@@ -105,12 +106,8 @@ export function createCityNavigation({ canvas, camera, input, bounds, onTravel, 
   function refreshPresets() {
     if(resultsMode==='transport'){showResults(getPresets().filter(place=>place.boarding));return;}
     if(resultsMode!=='presets')return;
-    const words=addressInput.value.trim().toLowerCase().split(/\s+/);
-    const matches=getPresets().filter(place=>{
-      const label=[place.name,place.borough,place.keywords].filter(Boolean).join(' ').toLowerCase();
-      return words.every(word=>label.includes(word));
-    });
-    showResults(matches);
+    const presets=getPresets();
+    showResults(addressInput.value.trim()?matchPresets(addressInput.value,presets):presets);
   }
   function openPresets() {
     if(!visible||traveling||resultsMode)return;
@@ -170,7 +167,7 @@ export function createCityNavigation({ canvas, camera, input, bounds, onTravel, 
     const epoch=searchEpoch, controller=new AbortController();searchController=controller;
     searching=true;controls();$('address-status').textContent='Searching New York…';
     try{
-      const places = await searchDestinations($('address-input').value, { searchLocal, signal: controller.signal });
+      const places = await searchDestinations(addressInput.value, { searchLocal, presets: getPresets(), signal: controller.signal });
       // Aborting fetch alone cannot prevent a late or already parsed response
       // from replacing a newer search or a manual map selection.
       if(epoch!==searchEpoch||!visible)return;

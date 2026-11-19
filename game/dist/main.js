@@ -25,7 +25,7 @@ import { createRoadStream, nearestStreet, localDestinations } from './road-strea
 import { createCityNavigation } from './city-navigation.js';
 import { GameMap } from './game-map.js';
 import { createRoutePlanner } from './route-planner.js';
-import { createStreetIndex, createPlaceIndex, searchLocal, title } from './local-search.js';
+import { createStreetIndex, createPlaceIndex, matchPresets, searchLocal, title } from './local-search.js';
 import { createPlaceLayer } from './map-places.js';
 import { createGraphics } from './gfx.js';
 import { createStreetscape } from './streetscape.js';
@@ -1462,15 +1462,14 @@ function loadPlaceNames(){
   return placeIndexReady;
 }
 async function findLocally(query){
-  const terms=query.trim().toLowerCase().split(/\s+/);
-  const boardings=BOARDINGS.map(transportDestination).filter(p=>terms.every(term=>(p.name+' '+p.borough+' '+p.keywords).toLowerCase().includes(term)));
+  const presets=matchPresets(query,cityPresets());
   const planner=await plannerReady;
   if(planner&&!streetIndex)streetIndex=createStreetIndex(planner.roads);
   await loadPlaceNames();
   const found=searchLocal(query,{streets:streetIndex,places:placeIndex,near:sim?{x:sim.player.x,z:sim.player.z}:null});
   // Several branches of one name are told apart by the street each is on.
   for(const place of found)if(place.kind==='place'&&planner){const road=planner.snap({x:place.x,z:place.z},{maxSnapDistance:300});if(road)place.detail=title(road.name);}
-  return [...boardings,...found];
+  return [...presets,...found];
 }
 function focusCityDestination(place){
   cityFocus={x:place.x,z:place.z};cityZoom=.18;

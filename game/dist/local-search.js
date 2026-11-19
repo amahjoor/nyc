@@ -8,6 +8,8 @@
 // Each is reduced to the same three parts: a compass direction if it leads
 // the name, the name itself with numbers as digits, and the kind of street.
 
+import { facilityIndex } from './places.js';
+
 const UNITS = { ZERO: 0, ONE: 1, TWO: 2, THREE: 3, FOUR: 4, FIVE: 5, SIX: 6, SEVEN: 7, EIGHT: 8, NINE: 9, TEN: 10, ELEVEN: 11, TWELVE: 12, THIRTEEN: 13, FOURTEEN: 14, FIFTEEN: 15, SIXTEEN: 16, SEVENTEEN: 17, EIGHTEEN: 18, NINETEEN: 19,
   FIRST: 1, SECOND: 2, THIRD: 3, FOURTH: 4, FIFTH: 5, SIXTH: 6, SEVENTH: 7, EIGHTH: 8, NINTH: 9, TENTH: 10, ELEVENTH: 11, TWELFTH: 12, THIRTEENTH: 13, FOURTEENTH: 14, FIFTEENTH: 15, SIXTEENTH: 16, SEVENTEENTH: 17, EIGHTEENTH: 18, NINETEENTH: 19 };
 const TENS = { TWENTY: 20, THIRTY: 30, FORTY: 40, FIFTY: 50, SIXTY: 60, SEVENTY: 70, EIGHTY: 80, NINETY: 90, TWENTIETH: 20, THIRTIETH: 30, FORTIETH: 40, FIFTIETH: 50, SIXTIETH: 60, SEVENTIETH: 70, EIGHTIETH: 80, NINETIETH: 90 };
@@ -22,6 +24,18 @@ export const BOROUGH_NAMES = ['', 'Manhattan', 'Bronx', 'Brooklyn', 'Queens', 'S
 const BOROUGH_WORDS = [[/\b(MANHATTAN|NEW YORK CITY|NEW YORK|NYC|NY)\s*$/, 1], [/\b(THE BRONX|BRONX|BX)\s*$/, 2], [/\b(BROOKLYN|BKLYN|BK)\s*$/, 3], [/\b(QUEENS|QNS)\s*$/, 4], [/\b(STATEN ISLAND|SI)\s*$/, 5]];
 
 const plain = text => String(text ?? '').normalize('NFD').replace(/[̀-ͯ]/g, '').toUpperCase().replace(/['’`]/g, '').replace(/[^A-Z0-9&@/+]+/g, ' ').replace(/\s+/g, ' ').trim();
+
+/** Match the city's named arrival points, preserving their coordinates and travel options. */
+export function matchPresets(query, presets, { exact = false } = {}) {
+  const name = plain(query);
+  if (!name) return [];
+  const words = name.split(' ');
+  return presets.filter(place => {
+    if (exact) return plain(place.name) === name;
+    const label = plain([place.name, place.borough, place.keywords].filter(Boolean).join(' '));
+    return words.every(word => label.includes(word));
+  });
+}
 
 /** Words as written to tokens with numbers as digits: "FIFTY THIRD" and "53RD" are both "53". */
 function tokens(text) {
@@ -185,7 +199,7 @@ export function parseQuery(text) {
  * `data` is place-names.json: { kinds, places: [[name, x, z, kind, borough]] }.
  */
 export function createPlaceIndex(data = null) {
-  const places = (data?.places || []).map(([name, x, z, kind, borough]) => ({ name, x, z, kind: data.kinds[kind] || '', borough: BOROUGH_NAMES[borough] || '', order: borough, words: plain(name).split(' ') }));
+  const places = (data?.places || []).map(([name, x, z, kind, borough]) => ({ name, x, z, kind: data.kinds[facilityIndex(kind, name, data.kinds)] || '', borough: BOROUGH_NAMES[borough] || '', order: borough, words: plain(name).split(' ') }));
   const facilities = {
     hospital: places.filter(place => place.kind === 'Hospital'),
     courthouse: places.filter(place => place.kind === 'Courthouse' && /\b(?:CRIM(?:INAL)?|DETENTION)\b/i.test(place.name)),
