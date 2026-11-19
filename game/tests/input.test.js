@@ -254,3 +254,55 @@ test('aim and fire use independent mouse buttons and controller trigger edges',t
   equipped=true;pad.buttons[12]={pressed:true,value:1};input.sample(0,.02);input.sample(0,.02);
   assert.deepEqual(actions,['fire','fire','reload']);
 });
+
+test('tapping pace while moving toggles jog, holding sprints, and stopping resets the jog', t=>{
+  const {input,pad,target}=movementInput(t);
+  input.keys.add('KeyW');
+  const shift=(kind,timestamp)=>target.emit(kind,{code:'ShiftLeft',timeStamp:timestamp,target:{tagName:'CANVAS'}});
+  shift('keydown',1000);shift('keyup',1080);
+  assert.equal(input.sample(0,.1).jog,true);
+  shift('keydown',1600);assert.equal(input.sample(0,.1).run,true);shift('keyup',2500);
+  assert.equal(input.sample(0,.1).jog,true);
+  input.keys.clear();assert.equal(input.sample(0,.1).jog,false);
+  pad.axes[1]=-.8;pad.buttons[10].pressed=true;input.sample(0,.1);
+  pad.buttons[10].pressed=false;assert.equal(input.sample(0,.1).jog,true);
+});
+
+test('classic controller pacing holds a jog and sustains sprint only while presses continue', t=>{
+  const {input,pad}=movementInput(t);input.tapSprint=true;pad.axes[1]=-1;
+  pad.buttons[10].pressed=true;
+  for(let i=0;i<10;i++){const state=input.sample(0,.1);assert.ok(state.jog && !state.run);}
+  pad.buttons[10].pressed=false;input.sample(0,.1);
+  for(let i=0;i<4;i++){
+    pad.buttons[10].pressed=true;assert.equal(input.sample(0,.1).run,i>0);
+    pad.buttons[10].pressed=false;input.sample(0,.1);
+  }
+  for(let i=0;i<6;i++)input.sample(0,.1);
+  assert.equal(input.sample(0,.1).run,false);
+});
+
+test('on a board the pad pushes with either foot, brakes, flicks without moving the camera, and steps off',t=>{
+  const {input,pad,actions}=movementInput(t);
+  const sample=()=>input.sample(0,1/30,false,true);
+  pad.buttons[0].pressed=true;assert.equal(sample().forward,1);assert.deepEqual(actions,[]);
+  pad.buttons[0].pressed=false;pad.buttons[2].pressed=true;assert.equal(sample().pushFoot,-1);
+  pad.buttons[2].pressed=false;pad.buttons[1].pressed=true;assert.equal(sample().forward,-1);
+  pad.buttons[1].pressed=false;pad.axes[3]=.43;assert.equal(sample().manual,1);
+  pad.axes[3]=1;for(let i=0;i<9;i++)sample();
+  pad.axes[2]=-.65;pad.axes[3]=-.8;const pop=sample();
+  assert.equal(pop.skateTrick,'kickflip');assert.ok(pop.charge>.7);
+  assert.equal(sample().skateTrick,undefined);assert.equal(input.lookDelta,0);assert.equal(input.lookVertical,0);
+  pad.buttons[7].value=1;assert.equal(sample().grab,1);assert.equal(sample().forward,0);
+  pad.buttons[3].pressed=true;sample();assert.deepEqual(actions,['skate']);
+});
+
+test('Flickit distinguishes tail and nose pops, diagonal flips and scoops, and releases a cancelled setup',async()=>{
+  const {flickStick}=await import('../dist/skate-tricks.js');
+  for(const [load,x,y,trick] of [[1,0,-1,'ollie'],[-1,0,1,'nollie'],[1,-.7,-.8,'kickflip'],[1,.7,-.8,'heelflip'],[1,-1,0,'shove'],[1,1,0,'frontShove']]){
+    const state={};flickStick(state,0,load,.15);
+    assert.equal(flickStick(state,x,y,.04).trick,trick);
+    assert.equal(flickStick(state,x,y,.04).trick,null);
+  }
+  const state={};flickStick(state,0,1,.13);flickStick(state,0,0,.17);
+  assert.equal(flickStick(state,.8,-.5,.02).trick,null);
+});

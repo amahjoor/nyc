@@ -38,7 +38,14 @@ Choose **Meadow Lake road reconstruction** in the city picker and select **Spawn
 | Walk / steer | WASD | Left stick |
 | Accelerate / brake then reverse | W / S | Right / left trigger |
 | Enter / exit car | E | A |
-| Sprint on foot | Shift | Left stick click |
+| Jog while moving / sprint | Tap Shift / hold Shift | Tap / hold left stick click. In the pause menu’s Tap mode, hold to jog and press repeatedly to sprint. |
+| Take out / put away skateboard | K | Left bumper |
+| Push / footbrake / carve or spin | W / S / A or D | A or X (right or left foot) / B / left stick |
+| Ollie / nollie | Hold and release Space / 4 | Load right stick down then flick up / reverse the gesture |
+| Kickflip / heelflip | 1 / 2 | Load down, flick diagonally up-left / up-right |
+| Pop shove-it / frontside shove-it | 3 / 5 | Scoop right stick from down around to left / right |
+| Manual / nose manual | Hold Shift for manual | Hold right stick halfway down / up |
+| Melon / indy grab | Hold J / L in the air | LT / RT |
 | Handbrake / slide | Space | X |
 | Show total money | Z | D-pad down |
 | Delivery job (Phone → Contacts → Dispatch) | N | Y |
@@ -60,6 +67,8 @@ Choose **Meadow Lake road reconstruction** in the city picker and select **Spawn
 | Reload equipped pistol | R | D-pad up |
 | Climb onto a car or a ledge; vault a car | Space, facing it; Space at a run | X |
 | Recover to starting street | R when unarmed, or Recover in the pause menu | |
+
+Hold Space before a number key for a higher pop. Point the deck along a rail and land on it for a 50–50, then pop to exit. On touch, hold the pop pad and release for an ollie, or swipe left, right or down for a flip or shove-it.
 
 First person puts you at eye level on foot and in the driver's seat when you enter a car. Drag to look around or use the right stick. You can also switch perspective in the pause menu.
 

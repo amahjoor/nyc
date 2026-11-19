@@ -8,6 +8,7 @@
 // length. Its size and colour are the common kind, not surveyed.
 import * as THREE from './vendor/three.module.min.js';
 import { wallFinder } from './places.js';
+import { propId } from './street-objects.js';
 
 const CELL = 256;
 /** How far a shed stands out from the wall, how high its deck is, and how far apart its posts are, in metres. */
@@ -49,7 +50,7 @@ export function planSheds(points, footprints, isStreet) {
 }
 
 /** Draw sheds along the stretches of planSheds(). Every part is a box: the deck, its parapet, and the posts and rails that hold it up. */
-export function createShedMesh({ scene = null, heightAt = () => 0, capacity = 6000 } = {}) {
+export function createShedMesh({ scene = null, heightAt = () => 0, capacity = 6000, physics = null } = {}) {
   const box = new THREE.BoxGeometry(1, 1, 1);
   const material = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: .8, metalness: .1 }); material.name = 'Sidewalk sheds';
   const mesh = new THREE.InstancedMesh(box, material, capacity); mesh.name = 'Sidewalk sheds'; mesh.count = 0; mesh.frustumCulled = false; mesh.castShadow = true; mesh.receiveShadow = true;
@@ -63,6 +64,7 @@ export function createShedMesh({ scene = null, heightAt = () => 0, capacity = 60
     /** Stand a shed along each stretch. Returns how many stretches were drawn whole. */
     update(runs) {
       let n = 0, whole = 0;
+      const posts=[];
       const put = (x, y, z, angle, w, h, d, tone) => {
         if (n >= capacity) return;
         place.set(x, y, z); turn.setFromAxisAngle(up, angle); size.set(w, h, d); matrix.compose(place, turn, size);
@@ -80,15 +82,19 @@ export function createShedMesh({ scene = null, heightAt = () => 0, capacity = 60
         put(mx, top + .06, mz, angle, SHED.depth + .1, .12, run.length, WOOD);
         put((run.ax + run.bx) / 2 + run.nx * SHED.depth, top + .12 + SHED.parapet / 2, (run.az + run.bz) / 2 + run.nz * SHED.depth, angle, .05, SHED.parapet, run.length, GREEN);
         for (const end of [0, 1]) put(run.ax + tx * run.length * end + run.nx * SHED.depth / 2, top + .12 + SHED.parapet / 2, run.az + tz * run.length * end + run.nz * SHED.depth / 2, angle, SHED.depth, SHED.parapet, .05, GREEN);
-        for (const [x, z, y] of grounds) put(x, (y + top) / 2, z, angle, .07, top - y, .07, STEEL);
+        for (const [x, z, y] of grounds) {
+          put(x, (y + top) / 2, z, angle, .07, top - y, .07, STEEL);
+          if(physics)posts.push({id:propId('shedPost',x,z),x,y,z,height:top-y,radius:.05,fixed:true});
+        }
         // A rail at waist height along the kerb side, and the beam the deck rests on.
         put((run.ax + run.bx) / 2 + run.nx * SHED.depth, top - .08, (run.az + run.bz) / 2 + run.nz * SHED.depth, angle, .08, .16, run.length, STEEL);
         put((run.ax + run.bx) / 2 + run.nx * .15, top - .08, (run.az + run.bz) / 2 + run.nz * .15, angle, .08, .16, run.length, STEEL);
         whole++;
       }
       drawn = mesh.count = n; mesh.instanceMatrix.needsUpdate = true; if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
+      physics?.replace('shedPost',posts);
       return whole;
     },
-    dispose() { box.dispose(); material.dispose(); mesh.dispose(); mesh.removeFromParent(); },
+    dispose() { physics?.replace('shedPost',[]); box.dispose(); material.dispose(); mesh.dispose(); mesh.removeFromParent(); },
   };
 }

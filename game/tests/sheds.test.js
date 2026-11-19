@@ -4,8 +4,24 @@ import { readFileSync } from 'node:fs';
 import * as THREE from '../dist/vendor/three.module.min.js';
 import { indexFootprints } from '../dist/places.js';
 import { createSheds, planSheds, createShedMesh, SHED } from '../dist/sheds.js';
+import { StreetObjects } from '../dist/street-objects.js';
 
 const data = JSON.parse(readFileSync(new URL('../dist/sheds.json', import.meta.url), 'utf8'));
+
+test('a streamed scaffold has solid uprights and a walkable passage under its deck', () => {
+  const physics=new StreetObjects(), shed=createShedMesh({physics});
+  const run={ax:0,az:0,bx:8,bz:0,length:8,nx:0,nz:1};
+  shed.update([run]);
+  const post=physics.contact(0,SHED.depth,.3,0);
+  assert.equal(post.body.kind,'shedPost');
+  assert.equal(physics.strike(post,{id:'car'},-18,0,true,0),null);
+  assert.equal(physics.contact(0,SHED.depth,.3,SHED.deck+1),null);
+  for(let x=0;x<=8;x+=.25)assert.equal(physics.contact(x,SHED.depth/2,.33,0),null);
+  shed.update([]);
+  assert.equal(physics.contact(0,SHED.depth,.3,0),null);
+  shed.update([run]);shed.dispose();
+  assert.equal(physics.contact(0,SHED.depth,.3,0),null);
+});
 
 test('the bundled permits are thousands of buildings across the city, and nothing but where they are', () => {
   assert.ok(data.sheds.length > 3000 && data.sheds.length < 15000, `${data.sheds.length} sheds`);

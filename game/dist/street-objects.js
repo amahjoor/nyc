@@ -53,6 +53,23 @@ export class StreetObjects {
     }
   }
 
+  skateRail(x,y,z,heading){
+    const cell=this.grid.get(Math.floor(x/CELL)+','+Math.floor(z/CELL));
+    let nearest=null,best=.27;
+    for(const body of cell||[]){
+      if(body.kind!=='rail' || body.pose || !(body.half>0))continue;
+      const top=body.y+body.height,dx=x-body.x,dz=z-body.z;
+      const dot=Math.sin(heading)*body.tx+Math.cos(heading)*body.tz;
+      if(Math.abs(dot)<.87 || y<top-.06 || y>top+.13)continue;
+      const t=dx*body.tx+dz*body.tz;
+      if(Math.abs(t)>body.half+.03)continue;
+      const side=Math.abs(dx*body.tz-dz*body.tx);
+      if(side>=best)continue;
+      best=side;nearest={x:body.x+body.tx*t,y:top,z:body.z+body.tz*t,angle:Math.atan2(body.tx,body.tz)+(dot<0?Math.PI:0)};
+    }
+    return nearest;
+  }
+
   contact(x, z, radius, y, actor, time) {
     let best = null;
     for (let i = Math.floor((x - radius) / CELL); i <= Math.floor((x + radius) / CELL); i++) {
@@ -69,6 +86,7 @@ export class StreetObjects {
           const low = Number.isFinite(y) ? y : body.y;
           const top = base + body.height * cos + body.radius;
           if (low > top || low + 1.6 < base - body.radius) continue;
+          if (body.kind==='rail' && !pose && actor?.mode==='skate' && low>=base+body.height-.015) continue;
           if (body.kind === 'rail' && pose && top < body.y + .12) continue; // Step or drive over a flattened panel.
 
           // Project the query onto the panel's hinge, then onto the length of
@@ -94,7 +112,7 @@ export class StreetObjects {
 
   strike(hit, actor, vx, vz, vehicle, time) {
     const body = hit.body, basket = body.kind === 'basket';
-    if (body.belowGrade || body.kind === 'tree' || (!basket && (!vehicle || body.pose))) return null;
+    if (body.fixed || body.belowGrade || body.kind === 'tree' || (!basket && (!vehicle || body.pose))) return null;
     let closing = -(vx * hit.nx + vz * hit.nz), nx = -hit.nx, nz = -hit.nz;
     if (body.kind === 'rail') {
       // Only the component across the panel can fold it around the lower edge.

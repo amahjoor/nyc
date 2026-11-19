@@ -1720,7 +1720,7 @@ async function boot() {
   loadData('shops-index.json').then(index=>otherShops.setIndex(index)).catch(()=>{});
   loadData('demographics.json').then(data=>{demographics=createDemographics(data);}).catch(()=>{});
   busStops=createBusStops({scene,heightAt:groundHeight,kerb:(x,z)=>kerbIndex&&snapToKerb(kerbIndex,x,z,14)});
-  shedMesh=createShedMesh({scene,heightAt:groundHeight});
+  shedMesh=createShedMesh({scene,heightAt:groundHeight,physics:sim.streetObjects});
   trashMesh=createTrashMesh({scene,heightAt:groundHeight});
   fetch('./collection.bin').then(response=>response.ok?response.arrayBuffer():null).then(buffer=>{collection=createCollection(buffer);frontsFor=null;}).catch(()=>{});
   diningMesh=createDiningMesh({scene,heightAt:groundHeight});standMesh=createStandMesh({scene,heightAt:groundHeight});
