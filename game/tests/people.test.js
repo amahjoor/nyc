@@ -2,18 +2,63 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { buildBody, createRig, restWorld, heightOf, palette, PAINT, HAIR, TOPS, BOTTOMS } from '../dist/body.js';
-import { createMotion, createAnimator, fitPose } from '../dist/body-motion.js';
+import { createMotion, createAnimator, fitPose, WALK_CLIP_SPEED, walkClip } from '../dist/body-motion.js';
 import { writeMovements } from '../dist/body-moves.js';
 import { createHuman } from '../dist/human.js';
+import { fitAccessories } from '../dist/human-accessories.js';
+import { portionBase } from '../dist/food-catalog.js';
 import { footHeight, previewSeats, sheetSeats } from '../dist/seating.js';
-import { CAST, castFor, FIELDS, DEFAULT_DESIGN, tidy, randomDesign, loadDesign, saveDesign } from '../dist/body-designs.js';
-import { createFigures, STREET_CLIPS, paletteOf } from '../dist/people-figures.js';
+import { FIELDS, DEFAULT_DESIGN, tidy, randomDesign, loadDesign, saveDesign } from '../dist/body-designs.js';
+import { createFigures } from '../dist/people-figures.js';
+import { STREET_CLIPS, poseSheet, streetWardrobe } from '../dist/human-crowd.js';
+import { castWalkStyle, OFFICERS, patrolAppearance, patrolLookForMember, memberFor, memberInfo, designOf } from '../dist/human-cast.js';
+import { lookOf } from '../dist/human-looks.js';
+import { loadPerson, savePerson } from '../dist/human-designs.js';
+import { gripOffsetFor } from '../dist/body-motion.js';
+import { qrot } from '../dist/body.js';
+import { inviteCustomer, populateShop } from '../dist/shop-life.js';
+import { planRoom } from '../dist/interiors.js';
+import { Bone, Matrix4, Vector3, DataUtils } from '../dist/vendor/three.module.min.js';
 import { createCrowd, dress, seeded, memberOf, KIT } from '../dist/crowd.js';
 import { MOVE, startKick, tryVault, beginEntry, stepMove, lockedAt, carTop, carUnder, toggleGun, fireGun, reloadGun, GUN } from '../dist/player-moves.js';
 
 const meta = JSON.parse(readFileSync(new URL('../dist/motion.json', import.meta.url), 'utf8'));
 const file = readFileSync(new URL('../dist/motion.bin', import.meta.url)), words = new Int16Array(file.buffer, file.byteOffset, file.byteLength / 2);
 const motion = writeMovements(createMotion(meta, words));
+
+test('cast members keep their gait and the three walking styles have distinct arm and leg motion', () => {
+  const styles = Array.from({length:100},(_,id)=>castWalkStyle(id));
+  assert.equal(new Set(styles).size,3);
+  assert.deepEqual(styles,styles.map((_,id)=>castWalkStyle(id)));
+  for(const name of ['upperarm_l','thigh_l']){
+    const index=motion.index.get(name);
+    const variants=['relaxed','natural','purposeful'].map(style=>{
+      const pose=motion.sample(walkClip(style),.12);
+      return [...pose.q.subarray(index*4,index*4+4)].map(v=>v.toFixed(4)).join(',');
+    });
+    assert.equal(new Set(variants).size,3);
+  }
+});
+
+test('walking plants a foot at travel speed and clears the ground less than sprinting', () => {
+  function joints(clip, phase) {
+    const pose = motion.sample(clip, phase * motion.clip(clip).seconds);
+    return restWorld(meta.bones.map((bone, i) => ({
+      ...bone, t: i === motion.pelvis ? pose.pelvis : bone.t, q: pose.q.subarray(i * 4, i * 4 + 4)
+    })));
+  }
+  const ankle = motion.index.get('foot_l'), left = motion.index.get('ball_l'), right = motion.index.get('ball_r');
+  const travel = .2 * motion.clip('walk').seconds * WALK_CLIP_SPEED;
+  assert.ok(Math.abs(joints('walk', .1)[ankle].p[2] - joints('walk', .3)[ankle].p[2] - travel) < .025);
+  let walkingToe = 0, sprintingToe = 0;
+  for (let i = 0; i < 40; i++) {
+    const walk = joints('walk', i / 40), sprint = joints('sprint', i / 40);
+    assert.ok(Math.min(walk[left].p[1], walk[right].p[1]) < .085);
+    walkingToe = Math.max(walkingToe, walk[left].p[1]);
+    sprintingToe = Math.max(sprintingToe, sprint[left].p[1]);
+  }
+  assert.ok(walkingToe < .12 && sprintingToe > .35);
+});
 
 test('every furniture pose fits the cushion and foot support across body sizes', () => {
   const binary = name => Uint8Array.from(readFileSync(new URL('../dist/human/' + name, import.meta.url))).buffer;
@@ -112,7 +157,7 @@ test('designs: the dials are bounded, saved in the browser, and anybody can be d
 });
 
 test('the movements nobody recorded are written out, and all of them leave the body in one piece', () => {
-  for (const id of ['guard', 'kick', 'fall', 'vault', 'climb', 'door', 'getIn', 'getOut', 'carjack', 'thrown', 'breakIn', 'handsUp', 'cower', 'flinch', 'knocked', 'lying', 'getUp', 'stumble', 'kneel', 'cuffed', 'cuffing']) {
+  for (const id of ['skateRoll','skatePush','skateOllie','guard', 'kick', 'lowKick', 'fall', 'vault', 'climb', 'door', 'getIn', 'getOut', 'carjack', 'thrown', 'breakIn', 'handsUp', 'cower', 'flinch', 'knocked', 'lying', 'getUp', 'stumble', 'kneel', 'cuffed', 'cuffing']) {
     const clip = motion.clip(id); assert.ok(clip.written && clip.seconds > .3, id);
     for (let t = 0; t <= clip.seconds; t += clip.seconds / 6) { const pose = motion.sample(id, t); assert.ok(pose.q.every(Number.isFinite) && pose.pelvis.every(Number.isFinite)); for (let i = 0; i < motion.count; i++) assert.ok(Math.abs(Math.hypot(...pose.q.subarray(i * 4, i * 4 + 4)) - 1) < 1e-3, `${id}: a turn is a turn`); }
   }
@@ -126,11 +171,20 @@ test('the movements nobody recorded are written out, and all of them leave the b
   };
   assert.ok(Math.abs(where('idle', 0, 'foot_l')[1] - .1) < .06 && where('idle', 0, 'Head')[1] > 1.45, 'standing, the feet are on the ground');
   assert.ok(where('kick', .29, 'foot_r')[1] > .8 && where('kick', .29, 'foot_r')[2] > .5, 'a kick puts the foot out in front at waist height');
+  const finger=motion.index.get('middle_02_r')*4;
+  const rotation=(clip,time)=>motion.sample(clip,time).q.slice(finger,finger+4);
+  assert.deepEqual(rotation('slap',.17),rotation('backhand',.21));
+  assert.notDeepEqual(rotation('slap',.17),rotation('hookRight',.24));
+  for (const [clip,foot] of [['stompRight','foot_r'],['stompLeft','foot_l']]) {
+    const lifted=where(clip,.176,foot), planted=where(clip,.32,foot);
+    assert.ok(lifted[1]-planted[1]>.25 && planted[1]<.2,clip+' drops the foot to roof height');
+  }
+  assert.ok(where('lowKick', .29, 'foot_r')[1]<.4 && where('lowKick', .29, 'foot_r')[2]>.25, 'a low kick extends near the ground');
   assert.ok(where('handsUp', 0, 'hand_l')[1] > 1.6 && where('handsUp', 0, 'hand_r')[1] > 1.6);
   assert.ok(where('lying', 0, 'Head')[1] < .45 && where('kneel', 0, 'pelvis')[1] < .65);
   assert.ok(where('cuffed', 0, 'hand_l')[2] < -.05 && where('cuffed', 0, 'hand_r')[2] < -.05, 'hands behind the back');
   assert.ok(where('climb', .22, 'hand_l')[1] > where('idle', 0, 'Head')[1] + .15, `reaching up for the edge: ${where('climb', .22, 'hand_l')[1].toFixed(2)}`);
-  assert.ok(where('vault', .4, 'pelvis')[1] > where('idle', 0, 'pelvis')[1] + .3);
+  assert.ok(where('vault', .4, 'foot_r')[1] > where('idle', 0, 'foot_r')[1]+.35, 'the legs tuck above the collision root');
 });
 
 test('the animator runs standing into walking into sprinting, and puts a punch, a jump and a fall over them', () => {
@@ -153,39 +207,168 @@ test('the animator runs standing into walking into sprinting, and puts a punch, 
   assert.ok(differs(pose, motion.sample('kneel', 0)) < 3);
 });
 
-test('the cast covers the street, and each is grown once and drawn many times in its own colours', async () => {
-  assert.ok(CAST.length >= 40);
-  for (const outfit of ['suit', 'office', 'summer', 'athletic', 'evening', 'visitor', 'worker', 'casual']) for (const woman of [true, false]) assert.equal(CAST[castFor(outfit, seeded(3), woman)].woman, woman, `${outfit}`);
-  const weights = CAST.map(member => member.design.weight);
-  assert.ok(weights.filter(w => w >= .6).length >= 10 && weights.filter(w => w < 0).length >= 8 && CAST.some(member => member.child) && CAST.filter(member => member.old).length >= 3, 'heavy, thin, young and old are all there');
-  assert.ok(CAST.every(member => (member.design.muscle || 0) <= .5), 'and no one is built like a superhero');
-  const figures = createFigures({ motion, meta, capacity: 8, worker: false, clips: ['idle', 'walk', 'sit', 'knocked'] });
-  assert.equal(figures.ready(0), false); figures.ask(0); figures.ask(4);
-  for (let i = 0; i < 200 && !(figures.ready(0) && figures.ready(4)); i++) await new Promise(resolve => setTimeout(resolve, 10));
-  assert.ok(figures.ready(0) && figures.ready(4));
-  const type = figures.types.get(0);
-  assert.ok(type.near.mesh.geometry.getAttribute('position').count > type.far.mesh.geometry.getAttribute('position').count * 1.8, 'a coarser body for far off');
-  assert.equal(figures.poseTexture.image.height, [...figures.rows.values()].reduce((sum, row) => sum + row.count, 0));
-  figures.begin();
-  const look = dress('casual', seeded(2));
-  assert.ok(figures.add(0, 1, 0, 2, .5, 1.8, look, 5, 'walk', .4)); assert.ok(figures.add(0, 3, 0, 2, 0, 1.7, look, 80, 'idle', 0)); assert.ok(figures.add(9, 5, 0, 2, 0, 1.6, look, 5, 'sit', 0), 'someone not grown yet is stood in for');
-  figures.end();
-  assert.equal(type.near.mesh.count + type.far.mesh.count + figures.types.get(4).near.mesh.count, 3); assert.equal(type.far.mesh.count, 1);
-  const anim = type.near.anim, walk = figures.rows.get('walk');
-  assert.ok(anim.getX(0) >= walk.first && anim.getX(0) < walk.first + walk.count && anim.getY(0) === anim.getX(0) + 1 && anim.getZ(0) >= 0 && anim.getZ(0) < 1);
-  const paints = paletteOf(look); assert.equal((paints[PAINT.top * 4] << 16) | (paints[PAINT.top * 4 + 1] << 8) | paints[PAINT.top * 4 + 2], look.under ?? look.top);
-  assert.ok(STREET_CLIPS.every(id => motion.clips.has(id)));
-  // A shader for it: the pose and the colours are both looked up.
-  const shader = { uniforms: {}, vertexShader: '#include <beginnormal_vertex>\n#include <begin_vertex>', fragmentShader: '#include <color_fragment>' };
-  figures.material.onBeforeCompile(shader);
-  assert.ok(shader.uniforms.uNycPoses && shader.uniforms.uNycPalette && /nycSkin \* vec4\( transformed/.test(shader.vertexShader) && /vPerson/.test(shader.fragmentShader));
-  figures.dispose();
+test('a legacy appearance migrates from the editor and a newer saved design takes precedence', () => {
+  const kept=new Map(), storage={getItem:key=>kept.get(key),setItem:(key,value)=>kept.set(key,value)};
+  const old={...DEFAULT_DESIGN,hairStyle:'braids',skin:'#664422',legs:.54,browRidge:.35,eyeSpacing:-.24,muscle:-.6,age:12,topColour:'#b62441',glasses:'aviators',bag:'tote',beard:'goatee'};
+  saveDesign(old,storage);
+  const migrated=loadPerson(storage);
+  assert.equal(migrated.height,heightOf(old)); assert.equal(migrated.hair,'braid01'); assert.equal(migrated.tone,old.skin);
+  assert.equal(migrated.dials['upperlegs-height-decr-incr'],.54); assert.equal(migrated.topColour,old.topColour);
+  assert.equal(migrated.dials['eyebrows-trans-backward-forward'],.35);
+  assert.equal(migrated.dials['r-eye-trans-in-out'],-.24);
+  assert.deepEqual([migrated.glasses,migrated.bag,migrated.beard],['aviators','tote','goatee']);
+  kept.set('nyc.person','{');
+  assert.deepEqual(loadPerson(storage),migrated);
+  const next={...migrated,hat:'fedora01',bottomColour:null}; assert.ok(savePerson(next,storage));
+  assert.deepEqual(loadPerson(storage),next); assert.deepEqual(JSON.parse(kept.get('nyc.character')),tidy(old));
 });
 
-test('a look made elsewhere is given one of the cast, the same one each time', () => {
-  const man = { top: 0x112233, bottom: 0x445566, hair: 0x101010, skin: 0xb98563, kit: 0 }, woman = { ...man, kit: KIT.woman };
-  assert.equal(CAST[memberOf(man)].woman, false); assert.equal(CAST[memberOf(woman)].woman, true); assert.equal(memberOf(man), memberOf({ ...man }));
-  assert.ok(!CAST[memberOf(man)].child);
+test('saved glasses, beard and bag fit the eyes, jaw and torso of the updated body',()=>{
+  const binary=name=>Uint8Array.from(readFileSync(new URL('../dist/human/'+name,import.meta.url))).buffer;
+  const human=createHuman(JSON.parse(readFileSync(new URL('../dist/human/human.json',import.meta.url))),binary('body.bin'),binary('parts.bin'),meta);
+  for(const height of [1.5,1.95]){
+    const built=human.build({v:2,height,age:40});
+    const bones=built.rig.bones.map(()=>new Bone()), inverses=bones.map(()=>new Matrix4());
+    const parts=fitAccessories(built,{glasses:'aviators',beard:'goatee',bag:'tote',hair:'#332211'},bones,inverses);
+    for(const [name,joint] of [['Glasses lens','Head'],['Facial hair','Head'],['Bag','spine_03']]){
+      const mesh=parts.find(p=>p.name===name);
+      assert.equal(mesh.parent,bones[built.rig.index.get(joint)]);
+      mesh.geometry.computeBoundingBox();
+      const center=mesh.geometry.boundingBox.getCenter(new Vector3());
+      assert.ok(center.toArray().every(Number.isFinite));
+      if(name==='Glasses lens')assert.ok(center.distanceTo(new Vector3(...built.marks.eye_l))<.035);
+      if(name==='Facial hair')assert.ok(center.y>built.marks.chin[1]-.02 && center.y<built.marks.eye_l[1]);
+    }
+    for(const p of parts){p.geometry.dispose();p.material.dispose();}
+  }
+});
+
+test('each patrol crew wears the same fitted uniform in the car and on foot', () => {
+  const binary = name => Uint8Array.from(readFileSync(new URL('../dist/human/'+name,import.meta.url))).buffer;
+  const human = createHuman(JSON.parse(readFileSync(new URL('../dist/human/human.json',import.meta.url))),binary('body.bin'),binary('parts.bin'),meta);
+  assert.deepEqual(patrolAppearance('patrol-42'),patrolAppearance('patrol-42',0));
+  assert.notEqual(patrolAppearance('patrol-42').member,patrolAppearance('patrol-42',1).member);
+  for (const member of OFFICERS) {
+    const look = patrolLookForMember(member), design = designOf(member,human);
+    assert.equal(design.height,look.height);
+    assert.equal(parseInt(design.tone.slice(1),16),look.skin);
+    const wear = lookOf(design,human).wear;
+    for (const detail of ['near','close']) {
+      const {pieces,rig,marks} = human.build({...design,wear},{detail});
+      const jacket = pieces.find(p=>p.id==='patrol-jacket'), kit = pieces.find(p=>p.kind==='uniform');
+      assert.ok(jacket.fixedColour && jacket.map === kit.map);
+      assert.ok(kit.position.every(Number.isFinite) && kit.normal.every(Number.isFinite));
+      const head = rig.index.get('Head'), pelvis = rig.index.get('pelvis');
+      const cap = [], belt = [];
+      for (let i=0; i<kit.position.length/3; i++) {
+        const joint = kit.skinIndex[4*i];
+        assert.ok(joint===head || joint===pelvis);
+        (joint===head ? cap : belt).push(kit.position[3*i+1]);
+      }
+      assert.ok(Math.min(...cap)>marks.eye_l[1] && Math.max(...cap)>marks.crown[1]-.025);
+      assert.ok(Math.min(...belt)>rig.bind[pelvis].p[1]-.1 && Math.max(...belt)<rig.bind[pelvis].p[1]+.24);
+    }
+  }
+});
+
+test('street outfits retain source textures, underlayers and independent garment dyes', () => {
+  const binary=name=>Uint8Array.from(readFileSync(new URL('../dist/human/'+name,import.meta.url))).buffer;
+  const human=createHuman(JSON.parse(readFileSync(new URL('../dist/human/human.json',import.meta.url))),binary('body.bin'),binary('parts.bin'),meta);
+  const design={...designOf(8,human),top:'male_casualsuit05-top',bottom:'female_casualsuit01-bottom',
+    shoes:'shoes04',hat:'fedora01',hatColour:'#524031'};
+  const {wear,look}=lookOf(design,human);
+  const {pieces}=human.build({...design,wear},{detail:'near'});
+  const base=new URL('../dist/human/',import.meta.url);
+  const {clothing,wardrobe}=streetWardrobe(pieces,design,look,base);
+  const layer=id=>wardrobe[clothing.get(pieces.find(p=>p.id===id))-1];
+  assert.equal(layer(design.top).tint,'top');
+  assert.equal(layer(design.bottom).tint,'bottom');
+  for(const id of [design.top+'2',design.top+'3']){
+    assert.equal(layer(id).map,layer(design.top).map);
+  }
+  assert.equal(layer(design.top+'2').tint,null,'the striped undershirt keeps its print');
+  assert.equal(layer(design.top+'3').tint,'top','the matching lapel takes the jacket dye');
+  assert.equal(look.colours['garment/'+design.top+'3'],design.topColour);
+  assert.equal(look.colours['garment/'+design.top+'2'],undefined);
+  assert.equal(layer(design.hat).colour,design.hatColour);
+  assert.equal(layer(design.hat).tint,'fixed');
+  assert.equal(layer(design.shoes).tint,null);
+  for(const piece of pieces.filter(p=>clothing.has(p))){
+    assert.equal(layer(piece.id).map,new URL('tex/'+piece.map,base).href);
+    assert.equal(layer(piece.id).normalMap,new URL('tex/'+piece.normalMap,base).href);
+    assert.match(layer(piece.id).dyeBase,/^#[\da-f]{6}$/);
+  }
+  assert.ok(!clothing.has(pieces.find(p=>p.kind==='skin')));
+});
+
+test('street LODs share the textured cast, colours, fitted pose frames and the grip on a carried prop', async () => {
+  const binary=name=>Uint8Array.from(readFileSync(new URL('../dist/human/'+name,import.meta.url))).buffer;
+  const human=createHuman(JSON.parse(readFileSync(new URL('../dist/human/human.json',import.meta.url))),binary('body.bin'),binary('parts.bin'),meta);
+  const look=dress('office',seeded(18)), member=look.member, design=designOf(member,human);
+  assert.deepEqual(designOf(member,human),design);
+  for(const woman of [true,false]) assert.equal(memberInfo(memberFor(seeded(3),null,'office',woman)).woman,woman);
+  assert.ok(STREET_CLIPS.every(id=>motion.clips.has(id)));
+  const built=human.build(design,{detail:'near'}), rig=built.rig, sheet=poseSheet(motion,rig);
+  const geometry=body=>({...body,cloth:new Uint8Array(body.position.length/3)});
+  const payload={...sheet,height:built.height,near:geometry(built.pieces[0]),far:geometry(human.build(design,{detail:'far'}).pieces[0]),atlas:{close(){}}};
+  let requests=0;
+  const figures=createFigures({motion,capacity:8,grow:{member:async()=>{requests++;return payload;}}});
+  try {
+    figures.ask(member); figures.ask(member); await new Promise(resolve=>setImmediate(resolve)); assert.equal(requests,1);
+    const type=figures.types.get(member), height=1.86;
+    for(const [carry,clip,weight,dist] of [['cup','walk',1,6],['tray','seatChair',.4,6],['tray','seatChair',1,45]]) {
+      figures.begin();
+      const y=12+(clip==='seatChair'?.45*weight:0), heading=1.6, time=.32;
+      assert.ok(figures.add(member,7,y,-9,heading,height,look,dist,clip,time,'idle',.2,1-weight,carry));
+      figures.end();
+      const to=dist>30?type.far:type.near, matrix=new Matrix4();
+      assert.equal(to.mesh.count,1);to.mesh.getMatrixAt(0,matrix);
+      const prop=figures.group.getObjectByName(carry), placed=new Matrix4();prop.getMatrixAt(0,placed);
+      const offset=gripOffsetFor(rig,carry), hand=rig.index.get('hand_l');
+      const modelPoint=qrot(rig.bind[hand].q,offset).map((v,i)=>v+rig.bind[hand].p[i]);
+      // Read back exactly the two skinning matrices sampled by the GPU, then
+      // move the same point on the bind hand to the drawn instance in the room.
+      const compact=motion.bones.slice(0,hand).filter(b=>!/^(index|middle|ring|pinky|thumb)_/.test(b.name)).length;
+      const at=(f,k)=>{const start=(f*sheet.wide+compact*3+k)*4;
+        return [...modelPoint,1].reduce((sum,v,i)=>sum+v*DataUtils.fromHalfFloat(sheet.poses[start+i]),0);};
+      const a=to.anim.getX(0), b=to.anim.getY(0), t=to.anim.getZ(0);
+      const grip=new Vector3(...[0,1,2].map(i=>at(a,i)*(1-t)+at(b,i)*t)).applyMatrix4(matrix);
+      assert.ok(grip.distanceTo(new Vector3().setFromMatrixPosition(placed))<.002,carry+' stays in the drawn palm');
+    }
+    assert.ok(type.near.mesh.geometry.getAttribute('position').count>type.far.mesh.geometry.getAttribute('position').count);
+  } finally {figures.dispose();}
+});
+
+test('dine-in and takeaway shoppers keep their appearance and carry their order to the right place',()=>{
+  const place={kind:'coffee',id:'test',name:'Cafe',x:0,z:0};
+  const plan=planRoom({place,x:0,z:0,width:9,tx:1,tz:0,nx:0,nz:1});
+  const view={plan,actors:[],occupied:new Set(),floor:6,door:{push(){}}};
+  populateShop(view);const before=new Set(view.occupied);
+  view.menu=[{name:'Coffee',effect:'pep',price:3}];
+  const look=dress('casual',seeded(7)), person={look,x:0,y:6,z:2,age:3,phase:0,state:'walk',run:{}};
+  let sales=0,seated=false,rising=false;
+  inviteCustomer(view,[person],40,()=>sales++);
+  assert.ok(person.visit);
+  for(let t=40;t<160 && person.visit;t+=.05){
+    person.visit.step(person,.05,t);
+    if(person.seat?.weight===1 && person.visit?.phase==='drinking') {seated=true;assert.equal(portionBase(person.carry),'mug');assert.ok(view.occupied.has(person.spot));}
+    if(person.seat?.leaving && person.seat.weight>0 && person.seat.weight<1) rising=true;
+    assert.strictEqual(person.look,look);
+  }
+  assert.ok(seated && rising);assert.equal(person.state,'walk');assert.equal(person.carry,null);
+  assert.equal(sales,1);assert.deepEqual(view.occupied,before);assert.equal(view.visitor,null);assert.equal(person.z,2);
+  const next={...person,look:dress('office',seeded(5)),shoppedUntil:0};
+  const outfit=next.look;
+  inviteCustomer(view,[next],250,()=>sales++);
+  assert.ok(next.visit);
+  for(let t=250;t<370 && next.visit;t+=.05)next.visit.step(next,.05,t);
+  assert.equal(sales,2);assert.equal(next.state,'walk');assert.equal(next.carry,'cup');assert.strictEqual(next.look,outfit);
+});
+
+test('a look made elsewhere is given a consistent adult cast member', () => {
+  const man={top:0x112233,bottom:0x445566,hair:0x101010,skin:0xb98563,kit:0}, woman={...man,kit:KIT.woman};
+  assert.equal(memberInfo(memberOf(man)).woman,false); assert.equal(memberInfo(memberOf(woman)).woman,true);
+  assert.equal(memberOf(man),memberOf({...man,member:undefined}));assert.ok(!memberInfo(memberOf(man)).child);
 });
 
 const street = () => { const points = [[-40, 3], [40, 3]]; return [{ id: 'walk', points, lengths: [0, 80], normals: [[0, 1]], length: 80, depth: 3 }]; };
@@ -247,6 +430,14 @@ test('a kick lands harder than a punch, a driver can be thrown out, and a street
   const person = someone(0, 1.6, { run: walks[0] }); crowd.people.push(person);
   assert.equal(crowd.strike(0, 0, 0, { reach: 2.1, power: 2 }), person); assert.equal(person.hp, 1); assert.equal(person.clip, 'stumble');
   crowd.strike(0, 0, 0, { reach: 2.1, power: 2 }); assert.equal(person.state, 'down'); assert.equal(person.clip, 'knocked');
+  Object.assign(person,{z:1,dead:false,out:false});
+  const player={x:0,z:0,y:0,angle:0};
+  assert.equal(crowd.meleeTarget(player),person);
+  assert.equal(crowd.strike(0,0,0),null);
+  assert.equal(crowd.strike(0,0,0,{low:true,power:2}),person);
+  assert.equal(person.state,'down'); assert.equal(person.reaction.clip,'lying');
+  person.dead=true;
+  assert.equal(crowd.meleeTarget(player),null);
   const driver = crowd.throwOut(5, 0, 1, 12); assert.equal(driver.state, 'down'); assert.equal(driver.clip, 'thrown'); assert.equal(crowd.count, 2);
   const context = { walks, focus: { x: 0, z: 0 }, hours: 12, time: 0, junctions: [], cars: [], player: { mode: 'drive', x: 0, z: 0 } };
   for (let i = 0; i < 60 && driver.state === 'down'; i++) crowd.update(.1, context);
@@ -276,11 +467,11 @@ test('the player kicks, vaults a car, and takes a moment over a car door', () =>
   Object.assign(sim.player, { z: 1, y: 0, velocityZ: 7 }); sim.moveEvents.length = 0;
   assert.ok(tryVault(sim)); assert.equal(sim.player.move.kind, 'vault');
   // A van stands too tall to go over: run at it and it is still climbed.
-  sim.player.move = null; car.shape = 'van'; sim.player.velocityZ = 7;
+  sim.player.move = null; sim.player.grounded=true; car.shape = 'van'; sim.player.velocityZ = 7;
   assert.ok(tryVault(sim)); assert.equal(sim.player.move.kind, 'climb'); assert.ok(sim.player.move.to.y > 1.9);
   sim.player.move = null; car.shape = undefined; sim.player.velocityZ = 7; assert.ok(tryVault(sim)); assert.equal(sim.player.move.kind, 'vault');
-  let highest = 0; while (stepMove(sim, .05)) highest = Math.max(highest, sim.player.lift);
-  assert.ok(sim.player.z > 4.3 && highest > .5 && sim.player.lift === 0, `landed at ${sim.player.z.toFixed(1)}`);
+  let highest = 0; while (stepMove(sim,.05)) { highest=Math.max(highest,sim.player.y); assert.equal(sim.player.grounded,false); }
+  assert.ok(sim.player.z > 4.3 && highest > 1.42 && sim.player.grounded && sim.player.velocityZ>2, `landed at ${sim.player.z.toFixed(1)}`);
   // Nothing in the way: an ordinary jump.
   assert.equal(tryVault(sim), false);
   // A ledge at head height is climbed.
@@ -327,4 +518,64 @@ test('reloading early and holstering preserve the remaining game ammo',()=>{
   toggleGun(sim);toggleGun(sim);assert.equal(sim.player.rounds,0);
   assert.equal(fireGun(sim),false);stepMove(sim,GUN.reload);
   assert.equal(sim.player.rounds,GUN.rounds);
+});
+
+test('both hands keep the thumb and index in contact with a pinched utensil across builds',async()=>{
+  const {fingerPose,pinchOffset}=await import('../dist/hand-poses.js');
+  const {qinv}=await import('../dist/body.js');
+  for(const height of [1.53,1.78,2.05])for(const side of ['l','r']){
+    const rig=createRig(meta,{height}),bones=rig.bones.map(b=>({...b}));
+    for(const [i,q] of fingerPose(rig,'pinch',side))bones[i].q=q;
+    const frame=restWorld(bones),wrist=frame[rig.index.get('hand_'+side)];
+    const centre=qrot(wrist.q,pinchOffset(rig,side)).map((v,i)=>v+wrist.p[i]);
+    for(const digit of ['thumb','index']){
+      const i=rig.index.get(digit+'_03_'+side),rest=rig.bones[i];
+      const pad=qrot(frame[i].q,qrot(qinv(rest.q),rest.t)).map((v,j)=>frame[i].p[j]+v*.74);
+      assert.ok(Math.hypot(...pad.map((v,j)=>v-centre[j]))<.012,side+' '+digit+' touches the handle');
+    }
+  }
+});
+
+test('cycling keeps the rider on the saddle with grips on the bars and shoes on opposite pedals',async()=>{
+  const {fitCyclist,pedalPoint}=await import('../dist/cycling.js');
+  for(const height of [1.55,1.76,1.93]){
+    const rig=createRig(motion,{height}),scale=rig.height/1.76;
+    for(const stop of [false,true])for(let i=0;i<8;i++){
+      const phase=i*Math.PI/4;
+      const pose=fitCyclist(rig,fitPose(motion,rig,motion.sample(stop?'cycleStop':'cycle',i*.92/8)),phase,stop);
+      const at=restWorld(rig.bones.map((b,id)=>({...b,q:pose.q[id],t:id===motion.pelvis?pose.pelvis:b.t})));
+      for(const suffix of ['l','r']){
+        const foot=rig.index.get('foot_'+suffix),side=Math.sign(rig.world[foot].p[0]),ankle=at[foot].p;
+        const pedal=(stop && suffix==='l'?[side*.25,.013,-.18]:pedalPoint(side,phase)).map(v=>v*scale);
+        assert.ok(Math.hypot(ankle[0]-pedal[0],ankle[1]-rig.world[foot].p[1]-pedal[1],ankle[2]+.075*scale-pedal[2])<.045,'shoe at '+height+' '+suffix+' '+stop);
+        const hand=at[rig.index.get('hand_'+suffix)],knuckle=rig.bones[rig.index.get('middle_01_'+suffix)].t;
+        const offset=qrot(hand.q,knuckle.map(v=>v*.7)),grip=hand.p.map((v,j)=>v+offset[j]);
+        const distance=Math.hypot(grip[0]-side*.232*scale,grip[1]-1.08*scale,grip[2]-.36*scale);
+        assert.ok(distance<.045,'hand at '+height+' '+suffix+' '+distance);
+      }
+    }
+  }
+});
+
+test('the right thumb reaches each corner while the support fingers retain the phone grip',async()=>{
+  const {setHandSource,viewHand}=await import('../dist/view-hand.js');
+  const {Group,Quaternion,MeshStandardMaterial}=await import('../dist/vendor/three.module.min.js');
+  const asset=name=>readFileSync(new URL('../dist/human/'+name,import.meta.url));
+  const human=createHuman(JSON.parse(asset('human.json')),Uint8Array.from(asset('body.bin')).buffer,
+    Uint8Array.from(asset('parts.bin')).buffer,meta);
+  const built=human.build({height:1.66},{detail:'close'}),material=new MeshStandardMaterial();
+  setHandSource(built,built.pieces.map(p=>({name:p.kind+'/'+p.id,material})));
+  const hand=viewHand('r'),parent=new Group();
+  parent.rotation.y=.37;parent.add(hand.group);
+  hand.pose('phone');
+  const end=hand.group.getObjectByName('thumb_03_r'),index=hand.group.getObjectByName('index_02_r');
+  const grip=index.quaternion.clone(),rest=built.rig.bones[built.rig.index.get(end.name)];
+  const pad=end.position.clone().applyQuaternion(new Quaternion(...rest.q).invert()).multiplyScalar(.74);
+  for(const x of [-.038,.038])for(const y of [-.072,.072]){
+    const target=new Vector3(x,y,.011);
+    hand.reachThumb(target);
+    assert.ok(end.localToWorld(pad.clone()).distanceTo(target)<1e-6);
+    assert.ok(index.quaternion.equals(grip));
+  }
+  hand.dispose();material.dispose();
 });

@@ -1,3 +1,4 @@
+import {TRICKS} from './skate-tricks.js';
 import { GUN } from './player-moves.js';
 import {carCondition} from './vehicle-damage.js';
 import { formatMoney } from './money.js';
@@ -38,17 +39,22 @@ export class HUD {
     clearTimeout(this.cashTimer);
     this.cashTimer = setTimeout(() => { display.hidden = true; }, 4000);
   }
-  update(sim, canSit = false, register = null, aiming = false) {
-    const p=sim.player, driving=p.mode==='drive', mission=sim.mission;
+  update(sim, canSit = false, register = null, aiming = false, cityRides = null) {
+    const p=sim.player, driving=p.mode==='drive', passenger=p.mode==='passenger', mission=sim.mission;
     const ride=sim.transport?.active, boarding=sim.transport?.nearby(), flying=isAircraft(ride?.spec);
     const knots=flying||ride?.spec.kind==='boat';
     this.text('speed', String(Math.round(Math.abs(p.speed)*(knots?1.94384:2.23694))).padStart(2,'0'));
-    const cycling=p.mode==='bike';
-    this.text('speed-unit', knots?'KT':ride||driving||cycling?'MPH':'ON FOOT');
-    this.text('gear', flying ? Math.round(Math.max(0,p.y)*3.28084)+' FT' : ride ? ride.spec.name.toUpperCase() : cycling?'CITI BIKE':driving ? p.speed < -.3 ? 'REVERSE' : Math.abs(p.speed) < .2 ? 'IDLE' : 'DRIVE' : p.armed ? (p.reloading > 0 ? 'RELOADING' : 'PISTOL ' + (p.rounds ?? GUN.rounds)) : 'FREE ROAM');
+    const cycling=p.mode==='bike', skating=p.mode==='skate';
+    $('touch-skate').hidden=Boolean(sim.subway || sim.room || sim.seat || sim.ending || !skating && p.mode!=='walk');
+    $('touch-run').hidden=p.mode!=='walk' || Boolean(sim.seat);
+    this.text('touch-skate',skating?'STEP OFF':'BOARD');
+    this.text('touch-brake',skating?'POP / FLICK':p.mode==='walk'?'JUMP':'BRAKE');
+    this.text('speed-unit', knots?'KT':ride||driving||passenger||cycling||skating?'MPH':'ON FOOT');
+    this.text('gear', flying ? Math.round(Math.max(0,p.y)*3.28084)+' FT' : ride ? ride.spec.name.toUpperCase() : passenger?'D RIDE PASSENGER':skating?(p.board.grind?'50–50 GRIND':p.board.grab?(p.board.grab<0?'MELON GRAB':'INDY GRAB'):p.board.trick?TRICKS[p.board.trick].label.toUpperCase():p.board.manual?(p.board.manual<0?'NOSE MANUAL':'MANUAL'):p.board.feedback>0?p.board.last.toUpperCase():p.board.switch?'SWITCH':'SKATEBOARD'):cycling?'CITI BIKE':driving ? p.speed < -.3 ? 'REVERSE' : Math.abs(p.speed) < .2 ? 'IDLE' : 'DRIVE' : p.armed ? (p.reloading > 0 ? 'RELOADING' : 'PISTOL ' + (p.rounds ?? GUN.rounds)) : 'FREE ROAM');
     $('touch-climb').hidden=$('touch-descend').hidden=!flying;
-    const equipped=p.mode==='walk' && p.armed && !sim.seat && !sim.ending;
-    $('touch-brake').hidden=Boolean(flying || equipped);
+    const equipped=!sim.subway && p.mode==='walk' && p.armed && !sim.seat && !sim.ending;
+    $('touch-brake').setAttribute('aria-label',skating?'Hold to load, release to ollie or swipe to flick':p.mode==='walk'?'Jump':'Brake');
+    $('touch-brake').hidden=Boolean(flying || equipped || passenger);
     $('touch-fire').hidden=$('touch-aim').hidden=!equipped || Boolean(sim.room);
     $('touch-aim').setAttribute('aria-pressed',String(aiming));
     $('touch-reload').hidden=!equipped;
@@ -78,21 +84,25 @@ export class HUD {
     const moving = Math.hypot(p.velocityX || 0, p.velocityZ || 0) > 4;
     const punching = p.mode==='walk' && !sim.room && !boarding && !bike && !near && (sim.melee || p.armed);
     const prompt = $('interact-prompt');
-    const interactLabel = sim.seat ? 'STAND' : register==='collect' ? 'COLLECT CASH' : register==='drawer' ? 'TAKE TILL CASH' : canSit ? 'SIT' : null;
-    $('touch-equip').hidden = p.mode!=='walk' || Boolean(sim.seat);
+    const trip=cityRides?.trip;
+    $('ride-speed').hidden=!(passenger && trip?.phase==='traveling' && !trip.stopping && !sim.ending);
+    if (!$('ride-speed').hidden) this.text('ride-speed-label',trip.car.rideHurry?'ASK FOR NORMAL SPEED':'ASK DRIVER TO HURRY');
+    const interactLabel = p.mode==='passenger' ? 'ASK TO PULL OVER' : cityRides?.canBoard() ? 'BOARD RIDE' : sim.seat ? 'STAND' : register==='collect' ? 'COLLECT CASH' : register==='drawer' ? 'TAKE TILL CASH' : canSit ? 'SIT' : null;
+    $('touch-equip').hidden = p.mode!=='walk' || Boolean(sim.seat || sim.subway);
     this.text('touch-equip',p.armed?'HOLSTER':'EQUIP');
-    prompt.hidden = !interactLabel && !ride && !boarding && !driving && !cycling && !bike && !near && !punching;
+    prompt.hidden = Boolean(sim.subway) || !interactLabel && !ride && !boarding && !driving && !cycling && !skating && !bike && !near && !punching;
     prompt.querySelector('kbd').textContent = punching && !interactLabel ? 'F' : 'E';
     const enterLabel = near?.identity ? 'ENTER ' + vehicleName(near.identity).toUpperCase() : 'ENTER VEHICLE';
-    prompt.querySelector('span').textContent = interactLabel || (ride ? transportExitLabel(ride,dockDistance) : boarding ? 'BOARD '+boarding.spec.name.toUpperCase() : cycling ? 'GET OFF BIKE' : bike ? 'RIDE CITI BIKE' : driving ? (moving ? 'BAIL OUT' : 'EXIT VEHICLE') : near ? (near.type === 'taxi' ? 'GET IN THE CAB' : enterLabel) : p.armed ? 'SHOOT' : 'PUNCH');
-    this.text('touch-enter', interactLabel || (ride||driving||cycling?'EXIT':boarding?'BOARD':'ENTER'));
+    prompt.querySelector('span').textContent = interactLabel || (ride ? transportExitLabel(ride,dockDistance) : skating ? 'STEP OFF BOARD' : boarding ? 'BOARD '+boarding.spec.name.toUpperCase() : cycling ? 'GET OFF BIKE' : bike ? 'RIDE CITI BIKE' : driving ? (moving ? 'BAIL OUT' : 'EXIT VEHICLE') : near ? (near.type === 'taxi' ? 'GET IN THE CAB' : enterLabel) : p.armed ? 'SHOOT' : 'PUNCH');
+    const transitAction=sim.subway && ({board:'BOARD',alight:'GET OFF',gate:'FARE',services:'TRAINS',leave:'EXIT'}[sim.subway.journey.action]);
+    this.text('touch-enter', transitAction || interactLabel || (ride||driving||cycling||skating?'EXIT':boarding?'BOARD':'ENTER'));
     $('toast').textContent = sim.notice || '';
     $('toast').classList.toggle('visible', Boolean(sim.notice && sim.noticeTime>0));
     const active=mission.phase==='active' && mission.target;
     if(active) {
-      this.text('mission-kicker', mission.stage === 'pickup' ? 'FOOD PICKUP' : mission.meal ? 'FOOD DROP-OFF' : 'SPECIAL DELIVERY');
+      this.text('mission-kicker', mission.kind==='paper' ? 'PAPER ROUND · '+(mission.index+1)+'/'+mission.stops.length : mission.stage === 'pickup' ? 'FOOD PICKUP' : mission.meal ? 'FOOD DROP-OFF' : 'SPECIAL DELIVERY');
       this.text('mission-title', mission.target.name);
-      this.text('mission-description', mission.meal ? `Stop at the marker to ${mission.stage === 'pickup' ? 'collect' : 'deliver'} the ${mission.meal.toLowerCase()}.` : 'Follow the orange marker. Slow to a stop inside the ring to make the drop.');
+      this.text('mission-description', mission.kind==='paper'?'Stop at the marker to leave the next bundle.':mission.meal ? `Stop at the marker to ${mission.stage === 'pickup' ? 'collect' : 'deliver'} the ${mission.meal.toLowerCase()}.` : 'Follow the orange marker. Slow to a stop inside the ring to make the drop.');
       this.text('mission-distance', Math.round(Math.hypot(p.x-mission.target.x,p.z-mission.target.z))+(mission.stage === 'pickup' ? ' M TO PICKUP' : ' M TO DROP'));
       const sec=Math.max(0,Math.ceil(mission.timeLeft));
       this.text('mission-timer',Math.floor(sec/60)+':'+String(sec%60).padStart(2,'0'));

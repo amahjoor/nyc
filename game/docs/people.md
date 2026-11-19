@@ -1,37 +1,34 @@
 # People
 
-Nobody in the game is a downloaded model. A person is grown from a **design**, a flat list of plain values, the way a car is grown from its row. Open **Design your character** in the pause menu to set your own. [Character page](../dist/character.html)
+Open **Design your character** in the pause menu to set the player’s face, build, hair, clothes and colours. The editor and the game read the same browser save. Older saves keep glasses, facial hair and bags and map clothing and hairstyles to their closest available equivalents. [Character editor](../dist/character.html)
 
-## What a design says
+## Bodies and clothing
 
-About seventy things, each with an ordinary value when left out. [Fields and defaults](../dist/body-designs.js)
+The body builder fits MakeHuman’s textured mesh and garments to each design, then binds them to the game’s animation skeleton. The editor reads its proportions and wardrobe options from the same catalog as the player. [Body builder](../dist/human.js) · [Design fields](../dist/human-designs.js)
 
-| Group | What it sets |
-| --- | --- |
-| Frame | Masculine to feminine, age (6 to 95), height, thin to heavy, slight to muscular |
-| Build | Shoulders, chest, bust, waist, belly, hips, seat, arm and leg girth, neck |
-| Proportions | Leg, torso and arm length, head size, hands, feet |
-| Head and face | Width, depth, forehead, cheekbones, cheeks, jaw, chin, ears; eye size, lids, spacing and height; brow ridge and eyebrows; nose length, width, bridge, projection and tip; mouth height and width, lips |
-| Skin and hair | Skin, hair and eye colour, 16 hair styles, 6 beards |
-| Clothes | 8 tops, 8 things worn over them, 10 kinds of trousers, shorts and skirts, 7 shoes, 8 hats, 4 glasses, 3 bags, each in any colour, cut tight or loose |
+Each pedestrian gets a seeded cast member, a height and outfit colours. That identity stays with them at the window, at the table and on their return to the sidewalk. Employees use the same cast and wear colours for their trade. The worker builds near and distant versions of the same clothes and hair, and bakes animations for that member’s proportions. [Cast](../dist/human-cast.js) · [Crowd renderer](../dist/people-figures.js)
 
-Age does more than grey the hair. A child is shorter, with a large head and short legs for its height; the old lose a little height, carry a little more in front, and thin on top. Weight thickens the trunk more than the limbs and hangs under the chin; a heavy body carries its arms out from its sides.
+### Archive collection
 
-## How a body is made
+In the character editor, open **Clothes → Outfit** to try one of 24 looks. The 25 new pieces also appear in the individual top, bottom and shoe selectors. Each look sets the garments and their dyes, so a player can start with a complete outfit and change a single piece. Adults on the street wear a selection of the casual, business and athletic looks. [In-game lookbook](archive-fashion-lookbook.jpg) · [Outfits](../dist/fashion.js)
 
-`buildBody(design, motion)` in [`body.js`](../dist/body.js) needs no browser and no art:
+Press **G** on the sales floor of a clothing or department store carrying the collection to try on pieces in the mirror. Purchased garments can be worn again from the store catalog. [Shop stock](../dist/shop-stock.js)
 
-1. **Skeleton.** The mannequin's 53 bones, their lengths changed to the design's and the whole scaled to its height.
-2. **Flesh.** Rounded shapes laid along the bones (a trunk and limbs whose cross-sections change along their length, a skull, a jaw, a nose) melt into one another as a field of distances. A face is about forty of them.
-3. **Clothes and hair.** More layers of the same field: cloth lies on whatever is under it and hangs from the chest or the thigh instead of following the body in, so a shirt is not paint.
-4. **Surface.** Where the field is nought it is cut into triangles, finer on the head and hands than on the body. Seen close a body is about 60,000 vertices and takes a second to grow, off the main thread; one of the crowd is 5,900, and 2,400 far off.
-5. **Binding.** Each vertex learns which bones move it from where it is: along an arm, down a leg, up the spine.
+The collection starts from MakeHuman’s CC0 garment meshes. The game adds longer and asymmetric hems, trouser flares, coordinated dyes, chalk stripes, repair stitching and two original screen prints.
 
-The result stands arms out, the way the skeleton rests, and anything recorded for that skeleton moves it.
+| Garment blocks | Contributors | Source |
+| --- | --- | --- |
+| Tees, polo, cable sweater, camisole and halter | Elvaerwyn, Joel Palmius, namuhekam and Margaret Toigo | [Shirts 01](https://static.makehumancommunity.org/assets/assetpacks/shirts01.html) |
+| Cargos, denim shorts, gathered trousers and wool trousers | Cortu and Margaret Toigo | [Pants 01](https://static.makehumancommunity.org/assets/assetpacks/pants01.html) |
+| Full, tiered and mini skirts | Margaret Toigo and frankyaye | [Skirts 01](https://static.makehumancommunity.org/assets/assetpacks/skirts01.html) |
+| Boots and ballet flats | culturalibre and Margaret Toigo | [Shoes 01](https://static.makehumancommunity.org/assets/assetpacks/shoes01.html) |
+| Tailored jacket | MakeHuman system artists | [System assets](https://static.makehumancommunity.org/assets/assetpacks/makehuman_system_assets.html) |
+
+The shipped meshes and textures work offline. To rebuild them, fetch the four community archives with `node game/scripts/fetch-fashion.mjs`, then run `node game/scripts/build-human.mjs` with the base MakeHuman sources installed. Each piece records its mesh source, silhouette adjustments, fabric and artwork in the collection recipe. [Collection recipe](../data/fashion-pieces.json) · [Print artwork](../data/archive-prints.svg)
 
 ## Movement
 
-A pose is each bone's turn and where the pelvis is. [`body-motion.js`](../dist/body-motion.js) samples and blends them; an animator runs standing, walking, jogging and sprinting into one another by speed and puts whatever else is happening over the top.
+The walk has a planted stance, heel strike and toe-off. Speed and leg length set cadence. Holding **Shift** blends through the jog into the sprint. [Animation and retargeting](../dist/body-motion.js)
 
 | Recorded (Quaternius, Universal Animation Library, CC0) | Written by hand here ([`body-moves.js`](../dist/body-moves.js)) |
 | --- | --- |
@@ -43,23 +40,23 @@ Furniture uses five poses in the character page’s movement list. `seatChair` s
 
 ## What the player can do
 
-Besides walking, running (Shift), jumping (Space) and punching (F or a click): **Q** kicks, which lands twice as hard. **Space** facing a car vaults it; facing a ledge up to a little over head height, climbs it. After a punch or a kick the player stays squared up for a few seconds. A long drop flails and a hard landing rolls. [`player-moves.js`](../dist/player-moves.js)
+**Space** jumps with the player’s current momentum. Press it facing a reachable ledge or a slow car to climb. A running approach vaults a low car along a gravity-driven arc. The hands reach for the edge and the feet finish at the height of the roof or landing surface. **F** or a click punches, and **Q** kicks. [Traversal](../dist/player-moves.js)
 
 Getting into a car takes as long as the movement does. One the player has driven is just opened. About half the cars left at the kerb are locked, the same ones each time, and an elbow goes through the window (half a star). One with somebody driving it has the driver hauled out and thrown down, who then gets up and runs (a star, and the street takes fright).
 
+The saved player sits in the driver’s seat with their hands on the wheel. Traffic drivers keep their face and clothes when they leave the car.
+
 ## What the street does
 
-People walk at their own pace, wait, jog if they are dressed for it. A car that hits one at more than about 8 mph throws them the way it was going; they lie there some seconds and get up, or over about 27 mph do not. A car driven at them, or any car when they are in the roadway, makes them start back and step aside, and from a fast one they run. Walk into someone and they stagger; run into them and they go down and get up again. Someone punched squares up and swings back; put down, they get up and run. An arrest stands the player with hands up, then on their knees, while the nearest officer cuffs them.
+Pedestrians spread along a sidewalk when a block loads. In a moving crowd they follow the pace of the person ahead. At a scaffold or other obstruction they look for an opening and return to their walking line after passing it. If the opening only fits one person across, one direction waits to the side until the other group clears the exit. Pedestrians turn back when the pavement is closed across its whole width.
 
-## Who is on the street
+The city model includes fictional New Yorkers experiencing unsheltered homelessness. NYC’s March 10, 2026 HOPE survey estimated 3,560 people in surface areas that night, with 2,104 in Manhattan, 559 in Brooklyn, 457 in Queens, 430 in the Bronx and 10 on Staten Island. DHS counted another 1,431 people in subway areas separately. [NYC DHS HOPE results, slide 6](https://www.nyc.gov/assets/dhs/downloads/pdf/hope/hope-2026-results.pdf)
 
-The cast is 48 designs: [rows in `body-designs.js`](../dist/body-designs.js), each `[outfits it suits, sex, age, weight, muscle, hair, beard, top, over it, legs, shoes, hat, bag, glasses]`. Fourteen are heavy or very heavy, nine thin, two are children and five past sixty-five; none has muscle past halfway. An outfit drawn for a place and hour (suits round the offices, shorts where the visitors are) picks among the rows that suit it, and the person wears that body in colours of their own. These shares are the game's, not a survey.
+The game distributes those surface estimates across land in each borough. Individual locations are fictional. Nearby residents appear on an available sidewalk within 60 metres of their starting site, subject to the local crowd limit. They use the same clothing and walking system as other pedestrians. Some pause along the inside edge of the sidewalk before continuing. Press **G** near a pedestrian and choose **Say hello** to talk.
 
-To add someone, add a row and look at the street. Weights are kept to a few steps so that bodies of one build share the poses worked out for it.
+Punches, running collisions and moving cars transfer momentum on contact. A light hit produces a stagger. A heavy hit can throw the person airborne, turn them onto their back and slide them along the street. A surviving character starts getting up once grounded and nearly still. The limbs follow fitted animation poses during the simulated fall. [Impact simulation](../dist/character-physics.js)
 
-## Limits
-
-Faces are plain: eyes do not blink or look, mouths do not move. Hair and cloth do not swing. Hands are mittens at street distance. Clothes are shapes without print, pockets or folds. A vault lifts the player over the car as a picture; the car is not climbed on. Drivers are not seen at the wheel, so a carjacked driver appears as they are thrown out. Shooting has its stance and its movements but the player has no gun yet.
+Cups and trays follow the fitted palm through turns and seating transitions. A nearby officer facing the player can raise their pistol during an arrest. The officer who moves in to cuff them frees both hands.
 
 ## Rebuild
 

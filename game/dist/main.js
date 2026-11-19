@@ -1,12 +1,12 @@
 import { renderStats, performanceName } from './vehicle-stats.js';
-import { createDoorDebris } from './vehicle-detail.js';
+import { createDoorDebris, hasAlteredGlazing } from './vehicle-detail.js';
 import { updateChaseHeight } from './vehicle-presentation.js';
-import { createDriverCabin } from './driver-cabin.js';
+import { cabinSeatPoint, placeDriverCamera } from './driver-cabin.js';
 import { createSwitchShot } from './switch-shot.js';
 import * as THREE from './vendor/three.module.min.js';
 import { createCar, createParkedCars, createDistantTraffic, createPerson, updateCarVisuals, setVehicleLamps } from './world.js';
+import { plateFor } from './license-plates.js';
 import { Simulation, TRAFFIC_SIGHT } from './simulation.js';
-import { OFFICER_LOOK } from './police.js';
 import { createPoliceScene } from './police-scene.js';
 import { shared } from './gfx-common.js';
 import { createCarSmoke } from './car-smoke.js';
@@ -39,11 +39,16 @@ import { createStreetSigns } from './street-signs.js';
 import { createCrowd, dress, seeded, KIT } from './crowd.js';
 import { createHumanShop } from './human-shop.js';
 import { createHumanMesh } from './human-mesh.js';
-import { loadPerson } from './human-designs.js';
-import { createMotion, createAnimator, fitPose } from './body-motion.js';
+import { foodPreviewOptions,openFoodCounter,openInventory,counterInReach } from './food-counter.js';
+import { stepCounterOrder } from './facility-visits.js';
+import { browseShop } from './shop-preview.js';
+import { fittedLook } from './shop-stock.js';
+import { loadPerson, savePerson } from './human-designs.js';
+import { createMotion, createAnimator, fitPose, gripOffsetFor } from './body-motion.js';
 import { writeMovements } from './body-moves.js';
 import { createFigures } from './people-figures.js';
-import { CAST } from './body-designs.js';
+import { castWalkStyle, patrolAppearance } from './human-cast.js';
+import { carriedItems,createFoodHand } from './carried-items.js';
 import { createStreetProps } from './street-props.js';
 import { createPlaceSource, placeName, isOpen, joinPlaceSources, indexFootprints, solveFrontages } from './places.js';
 import { roomPoint, roomLocal, crossesFixture } from './room.js';
@@ -53,6 +58,10 @@ import { inviteCustomer, populateShop } from './shop-life.js';
 import { createStorefronts } from './storefronts.js';
 import { Work } from './work.js';
 import { createInteraction } from './interaction.js';
+import { CityRides, PhoneBank } from './phone-services.js';
+import { setHandSource } from './view-hand.js';
+import { fingerPose, pinchOffset } from './hand-poses.js';
+import { createPhoneHand } from './phone-hand.js';
 import { createPhone, describePlace } from './phone.js';
 import { createFleet } from './fleet.js';
 import { createVehicleMeshLibrary } from './vehicle-assets.js';
@@ -69,6 +78,10 @@ import { createDining, planDining, createDiningMesh, seatsOf } from './dining.js
 import { planStands, vendorOf, createStandMesh } from './stands.js';
 import { createCollection, planTrash, createTrashMesh } from './trash.js';
 import { aboveTheStreet } from './aloft.js';
+import { fitCyclist, PEDAL_PERIOD } from './cycling.js';
+import { indexBikeLanes, createLaneMarkings, bikeLaneParking } from './bike-lanes.js';
+import { createBikeTraffic } from './bike-traffic.js';
+import { createSkateboard } from './skateboard.js';
 import { createBikeShare, planBikeDocks, createBikeDocks } from './bikes.js';
 import { menuFor } from './menu.js';
 import { createSubway, createSubwayEntrances, SUBWAY_LAYER, FARE } from './subway.js';
@@ -97,18 +110,34 @@ let placeSource=null, storefronts=null, footprints=indexFootprints([]), fronts=[
 // The doors that can be walked through near the player, as the radar and the map mark them: fronts with a room behind them, and the subway's stairs.
 let doors=[], doorsFor=null;
 // The phone, and where a delivery can be sent: the streets around, and the places with a street front.
+const phoneBank=new PhoneBank();
+let cityRides=null, phoneHand=null;
+const phonePalm=new THREE.Vector3(), phoneTarget=new THREE.Vector3();
 let phone=null, interaction=null, work=null, roadDestinations=[], placeDestinations=[], shopHere=null;
 // The front the player is standing at if it has a room to go into, and the room they are in.
 // The player and shop staff as the crowd's modelled figures, once those have loaded: where in their stride the player is.
 let playerStride=0, strideClock=0;
 // The player's own body (grown from the design saved by the character page), what moves it, and the street's figures.
+let sessionAppearance=null;
 let playerBody=null, playerDesign='', animator=null, moves=null, figures=null, bodyShop=null;
 let gunSeen=0, brandished=-99, viewPistol=null;
+let foodHand=null;
 let doorDebris=null, carSmoke=null, playerGun=null, gunWatch=0, endingShown=null;
 const smoking=[], struckSeen=new Map(), blastSeen=new WeakMap();
 const playerSeen={swing:0,move:null,grounded:true,vy:0,fired:0,reloading:0}, playerFitted={q:[],pelvis:[0,0,0]};
-const OFFICER_CAST=CAST.findIndex(member=>member.suits.has('officer'));
-const officerModels=new Map();
+let playerItems=null;
+const officerModels=new Map(), uniformBuilds=new Map();
+const driverSeat=new THREE.Vector3(), hipAt=new THREE.Vector3();
+function driverAppearance(car){
+  if(car.type==='police' && car.driverAppearance?.unit!==(car.unit || 'patrol'))
+    return car.driverAppearance=patrolAppearance(car.id,0,car.unit);
+  if(car.driverAppearance) return car.driverAppearance;
+  let seed=17;
+  for(const c of String(car.id)) seed=(Math.imul(seed,31)+c.charCodeAt(0))>>>0;
+  const look=dress('office',seeded(seed));
+  if(car.rideDriver)look.member=car.rideDriver.member;
+  return car.driverAppearance=look;
+}
 const PLAYER_LOOK={top:0xd7774e,bottom:0x1c1d22,skin:0xb98563,hair:0x14110f,kit:0,height:1.76};
 let doorHere=null, roomGroup=null, counterHere=false;
 const ROOM_LAYER=1;
@@ -190,6 +219,8 @@ let viewHeight=0, aloft=false;
 // The week starts on today's real weekday and moves on a day each time the game's clock passes midnight.
 let collection=null, trashMesh=null, weekday=(new Date().getDay()+6)%7, clockWas=null;
 // Citi Bike: the stations, and the docks drawn nearby.
+let bikeWheel=0,bikePedal=0;
+let boardMesh=null, bikeLanes=null, bikeTraffic=null, cycleRoutes=null, laneSurfaceRevision=0;
 let bikeShare=null, bikeDocks=null, bikeRows=[], borrowedDock=null;
 let subwayVisit=null, subwayView=null, previewPortal=null, subway=null, subwayStairs=null, stairHere=null, kerbIndex=null, kerbsFor=null;
 // Which cars are registered where (fleet.js): the whole city's mix until the counts by ZIP code have loaded.
@@ -231,7 +262,8 @@ function cityPresets(){
   return places;
 }
 let chaseHeight=null, chaseEyeOffset=null;
-let firstPerson=false, headAnchor, headTurn=0, headPitch=0, driverCabin=null, snapChase=false;
+let firstPerson=false, headAnchor, headTurn=0, headPitch=0, snapChase=false, ownBody=false;
+const eyeGoal=new THREE.Vector3();
 let gameMap, mapOpen=false, routePlanner=null, plannerReady=null, activeRoute=null, routeDestination=null, routeGuidance=null, routeEpoch=0, rerouteAt=0;
 let sampledSeconds=0, sampledFrames=0, recentFrameMs=0;
 let yaw=0, pitch=.38, lookIdle=0, elapsed=0, lastFrame=0, hudTime=0, qualityTimer=0, slowSeconds=0;
@@ -242,7 +274,25 @@ const carModels = new Map(), distantCars=[];
 const CAR_SIGHT=TRAFFIC_SIGHT, MODEL_RANGE=42, MODEL_KEPT=52;
 const audio = new CityAudio();
 const canvas=$('world');
-const input=new Input(canvas, action, event=>interaction?.handleKey(event)||phone?.handleKey(event), weaponControls);
+function interfaceKey(event){
+  if(interaction?.open && phone?.open && $('phone').contains(document.activeElement))return phone.handleKey(event);
+  return interaction?.handleKey(event) || phone?.handleKey(event);
+}
+const input=new Input(canvas, action, interfaceKey, weaponControls, index=>{
+  if(interaction?.open){
+    const key=({0:'Enter',1:'Escape',12:'ArrowUp',13:'ArrowDown'})[index];
+    if(key)interaction.handleKey({key,preventDefault(){}});
+    return true;
+  }
+  if(phone?.open){
+    if(index===11){action('interact');return true;}
+    if(index===3){action('shop');return true;}
+    return phone.handlePad(index);
+  }
+  if(index===3 && sim?.player.mode==='passenger'){action('driverSpeed');return true;}
+  if(index===12 && !interaction?.open && !weaponControls()){action('phone',{fromPad:true});return Boolean(phone?.open);}
+  return false;
+});
 const cameraTarget=new THREE.Vector3(), desiredCamera=new THREE.Vector3(), cameraForward=new THREE.Vector3();
 const aerialTarget=new THREE.Vector3(), aerialOffset=new THREE.Vector3(-95,240,180);
 // How far back the aerial camera stands, as a multiple of that offset: 1 is
@@ -254,8 +304,14 @@ const chaseLookAhead=new THREE.Vector3(), desiredLookAhead=new THREE.Vector3();
 
 function announce(text) { if(sim){sim.notice=text;sim.noticeTime=4;} }
 function firstPersonActive(){return started&&firstPerson&&!aerialView&&!cityView&&!viewOverride&&!switchShot.active;}
+function meleeTarget(){
+  const p=sim.player, person=crowd?.meleeTarget(p,sim.bystanders,sim.elapsed);
+  const officer=sim.police.meleeTarget(p.x,p.z,p.angle,p.y);
+  if(!officer || (person && Math.hypot(person.x-p.x,person.z-p.z)<Math.hypot(officer.x-p.x,officer.z-p.z)))return person;
+  return officer;
+}
 function weaponControls(){
-  return Boolean(started && bootReady && sim?.player.armed && sim.player.mode==='walk' && !sim.player.move && !sim.seat && !sim.doorway?.take && !sim.ending && !paused && !traveling && !cityView && !aerialView && !viewOverride && !switchShot.active && !mapOpen && !phone?.open && !interaction?.open);
+  return Boolean(!subwayVisit && started && bootReady && sim?.player.armed && sim.player.mode==='walk' && !sim.player.move && !sim.seat && !sim.doorway?.take && !sim.ending && !paused && !traveling && !cityView && !aerialView && !viewOverride && !switchShot.active && !mapOpen && !phone?.open && !interaction?.open);
 }
 function focusedAim(){return input.aiming && !sim.room && !sim.seat;}
 function updatePerspectiveButton(){
@@ -271,7 +327,7 @@ function openGarage(place, index=0) {
   const rows=shopRows(place.kind,sim.vehicle);
   for(const row of rows)row.disabled=row.price===null;
   interaction.openList(placeName(place),rows,(row,i)=>{
-    if(sim.garage(place.kind,row.job,row.color??row.choice))saveProgress();
+    if(sim.garage(place.kind,row.job,row.color??row.choice))saveProgress(placeName(place));
     openGarage(place,i);
   },{cash:sim.cash,index,available:()=>shopHere===place&&Boolean(sim.vehicle)});
 }
@@ -326,11 +382,17 @@ function enterSubwayOnFoot(controls){
 function action(name,event) {
   if(!sim)return;
   if(interaction?.open){
-    if(name==='pause'||name==='shop'){interaction.close();return;}
-    if(name!=='map'&&name!=='phone')return;
-    interaction.close();
+    if(name==='pause'||name==='shop'||name==='inventory'){interaction.close();return;}
+    if(name==='map')interaction.close();
+    else if(name!=='phone')return;
   }
-  if(name==='map') { if(started&&!paused&&!traveling&&bootReady){phone?.setOpen(false);gameMap?.toggle();}return; }
+  if(busRide)return;
+  if(subwayVisit && name==='interact'){
+    if(!mapOpen&&!paused&&!traveling)subwayVisit.interact();
+    return;
+  }
+  if(subwayVisit && !['pause','map','perspective','cash','phone','inventory'].includes(name))return;
+  if(name==='map') { if(started&&!paused&&!traveling&&bootReady){phone?.setOpen(false);if(subwayVisit&&!mapOpen){gameMap.setPlayer(sim.player);gameMap.transit.setActive(true);}gameMap?.toggle();}return; }
   if(name==='pause'){
     if(!started)return;
     // Escape also dismisses native dialogs by default, including one just opened here.
@@ -342,28 +404,45 @@ function action(name,event) {
     else togglePause();
     return;
   }
-  if(name==='shop'&&(!started||paused||traveling||!bootReady||cityView||mapOpen||phone?.open))return;
+  if(name==='shop' && sim.player.mode==='passenger')name='driverSpeed';
+  if(name==='shop'&&(!started||paused||traveling||!bootReady||cityView||mapOpen))return;
+  if(name==='inventory'){
+    if(started && bootReady && !paused && !traveling && !mapOpen && !cityView)openInventory({$,sim,interaction,save:saveProgress});
+    return;
+  }
   if(name==='shop'&&sim.room) {
+    if(openFoodCounter({$,sim,interaction,sale:(place,amount)=>work.sale(place,amount),save:saveProgress}))return;
     // Indoors, at the counter: what the place sells.
     const menu=menuFor(sim.room.place);
+    const boutique=menu.some(item=>item.sku);
     if(!menu.length)announce('Nothing is sold over the counter here.');
     else if(closedAfterIncident(sim.room.place))announce('This shop is temporarily closed.');
     else if(sim.doorway?.handoff||sim.player.armed)announce('The counter is closed while the clerk is on alert.');
-    else if(!atShopCounter())announce('Go up to whoever is serving.');
+    else if(!boutique&&!atShopCounter())announce('Go up to whoever is serving.');
     else {
       const shop=sim.room.place;
-      const rows=menu.map(item=>({item,name:item.name.toUpperCase(),note:'$'+item.price.toFixed(2)}));
-      interaction.openList(sim.room.name,rows,({item})=>{
-        if(sim.room?.place!==shop||closedAfterIncident(shop)||sim.doorway?.handoff||sim.player.armed)return;
-        if(sim.buy(item)){work.sale(shop,item.price);saveProgress();}
-      },{cash:sim.cash,available:()=>sim.room?.place===shop&&atShopCounter()&&!closedAfterIncident(shop)&&!sim.doorway?.handoff&&!sim.player.armed});
+      const available=()=>sim.room?.place===shop && (boutique || atShopCounter()) && !closedAfterIncident(shop) && !sim.doorway?.handoff && !sim.player.armed;
+      const order=item=>{
+        if(available()&&sim.buy(item)){work.sale(shop,item.price);saveProgress(placeName(shop));}
+      };
+      if(boutique) {
+        const getLook=()=>sessionAppearance || loadPerson();
+        browseShop({$,sim,interaction,title:sim.room.name,menu,available,order,getLook,grow:bodyShop,moves,
+          applyLook:item=>{
+            const next=fittedLook(getLook(),item);
+            sessionAppearance=savePerson(next)?null:next; dressPlayer();
+          },sale:(place,price)=>work.sale(place,price),save:()=>saveProgress(placeName(shop))});
+      } else {
+        const rows=menu.map(item=>({item,name:item.name.toUpperCase(),note:'$'+item.price.toFixed(2)}));
+        interaction.openList(sim.room.name,rows,({item})=>order(item),{...foodPreviewOptions($),cash:sim.cash,available});
+      }
     }
     return;
   }
   if(name==='shop'&&standHere&&sim.player.mode==='walk'&&!sim.player.armed) {
     // At a stand on the sidewalk: what it sells.
     const place=standHere.place;
-    interaction.openList(placeName(place),menuFor(place).map(item=>({item,name:item.name.toUpperCase(),note:'$'+item.price.toFixed(2)})),({item})=>{if(sim.buy(item,{street:true}))saveProgress();},{cash:sim.cash,available:()=>standHere?.place===place});
+    interaction.openList(placeName(place),menuFor(place).map(item=>({item,name:item.name.toUpperCase(),note:'$'+item.price.toFixed(2)})),({item})=>{if(sim.buy(item,{street:true,place}))saveProgress();},{...foodPreviewOptions($),cash:sim.cash,available:()=>standHere?.place===place});
     return;
   }
   if(name==='shop') {
@@ -371,7 +450,7 @@ function action(name,event) {
     else if(work.pedestrian())work.street();
     return;
   }
-  if(name==='phone') { if(started&&!paused&&!traveling&&bootReady&&!cityView&&!mapOpen)phone?.toggle();return; }
+  if(name==='phone') { if(started&&!paused&&!traveling&&bootReady&&!cityView&&!mapOpen)phone?.toggle(event?.fromPad || event?.code || event?.detail===0 ? 'keys' : 'pointer');return; }
   if(name==='reloadOrRecover')name=sim.player.mode==='walk'&&sim.player.armed?'reload':'recover';
   if(name==='reload'){if(weaponControls())sim.reload();return;}
   if(name==='fire' || (name==='fight' && sim.player.armed)){
@@ -384,12 +463,7 @@ function action(name,event) {
   if(name==='fight') {
     if(sim.doorway?.take)return;
     if(!started||paused||traveling||!bootReady||cityView||mapOpen||phone?.open||sim.player.mode!=='walk')return;
-    if(!sim.fight())return;
-    // An officer in reach takes the punch before a passer-by does.
-    if(sim.police.strike(sim.player.x,sim.player.z,sim.player.angle))return;
-    const hit=crowd?.strike(sim.player.x,sim.player.z,sim.player.angle);
-    if(hit)blowLanded(hit);
-    else sim._say('You swing at the air.');
+    sim.fight(meleeTarget());
     return;
   }
   if(name==='draw') {
@@ -399,12 +473,12 @@ function action(name,event) {
   }
   if(name==='kick') {
     if(!started||paused||traveling||!bootReady||cityView||mapOpen||phone?.open||sim.player.mode!=='walk')return;
-    sim.kick();
+    sim.kick(meleeTarget());
     return;
   }
   if(mapOpen)return;
   if(name==='perspective'){
-    if(!started||paused||traveling||!bootReady||phone?.open)return;
+    if(!started||paused||traveling||!bootReady)return;
     firstPerson=!firstPersonActive();
     if(cityView||aerialView)setView('street');
     else{
@@ -422,9 +496,17 @@ function action(name,event) {
   if(name==='view') { setView(cityView?'street':aerialView?'city':'aerial');return; }
   if(name==='time') { if(gfx){const preset=gfx.nextPreset();updateTimeButton();announce('Time of day: '+preset.label.toLowerCase()+', '+gfx.clock+'.');}return; }
   if(!started||paused||traveling||!bootReady||cityView)return;
-  if(name==='cash'){if(!phone?.open)hud.showCash(sim.cash);return;}
+  if(name==='driverSpeed'){
+    if(sim.player.mode==='passenger' && !sim.ending)cityRides.toggleHurry();
+    return;
+  }
+  if(name==='skate'){if(!mapOpen&&sim.toggleSkateboard()){input.skating=sim.player.mode==='skate';headAnchor=undefined;snapChase=true;}return;}
+  if(name==='cash'){hud.showCash(sim.cash);return;}
   if(name==='interact'){
-    if(phone?.open)return;
+    if(sim.player.mode==='skate'){sim.toggleSkateboard();return;}
+    if(sim.player.mode==='passenger'){cityRides.stopEarly();return;}
+
+    if(cityRides?.canBoard()){cityRides.board();return;}
     if(sim.seat){sim.stand();return;}
     if(sim.player.mode==='walk'&&!sim.room&&!stairHere&&stopHere){
       openBusDepartures(stopHere);return;
@@ -438,27 +520,6 @@ function action(name,event) {
     }
     if(sim.player.mode==='transport'||sim.transport.nearby()||sim.player.mode==='bike'||sim.getNearbyBike()){
       if(sim.interact()){yaw=sim.player.angle;snapChase=true;headAnchor=undefined;}
-      return;
-    }
-    // On foot at a bus stop: on to the next bus. A ride is to any stop a route from here also calls at.
-    if(sim.player.mode==='walk'&&!sim.room&&!stairHere&&stopHere&&!sim.getNearbyCar()){
-      const from=stopHere.stop,rides=buses.ridesFrom(from).map(ride=>({ride,name:ride.stop.name,note:ride.lines.slice(0,3).join(' ')+' · '+formatDistance(ride.distance)+' · $'+FARE.toFixed(2)}));
-      interaction.openList(from.name+' · '+from.lines.slice(0,4).join(' '),rides,({ride})=>{
-        // The driver waves a rider with no fare on more often than not; an inspector does not.
-        const unpaid=sim.cash<FARE;if(unpaid)sim.offence('fare');else sim.cash-=FARE;
-        travel({x:ride.stop.x,z:ride.stop.z,name:ride.stop.name}).then(arrived=>arrived&&announce((unpaid?'You rode without paying. ':'')+'The '+ride.lines[0]+' to '+ride.stop.name+'.'));
-      },{cash:sim.cash,available:()=>stopHere?.stop===from});
-      return;
-    }
-    // On foot at the head of a subway stair: down to the trains. A ride is to any station on a line that stops here.
-    if(sim.player.mode==='walk'&&!sim.room&&stairHere&&!sim.getNearbyCar()){
-      const from=stairHere.station,rides=subway.ridesFrom(from).map(ride=>({ride,name:ride.station.name,note:ride.lines.join(' ')+' · '+formatDistance(ride.distance)+' · $'+FARE.toFixed(2)}));
-      interaction.openList(from.name+' · '+from.routes,rides,({ride})=>{
-        // No fare, no problem, until someone sees.
-        const jumped=sim.cash<FARE;if(jumped)sim.offence('fare');else sim.cash-=FARE;
-        const exit=subway.exitOf(ride.station);
-        travel({x:exit.x+2.5,z:exit.z+2.5,name:ride.station.name,exact:true}).then(arrived=>arrived&&announce((jumped?'You jumped the turnstile. ':'')+'The '+ride.lines[0]+' to '+ride.station.name+'.'));
-      },{cash:sim.cash,available:()=>stairHere?.station===from});
       return;
     }
     // On foot at an open door, with no car to get into: go in.
@@ -525,7 +586,15 @@ $('sound-button').addEventListener('click',async()=>{
   $('sound-button').textContent=enabled?'SOUND ON':'SOUND OFF';
   $('sound-button').setAttribute('aria-label',enabled?'Turn sound off':'Turn sound on');
 });
-$('quality-button').addEventListener('click',()=>{highQuality=!highQuality;applyQuality();});
+const paceButton=$('controller-sprint');
+function showPaceButton(){paceButton.textContent='CONTROLLER SPRINT: '+(input.tapSprint?'TAP':'HOLD');}
+try{input.tapSprint=localStorage.getItem('nyc.controller-sprint')==='tap';}catch{}
+showPaceButton();
+paceButton.addEventListener('click',()=>{
+  input.clear();input.tapSprint=!input.tapSprint;showPaceButton();
+  try{localStorage.setItem('nyc.controller-sprint',input.tapSprint?'tap':'hold');}catch{}
+});
+$('quality-button').addEventListener('click',()=>{highQuality=!highQuality;qualityTimer=slowSeconds=0;applyQuality();});
 $('shadows-button').addEventListener('click',()=>{
   shadowsEnabled=!shadowsEnabled;
   updateShadowButton();
@@ -535,11 +604,11 @@ $('shadows-button').addEventListener('click',()=>{
 $('time-button').addEventListener('click',fromMenu(()=>action('time')));
 $('help-button').addEventListener('click',()=>{if($('pause-dialog').open)togglePause(false);if(started){paused=true;input.clear();}$('help-dialog').showModal();});
 $('help-dialog').addEventListener('close',()=>{if(started)paused=false;input.clear();});
-function fromMenu(run){return()=>{if($('pause-dialog').open)togglePause(false);run();};}
+function fromMenu(run){return event=>{if($('pause-dialog').open)togglePause(false);run(event);};}
 $('view-button').addEventListener('click',fromMenu(()=>action('view')));
 $('first-person-button').addEventListener('click',fromMenu(()=>action('perspective')));
 $('open-map-button').addEventListener('click',fromMenu(()=>action('map')));
-$('phone-button').addEventListener('click',fromMenu(()=>action('phone')));
+$('phone-button').addEventListener('click',fromMenu(event=>action('phone',event)));
 $('city-button').addEventListener('click',fromMenu(()=>{if(!started&&bootReady){$('start-button').click();return;}setView(cityView?'street':'city');}));
 $('road-pilot-mode-button').addEventListener('click',()=>{
   if(!roadPilot)return;
@@ -559,8 +628,13 @@ $('sources-button').addEventListener('click',()=>{input.clear();$('sources-dialo
 $('pause-dialog').addEventListener('cancel',e=>{e.preventDefault();togglePause(false);});
 $('resume-button').addEventListener('click',()=>togglePause(false));
 $('recover-button').addEventListener('click',()=>{togglePause(false);action('recover');});
+$('inventory-button').addEventListener('click',fromMenu(()=>action('inventory')));
+$('shop-action-button').addEventListener('click',fromMenu(()=>action('shop')));
 $('show-cash-button').addEventListener('click',fromMenu(()=>action('cash')));
 $('map-button').addEventListener('click',()=>action('map'));
+$('touch-skate')?.addEventListener('click',()=>action('skate'));
+$('ride-speed').addEventListener('click',()=>action('driverSpeed'));
+$('touch-shop').addEventListener('click',()=>action('shop'));
 $('touch-enter').addEventListener('click',()=>action('interact'));
 $('touch-equip').addEventListener('click',()=>action('draw'));
 $('touch-aim').addEventListener('click',()=>{
@@ -613,9 +687,12 @@ function restoreProgress() {
     const record=JSON.parse(localStorage.getItem(SAVE_KEY)||'null');
     if(record?.version===1){
       work.restore(record.work);
+      sim.shopping.restore(record.shopping);
+      if(record.purchases && typeof record.purchases==='object') sim.purchases=Object.fromEntries(Object.entries(record.purchases).filter(([sku,n])=>/^[a-z0-9-]+$/.test(sku) && Number.isSafeInteger(n) && n>0));
       if(Number.isFinite(record.cash)&&record.cash>=0)sim.cash=Math.min(record.cash,1e8);
+      phoneBank.restore(record.bank,sim.cash);
       if(Number.isInteger(record.deliveries)&&record.deliveries>=0)sim.deliveries=Math.min(record.deliveries,1e6);
-      const cab=sim.cars.find(car=>car.id==='player-taxi');
+      const cab=sim.ownedCab;
       if(cab&&record.cab){
         if(record.cab.mods&&typeof record.cab.mods==='object')cab.mods=Object.fromEntries(['engine','brakes','tyres'].map(part=>[part,Math.max(0,Math.min(3,Math.floor(Number(record.cab.mods[part])||0)))]));
         if(/^#[0-9a-f]{6}$/.test(record.cab.color||'')){cab.color=record.cab.color;cab.type='sedan';cab.shape='sedan';cab.resprays=1;}
@@ -623,9 +700,10 @@ function restoreProgress() {
     }
   } catch { /* Storage can be unavailable in private browsing; play still works. */ }
 }
-function saveProgress() {
-  const cab=sim.cars.find(car=>car.id==='player-taxi');
-  const value=JSON.stringify({version:1,cash:sim.cash,deliveries:sim.deliveries,work:work.record,cab:cab?{mods:cab.mods||null,color:cab.resprays?cab.color:null}:null});
+function saveProgress(entryName) {
+  const cab=sim.ownedCab;
+  phoneBank.sync(sim.cash,gfx.clock,typeof entryName==='string'?entryName:undefined);
+  const value=JSON.stringify({version:1,cash:sim.cash,bank:phoneBank.record(),deliveries:sim.deliveries,shopping:sim.shopping.record(),purchases:sim.purchases,work:work.record,cab:cab?{mods:cab.mods||null,color:cab.resprays?cab.color:null}:null});
   if(value===savedEarnings)return;
   savedEarnings=value;
   try{localStorage.setItem(SAVE_KEY,value);}catch{/* Earnings remain for the current session. */}
@@ -650,9 +728,24 @@ function createEnterHint() {
 // Cars parked at the kerb around the player. About seven spaces in ten are
 // taken, always the same ones, so a street looks the same on every visit.
 const PARKED_RANGE=150, PARKED_LIMIT=130, PARKED_SHARE=.72;
-let parkedAt=null, parkedSource=null, parkedCount=0;
+let parkedAt=null, parkedSource=null, parkedCount=0, parkingInput=null, parkingRevision=-1, cycleParking=[];
+function availableKerbParking() {
+  let spaces=streetscape?.parking()||noStreetFurniture;
+  if(buses && streetscape){
+    const walks=streetscape.walks();
+    if(walks!==kerbsFor){kerbsFor=walks;kerbIndex=indexKerbs(walks);}
+    spaces=buses.availableParking(spaces,kerbIndex,(x,z)=>snapToKerb(kerbIndex,x,z,14));
+  }
+  if(!cycleRoutes)return spaces;
+  if(spaces!==parkingInput || parkingRevision!==laneSurfaceRevision){
+    parkingInput=spaces;parkingRevision=laneSurfaceRevision;
+    const road=(x,z)=>streetscape?.surfaceAt(x,z)==='road';
+    cycleParking=spaces.map(space=>bikeLaneParking(cycleRoutes,space,road)).filter(Boolean);
+  }
+  return cycleParking;
+}
 function refreshParkedCars() {
-  const spaces=streetscape?.parking()||noStreetFurniture, p=sim.player;
+  const spaces=availableKerbParking(), p=sim.player;
   // Travel and recovery reseed the simulation's cars; notice and park again.
   if(parkedCount&&!sim.cars.some(car=>car._kerb))parkedAt=null;
   if(spaces===parkedSource&&parkedAt&&Math.hypot(p.x-parkedAt.x,p.z-parkedAt.z)<16)return;
@@ -734,48 +827,132 @@ function updateViewPistol(){
 }
 function dressPlayer() {
   if(!bodyShop)return;
-  const design=loadPerson(),key=JSON.stringify(design);
+  const design=sessionAppearance || loadPerson(),key=JSON.stringify(design);
+  phoneHand?.tone(design.tone);
+  if(sim) Object.assign(sim.player,{height:design.height,walkStyle:design.walkStyle});
+  Object.assign(PLAYER_LOOK,{height:design.height,kit:design.sex>.5?KIT.woman:0,
+    top:parseInt((design.topColour||'#d7774e').slice(1),16),bottom:parseInt((design.bottomColour||'#1c1d22').slice(1),16),
+    skin:parseInt((design.tone||'#b98563').slice(1),16),hair:parseInt((design.hairColour||'#14110f').slice(1),16)});
   if(key===playerDesign)return;
   playerDesign=key;
   bodyShop(design,'close').then(built=>{
     if(key!==playerDesign)return;
-    if(playerBody){scene.remove(playerBody.mesh);playerBody.dispose();}
-    playerBody=createHumanMesh(built,built.look);playerBody.mesh.traverse(object=>object.layers.enable(ROOM_LAYER));scene.add(playerBody.mesh);
+    if(playerBody){
+      scene.remove(playerBody.mesh);playerBody.dispose();
+      playerGun?.traverse(part=>{part.geometry?.dispose();part.material?.dispose();});
+    }
+    playerBody=createHumanMesh(built,built.look);playerBody.mesh.traverse(object=>{object.layers.enable(ROOM_LAYER);object.layers.enable(SUBWAY_LAYER);});scene.add(playerBody.mesh);
+    setHandSource(built,playerBody.meshes);
     playerGun=createGun(playerBody);
-  }).catch(error=>console.warn('The player could not be drawn:',error));
+    playerItems?.dispose(); playerItems=carriedItems(1);
+    playerItems.group.traverse(object=>{object.layers.enable(ROOM_LAYER);object.layers.enable(SUBWAY_LAYER);}); playerBody.mesh.add(playerItems.group);
+  }).catch(error=>{if(key===playerDesign)playerDesign='';console.warn('The player could not be drawn:',error);});
 }
 /** Put the player's body where the player is, in the pose for what they are doing. */
 function showPlayer(dt,p,floor,eyeView,riding) {
   const mesh=playerBody.mesh;
-  mesh.visible=(p.mode==='walk'||riding)&&!eyeView;
+  const driving=p.mode==='drive'||p.mode==='passenger', skating=p.mode==='skate';
+  const striking=p.swing>0 || ['kick','lowKick','stomp'].includes(p.move?.kind);
+  ownBody=eyeView && firstPersonActive() && p.mode==='walk' && (!p.armed || striking) && !phoneHand?.amount &&
+    !sim.seat && !sim.ending && !sim.shopping.payment && (striking || !p.carry);
+  playerBody.setFirstPerson(ownBody ? camera : null);
+  mesh.visible=Boolean(ownBody || ((p.mode==='walk'||skating||riding||driving)&&!eyeView));
   // What the simulation has just begun is begun here too: a swing, a kick, a vault, a hand to a car door.
   const take=sim.room && !sim.seat && sim.doorway?.take;
-  if((p.swing||0)>playerSeen.swing+.1)animator.punch(Math.abs(p.speed)>1.2);
+  if((p.swing||0)>playerSeen.swing+.1)animator.punch(Math.abs(p.speed)>1.2,p.swingClip);
   playerSeen.swing=p.swing||0;
   const entering = ['door','breakIn','carjack'].includes(p.move?.kind);
-  const move = p.move?.approach?.length ? null : entering && p.move.t >= p.move.T-.20 ? 'getIn' : p.move?.kind || null;
-  if(move&&move!==playerSeen.move)animator.play(move,{fadeIn:.08,fadeOut:.18});
+  const move = p.move?.approach?.length ? null : entering && p.move.t >= p.move.T-.20 ? 'getIn' : p.move?.clip || p.move?.kind || null;
+  const traversing=move==='climb'||move==='vault';
+  if(move&&!traversing&&move!==playerSeen.move)animator.play(move,{fadeIn:.08,fadeOut:.18});
   playerSeen.move=move;
   const impact=playerSeen.grounded===false&&p.grounded!==false?-playerSeen.vy:0;
   playerSeen.grounded=p.grounded!==false;if(p.grounded===false)playerSeen.vy=p.vy||0;
   const arrest=sim.police?.arrest||0,ending=sim.ending?.kind||null;
-  const held=riding?'drive':ending==='wasted'||sim.health<=0?'death':ending==='busted'?'cuffed':arrest>.6?'kneel':arrest>.2?'handsUp':null;
+  const held=p.mode==='passenger'?'sit':riding||driving?'drive':ending==='wasted'||sim.health<=0?'death':ending==='busted'?'cuffed':arrest>.6?'kneel':arrest>.2?'handsUp':null;
   const seat=held?null:sim.seat;
   // The pistol: brought up while it is out, kicked by each shot, and a new magazine when the last round has gone.
-  const armed=Boolean(p.armed)&&p.mode==='walk'&&!held&&!seat&&!take;
+  const armed=Boolean(p.armed)&&p.mode==='walk'&&!held&&!seat&&!take&&!phoneHand?.amount;
   if(armed&&(p.firedAt||0)!==playerSeen.fired)animator.play('shoot',{rate:1.6,upperOnly:true,fadeIn:.03,fadeOut:.12});
   if(armed&&(p.reloading||0)>playerSeen.reloading+.5)animator.play('reload',{rate:1.25,upperOnly:true,fadeIn:.1,fadeOut:.2});
   playerSeen.fired=p.firedAt||0;playerSeen.reloading=p.reloading||0;
-  if(playerGun)playerGun.visible=armed;
-  const pose=animator.update(dt,{speed:p.mode==='walk'?(seat?.stepSpeed??p.speed):0,grounded:riding||p.grounded,guard:(p.guard||0)>0,aim:armed,sliding:(p.slide||0)>0,impact,held,seat});
-  if(!mesh.visible)return;
-  mesh.position.set(p.x,floor+(p.lift||0)+(riding?.25:0),p.z);mesh.rotation.y=p.angle;
-  playerBody.pose(fitPose(moves,playerBody.rig,take?.hand ? moves.sample('pickUp',take.clipTime,pose) : pose,playerFitted,seat));
+  if(playerGun)playerGun.visible=armed && !ownBody;
+  const pose=animator.update(dt,{walkStyle:p.walkStyle,speed:p.mode==='walk'?(seat?.stepSpeed??p.speed):0,grounded:riding||p.grounded,vy:p.vy,strideScale:playerBody.rig.stride,guard:(p.guard||0)>0,aim:armed && !ownBody,sliding:(p.slide||0)>0,impact,held,seat});
+  if(!mesh.visible && !(eyeView && (p.reaction || traversing)))return;
+  mesh.position.set(p.x,floor+(p.lift||0)+(riding?.25:0),p.z);mesh.rotation.set(0,p.angle,0);
+  const payment=sim.shopping.payment;
+  const carry=!p.reaction && p.mode==='walk' && !held && !take && !armed && !p.move && !p.swing ? (payment?'cash':p.carry) : null;
+  if(p.reaction && !ending)moves.sample(p.reaction.clip,p.reaction.time,pose);
+  else if(p.mode==='bike'){
+    moves.sample(p.speed<.18?'cycleStop':'cycle',bikePedal,pose);
+    mesh.position.y=floor;
+  }
+  else if(skating){
+    const clip=p.board.grind||p.board.manual?'skateBalance':!p.grounded?'skateOllie':p.board.pushing?'skatePush':'skateRoll';
+    moves.sample(clip,clip==='skateOllie'?clamp(p.board.airTime,0,.6):p.board.pushing?p.board.phase:sim.elapsed,pose);
+    const shift=-.065*p.board.manual;
+    mesh.position.x+=shift*Math.sin(p.angle);mesh.position.z+=shift*Math.cos(p.angle);
+    mesh.quaternion.copy(boardMesh.quaternion);mesh.rotateY(-Math.PI/2);
+    mesh.position.y+=.095-.075*p.board.landing-.20*p.board.load-.33*p.board.tuck;
+  }
+  else if(driving)moves.sample(held,sim.elapsed,pose);
+  else if(traversing)moves.sample(move,p.move.t/p.move.T*moves.clip(move).seconds,pose);
+  else if(take?.hand)moves.sample('pickUp',take.clipTime,pose);
+  const eating=mealMotion(carry),lift=eating?.lift||0;
+  const eatingPlate=eating && carry.startsWith('plate-');
+  fitPose(moves,playerBody.rig,pose,playerFitted,seat,carry,eatingPlate && !phoneHand?.amount?0:lift);
+  if(p.mode==='bike')fitCyclist(playerBody.rig,playerFitted,bikePedal*2*Math.PI/PEDAL_PERIOD,p.speed<.18);
+  playerBody.pose(playerFitted);
+  if(skating){
+    plantSkateFeet(playerBody,p);
+    if(p.board.grab){
+      boardMesh.localToWorld(skateTarget.set(p.board.grab*.10,.115+.31*p.board.tuck,.035));
+      reachWithHand(playerBody,p.board.grab<0?'l':'r',gripOffset,skateTarget);
+    }
+  }
+  playerItems.begin();
+  if(carry){
+    if(carry==='cash' && payment){
+      const hand=playerBody.bones[playerBody.rig.index.get('hand_l')];
+      hand.localToWorld(handStart.copy(cashPinch.fromArray(pinchOffset(playerBody.rig))));
+      cashTarget.set(payment.x,floor+1.12,payment.z);
+      cashTarget.lerp(handStart,1-.7*paymentReach(payment));
+      reachWithHand(playerBody,'l',cashPinch,cashTarget);
+    }
+    const hand=playerBody.bones[playerBody.rig.index.get('hand_l')];
+    const point=hand.localToWorld(gripHere.fromArray(gripOffsetFor(playerBody.rig,carry)));
+    playerItems.add(carry,mesh.worldToLocal(point),0);
+    if(eatingPlate && !phoneHand?.amount)eatFromPlate(playerBody,point,eating);
+    else if(carry==='fork' && eating?.loaded)playerItems.add('morsel',point,0,null,eating.color);
+  }
+  if(phoneHand?.amount && mesh.visible && !take && !traversing && !p.reaction && !ending){
+    const {bones,rig}=playerBody, head=bones[rig.index.get('Head')], palm=bones[rig.index.get('hand_r')];
+    head.rotateX(.14*phoneHand.amount);
+    for(const [i,q] of fingerPose(rig,'phone','r'))bones[i].quaternion.fromArray(q);
+    head.getWorldPosition(phoneTarget);mesh.worldToLocal(phoneTarget);
+    phoneTarget.x-=.14;phoneTarget.y-=.21;phoneTarget.z+=.31;
+    mesh.localToWorld(phoneTarget);
+    palm.localToWorld(phonePalm.copy(gripOffset));
+    phoneTarget.lerp(phonePalm,1-phoneHand.amount);
+    reachWithHand(playerBody,'r',gripOffset,phoneTarget);
+    phoneHand.inPalm(palm,rig.bones[rig.index.get('middle_01_r')].t,mesh);
+  }
+  if(traversing){
+    const t=p.move.t/p.move.T,grip=p.move.grip;
+    const w=Math.max(0,Math.min(1,t/.15,(.72-t)/.18));
+    const {bones,rig}=playerBody;
+    for(const side of (move==='climb'?['l','r']:['l'])){
+      const hand=bones[rig.index.get('hand_'+side)], offset=side==='l' ? .20 : -.20;
+      const edge=cashTarget.set(grip.x+Math.cos(p.angle)*offset,grip.y+.025,grip.z-Math.sin(p.angle)*offset);
+      const point=hand.localToWorld(handStart.copy(gripOffset));
+      edge.lerp(point,1-w);
+      reachWithHand(playerBody,side,gripOffset,edge);
+    }
+  }
   if(take?.hand) {
-    const {bones,rig}=playerBody, hand=bones[rig.index.get('hand_l')];
+    for(const [i,q] of fingerPose(playerBody.rig,'pinch'))playerBody.bones[i].quaternion.fromArray(q);
     cashTarget.set(take.hand.x,floor+take.hand.y,take.hand.z);
-    const elbow=bones[rig.index.get('lowerarm_l')], shoulder=bones[rig.index.get('upperarm_l')];
-    for(let i=0;i<3;i++){aimLimb(elbow,hand,gripOffset,cashTarget);aimLimb(shoulder,hand,gripOffset,cashTarget);}
+    reachWithHand(playerBody,'l',cashPinch.fromArray(pinchOffset(playerBody.rig)),cashTarget);
   }
 }
 
@@ -784,7 +961,7 @@ function showEnding() {
   const ending=sim.ending,kind=ending?.kind||null;
   if(kind===endingShown)return;
   endingShown=kind;
-  if(kind)interaction?.close();
+  if(kind){interaction?.close();phone?.setOpen(false);}
   const panel=$('ending');
   if(!panel)return;
   document.body?.classList?.toggle('ending-wasted',kind==='wasted');
@@ -801,20 +978,200 @@ function animatePerson(mesh,moving,time,speed=1) {
 }
 
 // Turn a posed limb towards a checkout target in the joint's own frame.
-const gripHere=new THREE.Vector3(), gripGoal=new THREE.Vector3(), gripTurn=new THREE.Quaternion();
+const handStart=new THREE.Vector3(), gripHere=new THREE.Vector3(), gripGoal=new THREE.Vector3(), gripTurn=new THREE.Quaternion();
 function aimLimb(joint, tip, offset, target){
   joint.worldToLocal(tip.localToWorld(gripHere.copy(offset)));
   joint.worldToLocal(gripGoal.copy(target));
   if(gripHere.lengthSq()>.00001 && gripGoal.lengthSq()>.00001)
     joint.quaternion.multiply(gripTurn.setFromUnitVectors(gripHere.normalize(),gripGoal.normalize()));
 }
+// Solve a two-link reach in the current bend plane. This preserves the elbow
+// direction of the animation, including on a short arm and near full extension.
+const shoulderAt=new THREE.Vector3(), elbowAt=new THREE.Vector3(), palmAt=new THREE.Vector3();
+const reachAxis=new THREE.Vector3(), bendAxis=new THREE.Vector3(), elbowGoal=new THREE.Vector3(), jointOrigin=new THREE.Vector3();
+function reachWithHand(body,side,offset,target){
+  const {bones,rig}=body, shoulder=bones[rig.index.get('upperarm_'+side)];
+  const elbow=bones[rig.index.get('lowerarm_'+side)], hand=bones[rig.index.get('hand_'+side)];
+  reachJointChain(shoulder,elbow,hand,offset,target);
+}
+function reachJointChain(shoulder,elbow,hand,offset,target){
+  shoulder.getWorldPosition(shoulderAt);elbow.getWorldPosition(elbowAt);
+  hand.localToWorld(palmAt.copy(offset));
+  const upper=elbowAt.distanceTo(shoulderAt), lower=palmAt.distanceTo(elbowAt);
+  reachAxis.subVectors(target,shoulderAt);
+  const gap=reachAxis.length();
+  if(gap<.0001) return;
+  reachAxis.divideScalar(gap);
+  bendAxis.subVectors(elbowAt,shoulderAt);
+  bendAxis.addScaledVector(reachAxis,-bendAxis.dot(reachAxis));
+  if(bendAxis.lengthSq()<1e-7){
+    bendAxis.set(0,-1,0);
+    if(Math.abs(reachAxis.y)>.95) bendAxis.set(1,0,0);
+    bendAxis.addScaledVector(reachAxis,-bendAxis.dot(reachAxis));
+  }
+  const d=clamp(gap,Math.abs(upper-lower)+.0001,upper+lower-.0001);
+  const along=(upper*upper-lower*lower+d*d)/(2*d);
+  elbowGoal.copy(shoulderAt).addScaledVector(reachAxis,along)
+    .addScaledVector(bendAxis.normalize(),Math.sqrt(Math.max(0,upper*upper-along*along)));
+  aimLimb(shoulder,elbow,jointOrigin,elbowGoal);
+  aimLimb(elbow,hand,offset,target);
+}
+const forkHead=new THREE.Vector3(),forkTarget=new THREE.Vector3(),forkAxis=new THREE.Vector3();
+const cashPinch=new THREE.Vector3(),forkTurn=new THREE.Quaternion(),forkUp=new THREE.Vector3(0,1,0);
+const biteColors={steak:0x955536,rice:0xe8ddbb,eggs:0xe6bc52,sushi:0xe29265,pizza:0xce8f45,pasta:0xd9a554};
+function mealMotion(item){
+  const meal=sim.shopping.eating;
+  if(!meal || meal.carry!==item)return null;
+  const phase=Math.max(0,sim.elapsed-meal.start)%2.25/2.25;
+  const travel=phase<.55?clamp((phase-.12)/.43,0,1):clamp((1-phase)/.36,0,1);
+  return {lift:travel*travel*(3-2*travel),loaded:phase>=.12 && phase<.58,color:biteColors[meal.style]??0xbf905f};
+}
+function paymentReach(payment){
+  return Math.sin(Math.PI*clamp((sim.elapsed-payment.start)/.72,0,1));
+}
+function eatFromPlate(body,plate,eating){
+  const lift=eating.lift;
+  const {mesh,bones,rig}=body;
+  for(const [i,q] of fingerPose(rig,'pinch','r'))bones[i].quaternion.fromArray(q);
+  const wrist=bones[rig.index.get('hand_r')],offset=cashPinch.fromArray(pinchOffset(rig,'r'));
+  mesh.worldToLocal(bones[rig.index.get('Head')].getWorldPosition(forkHead));
+  forkHead.z+=.102;forkHead.y+=.012;
+  forkAxis.set(.66-.5*lift,-.46+.84*lift,.58-1.42*lift).normalize();
+  forkTarget.copy(plate);forkTarget.y+=.047;
+  forkTarget.lerp(forkHead,lift).addScaledVector(forkAxis,-.126);
+  reachWithHand(body,'r',offset,mesh.localToWorld(forkTarget));
+  mesh.worldToLocal(wrist.localToWorld(forkTarget.copy(offset)));
+  playerItems.add('fork',forkTarget,0,forkTurn.setFromUnitVectors(forkUp,forkAxis));
+  if(eating.loaded)playerItems.add('morsel',forkTarget,0,forkTurn,eating.color);
+}
+
+const skateTarget = new THREE.Vector3(), skateRotation = new THREE.Quaternion(), skateParent = new THREE.Quaternion();
+function plantSkateFeet(body,p) {
+  const {rig,bones}=body, phase=p.board.phase;
+  for(const side of ['l','r']){
+    const ankleIndex=rig.index.get('foot_'+side), ankle=bones[ankleIndex];
+    let x=.045, y=.096, z=side==='l'?.20:-.20;
+    if(side===(p.board.pushFoot<0?'l':'r') && p.board.pushing){
+      const stroke=Math.sin(Math.PI*phase)**2;
+      x+=stroke*.26*p.board.pushFoot;
+      z+=.28*Math.sin(phase*Math.PI*2);
+      y+=phase<.54 ? -.096*Math.sin(Math.PI*phase/.54)**2 : .14*Math.sin(Math.PI*(phase-.54)/.46)**2;
+    }
+    if(side==='r' && p.board.braking){ x+=.22; y=0; z=-.23; }
+    if(!p.grounded && !p.board.grind){
+      const tuck=Math.sin(Math.PI*Math.min(1,p.board.airTime/.55));
+      y+=.14*tuck;z+=(side==='l'?1:-1)*.05*tuck;
+    }
+    y+=.31*p.board.tuck;
+    boardMesh.localToWorld(skateTarget.set(x,y+rig.world[ankleIndex].p[1],z));
+    body.mesh.getWorldQuaternion(skateRotation);
+    skateRotation.multiply(skateParent.fromArray(rig.world[ankleIndex].q));
+    reachJointChain(bones[rig.index.get('thigh_'+side)],bones[rig.index.get('calf_'+side)],ankle,jointOrigin,skateTarget);
+    ankle.parent.getWorldQuaternion(skateParent);
+    ankle.quaternion.copy(skateParent.invert().multiply(skateRotation));
+  }
+}
 const gripOffset=new THREE.Vector3(0,.075,0), simpleGrip=new THREE.Vector3(0,-.62,.008), cashTarget=new THREE.Vector3();
+
+// Officers need live hand and spine joints so their aim can follow a moving target.
+const barrelOrigin=new THREE.Vector3(), barrelTip=new THREE.Vector3(), sightTarget=new THREE.Vector3();
+const butt=new THREE.Vector3(0,-.025,.005);
+const supportShoulder=new THREE.Vector3(), supportElbow=new THREE.Vector3(), supportPalm=new THREE.Vector3(), handGoal=new THREE.Vector3();
+const firingWrist=new THREE.Quaternion(), wristParent=new THREE.Quaternion();
+function drawOfficers(dt,p,extras){
+  const officers=sim.police.officers.concat(sim.police.downOfficers);
+  for(const [id,model] of officerModels){
+    if(officers.some(officer=>officer.id===id)) continue;
+    scene.remove(model.body.mesh); model.body.dispose();
+    model.gun?.traverse(part=>{part.geometry?.dispose();part.material?.dispose();});
+    officerModels.delete(id);
+  }
+  for(const officer of officers){
+    const look=officer.look ??= patrolAppearance(officer.carId,officer.uniform,officer.unit), member=look.member, r=officer.reaction;
+    let model=officerModels.get(officer.id), built=uniformBuilds.get(member);
+    if(!model && !built && bodyShop){
+      uniformBuilds.set(member,'loading');
+      bodyShop.member(member,'near').then(result=>uniformBuilds.set(member,result))
+        .catch(()=>uniformBuilds.delete(member));
+    }
+    if(!model && built && built!=='loading'){
+      const body=createHumanMesh(built,built.look);
+      body.mesh.traverse(part=>part.layers.enable(ROOM_LAYER));scene.add(body.mesh);
+      model={body,gun:createGun(body),animator:createAnimator(moves),fitted:{q:[],pelvis:[0,0,0]}};
+      officerModels.set(officer.id,model);
+    }
+    if(!model){
+      extras.push({x:officer.x,y:officer.y||0,z:officer.z,heading:officer.angle,phase:officer.phase,
+        stride:officer.stride,look,member,clip:r?.clip || (officer.cuffing?'cuffing':officer.aiming?'aim':undefined),time:r?.time??elapsed});
+      continue;
+    }
+    const {body,gun,animator,fitted}=model, {mesh,bones,rig}=body;
+    mesh.visible=Boolean(crowd?.mesh.visible);
+    if(!mesh.visible) continue;
+    mesh.position.set(officer.x,officer.y||0,officer.z);mesh.rotation.y=officer.angle;
+    const pose=animator.update(dt,{walkStyle:castWalkStyle(member),speed:officer.speed,strideScale:rig.stride,grounded:!officer.airborne,vy:officer.vy,aim:officer.aiming,held:officer.cuffing?'cuffing':null});
+    if(r) moves.sample(r.clip,r.time,pose);
+    body.pose(fitPose(moves,rig,pose,fitted));
+    if(!gun) continue;
+    gun.visible=Boolean(officer.aiming && !officer.cuffing && !r);
+    if(!gun.visible) continue;
+    const spine=bones[rig.index.get('spine_02')];
+    // Turn the upper body around the spine; measure the barrel in that joint's space.
+    spine.worldToLocal(gun.getWorldPosition(barrelOrigin));
+    spine.worldToLocal(gun.localToWorld(barrelTip.set(0,0,1))).sub(barrelOrigin).normalize();
+    spine.worldToLocal(sightTarget.set(p.x,(p.y||0)+(sim.police.arrest>.6 ? .85 : 1.17),p.z)).sub(barrelOrigin).normalize();
+    gripTurn.setFromUnitVectors(barrelTip,sightTarget);
+    aimRotation.identity().rotateTowards(gripTurn,.95);
+    spine.quaternion.multiply(aimRotation);
+    gun.localToWorld(sightTarget.copy(butt));
+    // While the arms are coming up, bring the grip inside both arms' reach.
+    // Keep the firing wrist oriented as its elbow and shoulder change position.
+    bones[rig.index.get('upperarm_l')].getWorldPosition(supportShoulder);
+    bones[rig.index.get('lowerarm_l')].getWorldPosition(supportElbow);
+    bones[rig.index.get('hand_l')].localToWorld(supportPalm.copy(gripOffset));
+    const reach=supportShoulder.distanceTo(supportElbow)+supportElbow.distanceTo(supportPalm)-.025;
+    const gap=supportShoulder.distanceTo(sightTarget);
+    if(gap>reach){
+      const wrist=bones[rig.index.get('hand_r')];
+      wrist.getWorldQuaternion(firingWrist);
+      wrist.getWorldPosition(handGoal);
+      handGoal.addScaledVector(supportShoulder.sub(sightTarget),1-reach/gap);
+      reachWithHand(body,'r',jointOrigin,handGoal);
+      wrist.quaternion.copy(wrist.parent.getWorldQuaternion(wristParent).invert()).multiply(firingWrist);
+      gun.localToWorld(sightTarget.copy(butt));
+    }
+    reachWithHand(body,'l',gripOffset,sightTarget);
+  }
+}
+const aimRotation=new THREE.Quaternion();
+
+let nextShopDrive = 0;
+function updateShoppingDrivers() {
+  const stores=[];
+  for (const view of storefronts.rooms) {
+    if (view.closed || !view.menu?.length || !shopOpen(view.plan.place)) continue;
+    const {x,z,nx,nz}=view.plan;
+    stores.push({id:view.plan.place.id,x,z,nx,nz,y:view.floor});
+  }
+  crowd.updateShoppingDrivers(sim,availableKerbParking(),stores,driverAppearance);
+}
 
 function syncScene(dt,controls) {
   const p=sim.player, eyeView=firstPersonActive() || focusedAim();
-  const cycling=p.mode==='bike';
+  const cycling=p.mode==='bike', skating=p.mode==='skate';
+  if(boardMesh){
+    boardMesh.visible=skating;
+    if(skating){
+      const wheelLift=p.grounded ? .246*Math.abs(Math.sin(p.board.pop)) : 0;
+      boardMesh.position.set(p.x,p.y+wheelLift,p.z);
+      boardMesh.userData.deck.position.y=.096+.31*p.board.tuck;
+      boardMesh.rotation.set(p.board.pitch+p.board.pop,p.angle+p.board.spin+(p.board.switch?Math.PI:0),p.board.lean);
+      boardMesh.userData.deck.rotation.set(0,p.board.shove,p.board.roll);
+    }
+  }
   const ride=sim.transport.active, type=ride?.home.type;
   const openRide=type==='scooter'||type==='motorcycle'||type==='kayak';
+  phoneHand?.advance(dt,Boolean(phone?.open && !sim.ending),phone?.pressPhase==='pressing',firstPersonActive());
   transportScene.update(p,elapsed,started&&!cityView,eyeView);
   if(bikeDocks){
     const id=sim.bike?.id??null;
@@ -822,6 +1179,8 @@ function syncScene(dt,controls) {
     bikeDocks.rental.visible=Boolean(sim.bike);
     if(sim.bike){
       const at=cycling?p:sim.bike;
+      if(cycling){bikeDocks.rental.scale.setScalar((playerBody?.rig.height||PLAYER_LOOK.height||1.76)/1.76);bikeWheel+=dt*p.speed/(.345*bikeDocks.rental.scale.x);bikePedal+=dt*Math.min(1.55,Math.abs(p.speed)/4.3);}
+      bikeDocks.pedal(bikeWheel,bikePedal*2*Math.PI/PEDAL_PERIOD);
       bikeDocks.rental.position.set(at.x,at.y,at.z);bikeDocks.rental.rotation.y=at.angle;
     }
   }
@@ -831,14 +1190,21 @@ function syncScene(dt,controls) {
   storefronts?.setActive(occupiedRoom||null);
   roomGroup=occupiedRoom?.group||null;
   if(roomGroup)roomGroup.userData.floorY=occupiedRoom.floor;
-  if(driverCabin)driverCabin.group.visible=eyeView&&p.mode==='drive';
   // Kerbside cars are drawn together, and so is traffic more than a few car
   // lengths off. The player's car, a patrol, a car left standing in the road
   // and whatever traffic is close by each have a model of their own, with
   // wheels that turn and steer.
+  if (started && !cityView && !paused && !mapOpen && storefronts && crowd && (sim.elapsed>=nextShopDrive || nextShopDrive-sim.elapsed>2)) {
+    nextShopDrive=sim.elapsed+1;
+    updateShoppingDrivers();
+  }
   const activeCars=new Set(), batchedParked=[];distantCars.length=0;
   for(const car of sim.cars){
     const away=Math.hypot(car.x-p.x,car.z-p.z);
+    // The batches show intact, closed windows. Keep cracked, missing and open panes on the articulated car.
+    if(away<CAR_SIGHT && hasAlteredGlazing(car)){
+      activeCars.add(car.id);continue;
+    }
     if(car._kerb && away > (carModels.has(car.id) ? 14 : 10) && !(car.damage && away < MODEL_RANGE)){
       batchedParked.push(car);continue;
     }
@@ -847,23 +1213,42 @@ function syncScene(dt,controls) {
   }
   for(const [id,mesh] of carModels)if(!activeCars.has(id)){scene.remove(mesh);carModels.delete(id);}
   parkedCars?.update(batchedParked);
-  distantTraffic?.update(distantCars);
+  const extras=[], pedestrians=[];
+  if(bikeTraffic){
+    bikeTraffic.update(p,dt,{visible:started&&!cityView&&!aloft&&!traveling,
+      player:p,cars:sim.cars,people:crowd?.people,junctions:sim.junctions,hours:gfx.hours,time:sim.elapsed,
+      contactCar:(x,z,y)=>sim._nearCar(x,z,.30,null,y),
+      blocked:(x,z,y)=>sim.isBlocked(x,z,.35,{baseHeight:y})});
+    extras.push(...bikeTraffic.figures);
+    pedestrians.push(...bikeTraffic.riders);
+  }
+  function drawDriver(car,seat){
+    if(!crowd?.mesh.visible)return false;
+    const look=driverAppearance(car), scale=look.height/1.76, ahead=.31*scale;
+    extras.push({x:seat.x+Math.sin(car.angle)*ahead,y:seat.y-.54*scale,
+      z:seat.z+Math.cos(car.angle)*ahead,heading:car.angle,look,clip:'drive',carry:car.onPhone?'phone':null,sitting:true,time:elapsed});
+    return true;
+  }
+  distantTraffic?.update(distantCars,drawDriver);
   // Bags are at the kerb from the evening before a collection day until the truck has been the next morning.
-  if(gfx&&trashMesh){if(clockWas!==null&&gfx.hours<clockWas-12)weekday=(weekday+1)%7;clockWas=gfx.hours;trashMesh.show(weekday,gfx.hours);if(cityView&&!viewOverride)trashMesh.mesh.visible=false;}
+  if(gfx){if(clockWas!==null&&gfx.hours<clockWas-12)weekday=(weekday+1)%7;clockWas=gfx.hours;work?.advanceShopClock(weekday,gfx.hours);trashMesh?.show(weekday,gfx.hours);if(trashMesh&&cityView&&!viewOverride)trashMesh.mesh.visible=false;}
   // Once the modelled figures are in, the player and whoever is serving are drawn as two of them.
   const modelled=Boolean(crowd?.modelled),pace=Math.abs(p.speed);
-  const playerFloor=roomGroup?.userData.floorY??p.y??0;
-  const extras=[];
+  const playerFloor=p.y??roomGroup?.userData.floorY??0;
   if(storefronts)for(const view of storefronts.rooms){
+    if(view.plan.grocerySlots)view.shopping=sim.shopping;
+    view.group.userData.syncGroceries?.(sim.shopping,sim.room?.place.id===view.plan.place.id || Math.hypot(p.x-view.plan.x,p.z-view.plan.z)<14);
+    view.nearbyPeople=crowd?.nearbyPeople;
     view.door.step(dt);view.group.userData.updateDoor();
-    if(!mapOpen&&!paused&&!phone?.open&&!interaction?.open&&!aerialView&&!cityView&&!viewOverride&&!traveling&&started){
-      updateClerk(view,sim,yaw,eyeView?headPitch:0,dt,work,{
+    if(!mapOpen&&!paused&&!aerialView&&!cityView&&!viewOverride&&!traveling&&started){
+      stepCounterOrder(sim,view,dt);
+      if(!interaction?.open)updateClerk(view,sim,yaw,eyeView?headPitch:0,dt,work,{
         outside:actor=>crowd.fleeOntoStreet(actor),palm:actor=>crowd.palm(actor),firstPerson:eyeView,
         playerHand:()=>{
           const hand=playerBody?.bones[playerBody.rig.index.get('hand_l')];
           const joint=hand || (avatar.visible && avatar.userData.arms?.[1]);
           if(!joint)return null;
-          const point=joint.localToWorld(gripHere.copy(hand?gripOffset:simpleGrip));
+          const point=joint.localToWorld(hand?gripHere.fromArray(pinchOffset(playerBody.rig)):gripHere.copy(simpleGrip));
           return {x:point.x,y:point.y-view.floor,z:point.z};
         }
       });
@@ -874,46 +1259,42 @@ function syncScene(dt,controls) {
         actor.time = sim.elapsed * actor.spot.cadence + actor.spot.offset;
         actor.clip = 'jog'; actor.stride = 1; actor.phase = actor.time * 7;
       }
+      actor.suspendCarry=Boolean(actor===view.clerk && view.handoff);
       actor.y = view.floor + (actor.sitting ? 0 : actor.lift);
-      extras.push(actor);
+      extras.push(actor);pedestrians.push(actor);
     }
-    if(dt&&started&&!cityView&&!aerialView&&shopOpen(view.plan.place))inviteCustomer(view,crowd.people,sim.elapsed,(shop,price)=>work.sale(shop,price));
+    if(dt&&started&&!cityView&&!aerialView&&shopOpen(view.plan.place))inviteCustomer(view,crowd.people,sim.elapsed,(shop,price)=>work.sale(shop,price,'customer'),()=>sim.seat);
   }
-  playerStride+=pace*Math.min(.1,Math.max(0,elapsed-strideClock))*3.3;strideClock=elapsed;
+  playerStride+=pace*Math.min(.25,Math.max(0,elapsed-strideClock))*3.3;strideClock=elapsed;
   {
     // Diners sit out from late morning until the kitchens close.
     const bystanders=sim.bystanders;
     bystanders.length=0;
+    if(subwayVisit)bystanders.push(...subwayVisit.actors);
     if(gfx.hours>=11&&gfx.hours<23)for(const diner of diners)if(!(diner.absentUntil>sim.elapsed) && (!sim.seat||Math.hypot(sim.seat.x-diner.x,sim.seat.z-diner.z)>.2))bystanders.push(diner);
     // A newsstand is minded from before dawn; a fruit cart through the day.
     for(const vendor of vendors)if(!(vendor.absentUntil>sim.elapsed) && (vendor.fruit?gfx.hours>=7&&gfx.hours<20:gfx.hours>=5&&gfx.hours<23))bystanders.push(vendor);
-    extras.push(...bystanders);
+    extras.push(...bystanders);pedestrians.push(...bystanders);
   }
   if(modelled){
     if(p.mode==='walk'&&!eyeView&&!playerBody){
       const lunging=(p.swing||0)>0;
-      extras.push({x:p.x+Math.sin(p.angle)*(lunging?0.45:0),y:playerFloor,z:p.z+Math.cos(p.angle)*(lunging?0.45:0),heading:p.angle,phase:lunging?1.2:playerStride,stride:lunging?0.2:Math.min(1,pace/1.2),sitting:Boolean(sim.seat),seat:sim.seat,clip:sim.doorway?.take?'pickUp':null,time:sim.doorway?.take?.clipTime,look:PLAYER_LOOK});
+      extras.push({x:p.x+Math.sin(p.angle)*(lunging?0.45:0),y:playerFloor,z:p.z+Math.cos(p.angle)*(lunging?0.45:0),heading:p.angle,phase:lunging?1.2:playerStride,stride:lunging?0.2:Math.min(1,pace/1.2),sitting:Boolean(sim.seat),seat:sim.seat,clip:sim.doorway?.take?'pickUp':null,time:sim.doorway?.take?.clipTime,look:PLAYER_LOOK,subway:Boolean(subwayVisit)});
     }
-    if(cycling&&!eyeView&&!playerBody)extras.push({x:p.x-.28*Math.sin(p.angle),y:playerFloor+.52,z:p.z-.28*Math.cos(p.angle),heading:p.angle,cycling:true,phase:playerStride*.42,look:PLAYER_LOOK});
+    if(cycling&&!eyeView&&!playerBody)extras.push({x:p.x,y:playerFloor,z:p.z,heading:p.angle,cycling:true,clip:p.speed<.18?'cycleStop':'cycle',time:bikePedal,phase:bikePedal*2*Math.PI/PEDAL_PERIOD,look:PLAYER_LOOK});
     if(openRide&&!eyeView&&!playerBody){
       const offset=type==='motorcycle'?-.38:type==='kayak'?-.24:0;
       extras.push({x:p.x+Math.sin(p.angle)*offset,z:p.z+Math.cos(p.angle)*offset,
         y:p.y+(type==='kayak' ? -.20 : type==='motorcycle' ? .34 : .22),heading:p.angle,sitting:type!=='scooter',look:PLAYER_LOOK});
     }
-    // Officers out of their cars are drawn the same way, in uniform.
-    for(const officer of sim.police.officers){const cuffing=(sim.police.arrest||0)>.5&&Math.hypot(officer.x-p.x,officer.z-p.z)<2.2;extras.push({x:officer.x,y:officer.y||0,z:officer.z,heading:officer.angle,phase:officer.phase,stride:officer.stride,look:OFFICER_LOOK,member:OFFICER_CAST<0?undefined:OFFICER_CAST,clip:cuffing?'cuffing':officer.aiming?'aim':(officer.stride||0)>.6?'jog':undefined,time:cuffing||officer.aiming?elapsed:(officer.phase||0)/6.2832*.93});}
   }
   if(!modelled&&sim.seat&&!eyeView&&!playerBody)extras.push({x:p.x,y:playerFloor,z:p.z,heading:p.angle,sitting:true,seat:sim.seat,look:PLAYER_LOOK});
-  crowd?.setExtras(extras);
-  // Until the modelled figures are in, officers are drawn as the plain figure the player is.
-  for(const [id,mesh] of officerModels)if(modelled||!sim.police.officers.some(officer=>officer.id===id)){scene.remove(mesh);officerModels.delete(id);}
-  if(!modelled)for(const officer of sim.police.officers){
-    let mesh=officerModels.get(officer.id);
-    if(!mesh){mesh=createPerson(0x1b2a4a);officerModels.set(officer.id,mesh);scene.add(mesh);}
-    mesh.position.set(officer.x,officer.y||0,officer.z);mesh.rotation.y=officer.angle;animatePerson(mesh,officer.speed>.1,elapsed,officer.speed/3);
-  }
+  policeScene.drawDetails(started && !cityView && !aloft && !traveling, paused || mapOpen ? 0 : dt,
+    {ground:groundHeight,blocked:(x,z)=>sim.isBlocked(x,z,.33),people:crowd?.people || [],player:p,waterLevel:WATER_LEVEL,
+      incident:sim.heat>0 ? sim.police.lastKnown : null},extras,pedestrians,sim.police);
+  drawOfficers(dt,p,extras);
   policeScene.update(sim.police,elapsed,started&&!cityView);
-  avatar.visible=(p.mode==='walk'||cycling||openRide)&&!sim.seat&&!modelled&&!eyeView;avatar.position.set(p.x,playerFloor,p.z);avatar.rotation.y=p.angle;
+  avatar.visible=(skating||(p.mode==='walk'||cycling||openRide)&&!modelled)&&!sim.seat&&!eyeView;avatar.position.set(p.x,playerFloor,p.z);avatar.rotation.y=p.angle;
   animatePerson(avatar,Math.abs(p.speed)>.1,elapsed,Math.abs(p.speed)/3);
   const take=sim.room && !sim.seat && sim.doorway?.take;
   if(avatar.visible && avatar.userData.arms?.[1]){
@@ -921,6 +1302,7 @@ function syncScene(dt,controls) {
     arm.rotation.y=0; arm.rotation.z=.07;
     if(take?.hand)aimLimb(arm,arm,simpleGrip,cashTarget.set(take.hand.x,playerFloor+take.hand.y,take.hand.z));
   }
+  if(skating && avatar.visible){avatar.rotation.y-=Math.PI/2;avatar.position.y+=.09;}
   if(playerBody&&animator){avatar.visible=false;showPlayer(dt,p,playerFloor,eyeView,cycling||openRide);}
   if(cycling&&!modelled){
     avatar.position.x-=.28*Math.sin(p.angle);avatar.position.z-=.28*Math.cos(p.angle);avatar.position.y+=.1;
@@ -934,22 +1316,40 @@ function syncScene(dt,controls) {
     avatar.userData.legs.forEach(leg=>{leg.rotation.x=seated?-1.05:0;});
     avatar.userData.arms.forEach(arm=>{arm.rotation.x=-.84;});
   }
+  if(phoneHand?.amount && !eyeView && !playerBody && (p.mode==='walk'||cycling||openRide)){
+    const lift=phoneHand.amount, arm=avatar.visible && avatar.userData.arms?.[0];
+    if(arm){
+      arm.rotation.x-=1.5*lift;
+      arm.localToWorld(phonePalm.set(0,-.60,.02));avatar.worldToLocal(phonePalm);
+      phoneHand.hold(avatar,phonePalm.x,phonePalm.y+.05,phonePalm.z,false);
+    } else {
+      const height=(sim.seat?seatHeight(sim.seat)+.62:1.18)+.17*lift;
+      phoneTarget.set(-.16,height,.24*lift).applyAxisAngle(THREE.Object3D.DEFAULT_UP,p.angle);
+      phoneHand.hold(scene,p.x+phoneTarget.x,playerFloor+phoneTarget.y,p.z+phoneTarget.z);
+      phoneHand.group.rotation.y+=p.angle;
+    }
+  }
   for(const car of sim.cars){
     if(!activeCars.has(car.id))continue;
     let mesh=carModels.get(car.id);
     const model=vehicleMeshes.get(car.identity?.asset);
-    if(!mesh||mesh.name!==car.type||mesh.userData.model!==model||mesh.userData.tint!==car.color||mesh.userData.given!==(car.shape??null)){
+    if(!mesh||mesh.name!==car.type||mesh.userData.unit!==(car.unit || 'patrol')||mesh.userData.model!==model||mesh.userData.tint!==car.color||mesh.userData.given!==(car.shape??null)||mesh.userData.plate!==plateFor(car).text||mesh.userData.rims!==(car.rims??null)){
       if(mesh)scene.remove(mesh);
-      mesh=createCar({type:car.type,color:car.color,seed:car.id,shape:car.shape,model});
+      mesh=createCar({type:car.type,unit:car.unit,color:car.color,seed:car.id,shape:car.shape,model,plate:plateFor(car),rims:car.rims??null});
       carModels.set(car.id,mesh);scene.add(mesh);
     }
-    mesh.visible=Math.hypot(car.x-p.x,car.z-p.z)<CAR_SIGHT&&!(eyeView&&car.id===p.vehicleId);
+    mesh.visible=Math.hypot(car.x-p.x,car.z-p.z)<CAR_SIGHT;
     const previousDoors = mesh.userData.missingDoors ?? car.missingDoors ?? 0;
     for (const [i,bit] of [1,2].entries()) if ((car.missingDoors & bit) && !(previousDoors & bit)) {
       doorDebris?.detach(mesh.userData.detail.doors[i],car,i === 0 ? 1 : -1);
     }
     mesh.userData.missingDoors = car.missingDoors || 0;
     updateCarVisuals(mesh,car,dt);
+    if(phoneHand?.amount && !playerBody?.mesh.visible && car.id===p.vehicleId && !eyeView && mesh.userData.detail?.driver){
+      const lift=phoneHand.amount;
+      cabinSeatPoint(mesh.userData.detail.driver,car.passengerSeat,phonePalm.set(-.12,.56+.47*lift,.05+.23*lift));
+      mesh.worldToLocal(phonePalm);phoneHand.hold(mesh,phonePalm.x,phonePalm.y,phonePalm.z);
+    }
     // A car that has been hit smokes, the more the worse it is, and throws bits off when it is hit.
     const harm=car.damage||0;
     if(car.destroyed && blastSeen.get(car)!==car.explodedAt && sim.elapsed-car.explodedAt < 1 && Math.hypot(car.x-p.x,car.z-p.z)<CAR_SIGHT) {
@@ -960,24 +1360,53 @@ function syncScene(dt,controls) {
     if(harm>.45 && (mesh.visible || car.controlled) && (!car.destroyed || sim.elapsed-car.explodedAt < 18))smoking.push({burning:car.burningSince!=null,id:car.id,x:car.x,y:car.y||0,z:car.z,angle:car.angle,amount:Math.min(1,(harm-.45)/.5),vx:car.velocityX||0,vz:car.velocityZ||0});
     if(car.struckAt&&struckSeen.get(car.id)!==car.struckAt){struckSeen.set(car.id,car.struckAt);carSmoke?.burst(car.x,(car.y||0)+.7,car.z,9);}
     if(mesh.userData.update)mesh.userData.update(elapsed,car,sim.heat);
+    const driver=mesh.userData.detail?.driver;
+    if(p.mode==='passenger' && car.id===p.vehicleId && playerBody?.mesh.visible && driver){
+      const body=playerBody.mesh;
+      cabinSeatPoint(driver,car.passengerSeat,driverSeat.set(0,.56,0));
+      driver.getWorldQuaternion(body.quaternion);
+      playerBody.bones[playerBody.rig.index.get('pelvis')].getWorldPosition(hipAt);
+      body.position.add(driverSeat.sub(hipAt));
+    }
+    if(car.controlled && eyeView && driver){
+      driver.visible=false;
+    } else if(car.controlled && playerBody && driver){
+      driver.visible=false;
+      if(playerBody.mesh.visible){
+        const body=playerBody.mesh;
+        driver.localToWorld(driverSeat.set(0,.56,0));
+        driver.getWorldQuaternion(body.quaternion);
+        playerBody.bones[playerBody.rig.index.get('pelvis')].getWorldPosition(hipAt);
+        body.position.add(driverSeat.sub(hipAt));
+        for (const side of ['l','r']) {
+          if (side==='r' && phoneHand?.amount) continue;
+          const rim=driver.localToWorld(cashTarget.set(side==='l'?.14:-.14,.92,.30));
+          reachWithHand(playerBody,side,gripOffset,rim);
+        }
+      }
+    } else if(driver?.visible && mesh.visible && crowd?.mesh.visible){
+      driver.localToWorld(driverSeat.set(0,.56,0));
+      driver.visible=!drawDriver(car,driverSeat);
+    }
     // Scene factories may expose lamp meshes for a lightweight police flash.
     if(car.type==='police')for(const [i,light] of (mesh.userData.lights||[]).entries()){
       light.visible=!car.destroyed;
       if(light.material)light.material.emissiveIntensity=sim.heat>.1?(Math.sin(elapsed*14+i*Math.PI)>0?3:.1):.15;
     }
   }
+  crowd?.setExtras(extras,pedestrians);
   if(sim.mission.phase==='active'&&sim.mission.target){
     marker.visible=true;marker.position.set(sim.mission.target.x,groundHeight(sim.mission.target.x,sim.mission.target.z),sim.mission.target.z);markerDiamond.rotation.y=elapsed*.7;markerDiamond.position.y=5+Math.sin(elapsed*2)*.3;
   }else marker.visible=false;
-  const nearCar=sim.getNearbyCar(),boarding=sim.transport.nearby(),near=boarding?.entrance||sim.getNearbyBike(nearCar)||nearCar;
+  const nearCar=sim.getNearbyCar(),boarding=sim.transport.nearby(),near=(cityRides?.trip?.phase==='waiting' && cityRides.trip.car) || boarding?.entrance||sim.getNearbyBike(nearCar)||nearCar;
   enterHint.visible=p.mode==='walk'&&!!near&&started&&!eyeView;
   if(near)enterHint.position.set(near.x,(near.y??groundHeight(near.x,near.z))+3+Math.sin(elapsed*2)*.15,near.z);
 
 }
 
 function updateFirstPerson(look,vertical){
-  const p=sim.player, driving=p.mode==='drive';
-  const ride=sim.transport.active, anchor=ride??(driving?p.vehicleId:p.mode==='bike'?sim.bike:sim.seat??null);
+  const p=sim.player, driving=p.mode==='drive'||p.mode==='passenger';
+  const ride=sim.transport.active, anchor=ride??(driving?p.vehicleId:p.mode==='bike'?sim.bike:p.mode==='skate'?p.board:sim.seat??null);
   if(headAnchor!==anchor){
     if(sim.seat||headAnchor?.seatKind){headTurn=clamp(angleDifference(yaw,p.angle),-1.95,1.95);}
     else{yaw=p.angle;headTurn=0;headPitch=0;}
@@ -986,18 +1415,17 @@ function updateFirstPerson(look,vertical){
   if(paused||traveling){look=0;vertical=0;}
   headPitch=clamp(headPitch+vertical,driving?-.9:-1.4,driving?1.05:1.4);
   if(driving){
-    headTurn=clamp(headTurn+look,-1.95,1.95);
+    headTurn=clamp(headTurn+look,-2.8,2.8);
     yaw=p.angle+headTurn;
-    driverCabin??=createDriverCabin(scene);
-    driverCabin.placeCamera(camera,carModels.get(p.vehicleId),headTurn,headPitch);
+    placeDriverCamera(camera,carModels.get(p.vehicleId),headTurn,headPitch,p.mode==='passenger' && cityRides?.trip?.car.passengerSeat);
   }else if(ride){
     const [height,forward]=ride.spec.eye;
     headTurn=clamp(headTurn+look,-2.2,2.2);yaw=p.angle+headTurn;
     camera.position.set(p.x+Math.sin(p.angle)*forward,p.y+height,p.z+Math.cos(p.angle)*forward);
     camera.rotation.set(-headPitch-ride.pitch,Math.PI+yaw,-ride.roll*.5,'YXZ');
   }else{
-    if(p.mode==='bike'||sim.seat){headTurn=clamp(headTurn+look,-1.95,1.95);yaw=p.angle+headTurn;}
-    else{yaw+=look;if(!sim.seat)p.angle=yaw;}
+    if(p.mode==='bike'||p.mode==='skate'||sim.seat){headTurn=clamp(headTurn+look,-1.95,1.95);yaw=p.angle+headTurn;}
+    else{yaw+=look;if(!p.reaction && !p.move)p.angle=yaw;}
     const take=sim.room&&!sim.seat&&sim.doorway?.take;
     if(take && !look && !vertical){
       const dx=take.source.x-p.x,dz=take.source.z-p.z;
@@ -1006,20 +1434,63 @@ function updateFirstPerson(look,vertical){
       headPitch+=align*(Math.atan2(1.64-take.source.y,Math.hypot(dx,dz))-headPitch);
       p.angle=yaw;take.cameraAge=take.age;
     }
-    const floor=sim.room&&roomGroup?roomGroup.userData.floorY:p.y;
+    const floor=p.y??roomGroup?.userData.floorY;
     const height=playerBody?.rig.height??PLAYER_LOOK.height;
     camera.position.set(p.x,(floor??0)+height-.12+seatEyeOffset(sim.seat,height),p.z);
-    camera.rotation.set(-headPitch,Math.PI+yaw,0,'YXZ');
+    if(ownBody && playerBody?.mesh.visible && p.mode==='walk'){
+      // Look input is consumed after posing. Turn the drawn body on this frame
+      // before reading its fitted eye sockets, including on a fast mouse turn.
+      const mesh=playerBody.mesh;
+      mesh.rotation.y=p.angle;
+      playerBody.eyePosition(eyeGoal);
+      const dx=eyeGoal.x-p.x, dz=eyeGoal.z-p.z, reach=Math.hypot(dx,dz);
+      if(reach>.24 && (sim.room || subwayVisit || sim.isBlocked(eyeGoal.x,eyeGoal.z,.2))){
+        // At a wall keep the leaning body and its eye together inside the
+        // player's collision footprint. showPlayer sets the root anew each frame.
+        const excess=(reach-.24)/reach;
+        mesh.position.x-=dx*excess; mesh.position.z-=dz*excess;
+        eyeGoal.x-=dx*excess; eyeGoal.z-=dz*excess;
+      }
+      camera.position.copy(eyeGoal);
+    }
+    if(p.mode==='skate'){
+      camera.position.y-=(p.board.pushing ? .04 : 0)+.075*p.board.landing;
+    }
+    let fall=0;
+    if(p.reaction?.fall || p.move?.grip){
+      const head=playerBody?.bones[playerBody.rig.index.get('Head')];
+      if(head && !ownBody){
+        head.getWorldPosition(handStart);
+        camera.position.y=Math.max((floor??0)+.16,handStart.y+.06);
+      }
+      const r=p.reaction;
+      if(r?.fall) fall=Math.sin(r.angle)*(1-Math.min(1,r.recover/1.5));
+    }
+    let sightPitch=headPitch;
+    if(p.mode==='walk' && !sim.seat && !p.reaction && !phoneHand?.amount){
+      const move=p.move;
+      if(move && ['kick','lowKick','stomp'].includes(move.kind)){
+        const progress=move.t/move.T, dip=move.kind==='stomp'?1.22:move.kind==='lowKick'?.94:.40;
+        const weight=Math.sin(Math.PI*Math.min(1,progress))**2;
+        sightPitch+=Math.max(0,dip-headPitch)*weight;
+      }
+    }
+    camera.rotation.set(-sightPitch+fall*.3,Math.PI+yaw,p.mode==='skate' ? -.24*p.board.lean : 0,'YXZ');
   }
   camera.near=.07;camera.fov=70;camera.updateProjectionMatrix();
   chaseHeight=null;chaseEyeOffset=null;snapChase=true;
 }
 
 function updateCamera(dt) {
-  const p=sim.player,driving=p.mode==='drive';
+  const p=sim.player,driving=p.mode==='drive'||p.mode==='passenger';
   const indoorView=started&&sim.room&&!aerialView&&!cityView;
   // Indoors the room is drawn, and the street with it: it is there to be seen through the doorway and the windows.
-  camera.layers.set(indoorView?ROOM_LAYER:0);if(indoorView)camera.layers.enable(0);
+  camera.layers.set(0);
+  if(indoorView)camera.layers.enable(ROOM_LAYER);
+  if(subwayVisit && !aerialView && !cityView){
+    if(subwayVisit.enclosed)camera.layers.set(SUBWAY_LAYER);
+    else camera.layers.enable(SUBWAY_LAYER);
+  }
   // And the building's own wall is left out where the room's front is.
   if(indoorView&&roomGroup){const room=sim.room;shared.uNycRoom.value.set(room.x,roomGroup.userData.floorY,room.z,1);shared.uNycRoomSide.value.set(room.nx,room.nz,room.width/2,0);}else shared.uNycRoom.value.w=0;
   if(viewOverride){
@@ -1080,9 +1551,19 @@ function updateCamera(dt) {
   }
   if(firstPerson){updateFirstPerson(look,vertical);return;}
   yaw+=look;pitch=clamp(pitch+vertical,.17,.85);lookIdle=look||vertical?0:lookIdle+dt;
+  if(subwayVisit){
+    const eye=p.y+1.38,cabinEye=subwayVisit.cabinEye(yaw,pitch,eye);
+    const back=cabinEye?0:subwayVisit.cameraReach(yaw,pitch,eye);
+    const sin=Math.sin(yaw),cos=Math.cos(yaw);
+    if(cabinEye)camera.position.set(cabinEye.x,cabinEye.y,cabinEye.z);
+    else camera.position.set(p.x-sin*back,eye+Math.sin(pitch)*back,p.z-cos*back);
+    camera.lookAt(p.x+sin*.28,eye,p.z+cos*.28);
+    camera.near=.035;camera.fov=57;camera.updateProjectionMatrix();
+    chaseHeight=null;chaseEyeOffset=null;return;
+  }
   if(indoorView){
     const room=sim.room,floor=roomGroup?.userData.floorY??p.y??0;
-    const targetHeight=1.45+seatEyeOffset(sim.seat,PLAYER_LOOK.height);
+    const targetHeight=1.45+(p.y??floor)-floor+seatEyeOffset(sim.seat,playerBody?.rig.height??PLAYER_LOOK.height);
     const sin=Math.sin(yaw),cos=Math.cos(yaw);
     const db=sin*room.nx+cos*room.nz,da=-(sin*room.tx+cos*room.tz)-(room.skew||0)*db;
     // Follow the sightline back from the player until a wall or tall fixture
@@ -1111,7 +1592,7 @@ function updateCamera(dt) {
   // releasing the mouse does not abruptly pull the camera behind the car.
   const chaseAssist=clamp((lookIdle-1.1)/.65,0,1), speed=Math.abs(p.speed);
   const ride=sim.transport.active;
-  if((driving||p.mode==='bike'||ride)&&(speed>.25||ride?.spec.kind==='rotor')){
+  if((driving||p.mode==='bike'||p.mode==='skate'||ride)&&(speed>.25||ride?.spec.kind==='rotor')){
     const headingRate=7+4*clamp(speed/22,0,1);
     yaw+=angleDifference(p.angle,yaw)*(1-Math.exp(-dt*headingRate*chaseAssist));
   }
@@ -1138,7 +1619,7 @@ function updateCamera(dt) {
   }else chaseLookAhead.set(0,0,0);
   const doorwayDistance=sim.doorway?Math.hypot(p.x-sim.doorway.plan.x,p.z-sim.doorway.plan.z):Infinity;
   const distance=ride?ride.spec.view*(farCamera?1.48:1):driving?(farCamera?14:9.3):Math.min(farCamera?10:6.5,Math.max(.03,doorwayDistance-.15)*1.4);
-  const aimHeight=ride?Math.max(.8,ride.spec.eye[0]*.75):driving?1.1:1.45+seatEyeOffset(sim.seat,PLAYER_LOOK.height);
+  const aimHeight=ride?Math.max(.8,ride.spec.eye[0]*.75):driving?1.1:1.45+seatEyeOffset(sim.seat,playerBody?.rig.height??PLAYER_LOOK.height);
   const cameraContact=(x,z,d)=>sim.isBlocked(x,z,.2,{ignoreWater:true,baseHeight:ride?p.y+aimHeight+Math.sin(pitch)*d:undefined});
   let safeDistance=distance;
   // Pull the chase camera forward before its sightline crosses a facade.
@@ -1205,7 +1686,11 @@ function frame(now) {
     // Nobody steers a player they cannot see: they stand where they were put until the shot comes down.
     if(switchShot.active)controls={forward:0,turn:0,brake:false,run:false,moveX:0,moveZ:0};
     if(switchShot.active!==switchShotLive){switchShotLive=switchShot.active;for(const id of ['hud','mission-panel','wanted','touch-controls'])$(id).classList.toggle('switch-shot',switchShotLive);}
-    if(!paused&&!traveling&&!cityView&&!mapOpen&&bootReady){selectDoorway();sim.step(controls,dt);elapsed+=dt;}
+    if(!paused&&!traveling&&!cityView&&!mapOpen&&bootReady){
+      if(subwayVisit && interaction?.open)controls={};
+      if(!subwayVisit)selectDoorway();
+      enterSubwayOnFoot(controls);sim.step(controls,dt);cityRides?.update();elapsed+=dt;
+    }
     showEnding();
   }else{elapsed+=dt;introTime+=dt;}
   if(landscapeDirty){
@@ -1215,7 +1700,19 @@ function frame(now) {
     streetscape?.setTerrainSampler(terrainHeight,landscapeRevision);
     sim.updateGrounding();
   }
-  syncScene(paused||traveling||cityView||mapOpen?0:dt,controls);if(!mapOpen)updateCamera(dt);updateViewPistol();navigation?.updatePin();
+  if(subwayVisit){
+    const now=subwayVisit.journey.now;
+    gfx.hours=(now%86400)/3600;weekday=Math.floor(now/86400)%7;clockWas=gfx.hours;
+    subwayVisit.draw();subwayStairs.openings.cabinAt(subwayVisit.cabin);
+  }
+  syncScene(paused||traveling||cityView||mapOpen?0:dt,controls);if(!mapOpen)updateCamera(dt);updateViewPistol();
+  if(firstPersonActive() && phoneHand?.amount)phoneHand.cameraGrip(camera,scene,$('phone').getBoundingClientRect(),innerWidth,innerHeight,renderer);
+  const handItem=firstPersonActive() && sim.player.mode==='walk' && !sim.player.armed && !sim.ending && !sim.player.swing && !sim.player.move && (sim.shopping.payment?'cash':sim.player.carry);
+  if(handItem && !foodHand)foodHand=createFoodHand(camera,scene,VIEW_PISTOL_LAYER);
+  const eating=mealMotion(handItem);
+  const utensil=phoneHand?.amount && eating && handItem.startsWith('plate-') ? null : eating;
+  foodHand?.(handItem,PLAYER_LOOK.skin,eating?.lift||0,utensil,sim.shopping.payment?paymentReach(sim.shopping.payment):0);
+  navigation?.updatePin();
   // prepareAt owns the destination's collision data until arrival. Reselecting
   // around the old player while terrain is still loading would discard it.
   // Continue rendering and downloads; resume selection after arrival/rollback.
@@ -1233,6 +1730,7 @@ function frame(now) {
   streetDetail?.setLocalOrthophoto(ground.localOrthophoto);
   streetDetail?.update(sim.player,{overview:cityView||!started||aloft});
   streetscape?.update(sim.player,{overview:cityView||!started||aloft});
+  bikeLanes?.update(sim.player,started&&!cityView&&!aloft,landscapeRevision+laneSurfaceRevision);
   roadPilot?.setLocalOrthophoto(ground.localOrthophoto);
   if(started&&!cityView&&roadPilotIndex&&!roadPilot&&!roadPilotLoading&&Date.now()>=roadPilotRetryAt&&nearRoadPilot(sim.player,600))ensureRoadPilot().catch(()=>{});
   updateRoadPilotControls();
@@ -1242,7 +1740,7 @@ function frame(now) {
   const overview=cityView||!started;
   const lit=viewOverride?{x:viewOverride.target[0],y:viewOverride.target[1],z:viewOverride.target[2]}:!started?{x:INTRO.x,y:0,z:INTRO.z}
     :aerialView&&!overview?aerialTarget:{x:sim.player.x,y:sim.player.y||0,z:sim.player.z};
-  gfx.update(dt,{focus:lit,overview:(cityView&&!viewOverride)||aloft,paused:paused||mapOpen});
+  gfx.update(dt,{focus:lit,overview:(cityView&&!viewOverride)||aloft,paused:paused||mapOpen||Boolean(subwayVisit)});
   // The streets under an aircraft are not driven on: they are fetched again when the view comes down.
   if(bootReady&&!traveling&&!aloft)refreshRoads();
   if(bootReady&&started&&!traveling&&!cityView)refreshParkedCars();
@@ -1252,7 +1750,10 @@ function frame(now) {
     if(!routePlanner&&gameMap.roads!==sim.city.roads)gameMap.setRoads(sim.city.roads);
     sim.melee=Boolean(!cityView&&sim.player.mode==='walk'&&crowd?.closest(sim.player.x,sim.player.z));
     sim.threats=crowd?.threats||[];
-    hud.city=sim.city;hud.update(sim,Boolean(nearestSeat()),sim.doorway?.take?null:registerAction(sim),focusedAim());updateDirections();saveProgress();updateLocation();updateTimeButton();hudTime=0;
+    const rideControls=paused || traveling || mapOpen || interaction?.open ? null : cityRides;
+    hud.city=sim.city;
+    hud.update(sim,Boolean(nearestSeat()),sim.doorway?.take?null:registerAction(sim),focusedAim(),rideControls);
+    updateDirections();saveProgress();updateLocation();updateTimeButton();hudTime=0;
   }
   water.update(lit,{overview:cityView&&!viewOverride});
   // Lamps and headlights are gathered before the frame that they light.
@@ -1272,8 +1773,11 @@ function frame(now) {
   crowd.mesh.visible=started&&(!cityView||Boolean(viewOverride))&&!aloft;
   if(crowd.mesh.visible){
     const ahead=camera.getWorldDirection(crowdAhead),flat=Math.hypot(ahead.x,ahead.z)||1;
-    crowd.update(paused||mapOpen||traveling?0:dt,{walks:streetscape?.walks()||noStreetFurniture,focus:lit,forward:[ahead.x/flat,ahead.z/flat],hours:gfx.hours,time:sim.elapsed,junctions:sim.junctions,cars:sim.cars,player:sim.player});
-    if(crowd.damage)sim.hurt(crowd.damage);
+    crowd.update(paused||mapOpen||traveling?0:dt,{walks:streetscape?.walks()||noStreetFurniture,focus:lit,forward:[ahead.x/flat,ahead.z/flat],hours:gfx.hours,time:sim.elapsed,junctions:sim.junctions,cars:sim.cars,player:sim.player,officers:sim.police.officers.concat(sim.police.downOfficers),enclosedSubway:subwayVisit?.enclosed && !aerialView && !cityView});
+    if(crowd.damage){
+      sim.hurt(crowd.damage);
+      if(crowd.counterblow)sim.pushPlayer(crowd.counterblow.vx,crowd.counterblow.vz,{fall:sim.health<30,clip:crowd.counterblow.clip || 'hitChest'});
+    }
     // Running somebody down is a crime if anybody sees it, and so is most of what the player's moves end in.
     for(const hit of crowd.struck){
       if(hit.speed>3.5)carSmoke?.burst(hit.x,(hit.person?.y||0)+.8,hit.z,hit.speed*.5);
@@ -1282,15 +1786,37 @@ function frame(now) {
       if(hit.speed>3.5){crowd.alarm(hit.x,hit.z,14,.9,{y:hit.person.y});sim.offence(hit.dead?'killing':'runDown',{x:hit.x,y:hit.person.y,z:hit.z,message:hit.dead?'You ran somebody over. Somebody saw.':'You ran somebody down.'});}
     }
     if(sim.moveEvents?.length)for(const event of sim.moveEvents.splice(0)){
-      if(event.kind==='kick'){if(!sim.police.strike(event.x,event.z,event.angle,1.5)){const hit=crowd.strike(event.x,event.z,event.angle,{reach:2.1,power:2});if(hit)blowLanded(hit);}}
+      if(event.kind==='punch' || event.kind==='kick') {
+        const kick=event.kind==='kick';
+        if(event.vehicleId!=null){
+          sim.strikeVehicle(event,5);
+        } else if(!sim.police.strike(event.x,event.z,event.angle,kick ? 1.5 : 1,event.y,event.low)){
+          const hit=crowd.strike(event.x,event.z,event.angle,{power:kick?2:1,reach:event.low?1.25:kick?2.1:1.85,low:event.low,clip:event.clip,
+            y:event.y,momentum:Math.abs(sim.player.speed),bystanders:sim.bystanders,time:sim.elapsed});
+          if(hit)blowLanded(hit);
+          else if(!event.low && !sim.strikeVehicle(event,kick?5:3) && !kick) sim._say('You swing at the air.');
+        }
+      } else if(event.kind==='bystanderHit'){
+        const person=crowd.fleeOntoStreet(event.actor);
+        Object.assign(person,{state:'down',x:event.x,z:event.z,vx:event.vx,vz:event.vz,liftOff:event.lift,
+          down:4.5});
+      }
+      else if(event.kind==='driverHorn'){
+        const hornDistance=Math.hypot(event.x-sim.player.x,(event.y||0)-(sim.player.y||0),event.z-sim.player.z);
+        if(hornDistance<=60 && sim.elapsed-event.at<1)audio.horn(hornDistance);
+      }
+      else if(event.kind==='driverConfronts'){
+        const actor=crowd.fleeOntoStreet({...event,look:driverAppearance(event.car)});
+        Object.assign(actor,{state:'fight',mad:5,hp:3,attack:.8});
+      }
       else if(event.kind==='shot')shotFired(event);
       else if(event.kind==='glass')sim.offence('glass',{x:event.x,z:event.z,message:'Glass all over the seat. Somebody saw that.'});
       else if(event.kind==='escapeFire'){
-        const driver=crowd.throwOut(event.x,event.z,event.heading,gfx.hours);
+        const driver=crowd.throwOut(event.x,event.z,event.heading,gfx.hours,driverAppearance(event.car));
         Object.assign(driver,{state:'flee',mad:5,fireOrigin:{x:event.car.x,z:event.car.z}});
         crowd.alarm(event.x,event.z,10,.7);
       }
-      else if(event.kind==='thrown'){crowd.throwOut(event.x,event.z,event.heading,gfx.hours);crowd.alarm(event.x,event.z,10,.8);sim.offence('carjack',{x:event.x,z:event.z,message:'You took a car with somebody in it.'});}
+      else if(event.kind==='thrown'){crowd.throwOut(event.x,event.z,event.heading,gfx.hours,driverAppearance(event.car));crowd.alarm(event.x,event.z,10,.8);sim.offence('carjack',{x:event.x,z:event.z,message:'You took a car with somebody in it.'});}
     }
     // A gun in the open: whoever it is pointed at puts their hands up or runs, and somebody may call it in.
     const armed=Boolean(sim.player.armed)&&sim.player.mode==='walk'&&!sim.room&&!sim.seat;
@@ -1300,7 +1826,7 @@ function frame(now) {
       gunSeen=.4;
       if(crowd.alarm(sim.player.x,sim.player.z,20,.65,{angle:sim.player.angle,calm:true,y:sim.player.y,sight:person=>sim._hasSight(person,sim.player),bystanders:sim.bystanders,time:sim.elapsed})&&sim.elapsed-brandished>8){brandished=sim.elapsed;sim.offence('brandish',{message:'Somebody saw the gun.'});}
     }
-    sim.setWalkers(crowd.crossing,crowd.people);
+    sim.setWalkers(bikeTraffic?.riders.length?crowd.crossing.concat(bikeTraffic.riders):crowd.crossing,crowd.people);
   }
   // Shop fronts take the names of the places the registers put behind them.
   // Whose front is whose is worked out again when the places, the buildings
@@ -1327,7 +1853,7 @@ function frame(now) {
         const lastVendors=new Map(vendors.map(v=>[v.stand.place.id,v.absentUntil]));
         vendors=stands.map(stand=>{
           const spot=vendorOf(stand),random=seeded((Math.round(stand.x*13+stand.z*29)>>>0)||1),look=dress('casual',random,demographics.tracts?demographics.tonesAt(stand.x,stand.z,.3):null);
-          look.kit=(look.kit&(KIT.longHair|KIT.shortSleeves))|(random()<.35?KIT.woman:0);
+          look.kit &= KIT.longHair|KIT.shortSleeves|KIT.woman;
           return {x:spot.x,y:groundHeight(spot.x,spot.z),z:spot.z,heading:spot.heading,phase:0,stride:0,look,absentUntil:lastVendors.get(stand.place.id),fruit:stand.kind==='fruitstand',stand};
         });
       }
@@ -1347,8 +1873,8 @@ function frame(now) {
           const random=seeded((Math.round(seat.x*31+seat.z*17)>>>0)||1);
           if(random()>.55)continue;
           const look=dress('casual',random,demographics.tracts?demographics.tonesAt(seat.x,seat.z,.5):null);
-          look.kit=(look.kit&(KIT.longHair|KIT.shortSleeves))|(random()<.5?KIT.woman:0);look.height=1.72;
-          diners.push({x:seat.x,y:groundHeight(seat.x,seat.z),seat,z:seat.z,heading:seat.heading,sitting:true,look,absentUntil:lastDiners.get(seat.x+','+seat.z)});
+          look.kit &= KIT.longHair|KIT.shortSleeves|KIT.woman;
+          diners.push({x:seat.x,y:groundHeight(seat.x,seat.z),seat,z:seat.z,heading:seat.heading,sitting:true,look,carry:random()<.7?'cup':'tray',absentUntil:lastDiners.get(seat.x+','+seat.z)});
         }
       }
       // A sign also says what the place is in a language a quarter or more of its neighbours speak at home.
@@ -1357,24 +1883,35 @@ function frame(now) {
       placeDestinations=fronts.filter(front=>front.place.name).map(front=>({name:front.place.name,x:front.x+front.nx*3.2,z:front.z+front.nz*3.2}));
       sim.setActiveCity({missionPoints:[...roadDestinations,...placeDestinations]});city=sim.city;
     }
+    if(started && !cityView && !traveling){
+      if(walks!==kerbsFor){kerbsFor=walks;kerbIndex=indexKerbs(walks);}
+      policeScene.plan({focus:lit,fronts,entrances:subwayStairs?.entrances,walks,kerbs:kerbIndex,park:centralPark?.manifest,parkRegions:landscape?.index?.regions,
+        boardings:BOARDINGS,isClosed:closedAfterIncident,isWater:(x,z)=>water?.isNavigable(x,z),
+        blocked:(x,z)=>sim.isBlocked(x,z,.40),lotAt:(x,z)=>lots()?.at(x,z)},work.closureRevision);
+    }
     // Standing at a shop front, the player is told what it is.
     let facing=null;
     // On foot that is any front within a few steps; in a car, an auto shop it has stopped outside.
     const driving=sim.player.mode==='drive',onFoot=sim.player.mode==='walk',reach=driving?14:7;
-    if(started&&!sim.room&&!cityView&&!mapOpen&&(driving||onFoot))for(const front of fronts){
+    if(started&&!subwayVisit&&!sim.room&&!cityView&&!mapOpen&&(driving||onFoot))for(const front of fronts){
       if(driving&&!offersAt(front.place.kind))continue;
       const dx=sim.player.x-front.x,dz=sim.player.z-front.z,out=dx*front.nx+dz*front.nz;
       if(out>-1&&out<reach&&Math.abs(dx*front.tx+dz*front.tz)<front.width/2+(driving?5:1)&&(!facing||out<facing.out))facing={front,out};
     }
     // The head of a subway stair within a few steps.
     stairHere=null;
-    if(started&&!cityView&&!mapOpen&&onFoot&&!sim.room&&subwayStairs)for(const entrance of subwayStairs.entrances){if(Math.hypot(entrance.x-sim.player.x,entrance.z-sim.player.z)<4.5){stairHere=entrance;break;}}
+    if(started&&!subwayVisit&&!cityView&&!mapOpen&&onFoot&&!sim.room&&subwayStairs)for(const entrance of subwayStairs.portals){
+      const d=Math.hypot(entrance.x-sim.player.x,entrance.z-sim.player.z);
+      if(d>=4.5)continue;
+      const level=subwayStairs.surfaceAt(sim.player.x,sim.player.z)?.elevation ?? groundHeight(entrance.x,entrance.z);
+      if(Math.abs((sim.player.y??level)-level)<2.3 && (!stairHere || d<Math.hypot(stairHere.x-sim.player.x,stairHere.z-sim.player.z)))stairHere=entrance;
+    }
     // A bus stop within a couple of steps.
     stopHere=null;
-    if(started&&!cityView&&!mapOpen&&onFoot&&!sim.room&&!stairHere&&busStops)for(const stop of busStops.stops){if(Math.hypot(stop.x-sim.player.x,stop.z-sim.player.z)<3){stopHere=stop;break;}}
+    if(started&&!subwayVisit&&!cityView&&!mapOpen&&onFoot&&!sim.room&&!stairHere&&busStops)for(const stop of busStops.stops){if(Math.hypot(stop.x-sim.player.x,stop.z-sim.player.z)<3){stopHere=stop;break;}}
     // A stand that someone is minding, within a couple of steps of its counter.
     standHere=null;
-    if(started&&!cityView&&!mapOpen&&onFoot&&!sim.room&&!stairHere&&!stopHere)for(const vendor of vendors){
+    if(started&&!subwayVisit&&!cityView&&!mapOpen&&onFoot&&!sim.room&&!stairHere&&!stopHere)for(const vendor of vendors){
       const open=vendor.fruit?gfx.hours>=7&&gfx.hours<20:gfx.hours>=5&&gfx.hours<23;
       if(open&&!sim.player.armed&&!(vendor.absentUntil>sim.elapsed)&&!(vendor.downUntil>sim.elapsed)&&Math.hypot(vendor.x-sim.player.x,vendor.z-sim.player.z)<3.2){standHere=vendor.stand;break;}
     }
@@ -1382,9 +1919,13 @@ function frame(now) {
     $('place-hint').hidden=(!facing&&!stairHere&&!stopHere&&!standHere)||Boolean(sim.room);
     if(standHere)$('place-hint').textContent=placeName(standHere.place)+' · G TO BUY';
     if(stopHere)$('place-hint').textContent=stopHere.stop.name+' · '+stopHere.stop.lines.slice(0,5).join(' ')+' · E FOR THE BUS';
-    if(stairHere)$('place-hint').textContent=stairHere.station.name.toUpperCase()+' · '+stairHere.station.routes+' · E FOR THE SUBWAY';
-    if(started&&!cityView&&!mapOpen&&!phone?.open&&!facing&&!stopHere&&!stairHere&&!standHere&&work.pedestrian()){
+    if(stairHere)$('place-hint').textContent=stairHere.station.name.toUpperCase()+' · '+stairHere.station.routes+(stairHere.entry===false?' · EXIT ONLY':' · WALK IN');
+    if(started&&!subwayVisit&&!cityView&&!mapOpen&&!facing&&!stopHere&&!stairHere&&!standHere&&work.pedestrian()){
       $('place-hint').hidden=false;$('place-hint').textContent='G TO TALK';
+    }
+    if(started && !subwayVisit && !sim.room && !facing && !stairHere && !stopHere && !standHere && !cityView && !mapOpen){
+      const name=policeScene.identify(sim.player,sim.police.officers);
+      if(name){$('place-hint').hidden=false;$('place-hint').textContent=name;}
     }
     shopHere=null;doorHere=null;
     // Indoors, within reach of whoever is serving.
@@ -1392,7 +1933,8 @@ function frame(now) {
     if(sim.room){
       const visit=sim.doorway?.visitor?.visit;
       const hints=[sim.room.name];
-      if(visit?.wait>0)hints.push('Customer ordering '+visit.item.name.toLowerCase());
+      if(visit?.phase)hints.push(visit.phase[0].toUpperCase()+visit.phase.slice(1));
+      else if(visit?.wait>0)hints.push('Customer ordering '+visit.item.name.toLowerCase());
       const phase=sim.doorway?.handoff?.phase;
       if(sim.doorway?.take)hints.push('Taking the cash');
       else if(sim.doorway?.closed)hints.push('Temporarily closed');
@@ -1400,6 +1942,14 @@ function frame(now) {
       else if(phase==='startled')hints.push('The clerk raises their hands');
       else if(phase==='opening')hints.push('The clerk is opening the drawer');
       else if(phase==='offered')hints.push('The clerk is holding out the cash');
+      else if(!phase && !sim.player.armed && sim.shopping.order)hints.push(sim.shopping.order.phase+(sim.shopping.order.ready?' · G TO COLLECT':''));
+      else if(!phase && !sim.player.armed && sim.room.grocerySlots) {
+        if(counterInReach(sim))hints.push('G FOR CHECKOUT');
+        else if(sim.shopping.shelf(sim.room).length)hints.push('G TO SHOP THE SHELF');
+        if(sim.shopping.basket)hints.push('Unpaid $'+sim.shopping.total(sim.room.place).toFixed(2));
+      }
+      else if(!phase && !sim.player.armed && sim.seat && sim.room.kind==='eat')hints.push('G FOR TABLE SERVICE');
+      else if(!phase&&!sim.player.armed&&menuFor(sim.room.place).some(item=>item.sku))hints.push('G TO BROWSE');
       else if(!phase&&!sim.player.armed&&counterHere&&menuFor(sim.room.place).length)hints.push('G TO ORDER');
       $('place-hint').hidden=false;$('place-hint').textContent=hints.join(' · ');
     }
@@ -1410,14 +1960,23 @@ function frame(now) {
       $('place-hint').textContent=[about.name,about.kind===about.name?'':about.kind,about.grade,about.status,driving&&open?(shopHere?'G FOR THE COUNTER':'STOP HERE FOR THE SHOP'):doorHere?'WALK IN':''].filter(Boolean).join(' · ');
     }
   }
+  $('touch-shop').hidden=!(sim.room || standHere || shopHere) || Boolean(interaction?.open);
   gfx.indoors=camera.layers.isEnabled(ROOM_LAYER);
-  gfx.indoorDepth=gfx.indoors?clamp(sim.room.b/1.8,0,1):0;
+  gfx.subwayInterior=Boolean(subwayVisit?.enclosed);
+  gfx.indoorDepth=subwayVisit?.belowStreet?1:gfx.indoors?clamp(sim.room.b/1.8,0,1):0;
   // Subway stairs stand where the MTA lists them, running along the kerb beside them.
   if(subway&&subwayStairs&&!aloft){
     const walks=streetscape?.walks()||noStreetFurniture;
     if(walks!==kerbsFor){kerbsFor=walks;kerbIndex=indexKerbs(walks);}
     subwayStairs.group.visible=!cityView||Boolean(viewOverride);
     subwayStairs.update(subway,lit,walks,landscapeRevision);
+    if(!subwayVisit){
+      const near=started&&!cityView&&sim.player.mode==='walk'&&subwayStairs.portals.find(e=>Math.hypot(e.x-sim.player.x,e.z-sim.player.z)<6);
+      if(near && subway.table.platforms[near.stop]){
+        subwayView ||= subway.preview(scene);subwayView.root.visible=true;
+        if(previewPortal!==near){subwayView.preview(near,subway.table.platforms[near.stop],groundHeight);previewPortal=near;}
+      }else if(subwayView){subwayView.root.visible=false;previewPortal=null;}
+    }
   }
   if(buses&&busStops&&!aloft){
     const walks=streetscape?.walks()||noStreetFurniture;
@@ -1706,7 +2265,7 @@ async function travel(place,recovery=null){
   traveling=true;roadEpoch++;input.clear();
   // Leave by the sky. From indoors, or from a map, there is no street on screen to rise from: hold the picture instead.
   camera.getWorldDirection(cameraForward);
-  switchShot.depart(started&&!cityView&&!aerialView&&!mapOpen&&!sim.room?{x:sim.player.x,y:sim.player.y||0,z:sim.player.z,angle:sim.player.angle}:null,
+  switchShot.depart(!subwayVisit&&started&&!cityView&&!aerialView&&!mapOpen&&!sim.room?{x:sim.player.x,y:sim.player.y||0,z:sim.player.z,angle:sim.player.angle}:null,
     {position:camera.position.toArray(),target:camera.position.clone().addScaledVector(cameraForward,30).toArray(),up:[0,1,0],fov:camera.fov,near:camera.near,far:camera.far});
   navigation?.setTraveling(true);
   $('travel-note').textContent='Loading surveyed buildings and streets…';
@@ -1735,7 +2294,8 @@ async function travel(place,recovery=null){
     // Data readiness is a prerequisite for changing the player position.
     placeDestinations=[];
     sim.setActiveCity({roads,buildings,missionPoints:destinationsFor(roads,target)},{spawn:{...target,name:place.name,exact:Boolean(place.exact)}});
-    if(sim.mission.phase==='active'){sim.mission.phase='failed';announce('Travel canceled the active delivery. Your earnings are saved.');}
+    if(sim.mission.phase==='active' && !place.busExit){sim.mission.phase='failed';announce('Travel canceled the active delivery. Your earnings are saved.');}
+    if(subwayVisit){finishSubway();sim.updateGrounding();}
     city=sim.city;yaw=sim.player.angle;roadCell='';chaseHeight=null;chaseEyeOffset=null;
     camera.position.set(sim.player.x-Math.sin(yaw)*12,(sim.player.y||0)+9,sim.player.z-Math.cos(yaw)*12);
     if(!started)$('start-button').click();
@@ -1834,8 +2394,16 @@ async function boot() {
   streetLife=createStreetLife({scene,renderer,physics:sim.streetObjects,getLamps:()=>streetscape?.lamps()||noStreetFurniture,getTrees:()=>streetscape?.trees()||noStreetFurniture});
   parkedCars=createParkedCars({capacity:PARKED_LIMIT+8,library:vehicleMeshes});scene.add(parkedCars.group);
   distantTraffic=createDistantTraffic({library:vehicleMeshes});scene.add(distantTraffic.group);
+  let phoneControlBeforeMenu;
   interaction=createInteraction({$,onOpenChange:open=>{
-    if(open)phone?.setOpen(false);else canvas.focus();
+    const handset=$('phone');
+    if(open){
+      phoneControlBeforeMenu=handset.contains(document.activeElement)?document.activeElement:null;
+    }else if(phone?.open){
+      if(handset.contains(document.activeElement))return;
+      if(phoneControlBeforeMenu && !phoneControlBeforeMenu.disabled && !phoneControlBeforeMenu.closest('[hidden]'))phoneControlBeforeMenu.focus();
+      else phone.focus();
+    }else canvas.focus();
   }});
   work=new Work({sim,phone:()=>phone,meet:(title,message,rows,available)=>{
     interaction.openList(title,rows,row=>row.choose(),{message,available});
@@ -1844,12 +2412,12 @@ async function boot() {
     pedestrian:()=>sim.player.mode==='walk'&&!sim.room&&!sim.player.armed?crowd?.closest(sim.player.x,sim.player.z,4,true):null,
     counter:()=>registerAction(sim)?sim.room.place:null});
   restoreProgress();yaw=sim.player.angle;
-  signs=createStreetSigns({scene,heightAt:groundHeight,raised:(x,z)=>(streetscape?.offsetAt(x,z)||0)>.1});
-  crowd=createCrowd({scene,heightAt:groundHeight,blocked:(x,z,y)=>sim.isBlocked(x,z,.2,{baseHeight:y}),isRoad:(x,z)=>streetscape?.surfaceAt(x,z)==='road',
+  signs=createStreetSigns({scene,heightAt:groundHeight,raised:(x,z)=>{const offset=streetscape?.offsetAt(x,z);return offset ? offset>.1 : null;}});
+  crowd=createCrowd({scene,boroughs,heightAt:(x,z,y)=>streetSurface(x,z,{mode:'walk',referenceHeight:y})?.elevation ?? groundHeight(x,z),blocked:(x,z,y,radius)=>sim.isBlocked(x,z,radius,{baseHeight:y}),isRoad:(x,z)=>streetscape?.surfaceAt(x,z)==='road',
     life:{crowding:(x,z,hours)=>cityLife.crowding(x,z,hours),wardrobe:(x,z,hours)=>cityLife.wardrobe(x,z,hours),
       // Offices, shops and sights fill a street with people from all over the city; at home, and at night, it is the neighbours.
       tones:(x,z,hours)=>{if(!demographics.tracts)return null;const c=characterAt(x,z),day=hours>7&&hours<20?1:.35;return demographics.tonesAt(x,z,Math.min(.85,Math.max(c.business,c.visited,c.shopping*.7)*day));}}});
-  crowd.mesh.traverse(object=>object.layers.enable(ROOM_LAYER));
+  crowd.mesh.traverse(object=>{object.layers.enable(ROOM_LAYER);object.layers.enable(SUBWAY_LAYER);});
   // The city's own lists: sidewalk counts, and the signals that favour people
   // on foot. Without them the model answers alone and nothing is lost but detail.
   const signalHints=(x,z)=>({...cityLife.hintsAt(x,z),core:manhattanCore(x,z)});
@@ -1869,6 +2437,7 @@ async function boot() {
   fetch('./collection.bin').then(response=>response.ok?response.arrayBuffer():null).then(buffer=>{collection=createCollection(buffer);frontsFor=null;}).catch(()=>{});
   diningMesh=createDiningMesh({scene,heightAt:groundHeight});standMesh=createStandMesh({scene,heightAt:groundHeight});
   loadData('dining.json').then(data=>{dining=createDining(data);frontsFor=null;}).catch(()=>{});
+  boardMesh=createSkateboard();scene.add(boardMesh);
   bikeDocks=createBikeDocks({scene,heightAt:groundHeight});
   sim.dockedBikes=bikeDocks.available;
   loadData('bikes.json').then(data=>{bikeShare=createBikeShare(data);frontsFor=null;}).catch(()=>{});
@@ -1882,20 +2451,27 @@ async function boot() {
     .then(([base,catalog,working,performance])=>{fleet=createFleet(base,catalog,null,designFor,working,performance);sim.setFleet(fleet);});
   // People are grown here (body.js): the street's cast and the player, once the skeleton and its movements have loaded.
   // Bodies are grown on another thread; where there is none, the blocked-out figures stay.
-  if(typeof Worker!=='undefined')Promise.all([loadData('motion.json'),fetch('./motion.bin').then(response=>{if(!response.ok)throw new Error('motion');return response.arrayBuffer();})]).then(([meta,buffer])=>{
+  Promise.all([loadData('motion.json'),fetch('./motion.bin').then(response=>{if(!response.ok)throw new Error('motion');return response.arrayBuffer();})]).then(([meta,buffer])=>{
     moves=writeMovements(createMotion(meta,new Int16Array(buffer)));
-    figures=createFigures({motion:moves,meta,scene,capacity:360});crowd.setFigures(figures);
-    animator=createAnimator(moves);bodyShop=createHumanShop(meta);dressPlayer();
+    animator=createAnimator(moves);bodyShop=createHumanShop(meta,{moves});dressPlayer();
+    if(typeof Worker!=='undefined' || typeof OffscreenCanvas!=='undefined'){
+      figures=createFigures({motion:moves,grow:bodyShop,scene,capacity:400,layers:[ROOM_LAYER,SUBWAY_LAYER]});crowd.setFigures(figures);
+    }
     // The character page saves a design in this browser; coming back from it, the player is drawn afresh.
     addEventListener('storage',dressPlayer);addEventListener('focus',dressPlayer);
   }).catch(error=>console.warn('People could not be loaded:',error));
-  phone=createPhone({$,isClosed:closedAfterIncident,places:()=>placeSource.near(sim.player.x,sim.player.z,700),
-    state:()=>({x:sim.player.x,z:sim.player.z,hours:gfx.hours,clock:gfx.clock,cash:sim.cash,jobActive:sim.mission.phase==='active',fares:sim.deliveries,miles:sim.distanceTravelled/1609.344,redLights:sim.redLights||0}),
-    onMechanic:()=>sim.callMechanic(),onCab:()=>sim.summonCab(),
+  phoneHand=createPhoneHand(ROOM_LAYER,VIEW_PISTOL_LAYER,$('phone'));
+  phoneHand.tone('#'+PLAYER_LOOK.skin.toString(16).padStart(6,'0'));
+  cityRides=new CityRides(sim,{planner:()=>plannerReady,paid:()=>saveProgress('Ride fare')});
+  phone=createPhone({$,rides:cityRides,showTap:firstPersonActive,onTap:(x,y,instant)=>phoneHand.tap(x,y,instant),roads:()=>sim.city.roads,destinations:()=>roadIndex.places.filter(place=>Math.hypot(place.x-sim.player.x,place.z-sim.player.z)>50),searchCity:findLocally,
+    onTrade:(symbol,side,shares,price)=>{const error=phoneBank.trade(sim,symbol,side,shares,price,gfx.clock);if(!error)saveProgress();return error;},
+    onTransfer:(direction,amount)=>{const error=phoneBank.transfer(sim,direction,amount,gfx.clock);if(!error)saveProgress();return error;},isClosed:closedAfterIncident,places:()=>placeSource.near(sim.player.x,sim.player.z,700),
+    state:()=>({x:sim.player.x,z:sim.player.z,mapPin:gameMap?.pin,hours:gfx.hours,clock:gfx.clock,cash:sim.cash,availableCash:sim.cash-(sim.rideHoldCents||0)/100,jobActive:sim.mission.phase==='active',street:$('street-name').textContent,bank:phoneBank.record()}),
+    onMechanic:()=>{if(sim.callMechanic())saveProgress('Roadside assistance');},onCab:()=>{if(sim.summonCab())saveProgress('Cab delivery');},
     onDirections:place=>{const name=place.name||describePlace(place,gfx.hours).name;requestDirections({x:place.x,z:place.z}).then(found=>announce(found?'Directions to '+name+'. Follow the highlighted streets.':'No way to '+name+' along mapped streets.'));},
-    onTransport:()=>phone.openList('Travel to a boarding point',BOARDINGS.map(stop=>({stop,name:TRANSPORT[stop.type].name,note:stop.place+' · '+stop.borough})),row=>travel(transportDestination(row.stop))),
-    onWork:()=>work.board(),onJob:()=>action('job'),onMap:()=>action('map'),
-    onOpenChange:open=>{$('phone-button').setAttribute('aria-expanded',String(open));$('mission-panel').classList.toggle('behind-phone',open);if(!open)canvas.focus();}});
+    onTransport:()=>phone.openList('Travel to a boarding point',BOARDINGS.map(stop=>({stop,name:TRANSPORT[stop.type].name,note:stop.place+' · '+stop.borough})),row=>travel(transportDestination(row.stop)),{app:'maps'}),
+    onWork:()=>work.board(),onMap:()=>action('map'),
+    onOpenChange:open=>{$('phone-button').setAttribute('aria-expanded',String(open));$('mission-panel').classList.toggle('behind-phone',open);if(!open){if(interaction?.open)interaction.focus();else canvas.focus();}}});
   loadData('street-life.json').then(data=>{cityLife=createCityLife(data);props.setData(data);sim.setActiveCity({signalHints});}).catch(()=>{});
   world=createCityStream(cityIndex,{scene,onCollisionChange:applyBuildings,onStatus:updateStreaming,heightAt:terrainHeight});
   ground=createCityGround({scene,renderer,stairOpenings,onStatus:status=>{if(status.failures)$('imagery-status').textContent='Some aerial tiles are unavailable. NYC imagery will retry as you explore; surveyed geometry loads separately.';}});
@@ -1923,7 +2499,7 @@ async function boot() {
   // Asphalt, sidewalks, kerbs and paint. Surveyed outlines ship for a few
   // neighbourhoods; elsewhere they stream from NYC Open Data around the player.
   const startStreetscape=index=>{
-    streetscape=createStreetscape({scene,index,physics:sim.streetObjects,stairOpenings,heightAt:terrainHeight,onChange:()=>sim?.updateGrounding(),
+    streetscape=createStreetscape({scene,index,physics:sim.streetObjects,stairOpenings,heightAt:terrainHeight,onChange:()=>{laneSurfaceRevision++;sim?.updateGrounding();},
       roadsFor:bounds=>roadStream.loadAround({x:(bounds.minX+bounds.maxX)/2,z:(bounds.minZ+bounds.maxZ)/2},320)});
     if(roadPilot)streetscape.setGroundReplacementBounds(roadPilotIndex.bounds);
   };
@@ -1931,7 +2507,7 @@ async function boot() {
     streetManifest=surfaces;startStreetscape(surfaces);
     navigation?.refreshPresets();
     // The mapped street module now supplies bridge decks only.
-    streetDetail=createStreetDetail(surfaces,{scene,orthophoto:ground.orthophoto,heightAt:groundHeight,drape:false,roadsFor:focus=>roadStream.loadAround(focus,1100),waterAt:(x,z)=>landscape?.waterAt(x,z),onChange:()=>sim?.regroundTraffic(),onStatus:status=>{
+    streetDetail=createStreetDetail(surfaces,{scene,orthophoto:ground.orthophoto,heightAt:groundHeight,drape:false,roadsFor:focus=>roadStream.loadAround(focus,1100),waterAt:(x,z)=>landscape?.waterAt(x,z),onChange:()=>{laneSurfaceRevision++;sim?.regroundTraffic();},onStatus:status=>{
       $('street-detail-status').textContent=status.covered&&status.failures>0
         ?'Some mapped street surfaces are unavailable here. Aerial imagery remains available; street surfaces will retry.' :'';
     }});
@@ -1950,12 +2526,28 @@ async function boot() {
     $('road-reconstruction-status').textContent=report.summary.accepted+' of '+report.summary.candidates+
       ' road and parking masks passed source checks. Rejected masks create no game geometry.';
   }).catch(()=>{$('road-reconstruction-status').textContent='Road image review unavailable. Surveyed surfaces remain active.';});
-  avatar=createPerson(0xd7774e,{courier:true});avatar.traverse(object=>object.layers.enable(ROOM_LAYER));scene.add(avatar);marker=createMissionMarker();enterHint=createEnterHint();policeScene=createPoliceScene(scene,(x,z)=>groundHeight(x,z));carSmoke=createCarSmoke(scene);doorDebris=createDoorDebris(scene);
+  avatar=createPerson(0xd7774e,{courier:true});avatar.traverse(object=>{object.layers.enable(ROOM_LAYER);object.layers.enable(SUBWAY_LAYER);});scene.add(avatar);marker=createMissionMarker();enterHint=createEnterHint();policeScene=createPoliceScene(scene,(x,z)=>groundHeight(x,z));carSmoke=createCarSmoke(scene);doorDebris=createDoorDebris(scene);
   hud=new HUD(city);applyQuality();
   gameMap=new GameMap({city,loadTransit:loadTransitNetwork,getPresets:cityPresets,searchLocal:findLocally,onPlacesWanted:loadPlaceNames,onPin:requestDirections,
     onSpawn:pin=>travel({...pin,exact:true}),
     onOpenChange:open=>{if(open)interaction?.close();mapOpen=open;input.clear();input.lookDelta=0;input.lookVertical=0;if(!open)canvas.focus();markDoors();}});
   hud.attachMap(gameMap);
+  loadData('bike-lanes.json').then(async data=>{
+    const lanes=await indexBikeLanes(data);
+    gameMap.bikeLanes=lanes;gameMap.dirty=true;
+    const laneHeight=(x,z,level)=>{
+      if(level<13)return null;
+      if(level===13 && !water?.isNavigable(x,z) && !landscape?.waterAt(x,z))return groundHeight(x,z);
+      const decks=streetDetail?.surfacesAt(x,z,'walk') || [];
+      const rank=clamp(Math.round((level-13)/4)-1,0,Math.max(0,decks.length-1));
+      return decks[rank]?.elevation ?? null;
+    };
+    cycleRoutes=lanes;parkedAt=null;
+    bikeLanes=createLaneMarkings(scene,lanes,laneHeight);
+    bikeTraffic=createBikeTraffic({scene,index:lanes,heightAt:laneHeight,
+      appearance:(id,x,z)=>dress(id%4===0?'athletic':'casual',seeded((id*7547+891)>>>0),
+        demographics?.tracts?demographics.tonesAt(x,z,.4):null)});
+  }).catch(()=>{});
   // The compact citywide graph is optional: a failed route download must not
   // prevent entering the game or using a measured, validated spawn point.
   plannerReady=loadData('navigation-roads.json').then(data=>{
@@ -1963,7 +2555,7 @@ async function boot() {
   }).catch(()=>null);
   const b=city.bounds;camera.position.set((b.minX+b.maxX)/2-14000,44000,(b.minZ+b.maxZ)/2+32000);
   navigation=createCityNavigation({canvas,camera,input,bounds:city.bounds,heightAt:terrainHeight,onTravel:travel,onDestinationSelected:focusCityDestination,getPresets:cityPresets,searchLocal:findLocally});
-  window.nycGame={graphics:gfx,get playerBody(){return playerBody;},enter:front=>goIn(front),get streetscape(){return streetscape;},get streetLife(){return streetLife;},get parkedCars(){return parkedCars;},get distantTraffic(){return distantTraffic;},get world(){return world;},get simulation(){return sim;},get signs(){return signs;},get crowd(){return crowd;},get props(){return props;},get places(){return placeSource;},get storefronts(){return storefronts;},get fronts(){return fronts;},get phone(){return phone;},get fleet(){return fleet;},get subway(){return subway;},get buses(){return buses;},get sheds(){return sheds;},get dining(){return dining;},get standMesh(){return standMesh;},get aloft(){return aloft;},get viewHeight(){return viewHeight;},get trash(){return trashMesh;},get weekday(){return weekday;},set weekday(day){weekday=((day%7)+7)%7;},get map(){return gameMap;},findLocally,get bikeShare(){return bikeShare;},get bikeDocks(){return bikeDocks;},get diningMesh(){return diningMesh;},get shedMesh(){return shedMesh;},get busStops(){return busStops;},get demographics(){return demographics;},get subwayStairs(){return subwayStairs;},get cityLife(){return cityLife;},heightAt:(x,z)=>terrainHeight(x,z),travel:place=>travel(place),get streetDetail(){return streetDetail;},get landscape(){return landscape;},get centralPark(){return centralPark;},get statue(){return statue;},setView:view=>{viewOverride=view&&Array.isArray(view.position)&&Array.isArray(view.target)?view:null;},getState:()=>({time:gfx.clock,switching:switchShot.active,player:{...sim.player},heat:sim.heat,health:sim.health,mission:{...sim.mission},cash:sim.cash,deliveries:sim.deliveries,cars:sim.cars.length,parkedCars:sim.cars.filter(car=>car._kerb).length,buildings:buildings.length,totalBuildings:cityIndex.stats.buildingFeatures,stream:world.getStatus(),ground:ground.getStatus(),streetDetail:streetDetail?.getStatus()||null,streetscape:streetscape?.getStatus()||null,landscape:landscape?.getStatus()||null,reconstruction:reconstructionReview?{model:reconstructionReview.model,summary:reconstructionReview.summary}:null,roadReconstruction:roadReconstructionReview?{model:roadReconstructionReview.model,summary:roadReconstructionReview.summary}:null,roadPilot:roadPilot?roadPilot.getStatus():{ready:false,loading:Boolean(roadPilotLoading),error:roadPilotError},navigation:navigation.getState(),map:gameMap.getState(),routeGuidance,cityView,aerialView,firstPersonView:firstPersonActive(),traveling,bootReady,shadows:{enabled:shadowsEnabled,active:renderer.shadowMap.enabled},drawCalls:renderer.info.render.calls,triangles:renderer.info.render.triangles,started,paused})};
+  window.nycGame={graphics:gfx,get playerBody(){return playerBody;},enter:front=>goIn(front),get streetscape(){return streetscape;},get streetLife(){return streetLife;},get policeDetails(){return policeScene.details.actors;},get parkedCars(){return parkedCars;},get distantTraffic(){return distantTraffic;},get world(){return world;},get simulation(){return sim;},get signs(){return signs;},get crowd(){return crowd;},get props(){return props;},get places(){return placeSource;},get storefronts(){return storefronts;},get fronts(){return fronts;},get phone(){return phone;},get fleet(){return fleet;},get subway(){return subway;},get subwayJourney(){return subwayVisit?.journey||null;},get buses(){return buses;},get sheds(){return sheds;},get dining(){return dining;},get standMesh(){return standMesh;},get aloft(){return aloft;},get viewHeight(){return viewHeight;},get trash(){return trashMesh;},get weekday(){return weekday;},set weekday(day){weekday=((day%7)+7)%7;},get map(){return gameMap;},findLocally,get bikeTraffic(){return bikeTraffic;},get bikeShare(){return bikeShare;},get bikeDocks(){return bikeDocks;},get diningMesh(){return diningMesh;},get shedMesh(){return shedMesh;},get busStops(){return busStops;},get demographics(){return demographics;},get subwayStairs(){return subwayStairs;},get cityLife(){return cityLife;},heightAt:(x,z)=>terrainHeight(x,z),travel:place=>travel(place),get streetDetail(){return streetDetail;},get landscape(){return landscape;},get centralPark(){return centralPark;},get statue(){return statue;},setView:view=>{viewOverride=view&&Array.isArray(view.position)&&Array.isArray(view.target)?view:null;},getState:()=>({time:gfx.clock,switching:switchShot.active,player:{...sim.player},heat:sim.heat,health:sim.health,mission:{...sim.mission},cash:sim.cash,deliveries:sim.deliveries,cars:sim.cars.length,parkedCars:sim.cars.filter(car=>car._kerb).length,buildings:buildings.length,totalBuildings:cityIndex.stats.buildingFeatures,stream:world.getStatus(),ground:ground.getStatus(),streetDetail:streetDetail?.getStatus()||null,streetscape:streetscape?.getStatus()||null,landscape:landscape?.getStatus()||null,reconstruction:reconstructionReview?{model:reconstructionReview.model,summary:reconstructionReview.summary}:null,roadReconstruction:roadReconstructionReview?{model:roadReconstructionReview.model,summary:roadReconstructionReview.summary}:null,roadPilot:roadPilot?roadPilot.getStatus():{ready:false,loading:Boolean(roadPilotLoading),error:roadPilotError},navigation:navigation.getState(),map:gameMap.getState(),routeGuidance,cityView,aerialView,firstPersonView:firstPersonActive(),traveling,bootReady,shadows:{enabled:shadowsEnabled,active:renderer.shadowMap.enabled},drawCalls:renderer.info.render.calls,triangles:renderer.info.render.triangles,started,paused})};
   requestAnimationFrame(frame);
   const [roads]=await Promise.all([roadStream.loadAround(seed.spawn),world.prepareAt(seed.spawn,300),landscapeReady]);
   sim.setActiveCity({roads,buildings,isReadyAt:(x,z,radius,y)=>world.isReadyAt(x,z,radius,Number.isFinite(y)?y-terrainHeight(x,z):0),missionPoints:destinationsFor(roads,seed.spawn)},{spawn:seed.spawn});city=sim.city;yaw=sim.player.angle;

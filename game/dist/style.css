@@ -250,7 +250,7 @@ h2 { text-transform: uppercase; }
 .modal h2, .city-navigation h2 { letter-spacing: 0; line-height: 1; }
 .mission-panel h2 { font: 900 28px/1.05 var(--display); letter-spacing: .01em; }
 .speed > strong { letter-spacing: -1px; }
-.cash-display strong, #phone-wallet-cash, #phone-cash {
+.cash-display strong {
   font-family: var(--display);
   font-weight: 900;
   letter-spacing: .015em;
@@ -294,3 +294,17 @@ body.ending-wasted #hud, body.ending-wasted #mission-panel, body.ending-wasted #
 #aim-dot{position:fixed;z-index:3;top:50%;left:50%;width:5px;height:5px;transform:translate(-50%,-50%);border-radius:50%;background:#fff;box-shadow:0 0 0 1px #16191c;pointer-events:none}
 .touch-actions{flex-wrap:wrap;justify-content:flex-end;max-width:165px}
 .touch-actions button[aria-pressed="true"]{border-color:var(--orange);color:var(--orange)}
+
+/* Passenger information stays readable against either tiles or open sky. */
+#subway-status { position:fixed; z-index:8; left:50%; bottom:4vh; transform:translateX(-50%); width:max-content; max-width:88vw; padding:.8rem 1.3rem; border-top:3px solid #d8a644; background:#14191cf2; color:#f4f1e9; text-align:center; pointer-events:none; }
+#subway-status:not([hidden]) { display:grid; gap:.18rem; }
+#subway-location { font-size:1.24rem; }
+#subway-action { font-size:.84rem; color:#e0ca91; }
+@media (pointer:coarse) { #subway-status { bottom:auto; top:4vh; } }
+
+.game-map-layers{flex-wrap:wrap}
+#transit-line{max-width:min(320px,85vw);background:#17252f;color:#f4f1e5;border:1px solid #86999480;padding:5px;font:inherit;font-size:12px}
+#transit-itinerary{white-space:pre-line;line-height:1.5}
+
+#ride-speed{pointer-events:auto;touch-action:manipulation}
+@media(pointer:coarse){#ride-speed{min-height:44px}#ride-speed kbd{display:none}}
