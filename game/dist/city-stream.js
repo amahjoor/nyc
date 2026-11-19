@@ -5,6 +5,7 @@ import { chooseStyle, featureRandom, writeFacade, createFacadeScratch, applyFaca
 import { createLots } from './lots.js';
 import { streamRanges, leadPoint } from './aloft.js';
 import { createLandmarkBuildings } from './landmarks.js';
+import { replacedByMonument } from './monuments.js';
 
 /**
  * The tax-lot grid and the landmark record that facades are chosen from, fetched once wherever buildings
@@ -288,6 +289,8 @@ export function decodeI3S(buffer, node, origin, { collisions = true, heightAt = 
     // instead of silently combining incompatible absolute vertical datums.
     const measured = heightAt(x, z), elevation = Number.isFinite(measured) ? measured : 0;
     for (let i = start; i < end; i++) positions[i * 3 + 1] += elevation;
+    // A mass that a monument's own model stands in for is drawn by that model: fold this one away to a point.
+    if (replacedByMonument(id)) for (let i = start; i < end; i++) { positions[i * 3] = x; positions[i * 3 + 1] = elevation; positions[i * 3 + 2] = z; }
     anchors.push({ start, end, x, z, elevation, featureId: id });
   }
   return { positions, normals, facade, style, buildings, anchors, bounds, triangles: vertexCount / 3, featureCount };

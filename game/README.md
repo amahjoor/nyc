@@ -376,6 +376,20 @@ python3 -m venv /tmp/nyc-park-venv
 
 The first build downloads the same 449 MB of crown data, the elevation model around the park and a 74 MB OpenStreetMap extract, and takes about twelve minutes, most of it reading the crowns, which are kept so that a rebuild takes under two. What ships is 1.25 MB of heights, 2.1 MB of ground maps, 0.55 MB of tree records and 72 KB of bridges. The ground maps and the furniture list in `dist/central-park/` are derived from OpenStreetMap and remain under the Open Database Licence.
 
+### Statue of Liberty
+
+The building survey measures the statue as it measures an apartment house: an outline of fifty-one points, twelve metres across; a height, 46.66 m; and a base at 47.57 m, on top of the mass that is Fort Wood and the pedestal. The game seats every surveyed mass on the ground and dresses it as a New York building, so the statue was buried inside a pedestal drawn in red brick with windows, and nothing stood on top.
+
+| | From the survey | Drawn or assumed |
+|---|---|---|
+| Where she stands | The middle of her surveyed outline, on the top of the fort and pedestal's mass, 43.2 m above the ground it stands on | |
+| Her height | 46.66 m from the pedestal's top to the tip of the flame | The figure is modelled to the dimensions the National Park Service publishes (33.86 m from heel to the top of the head, 46.05 m to the torch, a right arm of 12.8 m, a tablet 7.19 m by 4.14 m, seven rays, twenty-five windows in the diadem) and scaled up 1.3% to the surveyed height |
+| Which way she faces | The fort's outline mirrors about one axis, 147° from north: south-east, toward the harbour mouth | That she looks out along it |
+| Fort and pedestal | The surveyed mass, unchanged | Faced in dressed granite with no windows (`monuments.js`), where it had been drawn as brick apartments |
+| Her figure | Nothing | The folds of the robe, the face, the hair, the hand on the torch and the flame are sculpted by rule in `liberty.js`, in about 17,000 triangles. It is not a scan. The colour and streaking of the copper, the gilt of the flame, and the floodlighting after dark are drawn |
+
+**Statue of Liberty** in the city picker sets you down on the flagpole plaza behind her. The survey's own prism for the statue is folded away so that it does not stand inside her. There is no ferry to the island yet, and the pedestal cannot be entered.
+
 Reproduce the AI stage in a separate Python 3.13 environment:
 
 ```sh

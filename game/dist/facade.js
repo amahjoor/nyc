@@ -11,6 +11,7 @@
 import { airports } from './airport-data.js';
 import { lotStyle } from './lots.js';
 import { landmarkStyle, paletteFor } from './landmarks.js';
+import { monumentAt } from './monuments.js';
 import { SHOP_WINDOW_GLSL } from './shop-window.js';
 
 export const MATERIAL = { BRICK: 0, STONE: 1, CONCRETE: 2, GLASS: 3, IRON: 4, BROWNSTONE: 5, SIDING: 6 };
@@ -61,7 +62,7 @@ export const STYLES = [
 export const STYLE_INDEX = Object.fromEntries(STYLES.map((style, index) => [style.id, index]));
 
 // Flag bits carried per wall in the style attribute's fourth byte.
-export const FLAG = { PALETTE: 3, BLANK: 16, SHOP: 32, ESCAPE: 64, SCREENS: 128 };
+export const FLAG = { PALETTE: 3, STONE: 4, BLANK: 16, SHOP: 32, ESCAPE: 64, SCREENS: 128 };
 /** Height in texels of a line of sign lettering in the atlas storefronts.js keeps. */
 export const ATLAS_CELL_HEIGHT = 80;
 /** Metres per unit of the height byte. */
@@ -123,6 +124,8 @@ export function setLandmarks(next) { landmarks = next?.count ? next : null; }
  * @param {{height:number, area:number, x:number, z:number, random:number, random2:number}} volume
  */
 export function chooseStyle({ height, area, x, z, random, random2 }) {
+  // A monument's surveyed mass is stone from the ground up: no bays, no windows, no shop (monuments.js).
+  if (monumentAt(x, z)) return { style: STYLE_INDEX.civic, flags: 1 | FLAG.BLANK | FLAG.STONE };
   const business = businessDistrict(x, z), lofts = loftDistrict(x, z), s = STYLE_INDEX;
   const pick = table => {
     const total = table.reduce((sum, entry) => sum + entry[1], 0);
@@ -480,7 +483,12 @@ NycFacade nycFacade( vec4 facade, vec4 styleIn, vec3 wallNormal, float facing, v
 	vec3 wallColor = NYC_WALL[ tint ] * ( 0.88 + 0.24 * fract( seed * 7.31 ) ), trimColor = NYC_TRIM[ tint ], glassColor = NYC_GLASS[ tint ];
 	// Low buildings have no separate street storey.
 	if ( buildingHeight < ground * 1.7 ) ground = 0.0;
-	if ( blank && ! glassWall ) {
+	if ( blank && ( flags & ${FLAG.STONE} ) != 0 ) {
+		// A monument's walls are dressed granite from the ground to the coping.
+		material = NYC_MAT_STONE;
+		wallColor = vec3( 0.36, 0.345, 0.325 ) * ( 0.94 + 0.12 * fract( seed * 13.7 ) );
+		cornice = min( cornice, 0.5 ); belt = 0.0;
+	} else if ( blank && ! glassWall ) {
 		// Lot-line walls are plain common brick whatever the street front is
 		// made of, and finish in a simple coping.
 		material = NYC_MAT_BRICK;
