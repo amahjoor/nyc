@@ -19,14 +19,14 @@
   "land": "value = 1 + metres above sea level * heightScale, clamped to 255",
   "heightScale": 0.6
  },
- "sha256": "326cd7f6ac1839b987ae1fcb2d0c43c6ca872fd05200b34b6097262a69636608",
+ "sha256": "eb9382b6f95d3b2a2fe4ded1ab39ba55fe2c7a16161a96e5398dee80124f1b9c",
  "source": {
   "title": "Terrain Tiles (Terrarium), Mapzen / AWS Open Data",
   "url": "https://registry.opendata.aws/terrain-tiles/",
   "service": "https://s3.amazonaws.com/elevation-tiles-prod/terrarium",
   "zoom": 10,
   "attribution": "Elevation data from Mapzen Terrain Tiles: USGS 3DEP, SRTM, ETOPO1 and other public sources.",
-  "modifications": "Sampled to a 100 m grid in the game's local frame and reduced to a land silhouette with coarse height. Outside the city but within 450 m of its surveyed shoreline, ground within 250 m of water is left out.",
+  "modifications": "Sampled to a 100 m grid in the game's local frame and reduced to a land silhouette with coarse height. Within 450 m of the city's surveyed shoreline, on either side of it, ground within 250 m of water is left out.",
   "limitations": "A silhouette for distant context only: no buildings, roads or imagery, and no claim to shoreline accuracy."
  }
 }

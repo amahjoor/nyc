@@ -21,8 +21,8 @@ const ORIGIN = { lat: 40.7235, lon: -74.0015 }, R = 6371008.8, RAD = Math.PI / 1
 // Local metres, the game's frame: x east, z south.
 const BOUNDS = { minX: -62000, maxX: 72000, minZ: -64000, maxZ: 62000 }, CELL = 100;
 const HEIGHT_SCALE = .6;       // stored value = 1 + metres * scale
-// Within GUARD metres of the surveyed shoreline, ground outside the city only
-// counts as land if no water lies within CLEAR metres of it.
+// Within GUARD metres of the surveyed shoreline, ground on either side of it
+// only counts as land if no water lies within CLEAR metres of it.
 const SHORE_GUARD = 450, SHORE_CLEAR = 250;
 
 /** Decode an 8-bit RGB or RGBA PNG into { width, height, channels, data }. */
@@ -138,13 +138,18 @@ for (let row = 0; row < height; row++) {
     const city = inCity(x, z);
     // The city is dry wherever its own shoreline says so, whatever these tiles think.
     if (metres > .5 || city) pixels[row * width + column] = Math.max(1, Math.min(255, Math.round(1 + Math.max(0, metres) * HEIGHT_SCALE)));
-    if (!city && nearShore(x, z)) guard.push(row * width + column);
+    if (nearShore(x, z)) guard.push(row * width + column);
   }
 }
 // The city draws its own shore far more exactly than these tiles can. Beside
 // it, ground only stays if it is clear of water: a land border with the next
 // county survives, while the false fringe the coarse tiles leave around every
-// pier and island does not.
+// pier and island does not. That goes for the city's own cells as well: the
+// picture is smoothed between cells when it is drawn, so a cell of city land
+// at the water's edge would spread a shelf of "country" a hundred metres out
+// into the bay, all round Liberty Island and along every waterfront. The
+// city's terrain is what shows there; only cells well inland are needed, to
+// join it to the next county without a gap.
 const reach = Math.ceil(SHORE_CLEAR / CELL), drop = [];
 for (const index of guard) {
   if (!pixels[index]) continue;
@@ -167,7 +172,7 @@ const manifest = { version: 1, origin: ORIGIN, bounds: BOUNDS, width, height, ce
   sha256: createHash('sha256').update(png).digest('hex'),
   source: { title: 'Terrain Tiles (Terrarium), Mapzen / AWS Open Data', url: 'https://registry.opendata.aws/terrain-tiles/', service: SERVICE, zoom: ZOOM,
     attribution: 'Elevation data from Mapzen Terrain Tiles: USGS 3DEP, SRTM, ETOPO1 and other public sources.',
-    modifications: `Sampled to a ${CELL} m grid in the game's local frame and reduced to a land silhouette with coarse height. Outside the city but within ${SHORE_GUARD} m of its surveyed shoreline, ground within ${SHORE_CLEAR} m of water is left out.`,
+    modifications: `Sampled to a ${CELL} m grid in the game's local frame and reduced to a land silhouette with coarse height. Within ${SHORE_GUARD} m of the city's surveyed shoreline, on either side of it, ground within ${SHORE_CLEAR} m of water is left out.`,
     limitations: 'A silhouette for distant context only: no buildings, roads or imagery, and no claim to shoreline accuracy.' } };
 await writeFile(resolve(root, 'dist/context-land.json'), JSON.stringify(manifest, null, 1) + '\n');
 console.log(`Context land: ${width} x ${height} cells, ${(100 * land / pixels.length).toFixed(1)}% land, ${guarded} cells cleared beside the city shore, ${png.length} bytes, ${tiles.size} source tiles.`);
