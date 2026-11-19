@@ -292,6 +292,10 @@ The board over the counter or on the back wall lists the menu and its prices. Di
 
 Someone minds each one. Standing by whoever is serving, **G** shows what the place sells (`menu.js`): coffee and a bacon, egg and cheese at a bodega, a slice at a pizzeria, a haircut at a barber's, a room at a hotel. A coffee or a meal makes the player a little quicker on foot for a while, a scratch-off pays back about half what it costs, and a night in a hotel mends the car and loses the police. Menus and prices are the game's. Customers occupy some of the seats. Press **E** beside a free chair to sit, and **E** again to stand. Passing pedestrians can also come inside, order something and leave. You can see the street through the windows and doorway.
 
+Each kind of kitchen has its own menu, 277 things to eat and drink across the city. A pizzeria sells slices by the kind, garlic knots and calzones. A taqueria has tacos, tamales, elote and horchata, and a Jamaican counter has patties, jerk chicken, oxtail and sorrel. Every place carries the staples of its kind and makes its own choice of the rest, so two Chinese takeouts on one block do not have the same board.
+
+Each dish is modelled the way it is handed over there (`food-kit.js`, `food-dishes.js`, `food-drinks.js`): a slice on a paper plate, chicken over rice in a foil pan, fried rice in a paper pail, dumplings in a bamboo steamer, a bacon, egg and cheese on its foil. Highlighting a row on the menu shows the serving, which can be dragged round and zoomed before ordering. It is modelled full, part eaten and finished, on the table, in the hand and in the inventory. [Thirty of the 222 dishes and 50 drinks](docs/food-models.jpg)
+
 ## Earning money
 
 Open **Work** on the phone to browse 23 on-site jobs plus food delivery, coffee vending and neighborhood paper rounds. Search by role, employer or neighborhood, filter by sector, or sort by distance or base pay. Select a shift and choose **Take shift**. **My work** lists accepted shifts, an active delivery and your coffee cart.

@@ -1,6 +1,6 @@
 import { servingFor,portionKey } from './food-catalog.js';
 import { groceries,groceryPrice } from './grocery-stock.js';
-import { carriedOrder,menuFor,PEP,plateStyle } from './menu.js';
+import { carriedOrder,legacyDish,menuFor,PEP,plateStyle } from './menu.js';
 import { KIND } from './places.js';
 import { crossesFixture,roomLocal,roomPoint } from './room.js';
 
@@ -21,7 +21,7 @@ export function pantryItem(id){
   if(dishes.has(id))return dishes.get(id);
   const match=/^meal-([a-z]+)-([a-z0-9-]+)$/.exec(id);
   if(!match || !Object.hasOwn(KIND,match[1]))return null;
-  const menu=menuFor({kind:match[1]}),item=/^\d+$/.test(match[2])?menu[Number(match[2])]:menu.find(row=>dishKey(row.name)===match[2]);
+  const menu=menuFor({kind:match[1]}),item=(/^\d+$/.test(match[2])?menu[Number(match[2])]:menu.find(row=>dishKey(row.name)===match[2])) || legacyDish(match[1],match[2]);
   if(!item || item.product || !preparedFood({kind:match[1]},item))return null;
   const food={...item,id};dishes.set(id,food);return food;
 }

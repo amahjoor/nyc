@@ -8,7 +8,11 @@ import { Simulation } from '../dist/simulation.js';
 const place = kind => ({ id: kind, kind, group: KIND[kind].group, name: 'X', x: 0, z: 0, bin: 0, area: 0, grade: '' });
 
 test('each kind of place sells what such places sell, and a scratch-off pays back half', () => {
-  assert.deepEqual(menuFor(place('pizza')).map(item => item.name), ['Slice', 'Two slices and a soda', 'Soda']);
+  assert.deepEqual(menuFor(place('pizza')).slice(0, 3).map(item => item.name), ['Slice', 'Two slices and a soda', 'Soda']);
+  // Two pizzerias share the staples and differ in what else they make; a kind alone lists everything such places sell.
+  const names = id => menuFor({ ...place('pizza'), id }).map(item => item.name), everything = menuFor({ kind: 'pizza' }).map(item => item.name);
+  assert.deepEqual(names('a'), names('a')); assert.equal(names('a').length, 8); assert.ok(everything.length > 8 && names('a').every(name => everything.includes(name)));
+  assert.ok(['b', 'c', 'd', 'e', 'f'].some(id => names(id).join() !== names('a').join()));
   assert.ok(menuFor(place('bodega')).some(item => item.effect === 'lottery') && menuFor(place('coffee')).some(item => item.name === 'Coffee') && menuFor(place('hotel'))[0].effect === 'sleep');
   assert.deepEqual(menuFor(place('library')), []); assert.deepEqual(menuFor(place('repair')), []);
   for (const kind of KINDS) for (const item of menuFor(place(kind.id))) assert.ok(item.name && item.price > 0 && item.price < 400 && item.effect, kind.id);
