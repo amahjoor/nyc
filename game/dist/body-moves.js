@@ -1,3 +1,4 @@
+import { meleeMoves } from './melee-moves.js';
 import { qrot } from './body.js';
 // The movements nobody recorded, written out pose by pose (body-motion.js says how a pose is written).
 //
@@ -35,6 +36,57 @@ export function writeMovements(motion) {
   furniture('seatStool', { '+spine_01': ['x', -7], '+thigh_l': ['x', 15], '+thigh_r': ['x', 10],
     '+calf_l': ['x', 24], '+calf_r': ['x', 24], '+foot_l': ['x', -16], '+foot_r': ['x', -13],
     '+upperarm_l': ['x', -6], '+upperarm_r': ['x', -9], '+lowerarm_l': ['x', 16], '+lowerarm_r': ['x', 18] });
+  const skater = {pelvis:[0,-.082,0], '+spine_01':['x',9,'y',18], '+spine_03':['y',14], '+Head':['y',45],
+    thigh_l:['x',-28,'z',7], calf_l:['x',45], foot_l:['x',-17], thigh_r:['x',-33,'z',-10], calf_r:['x',51], foot_r:['x',-18],
+    upperarm_l:['z',-53,'x',-12], upperarm_r:['z',49,'x',6], lowerarm_l:['x',16], lowerarm_r:['x',21]};
+  motion.define('skateRoll',{seconds:1.2,loop:true,base:'idle',keys:[[0,skater],[.6,{...skater,pelvis:[0,-.094,0]}]]});
+  motion.define('skateBalance',{seconds:1.25,loop:true,base:'skateRoll',keys:[
+    [0,{pelvis:[0,-.15,0],'+upperarm_l':['z',31,'x',-13],'+upperarm_r':['z',-29,'x',12]}],
+    [.62,{pelvis:[.01,-.145,0],'+upperarm_l':['z',36,'x',-9],'+upperarm_r':['z',-32,'x',15]}]]});
+  motion.define('skatePush',{seconds:1,loop:true,base:'skateRoll',keys:[
+    [0,{}],[.22,{pelvis:[.04,-.13,.02],'+spine_01':['x',10],'+thigh_r':['z',14],'+upperarm_r':['x',-16]}],
+    [.51,{pelvis:[.06,-.098,0],'+thigh_r':['z',-15],'+upperarm_l':['x',-14]}],
+    [.77,{'+calf_r':['x',24],'+thigh_r':['z',-12]}]]});
+  motion.define('skateOllie',{seconds:.6,base:'skateRoll',keys:[
+    [0,{pelvis:[0,-.12,0]}],[.25,{pelvis:[0,-.20,0],'+upperarm_l':['z',25],'+upperarm_r':['z',-28]}],
+    [.6,{pelvis:[0,-.10,0]}]]});
+  const cycling={ '+spine_01':['x',31], upperarm_l:['z',-62,'y',-40],upperarm_r:['z',62,'y',40] };
+  const crank={thigh_l:['x',-84],calf_l:['x',107],foot_l:['x',-12],
+    thigh_r:['x',-31],calf_r:['x',43],foot_r:['x',-8]};
+  motion.define('cycle',{seconds:.92,loop:true,base:'idle',keys:[
+    [0,{...cycling,...crank}], [.46,{...cycling,...mirror(crank)}]]});
+  motion.define('cycleStop',{seconds:.92,loop:true,base:'cycle',keys:[[0,{}]]});
+  // Centre the hips above the mount. Spread the knees outside the saddle,
+  // leave the boots in the stirrups, and bring both hands up to the reins.
+  const reins={hips:[],spine_01:['x',4],spine_02:[],spine_03:[],Head:[],
+    thigh_l:['x',-36,'z',32],thigh_r:['x',-36,'z',-32],calf_l:['x',55,'z',-24],calf_r:['x',55,'z',24],
+    foot_l:['x',-17],foot_r:['x',-17],upperarm_l:['z',-69,'x',-23],upperarm_r:['z',69,'x',-23],
+    lowerarm_l:['x',-52,'y',-20],lowerarm_r:['x',-52,'y',20]};
+  motion.define('horseRide',{seconds:.8,loop:true,keys:[[0,reins],[.4,{...reins,pelvis:[0,.012,0]}]]});
+  const bars={...reins,spine_01:['x',11],thigh_l:['x',-65,'z',25],thigh_r:['x',-65,'z',-25],
+    calf_l:['x',83],calf_r:['x',83],upperarm_l:['z',-65,'x',-49],upperarm_r:['z',65,'x',-49],
+    lowerarm_l:['x',-22],lowerarm_r:['x',-22]};
+  motion.define('motorRide',{seconds:.5,loop:true,keys:[[0,bars],[.25,bars]]});
+  motion.define('stretch',{seconds:4.6,loop:true,base:'idle',keys:[
+    [0,{upperarm_l:['z',-62],upperarm_r:['z',62]}],
+    [2.3,{upperarm_l:['z',69],upperarm_r:['z',-69],'+spine_02':['z',8],'+Head':['x',-9]}]]});
+  motion.define('rowCable',{seconds:1.9,loop:true,base:'idle',keys:[
+    [0,{upperarm_l:['z',-51,'y',-69],upperarm_r:['z',51,'y',69]}],
+    [.95,{upperarm_l:['z',-73,'y',-23],upperarm_r:['z',73,'y',23],lowerarm_l:['y',-74],lowerarm_r:['y',74]}]]});
+  const cutting={upperarm_l:['z',-24,'y',-65],lowerarm_l:['z',36,'y',-28],
+    upperarm_r:['z',31,'y',61],lowerarm_r:['z',-29,'y',39]};
+  motion.define('cutHair',{seconds:.68,loop:true,keys:[[0,cutting],[.34,{...cutting,
+    lowerarm_l:['z',39,'y',-31],hand_l:['y',-8],'+Head':['x',5]}]]});
+  motion.define('curlWeight',{seconds:2.4,loop:true,keys:[
+    [0,{upperarm_l:['z',-77],lowerarm_l:['y',-22]}],
+    [1.2,{upperarm_l:['z',-70,'y',-14],lowerarm_l:['y',-111]}]]});
+  // The handoff keeps the timing of the original reach; its contact point
+  // on the crowd pose sheet is between the opposed fingertips.
+  const reachCash=motion.clip('reach');
+  motion.clips.set('giveCash',{...reachCash,id:'giveCash'});
+  motion.define('strum',{seconds:.66,loop:true,base:'idle',keys:[
+    [0,{upperarm_r:['z',64,'y',38],lowerarm_r:['y',58,'x',-13]}],
+    [.33,{upperarm_r:['z',68,'y',27],lowerarm_r:['y',66,'x',12]}]]});
   motion.define('seatBrace', { seconds: .5, keys: [[0, { pelvis: [0, -.09, -.035], '+spine_01': ['x', 21],
     '+thigh_l': ['x', -30], '+thigh_r': ['x', -30], '+calf_l': ['x', 42], '+calf_r': ['x', 42],
     '+foot_l': ['x', -12], '+foot_r': ['x', -12], '+upperarm_l': ['x', -18], '+upperarm_r': ['x', -18] }]] });
@@ -48,15 +100,78 @@ export function writeMovements(motion) {
     [.39, { '+hips': ['x', -14], pelvis: [0, .01, .06], thigh_r: ['x', -96, 'z', -4], calf_r: ['x', 10], foot_r: ['x', -10], '+spine_01': ['x', -9], '+thigh_l': ['x', 13], '+upperarm_r': ['z', -22], '+upperarm_l': ['z', 10] }],
     [.52, chamber], [.72, {}],
   ] });
+  motion.define('lowKick', { seconds: .72, base: 'jab', keys: [
+    [0, {}], [.17, { thigh_r:['x',-52], calf_r:['x',90], '+spine_01':['x',9] }],
+    [.29, { pelvis:[0,-.09,.06], thigh_r:['x',-38], calf_r:['x',12], foot_r:['x',8], '+spine_01':['x',13], '+thigh_l':['x',-9], '+calf_l':['x',18] }],
+    [.49, { thigh_r:['x',-42], calf_r:['x',76] }], [.72, {}],
+  ] });
+  function strike(id, windup, contact, follow, change = pose => pose) {
+    const timing=meleeMoves[id];
+    motion.define(id,{seconds:timing.seconds,base:'guard',keys:[
+      [0,{}],[timing.contact*.55,change(windup)],[timing.contact,change(contact)],
+      [timing.contact+.08,change(follow)],[timing.seconds,{}],
+    ]});
+  }
+  const hookLoad={'+spine_02':['y',-22],upperarm_r:['z',16,'y',-12],lowerarm_r:['y',83],...fist('r')};
+  const hookHit={'+spine_02':['y',22],upperarm_r:['z',6,'y',62],lowerarm_r:['y',75],...fist('r')};
+  const hookFinish={...hookHit,'+spine_02':['y',31],upperarm_r:['z',12,'y',80]};
+  strike('hookRight',hookLoad,hookHit,hookFinish);
+  strike('hookLeft',hookLoad,hookHit,hookFinish,mirror);
+  strike('uppercut',{...hookLoad,pelvis:[0,-.10,0],upperarm_r:['z',64,'y',20]},
+    {...hookHit,pelvis:[0,.035,.05],upperarm_r:['y',75,'x',-28],lowerarm_r:['y',80,'x',-72]},
+    {...hookFinish,upperarm_r:['y',78,'x',-40],lowerarm_r:['y',87,'x',-75]});
+
+  // Straighten each finger from the clenched guard throughout the palm swing.
+  const palm=Object.fromEntries(Object.keys(fist('r')).map(joint=>[joint,[]]));
+  const open={...palm,upperarm_r:['z',6,'y',-18],lowerarm_r:['y',20],hand_r:['x',60],'+spine_02':['y',-14]};
+  const across={...palm,upperarm_r:['z',4,'y',76],lowerarm_r:['y',22],hand_r:['x',65],'+spine_02':['y',15]};
+  const past={...across,upperarm_r:['z',6,'y',102],'+spine_02':['y',24]};
+  strike('slap',open,across,past);
+  strike('backhand',past,{...across,upperarm_r:['z',4,'y',55],hand_r:['x',-55]},open);
+
+  strike('leadKick',mirror(chamber),{thigh_l:['x',-74],calf_l:['x',8],foot_l:['x',-10],'+spine_01':['x',-5]},mirror(chamber));
+  strike('sideKick',{...chamber,'+hips':['y',-23]}, {thigh_r:['x',-81,'z',-27],calf_r:['x',8],
+    foot_r:['z',-22],'+hips':['y',-30],'+spine_01':['z',15]},chamber);
+  strike('lowSweep',{thigh_l:['x',-36,'z',22],calf_l:['x',65]},
+    {thigh_l:['x',-35,'z',5],calf_l:['x',8],'+hips':['y',-15]},
+    {thigh_l:['x',-30,'z',-12],calf_l:['x',21],'+hips':['y',-21]});
+  const raised={pelvis:[.035,0,0],thigh_r:['x',-71],calf_r:['x',104],foot_r:['x',-14],'+upperarm_l':['z',15]};
+  const planted={pelvis:[0,-.045,0],thigh_r:['x',-14],calf_r:['x',21],foot_r:['x',-7],'+spine_01':['x',10]};
+  strike('stompRight',raised,planted,planted);
+  strike('stompLeft',raised,planted,planted,mirror);
+  const crouch={...hookLoad,pelvis:[.025,-.08,0],'+thigh_l':['x',-12],'+calf_l':['x',19]};
+  const bodyHit={...hookHit,pelvis:[.04,-.095,.05],upperarm_r:['z',40,'y',72],lowerarm_r:['y',58],'+spine_01':['x',13]};
+  strike('bodyHook',crouch,bodyHit,{...bodyHit,'+spine_02':['y',33]});
+  strike('shovelLeft',crouch,{...bodyHit,upperarm_r:['z',19,'y',83],lowerarm_r:['x',-40,'y',70]},hookFinish,mirror);
+  const elbow={...hookHit,upperarm_r:['z',4,'y',86],lowerarm_r:['y',144],'+hips':['y',18]};
+  strike('elbowTurn',{...hookLoad,lowerarm_r:['y',140]},elbow,{...elbow,'+spine_02':['y',34]});
+  const push={...across,...mirror(across),pelvis:[0,-.045,.09],upperarm_r:['z',23,'y',83],upperarm_l:['z',-23,'y',-83],
+    lowerarm_r:['y',11],lowerarm_l:['y',-11],hand_r:['z',-45],hand_l:['z',45]};
+  strike('palmPush',{...push,pelvis:[0,-.04,-.02],lowerarm_r:['y',85],lowerarm_l:['y',-85]},push,
+    {...push,pelvis:[0,-.025,.05],lowerarm_r:['y',31],lowerarm_l:['y',-31]});
+  const extended={...hookHit,upperarm_r:['z',4,'y',88],lowerarm_r:['y',5],pelvis:[0,-.015,.09]};
+  strike('stepJab',{'+hips':['y',-8]},extended,{...extended,lowerarm_r:['y',45]},mirror);
+  strike('longCross',{...hookLoad,'+hips':['y',-18]}, {...extended,'+hips':['y',22],'+spine_01':['x',13]},
+    {...extended,upperarm_r:['z',9,'y',102],'+spine_02':['y',28]});
+  const swingLeg={...chamber,'+hips':['y',-32],thigh_r:['x',-66,'z',-45]};
+  strike('roundKick',swingLeg,{...swingLeg,'+hips':['y',28],thigh_r:['x',-86,'z',-16],calf_r:['x',13]},
+    {...swingLeg,'+hips':['y',38],thigh_r:['x',-58,'z',12],calf_r:['x',38]});
+  const pushLeg={pelvis:[0,0,.06],thigh_l:['x',-66],calf_l:['x',5],foot_l:['x',-21],'+spine_01':['x',-13]};
+  strike('pushKick',mirror(chamber),pushLeg,{...pushLeg,calf_l:['x',40]});
+  const recoil={'+Head':['y',28,'z',-16],'+spine_03':['y',14,'z',-7],'+upperarm_l':['z',13]};
+  for(const [id,pose] of [['reelLeft',recoil],['reelRight',mirror(recoil)],
+      ['foldBack',{pelvis:[0,-.075,-.04],'+spine_01':['x',23],'+Head':['x',-10],'+thigh_r':['x',-14],'+calf_r':['x',27]}]]) {
+    motion.define(id,{seconds:.38,base:'guard',keys:[[0,{}],[.09,pose],[.17,pose],[.38,{}]]});
+  }
   // Falling a long way: arms and legs going.
   const flail = { upperarm_l: ['z', 38, 'y', -25], lowerarm_l: ['y', -45], upperarm_r: ['z', 12, 'y', 40], lowerarm_r: ['y', 70], thigh_l: ['x', -48, 'z', 8], calf_l: ['x', 75], thigh_r: ['x', 8, 'z', -10], calf_r: ['x', 48], '+spine_02': ['x', -10], '+Head': ['x', 12] };
   motion.define('fall', { seconds: .7, loop: true, base: 'air', keys: [[0, flail], [.35, mirror(flail)]] });
   // Over something waist high: a hand down on it and both legs swung across to one side.
   motion.define('vault', { seconds: .8, base: 'idle', keys: [
     [0, { '+spine_01': ['x', 14], thigh_r: ['x', -40], calf_r: ['x', 60], thigh_l: ['x', 22], calf_l: ['x', 30], upperarm_l: ['z', -40, 'y', -50], lowerarm_l: ['y', -25], pelvis: [0, -.04, 0] }],
-    [.2, { '+spine_01': ['x', 26], hips: ['z', -18], thigh_r: ['x', -80, 'z', -20], calf_r: ['x', 85], thigh_l: ['x', -30, 'z', 10], calf_l: ['x', 70], upperarm_l: ['z', -62, 'y', -38], lowerarm_l: ['y', -8], upperarm_r: ['z', 30, 'y', 30], lowerarm_r: ['y', 60], pelvis: [.05, .3, 0] }],
-    [.4, { '+spine_01': ['x', 22], hips: ['z', -42, 'x', -12], thigh_r: ['x', -95, 'z', -8], calf_r: ['x', 55], thigh_l: ['x', -88, 'z', -6], calf_l: ['x', 62], upperarm_l: ['z', -78, 'y', -8], lowerarm_l: ['y', -4], upperarm_r: ['z', 20, 'y', 20], lowerarm_r: ['y', 50], pelvis: [.1, .47, 0] }],
-    [.6, { '+spine_01': ['x', 16], hips: ['z', -14], thigh_r: ['x', -58], calf_r: ['x', 30], thigh_l: ['x', -46], calf_l: ['x', 42], upperarm_l: ['z', -55, 'y', 40], lowerarm_l: ['y', -30], pelvis: [.03, .2, 0] }],
+    [.2, { '+spine_01': ['x', 26], hips: ['z', -18], thigh_r: ['x', -80, 'z', -20], calf_r: ['x', 85], thigh_l: ['x', -30, 'z', 10], calf_l: ['x', 70], upperarm_l: ['z', -62, 'y', -38], lowerarm_l: ['y', -8], upperarm_r: ['z', 30, 'y', 30], lowerarm_r: ['y', 60], pelvis: [.05, 0, 0] }],
+    [.4, { '+spine_01': ['x', 22], hips: ['z', -42, 'x', -12], thigh_r: ['x', -95, 'z', -8], calf_r: ['x', 55], thigh_l: ['x', -88, 'z', -6], calf_l: ['x', 62], upperarm_l: ['z', -78, 'y', -8], lowerarm_l: ['y', -4], upperarm_r: ['z', 20, 'y', 20], lowerarm_r: ['y', 50], pelvis: [.1, 0, 0] }],
+    [.6, { '+spine_01': ['x', 16], hips: ['z', -14], thigh_r: ['x', -58], calf_r: ['x', 30], thigh_l: ['x', -46], calf_l: ['x', 42], upperarm_l: ['z', -55, 'y', 40], lowerarm_l: ['y', -30], pelvis: [.03, 0, 0] }],
     [.8, { '+spine_01': ['x', 10], thigh_r: ['x', -32], calf_r: ['x', 48], thigh_l: ['x', -26], calf_l: ['x', 46], pelvis: [0, -.09, 0] }],
   ] });
   // Up onto something head high: reach, haul, a knee over the edge, stand. Whoever moves the person lifts them through the middle of it.

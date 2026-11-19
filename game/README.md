@@ -324,7 +324,7 @@ The map and the minimap show patrol cars, officers and the helicopter while you 
 
 ## Violence and its consequences
 
-- **Fists and feet.** Somebody hit mostly gets away from you; the bolder ones square up and hit back. Three punches or two kicks put a person down, and a beating can kill. People near by scatter.
+- **Fists and feet.** Repeated unarmed attacks cycle through jabs, hooks, an uppercut, and open-hand slaps. The kick button cycles standing kicks, uses low kicks for someone on the ground, and alternates feet when stomping a car underfoot. Somebody hit mostly gets away from you; the bolder ones square up and hit back. Three punches or two kicks put a person down, and a beating can kill. People near by scatter.
 - **The pistol.** **X** takes it out or puts it away; with it out, **F** fires (twelve rounds, then a new magazine). Whoever it is pointed at puts their hands up or runs, and somebody may report it. A shot stops at the first person in its line or at a wall, and is heard a long way off.
 - **Cars and people.** A car coming fast gives people time to start back or run, not always enough. Hit above walking pace they are thrown down; above about twenty miles an hour some do not get up, and above thirty none do. A car creeping past is stepped back from.
 - **Cars and cars.** A car you drive into is dented by how hard, shoved off its line and turned, and rolls to a stop where it will. Its driver sits a while and then goes on; a car hit too often stays where it is. Damaged cars smoke, yours included.

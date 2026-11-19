@@ -7,11 +7,70 @@
 // angles, and the frames between are worked out. An animator then decides,
 // from what a person is doing, which movements to show and how much of each.
 import { qmul, qinv, qrot, qaxis, qslerp, restWorld } from './body.js';
+import { fingerPose, gripForItem, pinchOffset } from './hand-poses.js';
 import { seatHeight, footHeight } from './seating.js';
 
 const clamp = (value, low, high) => Math.max(low, Math.min(high, value));
 const smooth = t => t * t * (3 - 2 * t);
 const AXES = { x: [1, 0, 0], y: [0, 1, 0], z: [0, 0, 1] };
+
+// One cycle is two steps. During stance the ankle travels back at the same
+// speed as the character travels forward. Both feet share weight at heel strike.
+export const WALK_CLIP_SPEED=1.16;
+export const WALK_STYLES=['natural','relaxed','purposeful'];
+export const walkClip=style=>style==='relaxed'?'walkRelaxed':style==='purposeful'?'walkPurposeful':'walk';
+export const strideFactor=style=>style==='relaxed'?.93:style==='purposeful'?1.08:1;
+function plantWalkingFeet(motion,style){
+  const walk=motion.clip('walk'), baked=[], stance=.55, travel=WALK_CLIP_SPEED*strideFactor(style)*walk.seconds;
+  const energy=style==='relaxed'?-1:style==='purposeful'?1:0;
+  const pitchOf=(a,b)=>Math.atan2(b[2]-a[2],a[1]-b[1]);
+  for(let frame=0;frame<walk.frames;frame++){
+    const phase=frame/walk.frames, pose=motion.sample('walk',phase*walk.seconds);
+    const local=motion.bones.map((bone,i)=>({...bone,t:i===motion.pelvis ? pose.pelvis : bone.t,q:Array.from(pose.q.subarray(i*4,i*4+4))}));
+    const world=restWorld(local);
+    for(const [side,offset] of [['l',0],['r',.5]]){
+      const thigh=motion.index.get('thigh_'+side),calf=motion.index.get('calf_'+side),foot=motion.index.get('foot_'+side);
+      const hip=world[thigh].p,knee=world[calf].p,ankle=world[foot].p;
+      const t=(phase+offset)%1, swing=clamp((t-stance)/(1-stance),0,1);
+      const heel=clamp(1-t/.11,0,1), toe=smooth(clamp((t-.38)/(stance-.38),0,1));
+      const pitch=t<=stance ? -.19*heel+.52*toe : .52-.71*smooth(swing);
+      const clearance=(.085+.012*energy)*Math.sin(Math.PI*swing);
+      const y=.104+Math.max(-.035*Math.sin(pitch),.149*Math.sin(pitch)+.089*(Math.cos(pitch)-1))+clearance;
+      const step=t<=stance ? stance/2-t : -stance/2+smooth(swing)-(1-stance)*swing;
+      const z=motion.rest[foot].p[2]+travel*step;
+      const len=(a,b)=>Math.hypot(a[1]-b[1],a[2]-b[2]);
+      const upper=len(hip,knee),lower=len(knee,ankle),d=clamp(Math.hypot(y-hip[1],z-hip[2]),Math.abs(upper-lower)+.001,upper+lower-.001);
+      const toFoot=Math.atan2(z-hip[2],hip[1]-y);
+      const jointAngle=(a,b)=>Math.acos(clamp((d*d+a*a-b*b)/(2*d*a),-1,1));
+      const orient=(i,delta)=>qmul(qaxis(AXES.x,delta),world[i].q);
+      const thighQ=orient(thigh,pitchOf(hip,knee)-toFoot-jointAngle(upper,lower));
+      const calfQ=orient(calf,pitchOf(knee,ankle)-toFoot+jointAngle(lower,upper));
+      const footQ=qmul(qaxis(AXES.x,pitch),motion.rest[foot].q);
+      pose.q.set(qmul(qinv(world[local[thigh].parent].q),thighQ),thigh*4);
+      pose.q.set(qmul(qinv(thighQ),calfQ),calf*4);
+      pose.q.set(qmul(qinv(calfQ),footQ),foot*4);
+    }
+    if(energy){
+      const turn=(bone,axis,angle)=>{
+        const i=motion.index.get(bone), q=pose.q.subarray(i*4,i*4+4);
+        const parent=motion.rest[motion.bones[i].parent].q;
+        q.set(qmul(qmul(qmul(qinv(parent),qaxis(AXES[axis],angle)),parent),q));
+      };
+      const swing=Math.cos(phase*2*Math.PI);
+      turn('spine_02','x',energy*.05);
+      turn('spine_03','y',energy*.055*swing);
+      turn('upperarm_l','x',energy*.16*swing);
+      turn('upperarm_r','x',-energy*.16*swing);
+    }
+    baked.push(pose);
+  }
+  const variant={...walk,id:walkClip(style)};
+  motion.clips.set(variant.id,variant);
+  variant.sample=(time,out)=>{
+    const frame=((time/walk.seconds%1)+1)%1*baked.length, i=Math.floor(frame);
+    return motion.blend(baked[i],baked[(i+1)%baked.length],frame-i,out);
+  };
+}
 
 /** The recorded movements, ready to be sampled, and room for the written ones. `words` is motion.bin as an Int16Array. */
 export function createMotion(meta, words) {
@@ -93,11 +152,12 @@ export function createMotion(meta, words) {
       return motion;
     },
   };
+  for(const style of ['relaxed','purposeful','natural'])plantWalkingFeet(motion,style);
   return motion;
 }
 
 /** A pose fitted to one body: the pelvis's travel scaled to the length of its legs. Returns { q: [[x, y, z, w], ...], pelvis }. */
-export function fitPose(motion, rig, pose, out = { q: [], pelvis: [0, 0, 0] }, seat = null) {
+export function fitPose(motion, rig, pose, out = { q: [], pelvis: [0, 0, 0] }, seat = null, carry = null, liftDrink = 0) {
   for (let i = 0; i < motion.count; i++) { const q = out.q[i] || (out.q[i] = [0, 0, 0, 1]), o = i * 4; q[0] = pose.q[o]; q[1] = pose.q[o + 1]; q[2] = pose.q[o + 2]; q[3] = pose.q[o + 3]; }
   // A broad body carries its arms out from its sides.
   if (rig.spread) for (const [name, way] of [['upperarm_l', 1], ['upperarm_r', -1]]) {
@@ -121,7 +181,49 @@ export function fitPose(motion, rig, pose, out = { q: [], pelvis: [0, 0, 0] }, s
     // The soles take weight before the hips reach the cushion.
     supportFeet(motion, rig, out, footHeight(seat) * weight, smooth(Math.min(1, weight * 8)));
   }
+  if (carry) fitCarryingArm(rig,out,carry,liftDrink);
   return out;
+}
+
+export function carryPose(kind){
+  kind=kind?.split('@')[0];
+  if(kind?.startsWith('drink-'))return 'cup';
+  if(kind==='fork')return 'fork';
+  if(kind?.startsWith('grocery-'))return gripForItem(kind)==='support'?'tray':'cup';
+  if(kind?.startsWith('plate-') || ['tray','jewel','shoebox','guitar','guitar-mahogany','takeout','dishes'].includes(kind)) return 'tray';
+  if(['cup','mug','jewelBag','phone','phone-rose'].includes(kind)) return 'cup';
+  return null;
+}
+
+// The elbow stays beside the ribs and the forearm supports the load in front.
+// Retain the torso's movement and level the wrist in the character's frame.
+const elbowTurn = qmul(qaxis(AXES.y, -.6), qaxis(AXES.z, -1.31));
+const forearmTurn = qmul(qaxis(AXES.y, -1.77), qaxis(AXES.z, .20));
+const palmUp = [.5,.5,.5,.5], palmIn = [0,Math.SQRT1_2,Math.SQRT1_2,0];
+function fitCarryingArm(rig, pose, item, liftDrink) {
+  const style=gripForItem(item), kind=style==='support'?'tray':carryPose(item);
+  const upper = rig.index.get('upperarm_l'), lower = rig.index.get('lowerarm_l'), hand = rig.index.get('hand_l');
+  const clavicle = rig.bones[upper].parent;
+  let parent = pose.q[clavicle];
+  for (let i = rig.bones[clavicle].parent; i >= 0; i = rig.bones[i].parent) parent = qmul(pose.q[i],parent);
+  const sway = qmul(parent,qinv(rig.world[clavicle].q));
+  const elbow = qmul(sway,qmul(elbowTurn,rig.world[upper].q));
+  // Seated diners lift the cup or utensil toward their face and lower it.
+  const raise = liftDrink ? qmul(qaxis(AXES.x,-.97*liftDrink),qaxis(AXES.y,-.34*liftDrink)) : [0,0,0,1];
+  const forearm = qmul(sway,qmul(raise,qmul(forearmTurn,rig.world[lower].q)));
+  pose.q[upper] = qmul(qinv(parent),elbow);
+  pose.q[lower] = qmul(qinv(elbow),forearm);
+  pose.q[hand] = qmul(qinv(forearm),kind === 'tray' ? palmUp : palmIn);
+  for(const [i,q] of fingerPose(rig,style))pose.q[i]=q.slice();
+}
+
+// The grip lies between wrist and knuckles. The cup centre sits one radius
+// inside the curled fingers, while the underside of the tray rests on the palm.
+export function gripOffsetFor(rig, kind) {
+  if(kind==='fork'||kind==='cash')return pinchOffset(rig);
+  const knuckle = rig.bones[rig.index.get('middle_01_l')].t;
+  kind=carryPose(kind);
+  return [kind === 'cup' ? .046 : kind === 'tray' ? .014 : 0, knuckle[1]*.74, knuckle[2]*.74];
 }
 
 // Flex the thighs to put reachable feet on the support. Counter-rotate at
@@ -173,7 +275,7 @@ export function createAnimator(motion) {
   let stride = 0, clock = 0, air = 0, airTime = 0, stance = 0, stanceClip = 'guard', held = 0, heldClip = 'drive', wasGrounded = true, punches = 0;
   let act = null, last = null, lastWeight = 0;
   const toward = (value, goal, rate, dt) => value + (goal - value) * (1 - Math.exp(-rate * dt));
-  const gaits = [['walk', 1.5], ['jog', 3.5], ['sprint', 7]];
+  const gaits = [['walk', 2.05], ['jog', 3.5], ['sprint', 7]];
   const animator = {
     /** Run a movement over the top once. `rate` is how fast, `from` where in it to start, `upperOnly` leaves the legs to walk, `hold` keeps its last pose until stop(). */
     play(clip, { rate = 1, from = 0, upperOnly = false, hold = false, fadeIn = .1, fadeOut = .16 } = {}) {
@@ -184,7 +286,9 @@ export function createAnimator(motion) {
     stop() { if (act) act.hold = false, act.done = true; },
     get playing() { return act && !act.done ? act.clip : null; },
     /** One of two punches, turn about. */
-    punch(moving) { const clip = punches++ % 2 ? 'cross' : 'jab'; return animator.play(clip, { rate: 2, from: clip === 'jab' ? .12 : .16, upperOnly: moving, fadeIn: .05, fadeOut: .2 }); },
+    punch(moving, clip = punches++ % 2 ? 'cross' : 'jab') {
+      const recorded=clip==='jab' || clip==='cross';
+      return animator.play(clip, { rate: recorded?2:1, from: recorded ? (clip==='jab'?.12:.16) : 0, upperOnly: moving, fadeIn: .05, fadeOut: .2 }); },
     /**
      * `s`: speed (m/s over the ground), grounded, falling (m/s downward), guard (squared up), aim, held (a movement to stay in: 'drive', 'sit', 'kneel', 'cuffed', 'handsUp', 'lying', 'death'...), sliding.
      * Returns the pose, for fitPose.
@@ -197,8 +301,10 @@ export function createAnimator(motion) {
       if (speed > gaits[2][1]) low = high = gaits[2];
       else for (let i = 0; i + 1 < gaits.length; i++) if (speed > gaits[i][1]) { low = gaits[i]; high = gaits[i + 1]; t = (speed - gaits[i][1]) / (gaits[i + 1][1] - gaits[i][1]); }
       const lowLength = motion.clip(low[0]).seconds, highLength = motion.clip(high[0]).seconds, length = lowLength + (highLength - lowLength) * t, pace = low[1] + (high[1] - low[1]) * t;
-      stride = (stride + dt * Math.min(1.7, Math.max(.55, speed / pace)) / length) % 1;
-      motion.sample(low[0], stride * lowLength, a);
+      const cadenceSpeed=low[0]==='walk' ? WALK_CLIP_SPEED*strideFactor(s.walkStyle)*(1-t)+high[1]*t : pace;
+      const cadence=clamp(speed/(cadenceSpeed*(s.strideScale||1)),.55,1.7);
+      stride=(stride+dt*cadence/length)%1;
+      motion.sample(low[0]==='walk'?walkClip(s.walkStyle):low[0], stride * lowLength, a);
       if (high !== low) { motion.sample(high[0], stride * highLength, b); motion.blend(a, b, t, a); }
       const moving = Math.min(1, speed / .9);
       // Squared up, or aiming: the whole body when standing, from the waist up when moving.
@@ -212,7 +318,12 @@ export function createAnimator(motion) {
       const grounded = s.grounded !== false;
       airTime = grounded ? 0 : airTime + dt;
       air = toward(air, grounded ? 0 : 1, grounded ? 14 : 10, dt);
-      if (air > .01) { motion.sample('air', clock, b); if (airTime > .85) { motion.sample('fall', clock, c); motion.blend(b, c, Math.min(1, (airTime - .85) * 3), b); } motion.blend(pose, b, air, pose); }
+      if (air > .01) { motion.sample('air', airTime, b);
+        if (s.vy>0 && airTime<.22) {
+          motion.sample('jumpStart',airTime*.8,c);
+          motion.blend(c,b,Math.min(1,airTime/.22),b);
+        }
+        if (airTime > .85) { motion.sample('fall', clock, c); motion.blend(b, c, Math.min(1, (airTime - .85) * 3), b); } motion.blend(pose, b, air, pose); }
       if (grounded && !wasGrounded && !act?.hold) {
         // Coming down: a hard landing or a dive out of a car is rolled out of, an ordinary one is absorbed.
         if (s.sliding || (s.impact || 0) > 9) animator.play('roll', { rate: 1.45, from: .12, fadeIn: .06, fadeOut: .25 });
