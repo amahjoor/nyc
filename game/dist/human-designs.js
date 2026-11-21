@@ -1,7 +1,7 @@
 // The player's own design, as kept in this browser. What a design may say is in human-looks.js.
 import { tidy as tidyLegacy, EYE_TONES } from './body-designs.js';
 import { heightOf, BEARDS, GLASSES, BAGS } from './body.js';
-import { HAIR_COLOURS } from './human-looks.js';
+import { HAIR_COLOURS, ARCHIVE_BAGS } from './human-looks.js';
 
 /** Somebody ordinary, until the player says otherwise. */
 export const DEFAULT_PERSON = { v: 2, walkStyle: 'natural', sex: 0, age: 28, height: 1.78, weight: 0, muscle: .1, african: .2, asian: .1, european: .7, tone: '#c89a76', dials: {},
@@ -18,7 +18,7 @@ export function tidyPerson(design) {
   for (const [key, [low, high]] of Object.entries(NUMBERS)) if (Number.isFinite(design[key])) made[key] = Math.max(low, Math.min(high, design[key]));
   if(['relaxed','purposeful'].includes(design.walkStyle)) made.walkStyle=design.walkStyle;
   for (const key of TEXTS) if (typeof design[key] === 'string' && /^[\w-]{1,48}$/.test(design[key])) made[key] = design[key];
-  for(const [key,choices] of Object.entries({beard:BEARDS,glasses:GLASSES,bag:BAGS}))made[key]=choices.includes(design[key])?design[key]:'none';
+  for(const [key,choices] of Object.entries({beard:BEARDS,glasses:GLASSES,bag:[...BAGS,...ARCHIVE_BAGS]}))made[key]=choices.includes(design[key])?design[key]:'none';
   for (const key of COLOURS) if (design[key] === null || /^#[0-9a-f]{6}$/i.test(design[key] || '')) made[key] = design[key];
   if (design.dials && typeof design.dials === 'object') for (const [id, value] of Object.entries(design.dials)) if (Number.isFinite(value) && /^[\w-]{1,64}$/.test(id) && Math.abs(value) > .005) made.dials[id] = Math.max(-1, Math.min(1, value));
   return made;

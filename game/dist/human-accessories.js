@@ -88,7 +88,53 @@ export function fitAccessories(built,look,bones,inverses){
       attach('Head','Facial hair',hair,{color,vertexColors:true,roughness:1,transparent:true,alphaTest:.015,depthWrite:false,opacity:style==='stubble'?.52:.94});
     }
   }
-  if(look.bag && look.bag!=='none'){
+  if(look.bag==='nylon backpack'){
+    // A small black nylon rucksack: a soft body gathered under a flap, two buckled pockets, and a triangle of enamel on the flap.
+    const chest=at('spine_03'),lh=at('upperarm_l'),rh=at('upperarm_r'),s=rig.height/1.76,half=lh.distanceTo(rh)/2;
+    let back=chest.z,front=chest.z;
+    for(const piece of built.pieces.filter(p=>p.kind==='skin'||p.kind==='garment')){
+      const p=piece.position;
+      for(let i=0;i<p.length;i+=3)if(Math.abs(p[i]-chest.x)<half*.6 && Math.abs(p[i+1]-chest.y)<.14*s){back=Math.min(back,p[i+2]);front=Math.max(front,p[i+2]);}
+    }
+    const nylon={color:look.trimColour||0x151517,roughness:.5},leather={color:0x0c0c0d,roughness:.36},metal={color:0xc9cacc,roughness:.28,metalness:.9};
+    const w=.145*s,h=.17*s,d=.075*s,centre=new THREE.Vector3(chest.x,chest.y-.035*s,back-d-.006*s);
+    // A box pulled round at its corners, narrower toward the drawn top and fuller low down.
+    const soft=(width,height,depth,round=.55,taper=.22)=>{
+      const g=new THREE.BoxGeometry(2,2,2,6,8,5),p=g.attributes.position,v=new THREE.Vector3();
+      for(let i=0;i<p.count;i++){
+        v.fromBufferAttribute(p,i);const ball=v.clone().normalize().multiplyScalar(1.25);v.lerp(ball,round);
+        const up=(v.y+1)/2,k=1-taper*up*up+.06*(1-up)*up*4;
+        p.setXYZ(i,v.x*width*k,v.y*height,v.z*depth*k);
+      }
+      g.computeVertexNormals();return g;
+    };
+    const put=(name,geometry,x,y,z,material)=>{geometry.translate(centre.x+x,centre.y+y,centre.z+z);attach('spine_03',name,geometry,material);};
+    put('Bag',soft(w,h,d),0,0,0,nylon);
+    // The flap comes over the top and a third of the way down the outside.
+    const flap=soft(w*.93,h*.36,d*.9,.6,-.1);flap.rotateX(.5);put('Bag flap',flap,0,h*.74,-d*.34,nylon);
+    for(const side of [-1,1]){
+      put('Bag pocket',soft(w*.42,h*.34,d*.42,.5,.05),side*w*.47,-h*.52,-d*.92,nylon);
+      put('Bag pocket flap',soft(w*.44,h*.13,d*.3,.5,0),side*w*.47,-h*.22,-d*1.12,nylon);
+      put('Bag strap',new THREE.BoxGeometry(.018*s,h*.34,.004*s),side*w*.47,-h*.3,-d*1.37,leather);
+      put('Bag buckle',new THREE.BoxGeometry(.026*s,.02*s,.007*s),side*w*.47,-h*.33,-d*1.4,metal);
+    }
+    put('Bag strap',new THREE.BoxGeometry(.022*s,h*.62,.004*s),0,h*.38,-d*1.05,leather);
+    put('Bag buckle',new THREE.BoxGeometry(.03*s,.022*s,.007*s),0,h*.12,-d*1.1,metal);
+    // The plaque: a silver triangle with a black one set in it, point down.
+    const triangle=(size)=>{const shape=new THREE.Shape();shape.moveTo(-size,size*.55);shape.lineTo(size,size*.55);shape.lineTo(0,-size*.75);shape.closePath();const g=new THREE.ShapeGeometry(shape);g.rotateY(Math.PI);g.rotateX(-.5);return g;};
+    put('Bag plaque',triangle(.032*s),0,h*.6,-d*1.47,{...metal,side:THREE.DoubleSide});
+    put('Bag plaque',triangle(.025*s),0,h*.6,-d*1.47-.0015*s,{color:0x0b0b0c,roughness:.3,side:THREE.DoubleSide});
+    put('Bag handle',tube([new THREE.Vector3(-.03*s,0,0),new THREE.Vector3(-.02*s,.04*s,0),new THREE.Vector3(.02*s,.04*s,0),new THREE.Vector3(.03*s,0,0)],.006*s),0,h*1.02,d*.5,leather);
+    for(const sign of [-1,1]){
+      const top=lh.clone().lerp(rh,sign>0?.16:.84);top.y+=.046*s;
+      const start=centre.clone().add(new THREE.Vector3(sign*w*.45,h*.82,d*.7)),end=centre.clone().add(new THREE.Vector3(sign*w*.78,-h*.8,d*.6));
+      const rear=top.clone();rear.z=back+.004*s;rear.y-=.04*s;
+      const chestFront=top.clone();chestFront.z=front+.01*s;chestFront.y-=.11*s;
+      const lower=chestFront.clone();lower.y=end.y+.03*s;lower.x=chest.x+sign*half*.98;lower.z=(front+back)/2;
+      const strap=tube([start,rear,top,chestFront,lower,end],.012*s);strap.scale(1,1,1);
+      attach('spine_03','Bag strap',strap,nylon);
+    }
+  }else if(look.bag && look.bag!=='none'){
     const chest=at('spine_03'),hip=at('pelvis'),lh=at('upperarm_l'),rh=at('upperarm_r');
     const s=rig.height/1.76, half=lh.distanceTo(rh)/2, backpack=look.bag==='backpack', tote=look.bag==='tote';
     let back=chest.z,front=chest.z;

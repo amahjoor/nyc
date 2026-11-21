@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 720">
+  <!-- the wedge of other jeans let into the back, where the two legs were spread apart -->
+  <path d="M112,0 L150,150 L128,300 L232,720 H26 L70,330 L96,150 Z" fill="#273650"/>
+  <path d="M112,0 L96,150 L70,330 L26,720" fill="none" stroke="#1a2436" stroke-width="5"/>
+  <path d="M112,0 L150,150 L128,300 L232,720" fill="none" stroke="#1a2436" stroke-width="5"/>
+  <g fill="none" stroke="#c98a3a" stroke-width="2.4" stroke-dasharray="8 4">
+    <path d="M104,10 L88,150 L62,330 L16,720"/>
+    <path d="M120,10 L158,150 L136,300 L242,720"/>
+  </g>
+  <path d="M128,300 L150,720" fill="none" stroke="#1a2436" stroke-width="3"/>
+</svg>

@@ -21,6 +21,8 @@ const blend = (colours, shares) => { const out = [0, 0, 0]; colours.forEach((col
 // Skin, where each line of forebears has left it on average; people range well either side.
 const TONE = { african: '#6a4027', asian: '#dfb690', european: '#e8c2a4', southAsian: '#a8754c', arab: '#c99c74', indigenous: '#b98558' };
 export const HAIR_COLOURS = { black: '#15110f', darkBrown: '#2c1f17', brown: '#4d3423', chestnut: '#6d4429', auburn: '#7d3b22', red: '#a04a25', darkBlond: '#96744a', blond: '#c9a66b', grey: '#8f8f8f', white: '#d9d6cf', pink: '#c9609a', blue: '#3f6fb5' };
+/** Bags worn on this body that the older figure never had. */
+export const ARCHIVE_BAGS = ['nylon backpack'];
 export const EYES = ['brown', 'brownlight', 'green', 'grey', 'blue', 'bluegreen', 'lightblue', 'deepblue', 'ice'];
 export const TOP_COLOURS = ['#f2f0ea', '#1b1c1f', '#7d8288', '#22304f', '#8c2b2b', '#2f5b3c', '#d9b24a', '#3e6ea8', '#b65c2f', '#5d3a6e', '#d98ca0', '#3a7f86', '#c9c2b0', '#40454d'];
 export const BOTTOM_COLOURS = [null, null, null, '#1a1b1e', '#2a2f3a', '#6f6a5c', '#a59676', '#4a4f57', '#3a4636', '#22304f'];
@@ -64,13 +66,14 @@ export function lookOf(design, human) {
     const stem = id.replace(/\d*$/, ''), main=garments.find(p=>p.id===id);
     for (const part of garments) if (part.id === id || (part.id.startsWith(stem) && part.id !== id && /\d$/.test(part.id) && !/\d$/.test(id))) {
       wear.push('garment/'+part.id);
-      if (colour && sharesGarmentDye(part,main)) colours['garment/'+part.id]=colour;
+      // An archive piece is the colour it is: nobody dyes a museum piece.
+      if (colour && sharesGarmentDye(part,main) && !part.ownColour) colours['garment/'+part.id]=colour;
     }
   };
   put(design.bottom || 'male_casualsuit04-bottom', design.bottomColour); put(design.top || 'male_casualsuit04-top', design.topColour);
   if (design.shoes !== 'none') wear.push('shoes/' + (design.shoes || 'shoes02'));
   if (design.hat && design.hat !== 'none') wear.push('hat/' + design.hat);
-  if (design.shoeColour) colours['shoes/' + design.shoes] = design.shoeColour;
+  if (design.shoeColour && !human.parts.find(part => part.kind === 'shoes' && part.id === design.shoes)?.ownColour) colours['shoes/' + design.shoes] = design.shoeColour;
   if (design.hatColour) colours['hat/' + design.hat] = design.hatColour;
   if (design.hair && design.hair !== 'none') wear.push('hair/' + design.hair);
   wear.push('eyes/low-poly', 'brows/' + (design.brows || 'eyebrow001'), 'lashes/' + ((design.sex ?? 0) > .5 ? 'eyelashes02' : 'eyelashes01'), 'teeth/teeth_base');

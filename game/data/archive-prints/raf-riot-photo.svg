@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 80 96">
+ <defs>
+  <filter id="soft"><feGaussianBlur stdDeviation="1.6"/></filter>
+  <pattern id="h" width="2.2" height="2.2" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><circle cx="1.1" cy="1.1" r=".58" fill="#0e0e10"/></pattern>
+ </defs>
+ <rect width="80" height="96" fill="#0f0f11"/>
+ <rect x="2" y="2" width="76" height="92" fill="#55524c"/>
+ <!-- two standing figures against a pale wall, one lit from the left -->
+ <g filter="url(#soft)">
+  <rect x="2" y="2" width="76" height="40" fill="#a7a49a"/>
+  <path d="M10 94V52q2-12 12-13l8 0q9 2 10 14v41Z" fill="#17171a"/>
+  <ellipse cx="25" cy="29" rx="7.5" ry="10" fill="#d8d5ca"/><path d="M17 27q0-12 9-11q9 1 7 12q-8-6-16-1Z" fill="#141416"/>
+  <path d="M42 94V56q2-11 11-12h9q9 2 10 13v37Z" fill="#cfccc1"/>
+  <ellipse cx="58" cy="34" rx="7" ry="9.5" fill="#e3e0d5"/><path d="M50 34q-3-16 8-15q11 0 8 16q2 12-1 20q-2-16-4-22q-6-4-9 1q-1 12 0 22q-3-10-2-22Z" fill="#101012"/>
+  <path d="M46 66h22M46 74h22" stroke="#6a675f" stroke-width="2"/>
+ </g>
+ <rect x="2" y="2" width="76" height="92" fill="url(#h)" opacity=".32"/>
+</svg>

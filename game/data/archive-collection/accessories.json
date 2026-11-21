@@ -1,0 +1,5 @@
+[
+ {"n": 87, "id": "prada-nylon-backpack", "designer": "Prada", "name": "Nylon Backpack", "season": "1984", "price": 450, "slot": "bag", "bag": "nylon backpack", "colour": "#151517",
+  "note": "Not a cut garment: the bag is built in dist/human-accessories.js.",
+  "refs": ["https://www.wmagazine.com/fashion/prada-nylon-backpack-history-backstory"]}
+]

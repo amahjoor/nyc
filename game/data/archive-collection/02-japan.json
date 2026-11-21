@@ -1,0 +1,6074 @@
+[
+ {
+  "n": 21,
+  "id": "nn-crying-heart-patchwork-coat",
+  "designer": "Number (N)ine",
+  "name": "Crying Heart Patchwork Coat",
+  "season": "AW2003",
+  "price": 12000,
+  "slot": "top",
+  "colour": "#5a4636",
+  "finish": {
+   "roughness": 0.95
+  },
+  "cut": {
+   "like": "coat",
+   "hem": "knee-0.01",
+   "flare": 0.05,
+   "shoulderDrop": 0.012,
+   "neck": {
+    "v": 0.13,
+    "width": 0.07,
+    "depth": 0.03
+   },
+   "ease": {
+    "shoulder": 0.01,
+    "chest": 0.035,
+    "waist": 0.05,
+    "hip": 0.05,
+    "hem": 0.055,
+    "sleeve": 0.02,
+    "cuff": 0.022
+   },
+   "add": [
+    {
+     "type": "collar",
+     "style": "fold",
+     "height": 0.085,
+     "gap": 0.05,
+     "points": 0.8
+    },
+    {
+     "type": "lip"
+    }
+   ]
+  },
+  "under": {
+   "cut": {
+    "like": "tee",
+    "overWaist": false,
+    "hem": "hip"
+   },
+   "colour": "#1b1b1d",
+   "paint": [
+    {
+     "step": "fabric",
+     "type": "jersey"
+    }
+   ]
+  },
+  "paint": [
+   {
+    "step": "fabric",
+    "type": "wool"
+   },
+   {
+    "step": "print",
+    "frame": "front",
+    "art": "nn-crying-heart-body",
+    "at": [
+     0,
+     0.93
+    ],
+    "width": 0.78
+   },
+   {
+    "step": "print",
+    "frame": "back",
+    "art": "nn-crying-heart-back",
+    "at": [
+     0,
+     0.93
+    ],
+    "width": 0.78
+   },
+   {
+    "step": "print",
+    "frame": "sleeveL",
+    "art": "nn-crying-heart-sleeve",
+    "at": [
+     0,
+     0.5
+    ],
+    "width": 0.52
+   },
+   {
+    "step": "print",
+    "frame": "sleeveR",
+    "art": "nn-crying-heart-sleeve",
+    "at": [
+     0.03,
+     0.47
+    ],
+    "width": 0.52,
+    "rot": 180
+   },
+   {
+    "step": "panel",
+    "colour": "#8f2a22",
+    "where": {
+     "zone": "lining"
+    }
+   },
+   {
+    "step": "pattern",
+    "type": "dots",
+    "size": 0.018,
+    "r": 0.22,
+    "colours": [
+     "#d8b98a"
+    ],
+    "where": {
+     "zone": "lining"
+    }
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0.075,
+      "hem"
+     ],
+     [
+      0.075,
+      "chest-0.05"
+     ],
+     [
+      0.03,
+      "chest+0.06"
+     ]
+    ],
+    "style": "seam",
+    "width": 0.002
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0.075,
+      "chest-0.05"
+     ],
+     [
+      0.13,
+      "chest+0.1"
+     ]
+    ],
+    "style": "groove",
+    "width": 0.004
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      -0.02,
+      "chest-0.05"
+     ],
+     [
+      -0.12,
+      "chest+0.1"
+     ]
+    ],
+    "style": "groove",
+    "width": 0.004
+   },
+   {
+    "step": "dots",
+    "frame": "front",
+    "pts": [
+     [
+      0.05,
+      "waist+0.13"
+     ],
+     [
+      0.05,
+      "waist-0.02"
+     ],
+     [
+      0.05,
+      "waist-0.17"
+     ]
+    ],
+    "r": 0.011,
+    "style": "button",
+    "colour": "#3a3a3c",
+    "mirror": true
+   },
+   {
+    "step": "rect",
+    "frame": "front",
+    "at": [
+     0.135,
+     "hip+0.02"
+    ],
+    "size": [
+     0.15,
+     0.012
+    ],
+    "style": "welt",
+    "rot": -62,
+    "mirror": true
+   },
+   {
+    "step": "line",
+    "frame": "back",
+    "pts": [
+     [
+      0,
+      "hem"
+     ],
+     [
+      0,
+      "hip-0.05"
+     ]
+    ],
+    "style": "groove",
+    "width": 0.003
+   },
+   {
+    "step": "distress",
+    "type": "folds",
+    "amount": 0.4,
+    "where": {
+     "h": [
+      "hem",
+      "hip"
+     ]
+    }
+   },
+   {
+    "step": "distress",
+    "type": "shade",
+    "amount": 0.6
+   }
+  ],
+  "note": "Hearts are one printed layer with a little relief, not hundreds of separate sewn patches; shoulder epaulets left out.",
+  "refs": [
+   "https://archived.co/products/number-nine-patchwork-coat"
+  ]
+ },
+ {
+  "n": 22,
+  "id": "nn-give-peace-tribal-heart-shirt",
+  "designer": "Number (N)ine",
+  "name": "Give Peace a Chance Tribal Heart Camo Shirt",
+  "season": "AW2004",
+  "price": 400,
+  "slot": "top",
+  "colour": "#171b2c",
+  "finish": {
+   "roughness": 0.9
+  },
+  "cut": {
+   "like": "shirt",
+   "hem": "crotch+0.04",
+   "hemCurve": 0.02,
+   "shoulderDrop": 0.01,
+   "ease": {
+    "shoulder": 0.008,
+    "chest": 0.03,
+    "waist": 0.045,
+    "hip": 0.04,
+    "sleeve": 0.016,
+    "cuff": 0.012
+   }
+  },
+  "paint": [
+   {
+    "step": "fabric",
+    "type": "plain"
+   },
+   {
+    "step": "print",
+    "frame": "front",
+    "art": "nn-give-peace-tribal-body",
+    "at": [
+     0,
+     1.12
+    ],
+    "width": 0.76
+   },
+   {
+    "step": "print",
+    "frame": "back",
+    "art": "nn-give-peace-tribal-back",
+    "at": [
+     0,
+     1.12
+    ],
+    "width": 0.76
+   },
+   {
+    "step": "print",
+    "frame": "sleeveL",
+    "art": "nn-give-peace-tribal-sleeve",
+    "at": [
+     0,
+     0.5
+    ],
+    "width": 0.48
+   },
+   {
+    "step": "print",
+    "frame": "sleeveR",
+    "art": "nn-give-peace-tribal-sleeve",
+    "at": [
+     0.02,
+     0.5
+    ],
+    "width": 0.48,
+    "rot": 180
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0.016,
+      "hem"
+     ],
+     [
+      0.016,
+      "top"
+     ]
+    ],
+    "style": "seam",
+    "width": 0.0014,
+    "mirror": true
+   },
+   {
+    "step": "rect",
+    "frame": "front",
+    "at": [
+     0.088,
+     "chest-0.035"
+    ],
+    "size": [
+     0.105,
+     0.12
+    ],
+    "style": "flap",
+    "flap": 0.3,
+    "snap": false,
+    "mirror": true,
+    "stitch": "#0e101a"
+   },
+   {
+    "step": "dots",
+    "frame": "front",
+    "pts": [
+     [
+      0.088,
+      "chest+0.002"
+     ]
+    ],
+    "r": 0.0055,
+    "style": "button",
+    "colour": "#0c0c10",
+    "mirror": true
+   },
+   {
+    "step": "dots",
+    "frame": "front",
+    "from": [
+     0,
+     "hem+0.1"
+    ],
+    "to": [
+     0,
+     "neck-0.035"
+    ],
+    "count": 7,
+    "r": 0.0055,
+    "style": "button",
+    "colour": "#0c0c10"
+   },
+   {
+    "step": "line",
+    "frame": "sleeves",
+    "pts": [
+     [
+      -0.3,
+      0.93
+     ],
+     [
+      0.3,
+      0.93
+     ]
+    ],
+    "style": "seam",
+    "width": 0.0014
+   },
+   {
+    "step": "line",
+    "frame": "back",
+    "pts": [
+     [
+      -0.2,
+      "chest+0.07"
+     ],
+     [
+      0.2,
+      "chest+0.07"
+     ]
+    ],
+    "style": "seam",
+    "width": 0.0014
+   },
+   {
+    "step": "distress",
+    "type": "wash",
+    "amount": 0.25
+   },
+   {
+    "step": "distress",
+    "type": "shade",
+    "amount": 0.5
+   }
+  ],
+  "note": "The family's best-known design, the tribal heart camo, made as the long button-down shirt in the navy and grey colourway photographed; the print is redrawn, not traced.",
+  "refs": [
+   "https://www.assortedwears.net/shop/p/number-nine-aw04-give-peace-a-chance-tribal-camo-button-down-shirt"
+  ]
+ },
+ {
+  "n": 23,
+  "id": "nn-touch-me-mohair-cardigan",
+  "designer": "Number (N)ine",
+  "name": "Touch Me I'm Sick Mohair Cardigan",
+  "season": "AW2003",
+  "price": 400,
+  "slot": "top",
+  "colour": "#26262a",
+  "finish": {
+   "roughness": 0.97
+  },
+  "cut": {
+   "like": "knit",
+   "hem": "hip-0.05",
+   "cinch": 0.04,
+   "rib": 0.05,
+   "cuffCinch": 0.1,
+   "shoulderDrop": 0.03,
+   "hang": 0.9,
+   "neck": {
+    "v": 0.2,
+    "width": 0.065,
+    "depth": 0.03
+   },
+   "ease": {
+    "shoulder": 0.008,
+    "chest": 0.04,
+    "waist": 0.055,
+    "hip": 0.055,
+    "sleeve": 0.022,
+    "cuff": 0.018
+   },
+   "add": [
+    {
+     "type": "cuff",
+     "length": 0.035,
+     "flare": 0.004
+    },
+    {
+     "type": "lip"
+    },
+    {
+     "type": "collar",
+     "height": 0.001,
+     "only": true
+    }
+   ]
+  },
+  "under": {
+   "cut": {
+    "like": "tee",
+    "overWaist": false,
+    "hem": "hip-0.02"
+   },
+   "colour": "#d9d5c8",
+   "paint": [
+    {
+     "step": "fabric",
+     "type": "jersey"
+    },
+    {
+     "step": "distress",
+     "type": "wash",
+     "amount": 0.3,
+     "colour": "#b9b3a2"
+    }
+   ]
+  },
+  "paint": [
+   {
+    "step": "fabric",
+    "type": "knit",
+    "gauge": 0.006
+   },
+   {
+    "step": "pattern",
+    "type": "clouds",
+    "freq": 140,
+    "colours": [
+     "#34343a",
+     "#3e3e44"
+    ],
+    "amount": 0.3
+   },
+   {
+    "step": "pattern",
+    "type": "speckle",
+    "freq": 900,
+    "density": 0.2,
+    "colours": [
+     "#55555c",
+     "#3a3a40"
+    ],
+    "amount": 0.6
+   },
+   {
+    "step": "rib",
+    "where": {
+     "zone": "body",
+     "h": [
+      "hem",
+      "hem+0.055"
+     ]
+    },
+    "gauge": 0.007,
+    "colour": "#222226"
+   },
+   {
+    "step": "rib",
+    "where": {
+     "zone": "sleeves",
+     "s": [
+      0.86,
+      1.3
+     ]
+    },
+    "gauge": 0.007,
+    "colour": "#222226"
+   },
+   {
+    "step": "rib",
+    "where": {
+     "zone": "front",
+     "ax": [
+      0,
+      0.024
+     ],
+     "h": [
+      "hem",
+      "chest-0.09"
+     ]
+    },
+    "gauge": 0.006,
+    "dir": "h",
+    "colour": "#222226"
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0.024,
+      "hem"
+     ],
+     [
+      0.024,
+      "chest-0.1"
+     ],
+     [
+      0.075,
+      "neck-0.01"
+     ]
+    ],
+    "style": "seam",
+    "width": 0.002,
+    "mirror": true
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0,
+      "hem"
+     ],
+     [
+      0,
+      "chest-0.1"
+     ]
+    ],
+    "style": "seam",
+    "width": 0.0016
+   },
+   {
+    "step": "dots",
+    "frame": "front",
+    "from": [
+     0,
+     "hem+0.035"
+    ],
+    "to": [
+     0,
+     "chest-0.13"
+    ],
+    "count": 5,
+    "r": 0.009,
+    "style": "button",
+    "colour": "#3b3936"
+   },
+   {
+    "step": "rect",
+    "frame": "front",
+    "at": [
+     0.105,
+     "hip+0.045"
+    ],
+    "size": [
+     0.115,
+     0.11
+    ],
+    "style": "pocket",
+    "mirror": true,
+    "stitch": "#3a3a40"
+   },
+   {
+    "step": "rib",
+    "where": {
+     "zone": "front",
+     "ax": [
+      0.048,
+      0.162
+     ],
+     "h": [
+      "hip+0.082",
+      "hip+0.1"
+     ]
+    },
+    "gauge": 0.006,
+    "colour": "#222226"
+   },
+   {
+    "step": "distress",
+    "type": "pill",
+    "amount": 1
+   },
+   {
+    "step": "rect",
+    "frame": "sleeveL",
+    "at": [
+     -0.05,
+     0.55
+    ],
+    "size": [
+     0.05,
+     0.06
+    ],
+    "style": "hole",
+    "colour": "#17171a"
+   },
+   {
+    "step": "rect",
+    "frame": "front",
+    "at": [
+     -0.11,
+     "waist+0.05"
+    ],
+    "size": [
+     0.03,
+     0.04
+    ],
+    "style": "hole",
+    "colour": "#17171a"
+   },
+   {
+    "step": "rect",
+    "frame": "back",
+    "at": [
+     0.08,
+     "hip+0.05"
+    ],
+    "size": [
+     0.04,
+     0.03
+    ],
+    "style": "hole",
+    "colour": "#17171a"
+   },
+   {
+    "step": "distress",
+    "type": "folds",
+    "amount": 0.3
+   },
+   {
+    "step": "distress",
+    "type": "shade",
+    "amount": 0.5
+   }
+  ],
+  "note": "No photograph loaded (dealer pages refused): made from the research description. The mohair halo is painted speckle and pilling, not standing fibre.",
+  "refs": [
+   "https://justinreed.com/products/knit-cardigan-2"
+  ]
+ },
+ {
+  "n": 24,
+  "id": "nn-school-of-visual-comedy-tee",
+  "designer": "Number (N)ine",
+  "name": "School of Visual Comedy Skull Tee",
+  "season": "SS2001",
+  "price": 200,
+  "slot": "top",
+  "colour": "#1b1b1d",
+  "finish": {
+   "roughness": 0.88
+  },
+  "cut": {
+   "like": "tee",
+   "hem": "hip-0.04",
+   "ease": {
+    "shoulder": 0.006,
+    "chest": 0.02,
+    "waist": 0.03,
+    "hip": 0.03,
+    "sleeve": 0.014,
+    "cuff": 0.016
+   }
+  },
+  "paint": [
+   {
+    "step": "fabric",
+    "type": "jersey"
+   },
+   {
+    "step": "distress",
+    "type": "wash",
+    "amount": 0.18
+   },
+   {
+    "step": "rib",
+    "where": {
+     "zone": "collar"
+    },
+    "gauge": 0.004
+   },
+   {
+    "step": "line",
+    "frame": "sleeves",
+    "pts": [
+     [
+      -0.3,
+      0.93
+     ],
+     [
+      0.3,
+      0.93
+     ]
+    ],
+    "style": "twin",
+    "width": 0.001,
+    "gap": 0.005,
+    "colour": "#2c2c30"
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      -0.3,
+      "hem+0.02"
+     ],
+     [
+      0.3,
+      "hem+0.02"
+     ]
+    ],
+    "style": "twin",
+    "width": 0.001,
+    "gap": 0.005,
+    "colour": "#2c2c30"
+   },
+   {
+    "step": "line",
+    "frame": "back",
+    "pts": [
+     [
+      -0.3,
+      "hem+0.02"
+     ],
+     [
+      0.3,
+      "hem+0.02"
+     ]
+    ],
+    "style": "twin",
+    "width": 0.001,
+    "gap": 0.005,
+    "colour": "#2c2c30"
+   },
+   {
+    "step": "print",
+    "frame": "front",
+    "art": "nn-school-of-visual-comedy-seal",
+    "at": [
+     0,
+     "chest-0.015"
+    ],
+    "width": 0.255,
+    "crack": 0.45
+   },
+   {
+    "step": "distress",
+    "type": "shade",
+    "amount": 0.4
+   }
+  ],
+  "note": "No photograph of the tee loaded: the seal is drawn from the research description (skull, ring of lettering, SINCE 1997), so its lettering layout is approximate.",
+  "refs": [
+   "https://saolmortem.com/products/number-nine-school-of-visual-comedy-tee"
+  ]
+ },
+ {
+  "n": 25,
+  "id": "nn-high-streets-distressed-denim",
+  "designer": "Number (N)ine",
+  "name": "The High Streets Distressed Denim",
+  "season": "AW2005",
+  "price": 350,
+  "slot": "bottom",
+  "colour": "#3f5670",
+  "finish": {
+   "roughness": 0.88
+  },
+  "cut": {
+   "like": "slim",
+   "rise": "waist-0.115",
+   "hem": "ankle-0.03",
+   "straight": 0.5,
+   "flare": 0.06,
+   "ease": {
+    "waist": 0.002,
+    "seat": 0.008,
+    "thigh": 0.009,
+    "knee": 0.01,
+    "hem": 0.02
+   }
+  },
+  "paint": [
+   {
+    "step": "fabric",
+    "type": "denim",
+    "colour": "#3f5670",
+    "colour2": "#8e9fb2"
+   },
+   {
+    "step": "distress",
+    "type": "wash",
+    "amount": 0.45
+   },
+   {
+    "step": "distress",
+    "type": "fade",
+    "frame": "front",
+    "at": [
+     0.09,
+     "thigh"
+    ],
+    "size": [
+     0.06,
+     0.16
+    ],
+    "mirror": true,
+    "colour": "#b9c2c6",
+    "amount": 0.7
+   },
+   {
+    "step": "distress",
+    "type": "fade",
+    "frame": "back",
+    "at": [
+     0.09,
+     "hip-0.05"
+    ],
+    "size": [
+     0.07,
+     0.09
+    ],
+    "mirror": true,
+    "colour": "#b9c2c6",
+    "amount": 0.55
+   },
+   {
+    "step": "distress",
+    "type": "whisker",
+    "frame": "front",
+    "at": [
+     0.07,
+     "crotch+0.02"
+    ],
+    "size": [
+     0.09,
+     0.05
+    ],
+    "mirror": true,
+    "amount": 0.4
+   },
+   {
+    "step": "distress",
+    "type": "whisker",
+    "frame": "back",
+    "at": [
+     0.09,
+     "knee"
+    ],
+    "size": [
+     0.07,
+     0.05
+    ],
+    "mirror": true,
+    "amount": 0.35,
+    "slope": 0.1
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      -0.2,
+      "top-0.036"
+     ],
+     [
+      0.2,
+      "top-0.036"
+     ]
+    ],
+    "style": "seam",
+    "width": 0.0016
+   },
+   {
+    "step": "line",
+    "frame": "back",
+    "pts": [
+     [
+      -0.2,
+      "top-0.036"
+     ],
+     [
+      0.2,
+      "top-0.036"
+     ]
+    ],
+    "style": "seam",
+    "width": 0.0016
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0,
+      "top-0.036"
+     ],
+     [
+      0,
+      "crotch+0.02"
+     ]
+    ],
+    "style": "seam",
+    "width": 0.0016
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0.03,
+      "top-0.04"
+     ],
+     [
+      0.03,
+      "crotch+0.07"
+     ],
+     [
+      0.022,
+      "crotch+0.045"
+     ],
+     [
+      0.003,
+      "crotch+0.035"
+     ]
+    ],
+    "style": "twin",
+    "width": 0.0013,
+    "gap": 0.005,
+    "colour": "#c9a05a"
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0.045,
+      "top-0.038"
+     ],
+     [
+      0.06,
+      "top-0.085"
+     ],
+     [
+      0.1,
+      "top-0.11"
+     ],
+     [
+      0.165,
+      "top-0.115"
+     ]
+    ],
+    "style": "twin",
+    "width": 0.0013,
+    "gap": 0.005,
+    "colour": "#c9a05a",
+    "mirror": true
+   },
+   {
+    "step": "rect",
+    "frame": "front",
+    "at": [
+     -0.115,
+     "top-0.075"
+    ],
+    "size": [
+     0.05,
+     0.05
+    ],
+    "style": "pocket",
+    "stitch": "#c9a05a"
+   },
+   {
+    "step": "line",
+    "frame": "legs",
+    "pts": [
+     [
+      0,
+      0.03
+     ],
+     [
+      0,
+      1
+     ]
+    ],
+    "style": "seam",
+    "width": 0.0016
+   },
+   {
+    "step": "line",
+    "frame": "legs",
+    "pts": [
+     [
+      0.007,
+      0.03
+     ],
+     [
+      0.007,
+      0.3
+     ]
+    ],
+    "style": "stitch",
+    "width": 0.0013,
+    "colour": "#c9a05a"
+   },
+   {
+    "step": "line",
+    "frame": "back",
+    "pts": [
+     [
+      0,
+      "top-0.085"
+     ],
+     [
+      0.17,
+      "top-0.05"
+     ]
+    ],
+    "style": "twin",
+    "width": 0.0013,
+    "gap": 0.005,
+    "colour": "#c9a05a",
+    "mirror": true
+   },
+   {
+    "step": "line",
+    "frame": "back",
+    "pts": [
+     [
+      0,
+      "top-0.036"
+     ],
+     [
+      0,
+      "crotch+0.01"
+     ]
+    ],
+    "style": "twin",
+    "width": 0.0013,
+    "gap": 0.005,
+    "colour": "#c9a05a"
+   },
+   {
+    "step": "rect",
+    "frame": "back",
+    "at": [
+     0.088,
+     "top-0.16"
+    ],
+    "size": [
+     0.125,
+     0.135
+    ],
+    "style": "pocket",
+    "stitch": "#c9a05a",
+    "mirror": true,
+    "round": 0.012
+   },
+   {
+    "step": "rect",
+    "frame": "back",
+    "at": [
+     0.075,
+     "top-0.018"
+    ],
+    "size": [
+     0.085,
+     0.03
+    ],
+    "style": "label",
+    "colour": "#3a2a20",
+    "round": 0.002
+   },
+   {
+    "step": "rect",
+    "frame": "front",
+    "at": [
+     0.062,
+     "top-0.018"
+    ],
+    "size": [
+     0.012,
+     0.046
+    ],
+    "style": "patch",
+    "stitch": "#c9a05a",
+    "mirror": true,
+    "round": 0.001
+   },
+   {
+    "step": "rect",
+    "frame": "back",
+    "at": [
+     0.0,
+     "top-0.018"
+    ],
+    "size": [
+     0.012,
+     0.046
+    ],
+    "style": "patch",
+    "stitch": "#c9a05a",
+    "round": 0.001
+   },
+   {
+    "step": "rect",
+    "frame": "back",
+    "at": [
+     0.14,
+     "top-0.018"
+    ],
+    "size": [
+     0.012,
+     0.046
+    ],
+    "style": "patch",
+    "stitch": "#c9a05a",
+    "mirror": true,
+    "round": 0.001
+   },
+   {
+    "step": "dots",
+    "frame": "front",
+    "pts": [
+     [
+      0,
+      "top-0.018"
+     ]
+    ],
+    "r": 0.008,
+    "style": "stud",
+    "colour": "#8a8478"
+   },
+   {
+    "step": "dots",
+    "frame": "front",
+    "pts": [
+     [
+      0.047,
+      "top-0.043"
+     ],
+     [
+      0.16,
+      "top-0.108"
+     ]
+    ],
+    "r": 0.0035,
+    "style": "stud",
+    "colour": "#8a8478",
+    "mirror": true
+   },
+   {
+    "step": "print",
+    "frame": "front",
+    "art": "nn-high-streets-knee-left",
+    "at": [
+     0.095,
+     "knee+0.02"
+    ],
+    "width": 0.135
+   },
+   {
+    "step": "print",
+    "frame": "front",
+    "art": "nn-high-streets-thigh-right",
+    "at": [
+     -0.095,
+     "thigh+0.01"
+    ],
+    "width": 0.13
+   },
+   {
+    "step": "rect",
+    "frame": "front",
+    "at": [
+     -0.09,
+     "knee-0.02"
+    ],
+    "size": [
+     0.07,
+     0.03
+    ],
+    "style": "hole",
+    "colour": "#59626e"
+   },
+   {
+    "step": "distress",
+    "type": "holes",
+    "size": 0.05,
+    "density": 0.12,
+    "where": {
+     "zone": "legs",
+     "s": [
+      0.3,
+      0.8
+     ],
+     "front": true
+    }
+   },
+   {
+    "step": "distress",
+    "type": "edges",
+    "amount": 0.9,
+    "size": 0.035
+   },
+   {
+    "step": "distress",
+    "type": "grime",
+    "amount": 0.25
+   },
+   {
+    "step": "distress",
+    "type": "shade",
+    "amount": 0.5
+   }
+  ],
+  "note": "No photograph loaded: the layout of blowouts and repairs is representative, from the research description. Price is a judgement from a thin sales record (150 to 600).",
+  "refs": [
+   "https://www.grailed.com/designers/number-n-ine/denim"
+  ]
+ },
+ {
+  "n": 26,
+  "id": "uc-but-beautiful-yarn-denim",
+  "designer": "Undercover",
+  "name": "But Beautiful \"68\" Yarn Denim",
+  "season": "AW2004",
+  "price": 1200,
+  "slot": "bottom",
+  "colour": "#52698a",
+  "finish": {
+   "roughness": 0.88
+  },
+  "cut": {
+   "like": "slim",
+   "rise": "waist-0.12",
+   "hem": "ankle-0.02",
+   "straight": 0.55,
+   "ease": {
+    "waist": 0.002,
+    "seat": 0.01,
+    "thigh": 0.013,
+    "knee": 0.014,
+    "hem": 0.016
+   }
+  },
+  "paint": [
+   {
+    "step": "fabric",
+    "type": "denim",
+    "colour": "#52698a",
+    "colour2": "#9fb0c4"
+   },
+   {
+    "step": "distress",
+    "type": "wash",
+    "amount": 0.5
+   },
+   {
+    "step": "distress",
+    "type": "fade",
+    "frame": "front",
+    "at": [
+     0.09,
+     "thigh+0.02"
+    ],
+    "size": [
+     0.07,
+     0.2
+    ],
+    "mirror": true,
+    "colour": "#c3c6b8",
+    "amount": 0.85
+   },
+   {
+    "step": "distress",
+    "type": "fade",
+    "frame": "back",
+    "at": [
+     0.09,
+     "hip-0.04"
+    ],
+    "size": [
+     0.07,
+     0.1
+    ],
+    "mirror": true,
+    "colour": "#b9c0c2",
+    "amount": 0.6
+   },
+   {
+    "step": "distress",
+    "type": "fade",
+    "frame": "back",
+    "at": [
+     0.09,
+     "knee-0.1"
+    ],
+    "size": [
+     0.05,
+     0.12
+    ],
+    "mirror": true,
+    "colour": "#b9c0c2",
+    "amount": 0.4
+   },
+   {
+    "step": "distress",
+    "type": "whisker",
+    "frame": "front",
+    "at": [
+     0.07,
+     "crotch+0.02"
+    ],
+    "size": [
+     0.09,
+     0.05
+    ],
+    "mirror": true,
+    "amount": 0.35
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      -0.2,
+      "top-0.036"
+     ],
+     [
+      0.2,
+      "top-0.036"
+     ]
+    ],
+    "style": "seam",
+    "width": 0.0016
+   },
+   {
+    "step": "line",
+    "frame": "back",
+    "pts": [
+     [
+      -0.2,
+      "top-0.036"
+     ],
+     [
+      0.2,
+      "top-0.036"
+     ]
+    ],
+    "style": "seam",
+    "width": 0.0016
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      -0.2,
+      "top-0.031"
+     ],
+     [
+      0.2,
+      "top-0.031"
+     ]
+    ],
+    "style": "stitch",
+    "width": 0.0014,
+    "colour": "#b98a4a"
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0,
+      "top-0.036"
+     ],
+     [
+      0,
+      "crotch+0.02"
+     ]
+    ],
+    "style": "seam",
+    "width": 0.0016
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0.03,
+      "top-0.04"
+     ],
+     [
+      0.03,
+      "crotch+0.07"
+     ],
+     [
+      0.022,
+      "crotch+0.045"
+     ],
+     [
+      0.003,
+      "crotch+0.035"
+     ]
+    ],
+    "style": "twin",
+    "width": 0.0013,
+    "gap": 0.005,
+    "colour": "#b98a4a"
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0.045,
+      "top-0.038"
+     ],
+     [
+      0.06,
+      "top-0.085"
+     ],
+     [
+      0.1,
+      "top-0.11"
+     ],
+     [
+      0.165,
+      "top-0.115"
+     ]
+    ],
+    "style": "twin",
+    "width": 0.0013,
+    "gap": 0.005,
+    "colour": "#b98a4a",
+    "mirror": true
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0.047,
+      "top-0.04"
+     ],
+     [
+      0.062,
+      "top-0.088"
+     ],
+     [
+      0.1,
+      "top-0.114"
+     ],
+     [
+      0.165,
+      "top-0.119"
+     ]
+    ],
+    "style": "paint",
+    "width": 0.007,
+    "colour": "#ddd2b6",
+    "opacity": 0.85,
+    "dry": true,
+    "mirror": true
+   },
+   {
+    "step": "rect",
+    "frame": "front",
+    "at": [
+     -0.115,
+     "top-0.075"
+    ],
+    "size": [
+     0.05,
+     0.05
+    ],
+    "style": "pocket",
+    "stitch": "#b98a4a"
+   },
+   {
+    "step": "line",
+    "frame": "legs",
+    "pts": [
+     [
+      0,
+      0.03
+     ],
+     [
+      0,
+      1
+     ]
+    ],
+    "style": "seam",
+    "width": 0.0016
+   },
+   {
+    "step": "line",
+    "frame": "legs",
+    "pts": [
+     [
+      0.007,
+      0.03
+     ],
+     [
+      0.007,
+      0.3
+     ]
+    ],
+    "style": "stitch",
+    "width": 0.0013,
+    "colour": "#b98a4a"
+   },
+   {
+    "step": "line",
+    "frame": "back",
+    "pts": [
+     [
+      0,
+      "top-0.085"
+     ],
+     [
+      0.17,
+      "top-0.05"
+     ]
+    ],
+    "style": "twin",
+    "width": 0.0013,
+    "gap": 0.005,
+    "colour": "#b98a4a",
+    "mirror": true
+   },
+   {
+    "step": "line",
+    "frame": "back",
+    "pts": [
+     [
+      0,
+      "top-0.036"
+     ],
+     [
+      0,
+      "crotch+0.01"
+     ]
+    ],
+    "style": "twin",
+    "width": 0.0013,
+    "gap": 0.005,
+    "colour": "#b98a4a"
+   },
+   {
+    "step": "rect",
+    "frame": "back",
+    "at": [
+     0.088,
+     "top-0.16"
+    ],
+    "size": [
+     0.125,
+     0.135
+    ],
+    "style": "pocket",
+    "stitch": "#b98a4a",
+    "mirror": true,
+    "round": 0.012
+   },
+   {
+    "step": "rect",
+    "frame": "back",
+    "at": [
+     0.075,
+     "top-0.018"
+    ],
+    "size": [
+     0.085,
+     0.03
+    ],
+    "style": "label",
+    "colour": "#2a2220",
+    "round": 0.002
+   },
+   {
+    "step": "rect",
+    "frame": "front",
+    "at": [
+     0.062,
+     "top-0.018"
+    ],
+    "size": [
+     0.012,
+     0.046
+    ],
+    "style": "patch",
+    "stitch": "#b98a4a",
+    "mirror": true,
+    "round": 0.001
+   },
+   {
+    "step": "rect",
+    "frame": "back",
+    "at": [
+     0.0,
+     "top-0.018"
+    ],
+    "size": [
+     0.012,
+     0.046
+    ],
+    "style": "patch",
+    "stitch": "#b98a4a",
+    "round": 0.001
+   },
+   {
+    "step": "rect",
+    "frame": "back",
+    "at": [
+     0.14,
+     "top-0.018"
+    ],
+    "size": [
+     0.012,
+     0.046
+    ],
+    "style": "patch",
+    "stitch": "#b98a4a",
+    "mirror": true,
+    "round": 0.001
+   },
+   {
+    "step": "dots",
+    "frame": "front",
+    "pts": [
+     [
+      0,
+      "top-0.018"
+     ]
+    ],
+    "r": 0.008,
+    "style": "stud",
+    "colour": "#9a5f3a"
+   },
+   {
+    "step": "dots",
+    "frame": "front",
+    "pts": [
+     [
+      0.047,
+      "top-0.043"
+     ],
+     [
+      0.16,
+      "top-0.108"
+     ]
+    ],
+    "r": 0.0035,
+    "style": "stud",
+    "colour": "#9a5f3a",
+    "mirror": true
+   },
+   {
+    "step": "print",
+    "frame": "front",
+    "art": "uc-but-beautiful-darn-left",
+    "at": [
+     0.095,
+     0.565
+    ],
+    "width": 0.168
+   },
+   {
+    "step": "print",
+    "frame": "front",
+    "art": "uc-but-beautiful-darn-right",
+    "at": [
+     -0.095,
+     0.565
+    ],
+    "width": 0.168
+   },
+   {
+    "step": "line",
+    "frame": "legs",
+    "pts": [
+     [
+      -0.3,
+      0.985
+     ],
+     [
+      0.3,
+      0.985
+     ]
+    ],
+    "style": "stitch",
+    "width": 0.0013,
+    "colour": "#b98a4a"
+   },
+   {
+    "step": "distress",
+    "type": "edges",
+    "amount": 0.5,
+    "size": 0.02
+   },
+   {
+    "step": "distress",
+    "type": "shade",
+    "amount": 0.5
+   }
+  ],
+  "note": "Darning, shredded thigh and red yarn are flat artwork, not loose threads; the jean's displaced pockets are drawn in the usual places.",
+  "refs": [
+   "https://www.horrorvacuo.com/shop/aw04-but-beatuiful-og-68-denim/"
+  ]
+ },
+ {
+  "n": 27,
+  "id": "uc-klaus-patchwork-denim",
+  "designer": "Undercover",
+  "name": "Klaus Patchwork Denim",
+  "season": "SS2006",
+  "price": 600,
+  "slot": "bottom",
+  "colour": "#1e1e21",
+  "finish": {
+   "roughness": 0.9
+  },
+  "cut": {
+   "like": "slim",
+   "rise": "waist-0.115",
+   "hem": "ankle-0.02",
+   "straight": 0.4,
+   "ease": {
+    "waist": 0.002,
+    "seat": 0.008,
+    "thigh": 0.009,
+    "knee": 0.01,
+    "hem": 0.014
+   }
+  },
+  "paint": [
+   {
+    "step": "fabric",
+    "type": "denim",
+    "colour": "#1e1e21",
+    "colour2": "#55555a"
+   },
+   {
+    "step": "pattern",
+    "type": "patchwork",
+    "size": 0.1,
+    "colours": [
+     "#1c1c1e",
+     "#2b2b2f",
+     "#3a3a3f",
+     "#232327",
+     "#46464b",
+     "#18181a"
+    ],
+    "stitch": "#6c6c72",
+    "where": {
+     "zone": "legs",
+     "s": [
+      0.14,
+      1
+     ]
+    }
+   },
+   {
+    "step": "distress",
+    "type": "wash",
+    "amount": 0.3
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      -0.2,
+      "top-0.036"
+     ],
+     [
+      0.2,
+      "top-0.036"
+     ]
+    ],
+    "style": "seam",
+    "width": 0.0016
+   },
+   {
+    "step": "line",
+    "frame": "back",
+    "pts": [
+     [
+      -0.2,
+      "top-0.036"
+     ],
+     [
+      0.2,
+      "top-0.036"
+     ]
+    ],
+    "style": "seam",
+    "width": 0.0016
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0,
+      "top-0.036"
+     ],
+     [
+      0,
+      "crotch+0.02"
+     ]
+    ],
+    "style": "seam",
+    "width": 0.0016
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0.03,
+      "top-0.04"
+     ],
+     [
+      0.03,
+      "crotch+0.07"
+     ],
+     [
+      0.022,
+      "crotch+0.045"
+     ],
+     [
+      0.003,
+      "crotch+0.035"
+     ]
+    ],
+    "style": "twin",
+    "width": 0.0013,
+    "gap": 0.005,
+    "colour": "#5a5a60"
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0.045,
+      "top-0.038"
+     ],
+     [
+      0.06,
+      "top-0.085"
+     ],
+     [
+      0.1,
+      "top-0.11"
+     ],
+     [
+      0.165,
+      "top-0.115"
+     ]
+    ],
+    "style": "twin",
+    "width": 0.0013,
+    "gap": 0.005,
+    "colour": "#5a5a60",
+    "mirror": true
+   },
+   {
+    "step": "rect",
+    "frame": "front",
+    "at": [
+     -0.115,
+     "top-0.075"
+    ],
+    "size": [
+     0.05,
+     0.05
+    ],
+    "style": "pocket",
+    "stitch": "#5a5a60"
+   },
+   {
+    "step": "line",
+    "frame": "legs",
+    "pts": [
+     [
+      0,
+      0.03
+     ],
+     [
+      0,
+      1
+     ]
+    ],
+    "style": "seam",
+    "width": 0.0016
+   },
+   {
+    "step": "line",
+    "frame": "legs",
+    "pts": [
+     [
+      0.007,
+      0.03
+     ],
+     [
+      0.007,
+      0.3
+     ]
+    ],
+    "style": "stitch",
+    "width": 0.0013,
+    "colour": "#5a5a60"
+   },
+   {
+    "step": "line",
+    "frame": "back",
+    "pts": [
+     [
+      0,
+      "top-0.085"
+     ],
+     [
+      0.17,
+      "top-0.05"
+     ]
+    ],
+    "style": "twin",
+    "width": 0.0013,
+    "gap": 0.005,
+    "colour": "#5a5a60",
+    "mirror": true
+   },
+   {
+    "step": "line",
+    "frame": "back",
+    "pts": [
+     [
+      0,
+      "top-0.036"
+     ],
+     [
+      0,
+      "crotch+0.01"
+     ]
+    ],
+    "style": "twin",
+    "width": 0.0013,
+    "gap": 0.005,
+    "colour": "#5a5a60"
+   },
+   {
+    "step": "rect",
+    "frame": "back",
+    "at": [
+     0.088,
+     "top-0.16"
+    ],
+    "size": [
+     0.125,
+     0.135
+    ],
+    "style": "pocket",
+    "stitch": "#5a5a60",
+    "mirror": true,
+    "round": 0.012
+   },
+   {
+    "step": "rect",
+    "frame": "back",
+    "at": [
+     0.075,
+     "top-0.018"
+    ],
+    "size": [
+     0.085,
+     0.03
+    ],
+    "style": "label",
+    "colour": "#2c2420",
+    "round": 0.002
+   },
+   {
+    "step": "rect",
+    "frame": "front",
+    "at": [
+     0.062,
+     "top-0.018"
+    ],
+    "size": [
+     0.012,
+     0.046
+    ],
+    "style": "patch",
+    "stitch": "#5a5a60",
+    "mirror": true,
+    "round": 0.001
+   },
+   {
+    "step": "rect",
+    "frame": "back",
+    "at": [
+     0.0,
+     "top-0.018"
+    ],
+    "size": [
+     0.012,
+     0.046
+    ],
+    "style": "patch",
+    "stitch": "#5a5a60",
+    "round": 0.001
+   },
+   {
+    "step": "rect",
+    "frame": "back",
+    "at": [
+     0.14,
+     "top-0.018"
+    ],
+    "size": [
+     0.012,
+     0.046
+    ],
+    "style": "patch",
+    "stitch": "#5a5a60",
+    "mirror": true,
+    "round": 0.001
+   },
+   {
+    "step": "dots",
+    "frame": "front",
+    "pts": [
+     [
+      0,
+      "top-0.018"
+     ]
+    ],
+    "r": 0.008,
+    "style": "stud",
+    "colour": "#8f8d86"
+   },
+   {
+    "step": "dots",
+    "frame": "front",
+    "pts": [
+     [
+      0.047,
+      "top-0.043"
+     ],
+     [
+      0.16,
+      "top-0.108"
+     ]
+    ],
+    "r": 0.0035,
+    "style": "stud",
+    "colour": "#8f8d86",
+    "mirror": true
+   },
+   {
+    "step": "rect",
+    "frame": "front",
+    "at": [
+     0.1,
+     "thigh-0.03"
+    ],
+    "size": [
+     0.085,
+     0.1
+    ],
+    "style": "patch",
+    "colour": "#4a4a50",
+    "stitch": "#8a8a90",
+    "rot": 8
+   },
+   {
+    "step": "rect",
+    "frame": "front",
+    "at": [
+     -0.09,
+     "knee+0.04"
+    ],
+    "size": [
+     0.1,
+     0.08
+    ],
+    "style": "patch",
+    "colour": "#101012",
+    "stitch": "#8a8a90",
+    "rot": -6
+   },
+   {
+    "step": "rect",
+    "frame": "front",
+    "at": [
+     -0.1,
+     "thigh+0.05"
+    ],
+    "size": [
+     0.06,
+     0.07
+    ],
+    "style": "patch",
+    "colour": "#3c3c42",
+    "stitch": "#8a8a90",
+    "rot": 12
+   },
+   {
+    "step": "rect",
+    "frame": "front",
+    "at": [
+     0.085,
+     "calf+0.02"
+    ],
+    "size": [
+     0.08,
+     0.09
+    ],
+    "style": "patch",
+    "colour": "#34343a",
+    "stitch": "#8a8a90",
+    "rot": -10
+   },
+   {
+    "step": "print",
+    "frame": "front",
+    "art": "uc-klaus-bolt",
+    "at": [
+     0.09,
+     "knee+0.005"
+    ],
+    "width": 0.028
+   },
+   {
+    "step": "print",
+    "frame": "back",
+    "art": "uc-klaus-head",
+    "at": [
+     0.09,
+     "thigh-0.04"
+    ],
+    "width": 0.13,
+    "crack": 0.6,
+    "opacity": 0.9
+   },
+   {
+    "step": "print",
+    "frame": "back",
+    "art": "uc-klaus-collage",
+    "at": [
+     0.09,
+     "knee-0.08"
+    ],
+    "width": 0.11,
+    "crack": 0.6,
+    "opacity": 0.85,
+    "rot": 4
+   },
+   {
+    "step": "print",
+    "frame": "back",
+    "art": "uc-klaus-chuuut",
+    "at": [
+     -0.09,
+     "thigh-0.02"
+    ],
+    "width": 0.135,
+    "crack": 0.6,
+    "opacity": 0.9,
+    "rot": -8
+   },
+   {
+    "step": "distress",
+    "type": "edges",
+    "amount": 0.5,
+    "size": 0.02
+   },
+   {
+    "step": "distress",
+    "type": "shade",
+    "amount": 0.4
+   }
+  ],
+  "note": "No photograph loaded: the patch layout is representative. The Klaus head is an anonymous figure drawn fresh, the collage and CHUUUT! logo follow the research description, not the original artwork.",
+  "refs": [
+   "https://rewindbackwards.com/products/ss06-t-undercover-patchwork-klaus-black-denim"
+  ]
+ },
+ {
+  "n": 28,
+  "id": "uc-arts-and-crafts-patch-jacket",
+  "designer": "Undercover",
+  "name": "Arts & Crafts Scab Patch Jacket",
+  "season": "AW2005",
+  "price": 550,
+  "slot": "top",
+  "colour": "#3d3027",
+  "finish": {
+   "roughness": 0.93
+  },
+  "cut": {
+   "like": "trucker",
+   "hem": "hip-0.03",
+   "ease": {
+    "shoulder": 0.008,
+    "chest": 0.024,
+    "waist": 0.032,
+    "hip": 0.034,
+    "sleeve": 0.014,
+    "cuff": 0.012
+   },
+   "add": [
+    {
+     "type": "collar",
+     "style": "fold",
+     "height": 0.07,
+     "gap": 0.03,
+     "points": 0.5,
+     "only": true
+    },
+    {
+     "type": "lip"
+    },
+    {
+     "type": "cuff",
+     "length": 0.02,
+     "flare": 0.002
+    },
+    {
+     "type": "hem",
+     "length": 0.03,
+     "flare": 0.012,
+     "out": 0.004,
+     "zone": "lining"
+    }
+   ]
+  },
+  "paint": [
+   {
+    "step": "fabric",
+    "type": "canvas"
+   },
+   {
+    "step": "pattern",
+    "type": "pinstripe",
+    "period": 0.005,
+    "width": 0.0012,
+    "colours": [
+     "#2a201a"
+    ],
+    "where": {
+     "zone": [
+      "sleeves",
+      "back"
+     ]
+    }
+   },
+   {
+    "step": "panel",
+    "colour": "#2c2420",
+    "where": {
+     "zone": "front",
+     "x": [
+      0.0,
+      0.3
+     ]
+    },
+    "keepShade": 1
+   },
+   {
+    "step": "fabric",
+    "type": "wool",
+    "colour": "#2a2522",
+    "where": {
+     "zone": "front",
+     "x": [
+      -0.3,
+      0.0
+     ],
+     "h": [
+      "hem",
+      "waist+0.02"
+     ]
+    }
+   },
+   {
+    "step": "fabric",
+    "type": "fur",
+    "colour": "#6a5238",
+    "where": {
+     "zone": "collar"
+    }
+   },
+   {
+    "step": "fabric",
+    "type": "canvas",
+    "colour": "#55483a",
+    "where": {
+     "zone": "lining"
+    }
+   },
+   {
+    "step": "rib",
+    "where": {
+     "zone": "lining"
+    },
+    "gauge": 0.011,
+    "depth": 0.0016
+   },
+   {
+    "step": "distress",
+    "type": "wash",
+    "amount": 0.4,
+    "colour": "#5a4636"
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      -0.3,
+      "waist+0.02"
+     ],
+     [
+      0,
+      "waist+0.02"
+     ]
+    ],
+    "style": "seam",
+    "width": 0.002
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0,
+      "hem"
+     ],
+     [
+      0,
+      "top"
+     ]
+    ],
+    "style": "zip",
+    "width": 0.0042,
+    "colour": "#8f8a7c",
+    "colour2": "#1a1614"
+   },
+   {
+    "step": "rib",
+    "where": {
+     "zone": "front",
+     "x": [
+      0.012,
+      0.04
+     ],
+     "h": [
+      "hem",
+      "neck-0.02"
+     ]
+    },
+    "gauge": 0.009,
+    "dir": "h",
+    "depth": 0.0018,
+    "colour": "#4a3b2f"
+   },
+   {
+    "step": "rect",
+    "frame": "front",
+    "at": [
+     0.105,
+     "chest-0.01"
+    ],
+    "size": [
+     0.11,
+     0.085
+    ],
+    "style": "patch",
+    "colour": "#9c8b63",
+    "stitch": "#d9cfb4",
+    "rot": -7
+   },
+   {
+    "step": "rect",
+    "frame": "front",
+    "at": [
+     -0.1,
+     "chest+0.03"
+    ],
+    "size": [
+     0.075,
+     0.12
+    ],
+    "style": "patch",
+    "colour": "#5f6140",
+    "stitch": "#d9cfb4",
+    "rot": 9
+   },
+   {
+    "step": "rect",
+    "frame": "front",
+    "at": [
+     -0.115,
+     "waist-0.04"
+    ],
+    "size": [
+     0.12,
+     0.07
+    ],
+    "style": "patch",
+    "colour": "#b9a27c",
+    "stitch": "#2a201a",
+    "rot": -4
+   },
+   {
+    "step": "rect",
+    "frame": "front",
+    "at": [
+     0.11,
+     "waist-0.07"
+    ],
+    "size": [
+     0.085,
+     0.1
+    ],
+    "style": "patch",
+    "colour": "#4a4a40",
+    "stitch": "#d9cfb4",
+    "rot": 12
+   },
+   {
+    "step": "rect",
+    "frame": "back",
+    "at": [
+     0.03,
+     "chest+0.01"
+    ],
+    "size": [
+     0.17,
+     0.11
+    ],
+    "style": "patch",
+    "colour": "#8c7f5c",
+    "stitch": "#d9cfb4",
+    "rot": 5
+   },
+   {
+    "step": "rect",
+    "frame": "back",
+    "at": [
+     -0.09,
+     "waist"
+    ],
+    "size": [
+     0.1,
+     0.13
+    ],
+    "style": "patch",
+    "colour": "#5f6140",
+    "stitch": "#d9cfb4",
+    "rot": -11
+   },
+   {
+    "step": "rect",
+    "frame": "back",
+    "at": [
+     0.1,
+     "waist-0.06"
+    ],
+    "size": [
+     0.09,
+     0.07
+    ],
+    "style": "patch",
+    "colour": "#2a2522",
+    "stitch": "#d9cfb4",
+    "rot": 15
+   },
+   {
+    "step": "rect",
+    "frame": "sleeveL",
+    "at": [
+     0.0,
+     0.32
+    ],
+    "size": [
+     0.09,
+     0.11
+    ],
+    "style": "patch",
+    "colour": "#b9a27c",
+    "stitch": "#2a201a",
+    "rot": 8
+   },
+   {
+    "step": "rect",
+    "frame": "sleeveR",
+    "at": [
+     0.01,
+     0.6
+    ],
+    "size": [
+     0.08,
+     0.1
+    ],
+    "style": "patch",
+    "colour": "#6b6a4a",
+    "stitch": "#d9cfb4",
+    "rot": -10
+   },
+   {
+    "step": "rect",
+    "frame": "sleeveL",
+    "at": [
+     -0.02,
+     0.33
+    ],
+    "size": [
+     0.008,
+     0.07
+    ],
+    "style": "zip",
+    "rot": 70,
+    "colour": "#8f8a7c"
+   },
+   {
+    "step": "distress",
+    "type": "edges",
+    "amount": 0.6,
+    "size": 0.03
+   },
+   {
+    "step": "distress",
+    "type": "grime",
+    "amount": 0.3
+   },
+   {
+    "step": "distress",
+    "type": "shade",
+    "amount": 0.5
+   }
+  ],
+  "note": "No photograph loaded and the entry is a family: made as a hip-length over-dyed jacket of mismatched panels with frayed military patches, a fur collar and a gathered placket, from the research description.",
+  "refs": [
+   "https://www.grailed.com/listings/43929699-undercover-aw05-arts-and-crafts-fur-corduroy-jacket"
+  ]
+ },
+ {
+  "n": 29,
+  "id": "uc-scab-patchwork-crust-pants",
+  "designer": "Undercover",
+  "name": "Scab Patchwork Crust Pants",
+  "season": "SS2003",
+  "price": 1000,
+  "slot": "bottom",
+  "colour": "#1e1d1d",
+  "finish": {
+   "roughness": 0.9
+  },
+  "cut": {
+   "like": "slim",
+   "rise": "waist-0.115",
+   "hem": "ankle-0.02",
+   "straight": 0.5,
+   "flare": 0.05,
+   "ease": {
+    "waist": 0.002,
+    "seat": 0.008,
+    "thigh": 0.01,
+    "knee": 0.011,
+    "hem": 0.018
+   }
+  },
+  "paint": [
+   {
+    "step": "fabric",
+    "type": "canvas"
+   },
+   {
+    "step": "distress",
+    "type": "wash",
+    "amount": 0.3
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      -0.2,
+      "top-0.036"
+     ],
+     [
+      0.2,
+      "top-0.036"
+     ]
+    ],
+    "style": "seam",
+    "width": 0.0016
+   },
+   {
+    "step": "line",
+    "frame": "back",
+    "pts": [
+     [
+      -0.2,
+      "top-0.036"
+     ],
+     [
+      0.2,
+      "top-0.036"
+     ]
+    ],
+    "style": "seam",
+    "width": 0.0016
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0,
+      "top-0.036"
+     ],
+     [
+      0,
+      "crotch+0.02"
+     ]
+    ],
+    "style": "seam",
+    "width": 0.0016
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0.03,
+      "top-0.04"
+     ],
+     [
+      0.03,
+      "crotch+0.07"
+     ],
+     [
+      0.022,
+      "crotch+0.045"
+     ],
+     [
+      0.003,
+      "crotch+0.035"
+     ]
+    ],
+    "style": "twin",
+    "width": 0.0013,
+    "gap": 0.005,
+    "colour": "#3c3a3a"
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0.045,
+      "top-0.038"
+     ],
+     [
+      0.06,
+      "top-0.085"
+     ],
+     [
+      0.1,
+      "top-0.11"
+     ],
+     [
+      0.165,
+      "top-0.115"
+     ]
+    ],
+    "style": "twin",
+    "width": 0.0013,
+    "gap": 0.005,
+    "colour": "#3c3a3a",
+    "mirror": true
+   },
+   {
+    "step": "rect",
+    "frame": "front",
+    "at": [
+     -0.115,
+     "top-0.075"
+    ],
+    "size": [
+     0.05,
+     0.05
+    ],
+    "style": "pocket",
+    "stitch": "#3c3a3a"
+   },
+   {
+    "step": "line",
+    "frame": "legs",
+    "pts": [
+     [
+      0,
+      0.03
+     ],
+     [
+      0,
+      1
+     ]
+    ],
+    "style": "seam",
+    "width": 0.0016
+   },
+   {
+    "step": "line",
+    "frame": "legs",
+    "pts": [
+     [
+      0.007,
+      0.03
+     ],
+     [
+      0.007,
+      0.3
+     ]
+    ],
+    "style": "stitch",
+    "width": 0.0013,
+    "colour": "#3c3a3a"
+   },
+   {
+    "step": "line",
+    "frame": "back",
+    "pts": [
+     [
+      0,
+      "top-0.085"
+     ],
+     [
+      0.17,
+      "top-0.05"
+     ]
+    ],
+    "style": "twin",
+    "width": 0.0013,
+    "gap": 0.005,
+    "colour": "#3c3a3a",
+    "mirror": true
+   },
+   {
+    "step": "line",
+    "frame": "back",
+    "pts": [
+     [
+      0,
+      "top-0.036"
+     ],
+     [
+      0,
+      "crotch+0.01"
+     ]
+    ],
+    "style": "twin",
+    "width": 0.0013,
+    "gap": 0.005,
+    "colour": "#3c3a3a"
+   },
+   {
+    "step": "rect",
+    "frame": "back",
+    "at": [
+     0.088,
+     "top-0.16"
+    ],
+    "size": [
+     0.125,
+     0.135
+    ],
+    "style": "pocket",
+    "stitch": "#3c3a3a",
+    "mirror": true,
+    "round": 0.012
+   },
+   {
+    "step": "rect",
+    "frame": "back",
+    "at": [
+     0.075,
+     "top-0.018"
+    ],
+    "size": [
+     0.085,
+     0.03
+    ],
+    "style": "label",
+    "colour": "#2a2422",
+    "round": 0.002
+   },
+   {
+    "step": "rect",
+    "frame": "front",
+    "at": [
+     0.062,
+     "top-0.018"
+    ],
+    "size": [
+     0.012,
+     0.046
+    ],
+    "style": "patch",
+    "stitch": "#3c3a3a",
+    "mirror": true,
+    "round": 0.001
+   },
+   {
+    "step": "rect",
+    "frame": "back",
+    "at": [
+     0.0,
+     "top-0.018"
+    ],
+    "size": [
+     0.012,
+     0.046
+    ],
+    "style": "patch",
+    "stitch": "#3c3a3a",
+    "round": 0.001
+   },
+   {
+    "step": "rect",
+    "frame": "back",
+    "at": [
+     0.14,
+     "top-0.018"
+    ],
+    "size": [
+     0.012,
+     0.046
+    ],
+    "style": "patch",
+    "stitch": "#3c3a3a",
+    "mirror": true,
+    "round": 0.001
+   },
+   {
+    "step": "dots",
+    "frame": "front",
+    "pts": [
+     [
+      0,
+      "top-0.018"
+     ]
+    ],
+    "r": 0.008,
+    "style": "stud",
+    "colour": "#b4b2aa"
+   },
+   {
+    "step": "dots",
+    "frame": "front",
+    "pts": [
+     [
+      0.047,
+      "top-0.043"
+     ],
+     [
+      0.16,
+      "top-0.108"
+     ]
+    ],
+    "r": 0.0035,
+    "style": "stud",
+    "colour": "#b4b2aa",
+    "mirror": true
+   },
+   {
+    "step": "print",
+    "frame": "front",
+    "art": "uc-scab-patches-front",
+    "at": [
+     0.1,
+     0.43
+    ],
+    "width": 0.21,
+    "raise": 0.0012
+   },
+   {
+    "step": "print",
+    "frame": "back",
+    "art": "uc-scab-patches-back",
+    "at": [
+     -0.1,
+     0.43
+    ],
+    "width": 0.21,
+    "raise": 0.0012
+   },
+   {
+    "step": "print",
+    "frame": "front",
+    "art": "uc-scab-prints",
+    "at": [
+     -0.095,
+     "knee+0.09"
+    ],
+    "width": 0.115,
+    "crack": 0.5
+   },
+   {
+    "step": "rect",
+    "frame": "front",
+    "at": [
+     -0.1,
+     "hip-0.05"
+    ],
+    "size": [
+     0.1,
+     0.012
+    ],
+    "style": "zip",
+    "rot": 14,
+    "colour": "#b4b2aa"
+   },
+   {
+    "step": "rect",
+    "frame": "back",
+    "at": [
+     -0.09,
+     "knee+0.12"
+    ],
+    "size": [
+     0.1,
+     0.012
+    ],
+    "style": "zip",
+    "rot": -10,
+    "colour": "#b4b2aa"
+   },
+   {
+    "step": "rect",
+    "frame": "front",
+    "at": [
+     -0.13,
+     "top-0.05"
+    ],
+    "size": [
+     0.024,
+     0.03
+    ],
+    "style": "buckle"
+   },
+   {
+    "step": "rect",
+    "frame": "back",
+    "at": [
+     -0.13,
+     "top-0.05"
+    ],
+    "size": [
+     0.024,
+     0.03
+    ],
+    "style": "buckle"
+   },
+   {
+    "step": "distress",
+    "type": "edges",
+    "amount": 0.7,
+    "size": 0.025
+   },
+   {
+    "step": "distress",
+    "type": "shade",
+    "amount": 0.4
+   }
+  ],
+  "note": "No photograph of the pants loaded: the patched leg is a drawn collage of striped and woven scraps, each pair being different anyway; the wording of the printed leg is not verified and is a stand-in.",
+  "refs": [
+   "https://archived.co/products/undercover-1",
+   "https://www.lepetitarchive.com/?p=1675"
+  ]
+ },
+ {
+  "n": 30,
+  "id": "uc-guruguru-hybrid-bomber",
+  "designer": "Undercover",
+  "name": "GURUGURU Hybrid Bomber",
+  "season": "AW2006",
+  "price": 600,
+  "slot": "top",
+  "colour": "#1c1c1e",
+  "finish": {
+   "roughness": 0.5
+  },
+  "cut": {
+   "like": "bomber",
+   "hem": "hip+0.05",
+   "cinch": 0.18,
+   "rib": 0.06,
+   "cuffCinch": 0.25,
+   "ease": {
+    "shoulder": 0.01,
+    "chest": 0.028,
+    "waist": 0.05,
+    "hip": 0.05,
+    "sleeve": 0.022,
+    "cuff": 0.016
+   },
+   "add": [
+    {
+     "type": "collar",
+     "style": "funnel",
+     "height": 0.085,
+     "flare": 0.012,
+     "only": true
+    },
+    {
+     "type": "lip"
+    }
+   ]
+  },
+  "paint": [
+   {
+    "step": "fabric",
+    "type": "leather"
+   },
+   {
+    "step": "fabric",
+    "type": "nylon",
+    "colour": "#26272b",
+    "where": {
+     "zone": "sleeves"
+    }
+   },
+   {
+    "step": "fabric",
+    "type": "wool",
+    "colour": "#2e2b29",
+    "where": {
+     "zone": "back",
+     "h": [
+      "chest+0.03",
+      "top"
+     ]
+    }
+   },
+   {
+    "step": "fabric",
+    "type": "fur",
+    "colour": "#3a332d",
+    "where": {
+     "zone": "collar"
+    }
+   },
+   {
+    "step": "rib",
+    "where": {
+     "zone": "body",
+     "h": [
+      "hem",
+      "hem+0.06"
+     ]
+    },
+    "colour": "#57534d",
+    "gauge": 0.006
+   },
+   {
+    "step": "rib",
+    "where": {
+     "zone": "sleeves",
+     "s": [
+      0.88,
+      1.2
+     ]
+    },
+    "colour": "#57534d",
+    "gauge": 0.006
+   },
+   {
+    "step": "line",
+    "frame": "back",
+    "pts": [
+     [
+      -0.25,
+      "chest+0.03"
+     ],
+     [
+      0.25,
+      "chest+0.03"
+     ]
+    ],
+    "style": "seam",
+    "width": 0.002
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0.05,
+      "top"
+     ],
+     [
+      0.17,
+      "chest-0.02"
+     ],
+     [
+      0.2,
+      "waist"
+     ]
+    ],
+    "style": "seam",
+    "width": 0.002,
+    "mirror": true
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0,
+      "hem"
+     ],
+     [
+      0,
+      "top"
+     ]
+    ],
+    "style": "zip",
+    "width": 0.0048,
+    "colour": "#b9b6ac",
+    "colour2": "#101012"
+   },
+   {
+    "step": "line",
+    "frame": "sleeves",
+    "pts": [
+     [
+      0,
+      0.04
+     ],
+     [
+      0,
+      0.88
+     ]
+    ],
+    "style": "seam",
+    "width": 0.0016
+   },
+   {
+    "step": "rect",
+    "frame": "front",
+    "at": [
+     0.11,
+     "waist-0.02"
+    ],
+    "size": [
+     0.13,
+     0.012
+    ],
+    "style": "zip",
+    "rot": 68,
+    "mirror": true,
+    "colour": "#b9b6ac"
+   },
+   {
+    "step": "rect",
+    "frame": "front",
+    "at": [
+     0.06,
+     "neck-0.035"
+    ],
+    "size": [
+     0.026,
+     0.085
+    ],
+    "style": "patch",
+    "colour": "#232325",
+    "stitch": "#6a6a6e",
+    "mirror": true,
+    "raise": 0.002,
+    "round": 0.002
+   },
+   {
+    "step": "rect",
+    "frame": "front",
+    "at": [
+     0.125,
+     "neck-0.06"
+    ],
+    "size": [
+     0.026,
+     0.085
+    ],
+    "style": "patch",
+    "colour": "#232325",
+    "stitch": "#6a6a6e",
+    "mirror": true,
+    "raise": 0.002,
+    "round": 0.002,
+    "rot": -14
+   },
+   {
+    "step": "rect",
+    "frame": "back",
+    "at": [
+     0.0,
+     "neck-0.03"
+    ],
+    "size": [
+     0.026,
+     0.085
+    ],
+    "style": "patch",
+    "colour": "#232325",
+    "stitch": "#6a6a6e",
+    "raise": 0.002,
+    "round": 0.002
+   },
+   {
+    "step": "rect",
+    "frame": "back",
+    "at": [
+     0.09,
+     "neck-0.045"
+    ],
+    "size": [
+     0.026,
+     0.085
+    ],
+    "style": "patch",
+    "colour": "#232325",
+    "stitch": "#6a6a6e",
+    "raise": 0.002,
+    "round": 0.002,
+    "mirror": true
+   },
+   {
+    "step": "rect",
+    "frame": "sleeveL",
+    "at": [
+     0.0,
+     0.28
+    ],
+    "size": [
+     0.085,
+     0.12
+    ],
+    "style": "pocket",
+    "stitch": "#55565c"
+   },
+   {
+    "step": "rect",
+    "frame": "sleeveL",
+    "at": [
+     -0.018,
+     0.28
+    ],
+    "size": [
+     0.008,
+     0.1
+    ],
+    "style": "zip",
+    "rot": 90,
+    "colour": "#b9b6ac"
+   },
+   {
+    "step": "distress",
+    "type": "crumple",
+    "amount": 0.5,
+    "where": {
+     "zone": "body"
+    }
+   },
+   {
+    "step": "distress",
+    "type": "shade",
+    "amount": 0.4
+   }
+  ],
+  "note": "No photograph loaded and the entry is a family: made as the hybrid bomber (leather body, nylon bomber sleeves, wool back yoke, fur funnel neck ringed with oversized belt loops). Price is a judgement from older sales (280 to 1200).",
+  "refs": [
+   "https://www.grailed.com/listings/16677687-undercover-undercover-2006-aw-guru-guru-hybrid-bomber-jacket"
+  ]
+ },
+ {
+  "n": 31,
+  "id": "yohji-painted-leather-aviator",
+  "designer": "Yohji Yamamoto",
+  "name": "Painted Leather Aviator Jacket",
+  "season": "AW1991",
+  "price": 4500,
+  "slot": "top",
+  "colour": "#c5461f",
+  "finish": {
+   "roughness": 0.42
+  },
+  "cut": {
+   "like": "trucker",
+   "hem": "hip+0.01",
+   "hang": 1,
+   "shoulderDrop": 0.04,
+   "ease": {
+    "shoulder": 0.014,
+    "chest": 0.06,
+    "waist": 0.085,
+    "hip": 0.085,
+    "sleeve": 0.028,
+    "cuff": 0.022
+   },
+   "add": [
+    {
+     "type": "collar",
+     "style": "fold",
+     "height": 0.065,
+     "gap": 0.03,
+     "points": 0.7,
+     "only": true
+    },
+    {
+     "type": "lip"
+    }
+   ]
+  },
+  "paint": [
+   {
+    "step": "fabric",
+    "type": "leather"
+   },
+   {
+    "step": "panel",
+    "colour": "#b9b08c",
+    "where": {
+     "zone": "lining"
+    }
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      -0.3,
+      "chest-0.01"
+     ],
+     [
+      0.3,
+      "chest-0.01"
+     ]
+    ],
+    "style": "seam",
+    "width": 0.002
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      -0.3,
+      "chest-0.004"
+     ],
+     [
+      0.3,
+      "chest-0.004"
+     ]
+    ],
+    "style": "stitch",
+    "width": 0.0012,
+    "colour": "#8f2f14"
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0,
+      "hem"
+     ],
+     [
+      0,
+      "neck-0.01"
+     ]
+    ],
+    "style": "zip",
+    "width": 0.0045,
+    "colour": "#c9a85a",
+    "colour2": "#8f2f14"
+   },
+   {
+    "step": "rect",
+    "frame": "front",
+    "at": [
+     0.125,
+     "hip+0.115"
+    ],
+    "size": [
+     0.16,
+     0.016
+    ],
+    "style": "welt",
+    "rot": 74,
+    "mirror": true
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      -0.3,
+      "hem+0.045"
+     ],
+     [
+      0.3,
+      "hem+0.045"
+     ]
+    ],
+    "style": "seam",
+    "width": 0.0018
+   },
+   {
+    "step": "line",
+    "frame": "back",
+    "pts": [
+     [
+      -0.3,
+      "hem+0.045"
+     ],
+     [
+      0.3,
+      "hem+0.045"
+     ]
+    ],
+    "style": "seam",
+    "width": 0.0018
+   },
+   {
+    "step": "line",
+    "frame": "sleeves",
+    "pts": [
+     [
+      -0.3,
+      0.9
+     ],
+     [
+      0.3,
+      0.9
+     ]
+    ],
+    "style": "seam",
+    "width": 0.0018
+   },
+   {
+    "step": "line",
+    "frame": "sleeves",
+    "pts": [
+     [
+      0,
+      0.03
+     ],
+     [
+      0,
+      0.9
+     ]
+    ],
+    "style": "seam",
+    "width": 0.0016
+   },
+   {
+    "step": "rect",
+    "frame": "back",
+    "at": [
+     0.175,
+     "hem+0.07"
+    ],
+    "size": [
+     0.07,
+     0.028
+    ],
+    "style": "patch",
+    "stitch": "#8f2f14",
+    "mirror": true
+   },
+   {
+    "step": "rect",
+    "frame": "back",
+    "at": [
+     0.2,
+     "hem+0.07"
+    ],
+    "size": [
+     0.024,
+     0.034
+    ],
+    "style": "buckle",
+    "colour": "#c9a85a",
+    "mirror": true
+   },
+   {
+    "step": "print",
+    "frame": "back",
+    "art": "yohji-pinup-mermaid",
+    "at": [
+     0.0,
+     "chest-0.065"
+    ],
+    "width": 0.36
+   },
+   {
+    "step": "distress",
+    "type": "crackle",
+    "amount": 0.25,
+    "where": {
+     "zone": "back",
+     "h": [
+      "waist-0.1",
+      "shoulder"
+     ]
+    }
+   },
+   {
+    "step": "distress",
+    "type": "crumple",
+    "amount": 0.6
+   },
+   {
+    "step": "distress",
+    "type": "shade",
+    "amount": 0.4
+   }
+  ],
+  "note": "Made in the red-orange leather with the '22nd Century Sweetheart' mermaid, the back that was photographed; the pin-up is redrawn as a simplified, covered, anonymous figure rather than the airbrushed original.",
+  "refs": [
+   "https://www.1stdibs.com/fashion/clothing/jackets/yohji-yamamoto-orange-leather-jacket-marilyn-monroe-pin-up-w-1991/id-v_4192473/",
+   "https://www.middlemanstore.com/archive/yohji-yamamoto-pour-homme-aw1991-61-the-men-red-leather-jacket",
+   "https://constant-practice.com/products/aw1991-yohji-yamamoto-6-1-the-men-black-leather-jacket-size-m"
+  ]
+ },
+ {
+  "n": 32,
+  "id": "yohji-pour-homme-button-lapel-blazer",
+  "designer": "Yohji Yamamoto",
+  "name": "Pour Homme Button-Lapel Gabardine Blazer",
+  "season": "1990s",
+  "price": 450,
+  "slot": "top",
+  "colour": "#1d1d20",
+  "finish": {
+   "roughness": 0.92
+  },
+  "cut": {
+   "like": "blazer",
+   "hem": "crotch+0.03",
+   "waist": 0.0,
+   "hang": 1,
+   "shoulderDrop": 0.022,
+   "neck": {
+    "v": 0.25,
+    "width": 0.075,
+    "depth": 0.03
+   },
+   "ease": {
+    "shoulder": 0.012,
+    "chest": 0.04,
+    "waist": 0.055,
+    "hip": 0.05,
+    "sleeve": 0.02,
+    "cuff": 0.018
+   },
+   "add": [
+    {
+     "type": "lip"
+    },
+    {
+     "type": "cuff",
+     "length": 0.02,
+     "flare": 0.0
+    }
+   ]
+  },
+  "under": {
+   "cut": {
+    "like": "shirt",
+    "overWaist": false,
+    "hem": "hip+0.02",
+    "hemCurve": 0
+   },
+   "colour": "#e8e5dc",
+   "paint": [
+    {
+     "step": "fabric",
+     "type": "plain"
+    },
+    {
+     "step": "line",
+     "frame": "front",
+     "pts": [
+      [
+       0.014,
+       "hem"
+      ],
+      [
+       0.014,
+       "top"
+      ]
+     ],
+     "style": "seam",
+     "width": 0.0012,
+     "mirror": true
+    },
+    {
+     "step": "dots",
+     "frame": "front",
+     "from": [
+      0,
+      "waist"
+     ],
+     "to": [
+      0,
+      "neck-0.02"
+     ],
+     "count": 5,
+     "r": 0.0045,
+     "style": "button",
+     "colour": "#d8d4c8"
+    }
+   ]
+  },
+  "paint": [
+   {
+    "step": "fabric",
+    "type": "wool",
+    "scale": 0.6
+   },
+   {
+    "step": "pattern",
+    "type": "stripes",
+    "dir": "d",
+    "period": 0.0028,
+    "width": 0.0009,
+    "colours": [
+     "#26262a"
+    ],
+    "amount": 0.5
+   },
+   {
+    "step": "panel",
+    "colour": "#2a2a2f",
+    "where": {
+     "zone": "lining"
+    }
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0.012,
+      "waist-0.06"
+     ],
+     [
+      0.105,
+      "chest+0.05"
+     ],
+     [
+      0.06,
+      "chest+0.075"
+     ],
+     [
+      0.1,
+      "chest+0.12"
+     ]
+    ],
+    "style": "groove",
+    "width": 0.003,
+    "mirror": true
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0.012,
+      "hem+0.03"
+     ],
+     [
+      0.012,
+      "waist-0.06"
+     ]
+    ],
+    "style": "seam",
+    "width": 0.0018
+   },
+   {
+    "step": "dots",
+    "frame": "front",
+    "pts": [
+     [
+      0.0,
+      "waist-0.085"
+     ],
+     [
+      0.0,
+      "waist-0.2"
+     ],
+     [
+      0.035,
+      "waist+0.03"
+     ],
+     [
+      0.052,
+      "waist+0.105"
+     ],
+     [
+      0.07,
+      "waist+0.18"
+     ]
+    ],
+    "r": 0.0095,
+    "style": "button",
+    "colour": "#3a3432"
+   },
+   {
+    "step": "rect",
+    "frame": "front",
+    "at": [
+     0.125,
+     "hip+0.03"
+    ],
+    "size": [
+     0.14,
+     0.05
+    ],
+    "style": "flap",
+    "flap": 1,
+    "snap": false,
+    "mirror": true,
+    "stitch": "#2c2c31"
+   },
+   {
+    "step": "rect",
+    "frame": "front",
+    "at": [
+     0.105,
+     "chest-0.005"
+    ],
+    "size": [
+     0.095,
+     0.012
+    ],
+    "style": "welt",
+    "rot": 5
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0.11,
+      "hem"
+     ],
+     [
+      0.1,
+      "waist+0.08"
+     ]
+    ],
+    "style": "groove",
+    "width": 0.002,
+    "mirror": true
+   },
+   {
+    "step": "line",
+    "frame": "back",
+    "pts": [
+     [
+      0,
+      "hem"
+     ],
+     [
+      0,
+      "neck-0.04"
+     ]
+    ],
+    "style": "seam",
+    "width": 0.0016
+   },
+   {
+    "step": "line",
+    "frame": "back",
+    "pts": [
+     [
+      0.003,
+      "hem"
+     ],
+     [
+      0.003,
+      "hip"
+     ]
+    ],
+    "style": "groove",
+    "width": 0.003
+   },
+   {
+    "step": "dots",
+    "frame": "sleeves",
+    "pts": [
+     [
+      -0.045,
+      0.93
+     ],
+     [
+      -0.045,
+      0.965
+     ]
+    ],
+    "r": 0.007,
+    "style": "button",
+    "colour": "#3a3432"
+   },
+   {
+    "step": "distress",
+    "type": "folds",
+    "amount": 0.35
+   },
+   {
+    "step": "distress",
+    "type": "shade",
+    "amount": 0.35
+   }
+  ],
+  "note": "A recurring family with no single season: made as the black gabardine blazer whose buttons carry on up the lapel. Lapels are drawn on the cloth, not cut and turned.",
+  "refs": [
+   "https://www.jamesveloria.com/sold-archive-yohji-yamamoto/yohji-yamamoto-button-lapel-blazer",
+   "https://www.jamesveloria.com/sold-archive-yohji-yamamoto/yohji-yamamoto-black-blazer-with-white-piping"
+  ]
+ },
+ {
+  "n": 33,
+  "id": "yohji-pour-homme-floral-rayon-shirt",
+  "designer": "Yohji Yamamoto",
+  "name": "Pour Homme Floral Rayon Shirt",
+  "season": "SS2001",
+  "price": 600,
+  "slot": "top",
+  "colour": "#efece4",
+  "finish": {
+   "roughness": 0.72
+  },
+  "cut": {
+   "like": "shirt",
+   "hem": "hip-0.06",
+   "hemCurve": 0.0,
+   "sleeve": 0.42,
+   "shoulderDrop": 0.03,
+   "hang": 1,
+   "neck": {
+    "y": 0.0,
+    "depth": 0.03,
+    "v": 0.07,
+    "width": 0.06,
+    "round": 0.07
+   },
+   "ease": {
+    "shoulder": 0.01,
+    "chest": 0.04,
+    "waist": 0.06,
+    "hip": 0.06,
+    "sleeve": 0.03,
+    "cuff": 0.035
+   },
+   "add": [
+    {
+     "type": "collar",
+     "style": "fold",
+     "height": 0.05,
+     "gap": 0.05,
+     "points": 0.7,
+     "only": true
+    }
+   ]
+  },
+  "paint": [
+   {
+    "step": "fabric",
+    "type": "satin"
+   },
+   {
+    "step": "print",
+    "frame": "front",
+    "art": "yohji-floral-body",
+    "at": [
+     0,
+     1.12
+    ],
+    "width": 0.76
+   },
+   {
+    "step": "print",
+    "frame": "back",
+    "art": "yohji-floral-back",
+    "at": [
+     0,
+     1.12
+    ],
+    "width": 0.76
+   },
+   {
+    "step": "print",
+    "frame": "sleeveL",
+    "art": "yohji-floral-sleeve",
+    "at": [
+     0,
+     0.5
+    ],
+    "width": 0.5
+   },
+   {
+    "step": "print",
+    "frame": "sleeveR",
+    "art": "yohji-floral-sleeve",
+    "at": [
+     0.03,
+     0.5
+    ],
+    "width": 0.5,
+    "rot": 180
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0.016,
+      "hem"
+     ],
+     [
+      0.016,
+      "chest+0.05"
+     ]
+    ],
+    "style": "seam",
+    "width": 0.0014
+   },
+   {
+    "step": "dots",
+    "frame": "front",
+    "from": [
+     0,
+     "hem+0.07"
+    ],
+    "to": [
+     0,
+     "chest+0.03"
+    ],
+    "count": 5,
+    "r": 0.005,
+    "style": "button",
+    "colour": "#f4f1ea"
+   },
+   {
+    "step": "rect",
+    "frame": "front",
+    "at": [
+     0.09,
+     "chest-0.03"
+    ],
+    "size": [
+     0.105,
+     0.115
+    ],
+    "style": "pocket",
+    "stitch": "#cfcabd"
+   },
+   {
+    "step": "line",
+    "frame": "sleeves",
+    "pts": [
+     [
+      -0.3,
+      0.9
+     ],
+     [
+      0.3,
+      0.9
+     ]
+    ],
+    "style": "stitch",
+    "width": 0.001,
+    "colour": "#cfcabd"
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      -0.3,
+      "hem+0.015"
+     ],
+     [
+      0.3,
+      "hem+0.015"
+     ]
+    ],
+    "style": "stitch",
+    "width": 0.001,
+    "colour": "#cfcabd"
+   },
+   {
+    "step": "line",
+    "frame": "back",
+    "pts": [
+     [
+      -0.3,
+      "hem+0.015"
+     ],
+     [
+      0.3,
+      "hem+0.015"
+     ]
+    ],
+    "style": "stitch",
+    "width": 0.001,
+    "colour": "#cfcabd"
+   },
+   {
+    "step": "distress",
+    "type": "folds",
+    "amount": 0.4
+   },
+   {
+    "step": "distress",
+    "type": "shade",
+    "amount": 0.3
+   }
+  ],
+  "note": "Made from the SS2001 shirt that was photographed (white rayon, red scrolling flowers, open collar, short sleeve) rather than the navy SS2002 long-sleeve version; the flowers are redrawn.",
+  "refs": [
+   "https://www.myclothingarchive.net/store/yohji-yamamoto/floral-shirt"
+  ]
+ },
+ {
+  "n": 34,
+  "id": "yohji-hakama-trousers",
+  "designer": "Yohji Yamamoto",
+  "name": "Oversized Hakama Trousers",
+  "season": "Signature (1990s on)",
+  "price": 450,
+  "slot": "bottom",
+  "colour": "#1d1d20",
+  "finish": {
+   "roughness": 0.92
+  },
+  "cut": {
+   "like": "wide",
+   "rise": "waist+0.02",
+   "hem": "ankle+0.03",
+   "straight": 1,
+   "flare": 0.3,
+   "overBoot": false,
+   "ease": {
+    "waist": 0.002,
+    "seat": 0.045,
+    "thigh": 0.085,
+    "knee": 0.11,
+    "hem": 0.14
+   },
+   "add": [
+    {
+     "type": "tail",
+     "from": {
+      "on": "front",
+      "x": 0.035,
+      "h": "top-0.03"
+     },
+     "length": 0.26,
+     "width": 0.032,
+     "lean": 0.12
+    },
+    {
+     "type": "tail",
+     "from": {
+      "on": "front",
+      "x": 0.02,
+      "h": "top-0.03"
+     },
+     "length": 0.2,
+     "width": 0.032,
+     "lean": -0.1
+    }
+   ]
+  },
+  "paint": [
+   {
+    "step": "fabric",
+    "type": "wool",
+    "scale": 0.6
+   },
+   {
+    "step": "pattern",
+    "type": "stripes",
+    "dir": "d",
+    "period": 0.0028,
+    "width": 0.0009,
+    "colours": [
+     "#27272b"
+    ],
+    "amount": 0.5
+   },
+   {
+    "step": "rib",
+    "where": {
+     "zone": "legs",
+     "h": [
+      "hem",
+      "top-0.05"
+     ]
+    },
+    "gauge": 0.055,
+    "depth": 0.007
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0.03,
+      "top-0.05"
+     ],
+     [
+      0.045,
+      "hem"
+     ]
+    ],
+    "style": "groove",
+    "width": 0.004,
+    "depth": 0.0016,
+    "mirror": true
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0.075,
+      "top-0.05"
+     ],
+     [
+      0.115,
+      "hem"
+     ]
+    ],
+    "style": "groove",
+    "width": 0.004,
+    "depth": 0.0016,
+    "mirror": true
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0.12,
+      "top-0.05"
+     ],
+     [
+      0.19,
+      "hem"
+     ]
+    ],
+    "style": "groove",
+    "width": 0.004,
+    "depth": 0.0016,
+    "mirror": true
+   },
+   {
+    "step": "line",
+    "frame": "back",
+    "pts": [
+     [
+      0.06,
+      "top-0.05"
+     ],
+     [
+      0.09,
+      "hem"
+     ]
+    ],
+    "style": "groove",
+    "width": 0.004,
+    "depth": 0.0016,
+    "mirror": true
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      -0.3,
+      "top-0.05"
+     ],
+     [
+      0.3,
+      "top-0.05"
+     ]
+    ],
+    "style": "seam",
+    "width": 0.002
+   },
+   {
+    "step": "line",
+    "frame": "back",
+    "pts": [
+     [
+      -0.3,
+      "top-0.05"
+     ],
+     [
+      0.3,
+      "top-0.05"
+     ]
+    ],
+    "style": "seam",
+    "width": 0.002
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      -0.02,
+      "top"
+     ],
+     [
+      -0.02,
+      "top-0.05"
+     ],
+     [
+      -0.19,
+      "top-0.2"
+     ]
+    ],
+    "style": "seam",
+    "width": 0.002
+   },
+   {
+    "step": "dots",
+    "frame": "front",
+    "pts": [
+     [
+      -0.03,
+      "top-0.025"
+     ],
+     [
+      -0.1,
+      "top-0.105"
+     ]
+    ],
+    "r": 0.008,
+    "style": "button",
+    "colour": "#2c2a2a"
+   },
+   {
+    "step": "rect",
+    "frame": "front",
+    "at": [
+     0.028,
+     "top-0.028"
+    ],
+    "size": [
+     0.04,
+     0.036
+    ],
+    "style": "patch",
+    "colour": "#19191b",
+    "stitch": false,
+    "raise": 0.003
+   },
+   {
+    "step": "rect",
+    "frame": "back",
+    "at": [
+     0.09,
+     "top-0.12"
+    ],
+    "size": [
+     0.12,
+     0.011
+    ],
+    "style": "welt"
+   },
+   {
+    "step": "panel",
+    "colour": "#1a1a1c",
+    "where": {
+     "zone": "strap"
+    }
+   },
+   {
+    "step": "distress",
+    "type": "shade",
+    "amount": 0.4
+   }
+  ],
+  "note": "No photograph loaded: made from the research description of the wrap-front wool gabardine hakama. The pleats are painted relief on a wide leg, not folded cloth, and the price is for a typical resale pair.",
+  "refs": [
+   "https://www.grailed.com/listings/2774427-yohji-yamamoto-yohji-yamamoto-wool-gabardine-hakama-pants"
+  ]
+ },
+ {
+  "n": 35,
+  "id": "cdg-body-meets-dress",
+  "designer": "Comme des Garçons",
+  "name": "Body Meets Dress, Dress Meets Body Dress",
+  "season": "SS1997",
+  "price": 12000,
+  "slot": "top",
+  "colour": "#e9eef2",
+  "finish": {
+   "roughness": 0.8
+  },
+  "cut": {
+   "like": "dress",
+   "hem": "calf+0.14",
+   "sleeve": 0.14,
+   "hang": 0.9,
+   "chest": 0.3,
+   "subdivide": 1,
+   "relax": 2,
+   "neck": {
+    "depth": 0.03,
+    "round": 0.095
+   },
+   "ease": {
+    "shoulder": 0.005,
+    "chest": 0.01,
+    "waist": 0.014,
+    "hip": 0.03,
+    "hem": 0.055,
+    "sleeve": 0.012,
+    "cuff": 0.014
+   },
+   "bumps": [
+    [
+     -0.1,
+     "hip+0.02",
+     -1,
+     0.13,
+     0.15
+    ],
+    [
+     0.04,
+     "hip-0.02",
+     -1,
+     0.1,
+     0.07
+    ],
+    [
+     0.07,
+     "waist+0.03",
+     1,
+     0.11,
+     0.09
+    ],
+    [
+     -0.12,
+     "shoulder-0.06",
+     -1,
+     0.09,
+     0.06
+    ],
+    [
+     0.15,
+     "hip+0.06",
+     0,
+     0.08,
+     0.05
+    ]
+   ]
+  },
+  "paint": [
+   {
+    "step": "fabric",
+    "type": "plain"
+   },
+   {
+    "step": "pattern",
+    "type": "gingham",
+    "period": 0.011,
+    "colours": [
+     "#7fa6cf"
+    ]
+   },
+   {
+    "step": "line",
+    "frame": "back",
+    "pts": [
+     [
+      -0.22,
+      "hip+0.2"
+     ],
+     [
+      -0.02,
+      "hip+0.13"
+     ],
+     [
+      0.06,
+      "hip-0.12"
+     ],
+     [
+      -0.05,
+      "hip-0.2"
+     ]
+    ],
+    "style": "seam"
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      -0.06,
+      "waist+0.16"
+     ],
+     [
+      0.16,
+      "waist+0.1"
+     ],
+     [
+      0.18,
+      "waist-0.08"
+     ]
+    ],
+    "style": "seam"
+   },
+   {
+    "step": "distress",
+    "type": "shade",
+    "size": 0.3
+   }
+  ],
+  "note": "The pale blue gingham in the Kyoto Costume Institute's photograph; the pads are swellings in the cut.",
+  "refs": [
+   "https://www.kci.or.jp/en/archives/digital_archives/1990s/KCI_230"
+  ]
+ },
+ {
+  "n": 36,
+  "id": "cdg-gobelins-tapestry-jacket",
+  "designer": "Comme des Garçons Homme Plus",
+  "name": "Gobelins Tapestry Patchwork Jacket",
+  "season": "SS2000",
+  "price": 1200,
+  "slot": "top",
+  "colour": "#cfc6ad",
+  "finish": {
+   "roughness": 0.95
+  },
+  "cut": {
+   "like": "blazer",
+   "hem": "hip-0.09",
+   "waist": 0.02,
+   "hang": 0.95,
+   "neck": {
+    "y": 0.008,
+    "depth": 0.03,
+    "v": 0.035,
+    "width": 0.05,
+    "round": 0.078
+   },
+   "ease": {
+    "shoulder": 0.009,
+    "chest": 0.022,
+    "waist": 0.03,
+    "hip": 0.032,
+    "sleeve": 0.011,
+    "cuff": 0.011
+   },
+   "add": [
+    {
+     "type": "collar",
+     "height": 0.035,
+     "flare": 0.004,
+     "gap": 0.012
+    }
+   ]
+  },
+  "paint": [
+   {
+    "step": "fabric",
+    "type": "tweed",
+    "colour2": "#a59c84"
+   },
+   {
+    "step": "pattern",
+    "type": "tapestry",
+    "colours": [
+     "#a8474a",
+     "#6f8a9c",
+     "#6f7d52",
+     "#d9c98f"
+    ],
+    "scale": 0.8
+   },
+   {
+    "step": "pattern",
+    "type": "tapestry",
+    "colours": [
+     "#8a8f96",
+     "#5d6470",
+     "#4a4f58",
+     "#c9c4b4"
+    ],
+    "scale": 0.6,
+    "seed": 3,
+    "where": {
+     "zone": "front",
+     "x": [
+      -0.3,
+      -0.02
+     ],
+     "h": [
+      "hem",
+      "waist+0.05"
+     ]
+    }
+   },
+   {
+    "step": "pattern",
+    "type": "tapestry",
+    "colours": [
+     "#8a8f96",
+     "#5d6470",
+     "#4a4f58",
+     "#c9c4b4"
+    ],
+    "scale": 0.6,
+    "seed": 5,
+    "where": {
+     "zone": "back",
+     "h": [
+      "waist",
+      "top"
+     ],
+     "x": [
+      -0.02,
+      0.3
+     ]
+    }
+   },
+   {
+    "step": "pattern",
+    "type": "tapestry",
+    "colours": [
+     "#8a8f96",
+     "#5d6470",
+     "#4a4f58",
+     "#c9c4b4"
+    ],
+    "scale": 0.6,
+    "seed": 7,
+    "where": {
+     "zone": "sleeveL",
+     "s": [
+      0.45,
+      1.2
+     ]
+    }
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      -0.3,
+      "waist+0.05"
+     ],
+     [
+      -0.02,
+      "waist+0.05"
+     ],
+     [
+      -0.02,
+      "hem"
+     ]
+    ],
+    "style": "twin",
+    "colour": "#efe8d2"
+   },
+   {
+    "step": "line",
+    "frame": "back",
+    "pts": [
+     [
+      -0.02,
+      "top"
+     ],
+     [
+      -0.02,
+      "waist"
+     ],
+     [
+      0.3,
+      "waist"
+     ]
+    ],
+    "style": "twin",
+    "colour": "#efe8d2"
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0.09,
+      "top"
+     ],
+     [
+      0.14,
+      "chest"
+     ],
+     [
+      0.05,
+      "waist+0.05"
+     ],
+     [
+      0.16,
+      "hem"
+     ]
+    ],
+    "style": "twin",
+    "colour": "#efe8d2"
+   },
+   {
+    "step": "panel",
+    "colour": "#ece5d0",
+    "where": {
+     "zone": "collar"
+    }
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0.014,
+      "hem"
+     ],
+     [
+      0.014,
+      "top"
+     ]
+    ],
+    "style": "seam"
+   },
+   {
+    "step": "dots",
+    "frame": "front",
+    "from": [
+     0,
+     "waist-0.05"
+    ],
+    "to": [
+     0,
+     "chest+0.1"
+    ],
+    "count": 4,
+    "r": 0.009,
+    "style": "button",
+    "colour": "#e6dfca"
+   },
+   {
+    "step": "rect",
+    "frame": "front",
+    "at": [
+     0.12,
+     "hip+0.01"
+    ],
+    "size": [
+     0.13,
+     0.04
+    ],
+    "style": "flap",
+    "flap": 1,
+    "snap": false,
+    "mirror": true,
+    "stitch": "#efe8d2"
+   }
+  ],
+  "refs": [
+   "https://www.grailed.com/drycleanonly/comme-des-garcons-homme-plus"
+  ]
+ },
+ {
+  "n": 37,
+  "id": "cdg-broken-bride-jacket",
+  "designer": "Comme des Garçons",
+  "name": "Broken Bride Jacket",
+  "season": "FW2005",
+  "price": 900,
+  "slot": "top",
+  "colour": "#ebe0c6",
+  "finish": {
+   "roughness": 0.5
+  },
+  "cut": {
+   "like": "trucker",
+   "hem": "waist+0.06",
+   "sleeve": 0.86,
+   "hang": 1,
+   "flare": 0.1,
+   "sleeveFlare": 0.22,
+   "tube": 1,
+   "neck": {
+    "depth": 0.03,
+    "round": 0.088
+   },
+   "ease": {
+    "shoulder": 0.012,
+    "chest": 0.04,
+    "waist": 0.07,
+    "hip": 0.07,
+    "sleeve": 0.026,
+    "cuff": 0.03
+   },
+   "add": [
+    {
+     "type": "collar",
+     "style": "fold",
+     "height": 0.085,
+     "gap": 0.012,
+     "only": true
+    },
+    {
+     "type": "lip"
+    }
+   ]
+  },
+  "paint": [
+   {
+    "step": "fabric",
+    "type": "satin"
+   },
+   {
+    "step": "distress",
+    "type": "folds",
+    "freq": 14,
+    "depth": 0.004
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0.012,
+      "hem"
+     ],
+     [
+      0.012,
+      "top"
+     ]
+    ],
+    "style": "seam"
+   },
+   {
+    "step": "dots",
+    "frame": "front",
+    "from": [
+     0,
+     "hem+0.045"
+    ],
+    "to": [
+     0,
+     "top-0.06"
+    ],
+    "count": 3,
+    "r": 0.011,
+    "style": "button",
+    "colour": "#d9c9a0"
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      -0.4,
+      "hem+0.012"
+     ],
+     [
+      0.4,
+      "hem+0.012"
+     ]
+    ],
+    "style": "stitch",
+    "colour": "#d5c8a8"
+   },
+   {
+    "step": "line",
+    "frame": "back",
+    "pts": [
+     [
+      -0.4,
+      "hem+0.012"
+     ],
+     [
+      0.4,
+      "hem+0.012"
+     ]
+    ],
+    "style": "stitch",
+    "colour": "#d5c8a8"
+   },
+   {
+    "step": "line",
+    "frame": "sleeves",
+    "pts": [
+     [
+      -0.3,
+      0.84
+     ],
+     [
+      0.3,
+      0.84
+     ]
+    ],
+    "style": "stitch",
+    "colour": "#d5c8a8"
+   },
+   {
+    "step": "panel",
+    "colour": "#efe6cf",
+    "where": {
+     "zone": "collar"
+    }
+   }
+  ],
+  "note": "No Homme Plus collection called Broken Bridegroom could be found. This is the cropped ivory jacket with a round collar from the Comme des Garçons 'Broken Bride' collection of autumn 2005, which the name on the list most likely means.",
+  "refs": [
+   "https://www.vogue.com/fashion-shows/fall-2005-ready-to-wear/comme-des-garcons"
+  ]
+ },
+ {
+  "n": 38,
+  "id": "junya-patchwork-denim",
+  "designer": "Junya Watanabe",
+  "name": "Comme des Garçons Patchwork Denim",
+  "season": "SS2002",
+  "price": 450,
+  "slot": "bottom",
+  "colour": "#3f5779",
+  "finish": {
+   "roughness": 0.9
+  },
+  "cut": {
+   "like": "straight",
+   "rise": "waist-0.09",
+   "hem": "ankle+0.0",
+   "straight": 0.75,
+   "ease": {
+    "waist": 0.002,
+    "seat": 0.016,
+    "thigh": 0.022,
+    "knee": 0.024,
+    "hem": 0.028
+   }
+  },
+  "paint": [
+   {
+    "step": "fabric",
+    "type": "denim",
+    "colour2": "#8fa3bd"
+   },
+   {
+    "step": "pattern",
+    "type": "check",
+    "period": 0.012,
+    "colours": [
+     "#6e2a26"
+    ],
+    "amount": 0.6,
+    "where": {
+     "zone": "legs",
+     "front": true,
+     "x": [
+      0.06,
+      0.14
+     ],
+     "h": [
+      "calf-0.03",
+      "calf+0.09"
+     ]
+    }
+   },
+   {
+    "step": "fabric",
+    "type": "denim",
+    "colour": "#8fa3bd",
+    "where": {
+     "zone": "legs",
+     "front": true,
+     "x": [
+      0.05499999999999999,
+      0.155
+     ],
+     "h": [
+      "thigh+0.09-0.065",
+      "thigh+0.09+0.065"
+     ]
+    }
+   },
+   {
+    "step": "rect",
+    "frame": "front",
+    "at": [
+     0.105,
+     "thigh+0.09"
+    ],
+    "size": [
+     0.1,
+     0.13
+    ],
+    "style": "patch",
+    "stitch": "#c9a55a",
+    "raise": 0.0005,
+    "round": 0.002
+   },
+   {
+    "step": "fabric",
+    "type": "denim",
+    "colour": "#2a3a58",
+    "where": {
+     "zone": "legs",
+     "front": true,
+     "x": [
+      -0.165,
+      -0.055
+     ],
+     "h": [
+      "thigh+0.05-0.08",
+      "thigh+0.05+0.08"
+     ]
+    }
+   },
+   {
+    "step": "rect",
+    "frame": "front",
+    "at": [
+     -0.11,
+     "thigh+0.05"
+    ],
+    "size": [
+     0.11,
+     0.16
+    ],
+    "style": "patch",
+    "stitch": "#c9a55a",
+    "raise": 0.0005,
+    "round": 0.002
+   },
+   {
+    "step": "fabric",
+    "type": "tweed",
+    "colour": "#6d5a45",
+    "where": {
+     "zone": "legs",
+     "front": true,
+     "x": [
+      0.065,
+      0.155
+     ],
+     "h": [
+      "thigh-0.07-0.06",
+      "thigh-0.07+0.06"
+     ]
+    }
+   },
+   {
+    "step": "rect",
+    "frame": "front",
+    "at": [
+     0.11,
+     "thigh-0.07"
+    ],
+    "size": [
+     0.09,
+     0.12
+    ],
+    "style": "patch",
+    "stitch": "#c9a55a",
+    "raise": 0.0005,
+    "round": 0.002
+   },
+   {
+    "step": "fabric",
+    "type": "denim",
+    "colour": "#a9b9cc",
+    "where": {
+     "zone": "legs",
+     "front": true,
+     "x": [
+      -0.14500000000000002,
+      -0.05500000000000001
+     ],
+     "h": [
+      "knee+0.07-0.05",
+      "knee+0.07+0.05"
+     ]
+    }
+   },
+   {
+    "step": "rect",
+    "frame": "front",
+    "at": [
+     -0.1,
+     "knee+0.07"
+    ],
+    "size": [
+     0.09,
+     0.1
+    ],
+    "style": "patch",
+    "stitch": "#c9a55a",
+    "raise": 0.0005,
+    "round": 0.002
+   },
+   {
+    "step": "fabric",
+    "type": "denim",
+    "colour": "#31456a",
+    "where": {
+     "zone": "legs",
+     "front": true,
+     "x": [
+      0.05499999999999999,
+      0.155
+     ],
+     "h": [
+      "knee-0.07",
+      "knee+0.07"
+     ]
+    }
+   },
+   {
+    "step": "rect",
+    "frame": "front",
+    "at": [
+     0.105,
+     "knee"
+    ],
+    "size": [
+     0.1,
+     0.14
+    ],
+    "style": "patch",
+    "stitch": "#c9a55a",
+    "raise": 0.0005,
+    "round": 0.002
+   },
+   {
+    "step": "fabric",
+    "type": "denim",
+    "colour": "#7a8fa9",
+    "where": {
+     "zone": "legs",
+     "front": true,
+     "x": [
+      -0.155,
+      -0.05499999999999999
+     ],
+     "h": [
+      "knee-0.08-0.065",
+      "knee-0.08+0.065"
+     ]
+    }
+   },
+   {
+    "step": "rect",
+    "frame": "front",
+    "at": [
+     -0.105,
+     "knee-0.08"
+    ],
+    "size": [
+     0.1,
+     0.13
+    ],
+    "style": "patch",
+    "stitch": "#c9a55a",
+    "raise": 0.0005,
+    "round": 0.002
+   },
+   {
+    "step": "fabric",
+    "type": "plain",
+    "colour": "#9c3b34",
+    "where": {
+     "zone": "legs",
+     "front": true,
+     "x": [
+      0.060000000000000005,
+      0.14
+     ],
+     "h": [
+      "calf+0.03-0.06",
+      "calf+0.03+0.06"
+     ]
+    }
+   },
+   {
+    "step": "rect",
+    "frame": "front",
+    "at": [
+     0.1,
+     "calf+0.03"
+    ],
+    "size": [
+     0.08,
+     0.12
+    ],
+    "style": "patch",
+    "stitch": "#c9a55a",
+    "raise": 0.0005,
+    "round": 0.002
+   },
+   {
+    "step": "fabric",
+    "type": "tweed",
+    "colour": "#55504a",
+    "where": {
+     "zone": "legs",
+     "front": true,
+     "x": [
+      -0.14250000000000002,
+      -0.0575
+     ],
+     "h": [
+      "calf-0.03-0.065",
+      "calf-0.03+0.065"
+     ]
+    }
+   },
+   {
+    "step": "rect",
+    "frame": "front",
+    "at": [
+     -0.1,
+     "calf-0.03"
+    ],
+    "size": [
+     0.085,
+     0.13
+    ],
+    "style": "patch",
+    "stitch": "#c9a55a",
+    "raise": 0.0005,
+    "round": 0.002
+   },
+   {
+    "step": "fabric",
+    "type": "denim",
+    "colour": "#8fa3bd",
+    "where": {
+     "zone": "legs",
+     "front": true,
+     "x": [
+      0.060000000000000005,
+      0.14
+     ],
+     "h": [
+      "calf-0.11-0.05",
+      "calf-0.11+0.05"
+     ]
+    }
+   },
+   {
+    "step": "rect",
+    "frame": "front",
+    "at": [
+     0.1,
+     "calf-0.11"
+    ],
+    "size": [
+     0.08,
+     0.1
+    ],
+    "style": "patch",
+    "stitch": "#c9a55a",
+    "raise": 0.0005,
+    "round": 0.002
+   },
+   {
+    "step": "fabric",
+    "type": "leather",
+    "colour": "#8a5a3a",
+    "where": {
+     "zone": "legs",
+     "front": false,
+     "x": [
+      0.03,
+      0.15
+     ],
+     "h": [
+      "hip-0.06-0.065",
+      "hip-0.06+0.065"
+     ]
+    }
+   },
+   {
+    "step": "rect",
+    "frame": "back",
+    "at": [
+     -0.09,
+     "hip-0.06"
+    ],
+    "size": [
+     0.12,
+     0.13
+    ],
+    "style": "patch",
+    "stitch": "#c9a55a",
+    "raise": 0.0005,
+    "round": 0.002
+   },
+   {
+    "step": "fabric",
+    "type": "denim",
+    "colour": "#8fa3bd",
+    "where": {
+     "zone": "legs",
+     "front": false,
+     "x": [
+      -0.15,
+      -0.03
+     ],
+     "h": [
+      "hip-0.06-0.065",
+      "hip-0.06+0.065"
+     ]
+    }
+   },
+   {
+    "step": "rect",
+    "frame": "back",
+    "at": [
+     0.09,
+     "hip-0.06"
+    ],
+    "size": [
+     0.12,
+     0.13
+    ],
+    "style": "patch",
+    "stitch": "#c9a55a",
+    "raise": 0.0005,
+    "round": 0.002
+   },
+   {
+    "step": "fabric",
+    "type": "denim",
+    "colour": "#2a3a58",
+    "where": {
+     "zone": "legs",
+     "front": false,
+     "x": [
+      0.05,
+      0.15000000000000002
+     ],
+     "h": [
+      "thigh-0.02-0.075",
+      "thigh-0.02+0.075"
+     ]
+    }
+   },
+   {
+    "step": "rect",
+    "frame": "back",
+    "at": [
+     -0.1,
+     "thigh-0.02"
+    ],
+    "size": [
+     0.1,
+     0.15
+    ],
+    "style": "patch",
+    "stitch": "#c9a55a",
+    "raise": 0.0005,
+    "round": 0.002
+   },
+   {
+    "step": "fabric",
+    "type": "tweed",
+    "colour": "#6d5a45",
+    "where": {
+     "zone": "legs",
+     "front": false,
+     "x": [
+      -0.15000000000000002,
+      -0.05
+     ],
+     "h": [
+      "knee+0.02-0.08",
+      "knee+0.02+0.08"
+     ]
+    }
+   },
+   {
+    "step": "rect",
+    "frame": "back",
+    "at": [
+     0.1,
+     "knee+0.02"
+    ],
+    "size": [
+     0.1,
+     0.16
+    ],
+    "style": "patch",
+    "stitch": "#c9a55a",
+    "raise": 0.0005,
+    "round": 0.002
+   },
+   {
+    "step": "line",
+    "frame": "legs",
+    "pts": [
+     [
+      0,
+      -0.3
+     ],
+     [
+      0,
+      1.05
+     ]
+    ],
+    "style": "twin",
+    "colour": "#c9a55a",
+    "width": 0.0011,
+    "gap": 0.006
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      -0.4,
+      "top-0.04"
+     ],
+     [
+      0.4,
+      "top-0.04"
+     ]
+    ],
+    "style": "twin",
+    "colour": "#c9a55a",
+    "width": 0.0011,
+    "gap": 0.034
+   },
+   {
+    "step": "line",
+    "frame": "back",
+    "pts": [
+     [
+      -0.4,
+      "top-0.04"
+     ],
+     [
+      0.4,
+      "top-0.04"
+     ]
+    ],
+    "style": "twin",
+    "colour": "#c9a55a",
+    "width": 0.0011,
+    "gap": 0.034
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0.0,
+      "top-0.04"
+     ],
+     [
+      0.004,
+      "top-0.1"
+     ],
+     [
+      0.03,
+      "top-0.17"
+     ],
+     [
+      0.0,
+      "top-0.19"
+     ]
+    ],
+    "style": "twin",
+    "colour": "#c9a55a",
+    "width": 0.0011
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0.06,
+      "top-0.045"
+     ],
+     [
+      0.09,
+      "top-0.11"
+     ],
+     [
+      0.17,
+      "top-0.12"
+     ]
+    ],
+    "style": "twin",
+    "colour": "#c9a55a",
+    "width": 0.0011,
+    "mirror": true
+   },
+   {
+    "step": "dots",
+    "frame": "front",
+    "pts": [
+     [
+      0,
+      "top-0.02"
+     ]
+    ],
+    "r": 0.008,
+    "style": "stud",
+    "colour": "#77736a"
+   },
+   {
+    "step": "dots",
+    "frame": "front",
+    "pts": [
+     [
+      0.062,
+      "top-0.05"
+     ],
+     [
+      0.168,
+      "top-0.118"
+     ]
+    ],
+    "r": 0.0035,
+    "style": "stud",
+    "colour": "#8a7a5a",
+    "mirror": true
+   },
+   {
+    "step": "line",
+    "frame": "back",
+    "pts": [
+     [
+      -0.3,
+      "top-0.075"
+     ],
+     [
+      0,
+      "top-0.115"
+     ],
+     [
+      0.3,
+      "top-0.075"
+     ]
+    ],
+    "style": "twin",
+    "colour": "#c9a55a",
+    "width": 0.0011
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      -0.4,
+      "hem+0.014"
+     ],
+     [
+      0.4,
+      "hem+0.014"
+     ]
+    ],
+    "style": "stitch",
+    "colour": "#c9a55a",
+    "width": 0.0011
+   },
+   {
+    "step": "line",
+    "frame": "back",
+    "pts": [
+     [
+      -0.4,
+      "hem+0.014"
+     ],
+     [
+      0.4,
+      "hem+0.014"
+     ]
+    ],
+    "style": "stitch",
+    "colour": "#c9a55a",
+    "width": 0.0011
+   },
+   {
+    "step": "panel",
+    "colour": "#31456a",
+    "where": {
+     "zone": "legs",
+     "h": [
+      "hem",
+      "hem+0.05"
+     ]
+    },
+    "keepShade": 1
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      -0.4,
+      "hem+0.05"
+     ],
+     [
+      0.4,
+      "hem+0.05"
+     ]
+    ],
+    "style": "stitch",
+    "colour": "#c9a55a"
+   },
+   {
+    "step": "line",
+    "frame": "back",
+    "pts": [
+     [
+      -0.4,
+      "hem+0.05"
+     ],
+     [
+      0.4,
+      "hem+0.05"
+     ]
+    ],
+    "style": "stitch",
+    "colour": "#c9a55a"
+   },
+   {
+    "step": "rect",
+    "frame": "back",
+    "at": [
+     0.12,
+     "top-0.022"
+    ],
+    "size": [
+     0.06,
+     0.035
+    ],
+    "style": "patch",
+    "colour": "#a8845a",
+    "stitch": "#5a4630"
+   }
+  ],
+  "note": "No photograph could be loaded; drawn from the description of the SS2002 jeans: rectangles of denim washes, tweed and check, a cowhide back pocket, worn cuffed.",
+  "refs": []
+ },
+ {
+  "n": 39,
+  "id": "issey-parachute-cargo-bomber",
+  "designer": "Issey Miyake",
+  "name": "Parachute Cargo Bomber",
+  "season": "FW1996",
+  "price": 3500,
+  "slot": "top",
+  "colour": "#26272b",
+  "finish": {
+   "roughness": 0.5
+  },
+  "cut": {
+   "like": "bomber",
+   "hem": "hip+0.045",
+   "shoulderDrop": 0.022,
+   "cinch": 0.22,
+   "rib": 0.06,
+   "ease": {
+    "shoulder": 0.014,
+    "chest": 0.05,
+    "waist": 0.085,
+    "hip": 0.085,
+    "sleeve": 0.026,
+    "cuff": 0.02
+   },
+   "relax": 5,
+   "add": [
+    {
+     "type": "collar",
+     "height": 0.045,
+     "flare": 0.008
+    },
+    {
+     "type": "tail",
+     "from": {
+      "on": "front",
+      "x": 0.13,
+      "h": "hem+0.07"
+     },
+     "length": 0.16,
+     "width": 0.016,
+     "out": 0.014
+    },
+    {
+     "type": "tail",
+     "from": {
+      "on": "front",
+      "x": -0.13,
+      "h": "hem+0.07"
+     },
+     "length": 0.16,
+     "width": 0.016,
+     "out": 0.014
+    }
+   ]
+  },
+  "paint": [
+   {
+    "step": "fabric",
+    "type": "nylon"
+   },
+   {
+    "step": "distress",
+    "type": "crumple",
+    "depth": 0.0012,
+    "freq": 24,
+    "where": {
+     "zone": [
+      "body",
+      "sleeves"
+     ]
+    }
+   },
+   {
+    "step": "rib",
+    "where": {
+     "zone": "body",
+     "h": [
+      "hem",
+      "hem+0.06"
+     ]
+    },
+    "colour": "#161618",
+    "gauge": 0.006
+   },
+   {
+    "step": "rib",
+    "where": {
+     "zone": "sleeves",
+     "s": [
+      0.885,
+      1.3
+     ]
+    },
+    "colour": "#161618",
+    "gauge": 0.006
+   },
+   {
+    "step": "rib",
+    "where": {
+     "zone": "collar"
+    },
+    "colour": "#161618",
+    "gauge": 0.006
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0.022,
+      "hem+0.06"
+     ],
+     [
+      0.022,
+      "top"
+     ]
+    ],
+    "style": "seam"
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0,
+      "hem"
+     ],
+     [
+      0,
+      "top"
+     ]
+    ],
+    "style": "zip",
+    "width": 0.004,
+    "colour": "#77787c",
+    "colour2": "#141416"
+   },
+   {
+    "step": "rect",
+    "frame": "front",
+    "at": [
+     0.1,
+     "chest+0.02"
+    ],
+    "size": [
+     0.11,
+     0.1
+    ],
+    "style": "flap",
+    "flap": 0.34,
+    "pleat": true,
+    "snap": false,
+    "mirror": true,
+    "stitch": "#6a6d74",
+    "raise": 0.003,
+    "round": 0.008
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0.1,
+      "chest+0.02+0.06"
+     ],
+     [
+      0.1,
+      "chest+0.02-0.03"
+     ]
+    ],
+    "style": "strap",
+    "width": 0.014,
+    "colour": "#111113",
+    "mirror": true
+   },
+   {
+    "step": "rect",
+    "frame": "front",
+    "at": [
+     0.1,
+     "chest+0.02+0.012"
+    ],
+    "size": [
+     0.02,
+     0.016
+    ],
+    "style": "buckle",
+    "colour": "#55565a",
+    "mirror": true
+   },
+   {
+    "step": "rect",
+    "frame": "front",
+    "at": [
+     0.105,
+     "waist-0.02"
+    ],
+    "size": [
+     0.13,
+     0.13
+    ],
+    "style": "flap",
+    "flap": 0.34,
+    "pleat": true,
+    "snap": false,
+    "mirror": true,
+    "stitch": "#6a6d74",
+    "raise": 0.003,
+    "round": 0.008
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0.105,
+      "waist-0.02+0.075"
+     ],
+     [
+      0.105,
+      "waist-0.02-0.045"
+     ]
+    ],
+    "style": "strap",
+    "width": 0.014,
+    "colour": "#111113",
+    "mirror": true
+   },
+   {
+    "step": "rect",
+    "frame": "front",
+    "at": [
+     0.105,
+     "waist-0.02+0.0156"
+    ],
+    "size": [
+     0.02,
+     0.016
+    ],
+    "style": "buckle",
+    "colour": "#55565a",
+    "mirror": true
+   },
+   {
+    "step": "rect",
+    "frame": "sleeves",
+    "at": [
+     0.0,
+     0.3
+    ],
+    "size": [
+     0.08,
+     0.1
+    ],
+    "style": "flap",
+    "flap": 0.34,
+    "pleat": true,
+    "snap": false,
+    "stitch": "#6a6d74",
+    "raise": 0.003
+   },
+   {
+    "step": "rect",
+    "frame": "sleeves",
+    "at": [
+     0.0,
+     0.62
+    ],
+    "size": [
+     0.07,
+     0.08
+    ],
+    "style": "flap",
+    "flap": 0.34,
+    "snap": false,
+    "stitch": "#6a6d74",
+    "raise": 0.0025
+   },
+   {
+    "step": "line",
+    "frame": "back",
+    "pts": [
+     [
+      -0.3,
+      "chest+0.06"
+     ],
+     [
+      0.3,
+      "chest+0.06"
+     ]
+    ],
+    "style": "twin",
+    "colour": "#3a3c40"
+   },
+   {
+    "step": "panel",
+    "colour": "#111113",
+    "where": {
+     "zone": "strap"
+    }
+   }
+  ],
+  "note": "The black version in the dealer photograph; the sage green is as well known.",
+  "refs": [
+   "https://www.grailed.com/drycleanonly/issey-miyake-parachute-bomber"
+  ]
+ },
+ {
+  "n": 40,
+  "id": "issey-pleats-please-top",
+  "designer": "Issey Miyake",
+  "name": "Pleats Please Pleated Top",
+  "season": "1993",
+  "price": 300,
+  "slot": "top",
+  "colour": "#e2472b",
+  "finish": {
+   "roughness": 0.75
+  },
+  "cut": {
+   "like": "tank",
+   "hem": "hip-0.03",
+   "armhole": 0.24,
+   "hang": 0.25,
+   "chest": 0.4,
+   "neck": {
+    "depth": 0.075,
+    "round": 0.1
+   },
+   "ease": {
+    "shoulder": 0.004,
+    "chest": 0.009,
+    "waist": 0.012,
+    "hip": 0.014
+   }
+  },
+  "paint": [
+   {
+    "step": "fabric",
+    "type": "plain"
+   },
+   {
+    "step": "pattern",
+    "type": "clouds",
+    "colours": [
+     "#2f6b3a"
+    ],
+    "freq": 9,
+    "amount": 0.95,
+    "where": {
+     "zone": "body",
+     "ax": [
+      0.0,
+      0.5
+     ]
+    },
+    "seed": 2
+   },
+   {
+    "step": "pattern",
+    "type": "dots",
+    "size": 0.075,
+    "r": 0.34,
+    "jitter": 0.5,
+    "colours": [
+     "#e2472b"
+    ],
+    "seed": 4
+   },
+   {
+    "step": "rib",
+    "gauge": 0.0055,
+    "depth": 0.0011
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      -0.4,
+      "hem+0.004"
+     ],
+     [
+      0.4,
+      "hem+0.004"
+     ]
+    ],
+    "style": "groove",
+    "width": 0.002
+   },
+   {
+    "step": "line",
+    "frame": "back",
+    "pts": [
+     [
+      -0.4,
+      "hem+0.004"
+     ],
+     [
+      0.4,
+      "hem+0.004"
+     ]
+    ],
+    "style": "groove",
+    "width": 0.002
+   }
+  ],
+  "note": "A sleeveless top in the printed red and green of the photographed example; most Pleats Please is a plain bright colour.",
+  "refs": [
+   "https://www.1stdibs.com/"
+  ]
+ }
+]

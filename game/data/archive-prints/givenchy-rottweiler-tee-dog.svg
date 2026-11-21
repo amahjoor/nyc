@@ -1,0 +1,60 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 300 350">
+ <!-- a snarling Rottweiler seen from the front: head lowered, ears back, lips curled off the teeth -->
+ <defs>
+  <filter id="s1"><feGaussianBlur stdDeviation="1.2"/></filter>
+  <filter id="s3"><feGaussianBlur stdDeviation="3.5"/></filter>
+  <filter id="s7"><feGaussianBlur stdDeviation="7"/></filter>
+  <radialGradient id="fur" cx=".5" cy=".36" r=".7"><stop offset="0" stop-color="#5b5550"/><stop offset=".55" stop-color="#34302d"/><stop offset="1" stop-color="#1a1819"/></radialGradient>
+  <linearGradient id="tan" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#cf9350"/><stop offset="1" stop-color="#8d5124"/></linearGradient>
+  <linearGradient id="gum" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#c25a68"/><stop offset="1" stop-color="#7c2433"/></linearGradient>
+  <clipPath id="head"><path d="M58 100Q66 26 150 18Q234 26 242 100Q264 156 246 220Q230 268 206 298Q182 338 150 340Q118 338 94 298Q70 268 54 220Q36 156 58 100Z"/></clipPath>
+ </defs>
+ <!-- ears, laid back -->
+ <path d="M60 70Q14 80 8 150Q10 200 40 222Q52 170 74 118Z" fill="#2a2725"/>
+ <path d="M240 70Q286 80 292 150Q290 200 260 222Q248 170 226 118Z" fill="#2a2725"/>
+ <path d="M52 90Q26 110 24 160Q30 184 40 196" stroke="#57514c" stroke-width="5" fill="none" filter="url(#s3)"/>
+ <path d="M248 90Q274 110 276 160Q270 184 260 196" stroke="#57514c" stroke-width="5" fill="none" filter="url(#s3)"/>
+ <!-- the head -->
+ <path d="M58 100Q66 26 150 18Q234 26 242 100Q264 156 246 220Q230 268 206 298Q182 338 150 340Q118 338 94 298Q70 268 54 220Q36 156 58 100Z" fill="url(#fur)"/>
+ <g clip-path="url(#head)">
+  <!-- light on the crown and the folds of the brow -->
+  <ellipse cx="150" cy="58" rx="62" ry="26" fill="#8a837b" opacity=".55" filter="url(#s7)"/>
+  <path d="M92 92Q120 74 142 96M208 92Q180 74 158 96" stroke="#8d867e" stroke-width="7" fill="none" filter="url(#s3)" opacity=".8"/>
+  <path d="M150 34V96M132 60Q150 76 168 60M126 84Q150 100 174 84" stroke="#141314" stroke-width="5" fill="none" filter="url(#s3)"/>
+  <!-- tan: the spots over the eyes, the cheeks, the jaw -->
+  <ellipse cx="108" cy="96" rx="13" ry="8" fill="#c98a48" filter="url(#s1)"/>
+  <ellipse cx="192" cy="96" rx="13" ry="8" fill="#c98a48" filter="url(#s1)"/>
+  <path d="M62 150Q84 138 104 160Q112 196 100 232Q84 252 66 236Q52 196 62 150Z" fill="url(#tan)" filter="url(#s3)"/>
+  <path d="M238 150Q216 138 196 160Q188 196 200 232Q216 252 234 236Q248 196 238 150Z" fill="url(#tan)" filter="url(#s3)"/>
+  <path d="M96 296Q150 322 204 296Q186 340 150 342Q114 340 96 296Z" fill="url(#tan)" filter="url(#s1)"/>
+  <!-- the bridge of the muzzle, wrinkled -->
+  <path d="M118 128Q150 112 182 128Q196 170 186 196H114Q104 170 118 128Z" fill="#232021"/>
+  <path d="M118 140Q150 128 182 140M114 154Q150 142 186 154M114 168Q150 158 186 168" stroke="#5e5852" stroke-width="3.5" fill="none" filter="url(#s1)"/>
+  <!-- the mouth: dark inside, gums, tongue -->
+  <path d="M84 210Q104 190 124 196Q150 204 176 196Q196 190 216 210Q226 262 200 296Q150 316 100 296Q74 262 84 210Z" fill="#1d0b0e"/>
+  <path d="M84 210Q104 190 124 196Q150 206 176 196Q196 190 216 210Q214 224 204 228Q150 214 96 228Q86 224 84 210Z" fill="url(#gum)"/>
+  <path d="M112 262Q150 240 188 262Q192 290 150 300Q108 290 112 262Z" fill="#cf6f7c"/>
+  <path d="M150 252V296" stroke="#9c3f4f" stroke-width="3" filter="url(#s1)"/>
+  <path d="M98 284Q150 306 202 284Q204 296 196 300Q150 318 104 300Q96 296 98 284Z" fill="#8b2c3b"/>
+  <!-- teeth -->
+  <g fill="#f1ecdf" stroke="#b9b09c" stroke-width=".8">
+   <path d="M102 222Q108 252 116 262Q124 246 122 220Z"/><path d="M198 222Q192 252 184 262Q176 246 178 220Z"/>
+   <path d="M126 216l4 16l5-16ZM137 215l4 15l5-15ZM148 214.500l4 15l5-15.500ZM159 215l4 15l5-15Z"/>
+   <path d="M110 292Q114 270 120 262Q128 276 126 296Z"/><path d="M190 292Q186 270 180 262Q172 276 174 296Z"/>
+   <path d="M130 298l4-12l4 12ZM141 300l4-12l4 12ZM152 300l4-12l4 12ZM163 298l4-12l4 12Z"/>
+   <path d="M88 228l5 14l5-13ZM212 228l-5 14l-5-13Z"/>
+  </g>
+  <!-- the upper lip, curled -->
+  <path d="M80 212Q102 184 126 192Q150 202 174 192Q198 184 220 212" stroke="#131213" stroke-width="7" fill="none"/>
+  <!-- the nose -->
+  <path d="M120 172Q150 156 180 172Q186 192 168 202Q150 208 132 202Q114 192 120 172Z" fill="#0e0d0e"/>
+  <ellipse cx="138" cy="188" rx="7" ry="5" fill="#000"/><ellipse cx="162" cy="188" rx="7" ry="5" fill="#000"/>
+  <path d="M130 172Q150 164 170 172" stroke="#6d6964" stroke-width="4" fill="none" filter="url(#s1)"/>
+  <!-- the eyes, glaring up from under the brow -->
+  <path d="M88 118Q106 104 126 122Q108 132 88 118Z" fill="#0c0b0c"/><path d="M212 118Q194 104 174 122Q192 132 212 118Z" fill="#0c0b0c"/>
+  <ellipse cx="108" cy="119" rx="8" ry="6" fill="#b06a22"/><ellipse cx="192" cy="119" rx="8" ry="6" fill="#b06a22"/>
+  <circle cx="109" cy="119" r="3.6" fill="#050505"/><circle cx="191" cy="119" r="3.600" fill="#050505"/>
+  <circle cx="106" cy="117" r="1.4" fill="#fff"/><circle cx="188" cy="117" r="1.4" fill="#fff"/>
+  <path d="M84 108Q108 96 130 116M216 108Q192 96 170 116" stroke="#0c0b0c" stroke-width="5" fill="none"/>
+ </g>
+</svg>

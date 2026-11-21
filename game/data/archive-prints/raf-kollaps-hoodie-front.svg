@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 270 400">
+ <defs><pattern id="ht" width="2.6" height="2.6" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><circle cx="1.3" cy="1.3" r=".7" fill="#141416"/></pattern></defs>
+ <g fill="#141416" font-family="Nimbus Sans Narrow, Liberation Sans Narrow, Liberation Sans" font-weight="700">
+  <text x="22" y="26" font-size="19" letter-spacing=".5">#12  "FOREVER FOR NOW"</text>
+  <text x="135" y="84" font-size="57" text-anchor="middle" letter-spacing="1" stroke="#141416" stroke-width="1.6">KOLLAPS</text>
+  <!-- black disc with a plant of chimneys and tanks in white -->
+  <circle cx="135" cy="134" r="38"/>
+  <g fill="#ece9df">
+   <path d="M104 152h62v-6h-62Z"/>
+   <path d="M110 146v-22h12v22ZM126 146v-34h8v34ZM138 146v-26h14v26ZM156 146v-16h8v16Z"/>
+   <path d="M128 110v-12h4v12ZM142 118v-8h6v8Z"/>
+   <path d="M108 122l8-8l8 8ZM138 118l7-6l7 6Z"/>
+  </g>
+  <g fill="#141416"><path d="M113 130h6v10h-6ZM141 126h3v8h-3ZM146 126h3v8h-3ZM141 138h8v3h-8Z"/></g>
+  <text x="135" y="200" font-size="15.5" text-anchor="middle" font-weight="400" font-family="Liberation Sans, Nimbus Sans">we are ready and willing to ignite</text>
+  <text x="135" y="226" font-size="25" text-anchor="middle" letter-spacing=".4">JUST BORN TOO LATE</text>
+  <text x="135" y="243" font-size="13" text-anchor="middle" letter-spacing=".8">COMPANIONSHIP</text>
+  <g font-weight="400" font-family="Liberation Sans, Nimbus Sans" font-size="10.5" text-anchor="middle">
+   <text x="135" y="257">everything belongs to us</text>
+   <text x="135" y="270">disgusted we are excited, insecure, apprehensive</text>
+  </g>
+  <text x="142" y="326" font-size="22" letter-spacing=".8">STAND!</text>
+  <text x="142" y="360" font-size="33" letter-spacing=".5" stroke="#141416" stroke-width=".8">EVASION</text>
+ </g>
+ <!-- small photograph, lower left: grey tones only -->
+ <g><rect x="34" y="306" width="60" height="62" fill="#55565a"/><path d="M34 350q16-26 30-10q12-22 30-6v34H34Z" fill="#b9b8b2"/><circle cx="74" cy="322" r="8" fill="#d9d8d2"/><rect x="34" y="306" width="60" height="62" fill="url(#ht)" opacity=".45"/></g>
+</svg>

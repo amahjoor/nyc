@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 300 340">
+ <!-- Stencilled lettering down the lower back: fine lines of text, NEW to the right, ORDER lower down to the left. -->
+ <g fill="#26221a" font-family="Nimbus Sans Narrow, Liberation Sans Narrow, Liberation Sans" font-weight="700">
+  <g opacity=".5" font-size="9" letter-spacing="1.5">
+   <text x="34" y="26">POWER, CORRUPTION &amp; LIES</text>
+   <text x="34" y="40">FACT 75  -  A FACTORY RECORD</text>
+  </g>
+  <text x="168" y="118" font-size="52" letter-spacing="5" opacity=".86">NEW</text>
+  <text x="62" y="300" font-size="52" letter-spacing="5" opacity=".86">ORDER</text>
+ </g>
+ <!-- stencil bridges -->
+ <g stroke="#7d7443" stroke-width="2.2" opacity=".0"><path d="M0 0"/></g>
+</svg>

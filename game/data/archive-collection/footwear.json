@@ -1,0 +1,2340 @@
+[
+ {
+  "n": 14,
+  "id": "dior-navigate-combat-boots",
+  "designer": "Dior Homme",
+  "name": "Navigate Combat Boots",
+  "season": "FW2007",
+  "price": 700,
+  "slot": "shoes",
+  "pack": "shoes01",
+  "source": "culturalibre_heroine_boots_3",
+  "colour": "#161617",
+  "finish": {
+   "roughness": 0.3
+  },
+  "shape": [
+   {
+    "op": "platform",
+    "height": 0.012
+   },
+   {
+    "op": "arch",
+    "depth": 0.007,
+    "from": 0.34,
+    "to": 0.6
+   },
+   {
+    "op": "toe",
+    "point": 0.25
+   }
+  ],
+  "paint": [
+   {
+    "step": "fabric",
+    "type": "leather"
+   },
+   {
+    "step": "panel",
+    "colour": "#0c0c0d",
+    "where": {
+     "h": [
+      -1,
+      0.024
+     ]
+    }
+   },
+   {
+    "step": "line",
+    "frame": "shaft",
+    "pts": [
+     [
+      -1,
+      0.027
+     ],
+     [
+      1,
+      0.027
+     ]
+    ],
+    "style": "stitch",
+    "colour": "#6a6258",
+    "width": 0.0012
+   },
+   {
+    "step": "line",
+    "frame": "vamp",
+    "pts": [
+     [
+      -0.04,
+      0.215
+     ],
+     [
+      0,
+      0.225
+     ],
+     [
+      0.04,
+      0.215
+     ]
+    ],
+    "style": "seam"
+   },
+   {
+    "step": "laces",
+    "frame": "vamp",
+    "from": [
+     0,
+     0.13
+    ],
+    "to": [
+     0,
+     0.2
+    ],
+    "rows": 4,
+    "width": 0.03,
+    "colour": "#1c1c1e",
+    "eyelets": "#55555a"
+   },
+   {
+    "step": "laces",
+    "frame": "toe",
+    "from": [
+     0,
+     0.075
+    ],
+    "to": [
+     0,
+     0.3
+    ],
+    "rows": 11,
+    "width": 0.034,
+    "colour": "#1c1c1e",
+    "eyelets": "#55555a"
+   },
+   {
+    "step": "rect",
+    "frame": "heel",
+    "at": [
+     0,
+     0.3
+    ],
+    "size": [
+     0.014,
+     0.03
+    ],
+    "style": "patch",
+    "colour": "#111112"
+   },
+   {
+    "step": "distress",
+    "type": "crumple",
+    "depth": 0.0012,
+    "freq": 40,
+    "where": {
+     "h": [
+      0.07,
+      0.14
+     ]
+    }
+   }
+  ]
+ },
+ {
+  "n": 19,
+  "id": "ro-dunks",
+  "designer": "Rick Owens",
+  "name": "Dunks",
+  "season": "FW2006",
+  "price": 1800,
+  "slot": "shoes",
+  "pack": "shoes01",
+  "source": "toigo_ankle_boots_male",
+  "colour": "#161617",
+  "finish": {
+   "roughness": 0.42
+  },
+  "shape": [
+   {
+    "op": "wide",
+    "by": 0.14
+   },
+   {
+    "op": "platform",
+    "height": 0.022,
+    "from": 0.02
+   },
+   {
+    "op": "shaft",
+    "add": 0.025,
+    "from": 0.07
+   },
+   {
+    "op": "tongue",
+    "up": 0.045,
+    "out": 0.012
+   },
+   {
+    "op": "toe",
+    "bulb": 0.5
+   }
+  ],
+  "paint": [
+   {
+    "step": "fabric",
+    "type": "leather"
+   },
+   {
+    "step": "panel",
+    "colour": "#e8e3d3",
+    "where": {
+     "h": [
+      -1,
+      0.044
+     ]
+    }
+   },
+   {
+    "step": "line",
+    "frame": "shaft",
+    "pts": [
+     [
+      -1,
+      0.012
+     ],
+     [
+      1,
+      0.012
+     ]
+    ],
+    "style": "groove",
+    "width": 0.0015
+   },
+   {
+    "step": "panel",
+    "colour": "#e8e3d3",
+    "where": {
+     "ft": [
+      0.8,
+      1.2
+     ],
+     "h": [
+      0.044,
+      0.089
+     ]
+    }
+   },
+   {
+    "step": "line",
+    "frame": "sides",
+    "pts": [
+     [
+      0.035,
+      0.085
+     ],
+     [
+      0.09,
+      0.055
+     ],
+     [
+      0.16,
+      0.05
+     ],
+     [
+      0.215,
+      0.075
+     ]
+    ],
+    "style": "tape",
+    "width": 0.022,
+    "colour": "#e8e3d3",
+    "raise": 0.0006
+   },
+   {
+    "step": "line",
+    "frame": "sides",
+    "pts": [
+     [
+      0.035,
+      0.1
+     ],
+     [
+      0.09,
+      0.07
+     ],
+     [
+      0.16,
+      0.065
+     ],
+     [
+      0.215,
+      0.09
+     ]
+    ],
+    "style": "stitch",
+    "colour": "#cfc9b8"
+   },
+   {
+    "step": "laces",
+    "frame": "vamp",
+    "from": [
+     0,
+     0.13
+    ],
+    "to": [
+     0,
+     0.21
+    ],
+    "rows": 5,
+    "width": 0.04,
+    "colour": "#e8e3d3",
+    "thick": 0.005
+   },
+   {
+    "step": "laces",
+    "frame": "toe",
+    "from": [
+     0,
+     0.08
+    ],
+    "to": [
+     0,
+     0.15
+    ],
+    "rows": 4,
+    "width": 0.04,
+    "colour": "#e8e3d3",
+    "thick": 0.005
+   },
+   {
+    "step": "panel",
+    "colour": "#e8e3d3",
+    "where": {
+     "face": "front",
+     "h": [
+      0.155,
+      0.4
+     ]
+    }
+   },
+   {
+    "step": "line",
+    "frame": "inner",
+    "pts": [
+     [
+      0.1,
+      0.045
+     ],
+     [
+      0.1,
+      0.16
+     ]
+    ],
+    "style": "zip",
+    "width": 0.003
+   }
+  ]
+ },
+ {
+  "n": 20,
+  "id": "mmm-tabi-boots",
+  "designer": "Maison Martin Margiela",
+  "name": "Tabi Boots",
+  "season": "SS1989",
+  "price": 1100,
+  "slot": "shoes",
+  "pack": "shoes01",
+  "source": "toigo_ankle_boots_male",
+  "colour": "#161617",
+  "finish": {
+   "roughness": 0.4
+  },
+  "shape": [
+   {
+    "op": "platform",
+    "height": 0.022
+   },
+   {
+    "op": "arch",
+    "depth": 0.016,
+    "from": 0.36,
+    "to": 0.62
+   },
+   {
+    "op": "toe",
+    "split": 0.007,
+    "from": 0.78
+   },
+   {
+    "op": "shaft",
+    "add": 0.015,
+    "from": 0.08
+   }
+  ],
+  "paint": [
+   {
+    "step": "fabric",
+    "type": "leather"
+   },
+   {
+    "step": "panel",
+    "colour": "#2a2018",
+    "where": {
+     "h": [
+      -1,
+      0.008
+     ]
+    }
+   },
+   {
+    "step": "panel",
+    "colour": "#1f1915",
+    "where": {
+     "ft": [
+      -1,
+      0.34
+     ],
+     "h": [
+      -1,
+      0.026
+     ]
+    }
+   },
+   {
+    "step": "line",
+    "frame": "vamp",
+    "pts": [
+     [
+      -0.012,
+      0.33
+     ],
+     [
+      -0.012,
+      0.215
+     ]
+    ],
+    "style": "groove",
+    "width": 0.0035,
+    "depth": 0.0025
+   },
+   {
+    "step": "line",
+    "frame": "toe",
+    "pts": [
+     [
+      -0.012,
+      0.0
+     ],
+     [
+      -0.012,
+      0.06
+     ]
+    ],
+    "style": "groove",
+    "width": 0.0035,
+    "depth": 0.0025
+   },
+   {
+    "step": "line",
+    "frame": "vamp",
+    "pts": [
+     [
+      -0.012,
+      0.215
+     ],
+     [
+      0,
+      0.14
+     ]
+    ],
+    "style": "seam"
+   },
+   {
+    "step": "line",
+    "frame": "inner",
+    "pts": [
+     [
+      0.09,
+      0.05
+     ],
+     [
+      0.085,
+      0.16
+     ]
+    ],
+    "style": "seam"
+   },
+   {
+    "step": "dots",
+    "frame": "inner",
+    "from": [
+     0.094,
+     0.07
+    ],
+    "to": [
+     0.09,
+     0.15
+    ],
+    "count": 5,
+    "r": 0.0035,
+    "style": "stud",
+    "colour": "#b9b6ae"
+   }
+  ],
+  "note": "The foot stays flat in the game, so the round column heel is a low stacked one."
+ },
+ {
+  "n": 43,
+  "id": "ro-geobasket",
+  "designer": "Rick Owens",
+  "name": "Geobasket Sneakers",
+  "season": "FW2006",
+  "price": 650,
+  "slot": "shoes",
+  "pack": "shoes01",
+  "source": "toigo_ankle_boots_male",
+  "colour": "#161617",
+  "finish": {
+   "roughness": 0.42
+  },
+  "shape": [
+   {
+    "op": "wide",
+    "by": 0.16
+   },
+   {
+    "op": "platform",
+    "height": 0.026,
+    "from": 0.02
+   },
+   {
+    "op": "shaft",
+    "add": 0.035,
+    "from": 0.07
+   },
+   {
+    "op": "tongue",
+    "up": 0.075,
+    "out": 0.02
+   },
+   {
+    "op": "toe",
+    "bulb": 0.5
+   }
+  ],
+  "paint": [
+   {
+    "step": "fabric",
+    "type": "leather"
+   },
+   {
+    "step": "panel",
+    "colour": "#e8e3d3",
+    "where": {
+     "h": [
+      -1,
+      0.048
+     ]
+    }
+   },
+   {
+    "step": "panel",
+    "colour": "#e8e3d3",
+    "where": {
+     "ft": [
+      0.86,
+      1.2
+     ],
+     "h": [
+      0.048,
+      0.093
+     ]
+    }
+   },
+   {
+    "step": "line",
+    "frame": "sides",
+    "pts": [
+     [
+      0.045,
+      0.115
+     ],
+     [
+      0.235,
+      0.05
+     ],
+     [
+      0.045,
+      0.05
+     ],
+     [
+      0.045,
+      0.115
+     ]
+    ],
+    "style": "tape",
+    "width": 0.011,
+    "colour": "#e8e3d3",
+    "raise": 0.0006
+   },
+   {
+    "step": "line",
+    "frame": "sides",
+    "pts": [
+     [
+      0.02,
+      0.17
+     ],
+     [
+      0.11,
+      0.17
+     ]
+    ],
+    "style": "tape",
+    "width": 0.02,
+    "colour": "#e8e3d3",
+    "raise": 0.0006
+   },
+   {
+    "step": "laces",
+    "frame": "vamp",
+    "from": [
+     0,
+     0.13
+    ],
+    "to": [
+     0,
+     0.21
+    ],
+    "rows": 5,
+    "width": 0.042,
+    "colour": "#e8e3d3",
+    "thick": 0.005
+   },
+   {
+    "step": "laces",
+    "frame": "toe",
+    "from": [
+     0,
+     0.08
+    ],
+    "to": [
+     0,
+     0.17
+    ],
+    "rows": 5,
+    "width": 0.042,
+    "colour": "#e8e3d3",
+    "thick": 0.005
+   },
+   {
+    "step": "panel",
+    "colour": "#e8e3d3",
+    "where": {
+     "face": "front",
+     "h": [
+      0.175,
+      0.5
+     ]
+    }
+   },
+   {
+    "step": "line",
+    "frame": "inner",
+    "pts": [
+     [
+      0.1,
+      0.045
+     ],
+     [
+      0.1,
+      0.18
+     ]
+    ],
+    "style": "zip",
+    "width": 0.003
+   }
+  ]
+ },
+ {
+  "n": 44,
+  "id": "ro-ramones",
+  "designer": "Rick Owens",
+  "name": "Ramones High-Top Sneakers",
+  "season": "2013",
+  "price": 550,
+  "slot": "shoes",
+  "pack": "shoes01",
+  "source": "toigo_ankle_boots_male",
+  "colour": "#19191a",
+  "finish": {
+   "roughness": 0.8
+  },
+  "shape": [
+   {
+    "op": "wide",
+    "by": 0.07
+   },
+   {
+    "op": "platform",
+    "height": 0.028,
+    "from": 0.02
+   },
+   {
+    "op": "shaft",
+    "add": 0.02,
+    "from": 0.07
+   },
+   {
+    "op": "tongue",
+    "up": 0.03
+   },
+   {
+    "op": "toe",
+    "bulb": 0.35
+   }
+  ],
+  "paint": [
+   {
+    "step": "fabric",
+    "type": "canvas"
+   },
+   {
+    "step": "panel",
+    "colour": "#e8e3d3",
+    "where": {
+     "h": [
+      -1,
+      0.05
+     ]
+    }
+   },
+   {
+    "step": "line",
+    "frame": "shaft",
+    "pts": [
+     [
+      -1,
+      0.012
+     ],
+     [
+      1,
+      0.012
+     ]
+    ],
+    "style": "groove",
+    "width": 0.0012
+   },
+   {
+    "step": "panel",
+    "colour": "#e8e3d3",
+    "where": {
+     "ft": [
+      0.8,
+      1.2
+     ],
+     "h": [
+      0.05,
+      0.095
+     ]
+    }
+   },
+   {
+    "step": "line",
+    "frame": "vamp",
+    "pts": [
+     [
+      -0.05,
+      0.228
+     ],
+     [
+      0,
+      0.222
+     ],
+     [
+      0.05,
+      0.228
+     ]
+    ],
+    "style": "groove",
+    "width": 0.0015
+   },
+   {
+    "step": "laces",
+    "frame": "vamp",
+    "from": [
+     0,
+     0.13
+    ],
+    "to": [
+     0,
+     0.215
+    ],
+    "rows": 5,
+    "width": 0.036,
+    "colour": "#e8e3d3",
+    "eyelets": "#b9babd",
+    "thick": 0.0045
+   },
+   {
+    "step": "laces",
+    "frame": "toe",
+    "from": [
+     0,
+     0.08
+    ],
+    "to": [
+     0,
+     0.16
+    ],
+    "rows": 4,
+    "width": 0.036,
+    "colour": "#e8e3d3",
+    "eyelets": "#b9babd",
+    "thick": 0.0045
+   },
+   {
+    "step": "line",
+    "frame": "heel",
+    "pts": [
+     [
+      0,
+      0.04
+     ],
+     [
+      0,
+      0.16
+     ]
+    ],
+    "style": "tape",
+    "width": 0.018,
+    "colour": "#101011"
+   },
+   {
+    "step": "line",
+    "frame": "inner",
+    "pts": [
+     [
+      0.1,
+      0.05
+     ],
+     [
+      0.1,
+      0.15
+     ]
+    ],
+    "style": "zip",
+    "width": 0.003
+   }
+  ]
+ },
+ {
+  "n": 48,
+  "id": "ro-kiss-boots",
+  "designer": "Rick Owens",
+  "name": "Kiss Platform Boots",
+  "season": "FW2019",
+  "price": 1000,
+  "slot": "shoes",
+  "pack": "shoes01",
+  "source": "toigo_ankle_boots_male",
+  "colour": "#161617",
+  "finish": {
+   "roughness": 0.34
+  },
+  "shape": [
+   {
+    "op": "platform",
+    "height": 0.085
+   },
+   {
+    "op": "arch",
+    "depth": 0.075,
+    "from": 0.33,
+    "to": 0.56
+   },
+   {
+    "op": "shaft",
+    "add": 0.05,
+    "from": 0.1
+   },
+   {
+    "op": "toe",
+    "bulb": 0.2
+   }
+  ],
+  "paint": [
+   {
+    "step": "fabric",
+    "type": "leather"
+   },
+   {
+    "step": "panel",
+    "colour": "#0f0f10",
+    "where": {
+     "h": [
+      -1,
+      0.092
+     ]
+    }
+   },
+   {
+    "step": "line",
+    "frame": "shaft",
+    "pts": [
+     [
+      -1,
+      0.094
+     ],
+     [
+      1,
+      0.094
+     ]
+    ],
+    "style": "groove",
+    "width": 0.002
+   },
+   {
+    "step": "panel",
+    "colour": "#3a2c22",
+    "where": {
+     "h": [
+      -1,
+      0.006
+     ]
+    }
+   },
+   {
+    "step": "rib",
+    "where": {
+     "face": "side",
+     "h": [
+      0.15,
+      0.4
+     ],
+     "fz": [
+      0.07,
+      0.115
+     ]
+    },
+    "gauge": 0.003,
+    "colour": "#1e1e20",
+    "depth": 0.0005
+   },
+   {
+    "step": "rect",
+    "frame": "heel",
+    "at": [
+     0,
+     0.275
+    ],
+    "size": [
+     0.016,
+     0.04
+    ],
+    "style": "patch",
+    "colour": "#111112"
+   }
+  ],
+  "note": "The foot stays flat in the game: the platform and the heel are the same height, with the arch cut out between them."
+ },
+ {
+  "n": 51,
+  "id": "ccp-prosthetic-drip-boots",
+  "designer": "Carol Christian Poell",
+  "name": "Prosthetic Drip Boots",
+  "season": "2010s",
+  "price": 1900,
+  "slot": "shoes",
+  "pack": "shoes01",
+  "source": "toigo_ankle_boots_male",
+  "colour": "#2b2826",
+  "finish": {
+   "roughness": 0.5
+  },
+  "shape": [
+   {
+    "op": "shaft",
+    "add": 0.05,
+    "from": 0.08
+   },
+   {
+    "op": "platform",
+    "height": 0.012
+   },
+   {
+    "op": "arch",
+    "depth": 0.006,
+    "from": 0.36,
+    "to": 0.6
+   },
+   {
+    "op": "toe",
+    "point": 0.3
+   }
+  ],
+  "paint": [
+   {
+    "step": "fabric",
+    "type": "leather"
+   },
+   {
+    "step": "distress",
+    "type": "wash",
+    "amount": 0.35,
+    "colour": "#4a443e"
+   },
+   {
+    "step": "distress",
+    "type": "crumple",
+    "depth": 0.0016,
+    "freq": 34
+   },
+   {
+    "step": "pattern",
+    "type": "drips",
+    "colours": [
+     "#070708"
+    ],
+    "base": 0.03,
+    "height": 0.05
+   },
+   {
+    "step": "rect",
+    "frame": "vamp",
+    "at": [
+     0,
+     0.262
+    ],
+    "size": [
+     0.05,
+     0.03
+    ],
+    "style": "patch",
+    "colour": "#8d8c87",
+    "stitch": false,
+    "round": 0.012,
+    "raise": 0.0015
+   },
+   {
+    "step": "dots",
+    "frame": "vamp",
+    "pts": [
+     [
+      -0.018,
+      0.262
+     ],
+     [
+      0.018,
+      0.262
+     ]
+    ],
+    "r": 0.003,
+    "style": "stud",
+    "colour": "#5a5955"
+   },
+   {
+    "step": "line",
+    "frame": "inner",
+    "pts": [
+     [
+      0.11,
+      0.04
+     ],
+     [
+      0.1,
+      0.2
+     ]
+    ],
+    "style": "zip",
+    "width": 0.003,
+    "colour": "#8a8a8d"
+   }
+  ]
+ },
+ {
+  "n": 54,
+  "id": "ccp-tornado-boots",
+  "designer": "Carol Christian Poell",
+  "name": "Tornado Zip Boots",
+  "season": "2000s",
+  "price": 1100,
+  "slot": "shoes",
+  "pack": "shoes01",
+  "source": "culturalibre_heroine_boots_3",
+  "colour": "#171718",
+  "finish": {
+   "roughness": 0.5
+  },
+  "shape": [
+   {
+    "op": "platform",
+    "height": 0.012
+   },
+   {
+    "op": "arch",
+    "depth": 0.006,
+    "from": 0.36,
+    "to": 0.6
+   },
+   {
+    "op": "toe",
+    "point": 0.35
+   }
+  ],
+  "paint": [
+   {
+    "step": "fabric",
+    "type": "leather"
+   },
+   {
+    "step": "panel",
+    "colour": "#0e0d0c",
+    "where": {
+     "h": [
+      -1,
+      0.022
+     ]
+    }
+   },
+   {
+    "step": "line",
+    "frame": "shaft",
+    "pts": [
+     [
+      -1,
+      0.025
+     ],
+     [
+      1,
+      0.025
+     ]
+    ],
+    "style": "stitch",
+    "colour": "#6a6258",
+    "width": 0.0012
+   },
+   {
+    "step": "distress",
+    "type": "crumple",
+    "depth": 0.0018,
+    "freq": 30,
+    "where": {
+     "h": [
+      0.06,
+      0.2
+     ]
+    }
+   },
+   {
+    "step": "line",
+    "frame": "outer",
+    "pts": [
+     [
+      0.19,
+      0.05
+     ],
+     [
+      0.12,
+      0.13
+     ],
+     [
+      0.03,
+      0.2
+     ]
+    ],
+    "style": "zip",
+    "width": 0.0035,
+    "colour": "#8a8a8d"
+   },
+   {
+    "step": "line",
+    "frame": "heel",
+    "pts": [
+     [
+      0.06,
+      0.19
+     ],
+     [
+      -0.06,
+      0.26
+     ]
+    ],
+    "style": "zip",
+    "width": 0.0035,
+    "colour": "#8a8a8d"
+   },
+   {
+    "step": "line",
+    "frame": "inner",
+    "pts": [
+     [
+      0.03,
+      0.25
+     ],
+     [
+      0.12,
+      0.3
+     ],
+     [
+      0.19,
+      0.33
+     ]
+    ],
+    "style": "zip",
+    "width": 0.0035,
+    "colour": "#8a8a8d"
+   }
+  ]
+ },
+ {
+  "n": 55,
+  "id": "guidi-788z-boots",
+  "designer": "Guidi",
+  "name": "788Z Back-Zip Boots",
+  "season": "2000s",
+  "price": 650,
+  "slot": "shoes",
+  "pack": "shoes01",
+  "source": "toigo_ankle_boots_male",
+  "colour": "#171615",
+  "finish": {
+   "roughness": 0.46
+  },
+  "shape": [
+   {
+    "op": "shaft",
+    "add": 0.035,
+    "from": 0.08
+   },
+   {
+    "op": "platform",
+    "height": 0.016
+   },
+   {
+    "op": "arch",
+    "depth": 0.01,
+    "from": 0.36,
+    "to": 0.6
+   },
+   {
+    "op": "toe",
+    "bulb": 0.4
+   }
+  ],
+  "paint": [
+   {
+    "step": "fabric",
+    "type": "leather",
+    "colour2": "#2b2826"
+   },
+   {
+    "step": "panel",
+    "colour": "#1c1714",
+    "where": {
+     "h": [
+      -1,
+      0.026
+     ]
+    }
+   },
+   {
+    "step": "line",
+    "frame": "shaft",
+    "pts": [
+     [
+      -1,
+      0.029
+     ],
+     [
+      1,
+      0.029
+     ]
+    ],
+    "style": "stitch",
+    "colour": "#6a6258",
+    "width": 0.0012
+   },
+   {
+    "step": "distress",
+    "type": "crumple",
+    "depth": 0.002,
+    "freq": 28,
+    "where": {
+     "h": [
+      0.05,
+      0.2
+     ]
+    }
+   },
+   {
+    "step": "line",
+    "frame": "heel",
+    "pts": [
+     [
+      0,
+      0.035
+     ],
+     [
+      0,
+      0.21
+     ]
+    ],
+    "style": "zip",
+    "width": 0.0038,
+    "colour": "#9c9c9e"
+   },
+   {
+    "step": "rect",
+    "frame": "heel",
+    "at": [
+     0,
+     0.215
+    ],
+    "size": [
+     0.012,
+     0.03
+    ],
+    "style": "patch",
+    "colour": "#141312"
+   }
+  ]
+ },
+ {
+  "n": 56,
+  "id": "guidi-pl2-boots",
+  "designer": "Guidi",
+  "name": "PL2 Front-Zip Boots",
+  "season": "2000s",
+  "price": 700,
+  "slot": "shoes",
+  "pack": "shoes01",
+  "source": "culturalibre_heroine_boots_3",
+  "colour": "#171615",
+  "finish": {
+   "roughness": 0.46
+  },
+  "shape": [
+   {
+    "op": "platform",
+    "height": 0.016
+   },
+   {
+    "op": "arch",
+    "depth": 0.01,
+    "from": 0.36,
+    "to": 0.6
+   }
+  ],
+  "paint": [
+   {
+    "step": "fabric",
+    "type": "leather",
+    "colour2": "#2b2826"
+   },
+   {
+    "step": "panel",
+    "colour": "#1c1714",
+    "where": {
+     "h": [
+      -1,
+      0.026
+     ]
+    }
+   },
+   {
+    "step": "line",
+    "frame": "shaft",
+    "pts": [
+     [
+      -1,
+      0.029
+     ],
+     [
+      1,
+      0.029
+     ]
+    ],
+    "style": "stitch",
+    "colour": "#6a6258",
+    "width": 0.0012
+   },
+   {
+    "step": "distress",
+    "type": "crumple",
+    "depth": 0.002,
+    "freq": 26,
+    "where": {
+     "h": [
+      0.05,
+      0.22
+     ]
+    }
+   },
+   {
+    "step": "line",
+    "frame": "vamp",
+    "pts": [
+     [
+      0,
+      0.225
+     ],
+     [
+      0,
+      0.13
+     ]
+    ],
+    "style": "zip",
+    "width": 0.004,
+    "colour": "#b5b6b8"
+   },
+   {
+    "step": "line",
+    "frame": "toe",
+    "pts": [
+     [
+      0,
+      0.07
+     ],
+     [
+      0,
+      0.33
+     ]
+    ],
+    "style": "zip",
+    "width": 0.004,
+    "colour": "#b5b6b8"
+   },
+   {
+    "step": "rect",
+    "frame": "heel",
+    "at": [
+     0,
+     0.305
+    ],
+    "size": [
+     0.012,
+     0.03
+    ],
+    "style": "patch",
+    "colour": "#141312"
+   }
+  ]
+ },
+ {
+  "n": 57,
+  "id": "ad-back-lace-boots",
+  "designer": "Ann Demeulemeester",
+  "name": "Lace-Up Back Boots",
+  "season": "2000s",
+  "price": 480,
+  "slot": "shoes",
+  "pack": "shoes01",
+  "source": "culturalibre_heroine_boots_3",
+  "colour": "#161617",
+  "finish": {
+   "roughness": 0.4
+  },
+  "shape": [
+   {
+    "op": "platform",
+    "height": 0.014
+   },
+   {
+    "op": "arch",
+    "depth": 0.009,
+    "from": 0.36,
+    "to": 0.6
+   },
+   {
+    "op": "toe",
+    "point": 0.3
+   }
+  ],
+  "paint": [
+   {
+    "step": "fabric",
+    "type": "leather"
+   },
+   {
+    "step": "panel",
+    "colour": "#0e0d0c",
+    "where": {
+     "h": [
+      -1,
+      0.024
+     ]
+    }
+   },
+   {
+    "step": "line",
+    "frame": "shaft",
+    "pts": [
+     [
+      -1,
+      0.027
+     ],
+     [
+      1,
+      0.027
+     ]
+    ],
+    "style": "stitch",
+    "colour": "#6a6258",
+    "width": 0.0012
+   },
+   {
+    "step": "laces",
+    "frame": "heel",
+    "from": [
+     0,
+     0.06
+    ],
+    "to": [
+     0,
+     0.3
+    ],
+    "rows": 10,
+    "width": 0.03,
+    "colour": "#1b1b1d",
+    "eyelets": "#8f8f92"
+   },
+   {
+    "step": "distress",
+    "type": "crumple",
+    "depth": 0.0012,
+    "freq": 34,
+    "where": {
+     "h": [
+      0.06,
+      0.16
+     ]
+    }
+   }
+  ]
+ },
+ {
+  "n": 65,
+  "id": "mmm-square-toe-boots",
+  "designer": "Maison Martin Margiela",
+  "name": "Square-Toe Boots",
+  "season": "1998-2004",
+  "price": 650,
+  "slot": "shoes",
+  "pack": "shoes01",
+  "source": "toigo_ankle_boots_male",
+  "colour": "#161617",
+  "finish": {
+   "roughness": 0.42
+  },
+  "shape": [
+   {
+    "op": "toe",
+    "square": 1.6,
+    "from": 0.7
+   },
+   {
+    "op": "shaft",
+    "add": 0.03,
+    "from": 0.08
+   },
+   {
+    "op": "platform",
+    "height": 0.02
+   },
+   {
+    "op": "arch",
+    "depth": 0.014,
+    "from": 0.36,
+    "to": 0.62
+   }
+  ],
+  "paint": [
+   {
+    "step": "fabric",
+    "type": "leather"
+   },
+   {
+    "step": "panel",
+    "colour": "#2a2018",
+    "where": {
+     "h": [
+      -1,
+      0.008
+     ]
+    }
+   },
+   {
+    "step": "panel",
+    "colour": "#1f1915",
+    "where": {
+     "ft": [
+      -1,
+      0.34
+     ],
+     "h": [
+      -1,
+      0.024
+     ]
+    }
+   },
+   {
+    "step": "line",
+    "frame": "shaft",
+    "pts": [
+     [
+      -1,
+      0.011
+     ],
+     [
+      1,
+      0.011
+     ]
+    ],
+    "style": "stitch",
+    "colour": "#6a6258",
+    "width": 0.0012
+   },
+   {
+    "step": "line",
+    "frame": "vamp",
+    "pts": [
+     [
+      0,
+      0.3
+     ],
+     [
+      0,
+      0.14
+     ]
+    ],
+    "style": "seam"
+   },
+   {
+    "step": "line",
+    "frame": "inner",
+    "pts": [
+     [
+      0.1,
+      0.04
+     ],
+     [
+      0.095,
+      0.19
+     ]
+    ],
+    "style": "zip",
+    "width": 0.003,
+    "colour": "#77777a"
+   },
+   {
+    "step": "rect",
+    "frame": "heel",
+    "at": [
+     0,
+     0.2
+    ],
+    "size": [
+     0.012,
+     0.028
+    ],
+    "style": "patch",
+    "colour": "#131314",
+    "stitch": "#f2f0ea"
+   }
+  ]
+ },
+ {
+  "n": 67,
+  "id": "mmm-replica-gat",
+  "designer": "Maison Martin Margiela",
+  "name": "Replica German Army Trainers",
+  "season": "SS1999",
+  "price": 280,
+  "slot": "shoes",
+  "pack": "shoes01",
+  "source": "toigo_ankle_boots_female",
+  "colour": "#f1efe9",
+  "finish": {
+   "roughness": 0.6
+  },
+  "shape": [
+   {
+    "op": "platform",
+    "height": 0.012
+   },
+   {
+    "op": "wide",
+    "by": 0.04
+   }
+  ],
+  "paint": [
+   {
+    "step": "fabric",
+    "type": "leather"
+   },
+   {
+    "step": "panel",
+    "colour": "#b4b1a8",
+    "where": {
+     "ft": [
+      0.76,
+      1.2
+     ],
+     "h": [
+      0.02,
+      0.2
+     ]
+    }
+   },
+   {
+    "step": "panel",
+    "colour": "#b4b1a8",
+    "where": {
+     "ft": [
+      0.55,
+      0.78
+     ],
+     "h": [
+      0.02,
+      0.045
+     ]
+    }
+   },
+   {
+    "step": "panel",
+    "colour": "#b4b1a8",
+    "where": {
+     "ft": [
+      -1,
+      0.17
+     ],
+     "h": [
+      0.02,
+      0.2
+     ]
+    }
+   },
+   {
+    "step": "fabric",
+    "type": "velvet",
+    "colour": "#b4b1a8",
+    "where": {
+     "ft": [
+      0.76,
+      1.2
+     ],
+     "h": [
+      0.03,
+      0.2
+     ]
+    }
+   },
+   {
+    "step": "line",
+    "frame": "sides",
+    "pts": [
+     [
+      0.172,
+      0.03
+     ],
+     [
+      0.172,
+      0.075
+     ],
+     [
+      0.125,
+      0.085
+     ]
+    ],
+    "style": "stitch",
+    "colour": "#d9d6cd"
+   },
+   {
+    "step": "panel",
+    "colour": "#b17c42",
+    "where": {
+     "h": [
+      -1,
+      0.03
+     ]
+    }
+   },
+   {
+    "step": "line",
+    "frame": "shaft",
+    "pts": [
+     [
+      -1,
+      0.031
+     ],
+     [
+      1,
+      0.031
+     ]
+    ],
+    "style": "stitch",
+    "colour": "#e9d9bd"
+   },
+   {
+    "step": "laces",
+    "frame": "vamp",
+    "from": [
+     0,
+     0.105
+    ],
+    "to": [
+     0,
+     0.175
+    ],
+    "rows": 5,
+    "width": 0.03,
+    "colour": "#f4f2ec",
+    "eyelets": "#d8d5cc",
+    "thick": 0.004
+   },
+   {
+    "step": "rect",
+    "frame": "heel",
+    "at": [
+     0,
+     0.075
+    ],
+    "size": [
+     0.02,
+     0.03
+    ],
+    "style": "patch",
+    "colour": "#f1efe9",
+    "stitch": "#ffffff"
+   }
+  ]
+ },
+ {
+  "n": 79,
+  "id": "mcq-armadillo-shoes",
+  "designer": "Alexander McQueen",
+  "name": "Armadillo Shoes",
+  "season": "SS2010",
+  "price": 90000,
+  "slot": "shoes",
+  "pack": "shoes01",
+  "source": "toigo_ankle_boots_male",
+  "colour": "#6f8a3a",
+  "finish": {
+   "roughness": 0.22,
+   "metalness": 0.75
+  },
+  "shape": [
+   {
+    "op": "wide",
+    "by": 0.26,
+    "long": 0.4
+   },
+   {
+    "op": "toe",
+    "bulb": 1.3,
+    "from": 0.45
+   },
+   {
+    "op": "platform",
+    "height": 0.13,
+    "from": 0.07
+   },
+   {
+    "op": "shaft",
+    "add": 0.04,
+    "from": 0.2
+   }
+  ],
+  "paint": [
+   {
+    "step": "fabric",
+    "type": "satin"
+   },
+   {
+    "step": "gradient",
+    "from": [
+     0.0,
+     "#3aa08a"
+    ],
+    "to": [
+     0.34,
+     "#c9b94a"
+    ],
+    "rough": 0.15
+   },
+   {
+    "step": "pattern",
+    "type": "clouds",
+    "colours": [
+     "#d9903a",
+     "#86c25a"
+    ],
+    "freq": 9,
+    "amount": 0.6
+   },
+   {
+    "step": "pattern",
+    "type": "scales",
+    "size": 0.018,
+    "colours": [
+     "#34401e"
+    ]
+   },
+   {
+    "step": "quilt",
+    "type": "box",
+    "size": 0.018,
+    "size2": 0.009,
+    "puff": 0.0016
+   },
+   {
+    "step": "panel",
+    "colour": "#b99a3a",
+    "where": {
+     "ft": [
+      -1,
+      0.13
+     ],
+     "h": [
+      -1,
+      0.19
+     ]
+    }
+   },
+   {
+    "step": "cut",
+    "arch": [
+     0.1,
+     0.5,
+     0.19
+    ],
+    "round": 0.45
+   },
+   {
+    "step": "cut",
+    "where": {
+     "ft": [
+      -1,
+      0.2
+     ],
+     "h": [
+      -1,
+      0.17
+     ],
+     "afx": [
+      0.011,
+      1
+     ]
+    }
+   }
+  ],
+  "note": "The foot stays flat in the game: the shell is built up under it, and the gap before the spike heel is cut out of the shell.",
+  "clear": true
+ },
+ {
+  "n": 84,
+  "id": "ysl-wyatt-harness-boots",
+  "designer": "Saint Laurent by Hedi Slimane",
+  "name": "Wyatt Harness Boots",
+  "season": "FW2013",
+  "price": 550,
+  "slot": "shoes",
+  "pack": "shoes01",
+  "source": "toigo_ankle_boots_male",
+  "colour": "#141416",
+  "finish": {
+   "roughness": 0.4
+  },
+  "shape": [
+   {
+    "op": "shaft",
+    "add": 0.04,
+    "from": 0.08
+   },
+   {
+    "op": "platform",
+    "height": 0.028
+   },
+   {
+    "op": "arch",
+    "depth": 0.022,
+    "from": 0.36,
+    "to": 0.62
+   },
+   {
+    "op": "toe",
+    "point": 0.4
+   }
+  ],
+  "paint": [
+   {
+    "step": "fabric",
+    "type": "leather"
+   },
+   {
+    "step": "panel",
+    "colour": "#2a2018",
+    "where": {
+     "h": [
+      -1,
+      0.006
+     ]
+    }
+   },
+   {
+    "step": "panel",
+    "colour": "#3a2a1e",
+    "where": {
+     "ft": [
+      -1,
+      0.34
+     ],
+     "h": [
+      -1,
+      0.032
+     ]
+    }
+   },
+   {
+    "step": "pattern",
+    "type": "stripes",
+    "period": 0.006,
+    "width": 0.0012,
+    "colours": [
+     "#241a12"
+    ],
+    "where": {
+     "ft": [
+      -1,
+      0.34
+     ],
+     "h": [
+      -1,
+      0.032
+     ]
+    }
+   },
+   {
+    "step": "line",
+    "frame": "shaft",
+    "pts": [
+     [
+      -1,
+      0.105
+     ],
+     [
+      1,
+      0.105
+     ]
+    ],
+    "style": "strap",
+    "width": 0.012,
+    "colour": "#0e0e10"
+   },
+   {
+    "step": "line",
+    "frame": "sides",
+    "pts": [
+     [
+      0.1,
+      0.105
+     ],
+     [
+      0.17,
+      0.06
+     ]
+    ],
+    "style": "strap",
+    "width": 0.012,
+    "colour": "#0e0e10"
+   },
+   {
+    "step": "line",
+    "frame": "sides",
+    "pts": [
+     [
+      0.1,
+      0.105
+     ],
+     [
+      0.075,
+      0.03
+     ]
+    ],
+    "style": "strap",
+    "width": 0.012,
+    "colour": "#0e0e10"
+   },
+   {
+    "step": "dots",
+    "frame": "sides",
+    "pts": [
+     [
+      0.1,
+      0.105
+     ]
+    ],
+    "r": 0.012,
+    "style": "eyelet",
+    "colour": "#b9babd"
+   },
+   {
+    "step": "dots",
+    "frame": "sides",
+    "pts": [
+     [
+      0.118,
+      0.094
+     ],
+     [
+      0.094,
+      0.085
+     ],
+     [
+      0.085,
+      0.107
+     ]
+    ],
+    "r": 0.003,
+    "style": "stud",
+    "colour": "#b9babd"
+   },
+   {
+    "step": "rect",
+    "frame": "heel",
+    "at": [
+     0,
+     0.215
+    ],
+    "size": [
+     0.012,
+     0.03
+    ],
+    "style": "patch",
+    "colour": "#0f0f10"
+   }
+  ]
+ },
+ {
+  "n": 94,
+  "id": "visvim-fbt",
+  "designer": "Visvim",
+  "name": "FBT Moccasin Sneakers",
+  "season": "2001",
+  "price": 350,
+  "slot": "shoes",
+  "pack": "shoes01",
+  "source": "toigo_ankle_boots_female",
+  "colour": "#c8a676",
+  "finish": {
+   "roughness": 0.95
+  },
+  "shape": [
+   {
+    "op": "platform",
+    "height": 0.024
+   },
+   {
+    "op": "wide",
+    "by": 0.05
+   },
+   {
+    "op": "shaft",
+    "add": 0.02,
+    "from": 0.08,
+    "flare": 0.25
+   }
+  ],
+  "paint": [
+   {
+    "step": "fabric",
+    "type": "velvet"
+   },
+   {
+    "step": "panel",
+    "colour": "#f1eee6",
+    "where": {
+     "h": [
+      -1,
+      0.04
+     ]
+    }
+   },
+   {
+    "step": "panel",
+    "colour": "#5a3b25",
+    "where": {
+     "h": [
+      -1,
+      0.009
+     ]
+    }
+   },
+   {
+    "step": "line",
+    "frame": "shaft",
+    "pts": [
+     [
+      -1,
+      0.042
+     ],
+     [
+      1,
+      0.042
+     ]
+    ],
+    "style": "groove",
+    "width": 0.0015
+   },
+   {
+    "step": "line",
+    "frame": "vamp",
+    "pts": [
+     [
+      -0.03,
+      0.15
+     ],
+     [
+      -0.036,
+      0.185
+     ],
+     [
+      -0.022,
+      0.208
+     ],
+     [
+      0,
+      0.215
+     ],
+     [
+      0.022,
+      0.208
+     ],
+     [
+      0.036,
+      0.185
+     ],
+     [
+      0.03,
+      0.15
+     ]
+    ],
+    "style": "ridge",
+    "width": 0.004,
+    "depth": 0.0016
+   },
+   {
+    "step": "line",
+    "frame": "vamp",
+    "pts": [
+     [
+      -0.03,
+      0.15
+     ],
+     [
+      -0.036,
+      0.185
+     ],
+     [
+      -0.022,
+      0.208
+     ],
+     [
+      0,
+      0.215
+     ],
+     [
+      0.022,
+      0.208
+     ],
+     [
+      0.036,
+      0.185
+     ],
+     [
+      0.03,
+      0.15
+     ]
+    ],
+    "style": "stitch",
+    "colour": "#f1eee6",
+    "width": 0.0014
+   },
+   {
+    "step": "panel",
+    "colour": "#b99664",
+    "where": {
+     "h": [
+      0.11,
+      0.4
+     ],
+     "ft": [
+      -1,
+      0.6
+     ]
+    }
+   },
+   {
+    "step": "pattern",
+    "type": "stripes",
+    "dir": "v",
+    "period": 0.006,
+    "width": 0.0016,
+    "colours": [
+     "#7a5a38"
+    ],
+    "where": {
+     "h": [
+      0.11,
+      0.4
+     ],
+     "ft": [
+      -1,
+      0.6
+     ]
+    }
+   },
+   {
+    "step": "line",
+    "frame": "shaft",
+    "pts": [
+     [
+      -1,
+      0.11
+     ],
+     [
+      1,
+      0.11
+     ]
+    ],
+    "style": "groove",
+    "width": 0.002,
+    "where": {
+     "ft": [
+      -1,
+      0.6
+     ]
+    }
+   },
+   {
+    "step": "laces",
+    "frame": "vamp",
+    "from": [
+     0,
+     0.115
+    ],
+    "to": [
+     0,
+     0.15
+    ],
+    "rows": 2,
+    "width": 0.03,
+    "colour": "#5a3b25",
+    "eyelets": "#8a6a48",
+    "thick": 0.0035
+   }
+  ]
+ }
+]

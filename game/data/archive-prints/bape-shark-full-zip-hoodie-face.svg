@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 300">
+ <!-- the shark of fighter-plane nose art: two glaring eyes and a wide red mouth full of teeth, parted down the middle by the zip -->
+ <g stroke="#0e0e10" stroke-linejoin="round">
+  <!-- eyes -->
+  <path d="M96 30Q150 22 176 62Q150 96 100 84Q80 60 96 30Z" fill="#f4f2ea" stroke-width="7"/>
+  <path d="M304 30Q250 22 224 62Q250 96 300 84Q320 60 304 30Z" fill="#f4f2ea" stroke-width="7"/>
+  <circle cx="140" cy="60" r="17" fill="#c4202a" stroke-width="5"/><circle cx="260" cy="60" r="17" fill="#c4202a" stroke-width="5"/>
+  <circle cx="142" cy="60" r="7" fill="#0e0e10" stroke="none"/><circle cx="258" cy="60" r="7" fill="#0e0e10" stroke="none"/>
+  <path d="M84 26Q140 6 184 54M316 26Q260 6 216 54" fill="none" stroke-width="12" stroke-linecap="round"/>
+  <!-- mouth -->
+  <path d="M14 122Q110 150 192 128L192 252Q150 282 96 262Q34 228 14 122Z" fill="#c4202a" stroke-width="8"/>
+  <path d="M386 122Q290 150 208 128L208 252Q250 282 304 262Q366 228 386 122Z" fill="#c4202a" stroke-width="8"/>
+  <!-- teeth: upper row and lower row, each side -->
+  <g fill="#f4f2ea" stroke-width="3.5">
+   <path d="M24 128l22 38l12-28ZM60 139l20 42l14-36ZM96 146l20 44l16-42ZM134 147l18 42l18-46ZM172 142l10 34l10-44Z"/>
+   <path d="M376 128l-22 38l-12-28ZM340 139l-20 42l-14-36ZM304 146l-20 44l-16-42ZM266 147l-18 42l-18-46ZM228 142l-10 34l-10-44Z"/>
+   <path d="M52 220l16-34l14 46ZM88 250l16-40l16 50ZM126 264l16-42l18 44ZM166 264l12-38l14 30Z"/>
+   <path d="M348 220l-16-34l-14 46ZM312 250l-16-40l-16 50ZM274 264l-16-42l-18 44ZM234 264l-12-38l-14 30Z"/>
+  </g>
+ </g>
+</svg>

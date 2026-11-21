@@ -19,15 +19,19 @@
 //   dist/human/parts.bin    what is worn: meshes and how they are tied on
 //   dist/human/tex/*.webp   skins, cloth, hair, eyes
 //
-// usage: node scripts/build-human.mjs [--no-textures] [--refresh-wardrobe]
+// usage: node scripts/build-human.mjs [--no-textures] [--refresh-wardrobe] [--out folder]
 import { readFileSync, writeFileSync, mkdirSync, existsSync, readdirSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { join, basename } from 'node:path';
 import { fashionPieces, fashionFolder, cutFashion, skinUnderCloth, bakeFashion } from './fashion-materials.mjs';
+import { cutArchive, archivePieces, shapeStock, writeCatalog } from './archive-wardrobe.mjs';
+import { paintGarment, asPainted } from './garment-paint.mjs';
 
 const ROOT = fileURLToPath(new URL('../assets-src/makehuman/', import.meta.url));
-const DATA = join(ROOT, 'repo/makehuman/data'), PACK = join(ROOT, 'pack/files'), OUT = fileURLToPath(new URL('../dist/human/', import.meta.url));
+const flag = name => { const at = process.argv.indexOf(name); return at < 0 ? null : process.argv[at + 1]; };
+// --out builds somewhere other than the game's own folder, to look at a wardrobe before it ships.
+const DATA = join(ROOT, 'repo/makehuman/data'), PACK = join(ROOT, 'pack/files'), OUT = flag('--out') ? join(flag('--out'), '/') : fileURLToPath(new URL('../dist/human/', import.meta.url));
 const TEXTURES = !process.argv.includes('--no-textures');
 // MakeHuman works in decimetres.
 const METRE = .1;
@@ -86,7 +90,7 @@ function corners(mesh, keep = () => true) {
 }
 const skin = corners(base, face => face.group === 'body');
 const pack16 = values => Uint16Array.from(values), packUv = uv => Float32Array.from(uv);
-const index = values => Math.max(...values) < 65536 ? Uint16Array.from(values) : Uint32Array.from(values);
+const index = values => { let most = 0; for (const value of values) if (value > most) most = value; return most < 65536 ? Uint16Array.from(values) : Uint32Array.from(values); };
 
 // Which points belong to which named part of the base (the helpers that clothes are tied to are among them).
 const ranges = {};
@@ -193,6 +197,9 @@ const bodyMeta = {
 };
 
 // --- What is worn ------------------------------------------------------------------------------------
+// --only a,b paints just those pieces of the collections again; the rest keep the pictures they have.
+const ONLY = flag('--only')?.split(',') || null;
+let FLOOR_Y = Infinity; for (const corner of skin.point) FLOOR_Y = Math.min(FLOOR_Y, positions[corner * 3 + 1]);
 const parts = createBin(), partList = [], textures = new Map();
 /** A texture to be converted: returns the name it will have under dist/human/tex. */
 function texture(folder, file, { size = 1024, alpha = false, wardrobe = false, prefix = '' } = {}) {
@@ -266,14 +273,14 @@ function part(kind, id, folder, clo, design=null) {
   const common = {
     scale: { x: scale('x'), y: scale('y'), z: scale('z') }, depth: Number(keys.z_depth?.[0] ?? 50),
     mapFile: material.diffuseTexture?.[0] && existsSync(join(folder, basename(material.diffuseTexture[0]))) ? join(folder, basename(material.diffuseTexture[0])) : null,
-    map: design ? 'fashion/'+design.id+'.webp' : texture(folder, material.diffuseTexture?.[0], { size, alpha: clear, wardrobe }),
-    normal: texture(folder, material.normalmapTexture?.[0], { size:wardrobe?1024:size, wardrobe, prefix:design && design.pack!=='system'?'fashion/'+design.source+'-':'' }),
+    map: design ? (design.paint ? 'archive/' : 'fashion/')+design.id+'.webp' : texture(folder, material.diffuseTexture?.[0], { size, alpha: clear, wardrobe }),
+    normal: design?.paint ? 'archive/'+design.id+'-n.webp' : texture(folder, material.normalmapTexture?.[0], { size:wardrobe?1024:size, wardrobe, prefix:design && design.pack!=='system'?'fashion/'+design.source+'-':'' }),
     clear, twoSided: material.backfaceCull?.[0] === 'False' || kind === 'hair',
     tags: (keys.tag || []).map(tag => tag.toLowerCase()).filter(tag => !/makehuman/.test(tag)),
   };
   /** Write out some of the mesh's points (all of them if not told which) as a part of its own. */
   const emit = (kind, id, keep, hidden, extra = {}) => {
-    if(design && design.pack==='system' && id!==design.source+'-'+design.slot)return;
+    if(design && design.pack==='system' && kind==='garment' && id!==design.source+'-'+design.slot)return;
     const renumber = new Int32Array(mesh.v.length).fill(-1), kept = [];
     for (let i = 0; i < mesh.v.length; i++) if (!keep || keep[i]) { renumber[i] = kept.length; kept.push(i); }
     const pick = (array, width) => { const out = new array.constructor(kept.length * width); kept.forEach((i, n) => { for (let k = 0; k < width; k++) out[n * width + k] = array[i * width + k]; }); return out; };
@@ -288,9 +295,12 @@ function part(kind, id, folder, clo, design=null) {
     const offsets=pick(off,3);
     if(design){
       const rest=kept.map(i=>[0,1,2].map(k=>off[i*3+k]+[0,1,2].reduce((sum,j)=>sum+positions[tie[i*3+j]*3+k]*share[i*3+j],0)));
-      cutFashion(design,rest,offsets);
+      if(design.paint)shapeStock(design,rest,offsets); else cutFashion(design,rest,offsets);
       if(!hidden.length)hidden=skinUnderCloth(rest,point,triangles,positions);
-      if(TEXTURES)bakeFashion(design,rest,point,uv,triangles,common.mapFile,join(OUT,'tex',common.map));
+      if(TEXTURES && (!ONLY || ONLY.includes(design.id))){
+        if(design.paint)paintGarment(design,asPainted(rest,point,uv,triangles,FLOOR_Y),join(OUT,'tex',common.map),join(OUT,'tex',common.normal));
+        else bakeFashion(design,rest,point,uv,triangles,common.mapFile,join(OUT,'tex',common.map));
+      }
     }
     const made = { kind, id:design?.id || id, points: kept.length, shade, tie: parts.put(pick(tie, 3)), share: parts.put(pick(share, 3)), off: parts.put(offsets),
       corners: parts.put(index(point)), uv: parts.put(packUv(uv)), triangles: parts.put(index(triangles)), hidden: hidden.length ? parts.put(pack16(hidden)) : null, ...common, ...extra };
@@ -298,6 +308,9 @@ function part(kind, id, folder, clo, design=null) {
     if(design){
       if(design.overWaist)made.overWaist=true;
       if(design.overBoot)made.overBoot=true;
+      if(design.finish)made.finish=design.finish;
+      if(design.clear)made.clear=true;
+      if(design.paint)made.ownColour=true;
       made.dyeBase=design.colour;
       const channels=design.colour.slice(1).match(/../g).map(hex=>{const c=parseInt(hex,16)/255;return c<=.04045?c/12.92:((c+.055)/1.055)**2.4;});
       made.shade=.2126*channels[0]+.7152*channels[1]+.0722*channels[2];
@@ -345,11 +358,16 @@ for (const id of ['low-poly', 'high-poly']) part('eyes', id, join(PACK, 'eyes', 
 for (const id of folders('teeth')) part('teeth', id, join(PACK, 'teeth', id), cloIn(join(PACK, 'teeth', id)));
 // Lighter bodies for people further off: the same person in fewer points.
 for (const id of ['proxy741', 'male1591', 'female1605']) part('body', id, join(PACK, 'proxymeshes', id), cloIn(join(PACK, 'proxymeshes', id)));
-for(const design of fashionPieces){
+// Archive pieces made from a mesh of the wardrobe (shoes) go the same way, shaped and painted by the archive's own steps.
+for(const design of [...fashionPieces,...archivePieces().filter(piece=>piece.source)]){
   const folder=fashionFolder(ROOT,design);
-  const kind=design.pack==='system'?'suit':design.slot==='shoes'?'shoes':'garment';
+  const kind=design.slot==='shoes'?'shoes':design.pack==='system'?'suit':'garment';
   part(kind,design.source,folder,cloIn(folder),design);
 }
+
+// The archive collection is cut from the body's own helper meshes and painted (archive-wardrobe.mjs).
+partList.push(...cutArchive({ positions, faces: base.faces, skinIndex, skinWeight, bones: motion.bones.map(bone => bone.name), places,
+  put: array => parts.put(array), out: OUT, textures: TEXTURES, only: ONLY }));
 
 // Skins and eyes are pictures only.
 const skins = [];
@@ -382,4 +400,6 @@ if (TEXTURES) {
   }
   console.log(`${done} textures`);
 }
+// The shops and the wardrobe read the collection's names and prices from a module of their own; a trial build elsewhere leaves it be.
+if (!flag('--out')) writeCatalog();
 console.log(`${POINTS} points, ${skin.triangles.length / 3} triangles of skin, ${targets.length} targets (${dials.length} dials), ${partList.length} parts; body.bin ${(bodyBytes / 1048576).toFixed(1)} MB, parts.bin ${(partBytes / 1048576).toFixed(1)} MB`);

@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 330 130">
+ <!-- WGM in felt varsity letters, each its own colour on a contrasting felt -->
+ <g font-family="C059, Nimbus Roman, serif" font-weight="bold" font-size="120" text-anchor="middle" stroke-linejoin="round">
+  <text x="62" y="108" fill="#f0c41e" stroke="#1b2a6b" stroke-width="12" paint-order="stroke">W</text>
+  <text x="172" y="108" fill="#d4222c" stroke="#f4f2ea" stroke-width="12" paint-order="stroke">G</text>
+  <text x="272" y="108" fill="#2a56b8" stroke="#f0c41e" stroke-width="12" paint-order="stroke">M</text>
+ </g>
+</svg>

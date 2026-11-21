@@ -78,7 +78,12 @@ export function materialFor(piece, look = {}) {
   }
   // Cloth and leather.
   const colour = look.colours?.[kind + '/' + piece.id];
-  const material = new THREE.MeshStandardMaterial({ map: picture(piece.map), normalMap: picture(piece.normalMap, { colour: false }), roughness: kind === 'shoes' ? .5 : .85, metalness: 0, side: piece.twoSided ? THREE.DoubleSide : THREE.FrontSide, alphaTest: piece.clear ? .5 : 0 });
+  // A garment may say how it takes the light: waxed cotton and leather are smoother than wool, a reflective cloth is nearly metal.
+  const finish = piece.finish || {};
+  const material = new THREE.MeshStandardMaterial({ map: picture(piece.map), normalMap: picture(piece.normalMap, { colour: false }), roughness: finish.roughness ?? (kind === 'shoes' ? .5 : .85), metalness: finish.metalness ?? 0, side: piece.twoSided ? THREE.DoubleSide : THREE.FrontSide, alphaTest: piece.clear ? .5 : 0 });
+  if (finish.sheen) { material.envMapIntensity = finish.sheen; }
+  // Net and gauze let the skin show through as far as their picture says.
+  if (piece.sheer) { material.transparent = true; material.alphaTest = .02; }
   if (colour) {
     material.color.copy(hex(colour));
     if (piece.dyeBase && !piece.fixedColour) {

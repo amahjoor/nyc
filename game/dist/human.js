@@ -83,9 +83,12 @@ export function createHuman(meta, bodyBin, partsBin, motion) {
   const dials = new Map(B.dials.map(dial => [dial.id, dial]));
   const parts = new Map(meta.parts.map(part => {
     return [part.kind + '/' + part.id, { ...part,
-      tie: from(partsBin, part.tie, Uint16Array), share: from(partsBin, part.share, Float32Array), off: from(partsBin, part.off, Float32Array),
+      // (A cut garment's shares are bytes, out of 255; a stock garment's are floats.)
+      tie: from(partsBin, part.tie, Uint16Array), share: from(partsBin, part.share, part.ties ? Uint8Array : Float32Array), off: from(partsBin, part.off, Float32Array),
       corners: from(partsBin, part.corners, part.points > 65536 ? Uint32Array : Uint16Array), uv: from(partsBin, part.uv, Float32Array), triangles: from(partsBin, part.triangles, part.corners[1] > 65536 ? Uint32Array : Uint16Array),
-      hidden: part.hidden ? from(partsBin, part.hidden, Uint16Array) : null }];
+      hidden: part.hidden ? from(partsBin, part.hidden, Uint16Array) : null,
+      // A cut garment says for itself which bones move each of its points (scripts/garment-shells.mjs).
+      skinBone: part.skinBone ? from(partsBin, part.skinBone, Uint8Array) : null, skinPull: part.skinPull ? from(partsBin, part.skinPull, Uint8Array) : null }];
   }));
   const boneIndex = new Map(motion.bones.map((bone, i) => [bone.name, i]));
   // The movements' own skeleton at rest: which way each bone lies before anything moves it.
@@ -202,14 +205,17 @@ export function createHuman(meta, bodyBin, partsBin, motion) {
     // How far a point stands off the body grows and shrinks with the body, each way separately.
     const size = axis => { const s = part.scale[axis]; return s ? Math.abs(P[s[0] * 3 + 'xyz'.indexOf(axis)] - P[s[1] * 3 + 'xyz'.indexOf(axis)]) / s[2] : 1; };
     const sx = size('x'), sy = size('y'), sz = size('z'), mix = new Map();
+    // A stock garment's point is tied to three points of the body; a cut one to `ties` of them, spread about, so that it follows the build of the body and not each muscle.
+    const K = part.ties || 3, unit = part.ties ? 1 / 255 : 1;
     for (let i = 0; i < n; i++) {
-      const o = i * 3; let x = off[o] * sx, y = off[o + 1] * sy, z = off[o + 2] * sz; mix.clear();
-      for (let k = 0; k < 3; k++) {
-        const w = share[o + k]; if (!w) continue;
-        const p = tie[o + k]; x += P[p * 3] * w; y += P[p * 3 + 1] * w; z += P[p * 3 + 2] * w;
-        if (w > 0) for (let j = 0; j < 4; j++) { const weight = baseWeight[p * 4 + j]; if (weight) mix.set(baseIndex[p * 4 + j], (mix.get(baseIndex[p * 4 + j]) || 0) + weight * w); }
+      const o = i * 3, q = i * K; let x = off[o] * sx, y = off[o + 1] * sy, z = off[o + 2] * sz; mix.clear();
+      for (let k = 0; k < K; k++) {
+        const w = share[q + k] * unit; if (!w) continue;
+        const p = tie[q + k]; x += P[p * 3] * w; y += P[p * 3 + 1] * w; z += P[p * 3 + 2] * w;
+        if (w > 0 && !part.skinBone) for (let j = 0; j < 4; j++) { const weight = baseWeight[p * 4 + j]; if (weight) mix.set(baseIndex[p * 4 + j], (mix.get(baseIndex[p * 4 + j]) || 0) + weight * w); }
       }
       at[o] = x; at[o + 1] = y; at[o + 2] = z;
+      if (part.skinBone) { for (let j = 0; j < 4; j++) { bone[i * 4 + j] = part.skinBone[i * 4 + j]; pull[i * 4 + j] = part.skinPull[i * 4 + j] / 255; } continue; }
       const top = [...mix].sort((a, b) => b[1] - a[1]).slice(0, 4), sum = top.reduce((total, entry) => total + entry[1], 0) || 1;
       top.forEach(([b, w], k) => { bone[i * 4 + k] = b; pull[i * 4 + k] = w / sum; });
       if (!top.length) pull[i * 4] = 1;
@@ -261,10 +267,11 @@ export function createHuman(meta, bodyBin, partsBin, motion) {
     for (const part of visible) {
       if (painted && part.kind !== 'hair' && part.kind !== 'hat') continue;
       const laid = part===under ? fittedUnder : fit(part, P);
-      if(part.overWaist && fittedUnder)easeOverWaist(laid,fittedUnder,under,rig);
+      // A top that hangs over the waist is eased out over what is under it; cut trousers ask that of any top.
+      if((part.overWaist || (under?.liftsHem && part.slot==='top' && !part.tucked && part!==under)) && fittedUnder)easeOverWaist(laid,fittedUnder,under,rig);
       const shaft=part.kind==='shoes' && under?.overBoot ? coveredShaft(laid,fittedUnder,tall) : null;
       const made = piece(part.kind, part.id, part.corners, part.uv, part.triangles, laid.at, part.points, i => laid.bone.subarray(i * 4, i * 4 + 4), i => laid.pull.subarray(i * 4, i * 4 + 4), shaft);
-      Object.assign(made, { map: part.map, normalMap: part.normal, clear: part.clear, twoSided: part.twoSided, depth: part.depth, shade: part.shade, dyeBase:part.dyeBase, slot: part.slot });
+      Object.assign(made, { map: part.map, normalMap: part.normal, clear: part.clear, twoSided: part.twoSided, depth: part.depth, shade: part.shade, dyeBase:part.dyeBase, slot: part.slot, finish: part.finish, sheer: part.sheer });
       pieces.push(made);
     }
     // Where the face is, for whoever frames it or hangs something on it.

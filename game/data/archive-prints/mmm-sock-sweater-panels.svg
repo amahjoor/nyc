@@ -1,0 +1,40 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 420 520">
+  <defs>
+    <filter id="marl" x="0" y="0" width="100%" height="100%">
+      <feTurbulence type="fractalNoise" baseFrequency="0.9 0.35" numOctaves="2" seed="4" result="n"/>
+      <feColorMatrix in="n" type="matrix" values="0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  1.6 0 0 0 -0.55" result="a"/>
+      <feFlood flood-color="#2f3228"/>
+      <feComposite in2="a" operator="in" result="fleck"/>
+      <feMerge><feMergeNode in="SourceGraphic"/><feMergeNode in="fleck"/></feMerge>
+      <feComposite in2="SourceGraphic" operator="in"/>
+    </filter>
+  </defs>
+  <!-- the socks, opened flat and pieced: every block is one sock -->
+  <rect width="420" height="520" fill="#4b4e3e"/>
+  <!-- shoulders: two grey marl socks, heels at the shoulder points -->
+  <path d="M0,0 H420 V150 Q210,20 0,150 Z" fill="#7d7968" filter="url(#marl)"/>
+  <!-- the brown sock laid across the chest from shoulder to shoulder -->
+  <path d="M-10,190 Q210,40 430,190" fill="none" stroke="#6a5a39" stroke-width="58"/>
+  <!-- centre front: a brown sock, leg down -->
+  <path d="M146,100 H274 L257,205 Q250,270 276,335 H144 Q170,270 163,205 Z" fill="#6a5a39"/>
+  <!-- either side of it: pale marl socks, their heels over the bust -->
+  <path d="M74,172 L163,150 L163,205 Q170,270 144,335 L84,338 Q104,250 74,172 Z" fill="#85816c" filter="url(#marl)"/>
+  <path d="M346,172 L257,150 L257,205 Q250,270 276,335 L336,338 Q316,250 346,172 Z" fill="#85816c" filter="url(#marl)"/>
+  <!-- the waist: dark socks laid across -->
+  <rect x="0" y="335" width="420" height="85" fill="#434639"/>
+  <!-- the hem: sock cuffs -->
+  <rect x="0" y="420" width="420" height="100" fill="#393c31"/>
+  <!-- overlocked seams, left showing -->
+  <g fill="none" stroke="#a09a80" stroke-width="2.6" stroke-dasharray="6 3.5" stroke-linecap="round">
+    <path d="M0,150 Q210,20 420,150"/>
+    <path d="M-10,219 Q60,170 74,172 M346,172 Q360,170 430,219"/>
+    <path d="M146,100 H274"/>
+    <path d="M163,150 L163,205 Q170,270 144,335"/>
+    <path d="M257,150 L257,205 Q250,270 276,335"/>
+    <path d="M74,172 Q104,250 84,338"/>
+    <path d="M346,172 Q316,250 336,338"/>
+    <path d="M0,336 H420"/>
+    <path d="M210,336 V420"/>
+  </g>
+  <path d="M0,420 H420" fill="none" stroke="#24261f" stroke-width="3"/>
+</svg>

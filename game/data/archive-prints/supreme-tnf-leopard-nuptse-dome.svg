@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 300 140">
+ <!-- The North Face: the name in three lines beside the quarter dome -->
+ <g fill="#f2f0ea">
+  <text font-family="Nimbus Sans, Liberation Sans, sans-serif" font-weight="bold" font-size="43" letter-spacing="-1"><tspan x="4" y="42">THE</tspan><tspan x="4" y="86">NORTH</tspan><tspan x="4" y="130">FACE</tspan></text>
+ </g>
+ <g fill="none" stroke="#f2f0ea" stroke-width="21">
+  <path d="M172 129.500A118 118 0 0 1 290 11.500"/><path d="M211 140A79 79 0 0 1 290 54.500" /><path d="M252 140A40 40 0 0 1 292 98"/>
+ </g>
+</svg>

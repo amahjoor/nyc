@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120">
+ <!-- a tiger-striped felt disc, standing for the striped "a" patch -->
+ 
+ <circle cx="60" cy="60" r="55" fill="#1b1b1d"/><circle cx="60" cy="60" r="55" fill="none" stroke="#f0a21e" stroke-width="6"/>
+ <path d="M22 44l76 22M18 62l84 24M24 80l72 20M34 28l56 16" stroke="#f0a21e" stroke-width="9"/>
+</svg>
