@@ -6,28 +6,40 @@ import { floorAt, facePoint, followRoute, peopleInRoom, roomSeatStep, shopAisle,
 import { clearTravel, hasStandingRoom } from './pedestrian-motion.js';
 import { servingFor,portionKey } from './food-catalog.js';
 import { seatApproach } from './seating.js';
+import { cookDish, workSteps, clearPlate, clearWare, passApproach, stepKitchenChores } from './kitchen-line.js';
 
 const serviceStyles={coffee:'cafe', diner:'restaurant',fine:'restaurant',sushi:'restaurant',steamtable:'restaurant',
   pizza:'restaurant',takeout:'restaurant',halal:'restaurant',jewelry:'jeweler',shoes:'shoes',clothes:'apparel',tech:'phones',music:'music',gym:'gym',barber:'barber',salon:'barber'};
 export const serviceMode=room=>room.grocerySlots?'grocer':serviceStyles[room.style];
 const entrance={a:0,b:.5};
 const dist=(a,b)=>Math.hypot(a.a-b.a,a.b-b.b);
-const walking=(actor,point,phase,path)=>({actor,point,phase,path,at:0});
-const pause=(actor,phase,time,face,clip='reach')=>({actor,phase,time,face,clip});
+export const walking=(actor,point,phase,path)=>({actor,point,phase,path,at:0});
+export const pause=(actor,phase,time,face,clip='reach')=>({actor,phase,time,face,clip});
+const ASK_PATIENCE=14, KITCHEN_ROLES=['cook','deliCook','prep'];
 const release=actor=>{actor.serviceOwner=null;actor.returning=true;actor.carry=null;actor.clip=null;actor.stride=0;};
 function employees(v) {return v.view.actors.filter(a=>v.room.staff.includes(a.spot) && !a.escape && !a.gone);}
-function* ask(v, role='server') {
+export function* ask(v, role='server') {
   const {view}=v;
   const staff=employees(v);
-  const employee=staff.find(a=>a.spot.role===role) || view.clerk || staff[0];
+  let employee=staff.find(a=>a.spot.role===role && !a.serviceOwner && !a.requests?.length) || staff.find(a=>a.spot.role===role) || view.clerk || staff[0];
   if(!employee)return null;
   employee.requests??=[];
   employee.requests.push(v); v.request=employee;
-  while(employee.serviceOwner || employee.requests[0]!==v) yield pause(v.person,'waiting for staff',.22,null,'idle');
+  let waited=0;
+  while(employee.serviceOwner || employee.requests[0]!==v) {
+    yield pause(v.person,'waiting for staff',.22,null,'idle');
+    // Nobody waits on one busy member of staff while a colleague stands free.
+    if((waited+=.22)<ASK_PATIENCE || employee.escape || employee.gone)continue;
+    const free=employees(v).find(a=>a!==employee && !a.serviceOwner && !a.requests?.length && (role==='cook')===KITCHEN_ROLES.includes(a.spot.role));
+    waited=0;
+    if(!free)continue;
+    employee.requests=employee.requests.filter(req=>req!==v);
+    employee=free;(employee.requests??=[]).push(v);v.request=employee;
+  }
   employee.requests.shift(); v.request=null;
   employee.serviceOwner=v; employee.returning=null; v.employee=employee;return employee;
 }
-function done(v) {if(v.employee){release(v.employee);v.employee=null;}}
+export function done(v) {if(v.employee){release(v.employee);v.employee=null;}}
 function freeSeat(v) {
   const occupied=v.playerSeat?.(), aisle=shopAisle(v.view);
   for(const spot of v.room.seats) {
@@ -97,6 +109,7 @@ function* sit(v) {
     const approach=openChairApproach(v,others);
     if(approach)yield walking(v.person,approach.node,'walking to seat');
     else yield pause(v.person,'walking to seat',.35,null,'idle');
+    if((v.seatTries=(v.seatTries||0)+1)>40){v.giveUp=true;return;}
   }
   v.seat.fromAngle=v.person.heading;
   v.seat.turn=Math.atan2(Math.sin(v.seat.heading-v.person.heading),Math.cos(v.seat.heading-v.person.heading));
@@ -114,7 +127,7 @@ function* stand(v) {
   v.person.sitting=false;v.person.seat=null;v.person.spot=null;
   v.view.occupied.delete(v.spot);v.spot=null;
 }
-function sample(v,shape) {return shape && v.room.things.find(t=>t.shape===shape);}
+export function sample(v,shape) {return shape && v.room.things.find(t=>t.shape===shape);}
 function pay(v) {
   if(!v.paid){v.sale(v.room.place,v.item.price);v.paid=true;}
 }
@@ -210,25 +223,16 @@ function* restaurant(v) {
   let server=yield* ask(v);
   yield walking(server,side,'approaching guest');
   yield pause(server,'taking table order',1.45,v.spot,'talk');done(v);
-  const cook=yield* ask(v,'cook'), line=sample(v,'kitchenRange')||sample(v,'cookline')||sample(v,'oven')||sample(v,'spit')||sample(v,'showcase')||cook.spot;
-  yield walking(cook,cook.spot,'at the kitchen');
-  yield pause(cook,'preparing plate',3.1,line);
-  const pass=sample(v,'plates')||sample(v,'pizza')||line;
-  const support=v.room.things.find(t=>t.solid && t.y===0 && t.h>=.73 && t.h<1.3 && Math.abs(t.a-pass.a)<=t.w/2 && Math.abs(t.b-pass.b)<=t.d/2) ||
-    v.room.things.find(t=>t.solid && t.y===0 && t.h>=.73 && t.h<1.3 && t.shape!=='table');
-  if(support){
-    const slots=v.view.passSlots??=Array.from({length:Math.max(1,Math.min(3,Math.floor(support.w/.36)))},(_,i)=>i);
-    const index=slots.findIndex(slot=>typeof slot==='number');
-    if(index>=0){
-      v.portion=slots[index]={a:support.a+((index+.5)/slots.length-.5)*support.w,b:support.b,y:0,h:support.h,index};
-      v.view.group?.userData.mealAt?.(v.portion,true,v.item);
-    }
+  // The kitchen makes it at the stations the dish needs and sets it on the pass.
+  const plated=yield* cookDish(v,v.item);
+  let from=null;
+  if(!plated || plated.held)server=plated?.held || (yield* ask(v));
+  else{
+    v.portion=plated;
+    server=yield* ask(v);
+    from=passApproach(v.view,plated,server);
+    if(from)yield walking(server,from,'collecting plate');
   }
-  done(v);
-  server=yield* ask(v);
-  const passApproach=support && support.d>support.w ?
-    {a:support.a+Math.sign(-support.a||1)*(support.w/2+.44),b:pass.b} : {a:pass.a,b:Math.max(.7,pass.b-.7)};
-  yield walking(server,passApproach,'collecting plate');
   clearPortion(v);server.carry=servingFor(v.item,true);
   yield walking(server,side,'serving table');yield pause(server,'setting down plate',.65,table);
   v.view.group?.userData.mealAt?.(table,true,v.item);
@@ -245,14 +249,14 @@ function* restaurant(v) {
   yield pause(server,'settling check',1.2,v.spot,'talk');pay(v);
   yield* stand(v);
   // Remains unavailable to another party until the server clears the plate.
-  v.view.cleanups.push({table,server,left:1.6,emptyCarry:portionKey(servingFor(v.item,true),0),returnTo:passApproach});
+  v.view.cleanups.push({table,server,left:1.6,emptyCarry:portionKey(servingFor(v.item,true),0),returnTo:from||server.spot});
   server.serviceOwner=table;v.employee=null;v.table=null;
 }
 
 function clearPortion(v){
+  clearWare(v);
   if(!v.portion)return;
-  v.view.group?.userData.mealAt?.(v.portion,false);
-  v.view.passSlots[v.portion.index]=v.portion.index;v.portion=null;
+  clearPlate(v,v.portion);v.portion=null;
 }
 
 function caseApproach(t,side=1) {
@@ -440,16 +444,49 @@ function move(v,task,dt) {
   if(arrived){actor.clip='idle';actor.stride=0;}
   return arrived;
 }
+// A blocked aisle or a sealed counter never holds a visit for good: after a
+// fair try the walker stops where they are and the next step starts from there.
+export function reached(v,task,dt) {
+  if(move(v,task,dt))return true;
+  task.spent=(task.spent||0)+dt;
+  if(task.path && task.span===undefined){
+    let from=floorAt(v.view,task.actor);task.span=0;
+    for(const point of task.path.slice(task.at)){task.span+=dist(from,point);from=point;}
+  }
+  if(task.spent<(task.path ? 6+3*task.span/(task.actor.look?.pace||1.35) : 1.6))return false;
+  task.missed=true;task.actor.clip='idle';task.actor.stride=0;
+  return true;
+}
+// A guest who cannot get to where the visit needs them walks back out.
+function bail(v) {
+  if(v.bailed){v.person.state='walk';v.person.shoppedUntil=(v.view.lastServiceTime||0)+90;v.detach();v.person.visit=null;return;}
+  v.bailed=true;v.task=null;
+  const {person}=v;
+  if(person.sitting && v.seat){
+    v.seat.leaving=true;v.seat.progress=0;person.sitting=false;person.seat=null;person.spot=null;
+    v.view.occupied.delete(v.spot);v.spot=null;
+  }
+  person.carry=null;
+  if(v.employee?.serviceOwner===v)done(v);
+  if(v.request){v.request.requests=v.request.requests.filter(req=>req!==v);v.request=null;}
+  leaveQueue(v);
+  v.script=(function*(){
+    yield walking(person,entrance,'leaving');
+    yield walking(person,v.start,'back to sidewalk',[{a:0,b:Math.min(-1,v.start.b)},v.start]);
+  })();
+}
 function tick(v,dt,time) {
   if(dt<=0)return;
   stepServiceJobs(v.view,time);
+  if(v.giveUp && !v.bailed)bail(v);
   const task=v.task??=v.script.next().value;
   if(!task){v.person.state='walk';v.person.shoppedUntil=time+90;v.detach();v.person.visit=null;return;}
   v.phase=task.phase;
   const actor=task.actor;
   if(task.point) {
     v.wait=actor===v.person?0:.1;
-    if(!move(v,task,dt))return;
+    if(!reached(v,task,dt))return;
+    if(task.missed && actor===v.person){bail(v);return;}
   } else if(task.seating) {
     v.wait=.1;roomSeatStep(v.view,actor,task.seating,dt);actor.heading=actor.angle;
     if(task.seating.progress!==(task.seating.leaving?0:1))return;
@@ -470,6 +507,7 @@ function busTable(view,job){
 export function stepServiceJobs(view,time) {
   const dt=Math.max(0,Math.min(.1,time-(view.lastServiceTime??time)));view.lastServiceTime=time;
   if(!dt || !view.cleanups)return;
+  stepKitchenChores(view,dt);
   if(view.closed || view.handoff){
     for(const job of view.cleanups){
       busTable(view,job);if(job.server)release(job.server);
@@ -479,7 +517,7 @@ export function stepServiceJobs(view,time) {
   for(const actor of view.actors) {
     if(!actor.returning || actor.serviceOwner || actor.escape || actor.gone)continue;
     if(actor.returning===true)actor.returning=walking(actor,actor.spot,'returning to station');
-    if(move({view},actor.returning,dt)){actor.returning=null;actor.clip=null;facePoint(view,actor,{a:actor.spot.a+actor.spot.da,b:actor.spot.b+actor.spot.db});}
+    if(reached({view},actor.returning,dt)){actor.returning=null;actor.clip=null;facePoint(view,actor,{a:actor.spot.a+actor.spot.da,b:actor.spot.b+actor.spot.db});}
   }
   for(const job of view.cleanups){
     if(!job.server){
@@ -492,12 +530,12 @@ export function stepServiceJobs(view,time) {
       job.returnTo=server.spot;job.approach=walking(server,side,'clearing table');
     }
     if(job.approach){
-      if(!move({view},job.approach,dt))continue;
+      if(!reached({view},job.approach,dt))continue;
       job.approach=null;
     }
     if(job.cleared){
       job.trip??=walking(job.server,job.returnTo,'returning dishes');
-      if(job.server.escape || move({view},job.trip,dt)){
+      if(job.server.escape || reached({view},job.trip,dt)){
         job.finished=true;if(!job.server.escape)release(job.server);
       }
       continue;
@@ -529,6 +567,7 @@ export function startFacilityVisit(view,person,start,sale,playerSeat,interrupt) 
     if(rows.length)v.item=rows[v.number%rows.length];
   }
   v.script=itinerary(v);
+  v.bail=()=>bail(v);
   v.detach=(keepSeat=false)=>{
     if(person.carry==='cash')person.carry=null;
     if(v.slot){view.shopping?.shopperStock(v,false);view.claims.delete(v.slot);v.slot=null;}
@@ -599,9 +638,7 @@ export function startCounterOrder(sim,view,{item,basket=false,sale}){
       yield walking(employee,employee.spot,'At checkout');
       yield pause(employee,'Scanning groceries',.65+.35*shopping.basket.units.length,room.register,'pickUp');
     }else{
-      const station=dist(kitchen,employee.spot)<1.5?employee.spot:shopAisle(view).nearest(kitchen);
-      yield walking(employee,station||employee.spot,'At the kitchen');
-      yield pause(employee,drink?'Pouring your drink':'Preparing '+food.name,3.2,kitchen,'reach');
+      yield* workSteps(o,employee,item);
     }
     let server=employee;
     if(employee.spot.role==='deliCook' || employee.spot.role==='cook' && room.staff.some(s=>s.role==='server')){
@@ -629,7 +666,7 @@ export function startCounterOrder(sim,view,{item,basket=false,sale}){
       yield walking(server,cashierSpot(server),'Bringing your order to the counter');
       yield pause(server,'Handing over your order',.70,floorAt(view,sim.player),'reach');
     }
-    o.ready=true;o.phase=o.table?'Your order is on the table':'The clerk is holding your order';
+    o.ready=true;o.phase=o.table?'Your order is on the table':o.counterOnly?'Your order is up at the counter':'The clerk is holding your order';
     sim._say(o.phase+'. Press G to collect.',5);
   }
   function tableEdge(){
@@ -638,6 +675,12 @@ export function startCounterOrder(sim,view,{item,basket=false,sale}){
   }
   function* tableDelivery(server){
     yield walking(server,tableEdge(),'Bringing your order to the table');
+    if(dist(floorAt(view,server),o.table)>2.3){
+      // No way through to this table: the order waits at the counter instead.
+      view.claims.delete(o.table);o.table=null;o.counterOnly=true;
+      yield walking(server,cashierSpot(server),'Bringing your order to the counter');
+      return;
+    }
     yield pause(server,'Setting down your order',.7,o.table,'reach');
     if(drink){o.drinkSpot={...o.table,y:o.table.h,temporary:true};view.group?.userData.drinkAt?.(o.drinkSpot,'mug',true,food);}
     else view.group?.userData.mealAt?.(o.table,true,food);
@@ -645,7 +688,7 @@ export function startCounterOrder(sim,view,{item,basket=false,sale}){
   }
   o.deliverToSeat=seat=>{
     o.table=seat;view.claims.set(seat,o);o.ready=false;o.task=null;
-    o.script=(function*(){yield* tableDelivery(o.employee);o.ready=true;o.phase='Your order is on the table';sim._say(o.phase+'. Press G to collect.',5);})();
+    o.script=(function*(){yield* tableDelivery(o.employee);o.ready=true;o.phase=o.table?'Your order is on the table':'Your order is up at the counter';sim._say(o.phase+'. Press G to collect.',5);})();
   };
   if(!basket && !slot && !drink)o.pack=()=>{
     if(!o.ready || o.table || o.packed || !o.employee)return;
@@ -663,7 +706,7 @@ export function startCounterOrder(sim,view,{item,basket=false,sale}){
     o.portion=null;
   }
   o.release=()=>{
-    clearPass();
+    clearPass();clearWare(o);
     if(o.table){view.claims.delete(o.table);if(o.drinkSpot)view.group?.userData.drinkAt?.(o.drinkSpot,'mug',false);
       else view.group?.userData.mealAt?.(o.table,false);}
     if(o.request)o.request.requests=o.request.requests.filter(req=>req!==o);
@@ -674,13 +717,14 @@ export function startCounterOrder(sim,view,{item,basket=false,sale}){
 
 export function stepCounterOrder(sim,view,dt){
   const o=sim.shopping.order;if(o?.view!==view || !dt)return;
+  if(o.step){o.step(dt);return;}
   if(sim.room?.place.id!==o.shop || view.handoff || view.closed || sim.player.armed || sim.ending || o.employee?.escape || o.employee?.gone ||
      (o.table && diningTable(sim,view)!==o.table)){
     sim.shopping.cancelOrder();return;
   }
   if(o.ready){
     if(o.employee){
-      const seat=!o.packed && !o.room.grocerySlots && diningTable(sim,view);
+      const seat=!o.packed && !o.counterOnly && !o.room.grocerySlots && diningTable(sim,view);
       if(seat && !view.claims.has(seat)){o.deliverToSeat(seat);return;}
       facePoint(view,o.employee,floorAt(view,sim.player));
       if(Math.hypot(sim.player.x-o.employee.x,sim.player.z-o.employee.z)>2.65){
@@ -693,7 +737,7 @@ export function stepCounterOrder(sim,view,dt){
   const task=o.task??=o.script.next().value;
   if(!task){if(!o.ready)sim.shopping.cancelOrder();return;}
   o.phase=task.phase;
-  if(task.point){if(!move(o,task,dt))return;}
+  if(task.point){if(!reached(o,task,dt))return;}
   else{
     if(task.actor!==sim.player){
       if(task.face)facePoint(view,task.actor,task.face);

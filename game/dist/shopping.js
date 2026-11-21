@@ -220,7 +220,7 @@ export class Shopping{
     return !room.things.some(t=>t.solid && t.h+t.y>1.55 && crossesFixture(from,door,t));
   }
   leave(view){
-    this.payment=null;this.cancelOrder();const b=this.basket;if(!b || b.until)return;
+    this.payment=null;this.order?.walkout?.();this.cancelOrder();const b=this.basket;if(!b || b.until)return;
     // Staff sometimes call after the customer first. Only an observed, reported exit reaches dispatch.
     b.at={x:view?.plan.x??this.sim.player.x,y:this.sim.player.y,z:view?.plan.z??this.sim.player.z};
     b.report=this.witness(view) && this.sim._random()<.68;

@@ -95,7 +95,7 @@ test('restaurant staff prepare the player’s dish and deliver it at the counter
       }
       assert.ok(placeOrder(item));const order=bag.order;let chef,server;
       tick(90,()=>{
-        if(order.phase.startsWith('Preparing '))chef=order.employee;
+        if(order.phase.startsWith('Chef · '))chef=order.employee;
         if(order.phase==='Collecting your order')server=order.employee;
         return order.ready;
       });

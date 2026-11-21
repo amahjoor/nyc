@@ -80,6 +80,27 @@ export function writeMovements(motion) {
   motion.define('curlWeight',{seconds:2.4,loop:true,keys:[
     [0,{upperarm_l:['z',-77],lowerarm_l:['y',-22]}],
     [1.2,{upperarm_l:['z',-70,'y',-14],lowerarm_l:['y',-111]}]]});
+  // At the line. Both hands work at counter height in front of the body, the head down over them.
+  const atCounter={'+spine_01':['x',7],'+Head':['x',11]};
+  const leftRest={upperarm_l:['z',-64,'y',-34],lowerarm_l:['y',-58]};
+  // A spoon going round a pot, the other hand on its handle.
+  const spoon=(y,z,bend,roll)=>({...atCounter,...leftRest,upperarm_r:['z',z,'y',y],lowerarm_r:['y',bend,'x',roll]});
+  motion.define('stir',{seconds:1.3,loop:true,base:'idle',keys:[
+    [0,spoon(30,62,62,-10)],[.33,spoon(40,56,54,6)],[.65,spoon(48,62,62,14)],[.98,spoon(40,68,70,0)]]});
+  // A knife coming down on a board, the other hand holding what is cut.
+  const knife=(bend,lift)=>({...atCounter,'+Head':['x',15],upperarm_l:['z',-60,'y',-44],lowerarm_l:['y',-56],
+    upperarm_r:['z',60-lift,'y',38],lowerarm_r:['y',bend]});
+  motion.define('chop',{seconds:.44,loop:true,base:'idle',keys:[[0,knife(84,5)],[.22,knife(56,0)]]});
+  // A wok pulled back and flicked forward by its handle while a ladle keeps the food moving.
+  const wok=(pull,bend,ladle)=>({...atCounter,upperarm_l:['z',-58,'y',pull],lowerarm_l:['y',bend],
+    upperarm_r:['z',58,'y',44+ladle],lowerarm_r:['y',60-ladle,'x',ladle]});
+  motion.define('toss',{seconds:.84,loop:true,base:'idle',keys:[
+    [0,wok(-48,-66,0)],[.2,wok(-38,-88,8)],[.4,wok(-58,-50,-6)],[.62,wok(-50,-62,6)]]});
+  // A turner slid under what is on the griddle and turned over.
+  const turner=(y,bend,roll)=>({...atCounter,upperarm_l:['z',-72,'y',-12],lowerarm_l:['y',-28],
+    upperarm_r:['z',58,'y',y],lowerarm_r:['y',bend,'x',roll]});
+  motion.define('flip',{seconds:1.5,loop:true,base:'idle',keys:[
+    [0,turner(42,58,0)],[.45,turner(56,40,0)],[.7,turner(52,56,-38)],[.95,turner(46,66,24)],[1.2,turner(42,58,0)]]});
   // The handoff keeps the timing of the original reach; its contact point
   // on the crowd pose sheet is between the opposed fingertips.
   const reachCash=motion.clip('reach');

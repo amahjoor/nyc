@@ -23,6 +23,9 @@ import { planRegister } from './register.js';
 import { SHOP_WINDOW_GLSL } from './shop-window.js';
 import { buildRoomFinish, lightRoomSurface } from './room-finish.js';
 import { menuFor } from './menu.js';
+import { openServiceWay } from './service-way.js';
+import { KITCHEN_FIXTURES } from './kitchen-fixtures.js';
+const KITCHEN_SHAPES=new Set(Object.keys(KITCHEN_FIXTURES));
 
 /** Kinds of place with a room to walk into, by group. */
 const ROOMS = { bodega: 'shop', market: 'shop', liquor: 'shop', shop: 'shop', food: 'eat', cafe: 'eat', dining: 'eat', bar: 'bar', beauty: 'chairs', barber: 'chairs', hotel: 'lobby', public: 'lobby' };
@@ -348,8 +351,9 @@ export function planRoom(front, inside = () => true) {
   // middle, or else on the back wall, in front of whatever stands against it.
   const menu = menuFor(place), board = menu.length && ['eat','bar'].includes(kind) ? { a: 0, b: r.boardAt != null ? r.boardAt - .06 : depth - .62, w: Math.min(3.4, width - 1.4), h: .78, up: 2.12, lines: menu.map(item => [item.name, item.price]) } : null;
   if (kind==='eat' && style!=='coffee' && seats.length && staff.length) {
-    staff[0].role='cook';
-    const server=staff.find(s=>s!==staff[0]);
+    staff[0].role??='cook';
+    // A second cook on the line stays a cook: the floor is someone else's.
+    const server=staff.find(s=>s.role==='server') || staff.find(s=>s!==staff[0] && !s.role);
     if(server)server.role='server';
     else {
       // An open station beside the pass, with enough clearance to step into service.
@@ -366,9 +370,11 @@ export function planRoom(front, inside = () => true) {
   room.finish = { floor:softFloor ? 'wood' : 'tile', feature:r.wall, accent:r.floor, ink:'#444440',
     title:'', line:'', zones:[], ...r.finish, seed };
   if(r.grocerySlots){room.grocerySlots=r.grocerySlots;room.groceryTickets=r.groceryTickets;}
+  if(r.kitchen)room.kitchen={...r.kitchen,stations:r.kitchen.stations.filter(s=>things.includes(s.thing))};
   room.register = planRegister(room);
   if(room.register?.podium)room.things.push(room.register.podium);
   if(room.register?.attendant)room.staff.push(room.register.attendant);
+  if(kind==='eat' || kind==='bar')openServiceWay(room);
   return room;
 }
 
@@ -485,7 +491,7 @@ export function buildRoom(room, y = 0, { streetView = false } = {}) {
     let tile=0;
     if(['shirt','chair','bench','stool','fittingRoom','weightBench'].includes(thing.shape))tile=3;
     else if(['exerciseMat','treadmill'].includes(thing.shape))tile=4;
-    else if(['espresso','cookline','kitchenRange','packingBench','hotServery','oven','ringSample','spinBike','barbellRack','cableStation','dumbbells'].includes(thing.shape))tile=5;
+    else if(['espresso','cookline','kitchenRange','packingBench','hotServery','oven','ringSample','spinBike','barbellRack','cableStation','dumbbells'].includes(thing.shape) || KITCHEN_SHAPES.has(thing.shape))tile=5;
     else if(['phone','cup','plates','placeSetting'].includes(thing.shape))tile=6;
     else if(['guitar','table','towelShelf','showcase','shoewall','breadrack'].includes(thing.shape) ||
       !thing.shape && parseInt(thing.color.slice(1,3),16)-parseInt(thing.color.slice(5,7),16)>24)tile=1;
@@ -593,6 +599,20 @@ export function buildRoom(room, y = 0, { streetView = false } = {}) {
   group.userData.mealAt=(table,visible,item,level=2)=>showProduct(table,'mealPlate',visible,item,level);
   group.userData.mealRemaining=(table,item,level)=>showProduct(table,'mealPlate',true,item,level);
   group.userData.sampleAt=(display,visible)=>showProduct(display,'ringSample',visible);
+  // What a cook has on the heat or under the knife, where they are working: `ware` null takes it away.
+  group.userData.cookAt=(spot,ware,tone='#c98a4b')=>{
+    const old=serviceMeshes.get(spot);
+    if(old){old.removeFromParent();old.geometry.dispose();serviceMeshes.delete(spot);}
+    if(!ware)return;
+    const positions=[],colors=[];
+    roomProps(room,y,positions,colors).draw({shape:'cookware',a:spot.a,b:spot.b,w:.34,d:.34,h:.3,y:spot.y,face:spot.face,color:tone,more:{ware,tone}});
+    if(!positions.length)return;
+    const g=new THREE.BufferGeometry();
+    g.setAttribute('position',new THREE.Float32BufferAttribute(positions,3));g.setAttribute('color',new THREE.Float32BufferAttribute(colors,3));
+    g.setAttribute('surfaceTile',new THREE.BufferAttribute(new Uint8Array(positions.length/3).fill(5),1));
+    const pan=new THREE.Mesh(g,material);pan.name='Cookware in use';pan.frustumCulled=mesh.frustumCulled;
+    pan.userData.shape='cookware';pan.userData.ware=ware;serviceMeshes.set(spot,pan);group.add(pan);
+  };
   if(room.style==='jewelry') for(const display of room.things.filter(t=>t.more?.items==='rings'))group.userData.sampleAt(display,true);
   // The menu, lettered, where the plan puts it. Drawn only where there is a page to draw on.
   let menuBoard = null;

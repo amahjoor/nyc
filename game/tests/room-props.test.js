@@ -41,7 +41,7 @@ test('each trade has the fittings that mark it', () => {
 test('hot lunch counters keep their food pans, cashier and stove in separate working spaces', () => {
   for(const [width,depth] of [[4,4],[4,7],[7,9],[9,12]]){
     const room=plan('latin',width,depth), till=room.register, desk=holds(room,'checkoutCounter')[0],
-      pans=holds(room,'hotServery')[0], stove=holds(room,'kitchenRange')[0];
+      pans=holds(room,'hotServery')[0], stove=holds(room,'gasRange')[0]||holds(room,'flatTop')[0]||holds(room,'fryer')[0];
     assert.ok(till && pans && stove && counterPath(room));
     assert.ok(Math.abs(pans.a-stove.a)>=(pans.w+stove.w)/2 || Math.abs(pans.b-stove.b)>=(pans.d+stove.d)/2);
     assert.ok(Math.abs(till.a-pans.a)>pans.w/2+.18 || Math.abs(till.b-pans.b)>pans.d/2+.18);
@@ -204,7 +204,8 @@ test('every room builds whole, inside its walls, at a size a street of them can 
       assert.ok(colour.getX(i) >= 0 && colour.getX(i) <= 1.1 && colour.getY(i) >= 0 && colour.getZ(i) >= 0);
     }
   }
-  assert.ok(most < 9000, `the fullest room is ${most} triangles`);
+  // A dining room with a whole kitchen line behind its pass is the fullest.
+  assert.ok(most < 16000, `the fullest room is ${most} triangles`);
   assert.ok(propped > 300, 'most rooms have something of their trade in them');
 });
 

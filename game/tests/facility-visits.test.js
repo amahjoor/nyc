@@ -50,7 +50,7 @@ function visits(kind,width=7,name=kind) {
           assert.ok(Math.hypot(point.a-v.spot.a,point.b-v.spot.b)<.95);
         }
         if(v.phase==='picking up drink' && v.task)assert.ok(group.children.some(c=>c.name==='Drink at pickup' && c.visible));
-        if(v.phase==='preparing plate' && v.task)assert.equal(v.employee.spot.role,'cook');
+        if(v.phase.startsWith('Chef · ') && v.task)assert.equal(v.employee.spot.role,'cook');
         if(v.phase==='serving table' && v.task){
           assert.equal(v.employee.spot.role,'server');
           assert.equal(v.employee.carry,'plate-'+plateStyle(v.item.name));
@@ -89,10 +89,12 @@ test('café makes paid orders for dine-in and takeaway guests on a shared counte
   }
 });
 test('restaurant staff plate, serve and clear the table assigned to each paying guest',()=>{
-  for(const [kind,width] of [['american',4],['italian',7],['pizza',4],['pizza',7],['chinese',7],['latin',7]]){
+  for(const [kind,width] of [['american',5],['italian',7],['pizza',4],['pizza',7],['chinese',7],['latin',7]]){
     const {phases,sales,events}=visits(kind,width);
     assert.equal(sales.length,3);
-    for(const actions of phases)for(const phase of ['escorting to table','taking table order','preparing plate','serving table','eating','settling check'])assert.ok(actions.has(phase),phase);
+    for(const actions of phases)for(const phase of ['escorting to table','taking table order','serving table','eating','settling check'])assert.ok(actions.has(phase),kind+' '+width+' '+phase+': '+[...actions].join('|'));
+    // The kitchen works each plate through its own steps at the line.
+    for(const actions of phases)assert.ok([...actions].filter(phase=>phase.startsWith('Chef · ')).length>=2,[...actions].join('|'));
     const served=new Set();
     for(const e of events.filter(e=>e.hook==='mealAt')){
       if(e.show){assert.ok(!served.has(e.fixture));served.add(e.fixture);}

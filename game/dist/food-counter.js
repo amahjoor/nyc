@@ -3,6 +3,7 @@ import { pantryItem,diningTable,beverage,preparedFood,heldFood } from './shoppin
 import { menuFor } from './menu.js';
 import { startCounterOrder } from './facility-visits.js';
 import { sharedShopPreview } from './shop-preview.js';
+import { openTableService } from './table-service.js';
 
 const money=n=>'$'+n.toFixed(2);
 function basketContents(basket){
@@ -71,6 +72,8 @@ export function openInventory(ctx){
 
 export function openFoodCounter(ctx){
   const {sim,interaction,sale,save}=ctx,room=sim.room,view=sim.doorway,bag=sim.shopping;
+  // Seated at a table, the key is for the server.
+  if(openTableService(ctx))return true;
   if(view?.plan?.place.id!==room?.place.id || !view?.clerk || (!room?.grocerySlots && !['eat','bar'].includes(room?.kind)))return false;
   const place=room.place,available=()=>sim.room?.place===place && !view.closed && !view.handoff && !sim.player.armed;
   if(!available()){sim._say('The counter is closed.');return true;}

@@ -41,6 +41,8 @@ import { createHumanShop } from './human-shop.js';
 import { createHumanMesh } from './human-mesh.js';
 import { foodPreviewOptions,openFoodCounter,openInventory,counterInReach } from './food-counter.js';
 import { stepCounterOrder } from './facility-visits.js';
+import { promptTableService, waitsTables } from './table-service.js';
+import { diningTable } from './shopping.js';
 import { browseShop } from './shop-preview.js';
 import { fittedLook } from './shop-stock.js';
 import { loadPerson, savePerson } from './human-designs.js';
@@ -1242,6 +1244,7 @@ function syncScene(dt,controls) {
     view.door.step(dt);view.group.userData.updateDoor();
     if(!mapOpen&&!paused&&!aerialView&&!cityView&&!viewOverride&&!traveling&&started){
       stepCounterOrder(sim,view,dt);
+      if(view===sim.doorway && !interaction?.open && !phone?.open)promptTableService({$,sim,interaction,work,sale:(place,amount)=>work.sale(place,amount),save:saveProgress});
       if(!interaction?.open)updateClerk(view,sim,yaw,eyeView?headPitch:0,dt,work,{
         outside:actor=>crowd.fleeOntoStreet(actor),palm:actor=>crowd.palm(actor),firstPerson:eyeView,
         playerHand:()=>{
@@ -1951,6 +1954,7 @@ function frame(now) {
         else if(sim.shopping.shelf(sim.room).length)hints.push('G TO SHOP THE SHELF');
         if(sim.shopping.basket)hints.push('Unpaid $'+sim.shopping.total(sim.room.place).toFixed(2));
       }
+      else if(!phase && !sim.player.armed && sim.seat && diningTable(sim,sim.doorway) && waitsTables(sim.doorway))hints.push('G TO CALL YOUR SERVER');
       else if(!phase && !sim.player.armed && sim.seat && sim.room.kind==='eat')hints.push('G FOR TABLE SERVICE');
       else if(!phase&&!sim.player.armed&&menuFor(sim.room.place).some(item=>item.sku))hints.push('G TO BROWSE');
       else if(!phase&&!sim.player.armed&&counterHere&&menuFor(sim.room.place).length)hints.push('G TO ORDER');

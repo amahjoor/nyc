@@ -1,4 +1,6 @@
 import { COUNTER_FIXTURES, furnishCounterService } from './counter-service.js';
+import { KITCHEN_FIXTURES } from './kitchen-fixtures.js';
+import { fitKitchen } from './kitchens.js';
 import { checkoutAxes, drawCheckout } from './checkout-model.js';
 // What a shop is for, in the things that stand in it.
 //
@@ -186,6 +188,7 @@ const PROPS = {
   ...BANK_FIXTURES,
   ...CARE_FIXTURES,
   ...COUNTER_FIXTURES,
+  ...KITCHEN_FIXTURES,
   ...CORNER_FIXTURES,
   /** A shop figure on a stand, dressed in `hex`. */
   mannequin(t, w, d, h, hex, { skin = '#e2dccd', legs = null, seed = 0 }) {
@@ -628,6 +631,11 @@ export const OWN_STYLES = Object.keys(OWN), DRESSED_STYLES = Object.keys(DRESS);
 
 /** Furnish `r` in a manner of room: this module's own where it has one, otherwise `styles[style]` and then what this adds to it. */
 export function furnishRoom(styles, style, r) {
+  furnishStyle(styles, style, r);
+  // Then the kitchen that kind of place cooks in.
+  fitKitchen(r, (...args) => prop(r, ...args), style);
+}
+function furnishStyle(styles, style, r) {
   if(style==='takeout'||style==='steamtable'){
     furnishCounterService(r,(...args)=>prop(r,...args),style==='steamtable');return;
   }

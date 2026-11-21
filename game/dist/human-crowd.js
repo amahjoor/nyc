@@ -22,7 +22,7 @@ import { lookOf, sharesGarmentDye } from './human-looks.js';
 
 export const ATLAS = 512, SHEET_FPS = 15;
 /** The movements people on the street may be seen in. */
-export const STREET_CLIPS = ['idle', 'walk', 'jog', 'sprint', 'sit', ...FURNITURE_CLIPS, 'sitTalk', 'talk', 'hitChest', 'hitHead', 'death', 'guard', ...new Set([...handStrikes,...closeStrikes,...movingStrikes]), ...standingKicks, 'foldBack','reelLeft','reelRight', 'fall', 'flinch', 'knocked', 'lying', 'getUp', 'stumble', 'handsUp', 'cower', 'kneel', 'cuffed', 'cuffing', 'cycle', 'cycleStop', 'horseRide', 'motorRide', 'stretch', 'rowCable', 'cutHair', 'curlWeight', 'giveCash', 'strum', 'aim', 'shoot', 'thrown', 'drive', 'reach', 'pickUp', 'crouch'];
+export const STREET_CLIPS = ['idle', 'walk', 'jog', 'sprint', 'sit', ...FURNITURE_CLIPS, 'sitTalk', 'talk', 'hitChest', 'hitHead', 'death', 'guard', ...new Set([...handStrikes,...closeStrikes,...movingStrikes]), ...standingKicks, 'foldBack','reelLeft','reelRight', 'fall', 'flinch', 'knocked', 'lying', 'getUp', 'stumble', 'handsUp', 'cower', 'kneel', 'cuffed', 'cuffing', 'cycle', 'cycleStop', 'horseRide', 'motorRide', 'stretch', 'rowCable', 'cutHair', 'curlWeight', 'giveCash', 'strum', 'aim', 'shoot', 'thrown', 'drive', 'reach', 'pickUp', 'crouch', 'stir', 'chop', 'toss', 'flip'];
 
 /** Keep body columns first and append the three joints of every digit. */
 export function streetBones(bones) {
