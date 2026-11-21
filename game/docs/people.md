@@ -26,6 +26,16 @@ The collection starts from MakeHuman’s CC0 garment meshes. The game adds longe
 
 The shipped meshes and textures work offline. To rebuild them, fetch the four community archives with `node game/scripts/fetch-fashion.mjs`, then run `node game/scripts/build-human.mjs` with the base MakeHuman sources installed. Each piece records its mesh source, silhouette adjustments, fabric and artwork in the collection recipe. [Collection recipe](../data/fashion-pieces.json) · [Print artwork](../data/archive-prints.svg)
 
+### The archive hundred
+
+One hundred pieces of archival fashion can be bought and worn: the Raf Simons Riot bomber, Helmut Lang's bondage parka, Dior Homme's waxed denim, Rick Owens' Geobaskets, Margiela's Tabi boots and the rest of the list. Each is cut and painted from a recipe written against photographs of the real garment, and priced at what an original sells for now. [Recipe language](archive-wardrobe.md) · [Recipes](../data/archive-collection/) · [Catalogue](../dist/archive-collection.js)
+
+A house's own shop on the map sells that house's pieces (Rick Owens, Maison Margiela, Yohji Yamamoto, Issey Miyake, Prada, Gucci, Dior, Saint Laurent, Balenciaga, BAPE, Stone Island, Supreme). Dover Street Market, Atelier New York and Opening Ceremony carry the designers they are known for, and Barneys, Bergdorf Goodman and Saks add theirs to the usual floor. The RealReal has all hundred. Tokio 7, What Goes Around Comes Around and Procell have twenty-six each up to $12,000, and any shop with "vintage", "consignment" or "resale" in its name has twelve finds under $1,500, the same twelve each visit. Flight Club and Stadium Goods have the sneakers. [Shops](../dist/archive-stock.js)
+
+The garments are not MakeHuman's. They are cut from the two helper meshes the body carries, its tights and its long skirt, so they fit every build, and each says for itself which bones move it. An archive piece keeps its own colours whatever dye the wearer last chose. The shoes are reshaped wardrobe boots, and the nylon backpack is built with the other bags. [Tailor](../scripts/garment-shells.mjs) · [Painter](../scripts/garment-paint.mjs)
+
+The foot stays flat in the game, so a heeled shoe (the Kiss boots, the Armadillos) stands on a platform with its arch cut out.
+
 ## Movement
 
 The walk has a planted stance, heel strike and toe-off. Speed and leg length set cadence. Holding **Shift** blends through the jog into the sprint. [Animation and retargeting](../dist/body-motion.js)
@@ -61,6 +71,7 @@ Cups and trays follow the fitted palm through turns and seating transitions. A n
 ## Rebuild
 
 ```sh
+node scripts/build-human.mjs       # the figure and its wardrobe; needs MakeHuman under assets-src/makehuman/
 node scripts/build-motion.mjs      # needs the library unpacked under assets-src/characters/
 node --test tests/people.test.js
 ```

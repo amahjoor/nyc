@@ -1,6 +1,7 @@
 // Game stock. Garment and haircut options use IDs from the player character
 // catalog, so the fitting mirror and the character on the street wear the same mesh.
 import { FASHION_LOOKS } from './fashion.js';
+import { archiveStock } from './archive-stock.js';
 const shirts = [
   { sku:'tee-chalk', name:'Cotton crew · Chalk', price:25, slot:'top', design:{top:'male_casualsuit04-top',topColour:'#dfd8ca'} },
   { sku:'shirt-indigo', name:'Button-down · Indigo', price:38, slot:'top', design:{top:'male_casualsuit03-top',topColour:'#425571'} },
@@ -54,6 +55,9 @@ const tjMaxx=[
 ];
 export function fittingStock(place) {
   const kind=typeof place==='string'?place:place.kind;
+  // A house's own shop and the resale shops sell the archive collection; a department store adds its houses to the rest.
+  const found=archiveStock(place);
+  if(found)return found.only?found.items:[...(stock[kind] || []),...found.items];
   if(kind==='clothes' || kind==='department'){
     if(/\bold navy\b/i.test(place.name))return oldNavy;
     if(/\bt\.?\s*j\.?\s*maxx\b/i.test(place.name))return tjMaxx;
@@ -65,7 +69,7 @@ export function fittedLook(person,item) {
 }
 
 export function ownsWearable(sim,item) {
-  return ['top','bottom','shoes'].includes(item.slot) && sim.purchases?.[item.sku] > 0;
+  return ['top','bottom','shoes','bag'].includes(item.slot) && sim.purchases?.[item.sku] > 0;
 }
 
 export function purchaseStock(sim, shop, item) {
