@@ -233,8 +233,10 @@ export function streetWardrobe(pieces, design, look, base) {
     if(!piece.map || piece.clear || !['garment','suit','uniform','shoes','hat'].includes(piece.kind))continue;
     const colour=look.colours[piece.kind+'/'+piece.id];
     const slot=sharesGarmentDye(piece,top)?'top':sharesGarmentDye(piece,bottom)?'bottom':null;
-    const tint=piece.fixedColour ? null : slot || (colour?'fixed':null);
-    wardrobe.push({map:textureUrl(piece.map),normalMap:textureUrl(piece.normalMap),
+    // An archive piece keeps its own colours, and has smaller pictures for the street (scripts/garment-paint.mjs).
+    const tint=piece.fixedColour || piece.ownColour ? null : slot || (colour?'fixed':null);
+    const sized=name=>piece.ownColour && name ? name.replace(/^archive\//,'archive/street/') : name;
+    wardrobe.push({map:textureUrl(sized(piece.map)),normalMap:textureUrl(sized(piece.normalMap)),
       tint,colour,shade:piece.shade,dyeBase:piece.dyeBase,roughness:piece.kind==='shoes' ? .5 : .85});
     clothing.set(piece,wardrobe.length);
   }

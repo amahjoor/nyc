@@ -15,7 +15,7 @@ test('each kind of place sells what such places sell, and a scratch-off pays bac
   assert.ok(['b', 'c', 'd', 'e', 'f'].some(id => names(id).join() !== names('a').join()));
   assert.ok(menuFor(place('bodega')).some(item => item.effect === 'lottery') && menuFor(place('coffee')).some(item => item.name === 'Coffee') && menuFor(place('hotel'))[0].effect === 'sleep');
   assert.deepEqual(menuFor(place('library')), []); assert.deepEqual(menuFor(place('repair')), []);
-  for (const kind of KINDS) for (const item of menuFor(place(kind.id))) assert.ok(item.name && item.price > 0 && item.price < 400 && item.effect, kind.id);
+  for (const kind of KINDS) for (const item of menuFor(place(kind.id))) assert.ok(item.name && item.price > 0 && (item.price < 400 || item.archive) && item.effect, kind.id); // The archive pieces cost what the originals do.
   let paid = 0, wins = 0; const n = 200000;
   for (let i = 0; i < n; i++) { const prize = scratch((i + .5) / n); paid += prize; if (prize) wins++; }
   assert.ok(Math.abs(paid / n - 1) < .15 && Math.abs(wins / n - .3) < .01, `pays back ${(paid / n).toFixed(2)} on two dollars, ${(100 * wins / n).toFixed(0)}% win`);

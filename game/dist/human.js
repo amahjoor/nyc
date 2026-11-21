@@ -271,7 +271,7 @@ export function createHuman(meta, bodyBin, partsBin, motion) {
       if((part.overWaist || (under?.liftsHem && part.slot==='top' && !part.tucked && part!==under)) && fittedUnder)easeOverWaist(laid,fittedUnder,under,rig);
       const shaft=part.kind==='shoes' && under?.overBoot ? coveredShaft(laid,fittedUnder,tall) : null;
       const made = piece(part.kind, part.id, part.corners, part.uv, part.triangles, laid.at, part.points, i => laid.bone.subarray(i * 4, i * 4 + 4), i => laid.pull.subarray(i * 4, i * 4 + 4), shaft);
-      Object.assign(made, { map: part.map, normalMap: part.normal, clear: part.clear, twoSided: part.twoSided, depth: part.depth, shade: part.shade, dyeBase:part.dyeBase, slot: part.slot, finish: part.finish, sheer: part.sheer });
+      Object.assign(made, { map: part.map, normalMap: part.normal, clear: part.clear, twoSided: part.twoSided, depth: part.depth, shade: part.shade, dyeBase:part.dyeBase, slot: part.slot, finish: part.finish, sheer: part.sheer, ownColour: part.ownColour });
       pieces.push(made);
     }
     // Where the face is, for whoever frames it or hangs something on it.

@@ -54,16 +54,14 @@ const tjMaxx=[
   dyed(shirts[0],'crew-sand','Cotton crew · Sand',14,'#c3ac8c'),...sneakers,
 ];
 export function fittingStock(place) {
-  const kind=typeof place==='string'?place:place.kind;
-  // A house's own shop and the resale shops sell the archive collection; a department store adds its houses to the rest.
+  const kind=typeof place==='string'?place:place.kind, name=place.name || '';
+  const chain=(kind==='clothes' || kind==='department') && (/\bold navy\b/i.test(name)?oldNavy:/\bt\.?\s*j\.?\s*maxx\b/i.test(name)?tjMaxx:null);
+  const own=chain || stock[kind] || [];
+  // A house's own shop and the resale shops sell only the archive collection; every other clothing shop has some of it beside its own lines.
   const found=archiveStock(place);
-  if(found)return found.only?found.items:[...(stock[kind] || []),...found.items];
-  if(kind==='clothes' || kind==='department'){
-    if(/\bold navy\b/i.test(place.name))return oldNavy;
-    if(/\bt\.?\s*j\.?\s*maxx\b/i.test(place.name))return tjMaxx;
-  }
-  return stock[kind] || [];
+  return found?found.only?found.items:[...own,...found.items]:own;
 }
+
 export function fittedLook(person,item) {
   return item.design ? {...person,...item.design} : null;
 }

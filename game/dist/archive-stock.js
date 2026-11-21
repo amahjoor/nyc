@@ -2,8 +2,8 @@
 //
 // The pieces are real garments with real makers, and New York has the shops:
 // a house's own store carries that house's pieces, a few multi-brand stores
-// carry the designers they are known for, and the resale shops carry a
-// changing handful of everything. Prices are what an original sells for now.
+// carry the designers they are known for, the resale shops carry a changing
+// handful of everything, and any other clothing shop keeps a rail of them. Prices are what an original sells for now.
 import { ARCHIVE } from './archive-collection.js';
 
 const byId = new Map(ARCHIVE.map(piece => [piece.id, piece]));
@@ -55,8 +55,14 @@ const HOUSES = [
 // [shop, how many pieces, the dearest it would have]: a neighbourhood vintage shop has finds, not museum pieces.
 const RESALE = [[/\breal\s?real\b/i, Infinity, Infinity], [/\b(tokio 7|what goes around|procell|james veloria)\b/i, 26, 12000], [/\b(vintage|consign\w*|resale|archive|thrift|exchange|closet)\b/i, 12, 1500]];
 const SNEAKERS = /\b(flight club|stadium goods)\b/i;
+// Every other shop that sells clothes keeps a rail of the archive beside its own lines:
+// [how many pieces, which of them]. No two shops have quite the same rail.
+const RAILS = { clothes: [14, piece => piece.slot !== 'bag'], department: [28, () => true], shoes: [6, piece => piece.slot === 'shoes'], bags: [1, piece => piece.slot === 'bag'] };
 
 const hash = text => { let h = 2166136261; for (let i = 0; i < text.length; i++) { h ^= text.charCodeAt(i); h = Math.imul(h, 16777619); } return h >>> 0; };
+
+// The same shop has the same pieces every time, and no two shops quite the same ones.
+const chosen = (name, pieces, count) => pieces.map(piece => [hash(name.toLowerCase() + '/' + piece.id), piece]).sort((a, b) => a[0] - b[0]).slice(0, count).map(entry => entry[1]).sort((a, b) => a.n - b.n);
 
 /**
  * The archive pieces a place sells, as shop items, or null if it sells none.
@@ -74,9 +80,9 @@ export function archiveStock(place) {
     return items.length ? { only: kind !== 'department' || /dover street/i.test(name), items } : null;
   }
   for (const [shop, count, dearest] of RESALE) if (shop.test(name)) {
-    // The same shop has the same pieces in every time, and no two shops quite the same ones.
-    const ranked = ARCHIVE_PIECES.filter(piece => piece.price <= dearest).map(piece => [hash(name.toLowerCase() + '/' + piece.id), piece]).sort((a, b) => a[0] - b[0]).slice(0, count).map(entry => entry[1]);
-    return { only: true, items: ranked.sort((a, b) => a.n - b.n).map(archiveItem) };
+    return { only: true, items: chosen(name, ARCHIVE_PIECES.filter(piece => piece.price <= dearest), count).map(archiveItem) };
   }
-  return null;
+  const [count, sold] = RAILS[kind] || [0];
+  const rail = count ? chosen(name, ARCHIVE_PIECES.filter(sold), count) : [];
+  return rail.length ? { only: false, items: rail.map(archiveItem) } : null;
 }

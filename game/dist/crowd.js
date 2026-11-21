@@ -24,7 +24,7 @@ import { createStreetPopulation } from './street-population.js';
 import { roomLocal } from './room.js';
 import { OUTFITS } from './citylife.js';
 import { drawTone } from './demographics.js';
-import { castWalkStyle, fashionForMember, memberFor, roughHeight, MEMBERS, KINDS, KIT } from './human-cast.js';
+import { archiveForMember, castWalkStyle, fashionForMember, memberFor, roughHeight, MEMBERS, KINDS, KIT } from './human-cast.js';
 export { KIT };
 
 const TAU = Math.PI * 2;
@@ -78,7 +78,7 @@ export function dress(outfit, random = Math.random, tones = null) {
   const woman = chance(.5);
   if (woman) wear(KIT.woman);
   look.member = memberFor(random, tones, outfit, woman);
-  const fashion=fashionForMember(look.member);
+  const fashion=fashionForMember(look.member) || archiveForMember(look.member);
   if(fashion && ['casual','visitor','athletic','summer'].includes(outfit)){
     look.top=parseInt(fashion.clothes.topColour.slice(1),16);
     look.bottom=parseInt(fashion.clothes.bottomColour.slice(1),16);

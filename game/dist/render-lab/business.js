@@ -148,6 +148,7 @@ function merchandise(all){
   const products=new Map();
   for(const {name,place} of all){
     for(const item of fittingStock(place)){
+      if(item.archive)continue; // The archive collection has a section of its own (fashion.js).
       let row=products.get(item.sku);
       if(!row){row={item,shops:new Set()}; products.set(item.sku,row);}
       row.shops.add(name);

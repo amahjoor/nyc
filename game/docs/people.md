@@ -34,6 +34,10 @@ A house's own shop on the map sells that house's pieces (Rick Owens, Maison Marg
 
 The garments are not MakeHuman's. They are cut from the two helper meshes the body carries, its tights and its long skirt, so they fit every build, and each says for itself which bones move it. An archive piece keeps its own colours whatever dye the wearer last chose. The shoes are reshaped wardrobe boots, and the nylon backpack is built with the other bags. [Tailor](../scripts/garment-shells.mjs) · [Painter](../scripts/garment-paint.mjs)
 
+Every other clothing shop keeps a rail of fourteen of the pieces beside its own lines, a department store twenty-eight, a shoe shop six pairs and a bag shop the backpack. Which ones depends on the shop, and a shop has the same rail every time. [Where they are sold](../dist/archive-stock.js)
+
+The pieces are worn on the street too. The adults of the cast who were not given one of the preset looks wear an archive look instead: a top from the collection with the trousers and shoes that go with it, twenty-five people in all, so about one passer-by in four. The street draws these pieces from smaller copies of their pictures (`tex/archive/street/`), which the painter writes beside the full ones. [Looks](../dist/archive-looks.js) · [Who wears them](../dist/human-cast.js)
+
 The foot stays flat in the game, so a heeled shoe (the Kiss boots, the Armadillos) stands on a platform with its arch cut out.
 
 ## Movement

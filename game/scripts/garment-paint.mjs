@@ -22,7 +22,7 @@
 //   print    { frame, art, at, width, opacity, rot, mirror }   a drawing from data/archive-prints
 //   distress { type, amount, colour, where }                   fading, whiskers, holes, paint, grime
 import { mkdirSync, existsSync } from 'node:fs';
-import { dirname } from 'node:path';
+import { basename, dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { execFileSync } from 'node:child_process';
 
@@ -546,4 +546,15 @@ export function paintGarment(piece, made, path, normalPath, { size = made.shoe ?
   mkdirSync(dirname(path), { recursive: true });
   run('magick', ['-size', size + 'x' + size, '-depth', '8', (clear ? 'rgba' : 'rgb') + ':-', '-quality', '90', '-define', 'webp:method=4', path], pixels);
   run('magick', ['-size', size + 'x' + size, '-depth', '8', 'rgb:-', '-quality', '88', '-define', 'webp:method=4', normalPath], normals);
+  streetPictures(path, normalPath);
+}
+
+/**
+ * The same two pictures made small, in a `street` folder beside them. Across a street nobody reads a label,
+ * and the crowd holds the pictures of everything everybody in sight is wearing at once (dist/human-crowd.js).
+ */
+export function streetPictures(path, normalPath) {
+  mkdirSync(join(dirname(path), 'street'), { recursive: true });
+  for (const [from, scale, quality] of [[path, '50%', '86'], [normalPath, '25%', '84']])
+    run('magick', [from, '-resize', scale, '-quality', quality, '-define', 'webp:method=4', join(dirname(from), 'street', basename(from))]);
 }

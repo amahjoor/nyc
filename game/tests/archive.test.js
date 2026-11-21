@@ -7,6 +7,8 @@ import { fittingStock, fittedLook, purchaseStock, ownsWearable } from '../dist/s
 import { tidyPerson, DEFAULT_PERSON } from '../dist/human-designs.js';
 import { lookOf } from '../dist/human-looks.js';
 import { createHuman } from '../dist/human.js';
+import { ARCHIVE_LOOKS } from '../dist/archive-looks.js';
+import { OFFICERS, archiveForMember, fashionForMember, memberInfo, designOf } from '../dist/human-cast.js';
 
 const assets = new URL('../dist/human/', import.meta.url);
 const manifest = JSON.parse(readFileSync(new URL('human.json', assets)));
@@ -74,8 +76,14 @@ test('a house sells its own, the resale market sells everything, and a corner vi
   assert.ok(vintage.length === 12 && vintage.every(item => item.price <= 1500));
   assert.deepEqual(vintage, fittingStock({ kind: 'clothes', name: 'L TRAIN VINTAGE' }));
   assert.notDeepEqual(vintage.map(item => item.sku), fittingStock({ kind: 'clothes', name: 'MONK VINTAGE' }).map(item => item.sku));
-  // An ordinary shop is as it was, and a department store keeps its own lines beside the houses it carries.
-  assert.equal(archiveStock({ kind: 'clothes', name: 'GU' }), null);
+  // An ordinary shop keeps its own lines and adds a rail of the archive, a shoe shop a few pairs; a department store keeps its lines beside the houses it carries.
+  const gu = fittingStock({ kind: 'clothes', name: 'GU' });
+  assert.ok(gu.some(item => item.sku === 'tee-chalk') && gu.filter(item => item.archive).length === 14);
+  assert.notDeepEqual(gu.filter(item => item.archive).map(item => item.sku), fittingStock({ kind: 'clothes', name: 'UNIQLO' }).filter(item => item.archive).map(item => item.sku));
+  assert.ok(fittingStock({ kind: 'clothes', name: 'OLD NAVY' }).some(item => item.sku === 'crew-navy'));
+  const shoes = fittingStock({ kind: 'shoes', name: 'FOOT LOCKER' }).filter(item => item.archive);
+  assert.ok(shoes.length === 6 && shoes.every(item => item.slot === 'shoes'));
+  assert.deepEqual(fittingStock('clothes').filter(item => item.archive), []);
   assert.equal(archiveStock({ kind: 'pizza', name: 'PRADA PIZZA' }), null);
   const saks = fittingStock({ kind: 'department', name: 'SAKS FIFTH AVENUE' });
   assert.ok(saks.some(item => item.sku === 'tee-chalk') && saks.some(item => item.archive));
@@ -94,4 +102,23 @@ test('buying a piece puts it on, a suit puts on both halves, and what is bought 
   assert.equal(purchaseStock(sim, shop, jacket).paid, 0);
   assert.equal(purchaseStock({ ...sim, cash: 10, purchases: {} }, shop, boots), null);
   for (const piece of ARCHIVE_PIECES) assert.equal(archiveItem(piece).price, piece.price);
+});
+
+test('the adults without a preset walk the street in archive looks, each piece with its street pictures', () => {
+  const worn = new Map();
+  for (let id = 0; id < OFFICERS[0]; id++) {
+    const look = archiveForMember(id), info = memberInfo(id);
+    if (!look) continue;
+    assert.ok(!info.child && !fashionForMember(id) && info.outfit === look.occasion, 'member ' + id);
+    assert.ok(look.woman === null || look.woman === info.woman); assert.ok(!(look.young && info.old));
+    assert.ok(!worn.has(look), look.name + ' is worn twice'); worn.set(look, id);
+    const design = designOf(id, { dials: [] });
+    for (const slot of ['top', 'bottom', 'shoes']) if (look.clothes[slot]) assert.equal(design[slot], look.clothes[slot]);
+  }
+  assert.ok(worn.size >= 20 && ARCHIVE_LOOKS.slice(0, 12).every(look => worn.has(look)));
+  for (const look of ARCHIVE_LOOKS) for (const slot of ['top', 'bottom', 'shoes']) {
+    const id = look.clothes[slot], part = manifest.parts.find(part => part.id === id && part.slot === slot);
+    assert.ok(part, look.name + ' ' + slot);
+    if (part.ownColour) for (const map of [part.map, part.normal]) assert.ok(existsSync(new URL('tex/' + map.replace('archive/', 'archive/street/'), assets)), map);
+  }
 });

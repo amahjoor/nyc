@@ -4,7 +4,7 @@ import { readFileSync, readdirSync, writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { join } from 'node:path';
 import { createTailor, cutOf } from './garment-shells.mjs';
-import { paintGarment } from './garment-paint.mjs';
+import { paintGarment, streetPictures } from './garment-paint.mjs';
 
 // The collection is kept a chapter to a file under data/archive-collection/, in the order of the list it follows.
 const FOLDER = new URL('../data/archive-collection/', import.meta.url);
@@ -102,3 +102,9 @@ export function writeCatalog(file = fileURLToPath(new URL('../dist/archive-colle
   return rows.length;
 }
 if (process.argv[1] === fileURLToPath(import.meta.url) && process.argv[2] === 'catalog') console.log(writeCatalog() + ' pieces in the catalog');
+// `street`: make the street copies of the pictures already painted, without painting them again.
+if (process.argv[1] === fileURLToPath(import.meta.url) && process.argv[2] === 'street') {
+  const folder = fileURLToPath(new URL('../dist/human/tex/archive/', import.meta.url)), colours = readdirSync(folder).filter(name => name.endsWith('.webp') && !name.endsWith('-n.webp'));
+  for (const name of colours) streetPictures(join(folder, name), join(folder, name.replace('.webp', '-n.webp')));
+  console.log(colours.length + ' pieces have street pictures');
+}

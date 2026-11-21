@@ -10,6 +10,7 @@
 import { somebody, mulberry } from './human-looks.js';
 import { UNIT, UNIFORMS, unitHash } from './police-units.js';
 import { FASHION_LOOKS } from './fashion.js';
+import { ARCHIVE_LOOKS } from './archive-looks.js';
 
 export const GROUPS = ['white', 'black', 'asian', 'hispanic', 'other'];
 export const KINDS = 10;
@@ -79,6 +80,31 @@ for(const occasion of ['casual','business','athletic']){
 }
 export const fashionForMember=id=>streetLooks.get(id);
 
+// The adults the presets passed over wear the archive collection: each a look
+// of their own (archive-looks.js), the most wanted looks first, and nobody a
+// look cut for somebody else. Runners run in what they had.
+const archiveLooks=new Map();
+{
+  const wearers=Array.from({length:OFFICERS[0]},(_,id)=>id).filter(id=>{
+    const info=memberInfo(id);
+    return !info.child && info.outfit!=='athletic' && !streetLooks.has(id);
+  });
+  const dealt=mulberry(0x41c7e3a9);
+  for(let i=wearers.length-1;i>0;i--){
+    const j=Math.floor(dealt()*(i+1));
+    [wearers[i],wearers[j]]=[wearers[j],wearers[i]];
+  }
+  for(const look of ARCHIVE_LOOKS){
+    const at=wearers.findIndex(id=>{
+      const info=memberInfo(id);
+      return info.outfit===look.occasion && (look.woman===null || look.woman===info.woman) && !(look.young && info.old);
+    });
+    if(at>=0)archiveLooks.set(wearers.splice(at,1)[0],look);
+  }
+}
+/** The archive look a member of the cast wears on the street, if they wear one. */
+export const archiveForMember=id=>archiveLooks.get(id);
+
 /** The design a number stands for. */
 export function designOf(id, human) {
   const info = memberInfo(id), face=info.officer ? OFFICERS[info.slot] : id;
@@ -93,7 +119,7 @@ export function designOf(id, human) {
   const shares = GROUPS.map(group => group === info.group ? 1 : 0);
   const age = info.kind === CHILD ? 10 + Math.floor(random() * 7) : info.kind === OLD ? 68 + Math.floor(random() * 18) : info.kind === OLDER ? 52 + Math.floor(random() * 14) : info.kind === RUNNER ? 19 + Math.floor(random() * 22) : 18 + Math.floor(random() * 32);
   return {...somebody(random, human, { shares, sex: info.woman ? 1 : 0, age, kind: info.line || (info.group === 'white' ? 'european' : null), outfit: info.outfit }),
-    ...fashionForMember(id)?.clothes,walkStyle:castWalkStyle(id)};
+    ...(fashionForMember(id) || archiveForMember(id))?.clothes,walkStyle:castWalkStyle(id)};
 }
 
 /**
