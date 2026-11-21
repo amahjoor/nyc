@@ -57,7 +57,7 @@ const footprints = { interior:[7,10], narrow:[4.4,6], wide:[9,13], street:[7,10]
 const roomVariants = [{id:'interior',label:'Interior'},{id:'street',label:'Storefront'},{id:'narrow',label:'Narrow floor plan'},{id:'wide',label:'Wide floor plan'}];
 const release = new WeakMap();
 function owned(object,dispose){ release.set(object,dispose); return object; }
-function dispose(object){ release.get(object)?.(); release.delete(object); }
+export function dispose(object){ release.get(object)?.(); release.delete(object); }
 function makePlan(place,variant='interior'){
   const [width,depth]=footprints[variant]||footprints.interior;
   return planRoom({place,x:0,z:0,tx:1,tz:0,nx:0,nz:1,width},(_x,z)=>z>=-depth);
@@ -112,7 +112,7 @@ function avatarStudio(){
     .then(([meta,bytes])=>{const moves=writeMovements(createMotion(meta,new Int16Array(bytes)));return {moves,grow:createHumanShop(meta,{worker:false,moves})};})
     .catch(error=>{humanStudio=null;throw error;});
 }
-async function avatar(designFor,clip='idle',item=null,isolated=false,actor=null){
+export async function avatar(designFor,clip='idle',item=null,isolated=false,actor=null){
   const {moves,grow}=await avatarStudio();
   const design=await designFor(grow),built=await grow(design,'close'),body=createHumanMesh(built,built.look);
   const object=body.mesh;

@@ -16,7 +16,7 @@ function notify(message){clearTimeout(noticeTimer);$('notice').hidden=false;$('n
 let entries=[],results=[],collection='All assets',selected=null,variant='',page=0,serial=0,viewer,wire=false,grid=true;
 let comparing=false,otherId='',secondary,otherSerial=0;
 const thumbs=thumbnails();
-const categories=['Prepared food','Drinks','Groceries','Merchandise','Interiors','Fixtures','Service scenes','People','Vehicles','Transport','Street furniture','Landmarks'];
+const categories=['Prepared food','Drinks','Groceries','Merchandise','Archive fashion','Interiors','Fixtures','Service scenes','People','Vehicles','Transport','Street furniture','Landmarks'];
 const featured=['Spring rolls','Ramen','Iced coffee','Acoustic guitar · Honey','Ridgeline spring water','Gold solitaire','Bagel with lox','Handset · Slate','Cheeseburger','Skateboard','Lamb gyro','Strip steak'];
 function priority(name){const i=featured.indexOf(name);return i<0?featured.length:i;}
 const query=()=>new URLSearchParams(location.hash.slice(1));
@@ -73,7 +73,7 @@ function cards(){
   for(const e of visible){
     const button=el('button','card');button.setAttribute('aria-pressed',e===selected);button.dataset.asset=e.id;
     const thumb=el('span','thumb');thumb.innerHTML=icon(collectionIcon(e.collection));button.append(thumb);
-    const info=el('span','card-info');info.append(el('span','card-title',e.name),el('span','card-cat',e.collection));button.append(info);
+    const info=el('span','card-info');info.append(el('span','card-title',e.name),el('span','card-cat',e.caption||e.collection));button.append(info);
     if(e===selected){const check=el('span','selected-mark');check.innerHTML=icon('check');button.append(check);}
     if(hasFlag(e.id)){const flag=el('span','flag-mark');flag.innerHTML=icon('flag');button.append(flag);}
     button.addEventListener('click',()=>{select(e,e===selected?variant:undefined);if(matchMedia('(max-width:810px)').matches)$('inspection').scrollIntoView({block:'start'});});
@@ -94,7 +94,7 @@ function flagUI(){
   $('note-label').hidden=!yes;$('note').value=yes?flags[selected.id]:'';
 }
 function variantUI(e){
-  const host=$('variants');host.replaceChildren();$('variant-title').textContent=e.collection==='Prepared food'||e.collection==='Drinks'?'Serving state':e.collection==='Interiors'?'Footprint / view':'Model variant';
+  const host=$('variants');host.replaceChildren();$('variant-title').textContent=e.collection==='Prepared food'||e.collection==='Drinks'?'Serving state':e.collection==='Interiors'?'Footprint / view':e.collection==='Archive fashion'?'Shown':'Model variant';
   if(e.variants.length>6){
     const selectBox=el('select');selectBox.setAttribute('aria-label','Model variant');
     for(const v of e.variants){const opt=el('option','',v.label);opt.value=v.id;selectBox.append(opt);}
@@ -199,8 +199,8 @@ window.addEventListener('keydown',e=>{
 window.addEventListener('storage',e=>{if(e.key===reviewKey){try{flags=JSON.parse(e.newValue)||{};sections();refresh();}catch{}}});
 
 try{viewer=studio($('viewport'));viewer.onChange(p=>{if(comparing)secondary?.match(p);});$('engine').textContent='WebGL 2';$('engine').classList.add('ready');}catch{$('engine').textContent='WebGL unavailable';}
-const modules=await Promise.allSettled([Promise.resolve().then(foodEntries),import('./business.js').then(m=>m.businessEntries()),import('./city.js').then(m=>m.cityEntries())]);
+const modules=await Promise.allSettled([Promise.resolve().then(foodEntries),import('./business.js').then(m=>m.businessEntries()),import('./city.js').then(m=>m.cityEntries()),import('./fashion.js').then(m=>m.fashionEntries())]);
 for(const result of modules){if(result.status==='fulfilled')entries.push(...result.value);else{notify('One collection could not load. Refresh to retry.');console.error(result.reason);}}
-for(const e of entries)e.search=compact([e.name,e.id,e.collection,e.group,e.detail,e.source,...(e.tags||[]),...(e.places||[]),...e.variants.map(v=>v.label)].join(' '));
-entries.sort((a,b)=>priority(a.name)-priority(b.name)||categories.indexOf(a.collection)-categories.indexOf(b.collection)||a.name.localeCompare(b.name));
+for(const e of entries)e.search=compact([e.name,e.caption,e.id,e.collection,e.group,e.detail,e.source,...(e.tags||[]),...(e.places||[]),...e.variants.map(v=>v.label)].join(' '));
+entries.sort((a,b)=>priority(a.name)-priority(b.name)||categories.indexOf(a.collection)-categories.indexOf(b.collection)||(a.order||0)-(b.order||0)||a.name.localeCompare(b.name));
 applyLocation();

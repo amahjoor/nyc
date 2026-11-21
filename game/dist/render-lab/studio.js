@@ -124,7 +124,8 @@ export function studio(canvas,{thumbnail=false}={}){
   }
   return {set,remove,reset,zoom,render,pose,match,onChange(fn){onChange=fn;},wire(value){wire=value;applyWire();},
     grid(value){showGrid=value;grid.visible=value&&object&&item.view!=='room';draw();},
-    image(){render();return canvas.toDataURL('image/webp',.86);}};
+    // Wait for the frame to be drawn: a snapshot taken sooner sometimes has the figure missing from it.
+    image(){render();renderer.getContext().finish();return canvas.toDataURL('image/webp',.86);}};
 }
 
 export function thumbnails(){

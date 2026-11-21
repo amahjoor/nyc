@@ -24,7 +24,8 @@ const paths={
  link:'<path d="m9 15 6-6 M14 7l1.8-1.8a3.6 3.6 0 1 1 5 5L18 13 M10 17l-1.8 1.8a3.6 3.6 0 1 1-5-5L6 11"/>',
  close:'<path d="m6 6 12 12 M18 6 6 18"/>',check:'<path d="m4 12 5 5L20 6"/>',
  list:'<path d="M8 6h13 M8 12h13 M8 18h13 M3 6h.5 M3 12h.5 M3 18h.5"/>',
+ hanger:'<path d="M12 9V7.6a2.3 2.3 0 1 0-2.3-2.3 M12 9 3.2 15.6a1.3 1.3 0 0 0 .8 2.4h16a1.3 1.3 0 0 0 .8-2.4z"/>',
  panel:'<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M9 4v16"/>'
 };
 export function icon(name){return '<svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.65" stroke-linecap="round" stroke-linejoin="round">'+(paths[name]||paths.layers)+'</svg>';}
-export const collectionIcon=name=>({'Prepared food':'food',Drinks:'drinks',Groceries:'groceries',Interiors:'interiors',Merchandise:'merchandise',Fixtures:'fixtures','Service scenes':'scene',People:'people',Vehicles:'vehicles',Transport:'vehicles','Street furniture':'street','Street objects':'street'})[name]||'layers';
+export const collectionIcon=name=>({'Prepared food':'food',Drinks:'drinks',Groceries:'groceries',Interiors:'interiors',Merchandise:'merchandise','Archive fashion':'hanger',Fixtures:'fixtures','Service scenes':'scene',People:'people',Vehicles:'vehicles',Transport:'vehicles','Street furniture':'street','Street objects':'street'})[name]||'layers';
