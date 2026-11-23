@@ -70,7 +70,7 @@ export class StreetObjects {
     return nearest;
   }
 
-  contact(x, z, radius, y, actor, time) {
+  contact(x, z, radius, y, actor, time, height = 1.6) {
     let best = null;
     for (let i = Math.floor((x - radius) / CELL); i <= Math.floor((x + radius) / CELL); i++) {
       for (let j = Math.floor((z - radius) / CELL); j <= Math.floor((z + radius) / CELL); j++) {
@@ -85,7 +85,7 @@ export class StreetObjects {
           const base = body.y + (pose?.lift || 0);
           const low = Number.isFinite(y) ? y : body.y;
           const top = base + body.height * cos + body.radius;
-          if (low > top || low + 1.6 < base - body.radius) continue;
+          if (low > top || low + height < base - body.radius) continue;
           if (body.kind==='rail' && !pose && actor?.mode==='skate' && low>=base+body.height-.015) continue;
           if (body.kind === 'rail' && pose && top < body.y + .12) continue; // Step or drive over a flattened panel.
 
@@ -142,7 +142,9 @@ export class StreetObjects {
     this.damage.set(body.id, pose);
     this.moving.set(body.id, body);
     body.draw?.(pose);
-    return bag ? .995 : loose ? .94 : body.kind === 'lamp' ? .61 : .78;
+    const retained = bag ? .995 : loose ? .94 : body.kind === 'lamp' ? .61 : body.kind === 'rail' ? .78 : .84;
+    const kg = vehicle && actor.identity?.performance?.kg;
+    return kg > 0 ? kg / (kg + 1650*(1/retained-1)) : retained;
   }
 
   step(dt, blocked, heightAt) {

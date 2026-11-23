@@ -218,3 +218,18 @@ test('a head-on sprint into a fixed post recoils, while walking into it just sto
     if(run)assert.ok(p.reaction.vz<0);
   }
 });
+
+test('at the same approach speed, a bag, a breakaway lamp and a fixed trunk transmit different loads to the bumper', () => {
+  function strike(kind) {
+    const {sim,car}=driving(22);
+    const body={id:kind,x:0,z:4,y:0,radius:.27,height:kind==='bag'?.5:4,nx:1,nz:0};
+    sim.streetObjects.replace(kind,[body]);
+    for(let i=0;i<60 && !body.pose && !car.struckAt;i++) step(sim,1);
+    return {car,body};
+  }
+  const bag=strike('bag'), lamp=strike('lamp'), tree=strike('tree');
+  assert.ok(bag.body.pose?.torn && !bag.car.damage);
+  assert.ok(lamp.body.pose && lamp.car.damage>0);
+  assert.ok(!tree.body.pose && tree.car.damage>lamp.car.damage);
+  assert.ok(bag.car.speed>lamp.car.speed && lamp.car.speed>tree.car.speed);
+});

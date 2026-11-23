@@ -6,6 +6,8 @@ import { SHIFTS } from './shift-catalog.js';
 import { formatMoney } from './money.js';
 import { placeName } from './places.js';
 import { driverOffer, driverEligible, startDriverOffer, tripInstruction } from './driver-work.js';
+import { clothesFor } from './human-cast.js';
+import { archivePiece } from './archive-stock.js';
 
 // Clock-in locations and pay are shared by the board, directions and payroll.
 export const EMPLOYERS = {
@@ -17,6 +19,25 @@ const BLOCKS = ['9 AM', '11 AM', '1 PM', '3 PM'];
 const distance = (a, b) => Math.hypot(a.x - b.x, a.z - b.z);
 const option = (name, note, choose) => ({ name, note, choose });
 const count = (value, max) => Number.isInteger(value) && value >= 0 && value <= max ? value : 0;
+const completedStreetAction = {
+  ask: 'You already asked them for spare change.',
+  sell: 'You already served this customer.',
+  steal: 'You already took their wallet.',
+};
+
+function walletCash(person, random) {
+  const look=person.look;
+  const clothes=Number.isInteger(look?.member)?clothesFor(look.member,look.variant):null;
+  const archiveValue=Math.max(0,...[clothes?.top,clothes?.bottom,clothes?.shoes].map(id=>archivePiece(id)?.price||0));
+  const archive=archiveValue?Math.min(1,.45+Math.log1p(archiveValue/350)*.22):0;
+  const formal=look?.outfit==='suit'?.9:look?.outfit==='office'?.35:0;
+  const dress=Math.max(archive,formal), roll=random();
+  // Clothes shift the odds. Every outfit can have an empty wallet or a lot of cash.
+  if(roll<.18-.06*dress)return 0;
+  if(roll<.57-.23*dress)return 1+Math.floor(random()*10);
+  if(roll<.94-.12*dress)return 10+Math.floor(random()*(25+30*dress));
+  return 40+Math.floor(random()*(100+60*dress));
+}
 
 function ledger(shift) {
   // The same open ticket survives closing the phone and loading a save.
@@ -31,10 +52,10 @@ function ledger(shift) {
 }
 
 export class Work {
-  constructor({ sim, phone, meet, fronts, hours, guide, pedestrian, counter, save, passengerTrip = () => null, random = Math.random, now = Date.now }) {
-    Object.assign(this, { sim, phone, meet, fronts, hours, guide, pedestrian, counter, save, passengerTrip, random, now });
+  constructor({ sim, phone, meet, fronts, hours, guide, pedestrian, counter, save, speak = () => {}, passengerTrip = () => null, random = Math.random, now = Date.now }) {
+    Object.assign(this, { sim, phone, meet, fronts, hours, guide, pedestrian, counter, save, speak, passengerTrip, random, now });
     this.offerSerial=Math.floor(random()*900);this.offers={};
-    this.met = new WeakSet();
+    this.streetActions = { ask: new WeakSet(), sell: new WeakSet(), steal: new WeakSet() };
     this.restore();
   }
 
@@ -324,22 +345,29 @@ export class Work {
       rows.push(option('Say hello', '', () => {
         if(this.pedestrian()!==person)return this.sim._say('They have moved on.');
         const replies=['I slept outside last night. It’s good to talk to someone.', 'Morning’s my favorite time on this block.', 'I’m looking for somewhere to stay tonight. How’s your day going?', 'Hey. Good to see a friendly face.'];
-        this.street(person.resident ? replies[person.resident.id%replies.length] : 'Hey, how’s it going?');
+        const line=person.resident ? replies[person.resident.id%replies.length] : 'Hey, how’s it going?';
+        this.speak(person,line);
+        this.street(line);
       }));
-      rows.push(option('Ask for spare change', 'They can say no.', () => this.trade(person, 'ask')));
-      if (this.record.cart) rows.push(option('Sell a coffee', `$5 · ${this.record.cups} cups left`, () => this.pourCoffee(person)));
-      rows.push(option('Steal wallet', 'Reported crime · one wanted star', () => this.trade(person, 'steal')));
+      const action = (kind, name, note, choose) => {
+        const disabled = this.streetActions[kind].has(person);
+        return { ...option(name, disabled ? completedStreetAction[kind] : note, choose), disabled };
+      };
+      rows.push(action('ask', 'Ask for spare change', 'They can say no.', () => this.trade(person, 'ask')));
+      if (this.record.cart) rows.push(action('sell', 'Sell a coffee', `$5 · ${this.record.cups} cups left`, () => this.pourCoffee(person)));
+      rows.push(action('steal', 'Steal wallet', 'A witness may report it.', () => this.trade(person, 'steal')));
     }
     if (!rows.length) return this.board('Walk up to a pedestrian and press G.');
     this.meet('Passerby', message, rows, () => this.pedestrian() === person);
   }
 
   pourCoffee(person){
-    if(this.met.has(person))return this.sim._say('You already served this customer.');
+    if(this.streetActions.sell.has(person))return this.sim._say(completedStreetAction.sell);
     if(!this.record.cups)return this.sim._say('Restock your coffee cart first.');
-    const available=()=>this.pedestrian()===person && !this.met.has(person) && this.record.cups>0;
+    const available=()=>this.pedestrian()===person && !this.streetActions.sell.has(person) && this.record.cups>0;
     const milk=(person.resident?.id || 0)%2===0;
     const order=milk?'A coffee with milk, please.':'Black coffee, please.';
+    this.speak(person,order);
     const serve=()=>this.meet('Coffee cart','One cup ready.',[
       option('Lid and hand over coffee','$5',()=>this.trade(person,'sell'))
     ],available);
@@ -351,20 +379,25 @@ export class Work {
 
   trade(person, action) {
     if (!person || this.pedestrian() !== person) return this.sim._say('They have moved on.');
-    if (this.met.has(person)) return this.sim._say('You already spoke to this person.');
+    const completed = this.streetActions[action];
+    if (completed.has(person)) return this.sim._say(completedStreetAction[action]);
     if (action === 'sell' && (!this.record.cart || this.record.cups < 1)) return this.sim._say('Restock your coffee cart first.');
-    this.met.add(person);
-    let amount;
+    completed.add(person);
+    let amount, report;
     if (action === 'sell') { this.record.cups--; person.carry = 'cup'; amount = 5; }
     else if (action === 'ask') amount = this.random() < .55 ? 0 : 1 + Math.floor(this.random() * 4);
     else {
-      amount = 6 + Math.floor(this.random() * 20);
+      amount = walletCash(person,this.random);
       person.state = 'flee'; person.mad = 5;
-      // Whoever it was taken from tells the police themselves.
-      this.sim.offence('theft', { seen: true, message: 'Wallet theft reported.' });
+      report=this.sim.offence('pickpocket',{x:person.x,y:person.y,z:person.z,victim:person,message:'Wallet theft reported.'});
     }
+    const reply = action === 'steal' ? "Hey! That's my wallet!" : action === 'sell' ? 'Thanks for the coffee.' : amount ? 'Yeah, here you go.' : "Sorry, I don't have any change.";
+    this.speak(person, reply);
+    if (action === 'ask' && amount) this.sim.moveEvents?.push({kind:'spareChange', x:person.x, y:person.y, z:person.z});
     this.sim.cash += amount; this.save(action==='sell'?'Coffee sale':undefined);
-    this.sim._say(action === 'steal' ? `Wallet +$${amount}. Theft reported.` : action === 'sell' ? 'Coffee sold. +$5.' : amount ? `They gave you $${amount}.` : 'They shake their head and keep walking.');
+    const theftNotice=report==='called'?' A witness is calling police.':report==='seen'?' Police saw the theft.':'';
+    const theft=amount?`Wallet +${formatMoney(amount)}.`:'The wallet had no cash.';
+    this.sim._say(action === 'steal' ? theft+theftNotice : action === 'sell' ? 'Coffee sold. +$5.' : amount ? `They gave you $${amount}.` : 'They shake their head and keep walking.');
   }
 
   advanceShopClock(weekday,hours) {
@@ -408,7 +441,7 @@ export class Work {
 
   alarm(view,message) {
     if (view && this.sim.elapsed < view.alarmUntil) { this.sim._say(message); return; }
-    this.sim.offence('robbery',{seen:true,message});
+    this.sim.offence('robbery',{seen:true,localResponse:true,identified:false,message});
     if (view) view.alarmUntil=this.sim.elapsed+12;
   }
 
@@ -423,8 +456,7 @@ export class Work {
     this.sim.cash += amount;
     const view=this.sim.doorway;
     const message='Till +'+formatMoney(amount)+'. Shop closed after the robbery.';
-    if (view?.handoff) this.sim._say(message);
-    else this.alarm(view,message);
+    this.alarm(view,message);
     if (view) {
       view.handoff={phase:'alarmed',age:0,safeTime:0};
     }

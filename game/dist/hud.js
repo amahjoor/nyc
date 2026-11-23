@@ -1,27 +1,20 @@
-import { tripInstruction, tripAction } from './driver-work.js';
-import {TRICKS} from './skate-tricks.js';
+import { tripInstruction } from './driver-work.js';
 import { GUN } from './player-moves.js';
-import {carCondition} from './vehicle-damage.js';
 import { formatMoney } from './money.js';
 import { title } from './local-search.js';
-import { vehicleName } from './fleet.js';
 import { isAircraft } from './transport-catalog.js';
 
 const $ = id => document.getElementById(id);
-const metersToMiles = .000621371;
-function transportExitLabel(ride, dockDistance) {
-  if (ride.line) return ride.grounded ? 'GET OFF AT STATION' : 'EXIT AT NEXT STATION';
-  if (!ride.grounded) return 'LAND TO GET OUT';
-  if (dockDistance >= 29) return 'DOCK TO GET OUT';
-  if (Math.abs(ride.speed) > 1.2) return 'SLOW DOWN TO GET OUT';
-  return 'GET OUT';
-}
 
 export class HUD {
   constructor(city) {
     this.city = city;
+    this.mapPanel = $('map-panel');
     this.map = $('minimap'); this.ctx = this.map.getContext('2d');
     this.expanded = false;
+    this.radarExpanded = false;
+    this.lastHealth = null;
+    this.gainAt = -Infinity;
     this.previous = {};
   }
   text(id, text) { if(this.previous[id] !== text) { $(id).textContent = text; this.previous[id] = text; } }
@@ -29,29 +22,79 @@ export class HUD {
   toggleMap() {
     if (this.gameMap) { this.gameMap.toggle();this.expanded = this.gameMap.open;return; }
     this.expanded = !this.expanded;
-    $('map-panel').classList.toggle('expanded', this.expanded);
+    this.mapPanel.classList.toggle('expanded', this.expanded);
     $('map-button').setAttribute('aria-label', this.expanded ? 'Close expanded map' : 'Expand map');
     this.map.width = this.map.height = this.expanded ? 1000 : 440;
   }
-  showCash(balance) {
-    const display = $('cash-display');
-    this.text('cash', formatMoney(balance));
-    display.hidden = false;
+  revealCash() {
+    const cashDisplay = $('cash-display');
+    cashDisplay.hidden = false;
     clearTimeout(this.cashTimer);
-    this.cashTimer = setTimeout(() => { display.hidden = true; }, 4000);
+    this.cashTimer = setTimeout(() => { cashDisplay.hidden = true; }, 4000);
   }
-  update(sim, canSit = false, register = null, aiming = false, cityRides = null) {
+  showStatus(balance, health = null) {
+    this.text('cash', formatMoney(balance));
+    this.cashRoll = null;
+    this.revealCash();
+    if (health !== null) this.showHealth(health);
+    this.setRadarExpanded(health !== null);
+    clearTimeout(this.statusTimer);
+    this.statusTimer = setTimeout(() => this.setRadarExpanded(false), 4000);
+  }
+  showCashGain(cents, balance) {
+    const now = performance.now(), to = Math.round(balance * 100);
+    const from = this.cashRoll?.to === to - cents ? this.displayedCents : to - cents;
+    this.cashRoll = globalThis.matchMedia?.('(prefers-reduced-motion: reduce)').matches ? null : { from, to, start: now };
+    this.gainCents = now - this.gainAt < 750 ? this.gainCents + cents : cents;
+    this.gainAt = now;
+    this.revealCash();
+    const gain = $('cash-gain');
+    this.text('cash-gain', '+' + formatMoney(this.gainCents / 100));
+    gain.hidden = false;
+    gain.classList.remove('fading');
+    this.updateCash(balance, now);
+  }
+  updateCash(balance, now = performance.now()) {
+    const gain = $('cash-gain');
+    if (!gain.hidden) {
+      const age = now - this.gainAt;
+      gain.classList.toggle('fading', age >= 2600);
+      gain.hidden = age >= 3000;
+    }
+    if ($('cash-display').hidden) return;
+    let cents = Math.round(balance * 100);
+    const roll = this.cashRoll;
+    if (roll && roll.to === cents && now - roll.start < 500) {
+      const remaining = (1 - (now - roll.start) / 500) ** 3;
+      const step = (roll.to - roll.from) % 100 === 0 ? 100 : 1;
+      cents -= step * Math.round((roll.to - roll.from) * remaining / step);
+    } else this.cashRoll = null;
+    this.displayedCents = cents;
+    this.text('cash', formatMoney(cents / 100));
+  }
+  setRadarExpanded(expanded) {
+    this.radarExpanded = expanded;
+    this.mapPanel.classList.toggle('radar-expanded', expanded);
+  }
+  showHealth(health) {
+    const display = $('health-display');
+    const value = Math.round(health);
+    this.lastHealth = health;
+    $('health-bar').value = value;
+    this.text('health-number', value+'%');
+    display.hidden = false;
+    clearTimeout(this.healthTimer);
+    this.healthTimer = setTimeout(() => { display.hidden = true; }, 4000);
+  }
+  update(sim, aiming = false, cityRides = null) {
     const p=sim.player, driving=p.mode==='drive', passenger=p.mode==='passenger', mission=sim.mission;
-    const ride=sim.transport?.active, boarding=sim.transport?.nearby(), flying=isAircraft(ride?.spec);
-    const knots=flying||ride?.spec.kind==='boat';
-    this.text('speed', String(Math.round(Math.abs(p.speed)*(knots?1.94384:2.23694))).padStart(2,'0'));
+    const ride=sim.transport?.active, flying=isAircraft(ride?.spec);
     const cycling=p.mode==='bike', skating=p.mode==='skate';
     $('touch-skate').hidden=Boolean(p.water || sim.subway || sim.room || sim.seat || sim.ending || !skating && p.mode!=='walk');
     $('touch-run').hidden=p.mode!=='walk' || Boolean(sim.seat || p.water);
     this.text('touch-skate',skating?'STEP OFF':'BOARD');
+    $('touch-horn').hidden=!driving || Boolean(sim.ending || sim.vehicle?.destroyed);
     this.text('touch-brake',skating?'POP / FLICK':p.mode==='walk'?'JUMP':'BRAKE');
-    this.text('speed-unit', knots?'KT':ride||driving||passenger||cycling||skating?'MPH':p.water?(p.grounded?'WADING':'SWIMMING'):'ON FOOT');
-    this.text('gear', p.water && p.water.level-p.y>1.7 ? (p.water.level-p.y-1.6).toFixed(1)+' M BELOW SURFACE' : flying ? Math.round(Math.max(0,p.y)*3.28084)+' FT' : ride ? ride.spec.name.toUpperCase() : passenger?'D RIDE PASSENGER':skating?(p.board.grind?'50–50 GRIND':p.board.grab?(p.board.grab<0?'MELON GRAB':'INDY GRAB'):p.board.trick?TRICKS[p.board.trick].label.toUpperCase():p.board.manual?(p.board.manual<0?'NOSE MANUAL':'MANUAL'):p.board.feedback>0?p.board.last.toUpperCase():p.board.switch?'SWITCH':'SKATEBOARD'):cycling?(sim.bike?.personal?'BICYCLE':'CITI BIKE'):driving ? p.speed < -.3 ? 'REVERSE' : Math.abs(p.speed) < .2 ? 'IDLE' : 'DRIVE' : p.armed ? (p.reloading > 0 ? 'RELOADING' : 'PISTOL ' + (p.rounds ?? GUN.rounds)) : 'FREE ROAM');
     $('touch-climb').hidden=$('touch-descend').hidden=!flying&&!p.water;
     this.text('touch-climb',p.water?'SURFACE':'CLIMB');this.text('touch-descend',p.water?'DIVE':'DESCEND');
     $('touch-climb').setAttribute('aria-label',p.water?'Swim to the surface':'Climb');
@@ -59,23 +102,19 @@ export class HUD {
     const equipped=!sim.subway && p.mode==='walk' && p.armed && !sim.seat && !sim.ending;
     $('touch-brake').setAttribute('aria-label',skating?'Hold to load, release to ollie or swipe to flick':p.mode==='walk'?'Jump':'Brake');
     $('touch-brake').hidden=Boolean(flying || p.water || equipped || passenger);
-    $('touch-fire').hidden=$('touch-aim').hidden=!equipped || Boolean(sim.room);
+    $('touch-fire').hidden=$('touch-aim').hidden=!equipped;
     $('touch-aim').setAttribute('aria-pressed',String(aiming));
     $('touch-reload').hidden=!equipped;
     $('touch-reload').disabled=Boolean(p.reloading>0 || !(p.rounds<GUN.rounds));
-    if (!$('cash-display').hidden) this.text('cash', formatMoney(sim.cash));
-    this.text('deliveries', sim.deliveries+' DELIVERIES');
-    this.text('distance', (sim.distanceTravelled*metersToMiles).toFixed(1)+' MI');
-    const condition = driving && sim.vehicle ? carCondition(sim.vehicle) : Math.round(sim.health);
-    this.text('health-label', driving ? 'CAR CONDITION' : 'CONDITION');
-    this.text('health-number', String(condition));
-    $('health-bar').style.width = Math.max(0,condition)+'%';
+    this.updateCash(sim.cash);
+    if (this.lastHealth !== null && sim.health !== this.lastHealth && !sim.ending) this.showHealth(sim.health);
+    this.lastHealth = sim.health;
     const dock=ride?.grounded && (ride.spec.kind==='boat'||ride.spec.floats) ? sim.transport.nearestLanding(p) : null;
     const dockDistance=dock ? Math.hypot(dock.berth.x-p.x,dock.berth.z-p.z) : 0;
     this.text('street-name',dock ? dock.place+' · '+(dockDistance < 29 ? 'DOCK' : Math.round(dockDistance)+' m') : flying ? ride.spec.name : title(sim.getStreet()));
-    const police = sim.police, stars = Math.min(5, Math.ceil(sim.heat - 1e-9)), searching = Boolean(stars && police?.state === 'search');
+    const police = sim.police, stars = police.stars, searching = Boolean(stars && police.state === 'search');
     this.text('wanted-stars', '★'.repeat(stars) + '☆'.repeat(5 - stars));
-    this.text('wanted-label', police?.arrest > .15 ? 'HANDS UP' : searching ? (police.cornered ? 'THEY KNOW WHERE YOU ARE' : 'STAY OUT OF SIGHT') : stars > 1 ? 'LOSE THE COPS' : 'WANTED');
+    this.text('wanted-label', police.arrest > .15 ? 'HANDS UP' : searching ? (police.searchRoom || police.known===null ? 'POLICE INVESTIGATING' : 'STAY OUT OF SIGHT') : stars > 1 ? 'LOSE THE COPS' : 'WANTED');
     // Stars show only while the police care. They are steady while you are seen
     // and flash while the police are searching; the bar is how long until they give up.
     $('wanted').classList?.toggle('calm', !stars);
@@ -83,23 +122,11 @@ export class HUD {
     $('wanted').classList?.toggle('searching', searching);
     const evade = $('wanted-evade');
     if (evade?.style) evade.style.width = searching && police.evadeTotal ? Math.round(100 * (1 - Math.max(0, police.evade) / police.evadeTotal)) + '%' : '0%';
-    const near = sim.getNearbyCar();
-    const bike = sim.getNearbyBike(near);
-    const moving = Math.hypot(p.velocityX || 0, p.velocityZ || 0) > 4;
-    const punching = p.mode==='walk' && !sim.room && !boarding && !bike && !near && (sim.melee || p.armed);
-    const prompt = $('interact-prompt');
     const trip=cityRides?.trip;
     $('ride-speed').hidden=!(passenger && trip?.phase==='traveling' && !trip.stopping && !sim.ending);
     if (!$('ride-speed').hidden) this.text('ride-speed-label',trip.car.rideHurry?'ASK FOR NORMAL SPEED':'ASK DRIVER TO HURRY');
-    const interactLabel = tripAction(sim) || (sim.canDropPaper()?'LEAVE PAPER BUNDLE':p.mode==='passenger' ? 'ASK TO PULL OVER' : cityRides?.canBoard() ? 'BOARD RIDE' : sim.seat ? 'STAND' : register==='collect' ? 'COLLECT CASH' : register==='drawer' ? 'TAKE TILL CASH' : canSit ? 'SIT' : null);
     $('touch-equip').hidden = p.mode!=='walk' || Boolean(sim.seat || sim.subway);
     this.text('touch-equip',p.armed?'HOLSTER':'EQUIP');
-    prompt.hidden = Boolean(sim.subway) || !interactLabel && !ride && !boarding && !driving && !cycling && !skating && !bike && !near && !punching;
-    prompt.querySelector('kbd').textContent = punching && !interactLabel ? 'F' : 'E';
-    const enterLabel = near?.identity ? 'ENTER ' + vehicleName(near.identity).toUpperCase() : 'ENTER VEHICLE';
-    prompt.querySelector('span').textContent = interactLabel || (ride ? transportExitLabel(ride,dockDistance) : skating ? 'STEP OFF BOARD' : boarding ? 'BOARD '+boarding.spec.name.toUpperCase() : cycling ? 'GET OFF BIKE' : bike ? (bike.owner?'TAKE BICYCLE':bike.personal?'RIDE BICYCLE':'RIDE CITI BIKE') : driving ? (moving ? 'BAIL OUT' : 'EXIT VEHICLE') : near ? (near.type === 'taxi' ? 'GET IN THE CAB' : enterLabel) : p.armed ? 'SHOOT' : 'PUNCH');
-    const transitAction=sim.subway && ({board:'BOARD',alight:'GET OFF',gate:'FARE',services:'TRAINS',leave:'EXIT'}[sim.subway.journey.action]);
-    this.text('touch-enter', transitAction || interactLabel || (ride||driving||cycling||skating?'EXIT':boarding?'BOARD':'ENTER'));
     $('toast').textContent = sim.notice || '';
     $('toast').classList.toggle('visible', Boolean(sim.notice && sim.noticeTime>0));
     const active=mission.phase==='active' && mission.target;
@@ -121,9 +148,9 @@ export class HUD {
     this.drawMap(sim);
   }
   drawMap(sim) {
-    if (this.gameMap) { this.gameMap.setCity(this.city);this.gameMap.update(sim);return; }
+    if (this.gameMap) { this.gameMap.setCity(this.city);this.gameMap.update(sim, this.radarExpanded);return; }
     const c=this.ctx, size=this.map.width, {bounds,roads,buildings}=this.city;
-    const span=this.expanded?Math.max(bounds.maxX-bounds.minX,bounds.maxZ-bounds.minZ)*1.1:240;
+    const span=this.expanded?Math.max(bounds.maxX-bounds.minX,bounds.maxZ-bounds.minZ)*1.1:this.radarExpanded?480:240;
     const scale=size/span;
     const center=this.expanded?{x:(bounds.minX+bounds.maxX)/2,z:(bounds.minZ+bounds.maxZ)/2}:sim.player;
     const xy=(x,z)=>[(x-center.x)*scale+size/2,(z-center.z)*scale+size/2];

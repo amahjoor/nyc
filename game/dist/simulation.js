@@ -1,19 +1,20 @@
 import { stepDriverTrip } from './driver-work.js';
-import { meleeMoves, nextStrike, handGroup } from './melee-moves.js';
+import { meleeMoves, nextStrike, handGroup, strikeContact } from './melee-moves.js';
 import { TRICKS, startTrick, animateAir, landTrick } from './skate-tricks.js';
 import { motorist, phoneGlance } from './motorists.js';
 import { Shopping,foodId,pantryItem } from './shopping.js';
-import { GRAVITY, WALK_SPEED, JOG_SPEED, RUN_SPEED, receiveImpulse, stepImpulse } from './character-physics.js';
+import { GRAVITY, WALK_SPEED, JOG_SPEED, RUN_SPEED, stepGroundStride, receiveImpulse, stepImpulse } from './character-physics.js';
 import { carCondition, collisionLoad, impactVehicle, repairVehicle, stepVehicleFire, hasDriver, doorPanel, tearDoor } from './vehicle-damage.js';
-import { resetVehicleDynamics, stepVehicleDynamics, stopVehicleRotation, vehicleTravelSpeed } from './vehicle-dynamics.js';
+import { commitVelocity, resetVehicleDynamics, stepVehicleDynamics, stopVehicleRotation, vehicleTravelSpeed } from './vehicle-dynamics.js';
 import { startKick, tryVault, beginEntry, stepMove, fireGun, reloadGun, toggleGun, carTop, carUnder } from './player-moves.js';
 import { planJunction, junctionArms, vehicleAspect, stopDistance } from './signal-plan.js';
 import { laneLayout } from './lanes.js';
 import { StreetObjects } from './street-objects.js';
 import { steerHiredCab } from './ride-driving.js';
 import { roadLevelAt, trafficAtHeight } from './road-level.js';
-import { drawVehicle, drawPaint, drawTaxi, WHEEL } from './fleet.js';
-import { walkRoom, roomPoint, roomLocal, DOOR } from './room.js';
+import { createFleet, drawVehicle, drawPaint, drawTaxi, WHEEL } from './fleet.js';
+import { walkRoom, roomPoint, roomLocal, roomHasSight, roomOccupants, DOOR } from './room.js';
+import { clipRoomWalk } from './room-walk.js';
 import { seatApproach, seatClip, stepSeating } from './seating.js';
 import { PEP, scratch,menuFor } from './menu.js';
 import { Police, MAX_STARS } from './police.js';
@@ -29,8 +30,7 @@ const CAR_RADIUS = 0.92;
 // On foot: a short hop, then gravity. A curb is a step; anything taller is a fall.
 const JUMP_SPEED = 4.15, STEP_DROP = 0.65, FALL_HURT = 10;
 const CAR_HALF_AXLE = 1.12;
-// What stands at a New York kerb: mostly black, white and shades of grey.
-const KERB_PAINT = ['#15181b', '#15181b', '#2b2f33', '#5b6166', '#8f969b', '#8f969b', '#c9cdd0', '#e8e9e6', '#e8e9e6', '#1f2f45', '#3a5a7a', '#7a1f1f', '#27402f', '#8a7a5c'];
+const starterFleet = createFleet();
 // Yellow cabs, and the apple-green ones that serve everywhere outside the Manhattan core.
 export const YELLOW_CAB = '#f2b91c', GREEN_CAB = '#74b541';
 // A red-light camera's fine. About one signalled junction in twelve has a camera here; the city has far fewer.
@@ -108,7 +108,18 @@ function carContact(car, x, z, radius, height) {
   const along = clamp(dx * sin + dz * cos, -CAR_HALF_AXLE, CAR_HALF_AXLE);
   const ax = dx - along * sin, az = dz - along * cos, gap = Math.hypot(ax, az);
   if (gap >= CAR_RADIUS + radius) return null;
-  return { car, nx: gap > 1e-8 ? ax / gap : cos, nz: gap > 1e-8 ? az / gap : -sin, depth: CAR_RADIUS + radius - gap };
+  const nx = gap > 1e-8 ? ax/gap : cos, nz = gap > 1e-8 ? az/gap : -sin;
+  return { car, nx, nz, x:car.x+along*sin+CAR_RADIUS*nx, z:car.z+along*cos+CAR_RADIUS*nz, depth:CAR_RADIUS+radius-gap };
+}
+
+// Resolve the normal restitution and bounded sliding friction in the contact frame.
+// The other car receives the opposite impulse, scaled by its own mass.
+function collisionImpulse(car, other, hit, closing, tangent, movable = true) {
+  const share = movable ? .54 * collisionLoad(car,other) : 1;
+  const normal = closing * share;
+  const friction = clamp(tangent * share, -normal*.15, normal*.15);
+  const x = hit.nx*normal - hit.nz*friction, z = hit.nz*normal + hit.nx*friction;
+  return {x,z,yaw:((hit.z-car.z)*x - (hit.x-car.x)*z)*.24};
 }
 
 // Sample under the side of the character that touches the vehicle. Its bonnet
@@ -150,9 +161,10 @@ function circlePolygonContact(x, z, radius, polygon, holes = []) {
   if (!nearest) return null;
   const inside = inSolid(x, z);
   if (!inside && minimum >= radius) return null;
+  const flat = Math.min(nearest.t,1-nearest.t)*Math.hypot(nearest.bx-nearest.ax,nearest.bz-nearest.az) > radius*.75;
   if (minimum > 0.000001) {
     const sign = inside ? -1 : 1;
-    return { nx: sign * (x - nearest.x) / minimum, nz: sign * (z - nearest.z) / minimum, depth: inside ? radius + minimum : radius - minimum };
+    return { flat, nx: sign * (x - nearest.x) / minimum, nz: sign * (z - nearest.z) / minimum, depth: inside ? radius + minimum : radius - minimum };
   }
   // A point exactly on an edge has no separation vector. Probe the edge normal
   // to pick its exterior, independent of clockwise/counterclockwise OSM rings.
@@ -160,7 +172,7 @@ function circlePolygonContact(x, z, radius, polygon, holes = []) {
   let nx = (nearest.bz - nearest.az) / length;
   let nz = -(nearest.bx - nearest.ax) / length;
   if (inSolid(x + nx * 0.01, z + nz * 0.01)) { nx = -nx; nz = -nz; }
-  return { nx, nz, depth: radius };
+  return { flat, nx, nz, depth: radius };
 }
 
 function segmentIntersection(a, b) {
@@ -250,8 +262,20 @@ function buildRoadGraph(roads) {
 }
 
 export class Simulation {
-  constructor(city, { onRecovery, onTripPaid } = {}) {
+  get cash() { return this._cash; }
+  set cash(balance) {
+    const previous = this._cash;
+    this._cash = balance;
+    if (this.onCashReceived) {
+      const gain = Math.round(balance * 100) - Math.round(previous * 100);
+      if (gain > 0) this.onCashReceived(gain, balance);
+    }
+  }
+
+  constructor(city, { onRecovery, onTripPaid, onVehicleContact, onPedestrianBump } = {}) {
     this.city = city;
+    this.onVehicleContact = onVehicleContact;
+    this.onPedestrianBump = onPedestrianBump;
     this.onRecovery = onRecovery;
     this.onTripPaid = onTripPaid;
     this.moveEvents=[];
@@ -272,6 +296,7 @@ export class Simulation {
     this.threats = [];
     this.melee = false;
     this.cars = [];
+    this._fleet = starterFleet;
     this.ownedCab = this._makeCar('player-taxi','taxi',city.spawn,city.spawn.angle || 0);
     this.rideHoldCents = 0;
     this.heat = 0;
@@ -418,8 +443,7 @@ export class Simulation {
     junction.arms.forEach((arm, i) => { const d = Math.abs(turnDelta(arm.angle, from)); if (d < best) { best = d; index = i; } });
     if (index < 0 || vehicleAspect(junction.plan, junction.plan.groups[index], this.elapsed).aspect !== 'red') return;
     this.redLights = (this.redLights || 0) + 1;
-    const patrol = this.cars.find(other => other.type === 'police' && distance(other, car) < 85 && this._hasSight(other, this.player));
-    if (patrol) {
+    if (this.police.watching(car)) {
       this.offence('redLight', { seen: true, message: 'A patrol saw you run that red light.' });
     } else if (junction.camera) {
       const fine = Math.min(this.cash, CAMERA_FINE);
@@ -455,17 +479,22 @@ export class Simulation {
     car.rims = undefined; car.plates = (car.plates || 0) + 1;
     car.type = taxi ? 'taxi' : 'sedan';
     // A cab is one of the city's cabs. Any other car is one of those registered round here, or a van or a pickup at work.
-    const fleet = taxi ? null : this._fleetAt(car);
-    const drawn = fleet ? drawVehicle(fleet, this._random(), true) : { shape: undefined, identity: null };
-    car.shape = drawn.shape; car.identity = drawn.identity;
-    car.color = taxi ? (this._trafficMix.green ? GREEN_CAB : YELLOW_CAB) : fleet ? drawPaint(fleet, this._random(), drawn.working) : TRAFFIC_PAINT[Math.floor(this._random() * TRAFFIC_PAINT.length)];
-    if (taxi) this._serviceIdentity(car);
+    if (taxi) {
+      car.shape = undefined;
+      car.color = this._trafficMix.green ? GREEN_CAB : YELLOW_CAB;
+      this._serviceIdentity(car);
+    } else {
+      const mix = this._fleetAt(car), drawn = drawVehicle(mix, this._random(), true);
+      car.shape = drawn.shape; car.identity = drawn.identity;
+      car.color = drawPaint(mix, this._random(), drawn.working);
+    }
   }
 
   /** Which model a cab or a patrol car is. Drawn from its name, so the same car is the same model whenever the fleet arrives. */
   _serviceIdentity(car) {
     if (car.type === 'police') {
-      car.identity = (car.unit==='esu' ? this._fleet?.emergencyService : this._fleet?.patrol) || null;
+      const role = car.unit === 'esu' ? 'emergencyService' : 'patrol';
+      car.identity = this._fleet[role] || starterFleet[role];
       return;
     }
     const paintedCab = car.id === 'player-taxi' && car.resprays > 0;
@@ -473,7 +502,7 @@ export class Simulation {
     let hash = 0;
     for (const character of String(car.id)) hash = (hash * 33 + character.charCodeAt(0)) >>> 0;
     car.identity = drawTaxi(this._fleetAt(car), (Math.imul(hash ^ hash >>> 16, 0x85ebca6b) >>> 0) / 4294967296, car.color === GREEN_CAB && !paintedCab).identity;
-    if (paintedCab) { car.identity = car.identity?.plain || null; car.shape = car.identity?.shape || 'sedan'; }
+    if (paintedCab) { car.identity = car.identity.plain; car.shape = car.identity.shape; }
   }
 
   /**
@@ -505,6 +534,7 @@ export class Simulation {
     at ??= roomLocal(room, this.player.x, this.player.z);
     if (Math.abs(at.a) > DOOR / 2 || Math.abs(at.b) > .8) return false;
     this.room = { ...room, floor: this.doorway?.floor ?? room.floor ?? this.player.y ?? 0, a: at.a, b: at.b };
+    this.police.roomEntered();
     this._say(room.name, 3);
     return true;
   }
@@ -513,6 +543,7 @@ export class Simulation {
     if (!this.room || this.room.b > 0 || Math.abs(this.room.a) > DOOR / 2) return false;
     this.shopping.leave(this.doorway);
     this.room = null;
+    this.police.roomChanged();
     return true;
   }
 
@@ -558,7 +589,7 @@ export class Simulation {
       if (!pay(RESPRAY_PRICE, `Resprayed. $${RESPRAY_PRICE}.`)) return false;
       // A cab out of its livery is a car like any other: the same model without the roof light.
       car.color = choice;
-      if (car.type === 'taxi') { car.type = 'sedan'; car.identity = car.identity?.plain || null; car.shape = car.identity?.shape || 'sedan'; }
+      if (car.type === 'taxi') { car.type = 'sedan'; car.identity = car.identity.plain; car.shape = car.identity.shape; }
       car.resprays = (car.resprays || 0) + 1; return true;
     }
     if (job === 'plates' && offers.respray) {
@@ -582,13 +613,20 @@ export class Simulation {
     this._say('They do not do that here.'); return false;
   }
 
-  /** Call the mechanic out to the car being driven: it is mended where it stands, for the call-out on top. */
-  callMechanic() {
+  mechanicQuote() {
     const cab = this.cars.find(item => item.id === 'player-taxi');
     const car = this.vehicle || (cab?.destroyed && distance(cab,this.player) < 30 ? cab : null);
-    if (!car) { this._say('The mechanic needs a car to come out to. Get in one first.'); return false; }
-    const price = repairCost(carCondition(car)) + CALL_OUT;
-    if (carCondition(car) >= 100) { this._say('Nothing needs mending.'); return false; }
+    if (!car) return null;
+    const condition = carCondition(car);
+    return {car, condition, price:repairCost(condition) + CALL_OUT};
+  }
+
+  /** Call the mechanic out to the car being driven: it is mended where it stands, for the call-out on top. */
+  callMechanic() {
+    const quote = this.mechanicQuote();
+    if (!quote) { this._say('The mechanic needs a car to come out to. Get in one first.'); return false; }
+    const {car, condition, price} = quote;
+    if (condition >= 100) { this._say('Nothing needs mending.'); return false; }
     if (this.cash < price) { this._say(`The call-out and the repair come to $${price}. You have $${Math.floor(this.cash)}.`); return false; }
     this.cash -= price; repairVehicle(car); this._say(`The mechanic came out and mended it. $${price}.`, 6); return true;
   }
@@ -616,11 +654,12 @@ export class Simulation {
   setFleet(source = null) {
     if (this._fleet === source) return;
     const lookup = typeof source?.at === 'function' && !Array.isArray(source);
-    this._fleet = lookup || Array.isArray(source?.bodies) ? source : null;
+    this._fleet = lookup || Array.isArray(source?.bodies) ? source : starterFleet;
+    if (!this.cars.includes(this.ownedCab)) this._serviceIdentity(this.ownedCab);
     // Counts may arrive after the initial cars. Use the same stable draw as
     // a fresh spawn, including for kerb spaces already occupied at load time.
     if (lookup) for (const car of this.cars) {
-      if (car.type === 'sedan' && !car.controlled && (car._kerb || car._edge)) this._registeredAppearance(car, !car._kerb);
+      if (car.type === 'sedan' && !car.controlled && !car._driven && !car.resprays && (car._kerb || car._edge)) this._registeredAppearance(car, !car._kerb);
       else this._serviceIdentity(car);
       if (car.controlled) car.handling = vehicleHandling(car);
     }
@@ -632,7 +671,6 @@ export class Simulation {
     let hash = 0;
     for (const character of String(car.id)) hash = (hash * 33 + character.charCodeAt(0)) >>> 0;
     const mix = this._fleetAt(car);
-    if (!mix) { car.color = KERB_PAINT[hash % KERB_PAINT.length]; return; }
     // Mix adjacent space IDs before sampling a catalog with thousands of rows.
     const shuffled = Math.imul(hash ^ hash >>> 16, 0x85ebca6b) >>> 0;
     const drawn = drawVehicle(mix, shuffled / 4294967296, moving);
@@ -815,7 +853,7 @@ export class Simulation {
     return this._rngState / 4294967296;
   }
 
-  _contact(x, z, radius, ignoreWater = false, baseHeight, actor) {
+  _contact(x, z, radius, ignoreWater = false, baseHeight, actor, height = 1.6, apertureBuildings) {
     let contact = null;
     const keep = hit => { if (hit && (!contact || hit.depth > contact.depth)) contact = hit; };
     const bounds = this.bounds;
@@ -839,7 +877,7 @@ export class Simulation {
       const road = landscape.kind === 'water' ? this._nearestEdge(x, z) : null;
       if (!road || road.distance > Math.max(1, finite(road.edge.road.width, 8) / 2 - radius)) keep(landscape);
     }
-    if (this.streetObjects.grid.size) keep(this.streetObjects.contact(x,z,radius,baseHeight,actor,this.elapsed));
+    if (this.streetObjects.grid.size) keep(this.streetObjects.contact(x,z,radius,baseHeight,actor,this.elapsed,height));
     if (actor===this.player && actor.mode==='walk') {
       const checkBike=bike=>{
         if(Math.abs(x-bike.x)>1.6 || Math.abs(z-bike.z)>1.6 || baseHeight>bike.y+1.15 || baseHeight+1.6<bike.y)return;
@@ -859,10 +897,10 @@ export class Simulation {
         for (const entry of this._buildings.get(`${gx},${gz}`) || []) {
           if(x+radius<entry.minX || x-radius>entry.maxX || z+radius<entry.minZ || z-radius>entry.maxZ)continue;
           const building=entry.building;
-          if (checked.has(building)) continue;
+          if (checked.has(building) || apertureBuildings?.includes(building)) continue;
           checked.add(building);
           if (Number.isFinite(baseHeight) && Number.isFinite(building.height)
-              && baseHeight > this.groundHeight(x,z) + building.height + .6) continue;
+              && baseHeight > this.groundHeight(x,z) + building.height + (height === 0 ? 0 : .6)) continue;
           const wall=circlePolygonContact(x,z,radius,building.polygon,building.holes);
           if(wall)keep({...wall,kind:'building'});
         }
@@ -871,11 +909,23 @@ export class Simulation {
     return contact;
   }
 
+  /** Test a sound path against loaded building footprints at its elevation. */
+  soundInsideBuilding(x, y, z) {
+    const entries = this._buildings.get(`${Math.floor(x / GRID_SIZE)},${Math.floor(z / GRID_SIZE)}`);
+    if (!entries) return false;
+    for (const { building, minX, minZ, maxX, maxZ } of entries) {
+      if (x < minX || x > maxX || z < minZ || z > maxZ || !pointInPolygon(x, z, building.polygon)) continue;
+      if (building.holes?.some(ring => pointInPolygon(x, z, ring))) continue;
+      if (!Number.isFinite(building.height) || y <= this.groundHeight(x, z) + building.height) return true;
+    }
+    return false;
+  }
+
   /** Static map collision query for cameras and pedestrian placement. */
-  isBlocked(x, z, radius = 0.5, { ignoreWater = false, baseHeight } = {}) {
+  isBlocked(x, z, radius = 0.5, { ignoreWater = false, baseHeight, height, apertureBuildings } = {}) {
     // A camera above the surface can look across a pond. Actors still use
     // shoreline collision; water must not become an infinitely tall wall.
-    return Boolean(this._contact(x, z, Math.max(0.01, radius), ignoreWater, baseHeight));
+    return Boolean(this._contact(x, z, Math.max(0.01, radius), ignoreWater, baseHeight, undefined, height, apertureBuildings));
   }
 
   groundHeight(x, z) {
@@ -975,8 +1025,16 @@ export class Simulation {
   _carContact(x, z, angle, actor) {
     let best = null;
     for (const offset of [-CAR_HALF_AXLE, 0, CAR_HALF_AXLE]) {
-      const hit = this._contact(x + Math.sin(angle) * offset, z + Math.cos(angle) * offset, CAR_RADIUS, false, actor?.y, actor);
-      if (hit && (!best || hit.depth > best.depth)) best = hit;
+      const cx=x+Math.sin(angle)*offset, cz=z+Math.cos(angle)*offset;
+      const sample = this._contact(cx,cz,CAR_RADIUS,false,actor?.y,actor);
+      if (!sample) continue;
+      const hit = {...sample,x:cx-CAR_RADIUS*sample.nx,z:cz-CAR_RADIUS*sample.nz};
+      if (best && Math.abs(hit.depth-best.depth)<.002 && hit.nx*best.nx+hit.nz*best.nz>.995 && hit.body===best.body && hit.kind===best.kind) {
+        // A flush side impact spans the capsules in contact with the same surface.
+        const samples=best.samples??1;
+        best.x=(samples*best.x+hit.x)/(samples+1);best.z=(samples*best.z+hit.z)/(samples+1);
+        best.samples=samples+1;best.flat=true;
+      } else if (!best || hit.depth>best.depth) best=hit;
     }
     return best;
   }
@@ -995,14 +1053,22 @@ export class Simulation {
     for (const other of this.cars) {
       const reach = 2 * (CAR_HALF_AXLE + CAR_RADIUS);
       if (other === car || Math.abs(other.x - car.x) > reach || Math.abs(other.z - car.z) > reach) continue;
-      const hit = carContact(other, car.x + dx, car.z + dz, CAR_RADIUS, car.y)
-        || carContact(other, car.x - dx, car.z - dz, CAR_RADIUS, car.y);
-      if (hit) return hit;
-      // At a T-bone the other car's bumper can touch the middle of this car.
       const ox = Math.sin(other.angle) * CAR_HALF_AXLE, oz = Math.cos(other.angle) * CAR_HALF_AXLE;
-      const reverse = carContact(car, other.x + ox, other.z + oz, CAR_RADIUS, other.y)
-        || carContact(car, other.x - ox, other.z - oz, CAR_RADIUS, other.y);
-      if (reverse) return { car: other, depth: reverse.depth, nx: -reverse.nx, nz: -reverse.nz };
+      // Choose the deepest pair. With parallel doors, average the ends of the
+      // contact patch so the first end tested cannot create a spurious spin.
+      const contacts = [];
+      for (const sign of [-1,1]) {
+        const hit = carContact(other, car.x+sign*dx,car.z+sign*dz,CAR_RADIUS,car.y);
+        if (hit) contacts.push(hit);
+        const back = carContact(car, other.x+sign*ox,other.z+sign*oz,CAR_RADIUS,other.y);
+        if (back) contacts.push({...back,car:other,nx:-back.nx,nz:-back.nz});
+      }
+      if (!contacts.length) continue;
+      const best = contacts.reduce((a,b) => a.depth>b.depth ? a : b);
+      const patch = contacts.filter(hit => best.depth-hit.depth<.01 && hit.nx*best.nx+hit.nz*best.nz>.995);
+      const first=patch[0], flat=patch.some(hit=>Math.hypot(hit.x-first.x,hit.z-first.z)>.8);
+      return {...best,flat,x:patch.reduce((sum,hit)=>sum+hit.x,0)/patch.length,
+        z:patch.reduce((sum,hit)=>sum+hit.z,0)/patch.length};
     }
     return null;
   }
@@ -1022,10 +1088,17 @@ export class Simulation {
       if (contact.kind === 'prop' && movementDt) {
         const retained = this.streetObjects.strike(contact, previous, vx, vz, angle !== null, this.elapsed);
         if (retained !== null) {
+          const body = contact.body;
+          this.moveEvents.push({kind:'propImpact', prop:body.kind, x:body.x+(body.pose?.dx||0), z:body.z+(body.pose?.dz||0),
+            y:body.y, speed:Math.max(0, -(vx*contact.nx+vz*contact.nz)), at:this.elapsed});
+          const closing = Math.max(0,-(vx*contact.nx+vz*contact.nz));
+          const force = closing*(1-retained);
+          if (angle !== null) impactVehicle(previous,force,contact.nx,contact.nz,this.elapsed,contact);
           if (previous.controlled || previous._loose > 0) {
-            stopVehicleRotation(previous, previous.velocityX * retained, previous.velocityZ * retained);
-            const force = -(vx * contact.nx + vz * contact.nz) * (1 - retained);
-            impactVehicle(previous, force, contact.nx, contact.nz, this.elapsed);
+            // A breakaway prop takes momentum along the contact normal.
+            previous.velocityX += contact.nx*force;
+            previous.velocityZ += contact.nz*force;
+            commitVelocity(previous);
             if (previous.controlled) this._impact(force, 'prop');
           }
           else {
@@ -1044,6 +1117,13 @@ export class Simulation {
       if (!hit || contact.depth > hit.depth) hit = contact;
       x += contact.nx * (contact.depth + 0.0001);
       z += contact.nz * (contact.depth + 0.0001);
+    }
+    if (hit && movementDt && angle !== null && !['loading','boundary','water','surface'].includes(hit.kind)) {
+      const closing = -(vx*hit.nx + vz*hit.nz);
+      if (closing > .3) {
+        this.onVehicleContact?.('crash',previous,null,closing);
+        impactVehicle(previous,closing,hit.nx,hit.nz,this.elapsed,hit);
+      }
     }
     return { x, z, hit };
   }
@@ -1086,7 +1166,8 @@ export class Simulation {
     car._pace = (car._cruise - 6) / 3;
     if(type==='police')car.unit=['motorway','trunk','expressway'].includes(edge?.road?.kind)?'highway':'patrol';
     resetVehicleDynamics(car);
-    this._serviceIdentity(car);
+    if (type === 'sedan') this._registeredAppearance(car, Boolean(edge));
+    else this._serviceIdentity(car);
     return car;
   }
 
@@ -1131,7 +1212,6 @@ export class Simulation {
         const point = this._lanePoint(edge, 0.15 + this._random() * 0.7);
         if (distance(point, spawn) < (police ? 50 : 16) || this._carContact(point.x, point.z, edge.angle) || this._nearCar(point.x, point.z, 5)) continue;
         const car = this._makeCar(`${police ? 'police' : 'traffic'}-${i}`, police ? 'police' : i % 4 === 0 ? 'taxi' : 'sedan', point, edge.angle, edge);
-        if (car.type === 'sedan' && this._fleet) this._registeredAppearance(car, true);
         resetVehicleDynamics(car, car._cruise * 0.65);
         this.cars.push(car);
         break;
@@ -1188,7 +1268,6 @@ export class Simulation {
       // Bumper to bumper is fine; overlapping is not.
       if (distance(space, this.player) < 7 || this._carContact(space.x, space.z, space.angle) || this._nearCar(space.x, space.z, 3.6)) continue;
       const car = this._makeCar(space.id, 'sedan', space, space.angle);
-      this._registeredAppearance(car);
       car._kerb = true; car._kerbSpace=space; this.cars.push(car); ids.add(space.id); present++; changed = true;
     }
     this._rngState = sequence;
@@ -1241,21 +1320,34 @@ export class Simulation {
 
   _say(message, seconds = 4) { this.notice = message; this.noticeTime = seconds; }
 
+  fire(sight) {
+    if (this.ending || this.doorway?.take || (this.player.swing || 0) > .08) return false;
+    const fired = fireGun(this, sight);
+    if (fired && this.room && this.doorway) this.doorway.gunfireAt = this.elapsed;
+    return fired;
+  }
+
   /** Start the unarmed attack for what is in reach, or fire the equipped weapon. */
-  fight(target = null) {
+  fight(target = null, style = 'alternate') {
     const player = this.player;
-    if (player.mode !== 'walk' || player.reaction || this.room || this.seat || this.ending || player.move || (player.swing || 0) > 0.08) return false;
-    if (player.armed) return fireGun(this);
+    if (player.mode !== 'walk' || player.reaction || this.seat || this.ending || player.move || (player.swing || 0) > 0.08) return false;
+    if (player.armed) return this.fire();
+    if (this.room) return false;
     if (player.standing && player.grounded && this.meleeVehicle({...player,roof:true})) return startKick(this);
-    if (target?.state==='down' || target?.reaction?.fall) return startKick(this,true);
+    if (target?.state==='down' || target?.reaction?.fall) return this.kick(target);
     const car=this.meleeVehicle(player);
     if (car && (!target || distance(player,target)>1.03)) {
       if (!startKick(this)) return false;
       player.move.vehicleId=car.id;
       return true;
     }
-    player.swingClip=nextStrike(player,handGroup(player.speed,target ? distance(player,target) : Infinity));
+    const gap=target ? distance(player,target) : Infinity;
+    const heavy=style==='heavy';
+    if (player.grounded && (heavy && (!target || gap>.92) || style==='alternate' && gap>1.22 && gap<=1.54)) return this.kick(target);
+    player.swingClip=nextStrike(player,heavy?'heavy':handGroup(player.speed,gap));
     player.swing=meleeMoves[player.swingClip].seconds;
+    this._beginStrike(player.swingClip,target);
+    this.meleeAction.heavy=heavy;
     player.guard = 4;
     return true;
   }
@@ -1265,7 +1357,101 @@ export class Simulation {
   reload() { return reloadGun(this); }
 
   /** A kick on foot (player-moves.js): slower than a punch, and it lands harder. */
-  kick(target = null) { return startKick(this,target?.state==='down' || target?.reaction?.fall); }
+  kick(target = null) {
+    if (!startKick(this,target?.state==='down' || target?.reaction?.fall)) return false;
+    if (this.player.move.vehicleId==null) this._beginStrike(this.player.move.clip,target);
+    return true;
+  }
+
+  dodge(strafe=0) {
+    const p=this.player;
+    if (p.mode!=='walk' || !p.grounded || p.armed || p.swing>.08 || p.move || p.reaction || this.ending || this.room || this.seat || p.water) return false;
+    const side=Math.abs(strafe)>.25 ? Math.sign(strafe) : 0;
+    const angle=p.angle+(side ? side*Math.PI/2 : Math.PI);
+    p.move={kind:'dodge',clip:side<0?'dodgeLeft':side>0?'dodgeRight':'dodgeBack',angle,t:0,T:.43};
+    p.velocityX=p.velocityZ=p.speed=0;
+    p.guard=2;
+    return true;
+  }
+
+  toggleCover() {
+    const p=this.player;
+    if (p.cover) {p.cover=null;return true;}
+    if (p.mode!=='walk' || !p.grounded || p.move || p.reaction || this.ending || this.room || this.seat || p.water) return false;
+    for (const offset of [0,-.4,.4,-.85,.85]) {
+      const angle=p.angle+offset,nx=Math.sin(angle),nz=Math.cos(angle);
+      for(const depth of [.5,.8,1.05]){
+        const x=p.x+nx*depth,z=p.z+nz*depth;
+        if (!this.isBlocked(x,z,.12,{ignoreWater:true,baseHeight:p.y+.75,height:0}) && !this._nearCar(x,z,.12,null,p.y))continue;
+        p.cover={nx,nz,depth,x:p.x,z:p.z};p.velocityX=p.velocityZ=p.speed=0;return true;
+      }
+    }
+    return false;
+  }
+
+  _beginStrike(clip,target) {
+    const p=this.player, profile=strikeContact(clip);
+    const dx=target?.x-p.x, dz=target?.z-p.z, gap=Math.hypot(dx,dz);
+    const inReach=gap<=profile.gap+.68 && dx*Math.sin(p.angle)+dz*Math.cos(p.angle)>.25*gap;
+    this.meleeAction={clip,profile,timing:meleeMoves[clip],target:inReach?target:null,started:this.elapsed,
+      momentum:Math.abs(p.speed),stepped:0,point:null,committed:false};
+  }
+
+  // A short planted step belongs to the wind-up. Once the limb extends the
+  // contact marker stays in world space while both actors recover independently.
+  _guideStrike(dt) {
+    const action=this.meleeAction, p=this.player;
+    if (!action) return;
+    const {clip,target,profile}=action;
+    if (p.mode!=='walk' || p.reaction || this.ending || this.seat ||
+        !(p.move?.clip===clip || !p.move && p.swing>0 && p.swingClip===clip)) {
+      this.meleeAction=null;
+      return;
+    }
+    if (action.committed || !target) return;
+    const cx=target.x+(target.shove?.[0]||0), cz=target.z+(target.shove?.[1]||0);
+    const dx=cx-p.x, dz=cz-p.z, gap=Math.hypot(dx,dz);
+    action.point=null;
+    if (!gap || gap>profile.gap+.68 || target.gone || target.dead || target.health<=0 ||
+        Boolean(target.state==='down' || target.reaction?.fall)!==profile.low ||
+        Math.abs((target.y??p.y)-p.y)>.55 || dx*Math.sin(p.angle)+dz*Math.cos(p.angle)<gap*.18) return;
+    const nx=dx/gap,nz=dz/gap, turn=Math.atan2(dx,dz)-p.angle;
+    p.angle+=clamp(Math.atan2(Math.sin(turn),Math.cos(turn)),-dt*8,dt*8);
+    const phase=clamp((this.elapsed-action.started)/action.timing.contact,0,1);
+    const travel=.48*phase*phase*(3-2*phase);
+    const step=Math.min(travel-action.stepped,dt*4.8,Math.max(0,gap-profile.gap));
+    if (step>0 && p.grounded && !p.water && !p.standing) {
+      const x=p.x+nx*step, z=p.z+nz*step;
+      if (!this.isBlocked(x,z,PLAYER_RADIUS,{baseHeight:p.y}) && !this._nearCar(x,z,PLAYER_RADIUS,null,p.y)
+          && !this._unsupportedDeckExit(p,x,z,'walk') && Math.abs(this.groundHeight(x,z)-this.groundHeight(p.x,p.z))<.35) {
+        p.x=x; p.z=z; action.stepped+=step;
+      }
+    }
+    const height=target.look?.height||1.76;
+    const radius=clamp(.19*(target.look?.build||1)*height/1.76,.13,.28);
+    const depth=Math.min(radius,gap*.6);
+    const point={x:cx-nx*depth,z:cz-nz*depth,
+      y:(target.y??p.y)+height*profile.height-(target.sitting && !profile.low ? .38 : 0)};
+    if (Math.hypot(point.x-p.x,point.z-p.z)<=profile.gap+.04 && this.clearStrikePath(profile,point)) action.point=point;
+  }
+
+  clearStrikePath(profile,point) {
+    const p=this.player, startY=p.y+(profile.limb==='foot' ? .65 : 1.32);
+    const samples=Math.max(1,Math.ceil(Math.hypot(point.x-p.x,point.z-p.z)/.14));
+    for (let i=1;i<=samples;i++) {
+      const t=i/samples,x=p.x+(point.x-p.x)*t,z=p.z+(point.z-p.z)*t;
+      if (this.isBlocked(x,z,.045,{ignoreWater:true,baseHeight:startY+(point.y-startY)*t,height:0}) ||
+          this._nearCar(x,z,.045,p.standing?.id,p.y)) return false;
+    }
+    return true;
+  }
+
+  _commitStrike(clip) {
+    const action=this.meleeAction;
+    if (action?.clip!==clip || action.committed) return null;
+    action.committed=true;
+    return action;
+  }
 
   /** Punching someone is a crime. Heat climbs the same way a collision with a patrol does. */
   assault(x, z) {
@@ -1281,15 +1467,32 @@ export class Simulation {
   offence(kind, options) { return this.police.offence(kind, options); }
 
   /** How many people are near enough to a place, and can see it, to tell the police what happened there. */
-  witnesses(x, z, reach, y) {
-    const at = { x, z }; let count = 0;
-    const sees = other => { const d = distance(other, at); return d < reach && (!Number.isFinite(y) || trafficAtHeight(other, y)) && (d < 10 || this._hasSight(other, at)); };
-    for (const person of this._people || []) { if (person.state !== 'down' && !person.dead && sees(person) && ++count >= 6) return count; }
-    for (const person of this.bystanders) { if (!(person.downUntil > this.elapsed || person.absentUntil > this.elapsed) && sees(person) && ++count >= 6) return count; }
-    for (const rider of this.bikeTraffic?.riders || []) { if (!rider.abandoned && !rider.reaction?.fall && sees(rider) && ++count >= 6) return count; }
-    // Somebody at the wheel sees what happens on the street in front of them.
-    for (const car of this.cars) { if (car._edge && !car.parked && !car.controlled && car.type !== 'police' && distance(car, at) < reach * .6 && (!Number.isFinite(y) || trafficAtHeight(car, y)) && ++count >= 6) return count; }
-    return count;
+  witnesses(x, z, reach, y, {exclude, indoors=false, heard=false} = {}) {
+    if(this.subway?.belowStreet)return 0;
+    const room = indoors && this.room?.place?.id === this.doorway?.plan?.place?.id ? this.doorway : null;
+    if(indoors && !room)return 0;
+    const at={x,y,z}, witnesses=new Set();
+    const notice = (actor, driving = false) => {
+      if(actor===exclude || actor.abandoned || actor.gone || actor.dead || actor.reaction?.fall || actor.state==='down' ||
+        actor.downUntil>this.elapsed || actor.absentUntil>this.elapsed || witnesses.has(actor))return;
+      const dx=x-actor.x, dz=z-actor.z, gap=Math.hypot(dx,dz);
+      if(!(gap<reach*(driving?.65:1)) || (Number.isFinite(y)&&!trafficAtHeight(actor,y)))return;
+      if(!heard){
+        const heading=actor.heading??actor.angle;
+        if(gap>(driving?5:8) && Number.isFinite(heading) && dx*Math.sin(heading)+dz*Math.cos(heading)<gap*(driving?.4:0))return;
+        if(room ? !roomHasSight(room,actor,at) : !this._hasSight(actor,at))return;
+      }
+      witnesses.add(actor);
+    };
+    const groups = room ? [roomOccupants(room)] : [this._people || [],this.bystanders,this.bikeTraffic?.riders || []];
+    for(const group of groups){
+      for(const actor of group){notice(actor);if(witnesses.size>=6)return witnesses.size;}
+    }
+    for(const car of room ? [] : this.cars){
+      if(car._edge && !car.parked && !car.controlled && car.type!=='police')notice(car,true);
+      if(witnesses.size>=6)break;
+    }
+    return witnesses.size;
   }
 
   /**
@@ -1333,7 +1536,7 @@ export class Simulation {
         }
         this.bike = {id:bike.id,x:bike.x,y:bike.y,z:bike.z,angle:bike.angle,personal:bike.personal};
         Object.assign(player, { mode: 'bike', x: bike.x, y: bike.y, z: bike.z, angle: bike.angle, speed: 0, velocityX: 0, velocityZ: 0, vy: 0, slide: 0, swing: 0, reaction:null, standing:null });
-        this._say('W pedal · A / D steer · S or Space brake · E get off');
+        this._say('W pedal · A / D steer · S or Space brake · F get off');
         return true;
       }
       if (!car) { this._say('Move closer to a taxi or parked car.'); return false; }
@@ -1516,6 +1719,7 @@ export class Simulation {
     // Capping a background-tab pause avoids simulating a long unattended chase.
     this._accumulator += clamp(finite(dt), 0, 0.25);
     const normalized = { forward: clamp(finite(input.forward), -1, 1), turn: clamp(finite(input.turn), -1, 1), lift: clamp(finite(input.lift), -1, 1), moveX: clamp(finite(input.moveX), -1, 1), moveZ: clamp(finite(input.moveZ), -1, 1), brake: Boolean(input.brake), handbrake: Boolean(input.handbrake), run: Boolean(input.run), jog: Boolean(input.jog) };
+    if (Number.isFinite(input.aimYaw)) normalized.aimYaw = input.aimYaw;
     if(this.player.mode==='skate'){
       normalized.load=clamp(finite(input.load),0,1);normalized.manual=Math.sign(input.manual||0);
       normalized.grab=Math.sign(input.grab||0);normalized.pushFoot=input.pushFoot===-1?-1:1;
@@ -1545,12 +1749,17 @@ export class Simulation {
     }
     const jumping = Boolean(input.handbrake) && !this._jumpHeld;
     this._jumpHeld = Boolean(input.handbrake);
+    this.player.meleeBlock=this.player.mode==='walk' && !this.player.armed && Number.isFinite(input.aimYaw)
+      && input.handbrake && !this.player.reaction && !this.player.swing && (!this.player.move || this.player.move.kind==='dodge');
+    if(this.player.mode!=='walk' || this.seat || this.room || this.ending || this.player.reaction)this.player.cover=null;
+    if(this.player.mode!=='walk' || this.seat || this.ending || this.player.reaction)this.player.stealth=false;
+    this._guideStrike(dt);
     if (this.player.swing > 0) {
       const p=this.player, beforeSwing=p.swing;
       p.swing=Math.max(0,p.swing-dt);
       const timing=meleeMoves[p.swingClip ?? 'jab'], contact=timing.seconds-timing.contact;
       if(beforeSwing>contact && p.swing<=contact && !this.ending && !p.reaction)
-        this.moveEvents.push({kind:'punch',clip:p.swingClip,x:p.x,y:p.y,z:p.z,angle:p.angle});
+        this.moveEvents.push({kind:'punch',clip:p.swingClip,action:this._commitStrike(p.swingClip),x:p.x,y:p.y,z:p.z,angle:p.angle});
     }
     if (this.player.mode === 'drive') {
       this._drive(input, dt);
@@ -1622,14 +1831,25 @@ export class Simulation {
           const ox = dynamic ? other.velocityX : Math.sin(other.angle) * other.speed;
           const oz = dynamic ? other.velocityZ : Math.cos(other.angle) * other.speed;
           const closing = (ox - vx) * hit.nx + (oz - vz) * hit.nz;
-          if (closing > 1 && !other.parked && !other.controlled) {
-            resetVehicleDynamics(other, other.speed * .6); other._wait = .25;
+          this.onVehicleContact?.('crash',car,other,closing);
+          impactVehicle(car, closing*collisionLoad(car,other), hit.nx, hit.nz, this.elapsed, hit);
+          impactVehicle(other, closing*collisionLoad(other,car), -hit.nx, -hit.nz, this.elapsed, hit);
+          if (other.controlled) {
+            const atFault=ox*hit.nx+oz*hit.nz>Math.max(3,closing*.55);
+            this._impact(closing,car.type==='police'?'police':'vehicle',other,atFault);
           }
-          impactVehicle(car, closing*collisionLoad(car,other), hit.nx, hit.nz, this.elapsed);
-          impactVehicle(other, closing*collisionLoad(other,car), -hit.nx, -hit.nz, this.elapsed);
-          if (other.controlled) this._impact(closing, car.type === 'police' ? 'police' : 'vehicle');
           car.x = x; car.z = z; car.angle = angle;
-          resetVehicleDynamics(car); car._wait = .35;
+          if (closing >= 4.5 && !other.destroyed) {
+            const tangent=(vx-ox)*hit.nz-(vz-oz)*hit.nx;
+            const reverse={...hit,nx:-hit.nx,nz:-hit.nz};
+            this._shove(car,vx,vz,collisionImpulse(car,other,hit,closing,tangent));
+            this._shove(other,ox,oz,collisionImpulse(other,car,reverse,closing,tangent));
+          } else {
+            if (closing > 1 && !other.parked && !other.controlled) {
+              resetVehicleDynamics(other,other.speed*.6); other._wait=.25;
+            }
+            resetVehicleDynamics(car); car._wait=.35;
+          }
         }
       }
       this._hitPeople(car);
@@ -1723,6 +1943,7 @@ export class Simulation {
     if (!hit || feetClearCar(hit,person.x,person.y,person.z)) return;
     const player = person === this.player, hard = speed > 3;
     const first = !(person.trafficHitUntil > this.elapsed);
+    if (first) this.onVehicleContact?.('person',car,person,speed);
     const home=bystander && first && hard ? {x:person.x,z:person.z,sitting:person.sitting} : null;
     const push = hit.depth + (hard && first ? .55 : .015);
     const next = this._resolvePosition(person.x + hit.nx * push, person.z + hit.nz * push, PLAYER_RADIUS, null, person);
@@ -1775,8 +1996,16 @@ export class Simulation {
     if (car._spin) { car.angle += car._spin * dt; car._spin *= Math.exp(-2.2 * dt); if (Math.abs(car._spin) < .02) car._spin = 0; }
     const next = this._resolvePosition(car.x + car.velocityX * dt, car.z + car.velocityZ * dt, CAR_RADIUS, car.angle, car, false, dt);
     if (next.hit) {
-      if (next.hit.kind === 'building' || next.hit.kind === 'prop') impactVehicle(car, -(car.velocityX * next.hit.nx + car.velocityZ * next.hit.nz), next.hit.nx, next.hit.nz, this.elapsed);
-      car.velocityX *= 0.45; car.velocityZ *= 0.45; car.speed = Math.hypot(car.velocityX, car.velocityZ); }
+      if (next.hit.kind === 'building' || next.hit.kind === 'prop') {
+        const closing = -(car.velocityX * next.hit.nx + car.velocityZ * next.hit.nz);
+        const impulse=Math.max(0,closing);
+        car.velocityX += next.hit.nx*impulse;
+        car.velocityZ += next.hit.nz*impulse;
+      } else {
+        car.velocityX=0; car.velocityZ=0;
+      }
+      car.speed = Math.hypot(car.velocityX,car.velocityZ);
+    }
     car.x = next.x;
     car.z = next.z;
     if (car._loose <= 0 || speed < 0.7) {
@@ -1900,7 +2129,7 @@ export class Simulation {
 
   _cycle(input, dt) {
     const p = this.player;
-    const acceleration = input.brake || input.handbrake || input.forward < 0 ? -8 : input.forward * 3.5 - .4 - .035 * p.speed * p.speed;
+    const acceleration = input.brake || input.handbrake || input.forward < 0 ? -8 : input.forward * (input.run ? 5 : 3.5) - .4 - .035 * p.speed * p.speed;
     p.speed = clamp(p.speed + acceleration * dt, 0, 10);
     p.angle -= input.turn * clamp(p.speed * .7, .65, 2) * dt;
     p.velocityX = Math.sin(p.angle) * p.speed;
@@ -1936,37 +2165,62 @@ export class Simulation {
     }
     // Standing on a car, the player goes where it goes.
     const stood = player.standing;
+    const supportCar = stood && player.grounded !== false && this.cars.find(car => car.id === stood.id);
     if (stood && (!player.move || player.move.kind==='stomp')) {
-      const car = player.grounded !== false && this.cars.find(item => item.id === stood.id);
-      if (car) {
-        const turn=car.angle-(stood.angle??car.angle),x=player.x-stood.x,z=player.z-stood.z;
-        player.x=car.x+x*Math.cos(turn)+z*Math.sin(turn);player.z=car.z+z*Math.cos(turn)-x*Math.sin(turn);
-        player.angle+=turn; Object.assign(stood,{x:car.x,z:car.z,angle:car.angle});
+      if (supportCar) {
+        const turn=supportCar.angle-(stood.angle??supportCar.angle),x=player.x-stood.x,z=player.z-stood.z;
+        player.x=supportCar.x+x*Math.cos(turn)+z*Math.sin(turn);player.z=supportCar.z+z*Math.cos(turn)-x*Math.sin(turn);
+        player.angle+=turn; Object.assign(stood,{x:supportCar.x,z:supportCar.z,angle:supportCar.angle});
       }
       else player.standing = null;
     }
+    if (player.cover) {
+      const {nx,nz,depth,x,z}=player.cover;
+      if (jumping || input.run || player.reaction || player.move || player.water || Math.hypot(player.x-x,player.z-z)>.8 ||
+          input.moveX*nx+input.moveZ*nz<-.25) player.cover=null;
+      else {
+        const along=input.moveX*nz-input.moveZ*nx;
+        input={...input,moveX:along*nz*.45,moveZ:-along*nx*.45,jog:false};
+        const wallX=player.x+nx*depth,wallZ=player.z+nz*depth;
+        if (!this.isBlocked(wallX,wallZ,.24,{ignoreWater:true,baseHeight:player.y+.75,height:0}) && !this._nearCar(wallX,wallZ,.24,null,player.y))player.cover=null;
+        else {player.cover.x=player.x;player.cover.z=player.z;}
+      }
+    }
     if (stepMove(this, dt) || player.mode !== 'walk') return;
+    if (jumping && !player.armed && Number.isFinite(input.aimYaw)) {
+      this.dodge(input.moveX*Math.cos(player.angle)-input.moveZ*Math.sin(player.angle));
+      return;
+    }
     if (jumping && !player.water && !this.subway && this.moves && tryVault(this)) return;
+    if (this.meleeAction?.target && player.swing>0 && this.elapsed-this.meleeAction.started<meleeMoves[player.swingClip].contact+.035 && player.grounded) {
+      input=STILL;
+      player.velocityX=player.velocityZ=0;
+    }
     const magnitude = Math.hypot(input.moveX, input.moveZ);
     const divisor = Math.max(1, magnitude);
     // Fed or with a coffee inside them, the player walks and runs a little faster.
     this.pep = Math.max(0, (this.pep || 0) - dt);
-    const topSpeed = player.water ? 1.75 : (input.run ? RUN_SPEED : input.jog ? JOG_SPEED : WALK_SPEED) * (this.pep > 0 ? 1.15 : 1);
+    const aiming = Number.isFinite(input.aimYaw);
+    const running = input.run && !aiming;
+    if(input.run || jumping || player.water || player.swing>0)player.stealth=false;
+    const topSpeed = player.water ? 1.75 : player.stealth ? WALK_SPEED*.62 : (aiming ? WALK_SPEED : running ? RUN_SPEED : input.jog ? JOG_SPEED : WALK_SPEED) * (this.pep > 0 ? 1.15 : 1);
     const desiredX = input.moveX / divisor * topSpeed;
     const desiredZ = input.moveZ / divisor * topSpeed;
     const air = player.grounded === false;
     const sliding = (player.slide || 0) > 0;
     if (sliding) player.slide = Math.max(0, player.slide - dt);
-    // A bail-out slide keeps its momentum. In the air, steering still works, just less of it.
-    const blend = 1 - Math.exp(-(player.water ? 4.0 : sliding ? 1.8 : air ? (magnitude>.02 ? 1.7 : .28) : input.run && magnitude>.02 ? 3.4 : 10) * dt);
-    if (sliding) {
-      player.velocityX = player.velocityX * (1 - blend) + desiredX * blend * 0.35;
-      player.velocityZ = player.velocityZ * (1 - blend) + desiredZ * blend * 0.35;
+    if (!air && !sliding && !player.water) {
+      stepGroundStride(player, desiredX, desiredZ, dt, aiming ? input.aimYaw : undefined);
     } else {
-      player.velocityX += (desiredX - player.velocityX) * blend;
-      player.velocityZ += (desiredZ - player.velocityZ) * blend;
+      // Air steering and swimming have their own drag. A bail-out keeps
+      // carrying the player across the pavement until the slide finishes.
+      const rate = player.water ? 4 : sliding ? 1.8 : magnitude > .02 ? 1.7 : .28;
+      const blend = 1 - Math.exp(-rate * dt), control = sliding ? .35 : 1;
+      player.velocityX += (desiredX * control - player.velocityX) * blend;
+      player.velocityZ += (desiredZ * control - player.velocityZ) * blend;
+      if (aiming) player.angle = input.aimYaw;
+      else if (magnitude > .02 && !sliding) player.angle += turnDelta(player.angle, Math.atan2(desiredX, desiredZ)) * (1 - Math.exp(-16 * dt));
     }
-    if (magnitude > 0.02 && !sliding) player.angle += turnDelta(player.angle, Math.atan2(desiredX, desiredZ)) * (1 - Math.exp(-16 * dt));
     if(this.subway){
       const subway=this.subway,floor=subway.walk(player,dt);
       this._fall(player,dt,jumping,floor);
@@ -1981,18 +2235,28 @@ export class Simulation {
       const skew = room.skew || 0;
       const da = (player.velocityX * room.tx + player.velocityZ * room.tz) * dt - skew * db;
       const b = at.b + db, a = at.a + da;
-      const passage = Math.abs(a) <= DOOR / 2 - .10 && at.b >= -1.1 && b > -1.1 && b < .65;
+      const passage = Math.abs(a+skew*b) <= DOOR / 2 - .10 && at.b >= -1.1 && b > -1.1 && b < .65;
       if (this.room || passage && player.grounded !== false && Math.abs(player.y - view.floor) < .34) {
-        const moved = passage ? { a, b } : walkRoom(room, at.a, at.b, da, db, PLAYER_RADIUS);
+        let moved = passage ? { a, b } : walkRoom(room, at.a, at.b, da, db, PLAYER_RADIUS);
         if (!this.room && view?.closed) moved.b=Math.min(moved.b,-.01);
         if (passage && Math.abs(b) < PLAYER_RADIUS) {
           const gap = DOOR / 2 - Math.sqrt(PLAYER_RADIUS ** 2 - b ** 2);
           moved.a = clamp(a + skew * b, -gap, gap) - skew * b;
         }
-        if (view) {
-          view.door.push(at.a + skew * at.b, at.b, moved.a + skew * moved.b, moved.b, PLAYER_RADIUS, dt);
+        let [x, z] = roomPoint(room, moved.a, moved.b);
+        if(view && (view.plan===room || room.place && view.plan?.place?.id===room.place.id)){
+          const contact={};
+          [x,z]=clipRoomWalk(view,player,x,z,contact);
+          if(contact.person){
+            const pace=Math.hypot(player.velocityX,player.velocityZ);
+            if(pace>1.2 && this.elapsed>=(this._roomBumpAt??0)){
+              this._roomBumpAt=this.elapsed+1.4;
+              this.onPedestrianBump?.(contact.person,pace);
+            }
+            moved=roomLocal(room,x,z);
+          }
+          view.door?.push(at.a + skew*at.b,at.b,moved.a + skew*moved.b,moved.b,PLAYER_RADIUS,dt);
         }
-        const [x, z] = roomPoint(room, moved.a, moved.b);
         player.speed = Math.hypot(x - player.x, z - player.z) / dt;
         Object.assign(player, { x, z });
         const floor = moved.b >= 0 ? view?.floor ?? this.room?.floor ?? player.y : undefined;
@@ -2007,7 +2271,16 @@ export class Simulation {
       }
     }
     let next = this._resolvePosition(player.x + player.velocityX * dt, player.z + player.velocityZ * dt, PLAYER_RADIUS, null, player, true, dt);
-    const carHit = this._nearCar(next.x, next.z, PLAYER_RADIUS, null, player.y);
+    // On a vehicle, follow the shell beneath the feet. Its side collider spans
+    // the entire cabin and would push a walker on the windshield out to the road.
+    if (supportCar) {
+      const top = carTop(supportCar,next.x,next.z,.12);
+      if (top !== null && top > player.y + STEP_DROP) {
+        next.x = player.x; next.z = player.z;
+        player.velocityX = player.velocityZ = 0;
+      }
+    }
+    const carHit = this._nearCar(next.x, next.z, PLAYER_RADIUS, player.standing?.id, player.y);
     // High enough to be on it or over it, a car is not in the way.
     if (carHit && !feetClearCar(carHit,next.x,player.y,next.z)) {
       next = this._resolvePosition(next.x + carHit.nx * (carHit.depth + 0.001), next.z + carHit.nz * (carHit.depth + 0.001), PLAYER_RADIUS, null, player, true);
@@ -2144,7 +2417,7 @@ export class Simulation {
       if (approach > 0.3) {
         // Lateral impacts count too. Loading and geographic limits never cause
         // damage or heat, and must not store motion that launches after loading.
-        if (!loadingBoundary) { this._impact(approach, 'building'); impactVehicle(car, approach, next.hit.nx, next.hit.nz, this.elapsed); }
+        if (!loadingBoundary) this._impact(approach, 'building');
         else if (this.elapsed - this._lastBoundaryNotice > 6) {
           this._lastBoundaryNotice = this.elapsed;
           this._say(next.hit.kind === 'loading' ? 'Loading the next streets. Please wait.' : next.hit.kind === 'water' ? 'Water ahead. Stay on the mapped shore or road.' : next.hit.kind === 'surface' ? 'Deck edge. Stay on the supported road.' : 'New York City map edge.', 4);
@@ -2154,26 +2427,38 @@ export class Simulation {
       // Missing coverage rejects the entire pose. Rolling back only position
       // could leave the rotated front or rear capsule inside an unloaded tile.
       if (next.hit.kind === 'loading' || next.hit.kind === 'surface') car.angle = previousAngle;
-      stopVehicleRotation(car,
-        loadingBoundary ? 0 : car.velocityX + next.hit.nx * inward,
-        loadingBoundary ? 0 : car.velocityZ + next.hit.nz * inward);
+      if (loadingBoundary) stopVehicleRotation(car);
+      else if (inward > 0) {
+        const tangent=car.velocityX*next.hit.nz-car.velocityZ*next.hit.nx;
+        const impulse=collisionImpulse(car,null,next.hit,inward,tangent,false);
+        car.velocityX += impulse.x;
+        car.velocityZ += impulse.z;
+        car.yawRate=clamp(car.yawRate+impulse.yaw,-1.35,1.35);
+        commitVelocity(car);
+      }
     }
     car.x = next.x;
     car.z = next.z;
     const collision = this._vehicleHit(car);
     if (collision) {
-      const otherX = Math.sin(collision.car.angle) * collision.car.speed;
-      const otherZ = Math.cos(collision.car.angle) * collision.car.speed;
+      const other = collision.car, loose = other._loose > 0;
+      const otherX = loose ? other.velocityX : Math.sin(other.angle) * other.speed;
+      const otherZ = loose ? other.velocityZ : Math.cos(other.angle) * other.speed;
       const relativeSpeed = Math.max(0, -((car.velocityX - otherX) * collision.nx + (car.velocityZ - otherZ) * collision.nz));
-      impactVehicle(car, relativeSpeed*collisionLoad(car,collision.car), collision.nx, collision.nz, this.elapsed);
+      this.onVehicleContact?.('crash',car,collision.car,relativeSpeed);
+      impactVehicle(car, relativeSpeed*collisionLoad(car,collision.car), collision.nx, collision.nz, this.elapsed, collision);
       const corrected = this._resolvePosition(car.x + collision.nx * (collision.depth + 0.01), car.z + collision.nz * (collision.depth + 0.01), CAR_RADIUS, car.angle, car);
       car.x = corrected.x;
       car.z = corrected.z;
-      this._impact(relativeSpeed, collision.car.type === 'police' ? 'police' : 'vehicle');
-      let velocityX = car.velocityX * 0.4, velocityZ = car.velocityZ * 0.4;
-      const closing = Math.min(0, (velocityX - otherX * .55) * collision.nx + (velocityZ - otherZ * .55) * collision.nz);
-      velocityX -= collision.nx * closing;
-      velocityZ -= collision.nz * closing;
+      const approach=-(car.velocityX*collision.nx+car.velocityZ*collision.nz);
+      this._impact(relativeSpeed,other.type==='police'?'police':'vehicle',car,approach>Math.max(3,relativeSpeed*.55));
+      // Transfer momentum along the normal. The tire and panel friction impulse
+      // is bounded so a sideswipe can carry on along the struck car.
+      const movable = !other.destroyed && (loose || relativeSpeed >= 4.5);
+      const tangent = (car.velocityX-otherX)*collision.nz - (car.velocityZ-otherZ)*collision.nx;
+      const impulse = collisionImpulse(car,other,collision,relativeSpeed,tangent,movable);
+      let velocityX = car.velocityX + impulse.x;
+      let velocityZ = car.velocityZ + impulse.z;
       if (corrected.hit) {
         // A vehicle can push us against a wall or a streaming limit. Keep the
         // corrected position and velocity consistent within this same tick.
@@ -2184,8 +2469,15 @@ export class Simulation {
           velocityX -= corrected.hit.nx * inward; velocityZ -= corrected.hit.nz * inward;
         }
       }
-      this._knock(collision.car, car, collision, relativeSpeed, otherX, otherZ);
-      stopVehicleRotation(car, velocityX, velocityZ);
+      const reverse = {...collision,nx:-collision.nx,nz:-collision.nz};
+      impactVehicle(other,relativeSpeed*collisionLoad(other,car),reverse.nx,reverse.nz,this.elapsed,collision);
+      if (movable && relativeSpeed>0) this._shove(other,otherX,otherZ,collisionImpulse(other,car,reverse,relativeSpeed,tangent));
+      if (corrected.hit) stopVehicleRotation(car,velocityX,velocityZ);
+      else {
+        car.velocityX=velocityX; car.velocityZ=velocityZ;
+        car.yawRate=clamp(car.yawRate+impulse.yaw,-1.35,1.35);
+        commitVelocity(car);
+      }
     }
     Object.assign(this.player, { x: car.x, z: car.z, angle: car.angle, speed: car.speed, velocityX: car.velocityX, velocityZ: car.velocityZ, vy: 0, grounded: true });
   }
@@ -2196,26 +2488,23 @@ export class Simulation {
    * it will. Whoever was driving it sits a while before going on, and a car
    * hit too often does not go on at all.
    */
-  _knock(other, by, contact, speed, otherX, otherZ) {
-    impactVehicle(other, speed*collisionLoad(other,by), -contact.nx, -contact.nz, this.elapsed);
-    if (other.destroyed) return;
-    const patrol = other.type === 'police' && !other._abandoned;
-    if (patrol || speed < 4.5 || other.controlled) {
-      resetVehicleDynamics(other, other.speed * 0.55);
-      other._wait = 0.7;
+  _shove(car,vx,vz,impulse) {
+    const moving=Boolean(car._edge) && !car.parked && !car._kerb;
+    if (!car.controlled && !(car._loose>0)) resetVehicleDynamics(car);
+    car.velocityX=vx+impulse.x;
+    car.velocityZ=vz+impulse.z;
+    if (car.controlled) {
+      car.yawRate=clamp(car.yawRate+impulse.yaw,-1.35,1.35);
+      commitVelocity(car);
       return;
     }
-    const push = collisionLoad(other,by) * Math.max(0, -((by.velocityX - otherX) * contact.nx + (by.velocityZ - otherZ) * contact.nz));
-    const moving = Boolean(other._edge) && !other.parked && !other._kerb;
-    resetVehicleDynamics(other);
-    other.velocityX = otherX * .45 - contact.nx * push * .62 + by.velocityX * .12;
-    other.velocityZ = otherZ * .45 - contact.nz * push * .62 + by.velocityZ * .12;
-    other.speed = Math.hypot(other.velocityX, other.velocityZ);
-    // Caught off its middle, it turns as it goes.
-    const rx = by.x - other.x, rz = by.z - other.z, twist = rx * contact.nz - rz * contact.nx;
-    other._spin = clamp(twist * push * .09, -1.7, 1.7);
-    other._loose = 2.4;
-    if (moving || other._shoved) { other._shoved = true; other._restUntil = this.elapsed + 5 + other.damage * 9; }
+    car.speed=Math.hypot(car.velocityX,car.velocityZ);
+    car._spin=clamp((car._spin || 0)+impulse.yaw,-1.7,1.7);
+    car._loose=2.4;
+    if (moving || car._shoved) {
+      car._shoved=true;
+      car._restUntil=this.elapsed+5+(car.damage || 0)*9;
+    }
   }
 
   /** The player's car loses some of its speed to something soft it has hit. */
@@ -2232,22 +2521,21 @@ export class Simulation {
     this.police._rebind(car);
   }
 
-  _impact(speed, kind) {
+  _impact(speed, kind, at = this.player, atFault = true) {
     if (this._impactCooldown > 0 || speed < 4) return;
     this._impactCooldown = 0.8;
     this.health = Math.max(0, this.health - Math.max(1, (speed - 3) * 0.75));
-    if (speed > 9 || kind === 'police') {
-      // In a chase the patrols do the ramming, and each knock counts for less.
-      const chased = this.police.state === 'chase';
-      this.offence(kind === 'police' ? 'ramPatrol' : kind === 'vehicle' ? 'collision' : 'reckless',
-        { message: chased ? '' : kind === 'police' ? 'You hit a patrol car. Get out of sight to lose them.' : 'Reckless driving reported. Get out of sight to lose them.' });
-    }
+    if(!atFault)return;
+    const location={x:at.x,y:at.y,z:at.z};
+    if(kind==='police'&&speed>=8)this.offence('ramPatrol',{...location,message:'You rammed a patrol car.'});
+    else if(kind==='vehicle'&&speed>=10)this.offence('collision',{...location,severity:speed/10,message:'A serious collision was reported.'});
+    else if(kind!=='police'&&kind!=='vehicle'&&speed>=15)this.offence('reckless',{...location,message:'Dangerous driving was reported.'});
   }
 
   _pickNextEdge(car) {
     const edge = car._edge;
     if (car.hired) return car._route.shift() || null;
-    if (car.type === 'police' && this.heat > 0.05 && car._route.length) {
+    if (car.type === 'police' && this.police.responding(car) && car._route.length) {
       const next = car._route.shift();
       if (next.from.id === edge.to.id) return next;
       car._route = [];
@@ -2367,12 +2655,12 @@ export class Simulation {
   _driverHorn(car) {
     if (this.elapsed < (car.hornUntil ?? -1) || distance(car,this.player)>60) return;
     car.hornUntil=this.elapsed+16;
-    this.moveEvents.push({kind:'driverHorn',at:this.elapsed,x:car.x,z:car.z,y:car.y});
+    this.moveEvents.push({kind:'driverHorn',car,at:this.elapsed,x:car.x,z:car.z,y:car.y});
   }
 
   _traffic(car, dt) {
     if (!car._edge) return;
-    car.siren = car.type === 'police' && this.heat > 0.05;
+    car.siren = car.type === 'police' && this.police.responding(car);
     car._wait = Math.max(0, car._wait - dt);
     let edge = car._edge, lane = car._lane || 0;
     let start = this._lanePoint(edge, 0, lane), end = this._lanePoint(edge, 1, lane);
@@ -2701,9 +2989,11 @@ export class Simulation {
   }
 
   _hasSight(a, b) {
-    const steps = Math.max(1, Math.ceil(distance(a, b) / 5));
+    const steps = Math.max(2, Math.ceil(distance(a, b) / 1.25));
+    const fromY=a.y??this.groundHeight(a.x,a.z), toY=b.y??this.groundHeight(b.x,b.z);
     for (let i = 1; i < steps; i++) {
-      if (this.isBlocked(a.x + (b.x - a.x) * i / steps, a.z + (b.z - a.z) * i / steps, 0.05)) return false;
+      const fraction=i/steps;
+      if (this.isBlocked(a.x+(b.x-a.x)*fraction,a.z+(b.z-a.z)*fraction,.05,{ignoreWater:true,baseHeight:fromY+(toY-fromY)*fraction+1.45,height:0}))return false;
     }
     return true;
   }

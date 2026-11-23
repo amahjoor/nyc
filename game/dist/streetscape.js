@@ -1,6 +1,9 @@
 import * as THREE from './vendor/three.module.min.js';
 import { CITY_ORIGIN, worldToGeographic } from './city-ground.js';
 import { propInstance } from './prop-instance.js';
+import { bindCitySurface, CITY_SURFACE_GLSL } from './city-materials.js';
+import { redStepHeight, redStepWalk } from './times-square.js';
+import { isBroadwayPlaza } from './times-square-crowd.js';
 import { laneLayout } from './lanes.js';
 
 // Street surfaces from New York's planimetric survey: every roadbed and
@@ -155,6 +158,22 @@ export function layerQuery(kind, bounds, origin = CITY_ORIGIN) {
 /** Loads a cell's outlines: from the bundled survey if present, else the live service. */
 export function createStreetSource({ index = null, origin = CITY_ORIGIN, fetcher = globalThis.fetch?.bind(globalThis), cacheStorage = globalThis.caches, live = true, size = 500 } = {}) {
   let store = null;
+  const districtFiles = new Map();
+  const inSquare = key => size === 500 && origin.lat === CITY_ORIGIN.lat && origin.lon === CITY_ORIGIN.lon
+    && (key === '2,-8' || key === '2,-9');
+  function squareFile(key,signal) {
+    if (!districtFiles.has(key)) {
+      const url = './times-square/' + key.replace(',', '_') + '.json';
+      const loaded = fetcher(url,{signal}).then(async response => {
+        if (!response.ok) throw new Error('Times Square street file unavailable.');
+        const data = await response.json();
+        if (!Array.isArray(data.surfaces) || !Array.isArray(data.trees)) throw new Error('Incomplete Times Square streets.');
+        return data;
+      }).catch(error => { districtFiles.delete(key); throw error; });
+      districtFiles.set(key,loaded);
+    }
+    return districtFiles.get(key);
+  }
   const cached = async url => {
     if (!cacheStorage) return null;
     try { store ||= await cacheStorage.open('nyc-streets-v1'); return await store.match(url) || null; } catch { return null; }
@@ -174,13 +193,20 @@ export function createStreetSource({ index = null, origin = CITY_ORIGIN, fetcher
   const surveyed = bounds => !regions || regions.some(region => bounds.minX >= region.minX - .01 && bounds.maxX <= region.maxX + .01 && bounds.minZ >= region.minZ - .01 && bounds.maxZ <= region.maxZ + .01);
   return {
     size,
-    has: key => Boolean(index?.cells?.[key]) || live,
+    has: key => inSquare(key) || Boolean(index?.cells?.[key]) || live,
     /** Census trees for a cell, or null when only invented placement is possible. */
     async trees(key, signal) {
+      if (inSquare(key)) {
+        try { return (await squareFile(key,signal)).trees; } catch (error) { if (signal?.aborted) throw error; }
+      }
       if (!live) return null;
       try { return convertTrees(await rows('trees', cellBounds(key, size), signal), origin); } catch { return null; }
     },
     async load(key, signal) {
+      if (inSquare(key)) {
+        try { return {surfaces:(await squareFile(key,signal)).surfaces,source:'bundled'}; }
+        catch (error) { if (signal?.aborted || !live) throw error; }
+      }
       const bundled = index?.cells?.[key], bounds = cellBounds(key, size);
       const shipped = async () => {
         const response = await fetcher(bundled.url, { signal });
@@ -304,7 +330,43 @@ class SurfaceGrid {
 }
 
 /** What a walked-on surface is paved with; the shader reads these from each vertex. */
-const PAVING = { flags: 0, face: 1, kerbstone: 2, interior: 3, plaza: 4, turf: 5 };
+const PAVING = { flags: 0, face: 1, kerbstone: 2, interior: 3, plaza: 4, turf: 5, broadway: 6 };
+// Tile the pedestrian interior with walking strips parallel to Broadway. A
+// strip ends at the kerb, a hole, or the steps. Each has room to walk both ways.
+function plazaWalks(surface, index) {
+  const stair = redStepWalk(), [nx, nz] = stair.normals[0], tx = -nz, tz = nx;
+  const offsets = surface.polygon.map(([x, z]) => x * nx + z * nz);
+  const along = surface.polygon.map(([x, z]) => x * tx + z * tz);
+  const start = Math.floor(Math.min(...along)), end = Math.ceil(Math.max(...along));
+  const depth = 3.2, routes = [];
+  const point = (s, t) => [s * tx + t * nx, s * tz + t * nz];
+  const fits = (s, t) => {
+    const [x, z] = point(s, t);
+    return insideIndexed(index, x, z) && redStepHeight(x, z) === null;
+  };
+  for (let t = Math.min(...offsets) + .35 + depth; t < Math.max(...offsets); t += depth) {
+    let first = null;
+    for (let s = start; s <= end + 1; s++) {
+      if (s <= end && [t + .25, t - depth * .5, t - depth - .25].every((d) => fits(s, d))) {
+        first ??= s;
+      } else if (first !== null) {
+        const length = s - 1 - first;
+        if (length >= 4) routes.push({ points: [point(first, t), point(s - 1, t)], normals: [[nx, nz]], depth, length });
+        first = null;
+      }
+    }
+  }
+  if (surface.id === 'duffy-paving') routes.push(stair);
+  const covered = routes.reduce((sum, r) => sum + r.depth * r.length, 0);
+  const area = Math.abs(signedArea(surface.polygon)) -
+    (surface.holes || []).reduce((sum, h) => sum + Math.abs(signedArea(h)), 0);
+  for (const r of routes) {
+    r.plaza = surface.id;
+    r.plazaArea = area * r.depth * r.length / covered;
+  }
+  return routes;
+}
+
 const isRoad = entry => entry.road, isCarriageway = entry => entry.road && !entry.junction, isJunction = entry => entry.junction, isRaised = entry => entry.raised;
 
 /** Cut a triangle until it follows the ground: flat streets cost nothing. */
@@ -411,7 +473,7 @@ export async function buildCell(surfaces, roads, { heightAt = () => 0, bounds = 
       asphalt: isRoadbed || isLot, street: isWalk, raised: (isWalk && surface.subtype !== 'interior sidewalk') || isMedian || isPlaza,
       // Where outlines overlap, the island stands above the plaza and the plaza above the sidewalk.
       lift: isRoadbed || isLot ? ROAD_LIFT : isMedian ? SIDEWALK_LIFT + .006 : isPlaza ? SIDEWALK_LIFT + .003 : isWalk && surface.subtype !== 'interior sidewalk' ? SIDEWALK_LIFT : ROAD_LIFT,
-      paving: isMedian ? (surface.subtype === 'grass median' ? PAVING.turf : PAVING.flags) : isPlaza ? PAVING.plaza : isWalk && surface.subtype === 'interior sidewalk' ? PAVING.interior : PAVING.flags,
+      paving: isMedian ? (surface.subtype === 'grass median' ? PAVING.turf : PAVING.flags) : isPlaza ? (isBroadwayPlaza(surface.id) ? PAVING.broadway : PAVING.plaza) : isWalk && surface.subtype === 'interior sidewalk' ? PAVING.interior : PAVING.flags,
       owned: owned(surface), elevated: false };
     entries.push(entry);
   }
@@ -477,6 +539,7 @@ export async function buildCell(surfaces, roads, { heightAt = () => 0, bounds = 
     // Paving joints follow the street, not the compass.
     const [gx, gz] = dominantDirection(surface.polygon), kind = entry.paving;
     for (const i of draped) walk.push(points[i * 2], heights[i] + lift, points[i * 2 + 1], 0, 1, 0, gx, gz, kind);
+    if (kind === PAVING.broadway) walks.push(...plazaWalks(surface,entry.index));
     if (!entry.raised) continue;
     for (const ring of rings) {
       let sinceLamp = 18 + (ring.length * 7.3) % 20, run = null;
@@ -717,8 +780,10 @@ export async function buildCell(surfaces, roads, { heightAt = () => 0, bounds = 
     run.lengths = [0];
     for (let i = 1; i < run.points.length; i++) run.lengths.push(run.lengths[i - 1] + Math.hypot(run.points[i][0] - run.points[i - 1][0], run.points[i][1] - run.points[i - 1][1]));
     const middle = Math.min(run.normals.length - 1, run.points.length >> 1), [mx, mz] = run.points[middle], [nx, nz] = run.normals[Math.max(0, middle - 1)];
-    run.depth = .6;
-    for (const reach of [1, 2, 3.2, 4.5]) { if (!grid.find(mx - nx * reach, mz - nz * reach, isRaised)) break; run.depth = reach; }
+    if (!run.plaza) {
+      run.depth = .6;
+      for (const reach of [1, 2, 3.2, 4.5]) { if (!grid.find(mx - nx * reach, mz - nz * reach, isRaised)) break; run.depth = reach; }
+    }
     const first = run.points[0], last = run.points.at(-1);
     run.id = `walk:${Math.round(first[0] * 2)}:${Math.round(first[1] * 2)}:${Math.round(last[0] * 2)}:${Math.round(last[1] * 2)}`;
   }
@@ -739,9 +804,10 @@ float streetPulse( float x, float duty, float width ) {
 export function asphaltMaterial() {
   const material = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: .9, metalness: 0 });
   material.name = 'Asphalt';
-  material.onBeforeCompile = shader => {
+  material.onBeforeCompile = (shader, renderer) => {
+    bindCitySurface(shader, renderer, 'asphalt');
     shader.vertexShader = STREET_VERTEX + shader.vertexShader.replace('#include <begin_vertex>', '#include <begin_vertex>\nvStreetXZ = position.xz;');
-    shader.fragmentShader = `varying vec2 vStreetXZ;\n${shader.fragmentShader}`.replace('#include <emissivemap_fragment>', /* glsl */`#include <emissivemap_fragment>
+    shader.fragmentShader = `${CITY_SURFACE_GLSL}\nvarying vec2 vStreetXZ;\n${shader.fragmentShader}`.replace('#include <emissivemap_fragment>', /* glsl */`#include <emissivemap_fragment>
 	{
 		vec2 w = vStreetXZ;
 		float size = max( fwidth( w.x ), fwidth( w.y ) );
@@ -759,13 +825,26 @@ export function asphaltMaterial() {
 		float crack = ( 1.0 - smoothstep( 0.0, 0.0035 + size * 0.03, seam ) ) * cracked * ( 1.0 - smoothstep( 0.015, 0.12, size ) );
 		asphalt *= 1.0 - 0.42 * crack;
 		// Aggregate: the grit that catches low sun.
-		float grit = texture2D( uNycNoise, w * 2.3 ).b, fine = texture2D( uNycNoise, w * 7.7 ).a;
-		asphalt *= 1.0 + close * ( 0.5 * ( grit - 0.5 ) + 0.3 * ( fine - 0.5 ) );
 		float wet = uNycWet * ( 0.55 + 0.45 * smoothstep( 0.42, 0.62, texture2D( uNycNoise, w * 0.031 + 0.11 ).r ) );
+		vec2 slope;
+		float dryRoughness;
+		if ( uCitySurfaceReady ) {
+			// The scan covers four metres. Broad repair patches stay visible after
+			// the aggregate has filtered down to its average.
+			vec4 scan = texture2D( uCitySurface, vec2( w.x, -w.y ) * 0.25 );
+			asphalt *= exp2( 3.7 * ( scan.r - 0.5 ) );
+			slope = ( scan.gb * 2.0 - 1.0 ) * vec2( 0.85, -0.85 );
+			dryRoughness = mix( 0.60, 0.98, scan.a );
+		} else {
+			float grit = texture2D( uNycNoise, w * 2.3 ).b, fine = texture2D( uNycNoise, w * 7.7 ).a;
+			asphalt *= 1.0 + close * ( 0.5 * ( grit - 0.5 ) + 0.3 * ( fine - 0.5 ) );
+			slope = vec2( texture2D( uNycNoise, w * 2.3 + vec2( 0.004, 0.0 ) ).b - grit,
+				texture2D( uNycNoise, w * 2.3 + vec2( 0.0, 0.004 ) ).b - grit ) * ( 2.2 * close );
+			dryRoughness = 0.94 - 0.16 * close * grit;
+		}
 		diffuseColor.rgb = asphalt * mix( 1.0, 0.55, wet );
-		roughnessFactor = mix( 0.94 - 0.16 * close * grit, 0.1, wet );
-		vec2 slope = vec2( texture2D( uNycNoise, w * 2.3 + vec2( 0.004, 0.0 ) ).b - grit, texture2D( uNycNoise, w * 2.3 + vec2( 0.0, 0.004 ) ).b - grit );
-		normal = normalize( normal + ( viewMatrix * vec4( slope.x, 0.0, slope.y, 0.0 ) ).xyz * ( 2.2 * close * ( 1.0 - wet ) ) );
+		roughnessFactor = mix( dryRoughness, 0.1, wet );
+		normal = normalize( normal + ( viewMatrix * vec4( slope.x, 0.0, slope.y, 0.0 ) ).xyz * ( 1.0 - wet ) );
 	}`);
   };
   return material;
@@ -776,17 +855,31 @@ function pavementMaterial() {
   // lets the walked-on surface win wherever two lie in the same plane.
   const material = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: .88, metalness: 0, side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: 0, polygonOffsetUnits: -3 });
   material.name = 'Sidewalk and kerb';
-  material.onBeforeCompile = shader => {
+  material.onBeforeCompile = (shader, renderer) => {
+    bindCitySurface(shader, renderer, 'concrete');
     shader.vertexShader = `${STREET_VERTEX}attribute vec3 aPaving;\nvarying vec3 vPaving;\n${shader.vertexShader}`
       .replace('#include <begin_vertex>', '#include <begin_vertex>\nvStreetXZ = position.xz; vPaving = aPaving;');
-    shader.fragmentShader = `varying vec2 vStreetXZ;\nvarying vec3 vPaving;\n${pulseGLSL}\n${shader.fragmentShader}`.replace('#include <emissivemap_fragment>', /* glsl */`#include <emissivemap_fragment>
+    shader.fragmentShader = `${CITY_SURFACE_GLSL}\nvarying vec2 vStreetXZ;\nvarying vec3 vPaving;\n${pulseGLSL}\n${shader.fragmentShader}`.replace('#include <emissivemap_fragment>', /* glsl */`#include <emissivemap_fragment>
 	{
 		vec2 w = vStreetXZ;
 		float size = max( fwidth( w.x ), fwidth( w.y ) );
 		float close = 1.0 - smoothstep( 0.012, 0.07, size );
 		float kind = vPaving.z;
 		float tone = texture2D( uNycNoise, w * 0.05 ).r, speck = texture2D( uNycNoise, w * 3.1 ).b;
-		if ( kind > 4.5 ) {
+		if ( kind > 5.5 ) {
+            vec2 axis = normalize(vPaving.xy);
+            vec2 stone = vec2(dot(w,axis)/1.22, dot(w,vec2(-axis.y,axis.x))/.61);
+            stone.x += .5*mod(floor(stone.y),2.0);
+            float value = nycHash12(floor(stone));
+            vec2 joints = min(fract(stone),1.0-fract(stone));
+            float mortar = 1.0-smoothstep(.001,.009+size,min(joints.x,joints.y));
+            vec3 granite = mix(vec3(.10,.104,.115),vec3(.19,.194,.204),value) * (.85+.30*speck);
+            vec2 pin = fract(stone*vec2(4.0,2.0))-.5;
+            float disc=(1.0-smoothstep(.026,.045+size*2.0,length(pin)))*close;
+            diffuseColor.rgb=mix(granite*(1.0-.48*mortar),vec3(.52),disc)*mix(1.0,.65,uNycWet);
+            roughnessFactor=mix(mix(.76,.18,uNycWet),.28,disc);
+            metalnessFactor=.72*disc;
+        } else if ( kind > 4.5 ) {
 			// A planted median: mown turf between its kerbs.
 			float clump = texture2D( uNycNoise, w * 0.41 ).r, field = texture2D( uNycNoise, w * 0.023 ).b, blade = texture2D( uNycNoise, w * vec2( 3.1, 5.3 ) ).g;
 			diffuseColor.rgb = mix( vec3( 0.058, 0.1, 0.028 ), vec3( 0.13, 0.185, 0.055 ), 0.4 * field + 0.6 * clump ) * ( 1.0 + close * 0.6 * ( blade - 0.5 ) );
@@ -809,8 +902,19 @@ function pavementMaterial() {
 			concrete *= 1.0 - 0.45 * gum * close;
 			if ( kind > 3.5 ) concrete *= vec3( 0.62, 0.63, 0.66 ) * ( 0.86 + 0.28 * nycHash12( floor( flag ) + 3.0 ) );
 			else if ( kind > 2.5 ) concrete *= vec3( 0.72, 0.72, 0.74 );
-			diffuseColor.rgb = concrete;
 			roughnessFactor = 0.9;
+			if ( uCitySurfaceReady ) {
+				// Start each poured flag at a different point in the scan. Take the
+				// derivatives before the offset so a joint stays sharp on both sides.
+				vec2 uv = flag * ( module * 0.5 );
+				vec2 shift = nycHash22( floor( flag ) );
+				vec4 scan = textureGrad( uCitySurface, uv + shift, dFdx( uv ), dFdy( uv ) );
+				concrete *= exp2( ( scan.r - 0.5 ) * 2.65 );
+				vec2 slope = ( scan.g * 2.0 - 1.0 ) * axis + ( scan.b * 2.0 - 1.0 ) * vec2( -axis.y, axis.x );
+				normal = normalize( normal + ( viewMatrix * vec4( slope.x, 0.0, slope.y, 0.0 ) ).xyz * 0.75 );
+				roughnessFactor = mix( 0.65, 0.97, scan.a );
+			}
+			diffuseColor.rgb = concrete;
 		} else {
 			// Kerbstone: bluestone and granite, worn smooth at the top.
 			vec3 stone = vec3( 0.2, 0.205, 0.215 ) * ( 0.8 + 0.4 * tone ) * ( 1.0 + close * 0.5 * ( speck - 0.5 ) );

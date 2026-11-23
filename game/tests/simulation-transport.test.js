@@ -34,7 +34,8 @@ test('vehicle support points climb the same ramp and preserve the deck level on 
   for (let i = 0; i < 1200 && sim.player.z < 70; i++) sim.step({ forward: 1 }, 1 / 120);
   const car = sim.cars.find(car => car.controlled);
   assert.ok(car.z > 65 && car.z < 75);
-  assert.ok(Math.abs(car.y - (car.z - .035) * .1) < 1e-4);
+  const {front, rear} = car.identity.asset.wheels;
+  assert.ok(Math.abs(car.y - (car.z + (front + rear) / 2) * .1) < 1e-4);
   assert.ok(Math.abs(car.pitch + Math.atan(.1)) < 1e-4);
   assert.equal(sim.player.y, car.y);
   car.speed = 0;car.velocityX = 0;car.velocityZ = 0;
@@ -47,12 +48,13 @@ test('wheels slightly outside a deck outline do not average in the distant road 
   const { sim } = fixture(t);
   const car = sim.cars[0];Object.assign(car, { x: 7.5, z: 60, y: 6, angle: 0 });
   sim.updateGrounding();
-  assert.ok(Math.abs(car.y - 5.9965) < 1e-5);
+  const {front, rear} = car.identity.asset.wheels;
+  assert.ok(Math.abs(car.y - (car.z + (front + rear) / 2) * .1) < 1e-5);
   assert.ok(Math.abs(car.roll) < 1e-5);
   assert.ok(Math.abs(car.pitch + Math.atan(.1)) < 1e-4);
   assert.deepEqual(car.wheelSupported, [true, true, false, false]);
-  assert.ok(Math.abs(car.wheelHeights[0] - 5.863) < 1e-5);
-  assert.ok(Math.abs(car.wheelHeights[1] - 6.13) < 1e-5);
+  assert.ok(Math.abs(car.wheelHeights[0] - (car.z + rear) * .1) < 1e-5);
+  assert.ok(Math.abs(car.wheelHeights[1] - (car.z + front) * .1) < 1e-5);
 });
 
 test('travel and recovery discard a previous deck level before sampling the destination', t => {

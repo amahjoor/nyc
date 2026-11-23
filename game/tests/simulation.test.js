@@ -3,6 +3,11 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { Simulation, YELLOW_CAB, GREEN_CAB } from '../dist/simulation.js';
+import { carTop, setCarShell } from '../dist/player-moves.js';
+import { createCar } from '../dist/world.js';
+import { designFor } from '../dist/vehicle-designs.js';
+import { decodeVehicleMesh } from '../dist/vehicle-assets.js';
+import { generateVehicle } from '../dist/vehicle-generator.js';
 import { seatApproach } from '../dist/seating.js';
 import { vehicleAspect, stopDistance } from '../dist/signal-plan.js';
 
@@ -33,6 +38,31 @@ test('walking, jogging and sprinting cover the same distance at 10 and 60 FPS', 
     distances.push(positions[0]);
   }
   assert.ok(distances[0]>5 && distances[0]<6 && distances[1]>11 && distances[1]<12 && distances[2]>22);
+});
+
+test('a sprint reversal brakes on the approach foot before turning, while walking stops within a step', () => {
+  const sim = new Simulation(city());
+  sim.cars = [];
+  const p = sim.player;
+  advance(sim, 1.2, {moveZ:1, run:true});
+  const start = p.z;
+  advance(sim, .1, {moveZ:-1, run:true});
+  assert.ok(p.z > start + .5 && p.velocityZ > 5, 'the first braking step still travels forward');
+  assert.ok(Math.abs(p.angle) < .25 && p.strideForward < -8, 'the runner braces facing the approach');
+  let slowest = p.speed, peakAcceleration = 0;
+  for (let i=0; i<120; i++) {
+    const previous = p.velocityZ;
+    sim.step({moveZ:-1,run:true}, 1/120);
+    peakAcceleration = Math.max(peakAcceleration, Math.abs(p.velocityZ - previous) * 120);
+    slowest = Math.min(slowest, p.speed);
+  }
+  assert.ok(slowest < .15 && peakAcceleration < 21);
+  assert.ok(p.velocityZ < -5 && Math.cos(p.angle) < -.95);
+  advance(sim, 1, {moveZ:-1});
+  const stop = p.z;
+  advance(sim, .4);
+  assert.equal(p.speed, 0);
+  assert.ok(Math.abs(p.z - stop) < .18);
 });
 
 test('a skateboard coasts, carves, ollies, brakes, and passes a hard impact to the rider', () => {
@@ -92,7 +122,7 @@ test('jumping inside a raised shop lands on its own floor', () => {
 test('a van side blocks an airborne walker and its roof carries the player after a climb', () => {
   const sim = new Simulation(city()), p = sim.player;
   const van = sim._makeCar('van', 'sedan', { x: 0, z: 3 }, Math.PI/2);
-  van.shape = 'van'; sim.cars = [van]; sim.moves = true;
+  van.shape = 'van'; van.identity = { make:'Ford',model:'Transit',year:2019,shape:'van',asset:designFor('Ford','Transit',2019,'van') }; sim.cars = [van]; sim.moves = true;
   Object.assign(p, { x:0, y:1, z:1.6, angle:0, grounded:false, vy:2, velocityZ:3 });
   advance(sim, .4, { moveZ:1 });
   assert.ok(p.z < 2, 'feet below the roof stay outside');
@@ -107,7 +137,44 @@ test('a van side blocks an airborne walker and its roof carries the player after
   van.x+=.2; van.angle+=Math.PI/2;
   sim.step({},1/60);
   assert.ok(Math.abs(p.x-van.x-dz)<.02 && Math.abs(p.z-van.z+dx)<.02);
-  assert.ok(Math.abs(p.y-2.1)<.02 && p.grounded);
+  assert.ok(Math.abs(p.y-carTop(van,p.x,p.z))<.02 && p.grounded);
+});
+
+test('walking from the hood across the windshield and back keeps feet on the same car', () => {
+  const minivan = generateVehicle(designFor('Toyota','Sienna',2015,'minivan'));
+  const assets = new URL('../dist/assets/vehicles/',import.meta.url);
+  const spec = JSON.parse(readFileSync(new URL('index.json',assets))).models.find(car=>car.id==='hyundai-tucson-tl');
+  const scan = decodeVehicleMesh(Uint8Array.from(readFileSync(new URL('../dist/'+spec.url,import.meta.url))).buffer,spec);
+  for (const mesh of [createCar({type:'taxi'}), createCar({model:minivan}), createCar({model:scan}), null]) {
+    const sim = new Simulation(city()), p = sim.player;
+    const car = sim._makeCar('parked', 'sedan', {x:0,z:0}, 0);
+    car.shape = 'minivan';
+    sim.moves = true; sim.cars = [car];
+    const shell = mesh?.userData.contactShell;
+    setCarShell(car,shell);
+    const nose = shell?.boundingBox.max.z ?? 1.95;
+    Object.assign(p,{x:.15,z:nose+.42,angle:Math.PI,y:0});
+    sim.step({handbrake:true},1/120);
+    assert.equal(p.move?.kind,'climb');
+    advance(sim,1.8);
+    assert.equal(p.standing?.id,car.id);
+    const hoodHeight = p.y;
+    for (const [direction,target] of [[-1,-.35],[1,nose-.4]]) {
+      for (let i=0; i<240 && direction*(target-p.z)>0; i++) {
+        const x=p.x, z=p.z;
+        sim.step({moveZ:direction},1/120);
+        assert.ok(Math.hypot(p.x-x,p.z-z)<.025,'a walking step stays within walking speed');
+        assert.equal(p.standing?.id,car.id);
+        assert.ok(p.y>=hoodHeight-.12,'feet stay above the hood across panel seams');
+      }
+      assert.ok(direction*(p.z-target)>=0,'reached the other end of the windshield');
+      assert.ok(Math.abs(p.y-carTop(car,p.x,p.z))<.001);
+      if (direction<0) assert.ok(p.y>hoodHeight+.3);
+    }
+    advance(sim,1.5,{moveZ:1});
+    assert.equal(p.standing,null);
+    assert.ok(p.grounded && p.y===0,'stepping off the bumper returns the player to the street');
+  }
 });
 
 test('a seat owns the approach, hold and exit, including an interrupted descent', () => {
@@ -176,8 +243,9 @@ test('a coasting car hits cross traffic side-on while the player is on foot', ()
   Object.assign(cross, { parked: false, _loose: 3, speed: 1, velocityX: 1 });
   sim.cars = [cross, incoming];
   advance(sim, .6);
-  assert.ok(incoming.z < -2.9 && incoming.z > -3.3);
-  assert.ok(incoming.parked && cross.parked);
+  assert.ok(cross.z > 1 && incoming.z < cross.z, 'cross traffic receives forward momentum');
+  assert.ok(cross.velocityZ > incoming.velocityZ && incoming.velocityZ > 0);
+  assert.ok(incoming.damage > 0 && cross.damage > 0);
   assert.equal(sim._vehicleHit(incoming), null);
   assert.equal(sim.heat, 0); assert.equal(sim.health, 100);
   cross.y = 6; incoming.y = 0; incoming.z = cross.z;
@@ -197,7 +265,11 @@ test('player and unoccupied cars make physical contact with pedestrians at stree
     const vendor = { x: 30.7, z: 3.1, y: 0 };
     sim.bystanders.push(vendor);
     sim.setWalkers([], [walker, upstairs]);
+    const heard=[];
+    sim.onVehicleContact=(kind,source,other,speed)=>heard.push({kind,source,other,speed});
     advance(sim, .2);
+    assert.ok(heard.some(hit=>hit.kind==='person' && hit.source===car && hit.other===walker && hit.speed>3));
+    assert.ok(!heard.some(hit=>hit.other===upstairs));
     assert.equal(walker.state, 'down'); assert.ok(walker.z > 3);
     assert.equal(sim._nearCar(walker.x, walker.z, .4, null, walker.y), null);
     assert.equal(upstairs.state, 'walk');
@@ -361,7 +433,7 @@ test('high speed and a long frame cannot tunnel through a thin building', () => 
   assert.equal(sim.heat, 0, 'with nobody about, nobody reports it');
 });
 
-test('a sideways impact with a parked car cancels closing velocity and rotation', () => {
+test('a sideways impact transfers momentum to a parked car and separates both bodies', () => {
   const sim = drivingCity(city());sim.interact();
   const car = sim.cars.find(item => item.controlled);
   car.speed = 3;sim.step({}, 1 / 120);
@@ -369,13 +441,27 @@ test('a sideways impact with a parked car cancels closing velocity and rotation'
   const parked = sim._makeCar('parked-test', 'sedan', { x: 3, z: 0 }, 0);
   sim.cars.push(parked);
   sim.step({ handbrake: true }, .25);
-  assert.ok(car.x < 1.161, 'the moving car stays outside the parked vehicle');
-  assert.equal(sim._nearCar(car.x, car.z, .92, car.id), null);
-  assert.equal(car.velocityX, 0, 'contact removes motion into the other vehicle');
-  assert.equal(car.yawRate, 0);
-  assert.ok(sim.health < 100, 'sideways impact energy still counts');
-  const stoppedX = car.x;advance(sim, .5);
-  assert.equal(car.x, stoppedX, 'damped motion cannot keep pushing into the parked car');
+  assert.ok(parked.x > 3 && car.x < parked.x, 'the parked car is shoved along the contact normal');
+  assert.equal(sim._vehicleHit(car), null);
+  assert.ok(car.velocityX > 0 && car.velocityX < parked.velocityX, 'the cars separate while carrying momentum');
+  assert.ok(Math.abs(car.yawRate) < .2, 'a broad, near-centered hit produces little spin');
+  assert.ok(sim.health < 100 && car.damage > 0 && parked.damage > 0);
+  advance(sim, .5);
+  assert.equal(sim._vehicleHit(car), null, 'the cars stay outside each other after the shove');
+});
+
+test('cover holds against a wall, permits a sidestep and releases when backing away',()=>{
+  const sim=new Simulation(city({buildings:[{polygon:[[.8,-4],[2,-4],[2,4],[.8,4]]}]}));
+  sim.cars=[];sim.player.angle=Math.PI/2;
+  const start={x:sim.player.x,z:sim.player.z};
+  assert.equal(sim.toggleCover(),true);
+  advance(sim,.7,{moveX:.5,moveZ:.6});
+  assert.ok(sim.player.cover);
+  assert.ok(sim.player.z>start.z+.1);
+  assert.ok(Math.abs(sim.player.x-start.x)<.03);
+  advance(sim,.3,{moveX:-1});
+  assert.equal(sim.player.cover,null);
+  assert.ok(sim.player.x<start.x-.1);
 });
 
 test('walking slides along a wall and cannot cross it', () => {
@@ -566,7 +652,8 @@ test('terrain grounding follows walking, vehicle wheel supports, exits and trave
   const car=sim.cars.find(car=>car.controlled),s=Math.sin(car.angle),c=Math.cos(car.angle);
   assert.ok(Math.abs(car.pitch+Math.atan(.08*s+.12*c))<1e-10);
   assert.ok(Math.abs(car.roll-Math.atan(.08*c-.12*s))<1e-10);
-  assert.ok(Math.abs(car.y-elevation(car.x-.035*s,car.z-.035*c))<1e-10);
+  const {front,rear}=car.identity.asset.wheels,midpoint=(front+rear)/2;
+  assert.ok(Math.abs(car.y-elevation(car.x+midpoint*s,car.z+midpoint*c))<1e-10);
   assert.equal(sim.player.y,car.y);
   car.speed=0;sim.player.speed=0;assert.ok(sim.interact());
   assert.equal(sim.player.y,elevation(sim.player.x,sim.player.z));
@@ -693,12 +780,14 @@ test('two NPC drivers make bumper contact when the follower has too little dista
   leader.speed = leader._cruise = 2;
   follower.speed = follower._cruise = 16;
   sim.cars = [leader, follower];
-  for (let i = 0; i < 60 && !follower._wait; i++) {
+  for (let i = 0; i < 60 && !follower.damage; i++) {
     sim.step({}, 1 / 120);
     assert.equal(sim._vehicleHit(follower), null);
   }
-  assert.ok(follower._wait > 0 && follower.speed === 0);
-  assert.ok(leader.speed < 2 && sim.heat === 0);
+  assert.ok(follower.damage > 0 && leader.damage > 0);
+  assert.ok(leader.speed > 2 && follower.speed < 16);
+  assert.ok(leader.speed > follower.speed, 'the two bumpers separate after impact');
+  assert.equal(sim.heat,0);
 });
 
 test('junctions are planned from the streets that meet, and from what the city lists', () => {
@@ -905,9 +994,9 @@ test('running a red light is noticed by a camera or a patrol; yellow and green a
   // No camera, nobody watching: it is counted and nothing more.
   const unseen = through(drive(sim => { sim.elapsed = red; sim.junctions[0].camera = false; }));
   assert.equal(unseen.redLights, 1); assert.equal(unseen.cash, 80); assert.equal(unseen.heat, 0);
-  // A patrol with a view of it gives chase.
-  const seen = through(drive(sim => { sim.elapsed = red; sim.junctions[0].camera = false; sim.cars.push(sim._makeCar('police-9', 'police', { x: 30, z: 30 }, 0)); }));
-  assert.ok(seen.heat >= .5); assert.match(seen.notice, /patrol/i);
+  // A first signal violation in view of a patrol gets a warning.
+  const seen = through(drive(sim => { sim.elapsed = red; sim.junctions[0].camera = false; sim.cars.push(sim._makeCar('police-9', 'police', { x: 30, z: 30 }, -2.2)); }));
+  assert.equal(seen.stars,0);assert.equal(seen.police.warningHeat,.5);assert.match(seen.notice,/patrol warning/i);
   // On green nothing happens.
   const legal = through(drive(sim => { sim.elapsed = green; sim.junctions[0].camera = true; }));
   assert.equal(legal.redLights || 0, 0); assert.equal(legal.cash, 80);
@@ -1065,7 +1154,7 @@ test('a wide street carries traffic in every lane: turns are made from the lane 
   assert.ok(near(abreast.map(car => car.x), files));
   advance(sim, 14);
   assert.ok(abreast.every(car => car.speed < .2), 'all four stand at the red light');
-  const noses = abreast.map(car => car.z - 2.3);
+  const noses = abreast.map(car => car.z - car.identity.asset.design.L / 2);
   assert.ok(noses.every(nose => nose > line - .3 && nose < line + 3.5) && Math.max(...noses) - Math.min(...noses) < .5, `noses ${noses.map(nose => nose.toFixed(1))} at a line ${line.toFixed(1)} m out`);
   assert.ok(near(abreast.map(car => car.x), files));
   // On green each goes its own way: the two in the middle straight on, in their lanes.

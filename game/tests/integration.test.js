@@ -1,8 +1,8 @@
 import { createSportsCourts, addCourtPlaces } from '../dist/sports-courts.js';
-import { interactWithTrip, courierBag } from '../dist/driver-work.js';
+import { interactWithTrip, tripAction, courierBag } from '../dist/driver-work.js';
 import { parkCab } from './fixtures/parked-cab.js';
 import { createStatueOfLiberty, STATUE } from '../dist/liberty.js';
-import { carCondition, PANEL } from '../dist/vehicle-damage.js';
+import { carCondition, impactVehicle, PANEL } from '../dist/vehicle-damage.js';
 import { createDoorDebris, hasAlteredGlazing } from '../dist/vehicle-detail.js';
 import { renderStats, performanceName } from '../dist/vehicle-stats.js';
 import { formatMoney } from '../dist/money.js';
@@ -20,7 +20,9 @@ import { OFFICER_LOOK } from '../dist/police.js';
 import { createPoliceScene } from '../dist/police-scene.js';
 import { createCarSmoke } from '../dist/car-smoke.js';
 import { fitFallPose } from '../dist/fall-pose.js';
+import { receiveImpulse } from '../dist/character-physics.js';
 import { GUN, carTop, setCarShell } from '../dist/player-moves.js';
+import { nearestShotActor, shotObstruction, traceShopShot } from '../dist/weapon-aim.js';
 import { shared } from '../dist/gfx-common.js';
 import { resetVehicleDynamics } from '../dist/vehicle-dynamics.js';
 import { Input } from '../dist/input.js';
@@ -40,6 +42,7 @@ import { createStreetIndex, createPlaceIndex, matchPresets, searchLocal, title }
 import { createPlaceLayer } from '../dist/map-places.js';
 import { createGraphics } from '../dist/gfx.js';
 import { createStreetscape, ROAD_LIFT, SIDEWALK_LIFT } from '../dist/streetscape.js';
+import { createCityBirds } from '../dist/city-birds.js';
 import { createStreetLife } from '../dist/streetlife.js';
 import { createWater, WATER_LEVEL } from '../dist/water.js';
 import { BOARDINGS, TRANSPORT, transportDestination } from '../dist/transport-catalog.js';
@@ -54,8 +57,10 @@ import { foodPreviewOptions,openFoodCounter,openInventory,counterInReach } from 
 import { stepCounterOrder } from '../dist/facility-visits.js';
 import { promptTableService, waitsTables } from '../dist/table-service.js';
 import { diningTable } from '../dist/shopping.js';
-import { browseShop } from '../dist/shop-preview.js';
-import { fittedLook } from '../dist/shop-stock.js';
+import { browseShop, changeClothes } from '../dist/shop-preview.js';
+import { createStreetLitter } from '../dist/street-litter.js';
+import { createStreetScans } from '../dist/street-scans.js';
+import { fittedLook, ownedWearables, wearing } from '../dist/shop-stock.js';
 import { castWalkStyle, patrolAppearance } from '../dist/human-cast.js';
 import { carriedItems,createFoodHand } from '../dist/carried-items.js';
 import { createHumanMesh } from '../dist/human-mesh.js';
@@ -63,11 +68,11 @@ import { createMotion, createAnimator, fitPose, gripOffsetFor } from '../dist/bo
 import { writeMovements } from '../dist/body-moves.js';
 import { createFigures } from '../dist/people-figures.js';
 import { createStreetProps } from '../dist/street-props.js';
-import { isOpen, createPlaceSource, placeName, joinPlaceSources, indexFootprints, solveFrontages } from '../dist/places.js';
-import { roomPoint, roomLocal, crossesFixture } from '../dist/room.js';
+import { isOpen, setOpeningHours, createPlaceSource, placeName, joinPlaceSources, indexFootprints, solveFrontages } from '../dist/places.js';
+import { roomPoint, roomLocal, crossesFixture, roomRayDistance, roomOccupants, roomUnderFire } from '../dist/room.js';
 import { seatApproach, seatEyeOffset, seatHeight } from '../dist/seating.js';
 import { beginRegisterTake, updateClerk, registerAction } from '../dist/register.js';
-import { inviteCustomer, populateShop } from '../dist/shop-life.js';
+import { fleeShop, inviteCustomer, populateShop, roomOccupantHit } from '../dist/shop-life.js';
 import { createStorefronts } from '../dist/storefronts.js';
 import { Work } from '../dist/work.js';
 import { createInteraction } from '../dist/interaction.js';
@@ -77,7 +82,8 @@ import { setHandSource } from '../dist/view-hand.js';
 import { createPhoneHand } from '../dist/phone-hand.js';
 import { createPhone, describePlace } from '../dist/phone.js';
 import { createPhoneLens } from '../dist/phone-camera.js';
-import { createFleet } from '../dist/fleet.js';
+import { createFleet, vehicleName } from '../dist/fleet.js';
+import { vehicleTravelSpeed } from '../dist/vehicle-dynamics.js';
 import { createVehicleMeshLibrary } from '../dist/vehicle-assets.js';
 import { designFor } from '../dist/vehicle-designs.js';
 import { createSwitchShot, LEVELS, levelsFor, ceilingFor, groundReach, SHOT_FOV, DRIFT } from '../dist/switch-shot.js';
@@ -198,7 +204,7 @@ class Element extends EventTarget {
   contains(node) { return node===this||this.children.some(child=>child.contains(node)); }
   closest(selector) { return selector.toUpperCase()===this.tagName?this:this.parentElement?.closest(selector)||null; }
   click() { if(!this.disabled)this.dispatch('click',{bubbles:true}); }
-  focus() { this.focused = true; }
+  focus() { this.focused = true;if(this.ownerDocument)this.ownerDocument.activeElement=this; }
   showModal() { this.open = true; }
   close() { this.open = false; this.dispatch('close'); }
   querySelector(selector) {
@@ -231,7 +237,7 @@ function makeDocument() {
   return { document, elements };
 }
 
-async function bootHarness({ stored = null, displayStored = null, unavailableStorage = false, fetchOK = true, geometryOK = true, imageryOK = true, streetFailure = null, landscapeFailure = false, roadPilotFailure = false, navigationFailure = false, baseWaterFailure = false, terrainElevation = 0, coarsePointer = false, holdRoads = () => false, holdLandscape = () => false, beforePlaceNames = null, measuredLandscape = false, extraGeometry = [], geocodeFetch = null } = {}) {
+async function bootHarness({ stored = null, displayStored = null, unavailableStorage = false, fetchOK = true, geometryOK = true, imageryOK = true, streetFailure = null, landscapeFailure = false, roadPilotFailure = false, navigationFailure = false, baseWaterFailure = false, terrainElevation = 0, coarsePointer = false, holdRoads = () => false, holdLandscape = () => false, beforePlaceNames = null, measuredLandscape = false, extraGeometry = [], geocodeFetch = null, beforeBootReady } = {}) {
   const { document, elements } = makeDocument();
   const window = new EventTarget();
   const pads = [];
@@ -340,9 +346,10 @@ async function bootHarness({ stored = null, displayStored = null, unavailableSto
   const original = new Map(Object.keys(globals).map(key => [key, Object.getOwnPropertyDescriptor(globalThis, key)]));
   for (const [key, value] of Object.entries(globals)) Object.defineProperty(globalThis, key, { value, configurable: true });
   const context = vm.createContext({
-    ...globals,
+    ...globals, performance:{now:()=>timestamp},
     THREE: { ...THREE, WebGLRenderer: RendererStub },
-    interactWithTrip,courierBag,createCar, createParkedCars, createDistantTraffic, createPerson, updateCarVisuals, Simulation, TRAFFIC_SIGHT, Input, HUD, CityAudio, GameMap, Work, createStreetIndex, createPlaceIndex, matchPresets, searchLocal, title, createPlaceLayer, createRoutePlanner,
+    vehicleName, vehicleTravelSpeed,
+    interactWithTrip,tripAction,courierBag,createCar, createParkedCars, createDistantTraffic, createPerson, updateCarVisuals, Simulation, TRAFFIC_SIGHT, Input, HUD, CityAudio, GameMap, Work, createStreetIndex, createPlaceIndex, matchPresets, searchLocal, title, createPlaceLayer, createRoutePlanner,
     lotsReady:async()=>false,lots:()=>null,
     createCityStream:(fullIndex,options)=>{
       assert.equal(fullIndex.stats.buildingFeatures,index.stats.buildingFeatures);
@@ -350,9 +357,9 @@ async function bootHarness({ stored = null, displayStored = null, unavailableSto
     },
     updateChaseHeight, cabinSeatPoint, placeDriverCamera, createCityGround, worldToGeographic, atlasZoomFor, createRoadStream, nearestStreet, localDestinations, createCityNavigation,
     createStreetDetail:(manifest,options)=>createStreetDetail(manifest,{...options,now:()=>timestamp}),
-    renderStats, performanceName, formatMoney, vehicleHandling, createDoorDebris, hasAlteredGlazing, carCondition, createCarSmoke, createCentralPark, GUN, carTop, setCarShell, fitFallPose, shared,
-    fingerPose, pinchOffset, setHandSource, isOpen, roomPoint, roomLocal, crossesFixture, seatApproach, seatEyeOffset, seatHeight, beginRegisterTake, updateClerk, registerAction, inviteCustomer, populateShop, createHumanShop:(meta,options)=>createHumanShop(meta,{...options,base:'./human/'}), createHumanMesh, createMotion, createAnimator, fitPose, gripOffsetFor, writeMovements, createFigures, loadPerson, savePerson, foodPreviewOptions,openFoodCounter,openInventory,counterInReach,stepCounterOrder,promptTableService,waitsTables,diningTable,browseShop, fittedLook, patrolAppearance, carriedItems,createFoodHand,
-    createSportsCourts, addCourtPlaces, createStatueOfLiberty, STATUE, castWalkStyle, Landscape, RoadPilot, AbortSignal, createGraphics, createStreetLife, createWater, WATER_LEVEL, BOARDINGS, TRANSPORT, transportDestination, TransportFleet, createTransportScene, setVehicleLamps, OFFICER_LOOK, createPoliceScene, createCityLife, manhattanCore, createStreetSigns, createCrowd, dress, seeded, KIT, createStreetProps, createPlaceSource, placeName, joinPlaceSources, indexFootprints, solveFrontages, createStorefronts, createInteraction, CityRides, PhoneBank, createPhoneHand, createPhone, describePlace, createFleet, createVehicleMeshLibrary, designFor, createSwitchShot, createPickerFlight, createTileStore, offersAt, shopRows, planRoom, buildRoom, roomKind, hasRoom, doorBlips, plateFor, createDemographics, characterAt, createTransitNetwork, busJourney, clockTime, createBuses, createBusStops, createSheds, planSheds, createShedMesh, createDining, planDining, createDiningMesh, seatsOf, planStands, vendorOf, createStandMesh, createCollection, planTrash, createTrashMesh, aboveTheStreet, indexBikeLanes, createLaneMarkings, bikeLaneParking, createBikeTraffic, fitCyclist, PEDAL_PERIOD, createSkateboard, createBikeShare, planBikeDocks, createBikeDocks, menuFor, createSubway, createSubwayEntrances, SUBWAY_LAYER, FARE, indexKerbs, snapToKerb, formatDistance,
+    renderStats, performanceName, formatMoney, vehicleHandling, createDoorDebris, hasAlteredGlazing, carCondition, createCarSmoke, createCentralPark, GUN, carTop, setCarShell, nearestShotActor, shotObstruction, traceShopShot, fitFallPose, shared,
+    fingerPose, pinchOffset, setHandSource, isOpen, setOpeningHours, roomPoint, roomLocal, crossesFixture, roomRayDistance, roomOccupants, roomUnderFire, seatApproach, seatEyeOffset, seatHeight, beginRegisterTake, updateClerk, registerAction, fleeShop, inviteCustomer, populateShop, roomOccupantHit, createHumanShop:(meta,options)=>createHumanShop(meta,{...options,base:'./human/'}), createHumanMesh, createMotion, createAnimator, fitPose, gripOffsetFor, writeMovements, createFigures, loadPerson, savePerson, foodPreviewOptions,openFoodCounter,openInventory,counterInReach,stepCounterOrder,promptTableService,waitsTables,diningTable,browseShop, changeClothes, ownedWearables, wearing, createStreetLitter, createStreetScans, fittedLook, patrolAppearance, carriedItems,createFoodHand,
+    createSportsCourts, addCourtPlaces, createStatueOfLiberty, STATUE, castWalkStyle, Landscape, RoadPilot, AbortSignal, createGraphics, createStreetLife, createCityBirds, createWater, WATER_LEVEL, BOARDINGS, TRANSPORT, transportDestination, TransportFleet, createTransportScene, setVehicleLamps, OFFICER_LOOK, createPoliceScene, createCityLife, manhattanCore, createStreetSigns, createCrowd, dress, seeded, KIT, createStreetProps, createPlaceSource, placeName, joinPlaceSources, indexFootprints, solveFrontages, createStorefronts, createInteraction, CityRides, PhoneBank, createPhoneHand, createPhone, describePlace, createFleet, createVehicleMeshLibrary, designFor, createSwitchShot, createPickerFlight, createTileStore, offersAt, shopRows, planRoom, buildRoom, roomKind, hasRoom, doorBlips, plateFor, createDemographics, characterAt, createTransitNetwork, busJourney, clockTime, createBuses, createBusStops, createSheds, planSheds, createShedMesh, createDining, planDining, createDiningMesh, seatsOf, planStands, vendorOf, createStandMesh, createCollection, planTrash, createTrashMesh, aboveTheStreet, indexBikeLanes, createLaneMarkings, bikeLaneParking, createBikeTraffic, fitCyclist, PEDAL_PERIOD, createSkateboard, createBikeShare, planBikeDocks, createBikeDocks, menuFor, createSubway, createSubwayEntrances, SUBWAY_LAYER, FARE, indexKerbs, snapToKerb, formatDistance,
     // Bundled survey cells only: these tests stay offline.
     createStreetscape:options=>createStreetscape({...options,live:false,now:()=>timestamp}),
     createPhoneLens,
@@ -368,7 +375,7 @@ async function bootHarness({ stored = null, displayStored = null, unavailableSto
     },
   });
   function close() {
-    vm.runInContext('if(typeof gameMap!=="undefined")gameMap?.dispose?.();if(typeof navigation!=="undefined")navigation?.dispose?.();if(typeof roadPilot!=="undefined")roadPilot?.dispose();sportsCourts?.dispose();centralPark?.dispose();landscape?.dispose();streetDetail?.dispose();streetscape?.dispose();streetLife?.dispose();parkedCars?.dispose();distantTraffic?.dispose();signs?.dispose();crowd?.dispose();props?.dispose();storefronts?.dispose();subwayView?.dispose();subwayStairs?.dispose();busStops?.dispose();shedMesh?.dispose();diningMesh?.dispose();standMesh?.dispose();trashMesh?.dispose();bikeDocks?.dispose();water?.dispose();world?.dispose();ground?.dispose();gfx?.dispose();',context);
+    vm.runInContext('if(typeof gameMap!=="undefined")gameMap?.dispose?.();if(typeof navigation!=="undefined")navigation?.dispose?.();if(typeof roadPilot!=="undefined")roadPilot?.dispose();sportsCourts?.dispose();centralPark?.dispose();landscape?.dispose();streetDetail?.dispose();streetscape?.dispose();streetLife?.dispose();cityBirds?.dispose();parkedCars?.dispose();distantTraffic?.dispose();signs?.dispose();crowd?.dispose();props?.dispose();storefronts?.dispose();subwayView?.dispose();subwayStairs?.dispose();busStops?.dispose();shedMesh?.dispose();diningMesh?.dispose();standMesh?.dispose();trashMesh?.dispose();bikeDocks?.dispose();water?.dispose();world?.dispose();ground?.dispose();gfx?.dispose();',context);
     for (const [key, descriptor] of original) {
       if (descriptor) Object.defineProperty(globalThis, key, descriptor);
       else delete globalThis[key];
@@ -385,6 +392,7 @@ async function bootHarness({ stored = null, displayStored = null, unavailableSto
       }
       assert.fail(message);
     }
+    if(beforeBootReady)await beforeBootReady({elements,until,roadWaiters});
     await until(()=>vm.runInContext('bootReady',context)||!elements.get('load-error').hidden,'production boot did not finish');
     // Getting into a car takes as long as the movement drawn for it (player-moves.js, tested in people.test.js).
     // These flows press the key and go straight on, so here it is immediate. So is what follows a death or an
@@ -446,7 +454,8 @@ async function bootHarness({ stored = null, displayStored = null, unavailableSto
 
 function spawnAtPreset(app, name) {
   if(!app.state().cityView)app.click('city-button');
-  app.click('address-input');
+  const address=app.elements.get('address-input');
+  address.value=name;address.dispatch('input');
   const option=app.elements.get('address-results').children.find(button=>
     button.textContent===name||button.textContent.startsWith(name+' · '));
   assert.ok(option,'missing preset: '+name);
@@ -461,6 +470,38 @@ async function finishArrival(app) {
   }
   assert.equal(app.state().switching, false, 'the arrival camera should reach street level');
 }
+
+test('a crash in the occupied cab keeps rendering through ignition, explosion and recovery', async () => {
+  const app=await bootHarness();
+  try {
+    app.click('start-button'); app.click('view-button'); await finishArrival(app);
+    const sim=app.simulation(), scene=app.renderState().scene;
+    parkCab(sim); app.key('KeyF'); app.key('KeyF',false); app.frames();
+    assert.equal(sim.player.mode,'drive');
+    const cab=sim.vehicle, smoke=scene.getObjectByName('Car smoke');
+    const pointLights=()=>scene.children.filter(child=>child.isPointLight).length;
+    const lightsBefore=pointLights();
+    sim.endingSeconds=.5;
+    impactVehicle(cab,38,-Math.sin(cab.angle),-Math.cos(cab.angle),sim.elapsed,
+      {x:cab.x+2*Math.sin(cab.angle),z:cab.z+2*Math.cos(cab.angle)});
+    app.frames(4,50);
+    assert.ok(cab.burningSince!=null && shared.uNycFire.value.w>0);
+    assert.equal(pointLights(),lightsBefore);
+    assert.ok(smoke.geometry.drawRange.count>0 && smoke.geometry.drawRange.count<=360);
+    app.click('first-person-button'); app.frames();
+    assert.equal(app.state().firstPersonView,true);
+    for (let i=0; i<40 && !cab.destroyed; i++) app.frames(1,250);
+    assert.ok(cab.destroyed && sim.ending?.kind==='wasted');
+    assert.ok(shared.uNycFire.value.w>20,'the explosion lights the street');
+    app.frames(32,50);
+    assert.equal(sim.ending,null);
+    await app.until(()=>!app.state().traveling);
+    assert.equal(sim.health,100);
+    assert.equal(sim.player.mode,'walk');
+    assert.equal(shared.uNycFire.value.w,0);
+    assert.equal(app.errors.length,0,app.errors[0]?.stack);
+  } finally { app.close(); }
+});
 
 test('the street advances a real second in ten rendered frames and K toggles the board', async () => {
   const app=await bootHarness();
@@ -477,15 +518,75 @@ test('the street advances a real second in ten rendered frames and K toggles the
     assert.equal(app.renderState().scene.getObjectByName('Skateboard').visible,false);
     app.key('Escape');assert.match(app.elements.get('street-performance').textContent,/\d+ FPS/);
     app.click('controller-sprint');
-    assert.equal(app.storage.get('nyc.controller-sprint'),'tap');
+    assert.equal(app.storage.get('nyc.controller-sprint'),'hold');
   } finally {app.close();}
 });
 
+test('city sound starts with the game and the horn works from keyboard, pad and touch', async t => {
+  t.mock.method(CityAudio.prototype, 'setEnabled', async function (enabled) {
+    this.enabled = enabled;
+    return enabled;
+  });
+  const horn = t.mock.method(CityAudio.prototype, 'horn', () => {});
+  const app = await bootHarness({ coarsePointer: true });
+  try {
+    app.click('start-button');
+    await app.until(() => app.elements.get('sound-value').textContent === 'ON');
+    app.click('view-button');
+    app.key('KeyE'); app.key('KeyE', false);
+    assert.equal(horn.mock.callCount(), 0, 'the horn belongs to the vehicle');
+
+    parkCab(app.simulation());
+    app.key('KeyF'); app.key('KeyF', false);
+    app.frames(6);
+    assert.equal(app.elements.get('touch-horn').hidden, false);
+    app.key('KeyH');app.key('KeyH',false);const lamps=app.simulation().vehicle.lampsOn;
+    assert.equal(typeof lamps,'boolean');app.key('KeyH');app.key('KeyH',false);assert.equal(app.simulation().vehicle.lampsOn,!lamps);
+    app.key('KeyE'); app.key('KeyE', false);
+    assert.equal(horn.mock.callCount(), 1);
+    const pad = { axes: [0,0,0,0], buttons: Array.from({length:16}, () => ({pressed:false,value:0})) };
+    app.pads.push(pad);
+    pad.buttons[10].pressed = true;
+    app.frames();
+    app.pads.pop();
+    assert.equal(horn.mock.callCount(), 2);
+    app.click('touch-horn');
+    assert.equal(horn.mock.callCount(), 3);
+
+    app.key('Escape'); app.key('Escape', false);
+    app.click('sound-button');
+    await app.until(() => app.elements.get('sound-value').textContent === 'OFF');
+    assert.equal(app.storage.get('nyc.city-sound'), 'off');
+    assert.deepEqual(app.errors, []);
+  } finally { app.close(); }
+});
+
 test('five-borough app boots, walks, enters a cab, delivers, saves and pauses through production UI', async () => {
-  const app = await bootHarness({ stored: JSON.stringify({ version: 1, cash: 225, deliveries: 2 }), coarsePointer:true });
+  let holdStartupRoads=true;
+  const app = await bootHarness({ stored: JSON.stringify({ version: 1, cash: 225, deliveries: 2 }), coarsePointer:true,
+    holdRoads:url=>holdStartupRoads&&url.startsWith('./roads/'),
+    beforeBootReady:async({elements,until,roadWaiters})=>{
+      const loading=elements.get('startup-loading'),start=elements.get('start-button');
+      assert.equal(loading.hidden,false);
+      assert.equal(start.hidden,true);
+      await until(()=>roadWaiters.length>0);
+      {const shown=elements.get('startup-progress').value;assert.ok(shown>=.35&&shown<.6,`the bar is part way: ${shown}`);}
+      assert.match(elements.get('startup-stage').textContent,/streets and buildings/);
+      assert.equal(loading.hidden,false);assert.equal(start.disabled,true);
+      holdStartupRoads=false;roadWaiters.splice(0).forEach(resolve=>resolve());
+    }
+  });
   try {
     assert.equal(app.errors.length, 0, app.errors[0]?.stack);
     assert.equal(app.elements.get('start-button').disabled, false);
+    // Loading is not over until the city is on screen: until then the bar is still climbing and there is no way in.
+    assert.equal(app.elements.get('start-button').hidden,true);
+    assert.equal(app.elements.get('startup-loading').hidden,false);
+    assert.ok(app.elements.get('startup-progress').value<1);
+    for(let i=0;i<60&&app.elements.get('start-button').hidden;i++){app.frames(10);await new Promise(resolve=>setTimeout(resolve,50));}
+    assert.equal(app.elements.get('startup-progress').value,1);
+    assert.equal(app.elements.get('start-button').hidden,false);
+    assert.equal(app.elements.get('startup-loading').hidden,true);
     assert.ok(app.state().buildings>=280,'actual SoHo I3S ground surfaces reach the simulation');
     assert.equal(app.state().totalBuildings,1083529);
     assert.ok(app.state().ground.loaded>0);
@@ -501,7 +602,7 @@ test('five-borough app boots, walks, enters a cab, delivers, saves and pauses th
     assert.equal(app.state().cityView,true,'entering the game first exposes all five boroughs');
     assert.equal(app.elements.get('touch-controls').hidden,true,'city overview hides driving controls on touch devices');
     const overviewState=app.state(),overviewNotice=app.simulation().notice,overviewCars=app.simulation().cars;
-    for(const code of ['KeyE','KeyN','KeyR']){
+    for(const code of ['KeyE','KeyN','KeyL']){
       app.key(code);app.key(code,false);
       assert.deepEqual(app.state().player,overviewState.player,`${code} cannot change the player from city overview`);
       assert.deepEqual(app.state().mission,overviewState.mission,`${code} cannot start or reset a job from city overview`);
@@ -513,11 +614,42 @@ test('five-borough app boots, walks, enters a cab, delivers, saves and pauses th
     assert.equal(app.state().stream.visibleChunks,5,'all five real borough fixtures reach the city overview');
     app.click('view-button');assert.equal(app.state().cityView,false);
     assert.equal(app.elements.get('touch-controls').hidden,false,'street view restores touch controls');
-    app.key('KeyV');app.key('KeyV',false);app.frames(2);
+    app.key('F6');app.key('F6',false);app.frames(2);
     assert.equal(app.state().aerialView,true);
-    app.click('view-button');assert.equal(app.state().cityView,true);
+    app.key('F6');app.key('F6',false);
+    assert.equal(app.state().aerialView,false);
+    assert.equal(app.state().cityView,false,'a second tap goes back to the character');
+    app.key('F6');app.frames(3,100);
+    assert.equal(app.state().cityView,false);
+    assert.equal(app.state().aerialView,false,'holding F6 skips the aerial view');
+    app.frames(1,100);app.key('F6',false);
+    assert.equal(app.state().cityView,true,'a hold opens the full-city view and release leaves it open');
     assert.equal(app.elements.get('touch-controls').hidden,true,'returning to city overview hides touch controls again');
     app.click('city-button');assert.equal(app.state().cityView,false);assert.equal(app.state().aerialView,false);
+    const health = app.elements.get('health-display');
+    const healthBar = app.elements.get('health-bar');
+    const balance = app.elements.get('cash-display');
+    const radar = app.elements.get('map-panel');
+    assert.equal(app.elements.has('speed'), false);
+    assert.equal(health.hidden, true);
+    assert.equal(balance.hidden, true);
+    app.simulation().hurt(12);
+    app.frames(6);
+    assert.equal(health.hidden, false, 'damage reveals health without a key press');
+    assert.equal(healthBar.value, 88);
+    assert.equal(balance.hidden, true);
+    assert.equal(radar.classes.has('radar-expanded'), false);
+    app.simulation().health = 100;
+    app.frames(6);
+    assert.equal(healthBar.value, 100, 'healing updates the health bar');
+    app.key('KeyZ');app.key('KeyZ', false);
+    assert.equal(health.hidden, false);
+    assert.equal(healthBar.value, 100);
+    assert.equal(balance.hidden, false);
+    assert.equal(app.elements.get('cash').textContent, '$225');
+    assert.equal(radar.classes.has('radar-expanded'), true);
+    assert.equal(app.state().map.open, false);
+    assert.equal(app.state().paused, false);
     assert.equal(app.key('Escape').defaultPrevented,true);
     app.key('Escape',false);
     assert.equal(app.elements.get('pause-map').hidden,false,'the pause menu opens on the map tab');
@@ -543,13 +675,26 @@ test('five-borough app boots, walks, enters a cab, delivers, saves and pauses th
     const walked = app.state().player;
     assert.ok(Math.hypot(walked.x - initial.x, walked.z - initial.z) > 0.2, 'held movement continues through opening the phone and browsing Bank');
     app.key('Escape'); app.key('Escape', false);
-    app.key('KeyR'); app.key('KeyR', false);
-    app.key('KeyE'); app.key('KeyE', false);
+    app.key('Escape'); app.key('Escape', false); app.click('recover-button');
+    app.key('KeyF'); app.key('KeyF', false);
     assert.equal(app.state().player.mode, 'drive');
-    const balance = app.elements.get('cash-display');
-    assert.equal(balance.hidden, true);
+    app.simulation().hurt(26);
     app.key('KeyZ');app.key('KeyZ', false);
+    assert.equal(health.hidden, false);
     assert.equal(balance.hidden, false);
+    assert.equal(healthBar.value, 74, 'the bar shows player health even in a car');
+    app.simulation().hurt(9);
+    app.frames(6);
+    assert.equal(healthBar.value, 65);
+    assert.equal(app.elements.get('health-number').textContent, '65%');
+    const pad = { axes: [0,0,0,0], buttons: Array.from({length:16}, () => ({pressed:false,value:0})) };
+    app.pads.push(pad);
+    pad.buttons[13].pressed = true;
+    app.frames();
+    app.pads.pop();
+    assert.equal(health.hidden, false, 'checking status keeps the health indicator visible');
+    assert.equal(balance.hidden, false);
+    assert.equal(radar.classes.has('radar-expanded'), true);
     assert.equal(app.elements.get('cash').textContent, '$225');
     app.key('ArrowUp');app.key('ArrowUp', false);
     app.click('phone-close');app.key('KeyN');app.key('KeyN',false);
@@ -557,7 +702,6 @@ test('five-borough app boots, walks, enters a cab, delivers, saves and pauses th
     assert.equal(app.state().mission.phase, 'active');
     assert.equal(app.elements.get('phone').hidden, true);
     assert.equal(app.elements.get('mission-title').textContent, app.state().mission.target.name);
-    assert.equal(app.elements.get('speed-unit').textContent, 'MPH');
     app.click('map-button');
     assert.equal(app.elements.get('game-map').hidden,false);
     assert.equal(app.state().map.open,true);
@@ -596,9 +740,11 @@ test('five-borough app boots, walks, enters a cab, delivers, saves and pauses th
     assert.equal(saved.cash, app.state().cash);
     assert.equal(app.elements.get('mission-kicker').textContent, 'DELIVERY COMPLETE');
     assert.equal(app.elements.has('job-button'), false);
+    // Leaving the tab neither pauses the game nor opens its menu.
     app.document.hidden = true;
     app.document.dispatch('visibilitychange');
-    assert.equal(app.state().paused, true);
+    assert.equal(app.state().paused, false);
+    app.document.hidden = false;
     assert.ok(app.rendererInstances[0].renderCount > 60);
     assert.equal(app.errors.length, 0);
   } finally { app.close(); }
@@ -640,6 +786,11 @@ test('a failed city request displays the loading error and keeps play disabled',
     assert.equal(app.elements.get('start-button').disabled, true);
     assert.equal(app.elements.get('load-error').hidden, false);
     assert.match(app.elements.get('load-error').textContent, /city data could not load/);
+    assert.equal(app.elements.get('startup-loading').hidden,true);
+    assert.equal(app.elements.get('startup-retry').hidden,false);
+    let reloaded=false;
+    app.window.location={reload(){reloaded=true;}};
+    app.click('startup-retry');assert.equal(reloaded,true);
     assert.equal(app.window.nycGame, undefined);
   } finally { app.close(); }
 });
@@ -931,7 +1082,7 @@ test('aerial movement and stopping translate a fixed view with sufficient ground
         &&sim.cars.every(car=>Math.hypot(car.x-point.x,car.z-point.z)>9));
     assert.ok(clear);
     Object.assign(sim.player,clear,{velocityX:0,velocityZ:0,speed:0});
-    app.key('KeyV');app.key('KeyV',false);app.frames();
+    app.key('F6');app.key('F6',false);app.frames();
     const baseline=aerialPose(app),before={...sim.player};
     assert.ok(baseline.focus.distanceTo(new THREE.Vector3(sim.player.x,0,sim.player.z))<1e-6,
       'entering aerial view starts at the current player rather than easing from the prior camera position');
@@ -959,7 +1110,7 @@ test('the aerial camera zooms in and out over the same ground, within limits, by
   try{
     app.click('start-button');app.click('view-button');app.frames(2);
     await app.until(()=>app.state().stream.loading===0);
-    app.key('KeyV');app.key('KeyV',false);app.frames(3);
+    app.key('F6');app.key('F6',false);app.frames(3);
     const sim=app.simulation(),height=()=>app.camera().position.y-(sim.player.y||0);
     const start=aerialPose(app),base=height();
     const same=pose=>{assert.ok(pose.focus.distanceTo(start.focus)<.01,'zoom keeps the ground point');assert.ok(pose.quaternion.angleTo(start.quaternion)<1e-6,'zoom keeps the angle');};
@@ -973,9 +1124,9 @@ test('the aerial camera zooms in and out over the same ground, within limits, by
     app.press('-');app.frames(300);assert.ok(Math.abs(height()/base-.375)<.01);
     app.press('=');app.frames(300);assert.ok(Math.abs(height()/base-.3)<.01);
     // Out of aerial view the wheel and keys leave the setting alone.
-    app.key('KeyV');app.key('KeyV',false);app.key('KeyV');app.key('KeyV',false);app.frames(2);
+    app.key('F6');app.key('F6',false);app.frames(2);
     app.wheel(900);app.press('-');
-    app.key('KeyV');app.key('KeyV',false);app.frames(300);
+    app.key('F6');app.key('F6',false);app.frames(300);
     assert.ok(Math.abs(height()/base-.3)<.01);
   }finally{app.close();}
 });
@@ -986,7 +1137,7 @@ test('aerial entry, recovery and large location changes reset tracking without c
     app.click('start-button');app.click('view-button');app.frames(2);
     await app.until(()=>app.state().stream.loading===0);
     const sim=app.simulation();
-    app.key('KeyV');app.key('KeyV',false);app.frames();
+    app.key('F6');app.key('F6',false);app.frames();
     const fixed=aerialPose(app);
     // A location discontinuity must not animate the camera through hundreds
     // of meters of intervening buildings while looking at a distant player.
@@ -995,14 +1146,14 @@ test('aerial entry, recovery and large location changes reset tracking without c
     let pose=aerialPose(app);
     assert.ok(pose.focus.distanceTo(new THREE.Vector3(sim.player.x,0,sim.player.z))<1e-6,'large location change resets the aerial focus');
     assert.ok(pose.quaternion.angleTo(fixed.quaternion)<1e-7);
-    app.key('KeyR');app.key('KeyR',false);app.frames();
+    app.key('Escape');app.key('Escape',false);app.click('recover-button');app.frames();
     pose=aerialPose(app);
     assert.ok(pose.focus.distanceTo(new THREE.Vector3(sim.player.x,0,sim.player.z))<1e-6,'recovery resets the aerial focus');
     app.click('view-button');assert.equal(app.state().cityView,true);app.frames(8);
     app.click('view-button');assert.equal(app.state().cityView,false);app.frames(8);
     assert.equal(app.state().aerialView,false);
     assert.ok(app.camera().near<1,'street view restores its close clipping range');
-    app.key('KeyV');app.key('KeyV',false);app.frames();
+    app.key('F6');app.key('F6',false);app.frames();
     pose=aerialPose(app);
     assert.ok(pose.focus.distanceTo(new THREE.Vector3(sim.player.x,0,sim.player.z))<1e-6,'returning from city and street views starts at the current player');
     assert.ok(pose.quaternion.angleTo(fixed.quaternion)<1e-7);
@@ -1034,7 +1185,7 @@ test('walking A/D keys follow the visible camera right axis after orbiting',asyn
       }
     }
     Object.assign(sim.player,{velocityX:0,velocityZ:0,speed:0});
-    app.key('KeyV');app.key('KeyV',false);app.frames(75);
+    app.key('F6');app.key('F6',false);app.frames(75);
     assert.equal(app.state().aerialView,true);
     for(const [key,axis] of [['KeyD',new THREE.Vector3(1,0,0)],['KeyW',new THREE.Vector3(0,0,-1)]]){
       Object.assign(sim.player,{velocityX:0,velocityZ:0,speed:0});
@@ -1071,7 +1222,7 @@ test('surveyed street furniture in the live scene uses the same positions for dr
   } finally { app.close(); }
 });
 
-test('E takes a visible Citi Bike from its dock, rides it and leaves it available to remount',async()=>{
+test('F takes a visible Citi Bike from its dock, rides it and leaves it available to remount',async()=>{
   const app=await bootHarness();
   try{
     app.click('start-button');app.click('view-button');
@@ -1079,22 +1230,22 @@ test('E takes a visible Citi Bike from its dock, rides it and leaves it availabl
     await app.until(()=>{app.frames();return docks.available.length>0;},'no bikes at the surveyed kerbs');
     const bike=docks.available.find(at=>!sim.isBlocked(at.x,at.z,.55)&&!sim._nearCar(at.x,at.z,.55,null,at.y));
     assert.ok(bike);Object.assign(sim.player,{x:bike.x,y:bike.y,z:bike.z});
-    app.key('KeyE');app.key('KeyE',false);app.frames();
+    app.key('KeyF');app.key('KeyF',false);app.frames();
     assert.equal(sim.player.mode,'bike');assert.equal(sim.bike.id,bike.id);
     assert.ok(docks.rental.visible&&!docks.available.some(at=>at.id===bike.id));
     app.key('KeyW');app.frames(24);app.key('KeyW',false);
     assert.ok(Math.hypot(sim.player.x-bike.x,sim.player.z-bike.z)>.1);
     assert.equal(docks.rental.position.x,sim.player.x);
-    app.key('KeyE');app.key('KeyE',false);app.frames();
+    app.key('KeyF');app.key('KeyF',false);app.frames();
     assert.equal(sim.player.mode,'walk');assert.ok(docks.rental.visible);
     Object.assign(sim.player,{x:sim.bike.x,z:sim.bike.z});
-    app.key('KeyE');app.key('KeyE',false);app.frames();
+    app.key('KeyF');app.key('KeyF',false);app.frames();
     assert.equal(sim.player.mode,'bike');assert.equal(sim.bike.id,bike.id);
     assert.equal(app.errors.length,0,app.errors[0]?.stack);
   }finally{app.close();}
 });
 
-test('E takes a passing cyclist’s bicycle and the displaced rider reacts on foot',async()=>{
+test('F takes a passing cyclist’s bicycle and the displaced rider reacts on foot',async()=>{
   const app=await bootHarness();
   try{
     app.click('start-button');app.click('view-button');
@@ -1107,7 +1258,7 @@ test('E takes a passing cyclist’s bicycle and the displaced rider reacts on fo
     },'a cyclist on an open stretch of bike lane');
     const rider=bike.owner;
     Object.assign(sim.player,{x:bike.x+.7*Math.cos(bike.angle),y:bike.y,z:bike.z-.7*Math.sin(bike.angle),grounded:true});
-    app.key('KeyE');app.key('KeyE',false);
+    app.key('KeyF');app.key('KeyF',false);
     assert.equal(sim.player.mode,'bike');
     assert.equal(sim.bike.id,bike.id);
     assert.equal(game.bikeTraffic.riders.includes(rider),false);
@@ -1147,6 +1298,8 @@ test('a shop visit keeps the same room and occupants on both sides of its swingi
     assert.ok(camera.layers.test(room.children[0].layers));
     // The street is drawn too, to be seen through the doorway and the windows, and the building's own wall is left out in front of the room.
     assert.ok(camera.layers.isEnabled(0));assert.equal(shared.uNycRoom.value.w,1,'the coplanar exterior facade is cut away');assert.equal(shared.uNycRoomSide.value.z,sim.room.width/2);
+    assert.deepEqual(shared.uNycRoomEdges.value.toArray(), [plan.tx,plan.tz,
+      plan.returns.find(edge=>edge.side===-1)?.length||0,plan.returns.find(edge=>edge.side===1)?.length||0]);
     assert.ok(camera.position.y>=floor+1.45&&camera.position.y<=floor+1.901);
     app.click('first-person-button');app.frames();
     checkWalkingEye(app);assert.ok(camera.layers.test(room.children[0].layers));
@@ -1279,7 +1432,7 @@ test('first person follows the walker at eye level and keeps their heading while
     assert.ok(app.camera().quaternion.angleTo(facing)<1e-6);
     app.key('Space');app.frames(5);app.key('Space',false);
     assert.ok(p.y>start.y+.15,'the eye rises with a jump');checkWalkingEye(app);
-    app.key('KeyM');app.key('KeyB');assert.equal(app.state().firstPersonView,true);
+    app.key('F7');app.key('KeyB');assert.equal(app.state().firstPersonView,true);
     app.click('game-map-close');app.key('Escape');
     app.click('first-person-button');
     assert.equal(app.state().paused,true,'perspective changes without leaving the pause menu');
@@ -1296,15 +1449,57 @@ test('first person follows the walker at eye level and keeps their heading while
   }finally{app.close();}
 });
 
-test('right-stick click moves the camera to the driver seat in the same car model',async()=>{
+test('the first-person phone selfie frames the moving player and their current pose',async()=>{
+  const app=await bootHarness();
+  try {
+    app.click('start-button');app.key('KeyB');app.key('KeyB',false);
+    const game=app.window.nycGame, player=app.simulation().player;
+    await app.until(()=>game.playerBody,'player outfit did not load');
+    const body=game.playerBody, renderer=game.graphics.renderer, originalRender=renderer.render.bind(renderer);
+    const rendered=[];
+    let target=null;
+    renderer.getRenderTarget=()=>target;
+    renderer.setRenderTarget=next=>{target=next;};
+    renderer.clear=()=>{};
+    renderer.readRenderTargetPixels=(_target,_x,_y,_width,_height,pixels)=>pixels.fill(255);
+    renderer.render=(scene,view)=>{
+      originalRender(scene,view);
+      if(target)rendered.push({lens:view.position.clone(),body:body.mesh.position.clone(),visible:body.mesh.visible});
+    };
+    const canvas=app.elements.get('phone-lens'), pixels=canvas.getContext('2d');
+    pixels.createImageData=(w,h)=>({data:new Uint8ClampedArray(w*h*4)});
+    pixels.putImageData=()=>{};
+    canvas.toDataURL=()=>'data:image/jpeg,selfie';
+    game.phone.setOpen(true);app.click('phone-app-camera');app.click('phone-camera-flip');app.frames(20);
+    assert.equal(game.phone.facing,'selfie');
+    const before=rendered.at(-1);
+    assert.ok(before?.visible);
+    assert.equal(body.mesh.visible,false,'the gameplay camera still hides the first-person body');
+    app.key('KeyD');app.frames(12);app.key('KeyD',false);
+    app.click('phone-shutter');
+    const after=rendered.at(-1);
+    assert.ok(after.visible);
+    assert.ok(after.body.distanceTo(before.body)>.1 && after.lens.distanceTo(before.lens)>.1);
+    assert.ok(Math.hypot(after.body.x-player.x,after.body.z-player.z)<.001);
+    assert.equal(body.mesh.visible,false);
+    assert.equal(app.elements.get('phone-camera-status').textContent,'Saved.');
+    assert.equal(app.errors.length,0,app.errors[0]?.stack);
+  } finally {app.close();}
+});
+
+test('View cycles the camera to the driver seat in the same car model',async()=>{
   const app=await bootHarness();
   try{
-    parkCab(app.simulation());
+    const parked=parkCab(app.simulation());
+    const neighbor={...parked,id:'camera-neighbor',x:parked.x+8,controlled:false};
+    app.simulation().cars.push(neighbor);
     app.click('start-button');app.click('view-button');app.frames(2);
     const pad={axes:[0,0,0,0],buttons:Array.from({length:17},()=>({pressed:false,value:0}))};
-    app.pads.push(pad);pad.buttons[11].pressed=true;app.frames(4);
-    assert.equal(app.state().firstPersonView,true,'holding the stick click toggles once');
-    pad.buttons[11].pressed=false;app.key('KeyE');app.key('KeyE',false);app.frames();
+    app.pads.push(pad);
+    const cycle=()=>{pad.buttons[8].pressed=true;app.frames();pad.buttons[8].pressed=false;app.frames();};
+    cycle();cycle();
+    assert.equal(app.state().firstPersonView,true);
+    app.key('KeyF');app.key('KeyF',false);app.frames();
     const sim=app.simulation(), scene=app.renderState().scene;
     assert.equal(sim.player.mode,'drive');
     const car=sim.vehicle, exterior=scene.children.find(mesh=>mesh.userData.chassis&&Math.hypot(mesh.position.x-car.x,mesh.position.z-car.z)<.01);
@@ -1317,14 +1512,16 @@ test('right-stick click moves the camera to the driver seat in the same car mode
     assert.ok(Math.abs(car.speed)>1);assert.ok(forward().dot(app.vehicleVisual().forward)>.99,'the seat faces the turning car nose');
     pad.axes[2]=1;app.frames(16);pad.axes[2]=0;
     assert.ok(forward().dot(app.vehicleVisual().forward)<.95,'the driver can look out the side');
-    app.key('KeyV');app.frames();assert.equal(app.state().aerialView,true);
+    app.key('F6');app.key('F6',false);app.frames();assert.equal(app.state().aerialView,true);
     assert.equal(exterior.visible,true);
-    app.key('KeyV');app.frames();app.key('KeyV');app.frames();
+    app.key('F6');app.frames(4,100);app.key('F6',false);
+    assert.equal(app.state().cityView,true);
+    app.key('F6');app.key('F6',false);app.frames();
     assert.equal(app.state().firstPersonView,true);
-    app.key('KeyE');app.frames();
+    app.key('KeyF');app.frames();
     assert.equal(sim.player.mode,'walk');assert.equal(exterior.visible,true);
     checkWalkingEye(app);
-    pad.buttons[11].pressed=true;app.frames(3);
+    cycle();
     assert.equal(app.state().firstPersonView,false);
     assert.equal(app.errors.length,0,app.errors[0]?.stack);
   }finally{app.close();}
@@ -1342,7 +1539,7 @@ test('entering a cab snaps behind its visible nose and W drives toward that nose
     const nose=new THREE.Vector3(Math.sin(cab.angle),0,Math.cos(cab.angle));
     assert.ok(app.camera().position.clone().sub(new THREE.Vector3(cab.x,0,cab.z)).dot(nose)>.3,
       'set up the walking camera in front of the cab before entry');
-    app.key('KeyE');app.key('KeyE',false);
+    app.key('KeyF');app.key('KeyF',false);
     assert.equal(sim.player.mode,'drive');
     assert.ok(app.camera().position.clone().sub(new THREE.Vector3(cab.x,0,cab.z)).dot(nose)<-3,
       'entry must place the camera behind the cab immediately, before another frame');
@@ -1360,7 +1557,7 @@ async function prepareChaseReplay(app){
   parkCab(app.simulation());
   app.click('start-button');app.click('view-button');app.frames(2);
   await app.until(()=>app.state().stream.loading===0);
-  app.key('KeyE');app.key('KeyE',false);app.frames();
+  app.key('KeyF');app.key('KeyF',false);app.frames();
   const sim=app.simulation(),car=sim.cars.find(candidate=>candidate.id===sim.player.vehicleId);
   assert.ok(car);
   const clear=sim.city.roads.flatMap(road=>road.points).map(([x,z])=>({x,z}))
@@ -1479,7 +1676,7 @@ test('keyboard, controller and touch handbrakes reach driving without replacing 
     parkCab(app.simulation());
     app.click('start-button');app.click('view-button');app.frames(2);
     await app.until(()=>app.state().stream.loading===0);
-    app.key('KeyE');app.key('KeyE',false);app.frames();
+    app.key('KeyF');app.key('KeyF',false);app.frames();
     const sim=app.simulation(),car=sim.cars.find(candidate=>candidate.id===sim.player.vehicleId);
     assert.ok(car);
     const samples=[],step=sim.step.bind(sim);
@@ -1494,11 +1691,11 @@ test('keyboard, controller and touch handbrakes reach driving without replacing 
     app.key('Space',false);app.frames();assert.equal(samples.at(-1).handbrake,false);
     app.key('KeyW',false);app.key('KeyD',false);
     const pad={axes:[.6,0,0,0],buttons:Array.from({length:12},()=>({pressed:false,value:0}))};
-    pad.buttons[7].value=.8;pad.buttons[2].pressed=true;app.pads.push(pad);app.frames();
+    pad.buttons[7].value=.8;pad.buttons[5].pressed=true;app.pads.push(pad);app.frames();
     assert.equal(samples.at(-1).handbrake,true);
     assert.equal(samples.at(-1).forward,.8);
     assert.ok(samples.at(-1).turn>0);
-    pad.buttons[2].pressed=false;pad.buttons[7].value=0;pad.buttons[6].value=.7;app.frames();
+    pad.buttons[5].pressed=false;pad.buttons[7].value=0;pad.buttons[6].value=.7;app.frames();
     assert.equal(samples.at(-1).handbrake,false);
     assert.equal(samples.at(-1).forward,-.7,'left trigger retains brake/reverse intent');
     app.pads.length=0;
@@ -1518,7 +1715,7 @@ test('A/D steering turns the front wheels correctly in forward and reverse drivi
     parkCab(app.simulation());
     app.click('start-button');app.click('view-button');app.frames(2);
     await app.until(()=>app.state().stream.loading===0);
-    app.key('KeyE');app.key('KeyE',false);app.frames();
+    app.key('KeyF');app.key('KeyF',false);app.frames();
     const sim=app.simulation(),car=sim.cars.find(car=>car.id===sim.player.vehicleId);
     assert.ok(car);
     const start={x:car.x,z:car.z,angle:car.angle};
@@ -1571,7 +1768,8 @@ test('an address result selects a spawn and waits for real destination data befo
     assert.deepEqual(app.state().player,before);
     results[0].click();
     assert.match(app.state().navigation.selected.name,/RICHMOND TERRACE/i);
-    assert.match(app.elements.get('spawn-note').textContent,/Staten Island/,'the selected address keeps its borough for disambiguation');
+    assert.match(app.elements.get('address-input').value,/RICHMOND TERRACE.*Staten Island/i,'the search field keeps the selected address and borough');
+    assert.equal(app.elements.get('spawn-note').textContent,'');
     assert.equal(navigation.classes.has('has-spawn'),true);
     assert.equal(navigation.classes.has('is-picking'),false);
     assert.equal(app.elements.get('spawn-button').disabled,false);
@@ -1649,7 +1847,7 @@ test('superseded address responses and canceled searches cannot restore stale re
   }finally{for(const request of pending)request.resolve(addressResponse([]));app.close();}
 });
 
-test('explicit map-pick mode selects geographic points without orbiting or immediately spawning',async()=>{
+test('double-clicking, dragging a pin and explicit map-pick mode preview geographic points before spawning',async()=>{
   const app=await bootHarness();
   try{
     app.click('start-button');app.frames(180);
@@ -1659,22 +1857,54 @@ test('explicit map-pick mode selects geographic points without orbiting or immed
     canvas.dispatch('pointermove',{clientX:710,clientY:450,pointerId:4});
     canvas.dispatch('pointerup',{clientX:710,clientY:450,pointerId:4});app.frames(120);
     assert.equal(app.state().navigation.selected,null,'ordinary orbit dragging cannot select a spawn');
+    const place=app.roadIndex().places.find(place=>place.borough==='Staten Island');
+    const assertCentered=point=>{
+      app.frames(12,250);
+      const projected=app.screenPoint(point.x,point.z);
+      assert.ok(Math.hypot(projected.clientX-720,projected.clientY-450)<30,'the camera centers on the preview pin');
+    };
+    canvas.dispatch('dblclick',app.screenPoint(place.x,place.z));
+    assert.ok(Math.hypot(app.state().navigation.selected.x-place.x,app.state().navigation.selected.z-place.z)<1);
+    const address=app.elements.get('address-input');
+    assert.equal(address.value,app.state().navigation.selected.name);
+    assert.equal(app.state().traveling,false);
+    assertCentered(app.state().navigation.selected);
+    const pin=app.elements.get('spawn-pin'),label=point=>({...point,clientY:point.clientY-18,pointerId:8});
+    const pinDragTo=app.screenPoint(place.x+600,place.z+240);
+    const beforeDrag=app.camera().quaternion;
+    pin.dispatch('pointerdown',label(app.screenPoint(place.x,place.z)));
+    canvas.dispatch('pointermove',label(pinDragTo));app.frames();
+    assert.ok(app.camera().quaternion.angleTo(beforeDrag)<1e-5,'the camera stays still during the drag');
+    canvas.dispatch('pointerup',label(pinDragTo));
+    const moved=app.state().navigation.selected;
+    assert.ok(Math.hypot(moved.x-place.x-600,moved.z-place.z-240)<1);
+    assert.equal(address.value,moved.name);
+    assert.deepEqual(app.state().player,before);
+    assert.equal(app.state().traveling,false);
+    assert.equal(app.elements.get('spawn-button').disabled,false);
+    assertCentered(moved);
+    app.click('address-input');
+    assert.ok(app.elements.get('address-results').children.some(row=>row.className==='transportation-result'),
+      'opening the search field after a pin selection returns to the full list');
+    app.click('clear-spawn-button');
     app.click('pick-spawn-button');assert.equal(app.state().navigation.picking,true);
     const navigation=app.elements.get('city-navigation');
     assert.equal(navigation.classes.has('is-picking'),true);assert.equal(navigation.classes.has('has-spawn'),false);
-    const orientation=app.camera().quaternion;
-    const place=app.roadIndex().places.find(place=>place.borough==='Staten Island');
     const from=app.screenPoint(place.x,place.z),to=app.screenPoint(place.x+50,place.z+20);
+    const orientation=app.camera().quaternion;
     canvas.dispatch('pointerdown',{...from,pointerId:5});
-    canvas.dispatch('pointermove',{...to,pointerId:5});
-    canvas.dispatch('pointerup',{...to,pointerId:5});app.frames();
+    canvas.dispatch('pointermove',{...to,pointerId:5});app.frames();
+    assert.ok(app.camera().quaternion.angleTo(orientation)<1e-5,'dragging the spawn point must not also orbit the map');
+    canvas.dispatch('pointerup',{...to,pointerId:5});
     const selection=app.state().navigation.selected;
     assert.ok(selection);assert.ok(Math.hypot(selection.x-place.x-50,selection.z-place.z-20)<1);
+    assert.equal(app.elements.get('address-input').value,selection.name,'dragging a map pin updates the search field');
+    assert.equal(app.elements.get('spawn-note').textContent,'');
     assert.equal(navigation.classes.has('is-picking'),true);assert.equal(navigation.classes.has('has-spawn'),true);
-    assert.ok(app.camera().quaternion.angleTo(orientation)<1e-5,'dragging the spawn point must not also orbit the map');
     assert.deepEqual(app.state().player,before);
     assert.equal(app.elements.get('spawn-button').disabled,false);assert.equal(app.elements.get('spawn-pin').hidden,false);
     app.click('clear-spawn-button');assert.equal(app.state().navigation.selected,null);assert.equal(app.state().navigation.picking,false);
+    assert.equal(app.elements.get('address-input').value,'');
     assert.equal(navigation.classes.has('is-picking'),false);assert.equal(navigation.classes.has('has-spawn'),false);
     assert.equal(app.elements.get('spawn-pin').hidden,true);
     app.click('pick-spawn-button');assert.equal(app.state().navigation.picking,true);
@@ -1693,7 +1923,7 @@ test('measured landscape boots at elevation and supports park travel through the
     assert.equal(app.state().player.y,28);
     app.click('start-button');app.click('view-button');app.frames(90);
     assert.ok(app.camera().position.y>28,'street camera must remain above measured ground');
-    app.key('KeyV');app.key('KeyV',false);app.frames();
+    app.key('F6');app.key('F6',false);app.frames();
     assert.equal(app.camera().position.y,268,'aerial eye height is relative to measured ground');
     app.click('city-button');
     spawnAtPreset(app,'Central Park');
@@ -1716,10 +1946,11 @@ test('landscape source failure leaves existing city exploration available',async
     assert.equal(app.state().landscape,null);
     assert.match(app.elements.get('landscape-status').textContent,/unavailable/);
     app.click('start-button');
-    app.click('address-input');
-    const options=app.elements.get('address-results').children;
-    assert.ok(options.some(button=>button.textContent.startsWith('SoHo')));
-    assert.ok(!options.some(button=>button.textContent.includes('The Pond')));
+    const address=app.elements.get('address-input');
+    address.value='SoHo';address.dispatch('input');
+    assert.ok(app.elements.get('address-results').children.some(button=>button.textContent.startsWith('SoHo')));
+    address.value='The Pond';address.dispatch('input');
+    assert.equal(app.elements.get('address-results').children.length,0);
     app.click('view-button');app.frames();
     assert.equal(app.state().player.y,0);
     assert.equal(app.errors.length,0,app.errors[0]?.stack);
@@ -1826,7 +2057,7 @@ test('road pilot loads on demand, arrives on measured pavement and toggles appea
     orbitWalkingCamera(app,Math.atan2(cab.x-sim.player.x,cab.z-sim.player.z));
     app.key('KeyW');for(let i=0;i<180&&!sim.getNearbyCar();i++)app.frames();app.key('KeyW',false);
     sim.bikeTraffic=null;sim.dockedBikes=[];
-    app.key('KeyE');app.key('KeyE',false);assert.equal(sim.player.mode,'drive');
+    app.key('KeyF');app.key('KeyF',false);assert.equal(sim.player.mode,'drive');
     const before={x:sim.player.x,z:sim.player.z};
     app.key('KeyW');app.frames(45);app.key('KeyW',false);
     assert.ok(Math.hypot(sim.player.x-before.x,sim.player.z-before.z)>1,'throttle drives over reconstructed ground');
@@ -1879,7 +2110,7 @@ test('uneven-road camera uses one elevation anchor without pitching at every bum
   const app=await bootHarness();
   try{
     parkCab(app.simulation());
-    app.click('start-button');app.click('view-button');app.key('KeyE');
+    app.click('start-button');app.click('view-button');app.key('KeyF');
     const sim=app.simulation();assert.equal(sim.player.mode,'drive');
     let elevation=10;
     sim.setActiveCity({sampleSurface:()=>({elevation,normal:{x:0,y:1,z:0}})});
@@ -1912,11 +2143,23 @@ test('an indoor arrest and a later knockout release the player by their respecti
     const sim=app.simulation();
     sim.cash=350;sim.deliveries=2;assert.ok(sim.startMission());
     sim.ownedCab.mods={engine:1};
-    const {x,z}=sim.player;
-    sim.enterRoom({name:'Shop',x,z,nx:1,nz:0,tx:0,tz:1,width:8,depth:8,things:[],staff:[]});
-    sim.crime(1);sim.police.cornered=true;sim.police.arrest=1;
-    sim.police.officers.push({...sim.player,phase:0});
-    app.frames();
+    const footprints=indexFootprints(sim.city.buildings), storefronts=app.window.nycGame.storefronts;
+    let view;
+    for(const building of sim.city.buildings){
+      const [x,z]=building.polygon[0],place={kind:'clothes',group:'shop',name:'Shop',id:'arrest-test-shop',x,z};
+      const [front]=solveFrontages([place],footprints,()=>true);
+      if(!front)continue;
+      view=storefronts.prepare(front);
+      if(view){app.setShopStreet(front);break;}
+    }
+    assert.ok(view);
+    const [x,z]=roomPoint(view.plan,0,.55),[ox,oz]=roomPoint(view.plan,0,1.25);
+    Object.assign(sim.player,{x,z,y:view.floor});
+    sim.doorway=view;assert.ok(sim.enterRoom(view.plan));
+    sim.police.officers.push({id:'indoor-arrest',x:ox,y:view.floor,z:oz,room:view,angle:0,phase:0,fire:1,health:100});
+    sim.heat=1;sim.police.report(view.plan,true,true,'walk',view);
+    sim.police.arrest=.99;
+    app.frames(3);
     await app.until(()=>Boolean(release));
     assert.equal(app.state().traveling,true);
     assert.ok(Math.hypot(sim.player.x-x,sim.player.z-z)<3,'the player waits at the incident');
@@ -1964,7 +2207,7 @@ test('a failed hospital transfer recovers locally and the next wreck can reach t
 test('interactive map opens from city view, zooms, pans, and pauses driving without pausing the menu',async()=>{
   const app=await bootHarness({geocodeFetch:async()=>{throw new Error('Address service unavailable');}});
   try{
-    app.click('start-button');app.frames(2);app.key('KeyM');app.key('KeyM',false);
+    app.click('start-button');app.frames(2);app.key('F7');app.key('F7',false);
     assert.equal(app.state().map.open,true);assert.equal(app.elements.get('game-map').hidden,false);
     assert.equal(app.state().map.view.span,1000);
     app.elements.get('game-map-address').value='53rd & 6th, Manhattan';
@@ -1977,10 +2220,23 @@ test('interactive map opens from city view, zooms, pans, and pauses driving with
     assert.equal(app.state().map.view.x,app.state().map.pin.x);
     await app.until(()=>app.state().map.route);
     clickGameMapPoint(app,app.state().map.pin);
+    const map=app.gameMap();
+    await app.until(()=>map.key.rows.get('place/subway').places?.length);
+    assert.equal(map.key.rows.get('place/subway').places.length,app.window.nycGame.subway.stations.length);
+    assert.equal(map.key.rows.has('door/subway'),false);
+    app.elements.get('game-map-address').value='Mcdonalds';
+    app.elements.get('game-map-search').dispatch('submit');
+    await app.until(()=>map.searchMatches.length>0);
+    assert.ok(map.searchMatches.length>100,'street map searches the entire bundled place index');
+    assert.equal(results.children.length,map.searchMatches.length);
+    assert.equal(new Set(map.searchMatches.map(place=>place.borough)).size,5);
+    assert.ok(map.searchMatches.every(place=>/^MCDONALD'?S(?: RESTAURANT)?$/i.test(place.name)));
+    clickGameMapPoint(app,map.searchMatches.at(-1));
+    assert.match(map.pin.name,/McDonald/i);
     app.click('game-map-city');assert.ok(app.state().map.view.span>40000);
     app.click('game-map-zoom-in');const zoom=app.state().map.view.span;
     assert.ok(zoom<70000);app.click('game-map-recenter');assert.equal(app.state().map.view.span,1000);
-    parkCab(app.simulation());app.click('game-map-close');app.click('view-button');app.key('KeyE');app.key('KeyE',false);
+    parkCab(app.simulation());app.click('game-map-close');app.click('view-button');app.key('KeyF');app.key('KeyF',false);
     app.key('KeyW');app.frames(30);app.key('KeyW',false);assert.equal(app.state().player.mode,'drive');
     app.click('open-map-button');const before=app.state().player;
     app.key('KeyW');app.frames(30);app.key('KeyW',false);
@@ -1988,11 +2244,11 @@ test('interactive map opens from city view, zooms, pans, and pauses driving with
     app.key('Escape');app.key('Escape',false);assert.equal(app.state().map.open,false);
     assert.equal(app.elements.get('pause-dialog').open,false);
     app.key('KeyW');app.frames(12);app.key('KeyW',false);assert.notEqual(app.state().player.x,before.x);
-    app.key('Escape');app.key('Escape',false);app.key('KeyM');app.key('KeyM',false);
+    app.key('Escape');app.key('Escape',false);app.key('F7');app.key('F7',false);
     assert.equal(app.state().paused,true);assert.equal(app.state().map.open,false,'native pause dialogs own input until resumed');
     app.click('resume-button');app.click('open-map-button');app.document.hidden=true;app.document.dispatch('visibilitychange');
-    assert.equal(app.state().map.open,false,'losing visibility closes the map before displaying the pause dialog');
-    assert.equal(app.state().paused,true);
+    assert.equal(app.state().map.open,true,'losing visibility leaves the map as it was');
+    assert.equal(app.state().paused,false);app.document.hidden=false;
     assert.equal(app.errors.length,0,app.errors[0]?.stack);
   }finally{app.close();}
 });
@@ -2155,9 +2411,41 @@ test('G picks groceries from the shelf and checks them out, and I reopens the sa
     assert.ok(cash?.parent.visible && cash.count===1,'the free hand shows the cash at checkout');
     assert.ok(camera.getObjectByName('Handheld phone')?.visible,'the right hand still holds the phone');
     assert.equal(JSON.parse(app.storage.get('nyc-after-hours-v1')).shopping.inventory[slot.id],1);
-    key('KeyI');choose('Ridgeline spring water');choose('Drink');assert.ok(sim.shopping.eating);
+    key('KeyI');choose('Ridgeline spring water');choose('Take a sip');assert.ok(sim.shopping.eating);
     assert.equal(sim.shopping.inventory[slot.id],undefined);
     assert.equal(app.elements.get('phone').hidden,false);assert.equal(app.elements.get('phone-bank').hidden,false);
+  }finally{app.close();}
+});
+
+test('inventory shows icons for saved groceries, meals, legacy drinks and leftovers',async()=>{
+  const inventory={
+    'grocery-water':2,'grocery-apple':1,'meal-pizza-slice':1,'meal-coffee-0':1,
+    'empty-grocery-water':1,'empty-meal-pizza-slice':1,'empty-meal-coffee-0':1,
+  };
+  const app=await bootHarness({stored:JSON.stringify({version:1,cash:25,shopping:{inventory}})});
+  try{
+    app.click('start-button');app.click('view-button');app.frames(2);
+    app.key('KeyI');app.key('KeyI',false);
+    const options=app.elements.get('interaction-options');
+    const row=name=>options.children.find(button=>button.children[0].textContent===name);
+    const thumb=name=>row(name)?.children[0].children[0];
+    assert.equal(options.children.length,Object.keys(inventory).length);
+    const water=thumb('Ridgeline spring water'),apple=thumb('Gala apple');
+    assert.match(water.className,/\bpackage-thumb\b/);
+    assert.equal(water.style.backgroundPosition,'0% 0%');
+    assert.equal(apple.textContent,'🍎');
+    assert.equal(thumb('Slice').textContent,'🍕');
+    assert.equal(thumb('Coffee').textContent,'☕');
+    assert.equal(thumb('Cleared dish · Slice').textContent,'🍽️');
+    assert.equal(thumb('Empty drink container · Coffee').textContent,'☕');
+    assert.match(thumb('Empty drink container · Coffee').className,/\bempty-item\b/);
+    assert.match(thumb('Empty bottle · Ridgeline spring water').className,/\bempty-item\b/);
+    assert.equal(water.getAttribute('aria-hidden'),'true');
+    assert.equal(row('Ridgeline spring water').children[1].textContent,'× 2');
+    row('Coffee').click();row('Take a sip').click();
+    assert.ok(app.simulation().shopping.eating);
+    assert.equal(app.simulation().shopping.inventory['meal-coffee-0'],undefined);
+    assert.equal(app.errors.length,0,app.errors[0]?.stack);
   }finally{app.close();}
 });
 
@@ -2171,9 +2459,21 @@ test('G opens the shop’s own fitting catalog from the sales floor and Escape l
     app.key('KeyG');app.key('KeyG',false);
     assert.equal(app.elements.get('interaction').hidden,false);
     assert.equal(app.elements.get('interaction-title').textContent,'Old Navy');
-    assert.match(app.elements.get('interaction-options').children[0].children[0].textContent,/Everyday crew/);
+    const options=app.elements.get('interaction-options');
+    const choose=label=>{
+      const row=options.children.find(button=>button.children[0].textContent===label);
+      assert.ok(row,label);row.click();
+    };
+    choose('Tops');
+    assert.match(options.children[0].children[0].textContent,/Everyday crew/);
     app.key('Escape');app.key('Escape',false);
     assert.equal(app.elements.get('interaction').hidden,true);assert.equal(sim.cash,cash);
+    app.key('KeyG');app.key('KeyG',false);
+    choose('Tops');choose('Everyday crew · Navy');choose('Wear it and pay at checkout');
+    assert.equal(sim.cash,cash);assert.equal(sim.purchases['crew-navy'],1);
+    sim.cash=25;
+    choose('Pay outstanding bill');
+    assert.equal(sim.cash,7);assert.equal(sim.shopping.basket,null);
   }finally{app.close();}
 });
 
@@ -2213,7 +2513,7 @@ test('a burger restaurant accepts a courier pickup at the counter and offers its
 });
 
 test('a player can clock in through the phone, finish a shift and spend the paycheck', async () => {
-  const app = await bootHarness();
+  const app = await bootHarness({stored:JSON.stringify({version:1,cash:12.25})});
   try {
     app.click('start-button'); app.click('view-button'); app.key('ArrowUp');app.key('ArrowUp',false);
     app.click('phone-app-work'); app.click('phone-ride-0');
@@ -2225,7 +2525,8 @@ test('a player can clock in through the phone, finish a shift and spend the payc
       const button=buttons.find(el=>el.children[0].textContent===name);
       assert.ok(button,'Missing '+name);button.click();
     };
-    const initial=app.state().cash;
+    const initial=app.state().cash, gain=app.elements.get('cash-gain');
+    assert.equal(gain.hidden,true,'restoring savings is silent');
     for(let block=0;block<4;block++){
       const order=app.elements.get('interaction-message').textContent.split(' · ');
       const burger=order.find(item=>item.endsWith('burger')),topping=order[1];
@@ -2245,44 +2546,126 @@ test('a player can clock in through the phone, finish a shift and spend the payc
     }
     assert.match(app.elements.get('phone-list-message').textContent, /5 PM.*Paycheck/);
     assert.ok(app.state().cash >= initial + 80);
+    const received='+'+formatMoney(app.state().cash-initial);
+    assert.equal(gain.hidden,false);
+    assert.equal(gain.textContent,received);
+    assert.equal(app.elements.get('cash-display').hidden,false);
+    assert.equal(app.elements.get('map-panel').classes.has('radar-expanded'),false);
     assert.equal(JSON.parse(app.storage.get('nyc-after-hours-v1')).bank.entries[0].name,'Paycheck · Greene Street Grill');
     const search=app.elements.get('phone-job-search');search.value='coffee cart';search.dispatch('input');
     app.click('phone-ride-0'); app.click('phone-ride-0');
     assert.match(app.elements.get('phone-list-message').textContent, /6\/12 cups/);
+    assert.equal(gain.textContent,received,'buying supplies does not add to the payout');
     assert.equal(app.errors.length, 0);
   } finally { app.close(); }
 });
 
-test('the transport picker, touch flight controls, camera and phone all use the playable fleet',async()=>{
+test('an older save restores a resprayed cab with a named civilian exterior',async()=>{
+  const cabSave={color:'#1f3a6a',mods:{engine:2}};
+  const app=await bootHarness({stored:JSON.stringify({version:1,cab:cabSave})});
+  try {
+    const cab=app.simulation().ownedCab;
+    assert.ok(cab.identity.make && cab.identity.model && cab.identity.year);
+    assert.equal(cab.type,'sedan');
+    assert.equal(cab.shape,cab.identity.shape);
+    assert.equal(cab.identity.asset.design.livery,undefined);
+    assert.equal(cab.color,cabSave.color);
+    assert.equal(cab.mods.engine,2);
+  } finally { app.close(); }
+});
+
+test('car entry has one action over the car and briefly shows the selected vehicle name',async()=>{
+  const app=await bootHarness();
+  try {
+    app.click('start-button');app.click('view-button');app.frames(2);
+    const sim=app.simulation(), cab=parkCab(sim), p=sim.player;
+    sim.cars=[cab];sim.bikeTraffic=null;sim.dockedBikes=[];
+    app.face(Math.atan2(cab.x-p.x,cab.z-p.z));app.frames(8);
+    const world=app.elements.get('world-interact-prompt'), bottom=app.elements.get('interact-prompt'), title=app.elements.get('vehicle-title');
+    assert.equal(world.hidden,false);
+    assert.equal(world.querySelector('kbd').textContent,'F');
+    assert.equal(world.querySelector('span').textContent,'GET IN THE CAB');
+    assert.ok(Number.parseFloat(world.style.top)<50,'the prompt sits above the car');
+    assert.equal(bottom.hidden,true);
+    assert.equal(title.hidden,true);
+    app.key('KeyF');app.key('KeyF',false);app.frames(6);
+    assert.equal(sim.vehicle,cab);
+    assert.equal(world.hidden,true);
+    assert.equal(title.hidden,false);
+    assert.equal(title.textContent,vehicleName(cab.identity));
+    app.frames(19,250);
+    assert.equal(title.hidden,true);
+    assert.equal(app.errors.length,0,app.errors[0]?.stack);
+  } finally { app.close(); }
+});
+
+test('the destination picker, touch flight controls, camera and phone all use the playable fleet',async()=>{
   const app=await bootHarness({coarsePointer:true});
   try {
-    app.click('start-button');app.click('transport-picker');
-    const options=app.elements.get('address-results').children;
-    assert.equal(options.length,BOARDINGS.length);
-    options.find(button=>button.textContent.startsWith('Tour helicopter')).click();
+    app.click('start-button');
+    const results=app.elements.get('address-results');
+    assert.equal(results.hidden,true);
+    app.click('address-input');
+    assert.equal(results.hidden,false);
+    const preset=results.children.find(row=>row.textContent.startsWith('Midtown / Times Square'));
+    assert.ok(preset,'default locations open beneath the empty search field');
+    preset.click();
+    assert.match(app.state().navigation.selected.name,/Times Square/);
+    assert.equal(results.hidden,true);
+    app.click('address-input');
+    const groups=results.children.filter(row=>row.className==='transportation-result');
+    assert.equal(groups.length,1);
+    assert.equal(results.children.at(-1),groups[0]);
+    const [choice,previous]=groups[0].children;
+    const [label,detail]=choice.children;
+    assert.equal(label.textContent,'Transportation');
+    assert.match(detail.textContent,/Tour helicopter/);
+    previous.click();
+    assert.ok(detail.textContent.endsWith(`${BOARDINGS.length} of ${BOARDINGS.length}`));
+    assert.equal(app.state().navigation.selected.boarding,BOARDINGS.at(-1).id,'cycling previews the displayed boarding point');
+    assert.equal(results.hidden,false,'cycling keeps the list open');
+    assert.equal(app.state().traveling,false);
+    const pad={axes:[0,0,0,0],buttons:Array.from({length:16},()=>({pressed:false,value:0}))};
+    app.pads.push(pad);
+    const pressPad=index=>{pad.buttons[index].pressed=true;app.frames();pad.buttons[index].pressed=false;app.frames();};
+    pressPad(12);
+    assert.equal(app.document.activeElement,choice);
+    pressPad(15);
+    assert.match(detail.textContent,/Tour helicopter/);
+    assert.equal(app.state().navigation.selected.boarding,'pier6');
+    choice.dispatch('keydown',{key:'ArrowLeft',bubbles:true});
+    assert.ok(detail.textContent.endsWith(`${BOARDINGS.length} of ${BOARDINGS.length}`));
+    assert.equal(app.state().navigation.selected.boarding,BOARDINGS.at(-1).id);
+    choice.dispatch('keydown',{key:'ArrowRight',bubbles:true});
+    pressPad(0);
+    app.pads.pop();
+    assert.equal(app.state().navigation.selected.boarding,'pier6');
+    assert.equal(results.hidden,true);
+    assert.equal(app.state().traveling,false,'choosing a boarding point previews it before spawning');
     app.click('spawn-button');await app.until(()=>!app.state().traveling);
     const sim=app.simulation();
     await finishArrival(app);
-    app.frames(6);assert.match(app.elements.get('interact-prompt').querySelector('span').textContent,/BOARD TOUR HELICOPTER/);
-    app.key('KeyE');app.key('KeyE',false);app.frames(6);
+    app.frames(6);assert.match(app.elements.get('world-interact-prompt').querySelector('span').textContent,/BOARD TOUR HELICOPTER/);
+    assert.equal(app.elements.get('interact-prompt').hidden,true);
+    app.key('KeyF');app.key('KeyF',false);app.frames(6);
     assert.equal(sim.transport.active.home.id,'pier6');assert.equal(app.elements.get('touch-climb').hidden,false);
     const climb=app.elements.get('touch-climb');
     climb.dispatch('pointerdown',{pointerId:3});app.frames(48);climb.dispatch('pointerup',{pointerId:3});
-    assert.ok(sim.player.y>2);assert.equal(app.elements.get('speed-unit').textContent,'KT');
+    assert.ok(sim.player.y>2);
     assert.equal(app.elements.get('interact-prompt').querySelector('span').textContent,'LAND TO GET OUT');
     app.key('KeyB');app.key('KeyB',false);app.frames();assert.equal(app.state().firstPersonView,true);
     assert.ok(app.camera().position.y>sim.player.y);
-    app.key('KeyE');app.key('KeyE',false);assert.equal(sim.player.mode,'transport');
+    app.key('KeyF');app.key('KeyF',false);assert.equal(sim.player.mode,'transport');
     app.key('ArrowUp');app.key('ArrowUp',false);app.click('phone-app-map');app.click('phone-map-stops');
     assert.match(app.elements.get('phone-title').textContent,/boarding point/i);
     app.click('phone-ride-4');await app.until(()=>!app.state().traveling);
     assert.equal(sim.player.mode,'walk');assert.equal(sim.transport.active,null);
     await finishArrival(app);
-    app.key('KeyE');app.key('KeyE',false);app.frames(8);assert.equal(sim.transport.active.home.id,'pier11');
+    app.key('KeyF');app.key('KeyF',false);app.frames(8);assert.equal(sim.transport.active.home.id,'pier11');
     assert.equal(app.elements.get('touch-climb').hidden,true);
     const start={...sim.player};app.key('KeyW');app.frames(50);app.key('KeyW',false);
     assert.ok(Math.hypot(sim.player.x-start.x,sim.player.z-start.z)>.4);assert.equal(sim.player.y,WATER_LEVEL);
-    app.key('KeyR');app.key('KeyR',false);await app.until(()=>!app.state().traveling);
+    app.key('Escape');app.key('Escape',false);app.click('recover-button');await app.until(()=>!app.state().traveling);
     assert.equal(sim.player.mode,'walk');assert.equal(sim.transport.nearby().home.id,'pier11');
     assert.equal(app.errors.length,0,app.errors[0]?.stack);
   } finally {app.close();}
@@ -2396,44 +2779,181 @@ test('subway stairs lead to a fare gate, an R train, a Union Square transfer and
   } finally { app.close(); }
 });
 
+test('the player can aim and fire a pistol from both perspectives indoors',async()=>{
+  const app=await bootHarness({coarsePointer:true});
+  try {
+    app.click('start-button');app.click('view-button');app.frames(2);
+    const sim=app.simulation(),p=sim.player,footprints=indexFootprints(sim.city.buildings);
+    let view;
+    for(const building of sim.city.buildings){
+      const [x,z]=building.polygon[0],place={kind:'clothes',group:'shop',name:'Shop',id:'indoor-shot-test',x,z};
+      const [front]=solveFrontages([place],footprints,()=>true);
+      if(!front || (planRoom(front,(a,b)=>footprints.at(a,b))?.depth||0)<6)continue;
+      view=app.window.nycGame.storefronts.prepare(front);
+      if(view){app.setShopStreet(front);break;}
+    }
+    assert.ok(view);
+    const {plan}=view;
+    plan.things.length=0;
+    view.actors.length=0;
+    view.clerk=null;
+    const stand=(a,b)=>{
+      const [x,z]=roomPoint(plan,a,b);
+      Object.assign(p,{x,y:view.floor,z});
+      if(sim.room)Object.assign(sim.room,{a,b});
+    };
+    stand(0,.15);sim.doorway=view;assert.ok(sim.enterRoom(plan));
+    stand(0,2.7);
+    app.face(Math.atan2(-plan.nx,-plan.nz));
+    app.click('touch-equip');app.frames();
+    app.click('touch-aim');app.frames(6);
+    assert.equal(app.state().firstPersonView,false);
+    assert.equal(app.elements.get('aim-dot').classes.has('focused'),true);
+    assert.equal(app.elements.get('touch-fire').hidden,false);
+    const shield={a:0,b:4.3,w:plan.width-.1,d:.14,h:2.5,y:0,solid:true};
+    plan.things.push(shield);
+    app.click('touch-fire');app.frames(1,0);
+    const blocked=sim.police.shots.at(-1);
+    assert.equal(p.rounds,GUN.rounds-1);
+    assert.equal(blocked.hit,false);
+    assert.ok(Math.abs(roomLocal(plan,blocked.tx,blocked.tz).b-4.23)<.01);
+    assert.equal(view.gunfireAt,sim.elapsed);
+
+    plan.things.pop();
+    app.click('first-person-button');app.frames(1,0);
+    assert.equal(app.state().firstPersonView,true);
+    p.fireWait=0;
+    const [x,z]=roomPoint(plan,0,4.8);
+    const officer={id:'indoors-shot-target',room:view,x,y:view.floor,z,health:100,angle:0,speed:0,phase:0,stride:0,fire:1};
+    sim.police.officers.push(officer);
+    app.click('touch-fire');app.frames(1,0);
+    assert.equal(p.rounds,GUN.rounds-2);
+    assert.ok(officer.health<100);
+    assert.equal(sim.police.shots.at(-1).hit,true);
+    assert.equal(app.errors.length,0,app.errors[0]?.stack);
+  } finally {app.close();}
+});
+
 test('the equipped pistol can be aimed, fired and reloaded through the on-foot controls',async()=>{
   const app=await bootHarness({coarsePointer:true});
   try {
     app.click('start-button');app.click('view-button');app.frames(2);
     const sim=app.simulation(),p=sim.player,canvas=app.elements.get('world');
     const press=code=>{app.key(code);app.key(code,false);};
-    const rounds=GUN.rounds;
-    press('KeyX');app.frames(6);assert.equal(p.rounds,rounds);
+    const rounds=GUN.rounds, reticle=app.elements.get('aim-dot');
+    await app.until(()=>app.window.nycGame.playerBody);
+    app.frames(20);
+    const chase=app.camera();
+    press('KeyX');app.frames(1,0);
+    assert.ok(app.camera().position.distanceTo(chase.position)<.01,'drawing starts from the chase camera');
+    app.frames(5);
+    const drawing=app.camera();
+    app.frames(18);
+    assert.ok(drawing.position.distanceTo(chase.position)>.05);
+    assert.ok(drawing.position.distanceTo(app.camera().position)>.1,'drawing eases through an intermediate view');
+    assert.equal(p.rounds,rounds);
+    const hip=app.camera();
+    assert.equal(reticle.hidden,false);
+    const body=app.window.nycGame.playerBody, heldPistol=body.mesh.getObjectByName('Held pistol');
+    assert.equal(heldPistol.parent.name,'hand_r');
+    app.click('touch-fire');app.frames();assert.equal(p.rounds,rounds-1);
+    app.frames(20);
     canvas.dispatch('pointerdown',{button:2,pointerId:1,clientX:60,clientY:60});
-    canvas.dispatch('mousedown',{button:2});app.frames();
-    const prop=app.renderState().scene.getObjectByName('First-person pistol');
-    assert.ok(prop?.visible);
-    assert.equal(app.camera().fov,54);
-    assert.equal(app.elements.get('aim-dot').hidden,false);
+    canvas.dispatch('mousedown',{button:2});app.frames(12);
+    assert.equal(app.state().firstPersonView,false);
+    assert.ok(app.window.nycGame.playerBody.mesh.visible);
+    assert.ok(app.camera().fov<hip.fov-5);
+    assert.equal(reticle.classes.has('focused'),true);
+    const aimed=app.camera();
+    const behind=aimed.position.clone().sub(new THREE.Vector3(p.x,p.y,p.z));
+    assert.ok(behind.x*Math.sin(aimed.yaw)+behind.z*Math.cos(aimed.yaw)<-.4);
+    assert.ok(behind.x*-Math.cos(aimed.yaw)+behind.z*Math.sin(aimed.yaw)>.1);
+    const face=()=>new THREE.Vector3(0,0,-1).applyQuaternion(app.camera().quaternion);
+    const oldDirection=face();
+    canvas.dispatch('pointermove',{pointerId:1,clientX:197,clientY:-116});
+    // Test the real muzzle and camera rays against an elevated target in open air.
+    const mapCollision=sim.isBlocked.bind(sim);
+    let cover=null;
+    sim.isBlocked=(x,z,r,options)=>options?.height===0 ? Boolean(cover?.(x,z,options.baseHeight)) : mapCollision(x,z,r,options);
+    sim.cars=[];app.frames();
+    const sight=face(), eye=app.camera().position;
+    assert.ok(sight.y>.25 && Math.abs(sight.x-oldDirection.x)>.1 && Math.abs(sight.z-oldDirection.z)>.1);
+    const point=eye.clone().addScaledVector(sight,15);
+    const officer={id:'aim-test',x:point.x,y:point.y-1,z:point.z,health:100,angle:0,speed:0,phase:0,stride:0};
+    sim.police.officers.push(officer);
     const before=sim.police.shotsFired;
-    canvas.dispatch('mousedown',{button:0});app.frames();
-    assert.equal(p.rounds,rounds-1);assert.ok(sim.police.shotsFired>before);
+    canvas.dispatch('mousedown',{button:0});app.frames(1,0);
+    assert.equal(p.rounds,rounds-2);assert.equal(sim.police.shotsFired,before+1);
+    assert.equal(officer.health,40);
+    const shot=sim.police.shots.at(-1);
+    assert.ok(shot.hit && shot.ty>shot.y+2,'the shot reaches the elevated target');
+    assert.ok(new THREE.Vector3(shot.tx,shot.ty,shot.tz).sub(eye).normalize().dot(sight)>.998);
+    sim.police.officers=[];sim.player.fireWait=0;
+    const shield=eye.clone().addScaledVector(sight,9);
+    cover=(x,z,y)=>Math.hypot(x-shield.x,z-shield.z)<1 && Math.abs(y-shield.y)<1;
+    app.click('touch-fire');app.frames(1,0);
+    const blocked=sim.police.shots.at(-1);
+    assert.equal(blocked.hit,false);
+    assert.ok(Math.hypot(blocked.tx-shield.x,blocked.ty-shield.y,blocked.tz-shield.z)<1.5);
+    cover=null;
     app.window.dispatch('mouseup',{button:2});canvas.dispatch('pointerup',{pointerId:1,clientX:60,clientY:60});app.frames(6);
-    assert.equal(app.elements.get('aim-dot').hidden,true);
-    assert.equal(prop.visible,false);
+    assert.equal(reticle.classes.has('focused'),false);
     const initial={x:p.x,z:p.z};
-    press('KeyR');assert.ok(p.reloading>0);assert.equal(p.rounds,rounds-1);
-    app.click('touch-fire');assert.equal(p.rounds,rounds-1);
+    press('KeyR');assert.ok(p.reloading>0);assert.equal(p.rounds,rounds-3);
+    app.click('touch-fire');app.frames();assert.equal(p.rounds,rounds-3);
+    assert.equal(app.elements.get('weapon-status').textContent,'Reloading…');
     for(let i=0;i<140&&p.reloading>0;i++)app.frames();
     assert.equal(p.rounds,rounds);assert.ok(Math.hypot(p.x-initial.x,p.z-initial.z)<.15);
-    app.click('touch-aim');app.frames();assert.equal(prop.visible,true);
-    app.click('touch-fire');assert.equal(p.rounds,rounds-1);
+    app.click('touch-aim');app.frames();assert.equal(reticle.classes.has('focused'),true);
+    app.click('touch-fire');app.frames();assert.equal(p.rounds,rounds-1);
     app.click('touch-aim');app.frames(7);app.click('touch-reload');assert.ok(p.reloading>0);
-    press('KeyX');app.frames(2);assert.equal(prop.visible,false);
+    const shoulder=app.camera();
+    press('KeyX');app.frames(1,0);
+    assert.ok(app.camera().position.distanceTo(shoulder.position)<.01,'holstering starts from the shoulder camera');
+    app.frames(5);
+    const holstering=app.camera();
+    app.frames(18);
+    assert.ok(holstering.position.distanceTo(shoulder.position)>.05);
+    assert.ok(holstering.position.distanceTo(app.camera().position)>.1,'holstering eases back to the chase view');
+    assert.equal(reticle.hidden,true);
     const pad={axes:[0,0,0,0],buttons:Array.from({length:16},()=>({value:0,pressed:false}))};
     app.pads.push(pad);
-    pad.buttons[14].pressed=true;app.frames();pad.buttons[14].pressed=false;
-    pad.buttons[6].value=1;app.frames(24);
-    assert.equal(app.elements.get('aim-dot').hidden,false);
+    pad.buttons[4].pressed=true;app.frames();pad.buttons[4].pressed=false;app.frames(18);
+    const padDirection=face();
+    pad.axes[3]=1;pad.buttons[6].value=1;app.frames(24);pad.axes[3]=0;
+    assert.equal(reticle.classes.has('focused'),true);
+    assert.ok(face().y<padDirection.y-.15);
     const remaining=p.rounds;
     pad.buttons[7].value=1;app.frames(28);assert.equal(p.rounds,remaining-1);
-    pad.buttons[7].value=0;pad.buttons[12].pressed=true;app.frames();assert.ok(p.reloading>0);
-    pad.buttons[6].value=0;app.frames();assert.equal(prop.visible,false);
+    pad.buttons[7].value=0;pad.buttons[1].pressed=true;app.frames();assert.ok(p.reloading>0);
+    pad.buttons[6].value=0;app.frames();assert.equal(reticle.classes.has('focused'),false);
+    press('KeyB');app.frames();
+    assert.equal(app.state().firstPersonView,true);
+    assert.ok(body.mesh.visible && heldPistol.visible);
+    pad.buttons[1].pressed=false;
+    for(let i=0;i<140&&p.reloading>0;i++)app.frames();
+    assert.equal(p.rounds,rounds);
+    assert.ok(body.mesh.visible && heldPistol.visible && reticle.hidden);
+    const unaimedFov=app.camera().fov;
+    app.click('touch-aim');app.frames(1,0);
+    assert.equal(app.camera().fov,unaimedFov);
+    app.frames(20);
+    assert.ok(app.camera().fov<unaimedFov-10,'first-person aim eases into its narrower field of view');
+    assert.ok(body.mesh.visible && heldPistol.visible && !reticle.hidden);
+    const eyeCamera=app.window.nycGame.graphics.camera;
+    const muzzle=heldPistol.localToWorld(new THREE.Vector3(0,.025,.185));
+    const barrel=muzzle.clone().sub(heldPistol.localToWorld(new THREE.Vector3(0,.025,0))).normalize();
+    const projected=muzzle.clone().project(eyeCamera);
+    assert.ok(Math.abs(projected.x)<1 && Math.abs(projected.y)<1 && Math.abs(projected.z)<1,
+      'the pistol on the character’s wrist is in the first-person view while aiming');
+    assert.ok(barrel.dot(face())>.95,'the visible barrel follows the first-person aim');
+    assert.equal(eyeCamera.getObjectByName('First-person pistol'),undefined);
+    app.click('touch-aim');app.frames();
+    app.click('touch-fire');app.frames();
+    assert.equal(p.rounds,rounds-1);
+    assert.equal(heldPistol.visible,true);
+    app.frames(19,50);
+    assert.ok(body.mesh.visible && heldPistol.visible && reticle.hidden);
     assert.equal(app.errors.length,0,app.errors[0]?.stack);
   }finally{app.close();}
 });
@@ -2443,7 +2963,7 @@ test('D Ride driver requests use the street controls for both doors and deposit 
   try{
     app.click('start-button');app.click('view-button');app.frames(2);
     const key=code=>{app.key(code);app.key(code,false);};
-    const sim=app.simulation();parkCab(sim);key('KeyE');const car=sim.vehicle;
+    const sim=app.simulation();parkCab(sim);key('KeyF');const car=sim.vehicle;
     assert.ok(car);
     app.key('ArrowUp');app.key('ArrowUp',false);app.click('phone-app-rides');app.click('phone-drive');
     assert.equal(app.elements.get('phone-title').textContent,'D Ride driver');
@@ -2493,7 +3013,7 @@ test('D Ride quotes a street route, dispatches a separate cab and records the fa
     // Approach the rear door directly behind the driver on this cab's heading.
     Object.assign(sim.player,{x:cab.x+1.3*Math.cos(cab.angle)-Math.sin(cab.angle),
       z:cab.z-1.3*Math.sin(cab.angle)-Math.cos(cab.angle),y:cab.y});
-    app.key('KeyE');app.key('KeyE',false);
+    app.key('KeyF');app.key('KeyF',false);
     assert.equal(sim.player.mode,'passenger');assert.equal(sim.cash,100);
     app.key('KeyB');app.key('KeyB',false);app.frames(2);
     assert.equal(app.state().firstPersonView,true);
@@ -2509,8 +3029,8 @@ test('D Ride quotes a street route, dispatches a separate cab and records the fa
     assert.equal(app.elements.get('ride-speed-label').textContent,'ASK FOR NORMAL SPEED');
     app.key('KeyG');app.key('KeyG',false);assert.equal(cab.rideHurry,false);
     const pad={axes:[0,0,0,0],buttons:Array.from({length:17},()=>({pressed:false,value:0}))};
-    app.pads.push(pad);pad.buttons[3].pressed=true;app.frames(2);assert.ok(cab.rideHurry);
-    pad.buttons[3].pressed=false;
+    app.pads.push(pad);pad.buttons[15].pressed=true;app.frames(2);assert.ok(cab.rideHurry);
+    pad.buttons[15].pressed=false;
     app.driveUntil(()=>sim.player.mode!=='passenger',25000);
     assert.equal(sim.player.mode,'walk');
     app.frames(8);assert.ok(speedButton.hidden);
@@ -2525,24 +3045,25 @@ test('D Ride quotes a street route, dispatches a separate cab and records the fa
 test('Bank invests checking money and restores the shares on the next game launch',async()=>{
   let stored;
   for(const returning of [false,true]){
-    const app=await bootHarness({stored:stored||JSON.stringify({version:1,cash:100})});
+    const app=await bootHarness({stored:stored||JSON.stringify({version:1,cash:40,bank:{savings:10000}})});
     try{
       app.click('start-button');app.click('view-button');app.key('ArrowUp');app.key('ArrowUp',false);app.click('phone-app-bank');
-      app.click('phone-bank-invest');app.click('phone-stock-BGL');
+      app.click('phone-bank-invest');app.click('phone-quote-0');
       if(!returning){
         const input=app.elements.get('phone-order-shares');input.value='2';input.dispatch('input');
         app.click('phone-order-buy');
         stored=app.storage.get('nyc-after-hours-v1');
         const record=JSON.parse(stored);
-        assert.equal(record.bank.holdings.BGL.shares,2);
-        assert.equal(record.cash,(10000-record.bank.holdings.BGL.cost)/100);
-        assert.equal(record.bank.entries[0].name,'Bought 2 BGL');
+        assert.equal(record.bank.holdings.F.shares,2);
+        assert.equal(record.cash,40);
+        assert.equal(record.bank.checking,10000-record.bank.holdings.F.cost);
+        assert.equal(record.bank.entries[0].name,'Bought 2 F');
       }else{
         assert.match(app.elements.get('phone-order-position').textContent,/2 shares held/);
         app.click('phone-order-sell');
         const record=JSON.parse(app.storage.get('nyc-after-hours-v1'));
-        assert.equal(record.bank.holdings.BGL.shares,1);
-        assert.equal(record.bank.entries[0].name,'Sold 1 BGL');
+        assert.equal(record.bank.holdings.F.shares,1);
+        assert.equal(record.bank.entries[0].name,'Sold 1 F');
       }
       assert.equal(app.errors.length,0,app.errors[0]?.stack);
     }finally{app.close();}
@@ -2561,19 +3082,19 @@ test('both palms plant on the visible panels from the sides, ends and corner of 
     for(const [make,model,year,shape,approach] of [
       ['Toyota','Camry',2019,'sedan','front'],['Honda','CR-V',2018,'suv','rear'],
       ['Ford','F-150',2018,'pickup','right'],['Ford','F-150',2018,'pickup','bed'],
-      ['Honda','Civic',2019,'hatch','corner'],['Honda','Accord',2018,'sedan','imported'],['City','cab',0,'sedan','shared']]){
-      const asset=approach==='shared'?null:approach==='imported'?JSON.parse(readFileSync(new URL('../dist/assets/vehicles/index.json',import.meta.url))).models.find(m=>m.id==='honda-accord-2018'):designFor(make,model,year,shape);
+      ['Honda','Civic',2019,'hatch','corner'],['Honda','Accord',2018,'sedan','imported'],['Ford','Mustang',2018,'coupe','side']]){
+      const asset=approach==='imported'?JSON.parse(readFileSync(new URL('../dist/assets/vehicles/index.json',import.meta.url))).models.find(m=>m.id==='honda-accord-2018'):designFor(make,model,year,shape);
       Object.assign(p,approachStart);
       cab.identity={make,model,year,shape,asset};
       let exterior;
       await app.until(()=>{
-        app.frames();exterior=game.graphics.scene.children.find(m=>m.userData.chassis && m.userData.model?.id===asset?.id && Math.hypot(m.position.x-cab.x,m.position.z-cab.z)<.1);
+        app.frames();exterior=game.graphics.scene.children.find(m=>m.userData.chassis && m.userData.model?.id===asset.id && Math.hypot(m.position.x-cab.x,m.position.z-cab.z)<.1);
         return exterior;
       },model+' visible exterior');
       const bounds=exterior.userData.detail.bounds,L=bounds.max.z-bounds.min.z,W=bounds.max.x-bounds.min.x;
-      const x=['shared','imported'].includes(approach)?W/2+.35:approach==='right'?-W/2-.37:approach==='bed'?W/2+.37:approach==='corner'?W/2+.22:0;
+      const x=['side','imported'].includes(approach)?W/2+.35:approach==='right'?-W/2-.37:approach==='bed'?W/2+.37:approach==='corner'?W/2+.22:0;
       const z=approach==='front'?L/2+.37:approach==='rear'?-L/2-.37:approach==='bed'?-L*.27:approach==='corner'?L/2+.22:0;
-      const localYaw={front:Math.PI,rear:0,right:Math.PI/2,bed:-Math.PI/2,corner:-Math.PI*.75,imported:-Math.PI/2,shared:-Math.PI/2}[approach];
+      const localYaw={front:Math.PI,rear:0,right:Math.PI/2,bed:-Math.PI/2,corner:-Math.PI*.75,imported:-Math.PI/2,side:-Math.PI/2}[approach];
       const at=exterior.localToWorld(new THREE.Vector3(x,0,z));
       Object.assign(p,{x:at.x,y:cab.y,z:at.z,angle:cab.angle+localYaw,standing:null,grounded:true,velocityX:0,velocityZ:0});
       app.key('Space');app.frames();app.key('Space',false);
@@ -2658,13 +3179,132 @@ test('knees and soles clear the bodywork while climbing and vaulting different v
   }finally{app.close();}
 });
 
+test('street inputs lock onto an opponent, dodge, select a weapon and return to city interactions',async()=>{
+  const app=await bootHarness();
+  try {
+    app.click('start-button');app.click('view-button');app.frames();
+    const sim=app.simulation(),p=sim.player,world=app.elements.get('world');
+    const press=code=>{app.key(code);app.key(code,false);};
+    sim.cars=[];
+    app.face(0);
+    const game=app.window.nycGame;
+    await app.until(()=>game.playerBody,'player skeleton');
+    app.frames(3);
+    const forward=new THREE.Vector3(0,0,-1).applyQuaternion(app.camera().quaternion);
+    const heading=Math.atan2(forward.x,forward.z);
+    const person={x:p.x+Math.sin(heading)*.8,z:p.z+Math.cos(heading)*.8,y:p.y,heading:heading+Math.PI,
+      state:'cower',mad:8,look:dress('casual',seeded(23)),shove:[0,0],age:2,time:0,sample:1,phase:0,hp:6};
+    game.crowd.people.push(person);
+    world.dispatch('mousedown',{button:2});app.frames();
+    assert.equal(app.elements.get('melee-lock').hidden,false);
+    press('KeyQ');
+    assert.equal(sim.meleeAction?.target,person);
+    assert.equal(sim.meleeAction.heavy,true,'a close heavy strike uses the hands');
+    for(let i=0;i<45 && person.hp===6;i++)app.frames();
+    assert.equal(person.hp,4);
+    const heavy=sim.meleeAction;
+    while(p.swing>.16)app.frames();
+    press('KeyR');assert.equal(sim.meleeAction,heavy);
+    app.frames(7);
+    assert.ok(sim.meleeAction && sim.meleeAction!==heavy && !sim.meleeAction.heavy,'a late light input chains once after recovery');
+    app.frames(38);
+    const origin={x:p.x,z:p.z};
+    app.key('KeyD');app.key('Space');app.frames(2);
+    assert.equal(p.move?.kind,'dodge');
+    app.frames(18);app.key('KeyD',false);
+    assert.ok(Math.hypot(p.x-origin.x,p.z-origin.z)>.3);
+    assert.equal(p.grounded,true);
+    app.frames(12);assert.equal(p.meleeBlock,true);
+    app.key('Space',false);app.window.dispatch('mouseup',{button:2});app.frames();
+    assert.equal(p.meleeBlock,false);
+    assert.equal(app.elements.get('melee-lock').hidden,true);
+    press('Digit6');press('Digit6');assert.equal(p.armed,true);
+    app.key('Tab');assert.equal(app.elements.get('weapon-wheel').hidden,false);
+    press('Digit1');app.key('Tab',false);assert.equal(p.armed,false);
+    assert.equal(app.elements.get('weapon-wheel').hidden,true);
+    app.wheel(120);assert.equal(p.armed,true);
+    press('Tab');assert.equal(p.armed,false);
+    press('ControlLeft');app.frames();assert.equal(p.stealth,true);
+    press('KeyM');assert.equal(app.elements.get('interaction-title').textContent,'Interaction menu');
+    app.elements.get('interaction-options').children[0].click();
+    assert.equal(app.gameMap().open,true);
+    assert.equal(app.errors.length,0,app.errors[0]?.stack);
+  } finally {app.close();}
+});
+
+test('unarmed controls put a fist and shoe on the intended pedestrian and allow a clean miss',async()=>{
+  const app=await bootHarness();
+  try {
+    app.click('start-button');app.click('view-button');app.frames();
+    const sim=app.simulation(),p=sim.player,game=app.window.nycGame;
+    await app.until(()=>game.playerBody,'player skeleton');
+    const body=game.playerBody,origin={x:p.x,y:p.y,z:p.z};
+    sim.cars=[];
+    const actors=game.crowd.people;
+    const target=height=>({x:p.x,z:p.z+.86,y:p.y,heading:Math.PI,state:'cower',mad:8,
+      look:{...dress('casual',seeded(23)),height},shove:[0,0],age:2,time:0,sample:1,phase:0,hp:6});
+    const press=key=>{app.key(key);app.key(key,false);};
+    const strikes=[
+      ['KeyR',1.57,16,.86,'bodyHook','middle_01_r'],
+      ['KeyQ',1.93,41,1.09,'kick','ball_r'],
+      ['KeyR',1.81,33,1.13,'jab','middle_01_l'],
+      ['KeyR',1.77,16,.72,'slap','middle_01_r'],
+      ['KeyR',1.70,33,.72,'elbowTurn','lowerarm_r'],
+      ['KeyQ',1.63,16,1.06,'sideKick','ball_r'],
+      ['KeyQ',1.75,33,1.05,'leadKick','ball_l'],
+      ['KeyR',1.63,16,.80,'shovelLeft','middle_01_l'],
+      ['KeyR',1.80,33,.82,'palmPush','middle_01_r'],
+      ['KeyQ',1.70,16,.69,'lowKick','ball_r'],
+    ];
+    for (const [key,height,ms,gap,clip,bone] of strikes) {
+      Object.assign(p,origin,{angle:0,speed:0,velocityX:0,velocityZ:0});
+      const person=target(height);person.z=p.z+gap;actors.push(person);
+      if (clip==='lowKick') {
+        person.state='down';
+        const fall=receiveImpulse(person,0,0,{fall:true,rest:2});
+        fall.angle=Math.PI/2;
+      }
+      press(key);
+      const attack=sim.meleeAction;
+      assert.equal(attack.target,person);assert.equal(attack.clip,clip);
+      for(let i=0;i<40 && !attack.committed;i++) app.frames(1,ms);
+      const tip=body.bones[body.rig.index.get(bone)].getWorldPosition(new THREE.Vector3());
+      assert.ok(attack.presented && attack.touched,'contact on '+attack.clip+' '+JSON.stringify({point:attack.point,tip:tip.toArray()}));
+      const contact=new THREE.Vector3().copy(attack.point);
+      if(clip==='palmPush')contact.x-=.095;
+      assert.ok(tip.distanceTo(contact)<.09,'visible limb touches the receiving surface');
+      assert.equal(person.hp,key==='KeyQ'?4:5);
+      assert.ok(person.reaction && person.reaction.vz>0);
+      const impactZ=person.z;
+      app.frames(6,ms);assert.ok(person.z>impactZ+.06,'receiver recoils from the contact');
+      assert.equal(person.hp,key==='KeyQ'?4:5,'one hit through follow-through');
+      actors.splice(actors.indexOf(person),1);app.frames(45);
+    }
+    Object.assign(p,origin,{angle:0,speed:0,velocityX:0,velocityZ:0});
+    const original=target(1.75), bystander=target(1.75);
+    actors.push(original);press('KeyR');const miss=sim.meleeAction;
+    original.z+=2;actors.push(bystander);
+    app.frames(20);
+    assert.equal(miss.target,original);assert.equal(miss.point,null);
+    assert.equal(original.hp,6);assert.equal(bystander.hp,6);
+    actors.splice(actors.indexOf(original),1);actors.splice(actors.indexOf(bystander),1);app.frames(24);
+    Object.assign(p,origin,{angle:0,speed:0,velocityX:0,velocityZ:0});
+    const atKickRange=target(1.75);atKickRange.z=p.z+1.28;actors.push(atKickRange);
+    const canvas=app.elements.get('world'),mouse={button:0,pointerType:'mouse',pointerId:5,clientX:100,clientY:100};
+    canvas.dispatch('pointerdown',mouse);canvas.dispatch('mousedown',mouse);canvas.dispatch('pointerup',mouse);
+    assert.equal(p.move?.kind,'kick','the main attack clicks directly into a kick at range');
+    assert.equal(sim.meleeAction.target,atKickRange);
+    assert.equal(app.errors.length,0,app.errors[0]?.stack);
+  } finally {app.close();}
+});
+
 test('the normal attack key kicks a nearby car at the animation contact',async()=>{
   const app=await bootHarness();
   try {
     app.click('start-button');app.click('view-button');app.frames();
     const sim=app.simulation(), cab=parkCab(sim);
     Object.assign(sim.player,{x:cab.x+1.25*Math.cos(cab.angle),z:cab.z-1.25*Math.sin(cab.angle),angle:cab.angle-Math.PI/2,y:cab.y});
-    app.key('KeyF'); app.key('KeyF',false);
+    app.key('KeyR'); app.key('KeyR',false);
     assert.equal(sim.player.move?.vehicleId,cab.id);
     assert.equal(cab.bodyRock,undefined);
     app.frames(25);
@@ -2674,7 +3314,7 @@ test('the normal attack key kicks a nearby car at the animation contact',async()
     Object.assign(sim.player,{x:cab.x,z:cab.z,y:carTop(cab,cab.x,cab.z),grounded:true});
     app.frames(2);
     assert.equal(sim.player.standing?.id,cab.id);
-    app.key('KeyF');app.key('KeyF',false);
+    app.key('KeyR');app.key('KeyR',false);
     assert.equal(sim.player.move?.clip,'stompRight');
     app.frames(25);
     assert.ok(cab.bodyRock.heave<0);
@@ -2700,7 +3340,7 @@ test('transit map and curbside boarding follow a scheduled bus to its downstream
     const pole=game.busStops.stops.find(p=>p.stop.networkIndex===first.index);
     assert.ok(pole);
     sim.travelTo({...pole,exact:true});app.frames(50);
-    assert.match(app.elements.get('place-hint').textContent,/E FOR THE BUS/);
+    assert.match(app.elements.get('place-hint').textContent,/\bM1\b/);
     game.weekday=2;game.graphics.setHours(12);sim.cash=10;
     app.key('KeyE');app.key('KeyE',false);
     await app.until(()=>app.elements.get('interaction-options').children.some(b=>b.children[0]?.textContent.startsWith('M1 toward')));
@@ -2751,6 +3391,12 @@ test('first person keeps the relaxed arms, tracks the posed eyes through turns, 
     drag(420,600);app.frames();
     assert.equal(body.mesh.rotation.y,player.angle);
     assert.ok(inView('hand_l') && inView('hand_r'),'looking down reveals both relaxed wrists');
+    app.key('KeyX');app.key('KeyX',false);app.frames();
+    const pistol=body.mesh.getObjectByName('Held pistol');
+    const prop=pistol.getWorldPosition(new THREE.Vector3()).project(camera);
+    assert.ok(pistol.visible && Math.abs(prop.x)<1 && Math.abs(prop.y)<1 && Math.abs(prop.z)<1,
+      'looking down reveals the lowered pistol in the right hand');
+    app.key('KeyX');app.key('KeyX',false);app.frames();
 
     const skin=body.meshes.find(m=>m.name==='skin/body'), full=skin.geometry.index.count;
     const countFor=cam=>{
@@ -2777,4 +3423,72 @@ test('first person keeps the relaxed arms, tracks the posed eyes through turns, 
     assert.equal(countFor(camera),full,'third person restores the head');
     assert.equal(app.errors.length,0,app.errors[0]?.stack);
   } finally {app.close();}
+});
+
+test('first person follows the Wasted fall and Busted pose with their usual overlays and cues', async t => {
+  const heard=[];
+  t.mock.method(CityAudio.prototype,'sceneCue',kind=>heard.push(kind));
+  const app=await bootHarness();
+  try {
+    app.click('start-button');app.click('view-button');await finishArrival(app);
+    const sim=app.simulation(), game=app.window.nycGame;
+    await app.until(()=>game.playerBody,'player outfit did not load');
+    app.click('first-person-button');app.frames(4);
+    assert.equal(app.state().firstPersonView,true);
+    sim.endingSeconds=2;
+    for (const kind of ['wasted','busted']) {
+      const upright=app.camera();
+      sim.end(kind,'Test encounter',()=>{});
+      app.frames(4);
+      assert.equal(app.elements.get('ending').hidden,false);
+      assert.equal(app.elements.get('ending-word').textContent,kind.toUpperCase());
+      assert.ok(app.camera().position.y>upright.position.y-.25,'the pose does not jump on the first frame');
+      app.frames(95,50);
+      assert.ok(sim.ending.t>1.7 && sim.ending.t<1.8,'the sequence advances in slow motion');
+      assert.equal(app.state().firstPersonView,true);
+      assert.ok(game.playerBody.mesh.visible);
+      const posed=app.camera();
+      assert.ok(posed.quaternion.angleTo(upright.quaternion)>.2,'the view turns with the posed head');
+      if(kind==='wasted')assert.ok(posed.position.y-sim.player.y<.55,'the view falls to the ground');
+      else {
+        const forward=new THREE.Vector3(0,0,-1).applyQuaternion(posed.quaternion);
+        assert.ok(forward.y<-.2,'the view bows as the player is cuffed');
+      }
+      assert.equal(heard.filter(cue=>cue===kind).length,1);
+      app.frames(30,50);
+      assert.equal(sim.ending,null);
+      assert.equal(app.elements.get('ending').hidden,true);
+      app.frames(12,50);
+    }
+    assert.equal(app.errors.length,0,app.errors[0]?.stack);
+  } finally {app.close();}
+});
+
+test('an ATM deposits and withdraws physical cash only while the player is at its machine', async()=>{
+  const app=await bootHarness({stored:JSON.stringify({version:1,cash:100})});
+  try{
+    app.click('start-button');app.click('view-button');app.frames(2);
+    const sim=app.simulation(), {x,z}=sim.player;
+    const place={id:'test-branch',name:'CHASE',kind:'bank',group:'shop',x,z};
+    const room=planRoom({place,x,z,nx:0,nz:1,tx:1,tz:0,width:8});
+    assert.ok(sim.enterRoom(room));
+    const machine=room.things.find(thing=>thing.shape==='branchATM');
+    const standAt=(a,b)=>{[sim.player.x,sim.player.z]=roomPoint(room,a,b);Object.assign(sim.room,{a,b});};
+    const use=()=>{app.key('KeyE');app.key('KeyE',false);};
+    const amount=app.elements.get('phone-bank-amount');
+    const saved=()=>JSON.parse(app.storage.get('nyc-after-hours-v1'));
+    standAt(machine.a+1,machine.b);use();
+    assert.equal(app.elements.get('phone-transfer').hidden,false);
+    amount.value='35.25';app.click('phone-bank-confirm');
+    assert.deepEqual([sim.cash,saved().bank.checking],[64.75,3525]);
+    assert.equal(app.elements.get('phone-bank-total').textContent,'$100');
+    app.window.nycGame.phone.setOpen(false);use();app.click('phone-bank-direction');
+    app.click('phone-atm-20');assert.equal(amount.value,'20');app.click('phone-bank-confirm');
+    assert.deepEqual([sim.cash,saved().bank.checking],[84.75,1525]);
+    assert.equal(saved().bank.entries[0].name,'ATM cash withdrawal');
+    app.window.nycGame.phone.setOpen(false);use();amount.value='20';
+    standAt(0,room.depth-2);app.click('phone-bank-confirm');
+    assert.deepEqual([sim.cash,saved().bank.checking],[84.75,1525]);
+    assert.equal(app.window.nycGame.phone.open,false);
+  }finally{app.close();}
 });

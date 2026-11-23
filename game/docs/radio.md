@@ -1,4 +1,4 @@
-# NYC After Hours radio dial
+# I Heart NYC radio dial
 
 Nine fictional stations share the in-game dial. Blue Hour’s 91.5 is its fictional dial position. Artist references describe the sound. Add playlist picks under each station as artist — title.
 

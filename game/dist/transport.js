@@ -146,7 +146,7 @@ export class TransportFleet {
       Object.assign(sim.player, { ...point, mode: 'walk', vehicleId: null, speed: 0, velocityX: 0, velocityZ: 0,
         grounded: true, transportId: r.transportId, vy: 0, slide: 0, swing: 0 });
       sim.updateGrounding();
-      sim._say('On foot. Press E here to board again.');
+      sim._say('On foot.');
       return true;
     }
     sim._say('The exit is obstructed. Wait for clear ground.'); return false;
