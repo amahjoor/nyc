@@ -1,3 +1,31 @@
+// A filtered noise strike gives the switch its snap. Two quickly damped
+// resonances give the confirmation more weight and the highlight a lighter tap.
+function makeInterfaceClick(context, confirm) {
+  const rate = 24000;
+  const duration = confirm ? .049 : .027;
+  const buffer = context.createBuffer(1, Math.round(rate * duration), rate);
+  const samples = buffer.getChannelData(0);
+  const bodyFrequency = confirm ? 480 : 1180;
+  const shellFrequency = confirm ? 1270 : 2350;
+  const bodyDecay = confirm ? .008 : .004;
+  const bodyGain = confirm ? .17 : .058;
+  const shellGain = confirm ? .065 : .04;
+  const strikeGain = confirm ? .14 : .093;
+  let seed = 34567, previousNoise = 0;
+  for (let i = 0; i < samples.length; i++) {
+    const time = i / rate;
+    seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0;
+    const noise = seed / 2147483648 - 1;
+    const strike = strikeGain * (noise - .55 * previousNoise) * Math.exp(-time / .0017);
+    previousNoise = noise;
+    const body = bodyGain * Math.sin(2 * Math.PI * bodyFrequency * time) * Math.exp(-time / bodyDecay);
+    const shell = shellGain * Math.sin(2 * Math.PI * shellFrequency * time) * Math.exp(-time / .0028);
+    const fade = Math.min(1, time / .0006, (samples.length - 1 - i) / (rate * .004));
+    samples[i] = fade * (strike + body + shell);
+  }
+  return buffer;
+}
+
 /** City ambience, a club loop, and original synthesized interface cues. */
 export class CityAudio {
   constructor() {
@@ -61,27 +89,16 @@ export class CityAudio {
     }
     const c = this.ctx, now = c.currentTime;
     // Navigation can move focus again during a click. Leave room for the click cue.
-    if (cue === 'select' && now - this.lastInterfaceCue < .075) return;
+    const confirm = cue === 'confirm';
+    if (!confirm && now - this.lastInterfaceCue < .075) return;
     this.lastInterfaceCue = now;
-    const pluck = (delay, pitch, endPitch, peak, duration) => {
-      const start = now + delay, end = start + duration;
-      const tone = c.createOscillator(), gain = c.createGain();
-      tone.type = 'triangle';
-      tone.frequency.setValueAtTime(pitch, start);
-      tone.frequency.exponentialRampToValueAtTime(endPitch, end);
-      gain.gain.setValueAtTime(.0001, start);
-      gain.gain.exponentialRampToValueAtTime(peak, start + .004);
-      gain.gain.exponentialRampToValueAtTime(.0001, end);
-      tone.connect(gain).connect(c.destination);
-      tone.onended = () => { tone.disconnect(); gain.disconnect(); };
-      tone.start(start);
-      tone.stop(end);
-    };
-    if (cue === 'select') pluck(0, 740, 554, .035, .055);
-    else {
-      pluck(0, 392, 370, .072, .083);
-      pluck(.027, 587, 570, .047, .096);
-    }
+    const click = c.createBufferSource();
+    click.buffer = confirm
+      ? (this.confirmClick ||= makeInterfaceClick(c, true))
+      : (this.selectClick ||= makeInterfaceClick(c, false));
+    click.connect(c.destination);
+    click.onended = () => click.disconnect();
+    click.start(now);
   }
   makeClubLoop() {
     const c = this.ctx, rate = 22050, beat = .5;
