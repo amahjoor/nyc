@@ -33,10 +33,11 @@ const crewPost=(unit,x)=>({id:unit,post:UNIT[unit].post,unit:UNIT[unit],x,z:1.35
 
 test('street assignments use mapped features, safe berths and stable locations',()=>{
   const input={...context,fronts:[{x:-52,z:2,place:{id:'bank',kind:'bank'}},{x:22,z:1,place:{id:'school',kind:'school'}}],
-    entrances:[{x:-20,z:1,station:{id:'midtown'}}],isClosed:place=>place.id==='bank',
+    entrances:[{x:-20,z:1,station:{id:'midtown'}}],
     boardings:[{type:'ferry',id:'landing',angle:0,board:{x:53,z:0},berth:{x:53,z:45}}]};
   const posts=planPolicePosts(input);
-  assert.ok(posts.some(p=>p.post==='case') && posts.some(p=>p.post==='subway') && posts.some(p=>p.post==='school'));
+  assert.ok(posts.some(p=>p.post==='subway') && posts.some(p=>p.post==='school'));
+  assert.deepEqual(planPolicePosts({...input,isClosed:place=>place.id==='bank'}),posts,'a robbery closure does not add a sidewalk post');
   assert.ok(!posts.some(p=>p.unit.id==='harbor'));
   const harbor=planPolicePosts({...input,isWater:(x,z)=>z>35}).find(p=>p.unit.id==='harbor');
   assert.ok(harbor.z>35);
@@ -91,4 +92,18 @@ test('rendered details identify the nearby unit and keep civilian staff out of p
   scene.drawDetails(false,.1,ctx,[],[],field);
   assert.equal(field.fieldOfficers.length,0);
   assert.equal(scene.identify(player,[]),null);
+});
+
+test('gunfire draws a brief muzzle flash at the shooter',()=>{
+  const world=new THREE.Scene(), scene=createPoliceScene(world);
+  const police={sim:{elapsed:1},shots:[{at:1,x:3,y:1.4,z:2,tx:3,ty:1.1,tz:12}]};
+  scene.update(police,1);
+  const flash=world.children.find(mesh=>mesh.name==='Muzzle flash' && mesh.visible);
+  assert.ok(flash);
+  assert.deepEqual(flash.position.toArray(),[3,1.4,2]);
+  assert.ok(!world.children.some(object=>object.isLine && object.visible));
+
+  police.sim.elapsed=1.06;
+  scene.update(police,1.06);
+  assert.equal(flash.visible,false);
 });

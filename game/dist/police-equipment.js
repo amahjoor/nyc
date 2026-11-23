@@ -113,6 +113,13 @@ export function equipmentFor(job){
 export function placeEquipment(model,actor,waterLevel=0){
   const job=actor.post.unit.activity,h=actor.heading;
   const side=job==='dog'?.68:job==='inspect'?.48:0, ahead=job==='motor'?.20:0;
+  if(job==='inspect'){
+    // A kit case is set down once, where the detail is posted, square to the kerb. It does not slide after whoever brought it.
+    const post=actor.post;
+    model.position.set(post.x+post.tz*side,actor.y,post.z-post.tx*side);
+    model.rotation.y=Math.atan2(post.tx,post.tz);
+    return;
+  }
   model.position.set(actor.x+Math.cos(h)*side+Math.sin(h)*ahead,job==='boat'?waterLevel:actor.y,actor.z-Math.sin(h)*side+Math.cos(h)*ahead);
   model.rotation.y=job==='boat'?Math.atan2(actor.post.tx,actor.post.tz):h;
   const animal=model.userData.animal;

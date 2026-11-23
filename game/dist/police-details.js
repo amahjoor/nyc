@@ -4,7 +4,7 @@ import { snapToKerb } from './street-props.js';
 import { walkTowards } from './pedestrian-motion.js';
 
 const byPost=POLICE_UNITS.reduce((groups,u)=>{(groups[u.post] ||= []).push(u);return groups;},{});
-const rank={case:0,water:1,air:1,park:2,precinct:2,school:3,waterfront:3,subway:4,housing:5,community:6,road:7,street:8};
+const rank={water:1,air:1,park:2,precinct:2,school:3,waterfront:3,subway:4,housing:5,community:6,road:7,street:8};
 const routines={
   patrol:['idle','talk'], talk:['talk','idle'], brief:['talk','idle'], inspect:['crouch','reach'],
   interview:['talk','reach'], direct:['reach','idle'], dog:['idle','idle'], horse:['horseRide'],
@@ -12,7 +12,7 @@ const routines={
 };
 
 /** Pick accessible posts on the streamed map. Nothing here is a real deployment schedule. */
-export function planPolicePosts({focus,fronts=[],entrances=[],walks=[],boardings=[],kerbs,park,parkRegions=[],isClosed=()=>false,
+export function planPolicePosts({focus,fronts=[],entrances=[],walks=[],boardings=[],kerbs,park,parkRegions=[],
   isWater=()=>false,blocked=()=>false,lotAt=()=>null}) {
   if(!kerbs || !walks.length)return [];
   const candidates=[];
@@ -39,8 +39,7 @@ export function planPolicePosts({focus,fronts=[],entrances=[],walks=[],boardings
   }
   for(const f of fronts){
     const {place}=f, kind=place.kind;
-    if(isClosed(place)) land('case-'+place.id,'case',f.x,f.z,unitHash(place.id)%4===0?'scene':kind==='bank'?'major':'robbery');
-    else if(kind==='police')land('precinct-'+place.id,'precinct',f.x,f.z);
+    if(kind==='police')land('precinct-'+place.id,'precinct',f.x,f.z);
     else if(kind==='school')land('school-'+place.id,'school',f.x,f.z);
     else if(kind==='ferry')land('dock-'+place.id,'waterfront',f.x,f.z);
     else if(['library','courthouse','museum'].includes(kind)) land('community-'+place.id,'community',f.x,f.z);
