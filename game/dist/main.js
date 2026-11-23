@@ -1335,7 +1335,7 @@ function syncScene(dt,controls) {
   if(!modelled&&sim.seat&&!eyeView&&!playerBody)extras.push({x:p.x,y:playerFloor,z:p.z,heading:p.angle,sitting:true,seat:sim.seat,look:PLAYER_LOOK});
   policeScene.drawDetails(started && !cityView && !aloft && !traveling, paused || mapOpen ? 0 : dt,
     {ground:groundHeight,blocked:(x,z)=>sim.isBlocked(x,z,.33),people:crowd?.people || [],player:p,waterLevel:WATER_LEVEL,
-      incident:sim.heat>0 ? sim.police.lastKnown : null},extras,pedestrians,sim.police);
+      bystanders:sim.bystanders,time:sim.elapsed,incident:sim.heat>0 ? sim.police.lastKnown : null},extras,pedestrians,sim.police);
   drawOfficers(dt,p,extras);
   policeScene.update(sim.police,elapsed,started&&!cityView);
   avatar.visible=(skating||(p.mode==='walk'||cycling||openRide)&&!modelled)&&!sim.seat&&!eyeView;avatar.position.set(p.x,playerFloor,p.z);avatar.rotation.y=p.angle;
@@ -1844,7 +1844,15 @@ function frame(now) {
         const kick=event.kind==='kick';
         if(event.vehicleId!=null){
           sim.strikeVehicle(event,5);
-        } else if(!sim.police.strike(event.x,event.z,event.angle,kick ? 1.5 : 1,event.y,event.low)){
+        } else {
+          const at={x:event.x,y:event.y,z:event.z,angle:event.angle};
+          const officer=sim.police.meleeTarget(at.x,at.z,at.angle,at.y);
+          const civilian=crowd.meleeTarget(at,streetTargets(),sim.elapsed);
+          if(officer && (!civilian || Math.hypot(officer.x-at.x,officer.z-at.z)<=Math.hypot(civilian.x-at.x,civilian.z-at.z)) &&
+              sim.police.strike(at.x,at.z,at.angle,kick?1.5:1,at.y,event.low)){
+            alarmStreet(at,8,.75);
+            continue;
+          }
           const hit=crowd.strike(event.x,event.z,event.angle,{power:kick?2:1,reach:event.low?1.25:kick?2.1:1.85,low:event.low,clip:event.clip,
             y:event.y,momentum:Math.abs(sim.player.speed),bystanders:streetTargets(),time:sim.elapsed});
           if(hit)blowLanded(hit);

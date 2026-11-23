@@ -114,7 +114,7 @@ export function placeEquipment(model,actor,waterLevel=0){
   const job=actor.post.unit.activity,h=actor.heading;
   const side=job==='dog'?.68:job==='inspect'?.48:0, ahead=job==='motor'?.20:0;
   model.position.set(actor.x+Math.cos(h)*side+Math.sin(h)*ahead,job==='boat'?waterLevel:actor.y,actor.z-Math.sin(h)*side+Math.cos(h)*ahead);
-  model.rotation.y=h;
+  model.rotation.y=job==='boat'?Math.atan2(actor.post.tx,actor.post.tz):h;
   const animal=model.userData.animal;
   if(animal){
     const weights=animal.morphTargetInfluences;

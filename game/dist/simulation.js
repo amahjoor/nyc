@@ -1283,7 +1283,8 @@ export class Simulation {
     const at = { x, z }; let count = 0;
     const sees = other => { const d = distance(other, at); return d < reach && (!Number.isFinite(y) || trafficAtHeight(other, y)) && (d < 10 || this._hasSight(other, at)); };
     for (const person of this._people || []) { if (person.state !== 'down' && !person.dead && sees(person) && ++count >= 6) return count; }
-    for (const person of this.bystanders) { if (!(person.downUntil > this.elapsed) && sees(person) && ++count >= 6) return count; }
+    for (const person of this.bystanders) { if (!(person.downUntil > this.elapsed || person.absentUntil > this.elapsed) && sees(person) && ++count >= 6) return count; }
+    for (const rider of this.bikeTraffic?.riders || []) { if (!rider.abandoned && !rider.reaction?.fall && sees(rider) && ++count >= 6) return count; }
     // Somebody at the wheel sees what happens on the street in front of them.
     for (const car of this.cars) { if (car._edge && !car.parked && !car.controlled && car.type !== 'police' && distance(car, at) < reach * .6 && (!Number.isFinite(y) || trafficAtHeight(car, y)) && ++count >= 6) return count; }
     return count;

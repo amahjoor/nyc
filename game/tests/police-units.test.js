@@ -83,6 +83,11 @@ test('rendered details identify the nearby unit and keep civilian staff out of p
   assert.equal(extras[1].member,extras[1].look.member);
   assert.ok(extras[1].y>.75 && extras[1].cycling && extras[1].clip==='horseRide');
   assert.equal(scene.identify(player,[]),UNIT.crossing.name);
+  field.officers=[{...field.fieldOfficers[0],x:40}];
+  const posted=[];
+  scene.drawDetails(true,.1,ctx,posted,[],field);
+  assert.deepEqual(posted.map(actor=>actor.unit),['crossing']);
+  assert.equal(scene.identify({...player,x:22},field.officers),null);
   scene.drawDetails(false,.1,ctx,[],[],field);
   assert.equal(field.fieldOfficers.length,0);
   assert.equal(scene.identify(player,[]),null);

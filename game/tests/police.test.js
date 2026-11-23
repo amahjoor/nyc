@@ -374,3 +374,31 @@ test('a specialist crew joins a high wanted level and keeps its assignment when 
   assert.ok(sim.police._dismount(car));
   assert.deepEqual(sim.police.officers.map(officer=>officer.unit),['esu','esu']);
 });
+
+test('a street-post officer personally responds to a witnessed offence or a punch',()=>{
+  for(const direct of [false,true]){
+    const sim=alone(new Simulation(grid({roads:[]}))), p=sim.player, police=sim.police;
+    const post={x:p.x,z:p.z+(direct?1.2:12),unit:{activity:'patrol'}};
+    const actor={id:'neighborhood-patrol',unit:'patrol',post,x:post.x,y:p.y,z:post.z,heading:0};
+    police.fieldOfficers.push(actor);
+    if(direct)assert.ok(police.strike(p.x,p.z,0,1,p.y));
+    else assert.equal(sim.offence('assault',{x:p.x,y:p.y,z:p.z}),'seen');
+    sim.step({},1/30);
+    const officer=police.officers.find(o=>o.id===actor.id);
+    assert.ok(officer && sim.heat>0);
+    assert.equal(police.fieldOfficers.length,0);
+    if(direct)assert.equal(officer.reaction.clip,'hitChest');
+    else {advance(sim,.5);assert.ok(officer.z<post.z-.5);}
+  }
+});
+
+test('a harbor crew keeps the player in sight from aboard its launch',()=>{
+  const sim=alone(new Simulation(grid({roads:[]}))), p=sim.player, police=sim.police;
+  const crew={id:'harbor-watch',unit:'harbor',post:{unit:{activity:'boat'}},heading:Math.PI,x:p.x,y:p.y+1,z:p.z+6};
+  police.fieldOfficers.push(crew);
+  assert.equal(sim.offence('theft',p),'seen');
+  sim.step({},1/30);
+  assert.equal(police.state,'chase');
+  assert.ok(police.fieldOfficers.includes(crew));
+  assert.ok(!police.officers.some(o=>o.id===crew.id));
+});

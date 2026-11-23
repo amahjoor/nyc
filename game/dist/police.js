@@ -127,6 +127,14 @@ export class Police {
     const player = this.sim.player;
     if (this.state !== 'chase') this.lastKnown = at ? { x: at.x, z: at.z } : { x: player.x, z: player.z };
     if (this.state === 'clear') { this.state = 'search'; this.searchTime = 0; this._unseen = 0; this.known = this._ride(); }
+    // Dispatch the officers already posted at the scene of this report.
+    if(at && !this.sim.room && !this.sim.subway?.belowStreet){
+      for(const actor of this.fieldOfficers){
+        if(actor.post?.unit.activity==='boat' || distance(actor,at)>WATCH ||
+           (Number.isFinite(at.y) && !trafficAtHeight(actor,at.y)) || !this.sim._hasSight(actor,at))continue;
+        this._respondFromPost(actor);
+      }
+    }
     this.evadeTotal = this.evade = evadeTime(this.stars);
   }
 
@@ -199,6 +207,12 @@ export class Police {
 
   update(dt) {
     const sim = this.sim, player = sim.player;
+    for(const actor of this.fieldOfficers){
+      // An earlier impact can dispatch other officers from this same list.
+      if(!this.fieldOfficers.includes(actor))continue;
+      const hit=sim._nearCar(actor.x,actor.z,OFFICER.radius+.15,null,actor.y);
+      if(hit && Math.abs(hit.car.speed)>4)this._vehicleImpact(this._respondFromPost(actor),hit.car);
+    }
     while (this.shots.length && sim.elapsed - this.shots[0].at > 0.3) this.shots.shift();
     for(let i=this.downOfficers.length-1;i>=0;i--){
       const officer=this.downOfficers[i];
@@ -269,6 +283,12 @@ export class Police {
       return sim._hasSight(unit, player);
     };
     let seen = false;
+    for (const actor of this.fieldOfficers) {
+      if(!sees({...actor,angle:actor.heading}))continue;
+      // Harbor crews keep shore units updated from their boat.
+      if(actor.post?.unit.activity==='boat')seen=true;
+      else this._respondFromPost(actor);
+    }
     for (const car of sim.cars) {
       if (car.type !== 'police') continue;
       car._sees = !car._crewOut && !car._abandoned && sees(car);
@@ -423,6 +443,15 @@ export class Police {
       Math.abs(p.x-actor.x)<reach && Math.abs(p.z-actor.z)<reach);
   }
 
+  _respondFromPost(actor) {
+    const officer={id:actor.id,post:actor.post,fieldActor:actor,look:actor.look,unit:actor.unit,
+      x:actor.x,y:actor.y,z:actor.z,angle:actor.heading,speed:0,health:OFFICER.health,
+      phase:actor.phase||0,stride:0,fire:1,sees:false,side:1,dodge:0};
+    this.fieldOfficers=this.fieldOfficers.filter(other=>other!==actor);
+    this.officers.push(officer);
+    return officer;
+  }
+
   /** Two officers out of a stopped patrol car. */
   _dismount(car) {
     const sim = this.sim;
@@ -449,6 +478,9 @@ export class Police {
   }
 
   _board(officer, car) {
+    if(officer.fieldActor && distance(officer,officer.post)<1){
+      Object.assign(officer.fieldActor,{x:officer.x,y:officer.y,z:officer.z,heading:officer.angle});
+    }
     this.officers.splice(this.officers.indexOf(officer), 1);
     if (!car || this.officers.some(other => other.carId === car.id)) return;
     car._crewOut = false;
@@ -480,14 +512,14 @@ export class Police {
       officer.cuffing=officer===arresting;
       const car = sim.cars.find(other => other.id === officer.carId) || null, away = distance(officer, player);
       // Left behind with no car to go back to.
-      if (away > 150 || (clear && !car)) { this._board(officer, car); continue; }
-      if (clear || (driving && speed > 6 && away > 28) || (!chase && this.searchTime > 10 && away > 50)) officer.returning = Boolean(car);
+      if (away > 150 || (clear && !car && !officer.post)) { this._board(officer, car); continue; }
+      if (clear || (driving && speed > 6 && away > 28) || (!chase && this.searchTime > 10 && away > 50)) officer.returning = Boolean(car || officer.post);
       else if (chase && away < 60 && (!driving || speed < 2)) officer.returning = false;
       // Guns are out at three stars, and before that only for somebody who has one out themselves.
       const shooting = chase && !officer.returning && (stars >= 3 || (stars === 2 && this.armed));
       let target, pace = OFFICER.run, hold = 1.3;
       officer.aiming = false;
-      if (officer.returning) { target = car; hold = 2.6; }
+      if (officer.returning) { target = car || officer.post; hold = car ? 2.6 : .2; }
       else if (chase) {
         target = player;
         if (shooting && officer.sees) { hold = OFFICER.hold; officer.aiming = true; }
@@ -505,7 +537,7 @@ export class Police {
         target = officer.goal; pace = OFFICER.search; hold = 1;
       }
       const dx = target.x - officer.x, dz = target.z - officer.z, gap = Math.hypot(dx, dz);
-      if (officer.returning && gap < 2.8) { this._board(officer, car); continue; }
+      if (officer.returning && gap < (car ? 2.8 : .35)) { this._board(officer, car); continue; }
       let heading = Math.atan2(dx, dz);
       const wanted = clamp((gap - hold) * 3, 0, pace);
       if (officer.dodge > 0) { officer.dodge -= dt; heading += officer.side * 1.25; }
@@ -525,14 +557,7 @@ export class Police {
       if (wanted > 0.5 && moved < wanted * dt * 0.35 && !(officer.dodge > 0)) { officer.side = -officer.side; officer.dodge = 0.9; }
       const struck = sim._nearCar(officer.x, officer.z, OFFICER.radius + .15, null, officer.y);
       if (struck && Math.abs(struck.car.speed) > 4) {
-        const car=struck.car, speed=Math.abs(car.speed);
-        const rolling=car.controlled || car._loose>0;
-        const vx=rolling ? car.velocityX : Math.sin(car.angle)*car.speed;
-        const vz=rolling ? car.velocityZ : Math.cos(car.angle)*car.speed;
-        officer.health-=speed*7;
-        receiveImpulse(officer,vx*.65,vz*.65,{fall:true,lift:Math.min(4.5,speed*.21),rest:officer.health<=0 ? Infinity : .65});
-        if(officer.health<=0) this._down(officer, 'You ran down an officer.', car.controlled ? 1.5 : 0);
-        else if(car.controlled) this.offence('hitOfficer',{x:officer.x,z:officer.z,message:'You hit an officer with the car.'});
+        this._vehicleImpact(officer,struck.car);
         continue;
       }
       officer.speed = moved / dt;
@@ -578,6 +603,17 @@ export class Police {
     if (hit) sim.hurt(driving ? 4 + stars : 9 + stars * 1.5, 'police');
   }
 
+  _vehicleImpact(officer,car) {
+    const speed=Math.abs(car.speed);
+    const rolling=car.controlled || car._loose>0;
+    const vx=rolling ? car.velocityX : Math.sin(car.angle)*car.speed;
+    const vz=rolling ? car.velocityZ : Math.cos(car.angle)*car.speed;
+    officer.health-=speed*7;
+    receiveImpulse(officer,vx*.65,vz*.65,{fall:true,lift:Math.min(4.5,speed*.21),rest:officer.health<=0 ? Infinity : .65});
+    if(officer.health<=0) this._down(officer, 'You ran down an officer.', car.controlled ? 1.5 : 0);
+    else if(car.controlled) this.offence('hitOfficer',{x:officer.x,z:officer.z,message:'You hit an officer with the car.'});
+  }
+
   _down(officer, message, heat) {
     const car = this.sim.cars.find(other => other.id === officer.carId) || null;
     this.officers.splice(this.officers.indexOf(officer), 1);
@@ -585,6 +621,7 @@ export class Police {
     officer.aiming=officer.cuffing=false;
     officer.downAt=this.sim.elapsed;
     this.downOfficers.push(officer);
+    if(officer.fieldActor)officer.fieldActor.absentUntil=this.sim.elapsed+90;
     if (car) {
       car._lost = (car._lost || 0) + 1;
       // A car with nobody left to drive it stays where it stopped.
@@ -598,7 +635,7 @@ export class Police {
 
   meleeTarget(x,z,angle,y=this.sim.player.y) {
     let best=null, reach=2;
-    for (const officer of this.officers) {
+    for (const officer of [...this.officers,...this.fieldOfficers]) {
       const dx=officer.x-x, dz=officer.z-z, d=Math.hypot(dx,dz);
       if (officer.health<=0 || d>reach || (officer.reaction?.fall && d>1.25) ||
           Math.abs(officer.y-y)>1.3 || dx*Math.sin(angle)+dz*Math.cos(angle)<.3*d) continue;
@@ -608,8 +645,9 @@ export class Police {
   }
 
   strike(x, z, angle, power = 1, y=this.sim.player.y, low=false) {
-    const officer=this.meleeTarget(x,z,angle,y);
+    let officer=this.meleeTarget(x,z,angle,y);
     if (officer && (!low || officer.reaction?.fall)) {
+      if(this.fieldOfficers.includes(officer))officer=this._respondFromPost(officer);
       officer.health -= 40 * power;
       const fall=officer.health<=0 || power>1;
       receiveImpulse(officer,Math.sin(angle)*3.4*power,Math.cos(angle)*3.4*power,
@@ -627,12 +665,13 @@ export class Police {
    */
   shot(x, z, angle, range) {
     const sin = Math.sin(angle), cos = Math.cos(angle); let best = null, near = range;
-    for (const officer of this.officers) {
+    for (const officer of [...this.officers,...this.fieldOfficers]) {
       const dx = officer.x - x, dz = officer.z - z, along = dx * sin + dz * cos;
       if (along < .3 || along > near || Math.abs(dx * cos - dz * sin) > .45) continue;
       best = officer; near = along;
     }
     if (!best) return null;
+    if(this.fieldOfficers.includes(best))best=this._respondFromPost(best);
     best.health -= 60;
     if (best.health <= 0) this._down(best, 'Officer down. Every unit is coming.', 1);
     else this.offence('hitOfficer', { x: best.x, z: best.z, message: 'You shot a police officer.' });

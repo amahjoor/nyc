@@ -15,6 +15,7 @@ export function createPoliceScene(scene, heightAt = () => 0) {
   field.name = 'Police field details';
   scene.add(field);
   let previousPlan;
+  const visibleActors=[], deployedIds=new Set();
   const helicopter = createPoliceHelicopter(); helicopter.visible = false; scene.add(helicopter);
   // The searchlight. What it lights is lit through the city's light map (the
   // caller passes `spots` on to it), so the street, the cars and the people
@@ -56,10 +57,15 @@ export function createPoliceScene(scene, heightAt = () => 0) {
     drawDetails(shown, dt, context, extras, pedestrians, police) {
       field.visible = shown;
       police.fieldOfficers.length = 0;
+      visibleActors.length=0;
       if (!shown) return;
-      details.step(dt, context);
+      deployedIds.clear();
+      for(const officer of police.officers||[])deployedIds.add(officer.id);
+      for(const officer of police.downOfficers||[])deployedIds.add(officer.id);
+      details.step(dt, context, deployedIds);
       for (const actor of details.actors) {
         const {id, unit, post} = actor;
+        const absent=actor.absentUntil>context.time || actor.downUntil>context.time;
         if (!equipment.has(id)) {
           const model = equipmentFor(post.unit.activity);
           if (model) field.add(model);
@@ -71,15 +77,17 @@ export function createPoliceScene(scene, heightAt = () => 0) {
           model.visible = near && (!['dog','horse'].includes(post.unit.activity) || Boolean(model.userData.animal));
           if (near) placeEquipment(model, actor, context.waterLevel);
         }
-        if (!near) continue;
+        if (!near || deployedIds.has(id) || absent) continue;
+        visibleActors.push(actor);
         extras.push({...actor, member:actor.look.member, y:actor.y + actor.rideLift, cycling:Boolean(actor.ride)});
         if (post.unit.activity !== 'boat') pedestrians.push(actor);
         if (post.unit.sworn) police.fieldOfficers.push(actor);
+        else context.bystanders?.push(actor);
       }
     },
     identify(player, officers) {
       let label = null, closest = 5;
-      for (const actor of [...(field.visible ? details.actors : []), ...officers]) {
+      for (const actor of [...visibleActors, ...officers]) {
         const dx = actor.x-player.x, dz = actor.z-player.z, distance = Math.hypot(dx,dz);
         if (distance >= closest || Math.abs(player.y-actor.y) > 2.5 ||
             (distance > 1.4 && dx*Math.sin(player.angle)+dz*Math.cos(player.angle) < distance*.3)) continue;

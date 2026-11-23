@@ -113,8 +113,9 @@ export function createPoliceDetails(){
           pause:2+post.hash%5,visits:0};
       });
     },
-    step(dt,{ground,blocked,people=[],player,waterLevel=0,incident=null}){
+    step(dt,{ground,blocked,people=[],player,waterLevel=0,incident=null,time},deployedIds){
       for(const a of actors){
+        if(deployedIds?.has(a.id) || a.absentUntil>time || a.downUntil>time)continue;
         const p=a.post, job=p.unit.activity, clips=routines[job], marine=job==='boat', mounted=job==='horse', motor=job==='motor';
         a.y=marine ? waterLevel+1.05 : ground(a.x,a.z);
         const rider=mounted||motor, staticPost=marine||job==='flight'||motor||job==='direct'||p.reach<.8;
@@ -122,7 +123,7 @@ export function createPoliceDetails(){
         let clip;
         if(incident && Math.hypot(incident.x-a.x,incident.z-a.z)<28){
           clip=p.unit.sworn?'talk':'cower';
-          if(!rider && !marine)a.heading=Math.atan2(incident.x-a.x,incident.z-a.z);
+          if(!rider)a.heading=Math.atan2(incident.x-a.x,incident.z-a.z);
         } else if(a.pause>0 || staticPost){
           a.pause-=dt;
           if(staticPost && a.pause<=0){a.visits++;a.pause=4;}
