@@ -1,20 +1,30 @@
-/** City ambience and an original synthesized club loop. */
+/** City ambience, a club loop, and original synthesized interface cues. */
 export class CityAudio {
-  constructor() { this.enabled = false; }
+  constructor() {
+    this.enabled = false;
+    this.interfaceEnabled = true;
+    this.lastInterfaceCue = -Infinity;
+  }
+  context() {
+    if (!this.ctx) {
+      const AudioContext = window.AudioContext || window.webkitAudioContext;
+      if (!AudioContext) throw new Error('Audio unavailable');
+      this.ctx = new AudioContext();
+    }
+    return this.ctx;
+  }
   async toggle() {
     try {
-      if (!this.ctx) this.init();
-      await this.ctx.resume();
+      const context = this.context();
+      await context.resume();
+      if (!this.master) this.init();
       this.enabled = !this.enabled;
       this.master.gain.setTargetAtTime(this.enabled ? .35 : 0, this.ctx.currentTime, .15);
       return this.enabled;
     } catch { this.enabled = false; return false; }
   }
   init() {
-    const AudioContext = window.AudioContext || window.webkitAudioContext;
-    if (!AudioContext) throw new Error('Audio unavailable');
-    this.ctx = new AudioContext();
-    const c = this.ctx;
+    const c = this.context();
     this.master = c.createGain(); this.master.gain.value = 0; this.master.connect(c.destination);
     this.engine = c.createOscillator(); this.engine.type = 'sawtooth';
     this.engineFilter = c.createBiquadFilter(); this.engineFilter.type = 'lowpass'; this.engineFilter.frequency.value = 220;
@@ -39,6 +49,39 @@ export class CityAudio {
     this.rotorGain = c.createGain(); this.rotorGain.gain.value = 0;
     rotor.connect(rotorFilter).connect(chop).connect(this.rotorGain).connect(this.master); rotor.start();
     this.noise = buffer;
+  }
+  async interfaceCue(cue) {
+    if (!this.interfaceEnabled) return;
+    if (this.ctx?.state !== 'running') {
+      // A hover cannot unlock Web Audio. The first activation can.
+      if (cue !== 'confirm') return;
+      const requested = performance.now();
+      try { await this.context().resume(); } catch { return; }
+      if (!this.interfaceEnabled || performance.now() - requested > 250) return;
+    }
+    const c = this.ctx, now = c.currentTime;
+    // Navigation can move focus again during a click. Leave room for the click cue.
+    if (cue === 'select' && now - this.lastInterfaceCue < .075) return;
+    this.lastInterfaceCue = now;
+    const pluck = (delay, pitch, endPitch, peak, duration) => {
+      const start = now + delay, end = start + duration;
+      const tone = c.createOscillator(), gain = c.createGain();
+      tone.type = 'triangle';
+      tone.frequency.setValueAtTime(pitch, start);
+      tone.frequency.exponentialRampToValueAtTime(endPitch, end);
+      gain.gain.setValueAtTime(.0001, start);
+      gain.gain.exponentialRampToValueAtTime(peak, start + .004);
+      gain.gain.exponentialRampToValueAtTime(.0001, end);
+      tone.connect(gain).connect(c.destination);
+      tone.onended = () => { tone.disconnect(); gain.disconnect(); };
+      tone.start(start);
+      tone.stop(end);
+    };
+    if (cue === 'select') pluck(0, 740, 554, .035, .055);
+    else {
+      pluck(0, 392, 370, .072, .083);
+      pluck(.027, 587, 570, .047, .096);
+    }
   }
   makeClubLoop() {
     const c = this.ctx, rate = 22050, beat = .5;
@@ -79,7 +122,7 @@ export class CityAudio {
     source.connect(filter).connect(gain).connect(this.master); source.start(c.currentTime, Math.random() * 2, .2);
   }
   update(sim, time, playing) {
-    if (!this.ctx) return;
+    if (!this.master) return;
     const now = this.ctx.currentTime;
     const inClub = playing && this.enabled && sim.room?.style === 'club';
     if (inClub && !this.clubSource) {

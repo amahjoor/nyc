@@ -38,10 +38,15 @@ test('map selection and screen pin both follow terrain, including a later elevat
   const canvas=element(),camera=new THREE.PerspectiveCamera(60,1,.1,10000);
   camera.position.set(0,100,100);camera.lookAt(0,0,0);camera.updateMatrixWorld();
   let elevation=20;
+  const cues=[];
   const navigation=createCityNavigation({canvas,camera,input:{clear(){},pointerLookEnabled:true},
-    bounds:{minX:-1000,maxX:1000,minZ:-1000,maxZ:1000},onTravel(){},heightAt:()=>elevation});
+    bounds:{minX:-1000,maxX:1000,minZ:-1000,maxZ:1000},onTravel(){},onMapPick:cue=>cues.push(cue),heightAt:()=>elevation});
   navigation.setVisible(true);elements.get('pick-spawn-button').listeners.get('click')();
   canvas.listeners.get('pointerdown')({clientX:400,clientY:400,pointerId:1,button:0,preventDefault(){}});
+  canvas.listeners.get('pointermove')({clientX:400,clientY:400,pointerId:1});
+  assert.deepEqual(cues,[],'dragging the map pin is quiet until release');
+  canvas.listeners.get('pointerup')({clientX:400,clientY:400,pointerId:1});
+  assert.deepEqual(cues,['select']);
   const selected=navigation.getState().selected;
   assert.ok(Math.abs(selected.x)<.01);assert.ok(Math.abs(selected.z-20)<.01,'elevation shifts the selected horizontal location along the ray');
   const pin=elements.get('spawn-pin');assert.equal(pin.hidden,false);
@@ -50,4 +55,7 @@ test('map selection and screen pin both follow terrain, including a later elevat
   const expected=new THREE.Vector3(selected.x,35,selected.z).project(camera);
   assert.ok(Math.abs(parseFloat(pin.style.top)-(1-expected.y)*400)<1e-6);
   assert.ok(parseFloat(pin.style.top)<400,'streamed terrain updates move the projected pin without changing its geographic selection');
+  elements.get('pick-spawn-button').listeners.get('click')();
+  canvas.listeners.get('dblclick')({clientX:400,clientY:400});
+  assert.deepEqual(cues,['select','confirm']);
 });

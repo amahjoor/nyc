@@ -35,7 +35,7 @@ export function intersectTerrainRay(ray, heightAt = flatHeight, maxDistance = 20
 }
 
 /** Presets, address results and map pins share the same travel confirmation. */
-export function createCityNavigation({ canvas, camera, input, bounds, onTravel, heightAt = flatHeight, onDestinationSelected = () => {}, getPresets = () => [], searchLocal = () => [] }) {
+export function createCityNavigation({ canvas, camera, input, bounds, onTravel, heightAt = flatHeight, onDestinationSelected = () => {}, onMapPick = () => {}, getPresets = () => [], searchLocal = () => [] }) {
   const $ = id => document.getElementById(id);
   const addressInput=$('address-input'), results=$('address-results');
   let visible=false, traveling=false, picking=false, selected=null, dragging=null;
@@ -204,12 +204,12 @@ export function createCityNavigation({ canvas, camera, input, bounds, onTravel, 
   });
   canvas.addEventListener('pointerup',event=>{
     if(dragging===null||event.pointerId!==dragging)return;
-    if(visible&&!traveling&&picking)pick(event);
+    if(visible&&!traveling&&picking&&pick(event))onMapPick('select');
     dragging=null;
   });
   for(const name of ['pointercancel','lostpointercapture'])canvas.addEventListener(name,()=>{dragging=null;});
   canvas.addEventListener('dblclick',event=>{
-    if(visible&&!traveling&&!picking&&pick(event))onTravel({...selected});
+    if(visible&&!traveling&&!picking&&pick(event)){onMapPick('confirm');onTravel({...selected});}
   });
   controls();
   return {

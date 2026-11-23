@@ -33,8 +33,8 @@ function shapeBounds(points) {
 
 /** Canvas map uses the game's local meters, never an independent map projection. */
 export class GameMap {
-  constructor({ document = globalThis.document, city, getPresets = () => [], searchLocal = () => [], onPlacesWanted = () => {}, loadTransit, lookupAddress, onPin = () => {}, onSpawn = () => {}, onOpenChange = () => {} } = {}) {
-    this.document = document;this.city = city;this.onPin = onPin;this.onSpawn = onSpawn;this.onOpenChange = onOpenChange;
+  constructor({ document = globalThis.document, city, getPresets = () => [], searchLocal = () => [], onPlacesWanted = () => {}, loadTransit, lookupAddress, onPin = () => {}, onSpawn = () => {}, onOpenChange = () => {}, onCue = () => {} } = {}) {
+    this.document = document;this.city = city;this.onPin = onPin;this.onSpawn = onSpawn;this.onOpenChange = onOpenChange;this.onCue = onCue;
     this.element = document.getElementById('game-map');this.canvas = document.getElementById('game-map-canvas');
     this.mini = document.getElementById('minimap');this.open = false;this.pin = null;this.route = null;this.progress = null;this.busy = false;
     this.player = { x: city.spawn?.x || 0, z: city.spawn?.z || 0, angle: 0 };
@@ -95,6 +95,9 @@ export class GameMap {
         const i = elements.indexOf(document.activeElement);
         const next = i < 0 ? (event.shiftKey ? elements.length - 1 : 0) : (i + (event.shiftKey ? -1 : 1) + elements.length) % elements.length;
         event.preventDefault();elements[next]?.focus();
+      } else if (!typing && document.activeElement !== this.transit.select && ['ArrowLeft','ArrowRight'].includes(key) && this.key.stepTarget(key === 'ArrowLeft' ? -1 : 1)) {
+        this.onCue('select');
+        event.preventDefault();event.stopImmediatePropagation();
       } else if (document.activeElement === this.canvas && key === 'Delete' && this.pin && !this.busy) {
         event.preventDefault();this.clearPin();
       } else if (document.activeElement === this.canvas && ['ArrowLeft','ArrowRight','ArrowUp','ArrowDown','+','=','-'].includes(key)) {
@@ -142,12 +145,13 @@ export class GameMap {
     this.canvas.releasePointerCapture?.(event.pointerId);
     if (drag.pin) {
       const point = this.pointerPoint(event);
-      if (!drag.moved && Math.hypot(point.x - drag.start.x, point.y - drag.start.y) <= 4) this.clearPin();
+      if (!drag.moved && Math.hypot(point.x - drag.start.x, point.y - drag.start.y) <= 4) { this.clearPin();this.onCue('select'); }
       else if (!this.setPin(mapScreenToWorld(point, this.view))) this.draw();
+      else this.onCue('select');
       return;
     }
     if (drag.moved) return;
-    this.pinAtScreenPoint(this.pointerPoint(event));
+    if (this.pinAtScreenPoint(this.pointerPoint(event))) this.onCue('select');
   }
   pinAtScreenPoint(screen) {
     const preview = this.key.preview;

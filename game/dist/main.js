@@ -365,15 +365,42 @@ const carModels = new Map(), distantCars=[];
 // MODEL_KEPT, so that none flickers between the two at the boundary.
 const CAR_SIGHT=TRAFFIC_SIGHT, MODEL_RANGE=42, MODEL_KEPT=52;
 const audio = new CityAudio();
+const INTERFACE_SOUND_KEY='nyc.interface-sounds';
+try{audio.interfaceEnabled=localStorage.getItem(INTERFACE_SOUND_KEY)!=='off';}catch{}
+const interfaceAreas='#intro, #pause-dialog, #sources-dialog, #city-navigation, #game-map, #phone, #interaction, #road-pilot-controls, #map-button';
+const interfaceControls='button, a[href], select, input:not([type="hidden"]), textarea';
+function interfaceControl(target){
+  const control=target?.closest?.(interfaceControls);
+  if(control?.closest(interfaceAreas) && !control.closest(':disabled, [aria-disabled="true"], [hidden], [inert]'))return control;
+}
+let pointerNavigation=false;
+document.addEventListener('pointerdown',()=>{pointerNavigation=true;},true);
+document.addEventListener('keydown',()=>{pointerNavigation=false;},true);
+document.addEventListener('pointerover',event=>{
+  if(event.pointerType==='touch' || event.buttons)return;
+  const control=interfaceControl(event.target);
+  if(control && !control.contains(event.relatedTarget))audio.interfaceCue('select');
+});
+document.addEventListener('focusin',event=>{
+  if(!pointerNavigation && interfaceControl(event.target))audio.interfaceCue('select');
+});
+document.addEventListener('click',event=>{
+  const control=interfaceControl(event.target);
+  if(control && control.id!=='interface-sound-button' && control.matches('button, a[href]'))audio.interfaceCue('confirm');
+},true);
+document.addEventListener('change',event=>{
+  if(interfaceControl(event.target)?.matches('select'))audio.interfaceCue('confirm');
+},true);
 const canvas=$('world');
 function interfaceKey(event){
   if(interaction?.open && phone?.open && $('phone').contains(document.activeElement))return phone.handleKey(event);
   return interaction?.handleKey(event) || phone?.handleKey(event);
 }
 const input=new Input(canvas, action, interfaceKey, weaponControls, index=>{
+  pointerNavigation=false;
   if($('pause-dialog').open)return pausePad(index);
   if (mapOpen && (index === 14 || index === 15)) {
-    gameMap.key.stepTarget(index === 14 ? -1 : 1);
+    if(gameMap.key.stepTarget(index === 14 ? -1 : 1))audio.interfaceCue('select');
     return true;
   }
   if(interaction?.open){
@@ -785,6 +812,18 @@ $('sound-button').addEventListener('click',async()=>{
   const enabled=await audio.toggle();
   $('sound-value').textContent=enabled?'ON':'OFF';
   $('sound-button').setAttribute('aria-pressed',String(enabled));
+});
+const interfaceSoundButton=$('interface-sound-button');
+function showInterfaceSound(){
+  $('interface-sound-value').textContent=audio.interfaceEnabled?'ON':'OFF';
+  interfaceSoundButton.setAttribute('aria-pressed',String(audio.interfaceEnabled));
+}
+showInterfaceSound();
+interfaceSoundButton.addEventListener('click',()=>{
+  audio.interfaceEnabled=!audio.interfaceEnabled;
+  showInterfaceSound();
+  if(audio.interfaceEnabled)audio.interfaceCue('confirm');
+  try{localStorage.setItem(INTERFACE_SOUND_KEY,audio.interfaceEnabled?'on':'off');}catch{}
 });
 const paceButton=$('controller-sprint');
 function showPaceButton(){$('sprint-value').textContent=input.tapSprint?'TAP':'HOLD';}
@@ -2983,7 +3022,7 @@ async function boot() {
   }).catch(()=>{$('road-reconstruction-status').textContent='Road image review unavailable. Surveyed surfaces remain active.';});
   avatar=createPerson(0xd7774e,{courier:true});avatar.traverse(object=>{object.layers.enable(ROOM_LAYER);object.layers.enable(SUBWAY_LAYER);});scene.add(avatar);marker=createMissionMarker();enterHint=createEnterHint();policeScene=createPoliceScene(scene,(x,z)=>groundHeight(x,z));carSmoke=createCarSmoke(scene);doorDebris=createDoorDebris(scene);
   hud=new HUD(city);applyQuality();
-  gameMap=new GameMap({city,loadTransit:loadTransitNetwork,getPresets:cityPresets,searchLocal:findLocally,onPlacesWanted:loadPlaceNames,onPin:requestDirections,
+  gameMap=new GameMap({city,loadTransit:loadTransitNetwork,getPresets:cityPresets,searchLocal:findLocally,onPlacesWanted:loadPlaceNames,onPin:requestDirections,onCue:cue=>audio.interfaceCue(cue),
     onSpawn:pin=>travel({...pin,exact:true}),
     onOpenChange:open=>{if(open)interaction?.close();mapOpen=open;input.clear();input.lookDelta=0;input.lookVertical=0;if(!open)canvas.focus();markDoors();}});
   hud.attachMap(gameMap);
@@ -3018,7 +3057,7 @@ async function boot() {
     routePlanner=createRoutePlanner(data);gameMap.setRoads(routePlanner.roads);return routePlanner;
   }).catch(()=>null);
   const b=city.bounds;camera.position.set((b.minX+b.maxX)/2-14000,44000,(b.minZ+b.maxZ)/2+32000);
-  navigation=createCityNavigation({canvas,camera,input,bounds:city.bounds,heightAt:terrainHeight,onTravel:travel,onDestinationSelected:focusCityDestination,getPresets:cityPresets,searchLocal:findLocally});
+  navigation=createCityNavigation({canvas,camera,input,bounds:city.bounds,heightAt:terrainHeight,onTravel:travel,onMapPick:cue=>audio.interfaceCue(cue),onDestinationSelected:focusCityDestination,getPresets:cityPresets,searchLocal:findLocally});
   window.nycGame={graphics:gfx,get playerBody(){return playerBody;},enter:front=>goIn(front),get streetscape(){return streetscape;},get streetLife(){return streetLife;},get policeDetails(){return policeScene.details.actors;},get parkedCars(){return parkedCars;},get distantTraffic(){return distantTraffic;},get world(){return world;},get simulation(){return sim;},get signs(){return signs;},get crowd(){return crowd;},get props(){return props;},get places(){return placeSource;},get storefronts(){return storefronts;},get fronts(){return fronts;},get phone(){return phone;},get fleet(){return fleet;},get subway(){return subway;},get subwayJourney(){return subwayVisit?.journey||null;},get buses(){return buses;},get sheds(){return sheds;},get dining(){return dining;},get standMesh(){return standMesh;},get aloft(){return aloft;},get viewHeight(){return viewHeight;},get trash(){return trashMesh;},get weekday(){return weekday;},set weekday(day){weekday=((day%7)+7)%7;},get map(){return gameMap;},findLocally,get bikeTraffic(){return bikeTraffic;},get bikeShare(){return bikeShare;},get bikeDocks(){return bikeDocks;},get diningMesh(){return diningMesh;},get shedMesh(){return shedMesh;},get busStops(){return busStops;},get demographics(){return demographics;},get subwayStairs(){return subwayStairs;},get cityLife(){return cityLife;},heightAt:(x,z)=>terrainHeight(x,z),travel:place=>travel(place),get streetDetail(){return streetDetail;},get landscape(){return landscape;},get centralPark(){return centralPark;},get statue(){return statue;},setView:view=>{viewOverride=view&&Array.isArray(view.position)&&Array.isArray(view.target)?view:null;},getState:()=>({time:gfx.clock,switching:switchShot.active,player:{...sim.player},heat:sim.heat,health:sim.health,mission:{...sim.mission},cash:sim.cash,deliveries:sim.deliveries,cars:sim.cars.length,parkedCars:sim.cars.filter(car=>car._kerb).length,buildings:buildings.length,totalBuildings:cityIndex.stats.buildingFeatures,stream:world.getStatus(),ground:ground.getStatus(),streetDetail:streetDetail?.getStatus()||null,streetscape:streetscape?.getStatus()||null,landscape:landscape?.getStatus()||null,reconstruction:reconstructionReview?{model:reconstructionReview.model,summary:reconstructionReview.summary}:null,roadReconstruction:roadReconstructionReview?{model:roadReconstructionReview.model,summary:roadReconstructionReview.summary}:null,roadPilot:roadPilot?roadPilot.getStatus():{ready:false,loading:Boolean(roadPilotLoading),error:roadPilotError},navigation:navigation.getState(),map:gameMap.getState(),routeGuidance,cityView,aerialView,firstPersonView:firstPersonActive(),traveling,bootReady,shadows:{enabled:shadowsEnabled,active:renderer.shadowMap.enabled},drawCalls:renderer.info.render.calls,triangles:renderer.info.render.triangles,started,paused})};
   requestAnimationFrame(frame);
   const [roads]=await Promise.all([roadStream.loadAround(seed.spawn),world.prepareAt(seed.spawn,300),landscapeReady]);
