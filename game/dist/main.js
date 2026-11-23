@@ -624,6 +624,7 @@ function action(name,event) {
   if(name==='skate'){if(!mapOpen&&sim.toggleSkateboard()){input.skating=sim.player.mode==='skate';headAnchor=undefined;snapChase=true;}return;}
   if(name==='cash'){hud.showCash(sim.cash);return;}
   if(name==='interact'){
+    if(sim.dropPaper())return;
     if(sim.player.mode==='skate'){sim.toggleSkateboard();return;}
     if(sim.player.mode==='passenger'){cityRides.stopEarly();return;}
 

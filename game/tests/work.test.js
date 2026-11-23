@@ -180,7 +180,7 @@ test('a newspaper carrier makes distinct local drops and collects one paycheck o
   assert.equal(f.work.jobs().filter(row=>row.active).map(row=>row.name).join(),'Newspaper carrier');
   for(const stop of mission.stops){
     assert.equal(f.sim.cash,0);
-    Object.assign(f.sim.player,stop);f.sim._updateMission(1);
+    Object.assign(f.sim.player,stop);f.sim._updateMission(1);assert.equal(f.sim.cash,0);assert.ok(f.sim.dropPaper());
   }
   assert.equal(mission.phase,'complete');assert.ok(f.sim.cash>=54 && f.sim.cash<=66);
   const balance=f.sim.cash;f.sim._updateMission(1);assert.equal(f.sim.cash,balance);

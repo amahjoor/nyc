@@ -276,7 +276,7 @@ export class Work {
     if(m.phase==='active')return this.list('Newspaper carrier',m.kind==='paper'?
       `Bundle ${m.index+1} of ${m.stops.length} · ${m.target.name}`:'Finish your current delivery first.',[
       option('Return to delivery','Follow the marker',()=>this.phone().setOpen(false))]);
-    this.list('Newspaper carrier','Run bundles to two or three nearby corners. Stop at each marked address in order. Finish early for up to $12 extra.',[
+    this.list('Newspaper carrier','Run bundles to two or three nearby corners. Stop on foot or by bike and use the interact control to leave each bundle. Finish early for up to $12 extra.',[
       option('Start paper round','$18 per stop, paid at the final drop',()=>{
         if(this.sim.startPaperRoute())this.phone().setOpen(false);
         else this.board(this.sim.notice);

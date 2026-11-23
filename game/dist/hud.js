@@ -90,7 +90,7 @@ export class HUD {
     const trip=cityRides?.trip;
     $('ride-speed').hidden=!(passenger && trip?.phase==='traveling' && !trip.stopping && !sim.ending);
     if (!$('ride-speed').hidden) this.text('ride-speed-label',trip.car.rideHurry?'ASK FOR NORMAL SPEED':'ASK DRIVER TO HURRY');
-    const interactLabel = p.mode==='passenger' ? 'ASK TO PULL OVER' : cityRides?.canBoard() ? 'BOARD RIDE' : sim.seat ? 'STAND' : register==='collect' ? 'COLLECT CASH' : register==='drawer' ? 'TAKE TILL CASH' : canSit ? 'SIT' : null;
+    const interactLabel = sim.canDropPaper()?'LEAVE PAPER BUNDLE':p.mode==='passenger' ? 'ASK TO PULL OVER' : cityRides?.canBoard() ? 'BOARD RIDE' : sim.seat ? 'STAND' : register==='collect' ? 'COLLECT CASH' : register==='drawer' ? 'TAKE TILL CASH' : canSit ? 'SIT' : null;
     $('touch-equip').hidden = p.mode!=='walk' || Boolean(sim.seat || sim.subway);
     this.text('touch-equip',p.armed?'HOLSTER':'EQUIP');
     prompt.hidden = Boolean(sim.subway) || !interactLabel && !ride && !boarding && !driving && !cycling && !skating && !bike && !near && !punching;
@@ -105,7 +105,7 @@ export class HUD {
     if(active) {
       this.text('mission-kicker', mission.kind==='paper' ? 'PAPER ROUND · '+(mission.index+1)+'/'+mission.stops.length : mission.stage === 'pickup' ? 'FOOD PICKUP' : mission.meal ? 'FOOD DROP-OFF' : 'SPECIAL DELIVERY');
       this.text('mission-title', mission.target.name);
-      this.text('mission-description', mission.kind==='paper'?'Stop at the marker to leave the next bundle.':mission.meal ? `Stop at the marker to ${mission.stage === 'pickup' ? 'collect' : 'deliver'} the ${mission.meal.toLowerCase()}.` : 'Follow the orange marker. Slow to a stop inside the ring to make the drop.');
+      this.text('mission-description', mission.kind==='paper'?'Stop on foot or by bike. Press E to leave the bundle.':mission.meal ? `Stop at the marker to ${mission.stage === 'pickup' ? 'collect' : 'deliver'} the ${mission.meal.toLowerCase()}.` : 'Follow the orange marker. Slow to a stop inside the ring to make the drop.');
       this.text('mission-distance', Math.round(Math.hypot(p.x-mission.target.x,p.z-mission.target.z))+(mission.stage === 'pickup' ? ' M TO PICKUP' : ' M TO DROP'));
       const sec=Math.max(0,Math.ceil(mission.timeLeft));
       this.text('mission-timer',Math.floor(sec/60)+':'+String(sec%60).padStart(2,'0'));

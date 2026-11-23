@@ -249,9 +249,10 @@ function buildRoadGraph(roads) {
 }
 
 export class Simulation {
-  constructor(city, { onRecovery } = {}) {
+  constructor(city, { onRecovery, onTripPaid } = {}) {
     this.city = city;
     this.onRecovery = onRecovery;
+    this.onTripPaid = onTripPaid;
     this.moveEvents=[];
     this.bystanders = [];
     this.streetObjects = new StreetObjects();
@@ -2706,6 +2707,26 @@ export class Simulation {
     return true;
   }
 
+  canDropPaper(){
+    const m=this.mission,p=this.player;
+    return m.kind==='paper' && m.phase==='active' && !this.room && !this.seat && !this.subway && !this.ending &&
+      (p.mode==='walk' || p.mode==='bike') && !p.armed && distance(p,m.target)<4 && playerTravelSpeed(p)<2 &&
+      Math.abs((p.y??0)-this.groundHeight(m.target.x,m.target.z))<3;
+  }
+
+  dropPaper(){
+    if(!this.canDropPaper())return false;
+    const m=this.mission;
+    if(m.index+1<m.stops.length){
+      m.target=m.stops[++m.index];this._say('Bundle delivered. Next stop: '+m.target.name+'.',5);
+    }else{
+      m.payout=m.reward+Math.round(12*m.timeLeft/m.totalTime);
+      m.phase='complete';this.cash+=m.payout;this.deliveries++;this.onTripPaid?.('Newspaper round');
+      this._say('Paper round complete. +$'+m.payout+'.',6);
+    }
+    return true;
+  }
+
   _updateMission(dt, ridingSubway=false) {
     if (this.mission.phase !== 'active') return;
     this.mission.timeLeft = Math.max(0, this.mission.timeLeft - dt);
@@ -2714,20 +2735,16 @@ export class Simulation {
       this._say('Delivery timed out. Press N to try another job.', 6);
       return;
     }
-    if (ridingSubway || this.player.mode === 'transport' && !this.player.grounded) return;
+    if (this.mission.kind==='paper' || ridingSubway || this.player.mode === 'transport' && !this.player.grounded) return;
     if (distance(this.player, this.mission.target) < 10 && playerTravelSpeed(this.player) < 3) {
-      if ((this.mission.meal || this.mission.kind==='paper') && this.room) return;
-      if(this.mission.kind==='paper' && this.mission.index+1<this.mission.stops.length){
-        this.mission.target=this.mission.stops[++this.mission.index];
-        this._say('Bundle delivered. Next stop: '+this.mission.target.name+'.',5);return;
-      }
+      if (this.mission.meal && this.room) return;
       if (this.mission.stage === 'pickup') {
         this.mission.target = this.mission.dropoff;
         this.mission.stage = 'dropoff';
         this._say(`Order collected. Deliver to ${this.mission.target.name}.`, 6);
         return;
       }
-      const bonus = this.mission.meal || this.mission.kind==='paper' ? Math.round(12 * this.mission.timeLeft / this.mission.totalTime) :
+      const bonus = this.mission.meal ? Math.round(12 * this.mission.timeLeft / this.mission.totalTime) :
         Math.round(this.mission.timeLeft / this.mission.totalTime * 50 / 5) * 5;
       const payout = this.mission.reward + bonus;
       this.cash += payout;
