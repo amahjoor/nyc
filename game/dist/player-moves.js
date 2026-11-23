@@ -2,7 +2,7 @@ import { meleeMoves, nextStrike } from './melee-moves.js';
 import { importedSupport,exteriorSupport } from './vehicle-assets.js';
 import { vehicleTop } from './vehicle-generator.js';
 import { GRAVITY } from './character-physics.js';
-import { doorPanel } from './vehicle-damage.js';
+import { doorPanel, vehiclePaneBroken } from './vehicle-damage.js';
 // What the player can do on foot besides walk, run, jump and punch: kick, get
 // over a car, climb onto something, and the few seconds it takes to open a
 // car door, break a window or haul the driver out. Each is a move that owns
@@ -39,7 +39,11 @@ export function carTop(car, x, z, margin = 0) {
   }
   if (Math.abs(along) > CAR.along + margin || Math.abs(across) > CAR.across + margin) return null;
   const body = bodyOf(car);
-  return ground + (Math.abs(along) < (body.cabin || CAR.cabin) ? body.roof : body.deck);
+  const cabin = body.cabin || CAR.cabin;
+  if (along <= -cabin) return ground + body.deck;
+  // Before a model is available, connect the hood and roof with a sloping windshield.
+  const rise = Math.max(0, Math.min(1, (cabin + .4 - along) / .4));
+  return ground + body.deck + rise * (body.roof - body.deck);
 }
 
 /** The car under somebody's feet at this height, and how high it stands there: { car, top } or null. */
@@ -47,7 +51,19 @@ export function carUnder(sim, x, z, y) {
   let best = null;
   for (const car of sim.cars) {
     if (Math.abs(car.x - x) > 4 || Math.abs(car.z - z) > 4) continue;
-    const top = carTop(car, x, z, .12);
+    let top = carTop(car, x, z, .12);
+    if (sim.player?.standing?.id === car.id && sim.player.grounded && (top === null || top < y - .25)) {
+      // A ray can pass through the seam between two panels and hit the floorpan.
+      // Bridge only a shoe-sized gap with bodywork supporting both ends.
+      const dx = .13*Math.sin(car.angle), dz = .13*Math.cos(car.angle);
+      for (const [sx,sz] of [[dx,dz],[dz,-dx]]) {
+        const a = carTop(car,x+sx,z+sz), b = carTop(car,x-sx,z-sz);
+        if (a !== null && b !== null && Math.abs(a-b)<.2 && Math.abs((a+b)/2-y)<.25) {
+          top = (a+b)/2;
+          break;
+        }
+      }
+    }
     if (top !== null && y > top - .75 && y < top + 3 && (!best || top > best.top)) best = { car, top };
   }
   return best;
@@ -74,14 +90,14 @@ export function reloadGun(sim) {
 }
 
 /** Pull the trigger. Returns whether a shot went off; whoever asked works out what it hit, from the 'shot' event. */
-export function fireGun(sim) {
+export function fireGun(sim, sight) {
   const player = sim.player;
   if (!player.armed || player.mode !== 'walk' || player.reaction || sim.seat || player.move || (player.fireWait || 0) > 0 || (player.reloading || 0) > 0) return false;
   if (player.rounds===0) { reloadGun(sim); return false; }
   player.rounds = (player.rounds ?? GUN.rounds) - 1;
   player.fireWait = GUN.gap; player.firedAt = sim.elapsed;
   if (player.rounds <= 0) player.reloading = GUN.reload;
-  (sim.moveEvents || (sim.moveEvents = [])).push({ kind: 'shot', x: player.x, y: (Number.isFinite(player.y) ? player.y : 0) + 1.4, z: player.z, angle: player.angle });
+  (sim.moveEvents || (sim.moveEvents = [])).push({ kind: 'shot', x: player.x, y: (Number.isFinite(player.y) ? player.y : 0) + 1.4, z: player.z, angle: player.angle, sight });
   return true;
 }
 
@@ -176,7 +192,7 @@ export function beginEntry(sim, car) {
   const forward = { x: Math.sin(car.angle), z: Math.cos(car.angle) };
   const across = (player.x-car.x)*side.x + (player.z-car.z)*side.z;
   const left = !occupied && across < 0 ? -1 : 1;
-  const open = ((car.missingDoors | car.brokenGlass) & doorPanel(left)) !== 0;
+  const panel = doorPanel(left), open = Boolean(car.missingDoors & panel) || vehiclePaneBroken(car,panel);
   const kind = occupied ? 'carjack' : !driven && !open && lockedAt(car) ? 'breakIn' : 'door';
   const door = { x: car.x + side.x * left * 1.45 + Math.sin(car.angle) * .25, z: car.z + side.z * left * 1.45 + Math.cos(car.angle) * .25 };
   const clear = point => {
@@ -239,9 +255,14 @@ export function stepMove(sim, dt) {
   const smooth = t => { t = Math.max(0, Math.min(1, t)); return t * t * (3 - 2 * t); };
   player.speed = 0;
   if (move.kind==='kick' || move.kind==='lowKick' || move.kind==='stomp') {
-    if (passed(meleeMoves[move.clip ?? move.kind].contact)) events.push({kind:'kick',clip:move.clip,
+    if (passed(meleeMoves[move.clip ?? move.kind].contact)) events.push({kind:'kick',clip:move.clip,action:move.vehicleId==null ? sim._commitStrike?.(move.clip) : null,
       low:move.kind==='lowKick', roof:move.kind==='stomp', vehicleId:move.vehicleId,
       x:player.x,y:player.y,z:player.z,angle:player.angle});
+  }
+  else if (move.kind==='dodge') {
+    const stride=.67*(smooth(move.t/.30)-smooth(before/.30));
+    const next=sim._resolvePosition(player.x+Math.sin(move.angle)*stride,player.z+Math.cos(move.angle)*stride,.38,null,player);
+    if (!sim._nearCar(next.x,next.z,.38,player.standing?.id,player.y)) {player.x=next.x;player.z=next.z;}
   }
   else if (move.kind === 'getOut') {
     const t = smooth(move.t/move.T);

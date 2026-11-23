@@ -3,6 +3,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { Simulation } from '../dist/simulation.js';
 import { MAX_STARS, evadeTime, SIGHT, HELICOPTER, OFFENCES, hitChance } from '../dist/police.js';
+import { roomLocal, roomPoint, ShopDoor } from '../dist/room.js';
 
 const street = (id, points, width = 10) => ({ id, name: id.toUpperCase(), points, width, oneway: false, kind: 'residential', roadwayType: 1, fromLevel: 13, toLevel: 13 });
 const box = (x, z, w = 20, d = 20) => ({ polygon: [[x, z], [x + w, z], [x + w, z + d], [x, z + d]] });
@@ -31,6 +32,28 @@ function patrolAt(sim, x, z, angle = 0) {
   return car;
 }
 
+function shopFixture(things = []) {
+  const sim = alone(new Simulation(grid({roads:[],buildings:[box(6,45,10,10)]})));
+  const plan = {place:{id:'shop',kind:'bodega'},name:'Shop',x:6,z:50,nx:-1,nz:0,tx:0,tz:1,width:10,depth:10,things};
+  const view = {plan,floor:0,door:new ShopDoor(),actors:[]};
+  const stand = (a,b) => {
+    const [x,z] = roomPoint(plan,a,b);
+    Object.assign(sim.player,{x,z,y:0,speed:0,velocityX:0,velocityZ:0});
+    if (sim.room) Object.assign(sim.room,{a,b});
+  };
+  const enter = () => {
+    sim.doorway=view;
+    stand(0,.1);
+    assert.ok(sim.enterRoom(plan));
+  };
+  const post = (a,b) => {
+    const [x,z] = roomPoint(plan,a,b);
+    const at = {x,z,y:0};
+    sim.police.fieldOfficers.push({id:'door-patrol',...at,heading:Math.PI/2,post:{...at,unit:{activity:'patrol'}}});
+  };
+  return {sim,police:sim.police,view,stand,enter,post};
+}
+
 test('officers find an open spot when someone is standing beside the patrol car', () => {
   const sim=alone(new Simulation(grid({roads:[]})));
   const car=patrolAt(sim,0,25), walker={x:1.7,z:25,y:0};
@@ -52,6 +75,22 @@ test('one officer cuffs a stopped suspect while the partner covers the arrest', 
   assert.ok(near.cuffing && !near.aiming);
   assert.ok(partner.aiming && !partner.cuffing);
   assert.equal(police.shots.length, 0);
+});
+
+test('an officer backs out of a dead end and approaches a suspect around the obstruction', () => {
+  const buildings=[box(3,46,6,1),box(3,40,1,6),box(8,40,1,6)];
+  const sim=alone(new Simulation(grid({roads:[],buildings}))), police=sim.police;
+  const at={x:6,y:0,z:44};
+  const officer=police._respondFromPost({id:'detour',...at,heading:0,post:{...at,unit:{activity:'patrol'}}});
+  sim.heat=1;police.report();police.state='chase';
+  let backedOut=false;
+  for(let i=0;i<600;i++){
+    police._officers(1/60);
+    backedOut ||= officer.z<39.6;
+    assert.equal(sim.isBlocked(officer.x,officer.z,.39),false);
+  }
+  assert.ok(backedOut,'the route first retreats to the opening');
+  assert.ok(Math.hypot(officer.x-sim.player.x,officer.z-sim.player.z)<2,'the officer reaches the suspect');
 });
 
 test('crimes add up to five stars and no further', () => {
@@ -120,6 +159,59 @@ test('indoors nobody on the street can see the player', () => {
   assert.equal(sim.police._look(), true);
   sim.room = {};
   assert.equal(sim.police._look(), false);
+});
+
+test('a visible suspect entering a shop is arrested only after an officer walks through the door', () => {
+  const {sim,police,view,stand,enter,post} = shopFixture();
+  sim.endingSeconds=4;
+  stand(0,-1);post(0,-3);
+  sim.crime(1);
+  advance(sim,.12);
+  assert.equal(police.state,'chase');
+  enter();stand(0,5);
+  assert.equal(police.searchRoom,view);
+  advance(sim,.3);
+  assert.equal(police.arrest,0);
+  assert.ok(!sim.ending);
+  assert.ok(until(sim,12,()=>Boolean(sim.ending))>=0,'an officer reaches the player and makes the arrest');
+  assert.ok(police.officers.some(officer=>officer.room===view && roomLocal(view.plan,officer.x,officer.z).b>2));
+  assert.equal(sim.ending.kind,'busted');
+  assert.notEqual(view.door.angle,0,'the officer pushes the shop door');
+});
+
+test('existing patrols search an alarmed shop anonymously and leave when the search expires', () => {
+  const {sim,police,view,stand,enter} = shopFixture();
+  const car=patrolAt(sim,-2,49,0), distant=patrolAt(sim,-85,51,0);
+  enter();stand(3,6);
+  sim.offence('robbery',{seen:true,identified:false});
+  // Ambient units that stream into the area after the report keep their rounds.
+  const late=patrolAt(sim,-1,57,0);distant.x=-4;
+  assert.ok(until(sim,12,()=>police.officers.some(officer=>officer.room===view && roomLocal(view.plan,officer.x,officer.z).b>3))>=0);
+  assert.ok(car._crewOut);
+  assert.ok(!late._crewOut && !distant._crewOut);
+  assert.equal(patrols(sim).length,3);
+  assert.equal(police.state,'search');
+  assert.equal(police.arrest,0);
+  assert.ok(until(sim,45,()=>!police.officers.length)>=0,'the officers leave through the door and return to their car');
+  assert.equal(police.state,'clear');
+});
+
+test('an officer searches around shelves before opening fire at a suspect indoors', () => {
+  const shelf = {a:0,b:3,w:5,d:1,y:0,h:2.1,solid:true};
+  const {sim,police,view,stand,enter,post} = shopFixture([shelf]);
+  post(0,-2.5);enter();stand(0,6);
+  sim.heat=3;police.report(view.plan,true,true,'walk',view);
+  advance(sim,1.5);
+  assert.ok(police.officers.some(officer=>officer.room===view));
+  assert.equal(police.shotsFired,0,'the shelf blocks the shot');
+  assert.equal(sim.health,100);
+  police._random=()=>0;
+  assert.ok(until(sim,16,()=>sim.health<100)>=0,'the officer clears the aisle and gets a shot');
+  assert.equal(view.gunfireAt,police.shots.at(-1).at);
+  const officer=police.officers[0];
+  assert.equal(officer.room,view);
+  const local=roomLocal(view.plan,officer.x,officer.z);
+  assert.ok(Math.abs(local.a)>2.5 || local.b>3.5,'the officer goes around the shelf');
 });
 
 test('more stars bring more patrol cars, and they go home when it is over', () => {
@@ -268,11 +360,82 @@ test('a crime nobody saw never happened, and one somebody saw counts when their 
   assert.equal(sim.offence('assault', { x: 6, z: 50 }), null);
 });
 
-test('a clerk’s call about an unpaid exit sends dispatch to the shop after the call arrives',()=>{
+test('a nearby witness behind a wall cannot see theft but can report hearing shots',()=>{
+  const sim=alone(new Simulation(grid({roads:[],buildings:[box(9,46,1,8)]})));
+  sim.cars=[];sim.police._random=()=>0;
+  const p=sim.player, witness={x:p.x+6,y:p.y,z:p.z,state:'walk'};
+  sim.setWalkers([],[witness]);
+  assert.equal(sim.offence('theft'),null);
+  assert.equal(sim.offence('gunfire'),'called');
+  assert.equal(sim.offence('gunfire'),'called');assert.equal(sim.police.calls.length,1);
+  const patrol=patrolAt(sim,p.x,p.z-6,0);
+  // The report was anonymous and the patrol later arrived near an unarmed player.
+  advance(sim,5);
+  assert.equal(sim.stars,1);assert.equal(sim.police.state,'search');assert.equal(sim.police.known,null);
+  assert.equal(patrol._sees,false);
+  p.armed=true;advance(sim,.3);assert.equal(sim.police.state,'chase');
+});
+
+test('a delayed report remembers the vehicle at the scene instead of the player’s current ride',()=>{
+  const sim=alone(new Simulation(grid({roads:[]})));
+  sim.police._random=()=>0;
+  Object.assign(sim.player,{mode:'drive',vehicleId:'witnessed-car'});
+  assert.equal(sim.offence('theft',{x:11,z:72,witnessReport:true}),'called');
+  Object.assign(sim.player,{mode:'walk',vehicleId:null,x:40});
+  advance(sim,5);
+  assert.equal(sim.police.known,'witnessed-car');
+  assert.deepEqual(sim.police.lastKnown,{x:11,z:72});
+});
+
+test('crash severity, fault and repeated warnings determine whether a traffic incident earns a star',()=>{
+  const sim=alone(new Simulation(grid({roads:[]}))), p=sim.player;
+  sim.cars=[];patrolAt(sim,p.x,p.z-5,0);
+  function impact(speed,kind,atFault=true){sim._impactCooldown=0;sim._impact(speed,kind,p,atFault);}
+  impact(6,'police'); impact(24,'vehicle',false);assert.equal(sim.stars,0);
+  impact(11,'vehicle');assert.equal(sim.stars,0);assert.ok(sim.police.warningHeat>0);
+  advance(sim,17);impact(11,'vehicle');assert.equal(sim.stars,0,'an old warning expires');
+  impact(11,'vehicle');assert.equal(sim.stars,1);
+  sim.heat=0;sim.police.clear();impact(21,'vehicle');assert.equal(sim.stars,1,'a single reported hard collision counts');
+});
+
+test('a brief run during a one-star chase does not immediately add a second star',()=>{
+  const sim=alone(new Simulation(grid({roads:[]})));
+  sim.crime(1);sim.police._look=()=>true;
+  let speed=6;sim.police._playerSpeed=()=>speed;
+  advance(sim,4);assert.equal(sim.stars,1);
+  speed=0;advance(sim,1);
+  speed=6;advance(sim,7);assert.equal(sim.stars,1);
+  advance(sim,1.1);assert.equal(sim.stars,2);
+});
+
+test('a clerk’s delayed theft report sends existing patrols to the shop',()=>{
   const sim=alone(new Simulation(grid()));sim.cars=[];sim.police._random=()=>0;
-  assert.equal(sim.offence('theft',{x:56,z:62,witnessReport:true}),'called');
+  assert.equal(sim.offence('theft',{x:56,z:62,witnessReport:true,localResponse:true}),'called');
   assert.equal(sim.stars,0);advance(sim,5);
   assert.equal(sim.stars,1);assert.deepEqual(sim.police.lastKnown,{x:56,z:62});
+  advance(sim,7);
+  assert.equal(patrols(sim).length,0);
+  assert.equal(sim.police.officers.length,0);
+});
+
+test('a store alarm can alert a posted officer without spawning reinforcements after exit',()=>{
+  const sim=alone(new Simulation(grid())), p=sim.player, police=sim.police;
+  const door={x:p.x,z:p.z}, post={x:door.x,z:door.z+12,unit:{activity:'patrol'}};
+  const actor={id:'existing-patrol',unit:'patrol',post,x:post.x,y:p.y,z:post.z,heading:Math.PI};
+  police.fieldOfficers.push(actor);
+  sim.room=door;
+  assert.equal(sim.offence('robbery',{seen:true}),'seen');
+  assert.deepEqual(police.lastKnown,door);
+  assert.equal(police.officers[0]?.fieldActor,actor);
+  police._dispatch();assert.equal(patrols(sim).length,0);
+  sim.room=null;
+  sim.offence('brandish',{seen:true});
+  advance(sim,8);
+  assert.equal(patrols(sim).length,0);
+  assert.ok(police.officers.every(officer=>officer.id===actor.id));
+  sim.offence('gunfire',{seen:true});
+  advance(sim,3);
+  assert.ok(patrols(sim).some(car=>car._dispatched),'a separate street crime can call for reinforcements');
 });
 
 test('each kind of crime brings only so many stars however often it is done', () => {
@@ -291,7 +454,9 @@ test('each kind of crime brings only so many stars however often it is done', ()
 
 test('a patrol that can see it needs nobody to call', () => {
   const sim = alone(new Simulation(grid()));
-  patrolAt(sim, 6, 80);
+  const patrol=patrolAt(sim,6,80);
+  assert.equal(sim.offence('glass',{x:6,z:50}),null,'a patrol facing away misses it');
+  patrol.angle=Math.PI;
   assert.equal(sim.offence('glass', { x: 6, z: 50 }), 'seen'); assert.equal(sim.stars, 1);
   const far = alone(new Simulation(grid())); patrolAt(far, 6, 250);
   assert.equal(far.offence('glass', { x: 6, z: 50 }), null); assert.equal(far.heat, 0);
@@ -379,15 +544,21 @@ test('a street-post officer personally responds to a witnessed offence or a punc
   for(const direct of [false,true]){
     const sim=alone(new Simulation(grid({roads:[]}))), p=sim.player, police=sim.police;
     const post={x:p.x,z:p.z+(direct?1.2:12),unit:{activity:'patrol'}};
-    const actor={id:'neighborhood-patrol',unit:'patrol',post,x:post.x,y:p.y,z:post.z,heading:0};
+    const actor={id:'neighborhood-patrol',unit:'patrol',post,x:post.x,y:p.y,z:post.z,heading:Math.PI};
     police.fieldOfficers.push(actor);
-    if(direct)assert.ok(police.strike(p.x,p.z,0,1,p.y));
+    if(direct){
+      const passerby={...actor,id:'other-officer',z:p.z+.9};police.fieldOfficers.push(passerby);
+      assert.ok(police.strike(p.x,p.z,0,1,p.y,false,actor,'reelLeft'));
+      assert.equal(police.officers[0].fieldActor,actor);
+      const witness=police.officers.find(other=>other.fieldActor===passerby);
+      assert.ok(witness && !witness.reaction,'the nearer officer witnesses the hit');
+    }
     else assert.equal(sim.offence('assault',{x:p.x,y:p.y,z:p.z}),'seen');
     sim.step({},1/30);
     const officer=police.officers.find(o=>o.id===actor.id);
     assert.ok(officer && sim.heat>0);
     assert.equal(police.fieldOfficers.length,0);
-    if(direct)assert.equal(officer.reaction.clip,'hitChest');
+    if(direct)assert.equal(officer.reaction.clip,'reelLeft');
     else {advance(sim,.5);assert.ok(officer.z<post.z-.5);}
   }
 });

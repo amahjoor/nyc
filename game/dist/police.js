@@ -1,8 +1,11 @@
 import { receiveImpulse, stepImpulse, followFloor } from './character-physics.js';
 import { trafficAtHeight } from './road-level.js';
-import { hasStandingRoom, limitPedestrianStep, walkTowards } from './pedestrian-motion.js';
+import { hasStandingRoom, limitPedestrianStep, localWalkRoute, walkTowards } from './pedestrian-motion.js';
 import { resetVehicleDynamics } from './vehicle-dynamics.js';
 import { patrolAppearance } from './human-cast.js';
+import { roomHasSight, roomLocal, roomPoint, walkRoom } from './room.js';
+import { peopleInRoom, roomWalkStep, shopAisle } from './room-walk.js';
+import { shopStairRoute } from './shop-entrance.js';
 
 // The police: how wanted the player is, who is sent, how they hunt, and how it
 // ends. The simulation owns the cars and moves them along the streets; this
@@ -19,7 +22,6 @@ const TAU = Math.PI * 2;
 const clamp = (value, low, high) => Math.min(high, Math.max(low, value));
 const distance = (a, b) => Math.hypot(a.x - b.x, a.z - b.z);
 const turnDelta = (from, to) => ((to - from + Math.PI) % TAU + TAU) % TAU - Math.PI;
-
 export const MAX_STARS = 5;
 // Patrol cars answering, by stars.
 const UNITS = [0, 1, 2, 4, 6, 8], MAX_PATROLS = 14, MAX_OFFICERS = 10;
@@ -31,17 +33,18 @@ const UNITS = [0, 1, 2, 4, 6, 8], MAX_PATROLS = 14, MAX_OFFICERS = 10;
 // likely each one who does is to pick up a phone. `certain` is done to the
 // police themselves.
 export const OFFENCES = {
-  redLight: { heat: .5, cap: 1 },
-  fare: { heat: .3, cap: 1, reach: 12, call: .15 },
-  reckless: { heat: .4, cap: 1, reach: 30, call: .2 },
-  collision: { heat: .5, cap: 1, reach: 35, call: .3 },
+  redLight: { heat: .5, cap: 1, minor: true },
+  fare: { heat: .3, cap: 1, reach: 12, call: .15, minor: true },
+  reckless: { heat: .4, cap: 1, reach: 24, call: .15, minor: true },
+  collision: { heat: .5, cap: 1, reach: 30, call: .25, minor: true },
   glass: { heat: .5, cap: 1, reach: 24, call: .3 },
   theft: { heat: 1, cap: 1, reach: 16, call: .45 },
+  pickpocket: { heat: 1, cap: 1, reach: 7, call: .22, watch: 12 },
   assault: { heat: .7, cap: 2, reach: 26, call: .35 },
   robbery: { heat: 1, cap: 2, reach: 30, call: .6 },
   carjack: { heat: 1, cap: 2, reach: 35, call: .45 },
   runDown: { heat: 1, cap: 2, reach: 40, call: .45 },
-  brandish: { heat: .7, cap: 2, reach: 24, call: .35 },
+  brandish: { heat: .55, cap: 1, reach: 20, call: .35, minor: true },
   gunfire: { heat: 1, cap: 3, reach: 90, call: .5 },
   killing: { heat: 1.5, cap: 3, reach: 45, call: .6 },
   ramPatrol: { heat: .34, cap: 3, certain: true },
@@ -50,6 +53,8 @@ export const OFFENCES = {
 };
 // How far a unit notices a crime that is not the one it is chasing.
 const WATCH = 55;
+const WARNING_WINDOW = 16, FLEE_TIME = 8;
+const DOOR_APPROACH = {a:0,b:-.75}, DOOR_INSIDE = {a:0,b:.6};
 // Seconds out of sight before the police give up, by stars.
 export const evadeTime = stars => 18 + 8 * stars;
 // How far a unit sees in a chase and in a search, how near it notices
@@ -97,13 +102,16 @@ export class Police {
     this.fieldOfficers = [];
     this.lastKnown = null;
     this.evade = 0; this.evadeTotal = 0;
-    this.searchTime = 0; this.chaseTime = 0;
+    this.searchTime = 0; this.chaseTime = 0; this.fleeTime = 0;
     this.officers = []; this.downOfficers=[]; this.shots = [];
     this.helicopter = null;
-    this.arrest = 0; this.cornered = false;
+    this.arrest = 0; this.searchRoom = null;
     // Calls on their way in, who has died, and what the police last saw the player in.
     this.calls = []; this.killed = 0; this.fallen = 0; this.known = null; this.armed = false;
     this._seen = false; this._unseen = 0; this._lookAt = 0; this._dispatchAt = 0; this._stoppedFor = 0; this._saidAt = -Infinity;
+    this.localResponse = false;
+    this.localResponders = null;
+    this.warningHeat = 0; this.warningUntil = 0;
     for (const car of this.sim.cars || []) if (car.type === 'police') { car._crewOut = false; car._direct = false; car._sees = false; }
   }
 
@@ -123,19 +131,73 @@ export class Police {
   }
 
   /** A crime has been called in: the police know where it happened (or, told nothing else, where the player is now). */
-  report(at = null) {
-    const player = this.sim.player;
-    if (this.state !== 'chase') this.lastKnown = at ? { x: at.x, z: at.z } : { x: player.x, z: player.z };
-    if (this.state === 'clear') { this.state = 'search'; this.searchTime = 0; this._unseen = 0; this.known = this._ride(); }
+  report(at = null, localResponse = false, escalate = true, known = this._ride(), view = null) {
+    const sim = this.sim, player = sim.player;
+    if (this.state !== 'chase') {
+      this.lastKnown = at ? { x: at.x, z: at.z } : { x: player.x, z: player.z };
+      this.searchRoom = view;
+    } else if (view) this.searchRoom = view;
+    if (this.state === 'clear') {
+      this.state = 'search'; this.searchTime = 0; this._unseen = 0; this.known = known;
+      this.localResponse = localResponse;
+      if (localResponse) {
+        const scene = view ? {x:view.plan.x,z:view.plan.z,y:view.floor} : at ?? player;
+        const nearby = unit => distance(unit,scene)<WATCH && (!Number.isFinite(scene.y) || trafficAtHeight(unit,scene.y));
+        this.localResponders = new Set([
+          ...sim.cars.filter(car=>car.type==='police' && !car._abandoned && !car.destroyed && !car.controlled && nearby(car)),
+          ...this.fieldOfficers.filter(actor=>nearby(actor) && !(actor.absentUntil>sim.elapsed) && !(actor.downUntil>sim.elapsed)),
+          ...this.officers.filter(nearby),
+        ].map(unit=>unit.id));
+      }
+    } else {
+      if (!localResponse && escalate) {
+        this.localResponse = false;
+        this.localResponders = null;
+      }
+      if (this.state === 'search' && known !== null) this.known = known;
+    }
     // Dispatch the officers already posted at the scene of this report.
-    if(at && !this.sim.room && !this.sim.subway?.belowStreet){
+    let entrance = at;
+    if (view) {
+      const [x,z] = roomPoint(view.plan,DOOR_APPROACH.a,DOOR_APPROACH.b);
+      entrance = {x,z,y:view.floor};
+    }
+    if(entrance && (localResponse || !this.sim.room) && !this.sim.subway?.belowStreet){
       for(const actor of this.fieldOfficers){
-        if(actor.post?.unit.activity==='boat' || distance(actor,at)>WATCH ||
-           (Number.isFinite(at.y) && !trafficAtHeight(actor,at.y)) || !this.sim._hasSight(actor,at))continue;
+        if(!this._assigned(actor) || actor.post?.unit.activity==='boat' || distance(actor,entrance)>WATCH ||
+           (Number.isFinite(entrance.y) && !trafficAtHeight(actor,entrance.y)) || !this.sim._hasSight(actor,entrance))continue;
         this._respondFromPost(actor);
       }
     }
     this.evadeTotal = this.evade = evadeTime(this.stars);
+  }
+
+  _assigned(unit) {
+    return !this.localResponders || this.localResponders.has(unit.id) || this.localResponders.has(unit.carId);
+  }
+
+  responding(car) { return this.stars>0 && this._assigned(car); }
+
+  _activeRoom() {
+    const {room,doorway} = this.sim;
+    return room?.place && doorway?.plan?.place?.id === room.place.id ? doorway : null;
+  }
+
+  /** A visible suspect went through this entrance. Responders still have to find them inside. */
+  roomEntered() {
+    const view = this._activeRoom();
+    if (view && this.state === 'chase' && this._seen) {
+      this.searchRoom = view;
+      this.lastKnown = {x:view.plan.x,z:view.plan.z};
+    }
+    this.roomChanged();
+  }
+
+  roomChanged() {
+    this._lookAt = 0;
+    this._seen = false;
+    this.arrest = 0;
+    for (const officer of this.officers) officer.sees = false;
   }
 
   /** What the player is in: the police look for that, and are slower to know them in anything else. */
@@ -150,13 +212,19 @@ export class Police {
   }
 
   /** Whether a police unit is where it would see something done at this place. */
-  watching(at) {
+  watching(at, reach = WATCH, heard = false) {
     const sim = this.sim;
     if (sim.room || sim.subway?.belowStreet) return false;
-    const canSeeLevel = observer => !Number.isFinite(at.y) || trafficAtHeight(observer, at.y);
-    if (this.state === 'chase' && distance(at, sim.player) < 14 && canSeeLevel(sim.player)) return true;
-    for (const car of sim.cars) if (car.type === 'police' && !car._abandoned && !car._crewOut && distance(car, at) < WATCH && canSeeLevel(car) && sim._hasSight(car, at)) return true;
-    for (const officer of [...this.officers,...this.fieldOfficers]) if (distance(officer, at) < WATCH && canSeeLevel(officer) && sim._hasSight(officer, at)) return true;
+    const sees = observer => {
+      const dx=at.x-observer.x, dz=at.z-observer.z, gap=Math.hypot(dx,dz);
+      if(gap>=reach || (Number.isFinite(at.y)&&!trafficAtHeight(observer,at.y)))return false;
+      if(heard)return true;
+      const heading=observer.heading??observer.angle;
+      return (observer._sees || observer.sees || gap<9 || !Number.isFinite(heading) ||
+        dx*Math.sin(heading)+dz*Math.cos(heading)>=gap*CONE_COS) && sim._hasSight(observer,at);
+    };
+    for (const car of sim.cars) if (car.type === 'police' && !car._abandoned && !car._crewOut && sees(car)) return true;
+    for (const officer of [...this.officers,...this.fieldOfficers]) if (!officer.reaction && !(officer.absentUntil>sim.elapsed) && sees(officer)) return true;
     return false;
   }
 
@@ -164,28 +232,65 @@ export class Police {
    * The player has done something (a key of OFFENCES) at a place. Seen by the
    * police it counts at once; seen by somebody else it counts when their call
    * gets through, a few seconds on; seen by nobody it never happened.
-   * Returns 'seen', 'called' or null.
+   * Returns how the incident was noticed, or null.
    */
-  offence(kind, { x, y, z, message = '', seen = false, witnessReport = false } = {}) {
+  offence(kind, { x, y, z, message = '', seen = false, witnessReport = false, victim = null,
+    severity = 1, identified = true, localResponse = Boolean(this.sim.room), roomView } = {}) {
     const sim = this.sim, spec = OFFENCES[kind], player = sim.player;
     if (!spec) throw new Error(`no such offence: ${kind}`);
-    const at = { x: Number.isFinite(x) ? x : player.x, z: Number.isFinite(z) ? z : player.z };
-    if (Number.isFinite(y)) at.y = y;
-    if (kind === 'killing') this.killed++;
-    if (kind === 'officerDown') this.fallen++;
-    if (seen || spec.certain || this.watching(at)) { this._charge(kind, at, message); return 'seen'; }
-    const near = !witnessReport && spec.reach > 0 ? sim.witnesses(at.x, at.z, spec.reach, at.y) : 0;
-    if (!witnessReport && (!near || this._random() >= 1 - Math.pow(1 - spec.call, near))) return null;
-    this.calls.push({ kind, at, message, due: sim.elapsed + 4 + this._random() * 5 });
-    if (!(sim.heat > 0)) sim._say('Somebody saw that. They are calling the police.', 4);
+    const location = localResponse && sim.room ? sim.room : player;
+    const at = { x: Number.isFinite(x) ? x : location.x ?? player.x, z: Number.isFinite(z) ? z : location.z ?? player.z };
+    const height=Number.isFinite(y)?y:location.floor??player.y;
+    if(Number.isFinite(height))at.y=height;
+    const view = localResponse ? roomView ?? this._activeRoom() : null;
+    const record={kind,at,message,localResponse,severity,known:identified?this._ride():null,view};
+    const queued=kind==='gunfire'?this.calls.findIndex(call=>call.kind===kind&&distance(call.at,at)<25):-1;
+    const seenInside = view && view === this._activeRoom() && this.officers.some(officer => officer.room === view && !officer.reaction &&
+      distance(officer,at) < WATCH && roomHasSight(view,officer,sim.player));
+    if (seen || spec.certain || seenInside || (!localResponse && this.watching(at,spec.watch))) {
+      if(queued!==-1)this.calls.splice(queued,1);
+      this._charge(record,true);return 'seen';
+    }
+    if(kind==='gunfire'&&!localResponse&&this.watching(at,35,true)){
+      if(queued!==-1)this.calls.splice(queued,1);
+      this._charge({...record,known:null});return 'heard';
+    }
+    if(!witnessReport){
+      const near=spec.reach>0?sim.witnesses(at.x,at.z,spec.reach,at.y,{exclude:victim,indoors:localResponse}):0;
+      const victimChance=victim && !victim.dead && victim.state!=='down' ? .5 : 0;
+      const chance=1-(1-victimChance)*(1-(spec.call||0))**near;
+      if(!(chance>0 && this._random()<chance)){
+        if(kind!=='gunfire' || !sim.witnesses(at.x,at.z,42,at.y,{heard:true,indoors:localResponse}) || this._random()>=.55)return null;
+        record.known=null;
+      }
+    }
+    if(queued!==-1){this.calls[queued].known??=record.known;return 'called';}
+    this.calls.push({...record,due:sim.elapsed+4+this._random()*5});
+    if(!this.stars && !spec.minor)sim._say(kind==='gunfire'&&record.known===null?'Someone heard the shots and called police.':'A witness is calling the police.',4);
     return 'called';
   }
 
-  _charge(kind, at, message) {
-    const sim = this.sim, cap = this.ceiling(kind);
-    if (sim.heat < cap) sim.heat = Math.min(cap, sim.heat + OFFENCES[kind].heat);
+  _charge({kind,at,message,localResponse,severity,known,view}, direct = false) {
+    const sim=this.sim, spec=OFFENCES[kind];
+    const amount=spec.heat*clamp(severity,0,3);
+    if(spec.minor && !this.stars){
+      if(sim.elapsed>=this.warningUntil)this.warningHeat=0;
+      this.warningHeat+=amount;
+      this.warningUntil=sim.elapsed+WARNING_WINDOW;
+      if(this.warningHeat<1-1e-9){
+        if(direct)this._say(kind==='brandish'?'Police warning. Put the weapon away.':'Patrol warning. Take it easy.');
+        return;
+      }
+      this.warningHeat=0;
+      sim.heat=1;
+    }else{
+      if(kind==='killing')this.killed++;
+      if(kind==='officerDown')this.fallen++;
+      const cap=this.ceiling(kind);
+      if(sim.heat<cap)sim.heat=Math.min(cap,sim.heat+amount);
+    }
     sim._timeSinceCrime = 0;
-    this.report(at);
+    this.report(at,localResponse,!spec.minor,known,view);
     if (message) sim._say(message);
   }
 
@@ -196,7 +301,7 @@ export class Police {
       const call = this.calls[i];
       if (sim.elapsed < call.due) continue;
       this.calls.splice(i, 1);
-      this._charge(call.kind, call.at, call.message);
+      this._charge(call);
     }
   }
 
@@ -232,25 +337,26 @@ export class Police {
     if (sim.elapsed >= this._lookAt) { this._lookAt = sim.elapsed + 0.1; this._seen = this._look(); }
     if (this._seen) {
       if (this.state !== 'chase') this._say(this.stars > 1 ? 'The police have you in sight.' : 'A patrol has spotted you.');
-      this.state = 'chase'; this._unseen = 0; this.searchTime = 0; this.cornered = false;
+      this.state = 'chase'; this._unseen = 0; this.searchTime = 0;
+      this.searchRoom = this._activeRoom();
       this.lastKnown = { x: player.x, z: player.z };
       this.known = this._ride();
       this.chaseTime += dt;
-      // Running from an arrest makes it worse, but only so far: it takes more than running to bring out the guns.
-      if (sim.heat < 2 && speed > 3) sim.heat = Math.min(2, sim.heat + dt / 70);
+      // A sustained escape can add a second star. Moving away briefly does not.
+      const fleeing=speed>(player.mode==='drive'?10:4.5);
+      this.fleeTime=fleeing?this.fleeTime+dt:0;
+      if(this.stars===1 && this.fleeTime>=FLEE_TIME)sim.heat=2;
       this.evadeTotal = this.evade = evadeTime(this.stars);
     } else {
+      this.fleeTime=0;
       this._unseen += dt;
       if (this.state === 'chase' && this._unseen > 2) {
         this.state = 'search'; this.searchTime = 0;
-        // Seen going in through a door, the player is not hidden: the police know which door.
-        this.cornered = Boolean(sim.room);
-        this._say(this.cornered ? 'They saw you go in. They are coming.' : 'Out of sight. Stay hidden until they give up.', 5);
+        this._say(this.searchRoom ? 'The police are searching the building.' : 'Out of sight. Stay hidden until they give up.', 5);
       }
       if (this.state === 'search') {
         this.searchTime += dt;
-        if (this.cornered && !sim.room) this.cornered = false;
-        if (!this.cornered) this.evade -= dt;
+        this.evade -= dt;
         if (this.evade <= 0) {
           sim.heat = 0; sim.spotted = false;
           this._standDown();
@@ -262,6 +368,11 @@ export class Police {
     sim.spotted = this.state === 'chase';
     this._stoppedFor = speed < 2 ? this._stoppedFor + dt : 0;
     if (sim.elapsed >= this._dispatchAt) { this._dispatchAt = sim.elapsed + 1; this._dispatch(); }
+    if (this.searchRoom) {
+      for (const car of sim.cars) {
+        if (car.parked && !car._crewOut && this._atRoomScene(car) && this._dismount(car)) car.siren = true;
+      }
+    }
     this._officers(dt);
     this._helicopter(dt);
     if (sim.health > 0 && !sim.ending) this._arrests(dt);
@@ -273,8 +384,10 @@ export class Police {
     // Searching, they look for what they last saw: in another car, or out of the one they were after, the player has to be close to be known.
     const changed = !chase && this.known !== null && this._ride() !== this.known;
     const range = chase ? SIGHT.chase : changed ? SIGHT.changed : SIGHT.search, close = changed ? SIGHT.close * .5 : SIGHT.close;
+    const identifiable=chase || this.known!==null || (player.armed && this.lastKnown && distance(player,this.lastKnown)<35);
+    const view = this._activeRoom();
     const sees = unit => {
-      if (hidden) return false;
+      if (hidden || !identifiable || !this._assigned(unit)) return false;
       const dx = player.x - unit.x, dz = player.z - unit.z, d = Math.hypot(dx, dz);
       if (d > range) return false;
       if (Number.isFinite(unit.y) && Number.isFinite(player.y) && Math.abs(unit.y - player.y) > 12) return false;
@@ -294,9 +407,13 @@ export class Police {
       car._sees = !car._crewOut && !car._abandoned && sees(car);
       if (car._sees) seen = true;
     }
-    for (const officer of this.officers) { officer.sees = !officer.reaction && sees(officer); if (officer.sees) seen = true; }
+    for (const officer of this.officers) {
+      officer.sees = !officer.reaction && this._assigned(officer) && (officer.room ?
+        officer.room === view && identifiable && this._roomSeesPlayer(officer) : sees(officer));
+      if (officer.sees) seen = true;
+    }
     const helicopter = this.helicopter;
-    if (helicopter) { helicopter.sees = !hidden && !helicopter.leaving && this._fromAbove(helicopter); if (helicopter.sees) seen = true; }
+    if (helicopter) { helicopter.sees = !hidden && identifiable && !helicopter.leaving && this._fromAbove(helicopter); if (helicopter.sees) seen = true; }
     return seen;
   }
 
@@ -315,7 +432,7 @@ export class Police {
   /** Send as many cars as the stars call for, and bring back any that have been left behind. */
   _dispatch() {
     const sim = this.sim, player = sim.player, edges = sim._graph.edges;
-    if (!edges.length) return;
+    if (this.localResponse || !edges.length) return;
     let answering = 0, patrols = 0, stray = null, hasESU = false;
     for (const car of sim.cars) {
       if (car.type !== 'police') continue;
@@ -342,8 +459,15 @@ export class Police {
   /** Whether patrol cars drive into the player's car rather than follow it. */
   get rams() { return this.state === 'chase' && this.stars >= 2 && this.sim.player.mode === 'drive' && this._stoppedFor < 1; }
 
+  _atRoomScene(car) {
+    const view = this.searchRoom;
+    return view && car.type === 'police' && this._assigned(car) && !car.controlled && !car._abandoned && !car.destroyed &&
+      car.burningSince == null && distance(car,view.plan)<24 && Math.abs((car.y ?? view.floor)-view.floor)<4;
+  }
+
   /** Where a patrol is heading: the player in a chase, somewhere in the search area otherwise. */
   _goal(car) {
+    if (this.searchRoom) return this.searchRoom.plan;
     if (this.state === 'chase' || !this.lastKnown) return this.sim.player;
     if (this.searchTime < 4) return this.lastKnown;
     if (!car._goal || this.sim.elapsed > car._goalUntil || distance(car, car._goal) < 22) {
@@ -361,12 +485,18 @@ export class Police {
    */
   drive(car, dt) {
     const sim = this.sim;
-    if (car._crewOut) { car.speed = 0; car.siren = sim.heat > 0; return true; }
-    if (this.state === 'clear') {
+    if (car._crewOut) { car.speed = 0; car.siren = this.responding(car); return true; }
+    if (this.state === 'clear' || !this._assigned(car)) {
       if (car._direct) this._rebind(car);
       return false;
     }
     const player = sim.player, away = distance(car, player), afoot = player.mode !== 'drive';
+    if (this._atRoomScene(car)) {
+      car.siren = true;
+      car.speed *= Math.exp(-5*dt);
+      if (Math.abs(car.speed)<2) this._dismount(car);
+      return true;
+    }
     const level = !Number.isFinite(car.y) || !Number.isFinite(player.y) || Math.abs(car.y - player.y) < 3;
     if (this.state === 'chase' && car._sees && away < INTERCEPT && level && !(car._avoid > sim.elapsed)) {
       car._direct = true; car.siren = true;
@@ -446,7 +576,7 @@ export class Police {
   _respondFromPost(actor) {
     const officer={id:actor.id,post:actor.post,fieldActor:actor,look:actor.look,unit:actor.unit,
       x:actor.x,y:actor.y,z:actor.z,angle:actor.heading,speed:0,health:OFFICER.health,
-      phase:actor.phase||0,stride:0,fire:1,sees:false,side:1,dodge:0};
+      phase:actor.phase||0,stride:0,fire:1,sees:false};
     this.fieldOfficers=this.fieldOfficers.filter(other=>other!==actor);
     this.officers.push(officer);
     return officer;
@@ -472,7 +602,7 @@ export class Police {
     resetVehicleDynamics(car);
     for (const {x,z,y,side} of exits) {
       this.officers.push({ id: `officer-${++this._serial}`, carId: car.id, x,z,y, angle: car.angle, speed: 0,
-        health: OFFICER.health, phase: this._random() * 6, stride: 0, fire: 0.7 + this._random(), sees: false, aiming: false, returning: false, goal: null, side, unit:car.unit || 'patrol', uniform:side>0 ? 1 : 0, dodge: 0 });
+        health: OFFICER.health, phase: this._random() * 6, stride: 0, fire: 0.7 + this._random(), sees: false, aiming: false, returning: false, goal: null, unit:car.unit || 'patrol', uniform:side>0 ? 1 : 0 });
     }
     return true;
   }
@@ -484,27 +614,190 @@ export class Police {
     this.officers.splice(this.officers.indexOf(officer), 1);
     if (!car || this.officers.some(other => other.carId === car.id)) return;
     car._crewOut = false;
-    this._rebind(car);
+    if (car.parked) car.siren = false;
+    else this._rebind(car);
   }
 
   _stepReaction(officer,dt) {
     const x=officer.x,z=officer.z;
-    stepImpulse(officer,dt,(actor,x,z)=>this.sim._resolvePosition(x,z,OFFICER.radius,null,actor,true),
-      actor=>this.sim._sampleSurface?.(actor.x,actor.z,{referenceHeight:actor.y,mode:'walk'})?.elevation ?? this.sim.groundHeight(actor.x,actor.z));
+    const view=officer.room;
+    stepImpulse(officer,dt,(actor,x,z)=>{
+      if(!view)return this.sim._resolvePosition(x,z,OFFICER.radius,null,actor,true);
+      const plan=view.plan,at=roomLocal(plan,actor.x,actor.z),to=roomLocal(plan,x,z);
+      const moved=walkRoom(plan,at.a,at.b,to.a-at.a,to.b-at.b,OFFICER.radius);
+      const [wx,wz]=roomPoint(plan,moved.a,Math.max(.08,moved.b));
+      return {x:wx,z:wz};
+    }, actor=>view?.floor ?? (this.sim._sampleSurface?.(actor.x,actor.z,{referenceHeight:actor.y,mode:'walk'})?.elevation ?? this.sim.groundHeight(actor.x,actor.z)));
     limitPedestrianStep(officer,x,z,this._nearbyPeople(officer,Math.hypot(officer.x-x,officer.z-z)+1));
     officer.speed=officer.stride=0;
     officer.aiming=officer.cuffing=false;
+  }
+
+  _roomSeesPlayer(officer) {
+    const view = officer.room;
+    return view && view === this._activeRoom() &&
+      roomLocal(view.plan,officer.x,officer.z).b>0 &&
+      roomHasSight(view,officer,this.sim.player,1.42,this.sim.seat ? .85 : 1.16);
+  }
+
+  _canReachSuspect(officer, view = this._activeRoom()) {
+    if (!this.sim.room) return !officer.room;
+    if (!view || officer.room!==view || !this._roomSeesPlayer(officer)) return false;
+    const plan = view.plan, player = this.sim.player;
+    return shopAisle(view).clear(roomLocal(plan,officer.x,officer.z),roomLocal(plan,player.x,player.z),.18);
+  }
+
+  _roomStep(officer, view, goal, pace, dt) {
+    const plan = view.plan, at = roomLocal(plan,officer.x,officer.z);
+    const [x,z] = roomPoint(plan,goal.a,goal.b);
+    const previousPhase = officer.phase || 0;
+    const others = peopleInRoom(view,officer);
+    for (const person of [this.sim.player,...this.officers]) {
+      if (person !== officer && !others.includes(person)) others.push(person);
+    }
+    const moved = roomWalkStep(view,officer,x,z,pace*dt,others);
+    const next = roomLocal(plan,officer.x,officer.z), skew = plan.skew || 0;
+    if (Math.abs(next.b)<.85) view.door?.push(at.a+skew*at.b,at.b,next.a+skew*next.b,next.b,.3,dt);
+    officer.phase = previousPhase + moved*3.3;
+    officer.speed = moved/dt;
+    officer.stride = Math.min(1,officer.speed/1.2);
+    if (moved>.001) officer.angle = officer.heading;
+    return distance(officer,{x,z})<.13;
+  }
+
+  /** Let the street path bring the officer to the bottom of the steps first. */
+  _approachRoom(officer, view, dt) {
+    const plan = view.plan;
+    if (officer.entrance?.view !== view) {
+      const stairs = shopStairRoute(plan,view.entry?.stairs,roomLocal(plan,officer.x,officer.z));
+      officer.entrance = {view,path:[...(stairs || [DOOR_APPROACH]),DOOR_INSIDE],at:0};
+    }
+    const entry = officer.entrance, next = entry.path[entry.at];
+    const [x,z] = roomPoint(plan,next.a,next.b);
+    if (!entry.at && next !== DOOR_INSIDE && distance(officer,{x,z})>.27) return {x,z};
+    if (this._roomStep(officer,view,next,OFFICER.search,dt)) entry.at++;
+    if (roomLocal(plan,officer.x,officer.z).b>=.17) {
+      officer.room = view;
+      officer.entrance = null;
+      officer.footRoute=null;
+      officer.blockedFor=0;
+      this._lookAt = 0;
+    }
+    return null;
+  }
+
+  _searchGoal(officer, view, at, aisle) {
+    if (officer.roomGoal && this.sim.elapsed<officer.roomGoal.until &&
+        Math.hypot(at.a-officer.roomGoal.a,at.b-officer.roomGoal.b)>.45) return officer.roomGoal;
+    if (!view.policeSearchPoints) {
+      const cells = new Map();
+      for (const node of aisle.nodes) {
+        const key = Math.floor(node.a/2.5)+','+Math.floor(node.b/2.5);
+        if (!cells.has(key)) cells.set(key,node);
+      }
+      view.policeSearchPoints = [...cells.values()];
+    }
+    const checked = officer.checkedRoom ??= new Set();
+    const targets = view.policeSearchPoints.filter(node => !checked.has(node) &&
+      !this.officers.some(other => other !== officer && other.room === view && other.roomGoal?.node === node));
+    if (!targets.length) return DOOR_INSIDE;
+    const node = targets.reduce((a,b) => Math.hypot(at.a-a.a,at.b-a.b)<Math.hypot(at.a-b.a,at.b-b.b) ? a : b);
+    checked.add(node);
+    return officer.roomGoal = {a:node.a,b:node.b,node,until:this.sim.elapsed+5};
+  }
+
+  _insideOfficer(officer, dt, chase, stars, speed) {
+    const sim = this.sim, player = sim.player, view = officer.room, plan = view.plan;
+    const exiting = officer.roomExit || this.searchRoom !== view || !this._assigned(officer), away = distance(officer,player);
+    const sees = !exiting && officer.sees && this._roomSeesPlayer(officer);
+    const shooting = chase && sees && (stars>=3 || (stars===2 && (this.armed || player.armed)));
+    officer.aiming = !officer.cuffing && sees && (shooting || speed<3.2 && away<8);
+    const at = roomLocal(plan,officer.x,officer.z), aisle = shopAisle(view);
+    if (exiting && !officer.roomExit) {
+      const stairs = view.entry?.stairs, route = [];
+      if (at.b>=.65 || Math.abs(at.a)>=.24) route.push(DOOR_INSIDE);
+      if (stairs?.turn) route.push(roomLocal(plan,...stairs.point(0,0)));
+      route.push(stairs ? roomLocal(plan,...stairs.point(stairs.toe+.36,0)) : DOOR_APPROACH);
+      officer.roomExit = route;
+    }
+    const goal = exiting ? officer.roomExit[0] :
+      sees ? roomLocal(plan,player.x,player.z) : this._searchGoal(officer,view,at,aisle);
+    const hold = sees ? (shooting && !officer.cuffing ? 5 : 1.05) : 0;
+    const pace = sees ? clamp((away-hold)*3,0,5) : OFFICER.search;
+    let next = goal;
+    if (pace>.05 && goal.b>=0 && !aisle.clear(at,goal,.18)) {
+      const route = officer.roomRoute;
+      if (!route || route.until<=sim.elapsed || Math.hypot(route.goal.a-goal.a,route.goal.b-goal.b)>.6) {
+        officer.roomRoute = {goal,until:sim.elapsed+.5,path:aisle.route(at,goal)};
+      }
+      const path = officer.roomRoute.path;
+      while (path?.length>1 && Math.hypot(at.a-path[0].a,at.b-path[0].b)<.18) path.shift();
+      next = path?.[0];
+    } else officer.roomRoute = null;
+    if (next && pace>.05) {
+      const arrived = this._roomStep(officer,view,next,pace,dt);
+      if (exiting && next===goal && arrived) {
+        officer.roomExit.shift();
+        if (!officer.roomExit.length) {
+          officer.room = officer.roomExit = officer.roomGoal = officer.roomRoute = officer.checkedRoom = null;
+          return;
+        }
+      }
+    } else {
+      officer.speed = officer.stride = 0;
+    }
+    if (sees) officer.angle += turnDelta(officer.angle,Math.atan2(player.x-officer.x,player.z-officer.z))*(1-Math.exp(-12*dt));
+    this._officerFire(officer,dt,shooting,away,false,speed);
+  }
+
+  _streetStep(officer, target, wanted, dt) {
+    const sim=this.sim;
+    let route=officer.footRoute;
+    if(route && distance(route.goal,target)>3)route=officer.footRoute=null;
+    if(route && distance(officer,route.path[0])<.28){
+      route.path.shift();
+      if(!route.path.length)route=officer.footRoute=null;
+    }
+    if(wanted<=.05){officer.footRoute=null;officer.blockedFor=0;return;}
+    const goal=route?.path[0] || target, before=distance(officer,goal);
+    const blocked=(x,z)=>sim.isBlocked(x,z,OFFICER.radius,{baseHeight:officer.y}) ||
+      sim._nearCar(x,z,OFFICER.radius,null,officer.y);
+    const others=this._nearbyPeople(officer,3+wanted*dt);
+    // A car or another actor can move into a position the officer already owns.
+    if(blocked(officer.x,officer.z)){
+      const point=sim._resolvePosition(officer.x,officer.z,OFFICER.radius,null,officer,true);
+      const bump=sim._nearCar(point.x,point.z,OFFICER.radius,null,officer.y);
+      const x=point.x+(bump?bump.nx*(bump.depth+.001):0), z=point.z+(bump?bump.nz*(bump.depth+.001):0);
+      if(distance(officer,{x,z})<1 && !blocked(x,z) && hasStandingRoom({x,z,y:officer.y,look:officer.look},others)){
+        officer.x=x;officer.z=z;
+      }
+    }
+    walkTowards(officer,goal.x,goal.z,wanted*dt,others,(x,z)=>!blocked(x,z));
+    if(before-distance(officer,goal)>wanted*dt*.22){officer.blockedFor=0;return;}
+    officer.blockedFor=(officer.blockedFor||0)+dt;
+    if(officer.blockedFor<.55)return;
+    officer.footRoute=null;officer.blockedFor=0;
+    const standing=this._nearbyPeople(officer,16).filter(person=>person!==sim.player &&
+      (person.walkSpeed ?? person.speed ?? 0)<.15);
+    const probe={x:0,y:officer.y,z:0,look:officer.look};
+    const path=localWalkRoute(officer,target,(x,z)=>{
+      probe.x=x;probe.z=z;
+      return blocked(x,z) || !hasStandingRoom(probe,standing);
+    });
+    if(path.length)officer.footRoute={goal:{x:target.x,z:target.z},path};
+    else if(target===officer.goal)officer.goal=null;
+    else officer.blockedFor=-.85;
   }
 
   _officers(dt) {
     const sim = this.sim, player = sim.player, stars = this.stars, chase = this.state === 'chase', clear = this.state === 'clear';
     const driving = player.mode === 'drive', speed = this._playerSpeed();
     let arresting=null;
-    if(chase && this.arrest>.45 && !driving && !sim.room){
+    if(chase && this.arrest>.45 && !driving){
       let nearest=2.4;
       for(const officer of this.officers){
         const gap=distance(officer,player);
-        if(!officer.reaction && officer.sees && gap<nearest){arresting=officer;nearest=gap;}
+        if(!officer.reaction && officer.sees && gap<nearest && this._canReachSuspect(officer)){arresting=officer;nearest=gap;}
       }
     }
     for (const officer of [...this.officers]) {
@@ -512,21 +805,30 @@ export class Police {
       officer.cuffing=officer===arresting;
       const car = sim.cars.find(other => other.id === officer.carId) || null, away = distance(officer, player);
       // Left behind with no car to go back to.
-      if (away > 150 || (clear && !car && !officer.post)) { this._board(officer, car); continue; }
-      if (clear || (driving && speed > 6 && away > 28) || (!chase && this.searchTime > 10 && away > 50)) officer.returning = Boolean(car || officer.post);
+      if (away > 150) { this._board(officer, car); continue; }
+      if (officer.room) { this._insideOfficer(officer,dt,chase,stars,speed); continue; }
+      const inactive = clear || !this._assigned(officer);
+      if (inactive && !car && !officer.post) { this._board(officer,car); continue; }
+      const responding = !inactive && this.searchRoom && distance(officer,this.searchRoom.plan)<WATCH+12;
+      const doorTarget = responding ? this._approachRoom(officer,this.searchRoom,dt) : null;
+      if (responding && !doorTarget) { officer.aiming=false; continue; }
+      if (!responding) officer.entrance = null;
+      if (inactive || (driving && speed > 6 && away > 28) || (!chase && this.searchTime > 10 && away > 50)) officer.returning = Boolean(car || officer.post);
       else if (chase && away < 60 && (!driving || speed < 2)) officer.returning = false;
       // Guns are out at three stars, and before that only for somebody who has one out themselves.
       const shooting = chase && !officer.returning && (stars >= 3 || (stars === 2 && this.armed));
       let target, pace = OFFICER.run, hold = 1.3;
       officer.aiming = false;
-      if (officer.returning) { target = car || officer.post; hold = car ? 2.6 : .2; }
+      if (doorTarget) { target = doorTarget; hold = .12; officer.returning = false; }
+      else if (officer.returning) { target = car || officer.post; hold = car ? 2.6 : .2; }
       else if (chase) {
         target = player;
         if (shooting && officer.sees) { hold = OFFICER.hold; officer.aiming = true; }
         else if (driving) hold = 2.6;
         if(!officer.cuffing && officer.sees && !driving && speed<3.2 && away<8) officer.aiming=true;
         if(officer.cuffing){hold=1;officer.aiming=false;}
-      } else if (this.cornered || this.searchTime < 3) { target = this.lastKnown; hold = 1.5; }
+        else if(!officer.sees && !driving)hold=.65;
+      } else if (this.searchTime < 3) { target = this.lastKnown; hold = 1.5; }
       else {
         // Looking around on foot, near where the player was last seen.
         if (!officer.goal || sim.elapsed > officer.goalUntil || distance(officer, officer.goal) < 2) {
@@ -540,21 +842,10 @@ export class Police {
       if (officer.returning && gap < (car ? 2.8 : .35)) { this._board(officer, car); continue; }
       let heading = Math.atan2(dx, dz);
       const wanted = clamp((gap - hold) * 3, 0, pace);
-      if (officer.dodge > 0) { officer.dodge -= dt; heading += officer.side * 1.25; }
       const before = { x: officer.x, z: officer.z };
-      if (wanted > 0.05) {
-        const others = this._nearbyPeople(officer,3+wanted*dt);
-        walkTowards(officer,officer.x+Math.sin(heading)*gap,officer.z+Math.cos(heading)*gap,wanted*dt,others);
-        let next = sim._resolvePosition(officer.x,officer.z, OFFICER.radius, null, null, true);
-        const bump = sim._nearCar(next.x, next.z, OFFICER.radius, null, officer.y);
-        if (bump) next = sim._resolvePosition(next.x + bump.nx * (bump.depth + 0.001), next.z + bump.nz * (bump.depth + 0.001), OFFICER.radius, null, null, true);
-        officer.x = next.x; officer.z = next.z;
-        limitPedestrianStep(officer,before.x,before.z,others);
-        if (officer.x!==before.x || officer.z!==before.z) heading=Math.atan2(officer.x-before.x,officer.z-before.z);
-      }
+      this._streetStep(officer,target,wanted,dt);
       const moved = distance(before, officer);
-      // Walked into something: go round it, the other way from last time.
-      if (wanted > 0.5 && moved < wanted * dt * 0.35 && !(officer.dodge > 0)) { officer.side = -officer.side; officer.dodge = 0.9; }
+      if(moved>0)heading=Math.atan2(officer.x-before.x,officer.z-before.z);
       const struck = sim._nearCar(officer.x, officer.z, OFFICER.radius + .15, null, officer.y);
       if (struck && Math.abs(struck.car.speed) > 4) {
         this._vehicleImpact(officer,struck.car);
@@ -571,27 +862,31 @@ export class Police {
           continue;
         }
       }
-      const facing = officer.aiming || moved < 1e-4 ? Math.atan2(player.x - officer.x, player.z - officer.z) : heading;
+      const facing = officer.aiming || (!doorTarget && moved < 1e-4) ? Math.atan2(player.x - officer.x, player.z - officer.z) : heading;
       officer.angle += turnDelta(officer.angle, facing) * (1 - Math.exp(-12 * dt));
       // Nobody shoots on the run. Standing with the player in sight, the gun
       // comes up, the aim settles over a couple of seconds, and it is lost
       // again whenever the officer has to move or the player goes out of sight.
-      const steady = shooting && !officer.cuffing && officer.sees && away < OFFICER.range && officer.speed < 1 && !sim.ending;
-      officer.settle = steady ? Math.min(AIM.settle, (officer.settle || 0) + dt) : Math.max(0, (officer.settle || 0) - dt * 3);
-      if (steady && officer.settle >= AIM.raise) {
-        officer.fire -= dt;
-        if (officer.fire <= 0) {
-          // Two or three shots, then a breath.
-          officer.burst = officer.burst > 0 ? officer.burst - 1 : 1 + Math.floor(this._random() * 2);
-          officer.fire = officer.burst > 0 ? .32 + this._random() * .2 : (2.1 - stars * .2) * (.7 + this._random() * .7);
-          this._shoot(officer, away, driving, speed);
-        }
-      } else if (!steady) officer.burst = 0;
+      this._officerFire(officer,dt,shooting && !sim.room,away,driving,speed);
     }
+  }
+
+  _officerFire(officer, dt, shooting, away, driving, speed) {
+    const steady = shooting && !officer.cuffing && officer.sees && away<OFFICER.range && officer.speed<1 && !this.sim.ending;
+    officer.settle = steady ? Math.min(AIM.settle,(officer.settle || 0)+dt) : Math.max(0,(officer.settle || 0)-dt*3);
+    if (!steady) officer.burst=0;
+    if (!steady || officer.settle<AIM.raise) return;
+    officer.fire -= dt;
+    if (officer.fire>0) return;
+    officer.burst = officer.burst>0 ? officer.burst-1 : 1+Math.floor(this._random()*2);
+    officer.fire = officer.burst>0 ? .32+this._random()*.2 : (2.1-this.stars*.2)*(.7+this._random()*.7);
+    this._shoot(officer,away,driving,speed);
   }
 
   _shoot(officer, away, driving, speed) {
     const sim = this.sim, player = sim.player, stars = this.stars;
+    if (officer.room && !this._roomSeesPlayer(officer)) return;
+    if (officer.room) officer.room.gunfireAt = sim.elapsed;
     const chance = hitChance(away, speed, driving, officer.settle || 0, officer.burst > 0);
     // A miss goes wide by more the further off it was fired from.
     const hit = this._random() < chance, spread = hit ? 0 : .5 + this._random() * (1 + away * .07), side = this._random() < 0.5 ? -1 : 1;
@@ -604,6 +899,7 @@ export class Police {
   }
 
   _vehicleImpact(officer,car) {
+    this.sim.onVehicleContact?.('person',car,officer,Math.abs(car.speed));
     const speed=Math.abs(car.speed);
     const rolling=car.controlled || car._loose>0;
     const vx=rolling ? car.velocityX : Math.sin(car.angle)*car.speed;
@@ -644,14 +940,17 @@ export class Police {
     return best;
   }
 
-  strike(x, z, angle, power = 1, y=this.sim.player.y, low=false) {
-    let officer=this.meleeTarget(x,z,angle,y);
+  strike(x, z, angle, power = 1, y=this.sim.player.y, low=false, target, clip='hitChest') {
+    let officer=target===undefined ? this.meleeTarget(x,z,angle,y)
+      : (this.officers.includes(target) || this.fieldOfficers.includes(target)) && !(target.health<=0) ? target : null;
     if (officer && (!low || officer.reaction?.fall)) {
       if(this.fieldOfficers.includes(officer))officer=this._respondFromPost(officer);
       officer.health -= 40 * power;
       const fall=officer.health<=0 || power>1;
-      receiveImpulse(officer,Math.sin(angle)*3.4*power,Math.cos(angle)*3.4*power,
-        {fall,rest:officer.health<=0 ? Infinity : .35,clip:'hitChest',lift:fall ? .5 : 0});
+      const heading=Math.atan2(officer.x-x,officer.z-z);
+      const reaction=receiveImpulse(officer,Math.sin(heading)*3.4*power,Math.cos(heading)*3.4*power,
+        {fall,rest:officer.health<=0 ? Infinity : .35,clip,lift:fall ? .5 : 0});
+      if (target && !reaction.fall) reaction.time=reaction.poseLead=.045;
       if (officer.health <= 0) this._down(officer, 'Officer down. Every unit is coming.', 1);
       else this.offence('hitOfficer', { x: officer.x, z: officer.z, message: 'You hit a police officer.' });
       return true;
@@ -659,23 +958,12 @@ export class Police {
     return false;
   }
 
-  /**
-   * A shot from the player along `angle`: the nearest officer in its line
-   * within `range`, if any, is hit. Returns how far off they were, or null.
-   */
-  shot(x, z, angle, range) {
-    const sin = Math.sin(angle), cos = Math.cos(angle); let best = null, near = range;
-    for (const officer of [...this.officers,...this.fieldOfficers]) {
-      const dx = officer.x - x, dz = officer.z - z, along = dx * sin + dz * cos;
-      if (along < .3 || along > near || Math.abs(dx * cos - dz * sin) > .45) continue;
-      best = officer; near = along;
-    }
-    if (!best) return null;
-    if(this.fieldOfficers.includes(best))best=this._respondFromPost(best);
-    best.health -= 60;
-    if (best.health <= 0) this._down(best, 'Officer down. Every unit is coming.', 1);
-    else this.offence('hitOfficer', { x: best.x, z: best.z, message: 'You shot a police officer.' });
-    return near;
+  hitByShot(officer, zone = 'torso') {
+    if(this.fieldOfficers.includes(officer))officer=this._respondFromPost(officer);
+    // Where it lands matters: the head ends it, a leg costs least.
+    officer.health -= zone === 'head' ? 200 : zone === 'legs' ? 35 : 60;
+    if (officer.health <= 0) this._down(officer, 'Officer down. Every unit is coming.', 1);
+    else this.offence('hitOfficer', { x: officer.x, y: officer.y, z: officer.z, message: 'You shot a police officer.' });
   }
 
   _helicopter(dt) {
@@ -683,6 +971,7 @@ export class Police {
     let helicopter = this.helicopter;
     const needed = this.state !== 'clear' && this.stars >= HELICOPTER.stars;
     if (!helicopter) {
+      if (this.localResponse) return;
       if (!needed) return;
       const bearing = this._random() * TAU, x = player.x + Math.sin(bearing) * 380, z = player.z + Math.cos(bearing) * 380;
       helicopter = this.helicopter = { unit:'aviation', x, z, y: (player.y || 0) + HELICOPTER.height + 20, angle: bearing + Math.PI, vx: 0, vz: 0, light: { x, z }, orbit: bearing, sees: false, leaving: false };
@@ -719,16 +1008,16 @@ export class Police {
   /** Held still with an officer at arm's length, or boxed in by a patrol car, is an arrest. */
   _arrests(dt) {
     const sim = this.sim, player = sim.player, driving = player.mode === 'drive', speed = this._playerSpeed();
+    const view = this._activeRoom();
     let rate = 0;
-    if (sim.room) {
-      if (this.cornered) for (const officer of this.officers) if (!officer.reaction && distance(officer, this.lastKnown) < 3.5) rate = 0.5;
-    } else {
+    if(this.state==='chase'){
       for (const officer of this.officers) {
         const away = distance(officer, player);
-        if (officer.reaction || Math.abs(officer.y-player.y)>2) continue;
+        if (!officer.sees || officer.reaction || Math.abs(officer.y-player.y)>2) continue;
+        if (!this._canReachSuspect(officer,view)) continue;
         if (driving ? away < 3.8 && speed < 1.5 : away < 2.4 && speed < 3.2) rate = 1;
       }
-      if (!rate && speed < 1.2) for (const car of sim.cars) if (car.type === 'police' && car._sees && distance(car, player) < 8) rate = 0.45;
+      if (!sim.room && !rate && speed < 1.2) for (const car of sim.cars) if (car.type === 'police' && car._sees && distance(car, player) < 8) rate = 0.45;
     }
     this.arrest = rate ? this.arrest + dt * rate / BUST : Math.max(0, this.arrest - dt);
     if (this.arrest < 1) return;
@@ -743,10 +1032,16 @@ export class Police {
   _standDown() {
     this.state = 'clear';
     this.lastKnown = null;
-    this.evade = 0; this.searchTime = 0; this.chaseTime = 0; this.arrest = 0; this.cornered = false;
-    this.calls = []; this.killed = 0; this.fallen = 0; this.known = null;
+    this.evade = 0; this.searchTime = 0; this.chaseTime = 0; this.fleeTime = 0; this.arrest = 0; this.searchRoom = null;
+    this.killed = 0; this.fallen = 0; this.known = null;
+    this.warningHeat = 0; this.warningUntil = 0;
+    this.localResponse = false;
+    this.localResponders = null;
     this._seen = false;
-    for (const car of this.sim.cars) if (car.type === 'police') { car._sees = false; car._goal = null; }
+    for (const car of this.sim.cars) if (car.type === 'police') {
+      car._sees = false; car._goal = null;
+      if (!car.controlled) car.siren = false;
+    }
     for (const officer of this.officers) { officer.sees = false; officer.aiming = false; }
     if (this.helicopter) this.helicopter.sees = false;
   }

@@ -6,7 +6,7 @@ import { UNIT } from './police-units.js';
 // What of the police is drawn apart from their cars and their officers (which
 // are drawn with the traffic and the crowd): the helicopter and its
 // searchlight, and gunfire.
-const TRACERS = 12, TRACER_LIFE = 0.09;
+const FLASH_COUNT = 12, FLASH_LIFE = 0.05;
 // The pool the searchlight throws: its radius on the ground in metres, and how bright (a street lamp is about 3).
 const SEARCHLIGHT = { radius: 10, glow: [2.9, 3.05, 3.4] };
 
@@ -29,24 +29,42 @@ export function createPoliceScene(scene, heightAt = () => 0) {
   const beamShape = new THREE.CylinderGeometry(.4, 1, 1, 24, 1, true); beamShape.translate(0, -.5, 0);
   const beam = new THREE.Mesh(beamShape, beamMaterial); beam.visible = false; beam.frustumCulled = false; scene.add(beam);
   const spots = [], spot = { x: 0, z: 0, y: 0, radius: SEARCHLIGHT.radius, glow: SEARCHLIGHT.glow };
-  const tracerMaterial = new THREE.LineBasicMaterial({ color: 0xffe9a0, transparent: true, opacity: .85 });
-  const flashMaterial = new THREE.MeshBasicMaterial({ color: 0xffd98a, transparent: true, opacity: .95, blending: THREE.AdditiveBlending, depthWrite: false });
-  const tracers = [];
-  for (let i = 0; i < TRACERS; i++) {
-    const geometry = new THREE.BufferGeometry(); geometry.setAttribute('position', new THREE.BufferAttribute(new Float32Array(6), 3));
-    const line = new THREE.Line(geometry, tracerMaterial); line.frustumCulled = false; line.visible = false; scene.add(line);
-    const flash = new THREE.Mesh(new THREE.SphereGeometry(.16, 8, 6), flashMaterial); flash.visible = false; scene.add(flash);
-    tracers.push({ line, flash });
+  const flashMaterial = new THREE.MeshBasicMaterial({ vertexColors: true, transparent: true, opacity: .95, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide, fog: false });
+  // The flash at a muzzle: a tongue of burning gas thrown forward and a few short spikes out to the sides, white where
+  // it is hottest and fading to orange at its tips. It points along +Z, the way the shot goes, and is a hand's length long.
+  const flashShape = (() => {
+    const position = [], color = [], hot = [1, .95, .8], tip = [.9, .32, .04];
+    // A flat diamond from the muzzle out to the point (cx, cy, cz), widest a third of the way along: (ax, ay) is half its width.
+    const blade = (ax, ay, cx, cy, cz) => {
+      for (const side of [-1, 1]) { position.push(0, 0, 0, ax * side + cx * .34, ay * side + cy * .34, cz * .34, cx, cy, cz); color.push(...hot, ...hot, ...tip); }
+    };
+    // The tongue, as two diamonds crossed.
+    blade(.022, 0, 0, 0, .19); blade(0, .022, 0, 0, .19);
+    // The spikes: five, unevenly round the barrel, leaning a little forward.
+    for (const [turn, reach] of [[.3, .085], [1.5, .06], [2.7, .075], [3.9, .055], [5.2, .07]]) {
+      const x = Math.cos(turn) * reach, y = Math.sin(turn) * reach;
+      blade(-Math.sin(turn) * .012, Math.cos(turn) * .012, x, y, .035);
+    }
+    const geometry = new THREE.BufferGeometry();
+    geometry.setAttribute('position', new THREE.Float32BufferAttribute(position, 3)); geometry.setAttribute('color', new THREE.Float32BufferAttribute(color, 3));
+    return geometry;
+  })();
+  const flashes = [];
+  for (let i = 0; i < FLASH_COUNT; i++) {
+    const flash = new THREE.Mesh(flashShape, flashMaterial);
+    flash.name = 'Muzzle flash';
+    flash.visible = false; flash.frustumCulled = false;
+    scene.add(flash); flashes.push(flash);
   }
   const down = new THREE.Vector3(0, -1, 0), toward = new THREE.Vector3();
   return {
     helicopter, details,
-    plan(context, revision) {
+    plan(context) {
       const last = previousPlan;
       if (last && last.fronts === context.fronts && last.kerbs === context.kerbs &&
-          last.entrances === context.entrances && last.park === context.park && last.parkRegions === context.parkRegions && last.revision === revision &&
+          last.entrances === context.entrances && last.park === context.park && last.parkRegions === context.parkRegions &&
           Math.hypot(context.focus.x - last.x, context.focus.z - last.z) < 15) return;
-      previousPlan = { ...context, revision, x:context.focus.x, z:context.focus.z };
+      previousPlan = { ...context, x:context.focus.x, z:context.focus.z };
       details.set(planPolicePosts(context));
       for (const [id, entry] of equipment) {
         if (details.actors.some(actor => actor.id === id && actor.unit === entry.unit)) continue;
@@ -79,7 +97,7 @@ export function createPoliceScene(scene, heightAt = () => 0) {
         }
         if (!near || deployedIds.has(id) || absent) continue;
         visibleActors.push(actor);
-        extras.push({...actor, member:actor.look.member, y:actor.y + actor.rideLift, cycling:Boolean(actor.ride)});
+        extras.push({...actor, contactActor:actor, member:actor.look.member, y:actor.y + actor.rideLift, cycling:Boolean(actor.ride)});
         if (post.unit.activity !== 'boat') pedestrians.push(actor);
         if (post.unit.sworn) police.fieldOfficers.push(actor);
         else context.bystanders?.push(actor);
@@ -121,13 +139,17 @@ export function createPoliceScene(scene, heightAt = () => 0) {
         if (spread > 0) { spot.x = unit.light.x; spot.z = unit.light.z; spot.y = ground; spots.push(spot); }
       }
       const now = police.sim.elapsed, shots = shown ? police.shots : [];
-      for (let i = 0; i < TRACERS; i++) {
-        const shot = shots[shots.length - 1 - i], tracer = tracers[i], live = Boolean(shot) && now - shot.at < TRACER_LIFE;
-        tracer.line.visible = tracer.flash.visible = live;
-        if (!live) continue;
-        const position = tracer.line.geometry.attributes.position;
-        position.setXYZ(0, shot.x, shot.y, shot.z); position.setXYZ(1, shot.tx, shot.ty, shot.tz); position.needsUpdate = true;
-        tracer.flash.position.set(shot.x, shot.y, shot.z);
+      for (let i = 0; i < flashes.length; i++) {
+        const shot = shots[shots.length - 1 - i], flash = flashes[i];
+        const age = shot ? now - shot.at : Infinity;
+        // The flash is over in a twentieth of a second: any longer and it reads as a lamp, not a shot.
+        flash.visible = age >= 0 && age < FLASH_LIFE;
+        if (!flash.visible) continue;
+        flash.position.set(shot.x, shot.y, shot.z);
+        flash.lookAt(shot.tx, shot.ty, shot.tz);
+        // Vary the size and rotation about the barrel for each shot.
+        const seed = shot.at * 977.13, size = (.85 + .4 * (seed % 1)) * (1 - .45 * age / FLASH_LIFE);
+        flash.rotateZ(seed % 6.283); flash.scale.setScalar(size);
       }
     },
   };

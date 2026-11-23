@@ -24,6 +24,23 @@ export const meleeMoves = {
   stompLeft: {contact:.32, seconds:.69},
 };
 
+// Contact marker on the attacking rig and height on the receiving character.
+const leftLimb = new Set(['jab','hookLeft','stepJab','shovelLeft','leadKick','pushKick','lowSweep']);
+const footClips = new Set(['kick','sideKick','leadKick','roundKick','pushKick','lowKick','lowSweep']);
+export function strikeContact(clip) {
+  const low=clip==='lowKick' || clip==='lowSweep';
+  const foot=footClips.has(clip), elbow=clip==='elbowTurn';
+  const body=['bodyHook','shovelLeft','palmPush'].includes(clip);
+  return {
+    side:leftLimb.has(clip) ? 'l' : 'r',
+    limb:elbow ? 'elbow' : foot ? 'foot' : 'hand',
+    joint:foot ? 'pelvis' : body ? 'spine_03' : 'neck_01',
+    height:low ? .13 : foot ? .55 : body ? .68 : .83,
+    gap:elbow ? .46 : low ? .69 : foot ? .86 : .68,
+    low,
+  };
+}
+
 export const handStrikes=['jab','cross','hookRight','slap','uppercut','hookLeft','backhand'];
 export const closeStrikes=['bodyHook','slap','elbowTurn','shovelLeft','palmPush','backhand'];
 export const movingStrikes=['stepJab','longCross','jab','shovelLeft'];
@@ -32,7 +49,7 @@ export function handGroup(speed,gap=Infinity) {
   if (gap<1.05) return 'close';
   return Math.abs(speed)>1.2?'moving':'hand';
 }
-const choices={hand:handStrikes,close:closeStrikes,moving:movingStrikes,kick:standingKicks,low:['lowKick','lowSweep'],roof:['stompRight','stompLeft']};
+const choices={heavy:['bodyHook','uppercut','longCross'],hand:handStrikes,close:closeStrikes,moving:movingStrikes,kick:standingKicks,low:['lowKick','lowSweep'],roof:['stompRight','stompLeft']};
 
 export function nextStrike(actor,group) {
   const counts=actor.strikeCounts ??= {};
