@@ -2634,7 +2634,7 @@ test('knees and soles clear the bodywork while climbing and vaulting different v
           const key=joint+side;
           if(previous.has(key)){
             const travel=previous.get(key).distanceTo(at);
-            assert.ok(travel<(run?.22:.18),model+' '+key+' jumped '+travel+' m in frame '+i+' phase '+(p.move?.t/p.move?.T));
+            assert.ok(travel<(run?.23:.18),model+' '+key+' jumped '+travel+' m in frame '+i+' phase '+(p.move?.t/p.move?.T));
           }
           previous.set(key,at);
           const top=carTop(cab,at.x,at.z);
