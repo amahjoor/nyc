@@ -93,7 +93,7 @@ export class HUD {
     prompt.hidden = Boolean(sim.subway) || !interactLabel && !ride && !boarding && !driving && !cycling && !skating && !bike && !near && !punching;
     prompt.querySelector('kbd').textContent = punching && !interactLabel ? 'F' : 'E';
     const enterLabel = near?.identity ? 'ENTER ' + vehicleName(near.identity).toUpperCase() : 'ENTER VEHICLE';
-    prompt.querySelector('span').textContent = interactLabel || (ride ? transportExitLabel(ride,dockDistance) : skating ? 'STEP OFF BOARD' : boarding ? 'BOARD '+boarding.spec.name.toUpperCase() : cycling ? 'GET OFF BIKE' : bike ? 'RIDE CITI BIKE' : driving ? (moving ? 'BAIL OUT' : 'EXIT VEHICLE') : near ? (near.type === 'taxi' ? 'GET IN THE CAB' : enterLabel) : p.armed ? 'SHOOT' : 'PUNCH');
+    prompt.querySelector('span').textContent = interactLabel || (ride ? transportExitLabel(ride,dockDistance) : skating ? 'STEP OFF BOARD' : boarding ? 'BOARD '+boarding.spec.name.toUpperCase() : cycling ? 'GET OFF BIKE' : bike ? (bike.owner?'TAKE BICYCLE':bike.personal?'RIDE BICYCLE':'RIDE CITI BIKE') : driving ? (moving ? 'BAIL OUT' : 'EXIT VEHICLE') : near ? (near.type === 'taxi' ? 'GET IN THE CAB' : enterLabel) : p.armed ? 'SHOOT' : 'PUNCH');
     const transitAction=sim.subway && ({board:'BOARD',alight:'GET OFF',gate:'FARE',services:'TRAINS',leave:'EXIT'}[sim.subway.journey.action]);
     this.text('touch-enter', transitAction || interactLabel || (ride||driving||cycling||skating?'EXIT':boarding?'BOARD':'ENTER'));
     $('toast').textContent = sim.notice || '';

@@ -837,6 +837,19 @@ export class Simulation {
       if (!road || road.distance > Math.max(1, finite(road.edge.road.width, 8) / 2 - radius)) keep(landscape);
     }
     if (this.streetObjects.grid.size) keep(this.streetObjects.contact(x,z,radius,baseHeight,actor,this.elapsed));
+    if (actor===this.player && actor.mode==='walk') {
+      const checkBike=bike=>{
+        if(Math.abs(x-bike.x)>1.6 || Math.abs(z-bike.z)>1.6 || baseHeight>bike.y+1.15 || baseHeight+1.6<bike.y)return;
+        const tx=Math.sin(bike.angle),tz=Math.cos(bike.angle);
+        const along=clamp((x-bike.x)*tx+(z-bike.z)*tz,-.68,.68);
+        const dx=x-bike.x-tx*along,dz=z-bike.z-tz*along,gap=Math.hypot(dx,dz);
+        const depth=radius+.19-gap;
+        if(depth>0)keep({kind:'bicycle',depth,nx:gap?dx/gap:tz,nz:gap?dz/gap:-tx});
+      };
+      if(this.bike)checkBike(this.bike);
+      for(const bike of this.dockedBikes || [])if(bike.id!==this.bike?.id)checkBike(bike);
+      for(const bike of this.bikeTraffic?.bicycles || [])checkBike(bike);
+    }
     const checked = new Set();
     for (let gx = Math.floor((x - radius) / GRID_SIZE); gx <= Math.floor((x + radius) / GRID_SIZE); gx++) {
       for (let gz = Math.floor((z - radius) / GRID_SIZE); gz <= Math.floor((z + radius) / GRID_SIZE); gz++) {
@@ -1199,10 +1212,11 @@ export class Simulation {
     let nearest = null, reach = Math.min(2.4, car ? distance(car, p) : Infinity);
     const consider = bike => {
       const d = distance(bike, p);
-      if (d < reach && Math.abs(p.y - bike.y) < 1.5 && !this.isBlocked(bike.x, bike.z, .5)
+      if (d < reach && Math.abs(p.y - bike.y) < 1.5 && !this.isBlocked(bike.x, bike.z, .5,{baseHeight:bike.y})
           && !this._nearCar(bike.x, bike.z, .5, null, bike.y)) { nearest = bike; reach = d; }
     };
     if (this.bike) consider(this.bike);
+    for (const bike of this.bikeTraffic?.bicycles || []) consider(bike);
     for (const bike of this.dockedBikes || []) if (bike.id !== this.bike?.id) consider(bike);
     return nearest;
   }
@@ -1309,7 +1323,11 @@ export class Simulation {
       const car = this._entering || this.getNearbyCar();
       const bike = this._entering ? null : this.getNearbyBike(car);
       if (bike) {
-        this.bike = { ...bike };
+        if(bike.owner){
+          if(!this.bikeTraffic.take(bike))return false;
+          this.offence('theft',{x:bike.x,y:bike.y,z:bike.z,message:'You took someone’s bicycle.'});
+        }
+        this.bike = {id:bike.id,x:bike.x,y:bike.y,z:bike.z,angle:bike.angle,personal:bike.personal};
         Object.assign(player, { mode: 'bike', x: bike.x, y: bike.y, z: bike.z, angle: bike.angle, speed: 0, velocityX: 0, velocityZ: 0, vy: 0, slide: 0, swing: 0, reaction:null, standing:null });
         this._say('W pedal · A / D steer · S or Space brake · E get off');
         return true;

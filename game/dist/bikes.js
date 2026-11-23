@@ -141,6 +141,8 @@ export function createBikeDocks({ scene = null, heightAt = () => 0, capacity = 2
   const bike = bikeGeometry(), paint = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: .5, metalness: .3 }); paint.name = 'Citi Bike';
   const rental = new THREE.Mesh(bikeGeometry(false,true), paint); rental.name = 'Borrowed Citi Bike';
   rental.visible = false; rental.castShadow = true; scene?.add(rental);
+  const sharedFrame=rental.geometry;
+  let personalFrame;
   const parts=createBikeParts(rental,1);
   const available = [];
   const bikes = new THREE.InstancedMesh(bike, paint, capacity); bikes.name = 'Citi Bikes'; bikes.count = 0; bikes.frustumCulled = false; bikes.castShadow = true;
@@ -150,6 +152,7 @@ export function createBikeDocks({ scene = null, heightAt = () => 0, capacity = 2
   const matrix = new THREE.Matrix4(), place = new THREE.Vector3(), turn = new THREE.Quaternion(), size = new THREE.Vector3(), one = new THREE.Vector3(1, 1, 1), up = new THREE.Vector3(0, 1, 0), colour = new THREE.Color();
   return {
     group, rental, available,
+    setPersonal(personal){rental.geometry=personal ? (personalFrame??=bikeGeometry(true,true)) : sharedFrame;},
     pedal(wheel,phase){parts.reset();parts.draw(0,0,0,0,wheel,phase);},
     get counts() { return { bikes: bikes.count, parts: posts.count }; },
     /** Returns how many stations were drawn whole. */
@@ -185,6 +188,6 @@ export function createBikeDocks({ scene = null, heightAt = () => 0, capacity = 2
       bikes.count = b; posts.count = p; bikes.instanceMatrix.needsUpdate = posts.instanceMatrix.needsUpdate = true; if (posts.instanceColor) posts.instanceColor.needsUpdate = true;
       return whole;
     },
-    dispose() { bike.dispose(); box.dispose(); paint.dispose(); steel.dispose(); bikes.dispose(); posts.dispose(); group.removeFromParent(); rental.removeFromParent(); },
+    dispose() { sharedFrame.dispose(); personalFrame?.dispose(); bike.dispose(); box.dispose(); paint.dispose(); steel.dispose(); bikes.dispose(); posts.dispose(); group.removeFromParent(); rental.removeFromParent(); },
   };
 }

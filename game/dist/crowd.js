@@ -1000,6 +1000,7 @@ export function createCrowd({ scene = null, life, boroughs = [], heightAt = () =
     let target=inFront(x,z,angle,reach,.2,y,waiting.length ? people.concat(waiting) : people,low);
     if(low && target?.state!=='down') return null;
     if(waiting.includes(target)){
+      target.leaveBike?.();
       target.absentUntil=time+60;
       target=streetWitness(target);
     }
@@ -1385,6 +1386,7 @@ export function createCrowd({ scene = null, life, boroughs = [], heightAt = () =
       for (const person of bystanders) {
         const dx=x-person.x, dz=z-person.z;
         if (person.absentUntil>time || person.downUntil>time || !notices(person,dx,dz,Math.hypot(dx,dz))) continue;
+        person.leaveBike?.();
         person.absentUntil=time+60;
         this.fleeOntoStreet(person); count++;
       }

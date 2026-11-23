@@ -312,8 +312,15 @@ const chaseLookAhead=new THREE.Vector3(), desiredLookAhead=new THREE.Vector3();
 
 function announce(text) { if(sim){sim.notice=text;sim.noticeTime=4;} }
 function firstPersonActive(){return started&&firstPerson&&!aerialView&&!cityView&&!viewOverride&&!switchShot.active;}
+function streetTargets(){
+  return bikeTraffic ? sim.bystanders.concat(bikeTraffic.riders.filter(r=>!r.abandoned)) : sim.bystanders;
+}
+function alarmStreet(at,reach,chance,options={}){
+  const bystanders=streetTargets().filter(actor=>actor!==at && !actor.crash);
+  return crowd?.alarm(at.x,at.z,reach,chance,{y:at.y,time:sim.elapsed,bystanders,...options});
+}
 function meleeTarget(){
-  const p=sim.player, person=crowd?.meleeTarget(p,sim.bystanders,sim.elapsed);
+  const p=sim.player, person=crowd?.meleeTarget(p,streetTargets(),sim.elapsed);
   const officer=sim.police.meleeTarget(p.x,p.z,p.angle,p.y);
   if(!officer || (person && Math.hypot(person.x-p.x,person.z-p.z)<Math.hypot(officer.x-p.x,officer.z-p.z)))return person;
   return officer;
@@ -770,7 +777,7 @@ function refreshParkedCars() {
 /** Grow the player's body afresh if the saved design has changed. */
 /** A punch or a kick has landed on somebody in the crowd: those near by get away from it, and it may be called in. */
 function blowLanded(person) {
-  crowd.alarm(person.x,person.z,8,.75);
+  alarmStreet(person,8,.75);
   if(person.dead)sim.offence('killing',{x:person.x,z:person.z,message:'You killed somebody. Somebody saw.'});
   else sim.assault(person.x,person.z);
 }
@@ -785,7 +792,7 @@ function shotFired(event) {
   const far=officer??hit?.distance??reach;
   police.shots.push({at:sim.elapsed,hit:Boolean(hit)||officer!==null,x:event.x+sin*.55,y:event.y,z:event.z+cos*.55,tx:event.x+sin*far,ty:event.y-(hit||officer!==null?.2:0),tz:event.z+cos*far});
   police.shotsFired++;police.armed=true;gunWatch=20;
-  crowd?.alarm(event.x,event.z,48,.85);
+  alarmStreet({...event,y:sim.player.y},48,.85);
   sim.offence('gunfire',{x:event.x,z:event.z,message:'Shots fired. Somebody is calling it in.'});
   if(hit?.dead)sim.offence('killing',{x:hit.person.x,z:hit.person.z,message:'You shot somebody dead.'});
   else if(hit)sim.offence('assault',{x:hit.person.x,z:hit.person.z,message:'You shot somebody.'});
@@ -1186,7 +1193,7 @@ function syncScene(dt,controls) {
   transportScene.update(p,elapsed,started&&!cityView,eyeView);
   if(bikeDocks){
     const id=sim.bike?.id??null;
-    if(id!==borrowedDock){borrowedDock=id;bikeDocks.update(bikeRows,id);}
+    if(id!==borrowedDock){borrowedDock=id;bikeDocks.setPersonal(Boolean(sim.bike?.personal));bikeDocks.update(bikeRows,id);}
     bikeDocks.rental.visible=Boolean(sim.bike);
     if(sim.bike){
       const at=cycling?p:sim.bike;
@@ -1231,7 +1238,7 @@ function syncScene(dt,controls) {
       contactCar:(x,z,y)=>sim._nearCar(x,z,.30,null,y),
       blocked:(x,z,y)=>sim.isBlocked(x,z,.35,{baseHeight:y})});
     extras.push(...bikeTraffic.figures);
-    pedestrians.push(...bikeTraffic.riders);
+    pedestrians.push(...bikeTraffic.riders.filter(r=>!r.abandoned));
   }
   function drawDriver(car,seat){
     if(!crowd?.mesh.visible)return false;
@@ -1798,7 +1805,7 @@ function frame(now) {
       if(hit.speed>3.5)carSmoke?.burst(hit.x,(hit.person?.y||0)+.8,hit.z,hit.speed*.5);
       if(!hit.player)continue;
       sim.brush(hit.speed>3.5?.82:.95);
-      if(hit.speed>3.5){crowd.alarm(hit.x,hit.z,14,.9,{y:hit.person.y});sim.offence(hit.dead?'killing':'runDown',{x:hit.x,y:hit.person.y,z:hit.z,message:hit.dead?'You ran somebody over. Somebody saw.':'You ran somebody down.'});}
+      if(hit.speed>3.5){alarmStreet(hit.person,14,.9);sim.offence(hit.dead?'killing':'runDown',{x:hit.x,y:hit.person.y,z:hit.z,message:hit.dead?'You ran somebody over. Somebody saw.':'You ran somebody down.'});}
     }
     if(sim.moveEvents?.length)for(const event of sim.moveEvents.splice(0)){
       if(event.kind==='punch' || event.kind==='kick') {
@@ -1807,7 +1814,7 @@ function frame(now) {
           sim.strikeVehicle(event,5);
         } else if(!sim.police.strike(event.x,event.z,event.angle,kick ? 1.5 : 1,event.y,event.low)){
           const hit=crowd.strike(event.x,event.z,event.angle,{power:kick?2:1,reach:event.low?1.25:kick?2.1:1.85,low:event.low,clip:event.clip,
-            y:event.y,momentum:Math.abs(sim.player.speed),bystanders:sim.bystanders,time:sim.elapsed});
+            y:event.y,momentum:Math.abs(sim.player.speed),bystanders:streetTargets(),time:sim.elapsed});
           if(hit)blowLanded(hit);
           else if(!event.low && !sim.strikeVehicle(event,kick?5:3) && !kick) sim._say('You swing at the air.');
         }
@@ -1829,9 +1836,9 @@ function frame(now) {
       else if(event.kind==='escapeFire'){
         const driver=crowd.throwOut(event.x,event.z,event.heading,gfx.hours,driverAppearance(event.car));
         Object.assign(driver,{state:'flee',mad:5,fireOrigin:{x:event.car.x,z:event.car.z}});
-        crowd.alarm(event.x,event.z,10,.7);
+        alarmStreet(event,10,.7);
       }
-      else if(event.kind==='thrown'){crowd.throwOut(event.x,event.z,event.heading,gfx.hours,driverAppearance(event.car));crowd.alarm(event.x,event.z,10,.8);sim.offence('carjack',{x:event.x,z:event.z,message:'You took a car with somebody in it.'});}
+      else if(event.kind==='thrown'){crowd.throwOut(event.x,event.z,event.heading,gfx.hours,driverAppearance(event.car));alarmStreet(event,10,.8);sim.offence('carjack',{x:event.x,z:event.z,message:'You took a car with somebody in it.'});}
     }
     // A gun in the open: whoever it is pointed at puts their hands up or runs, and somebody may call it in.
     const armed=Boolean(sim.player.armed)&&sim.player.mode==='walk'&&!sim.room&&!sim.seat;
@@ -1839,9 +1846,9 @@ function frame(now) {
     sim.police.armed=armed||gunWatch>0;
     if(armed&&!paused&&!mapOpen&&!traveling&&(gunSeen-=dt)<=0){
       gunSeen=.4;
-      if(crowd.alarm(sim.player.x,sim.player.z,20,.65,{angle:sim.player.angle,calm:true,y:sim.player.y,sight:person=>sim._hasSight(person,sim.player),bystanders:sim.bystanders,time:sim.elapsed})&&sim.elapsed-brandished>8){brandished=sim.elapsed;sim.offence('brandish',{message:'Somebody saw the gun.'});}
+      if(alarmStreet(sim.player,20,.65,{angle:sim.player.angle,calm:true,sight:person=>sim._hasSight(person,sim.player)})&&sim.elapsed-brandished>8){brandished=sim.elapsed;sim.offence('brandish',{message:'Somebody saw the gun.'});}
     }
-    sim.setWalkers(bikeTraffic?.riders.length?crowd.crossing.concat(bikeTraffic.riders):crowd.crossing,crowd.people);
+    sim.setWalkers(bikeTraffic?.riders.length?crowd.crossing.concat(bikeTraffic.riders.filter(r=>!r.abandoned)):crowd.crossing,crowd.people);
   }
   // Shop fronts take the names of the places the registers put behind them.
   // Whose front is whose is worked out again when the places, the buildings
@@ -2564,7 +2571,16 @@ async function boot() {
     };
     cycleRoutes=lanes;parkedAt=null;
     bikeLanes=createLaneMarkings(scene,lanes,laneHeight);
-    bikeTraffic=createBikeTraffic({scene,index:lanes,heightAt:laneHeight,
+    sim.bikeTraffic=bikeTraffic=createBikeTraffic({scene,index:lanes,heightAt:laneHeight,
+      onCrash:(r,car)=>{
+        alarmStreet(r,14,.9);
+        if(car.controlled)sim.offence('runDown',{x:r.x,y:r.y,z:r.z,message:'You knocked a cyclist down.'});
+      },
+      onDisplaced:r=>{
+        const person=crowd.fleeOntoStreet(r);
+        if(r.reaction)person.reaction=r.reaction;
+        alarmStreet(r,8,.7);
+      },
       appearance:(id,x,z)=>dress(id%4===0?'athletic':'casual',seeded((id*7547+891)>>>0),
         demographics?.tracts?demographics.tonesAt(x,z,.4):null)});
   }).catch(()=>{});

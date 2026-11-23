@@ -109,8 +109,8 @@ function nearestAlong(lane,focus) {
   return d;
 }
 
-export function createBikeTraffic({scene,index,heightAt,appearance,capacity=14,random=Math.random}) {
-  const riders=[],figures=[],matrix=new THREE.Object3D(),meshes=[];
+export function createBikeTraffic({scene,index,heightAt,appearance,onDisplaced,onCrash,capacity=14,random=Math.random}) {
+  const riders=[],bicycles=[],figures=[],matrix=new THREE.Object3D(),meshes=[];
   const parts=createBikeParts(scene,capacity);
   const paint=new THREE.MeshStandardMaterial({vertexColors:true,roughness:.55,metalness:.26});
   for(const personal of [false,true]){
@@ -167,6 +167,7 @@ export function createBikeTraffic({scene,index,heightAt,appearance,capacity=14,r
       const closing=(vx-r.speed*Math.sin(r.heading))*hit.nx+(vz-r.speed*Math.cos(r.heading))*hit.nz;
       if(closing>2.6){
         r.crash={x:r.x,y:r.y,z:r.z,heading:r.heading,lean:0};r.returnTime=0;
+        onCrash?.(r,car);
         receiveImpulse(r,vx*.35+hit.nx*1.4,vz*.35+hit.nz*1.4,{fall:true,lift:1.7,rest:.8});
         r.speed=0;afterImpact(r,dt,ctx);return;
       }
@@ -212,25 +213,41 @@ export function createBikeTraffic({scene,index,heightAt,appearance,capacity=14,r
     r.wheel+=r.speed*dt/(.345*((r.look.height||1.76)/1.76));
     r.pedal+=dt*Math.min(1.55,r.speed/4.3);
   }
-  return {riders,figures,meshes,update(focus,dt,context={}){
-    parts.reset();figures.length=0;for(const mesh of meshes)mesh.count=0;
+  function abandon(r) {
+    r.crash??={x:r.x,y:r.y,z:r.z,heading:r.heading,lean:1.34};
+    r.abandoned=true;r.speed=0;
+  }
+  function take(bike) {
+    const r=bike.owner, i=riders.indexOf(r);
+    if(i<0)return false;
+    riders.splice(i,1);
+    const slot=bicycles.indexOf(bike);
+    if(slot>=0)bicycles.splice(slot,1);
+    if(!r.abandoned)onDisplaced?.(r);
+    return true;
+  }
+  return {riders,bicycles,figures,meshes,take,update(focus,dt,context={}){
+    parts.reset();figures.length=0;bicycles.length=0;for(const mesh of meshes)mesh.count=0;
     if(!context.visible){spawnIn=0;return;}
     for(let i=riders.length-1;i>=0;i--)if(Math.hypot(riders[i].x-focus.x,riders[i].z-focus.z)>165)riders.splice(i,1);
     spawnIn-=dt;
     if(spawnIn<=0){spawn(focus,context);spawnIn=.85;}
     // Cap substeps so signal stops and wheel tracks stay stable on slow frames.
     let remaining=Math.min(.5,dt);
-    while(remaining>1e-6){const slice=Math.min(remaining,1/30);for(const r of riders)step(r,slice,context);remaining-=slice;}
+    while(remaining>1e-6){const slice=Math.min(remaining,1/30);for(const r of riders)if(!r.abandoned)step(r,slice,context);remaining-=slice;}
     for(const r of riders){
       const scale=(r.look.height||1.76)/1.76;
       const bike=r.crash||r,lean=r.crash?.lean||0;
+      bicycles.push({id:'rider-bike-'+r.id,x:bike.x,y:bike.y,z:bike.z,angle:bike.heading,personal:Boolean(r.style),owner:r});
+      r.leaveBike??=()=>abandon(r);
       matrix.scale.setScalar(scale);matrix.position.set(bike.x,bike.y,bike.z);matrix.rotation.set(0,bike.heading,lean,'YXZ');matrix.updateMatrix();
       const mesh=meshes[r.style];mesh.setMatrixAt(mesh.count++,matrix.matrix);
       const phase=r.pedal*2*Math.PI/PEDAL_PERIOD;
       parts.draw(bike.x,bike.y,bike.z,bike.heading,r.wheel,phase,scale,lean);
+      if(r.abandoned)continue;
       if(r.crash){
         const returning=Math.hypot(bike.x-r.x,bike.z-r.z)>.18;
-        figures.push({x:r.x,y:r.y,z:r.z,heading:r.heading,look:r.look,clip:r.reaction?.clip||(returning?'walk':'pickUp'),
+        figures.push({x:r.x,y:r.y,z:r.z,heading:r.heading,look:r.look,reaction:r.reaction,clip:r.reaction?.clip||(returning?'walk':'pickUp'),
           time:r.reaction?.time??(returning?r.returnTime:(1.34-lean)/1.9),stride:returning?1:0,phase:r.returnTime*5,
           downUntil:r.reaction?.fall && !r.reaction.recover?Infinity:0});
         continue;

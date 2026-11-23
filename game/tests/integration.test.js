@@ -1060,6 +1060,30 @@ test('E takes a visible Citi Bike from its dock, rides it and leaves it availabl
   }finally{app.close();}
 });
 
+test('E takes a passing cyclist’s bicycle and the displaced rider reacts on foot',async()=>{
+  const app=await bootHarness();
+  try{
+    app.click('start-button');app.click('view-button');
+    const sim=app.simulation(),game=app.window.nycGame;
+    let bike;
+    await app.until(()=>{
+      app.frames();
+      bike=game.bikeTraffic?.bicycles.find(b=>!sim.isBlocked(b.x,b.z,.5,{baseHeight:b.y}) && !sim._nearCar(b.x,b.z,.5,null,b.y));
+      return bike;
+    },'a cyclist on an open stretch of bike lane');
+    const rider=bike.owner;
+    Object.assign(sim.player,{x:bike.x+.7*Math.cos(bike.angle),y:bike.y,z:bike.z-.7*Math.sin(bike.angle),grounded:true});
+    app.key('KeyE');app.key('KeyE',false);
+    assert.equal(sim.player.mode,'bike');
+    assert.equal(sim.bike.id,bike.id);
+    assert.equal(game.bikeTraffic.riders.includes(rider),false);
+    assert.ok(game.crowd.people.some(p=>p.look===rider.look && ['flee','cower'].includes(p.state)));
+    app.frames();
+    assert.ok(game.bikeDocks.rental.visible);
+    assert.equal(app.errors.length,0,app.errors[0]?.stack);
+  }finally{app.close();}
+});
+
 test('a shop visit keeps the same room and occupants on both sides of its swinging door',async()=>{
   const app=await bootHarness();
   try{

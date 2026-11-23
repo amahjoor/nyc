@@ -79,3 +79,25 @@ test('a hard vehicle contact separates the cyclist from the bicycle and the same
   for(let i=0;i<120;i++)traffic.update(focus,.1,ctx);
   assert.equal(r.crash,null);assert.equal(r.look,look);assert.equal(traffic.figures[0].clip,'cycle');assert.ok(r.speed>1);
 });
+
+test('a rider bicycle blocks the walker, transfers once, and keeps its frame when remounted',async()=>{
+  const {Simulation}=await import('../dist/simulation.js');
+  const {createBikeTraffic}=await import('../dist/bike-traffic.js');
+  const {seeded}=await import('../dist/crowd.js');
+  const index=await indexBikeLanes({lines:[['protected',13,0,0,0,2000]],links:[[0,1,0,0]]});
+  const displaced=[],traffic=createBikeTraffic({index,heightAt:()=>0,capacity:1,random:seeded(7),
+    appearance:()=>({height:1.7}),onDisplaced:r=>displaced.push(r)});
+  const sim=new Simulation({bounds:{minX:-200,minZ:-200,maxX:200,maxZ:260},roads:[],buildings:[],spawn:{x:25,z:80,angle:0}});
+  sim.cars=[];sim.bikeTraffic=traffic;traffic.update(sim.player,0,{visible:true});
+  const [bike]=traffic.bicycles,p=sim.player;
+  Object.assign(p,{x:bike.x+.68,y:0,z:bike.z,grounded:true});
+  assert.equal(sim.witnesses(bike.x,bike.z,3,0),1);
+  assert.equal(sim.witnesses(bike.x,bike.z,3,8),0);
+  assert.equal(sim._contact(bike.x,bike.z,.38,false,0,p).kind,'bicycle');
+  assert.equal(sim._contact(bike.x,bike.z,.38,false,4,p),null);
+  assert.ok(sim.interact());assert.equal(p.mode,'bike');assert.equal(sim.bike.personal,bike.personal);
+  assert.equal(traffic.riders.length,0);assert.equal(traffic.bicycles.length,0);
+  assert.deepEqual(displaced,[bike.owner]);assert.equal(traffic.take(bike),false);
+  assert.ok(sim.interact());assert.equal(p.mode,'walk');assert.ok(sim.interact());assert.equal(p.mode,'bike');
+  assert.equal(displaced.length,1);
+});
