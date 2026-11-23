@@ -50,6 +50,12 @@ export function writeMovements(motion) {
   motion.define('skateOllie',{seconds:.6,base:'skateRoll',keys:[
     [0,{pelvis:[0,-.12,0]}],[.25,{pelvis:[0,-.20,0],'+upperarm_l':['z',25],'+upperarm_r':['z',-28]}],
     [.6,{pelvis:[0,-.10,0]}]]});
+  const pull={upperarm_l:['y',-94,'z',-8],lowerarm_l:['x',8],upperarm_r:['y',54,'z',-23],lowerarm_r:['x',58],
+    thigh_l:['x',-14],calf_l:['x',17],thigh_r:['x',11],calf_r:['x',29]};
+  motion.define('swim',{seconds:1.48,loop:true,base:'idle',keys:[[0,pull],[.74,mirror(pull)]]});
+  const scull={upperarm_l:['z',-44,'y',-32],upperarm_r:['z',44,'y',32],lowerarm_l:['x',55],lowerarm_r:['x',55],
+    thigh_l:['x',-29],calf_l:['x',62],thigh_r:['x',7],calf_r:['x',27]};
+  motion.define('treadWater',{seconds:1.9,loop:true,base:'idle',keys:[[0,scull],[.95,mirror(scull)]]});
   const cycling={ '+spine_01':['x',31], upperarm_l:['z',-62,'y',-40],upperarm_r:['z',62,'y',40] };
   const crank={thigh_l:['x',-84],calf_l:['x',107],foot_l:['x',-12],
     thigh_r:['x',-31],calf_r:['x',43],foot_r:['x',-8]};

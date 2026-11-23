@@ -419,6 +419,14 @@ python3 -m venv /tmp/nyc-park-venv
 
 The first build downloads the same 449 MB of crown data, the elevation model around the park and a 74 MB OpenStreetMap extract, and takes about twelve minutes, most of it reading the crowns, which are kept so that a rebuild takes under two. What ships is 1.25 MB of heights, 2.1 MB of ground maps, 0.55 MB of tree records and 72 KB of bridges. The ground maps and the furniture list in `dist/central-park/` are derived from OpenStreetMap and remain under the Open Database Licence.
 
+### Swimming, diving and harbor boats
+
+Walk off a bank or pier to enter the water. Use the movement keys to swim, hold Shift to dive and Space to surface. Shallows support wading. The street and city maps list ferry landings on Ellis, Liberty and Governors islands and a motor yacht at Chelsea Piers. At a landing press E to board, W or S for propulsion and A or D to steer. Stop near a landing and press E to step ashore.
+
+The waterfront renderer joins exposed terrain edges to the water using the borough shoreline and the loaded elevation survey. Decks use NYC planimetric pier polygons and heights. Their fascia, supporting piles and materials are visual approximations. The sailing area includes the Hudson County side of the estuary. [NYC Hydro Structures](https://services6.arcgis.com/yG5s3afENB5iO9fj/arcgis/rest/services/Hydro_Structure_2022/FeatureServer/7) · [Census TIGER/Line area hydrography](https://www2.census.gov/geo/tiger/TIGER2025/AREAWATER/)
+
+The coastal floor uses NOAA CUDEM elevations averaged on a 48 m grid in NAVD88. The source tiles are listed in `dist/landscape/coastal-depths.json`. Unmeasured coastal cells use an approximate 3 m depth. The wet side of mixed land/water cells has a minimum depth of 35 cm. The game uses a fixed tide level. The ferry dimensions follow the 26 m NYC catamaran class. The yacht and its deck guests are fictional. [NOAA coastal elevation models](https://www.ncei.noaa.gov/products/coastal-elevation-models) · [Incat Crowther’s NYC ferry](https://www.incatcrowther.com/ships/ferries/commuter/ic16019/)
+
 ### Ellis Island, Governors Island and Prospect Park
 
 The city picker includes all three destinations. Ellis and Governors arrivals stand on mapped walks. Their shorelines, piers, roadbeds, walks, plazas, building footprints and seawalls come from NYC’s 2022 planimetrics. The renderer treats the remaining open land as lawn. Surveyed pier heights lift the decks above the water. The 2013–14 lidar supplies 135 tree crowns on Ellis and 3,150 on Governors, so recent plantings can differ from the game. [NYC planimetric data](https://github.com/CityOfNewYork/nyc-geo-metadata) · [Tree crown data](https://doi.org/10.6084/m9.figshare.20522895.v2)

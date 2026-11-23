@@ -182,14 +182,19 @@ export class Graphics {
    * @param {number} dt seconds since the last frame
    * @param {object} view focus point of the action and whether this is the whole-city overview
    */
-  update(dt, { focus, overview = false, paused = false } = {}) {
+  update(dt, { focus, overview = false, paused = false, underwater = false } = {}) {
     this.elapsed += dt; this.frame++;
     shared.uNycTime.value = this.elapsed;
     if (this.clockRunning && !paused) this.hours = (this.hours + dt * this.timeRate) % DAY_HOURS;
     this._refreshState();
     if (focus) this.focus.set(focus.x, focus.y || 0, focus.z);
     // Seen from 40 km up, ground haze would read as a grey sheet.
+    this.fog.color.fromArray(this.state.fogColor);
     this.fog.density = this.state.fogDensity * (overview ? .45 : 1);
+    if (underwater) {
+      this.fog.color.setRGB(.028,.095,.084).multiplyScalar(1-.72*this.state.night);
+      this.fog.density=.14;
+    }
     this.overview = overview;
     if (this.shadowsActive) this._placeCascades(overview);
   }

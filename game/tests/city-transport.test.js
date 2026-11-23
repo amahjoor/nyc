@@ -79,7 +79,27 @@ test('a water taxi can steer, stops at dry ground, and requires a landing to dis
   assert.ok(sim.interact());assert.ok(isLand(sim.player.x,sim.player.z));
 });
 
-test('the harbor ends at the city boundary and a pier over water blocks a ferry bow',()=>{
+test('a ferry can leave Ellis, cross the state line and disembark at Governors Island',()=>{
+  const sim=at('ellis-ferry'), fleet=sim.transport, ride=fleet.active;
+  const course=[[-3040,2960],[-2700,3080],[-1800,3100],[-1100,3080],[-1090,3280],[-1126,3349]];
+  for(const [x,z] of course) {
+    let remaining;
+    for(let i=0;i<2400;i++){
+      remaining=Math.hypot(x-ride.x,z-ride.z);
+      if(remaining<10)break;
+      const error=Math.atan2(x-ride.x,z-ride.z)-ride.angle;
+      const turn=Math.atan2(Math.sin(error),Math.cos(error));
+      fleet.step({forward:Math.abs(turn)>.7?.15:Math.min(.85,remaining/100),turn:-Math.max(-1,Math.min(1,turn*3))},.1);
+    }
+    assert.ok(remaining<10,`could not sail to ${x}, ${z}`);
+  }
+  for(let i=0;i<50;i++)fleet.step({forward:0,turn:0,handbrake:true},.1);
+  assert.equal(sim.interact(),true);
+  const landing=BOARDINGS.find(stop=>stop.id==='governors-ferry').board;
+  assert.deepEqual([sim.player.x,sim.player.z],[landing.x,landing.z]);
+});
+
+test('the sailing area ends at the bank and a pier over water blocks a ferry bow',()=>{
   const sim=at('pier11'),r=sim.transport.active;
   assert.ok(isNavigable(-1400,0));
   assert.equal(isNavigable(-3200,0),false);

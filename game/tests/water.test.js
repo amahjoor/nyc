@@ -78,3 +78,22 @@ test('the land around the city is accepted only with a usable description', () =
   water.dispose();
   assert.match(STILL_WATER_GLSL, /roughnessFactor = 0\.07;/);
 });
+
+test('surface swimming uses a motion ripple and reserves the foam wake for boats', () => {
+  const water = createWater({ boroughs: [], bounds: roads.bounds, createCanvas: canvas });
+  const swimmer = { x: 0, z: 0, angle: 0, speed: 1.7 };
+  const kayak = { ...swimmer, spec: { radius: .38, length: 4.2 } };
+  const { uWakeShape, uSwimRipple } = water.material.uniforms;
+  water.update(swimmer, { vessel: kayak });
+  assert.equal(uWakeShape.value.x, kayak.spec.radius);
+  assert.equal(uSwimRipple.value, 0);
+  water.update(swimmer, { swimmer });
+  assert.equal(uWakeShape.value.x, 0);
+  assert.equal(uSwimRipple.value, 1);
+  water.update(swimmer, { swimmer: { ...swimmer, speed: 0 } });
+  assert.equal(uSwimRipple.value, 0);
+  water.update(swimmer, { swimmer });
+  water.update(swimmer);
+  assert.equal(uSwimRipple.value, 0);
+  water.dispose();
+});

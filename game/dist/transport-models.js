@@ -208,7 +208,7 @@ function lifering(p,x,y,z) {
   for (const side of [-1,1]) p.box([x,y+side*.25,z],[.11,.087,.12],WHITE);
 }
 function poweredBoat(p, ferry) {
-  const L = ferry ? 23 : 10, W = ferry ? 7.3 : 3.55, deck = ferry ? 1.18 : .76;
+  const L = ferry ? 26 : 10, W = ferry ? 8 : 3.55, deck = ferry ? 1.18 : .76;
   const paint = ferry ? WHITE : GOLD;
   for (const x of ferry ? [-2.33,2.33] : [0]) {
     const w = ferry ? 1.06 : W*.5;
@@ -252,6 +252,41 @@ function poweredBoat(p, ferry) {
     p.rod([0,deck+h+.14,-1.3],[0,deck+h+1.03,-1.3],.043,STEEL);
     p.box([0,.24,-4.98],[.64,1.08,.5],BLACK);
   }
+}
+
+function motorYacht(p) {
+  const teak=0xb28a62;
+  // A flared bow, stepped bathing platform and two set-back decks leave an open aft lounge.
+  p.loft([[-19.5,2.7,-.1,.55],[-17,3.65,-1.25,1.7],[-11,4.2,-1.7,2.35],[6.5,4.15,-1.7,2.5],[13,3.4,-1.25,2.8],[19.5,.09,.2,3.35]],hull,NAVY);
+  p.loft([[-17.2,3.65,1.7,1.95],[-11,4.2,2.32,2.56],[6.5,4.15,2.47,2.71],[13,3.4,2.77,3.01],[19.5,.09,3.32,3.56]],hull,WHITE);
+  p.box([0,2.35,-11.2],[6.9,.26,8.6],teak);
+  for(let i=0;i<5;i++) {
+    const y=.65+i*.34,z=-18.7+i*.72;
+    p.box([0,y,z],[5.3+i*.16,.25,.9],WHITE);
+    p.box([0,y+.14,z],[5.2+i*.16,.06,.85],teak);
+  }
+  for(const side of [-1,1]) {
+    for(let i=0;i<6;i++)p.oval([side*4.07,1.65,-7.5+i*2.35],[.13,.22,.52],GLASS,'glass');
+    p.rod([side*2.73,1.56,-18.8],[side*3.05,3.1,-15.1],.055,STEEL);
+  }
+  for(const [z,y,w,l] of [[.2,2.5,6.65,18.5],[1.6,5.06,5.65,13.4]]){
+    p.loft([[z-l*.51,w*.41,y,y+1.66],[z-l*.43,w*.48,y,y+2],[z+l*.29,w*.49,y,y+2],[z+l*.48,w*.44,y,y+1.26],[z+l*.53,w*.34,y,y+.53]],cabin,WHITE);
+    p.loft([[z-l*.49,w*.43,y+.77,y+1.55],[z-l*.42,w*.487,y+.78,y+1.76],[z+l*.30,w*.49,y+.79,y+1.77],[z+l*.49,w*.425,y+.64,y+1.12]],cabin,GLASS,0,'glass');
+    for(const s of [-1,1]) {
+      for(let i=0;i<5;i++)p.rod([s*w*.49,y+.75,z-l*.34+i*l*.14],[s*w*.46,y+1.81,z-l*.37+i*l*.14],.047,STEEL);
+      railing(p,s*(w*.5+.35),y,z-l*.55,z+l*.52,STEEL,2);
+    }
+    p.loft([[z-l*.59,w*.41,y+1.89,y+2.07],[z-l*.50,w*.54,y+1.90,y+2.22],[z+l*.27,w*.54,y+1.91,y+2.22],[z+l*.38,w*.44,y+1.84,y+2.08]],cabin,WHITE);
+  }
+  for(const s of [-1,1]){
+    railing(p,s*3.36,2.48,-14.8,-8.9,STEEL);
+    p.box([s*2.8,2.8,-12.6],[.8,.55,3.1],WHITE);
+    p.box([s*2.8,3.13,-12.6],[.8,.16,3.15],0xc0bdab);
+    p.oval([s*1.34,8.11,1.25],[.55,.54,.55],WHITE);
+  }
+  p.rod([0,7.25,1],[0,9.25,.4],.09,STEEL);
+  p.box([0,8.7,.55],[2.12,.16,.22],WHITE);
+  p.oval([0,2.97,-12],[.78,.1,.55],teak);
 }
 
 function kayak(p) {
@@ -364,7 +399,7 @@ export function createTransportModel(type, {paint}={}) {
     switch (spec.kind) {
       case 'rotor': helicopter(p,paint); break;
       case 'plane': fixedWing(p,type); break;
-      case 'boat': if (type==='kayak') kayak(p); else poweredBoat(p,type==='ferry'); break;
+      case 'boat': if (type==='kayak') kayak(p); else if(type==='yacht') motorYacht(p); else poweredBoat(p,type==='ferry'); break;
       case 'street': if(type==='bus')busModel(p);else twoWheeler(p,type==='motorcycle',paint); break;
       case 'cable': tram(p); break;
       case 'rail': trainModel(p); break;
@@ -391,7 +426,7 @@ function railway(heightAt) {
   const mesh=p.finish();mesh.name='Port Washington Branch tracks';return mesh;
 }
 
-export function createTransportScene(scene, fleet) {
+export function createTransportScene(scene, fleet, createGuest) {
   const group = new THREE.Group(); group.name = 'City transport'; scene.add(group);
   const models = new Map();
   let cables, rails;
@@ -408,6 +443,18 @@ export function createTransportScene(scene, fleet) {
         if(ride.spec.kind==='cable') nearTram=true;
         if(ride.spec.kind==='rail') nearRail=true;
         if(!mesh) { mesh=createTransportModel(ride.home.type); models.set(id,mesh); group.add(mesh); }
+        if(ride.home.type==='yacht' && createGuest){
+          if(!mesh.userData.guests){
+            mesh.userData.guests=[[1.6,-12.4,0xd87658],[-1.55,-12.1,0x568581],[.6,-14.2,0xd4caaa],[-.8,-14.5,0x697fa4]].map(([x,z,color])=>{
+              const guest=createGuest(color);guest.position.set(x,2.49,z);
+              guest.rotation.y=Math.atan2(-x,-13-z);mesh.add(guest);return guest;
+            });
+          }
+          mesh.userData.guests.forEach((guest,i)=>{
+            const beat=time*2.1+i*1.9;
+            guest.rotation.z=.045*Math.sin(beat);guest.userData.arms[i%2].rotation.x=-.65+.38*Math.sin(beat*.6);
+          });
+        }
         mesh.visible=!(active && firstPerson);
         const boat=ride.spec.kind==='boat';
         const bob=boat ? .037*Math.sin(time*1.6+ride.home.berth.x) : 0;

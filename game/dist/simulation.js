@@ -754,12 +754,13 @@ export class Simulation {
   _travelSpawn(spawn) {
     if (!Number.isFinite(spawn?.x) || !Number.isFinite(spawn?.z)) throw new Error('Travel requires finite map coordinates.');
     if (spawn.exact) {
-      if (!this._mappedLand(spawn.x, spawn.z, PLAYER_RADIUS)) throw new Error('Choose dry land inside New York City. This pin is outside the mapped shoreline.');
+      const onPier=this._sampleSurface?.(spawn.x,spawn.z)?.kind==='pier';
+      if (!onPier && !this._mappedLand(spawn.x, spawn.z, PLAYER_RADIUS)) throw new Error('Choose dry land inside New York City. This pin is outside the mapped shoreline.');
       // Pin travel starts on the ground, without a selected deck elevation.
       // A road corridor crossing water therefore cannot make the water a safe
       // spawn, even though that corridor remains traversable during driving.
-      if (this._landscapeContact?.(spawn.x, spawn.z, PLAYER_RADIUS)?.kind === 'water') throw new Error('This pin is in water. Choose clear, dry ground.');
-      if (this.isBlocked(spawn.x, spawn.z, PLAYER_RADIUS)) throw new Error('This pin is blocked or has not finished loading. Choose clear ground or try again when the city is ready.');
+      if (!onPier && (this.city.waterColumn?.(spawn.x,spawn.z) || this._landscapeContact?.(spawn.x, spawn.z, PLAYER_RADIUS)?.kind === 'water')) throw new Error('This pin is in water. Choose clear, dry ground.');
+      if (this.isBlocked(spawn.x, spawn.z, PLAYER_RADIUS, {ignoreWater:onPier})) throw new Error('This pin is blocked or has not finished loading. Choose clear ground or try again when the city is ready.');
       return { x: spawn.x, z: spawn.z, angle: finite(spawn.angle), name: spawn.name, exact: true };
     }
     const candidates = [];
@@ -797,7 +798,7 @@ export class Simulation {
     this.city = { ...this.city, spawn: target };
     this.cars = [];
     this.police.clear();
-    Object.assign(this.player, { x: target.x, z: target.z, y: undefined, transportId: null, angle: target.angle, speed: 0, mode: 'walk', board: null, vehicleId: null, velocityX: 0, velocityZ: 0, vy: 0, grounded: true, slide: 0, swing: 0, reaction:null, standing:null });
+    Object.assign(this.player, { water:null, x: target.x, z: target.z, y: undefined, transportId: null, angle: target.angle, speed: 0, mode: 'walk', board: null, vehicleId: null, velocityX: 0, velocityZ: 0, vy: 0, grounded: true, slide: 0, swing: 0, reaction:null, standing:null });
     this._seedCars();
     const safe = target.exact ? target : this._findSafePoint(target.x, target.z, PLAYER_RADIUS);
     Object.assign(this.player, { x: safe.x, z: safe.z });
@@ -829,7 +830,7 @@ export class Simulation {
     }
     if (this._isReadyAt && !this._isReadyAt(x, z, radius, baseHeight)) keep({ nx: 0, nz: 0, depth: radius, kind: 'loading' });
     const landscape = this._landscapeContact?.(x, z, radius);
-    if (landscape && !(ignoreWater && landscape.kind === 'water')) {
+    if (landscape && !((ignoreWater || actor===this.player && actor.mode==='walk' && this.city.waterColumn) && landscape.kind === 'water')) {
       // The measured road network can cross a mapped water polygon on a
       // bridge. Preserve that existing route until a surveyed deck is loaded;
       // water remains impassable away from a mapped road corridor.
@@ -939,7 +940,7 @@ export class Simulation {
       car.pitch = -Math.atan2((fl + fr - rl - rr) / 2, axle.front - axle.rear);
       car.roll = Math.atan2((fr + rr - fl - rl) / 2, axle.x * 2);
     }
-    if (this.player.mode === 'transport' || this.subway || this.room || this.seat) return;
+    if (this.player.mode==='walk' && this.player.water || this.player.mode === 'transport' || this.subway || this.room || this.seat) return;
     const vehicle = this.player.vehicleId && this.cars.find(car => car.id === this.player.vehicleId);
     if(vehicle && this.player.mode==='passenger'){
       const p=this.player;
@@ -1476,7 +1477,7 @@ export class Simulation {
     const car = this.cars.find(item => item.id === this.player.vehicleId);
     if (car) { car.controlled = false; car.parked = true; car._loose = 0; resetVehicleDynamics(car); }
     const point = this._findSafePoint(this.city.spawn.x, this.city.spawn.z, PLAYER_RADIUS);
-    Object.assign(this.player, { ...point, y: undefined, transportId: null, angle: this.city.spawn.angle || 0, speed: 0, mode: 'walk', board: null, vehicleId: null, velocityX: 0, velocityZ: 0, vy: 0, grounded: true, slide: 0, swing: 0, reaction:null, standing:null });
+    Object.assign(this.player, { ...point, water:null, y: undefined, transportId: null, angle: this.city.spawn.angle || 0, speed: 0, mode: 'walk', board: null, vehicleId: null, velocityX: 0, velocityZ: 0, vy: 0, grounded: true, slide: 0, swing: 0, reaction:null, standing:null });
     this.updateGrounding();
     this._restoreCondition();
     this._say('Recovered nearby. Your earnings and completed deliveries are saved.');
@@ -1525,6 +1526,7 @@ export class Simulation {
 
   _tick(input, dt) {
     this.elapsed += dt;
+    if(this.player.mode!=='walk' || this.room || this.subway)this.player.water=null;
     this.shopping.tick();
     if (this.streetObjects.moving.size) this.streetObjects.step(dt,
       (x,z,r,y)=>this._contact(x,z,r,false,y), (x,z)=>this.groundHeight(x,z));
@@ -1790,7 +1792,7 @@ export class Simulation {
       this._say('Stepped off the board.');
       return true;
     }
-    if (p.mode !== 'walk' || p.standing) return false;
+    if (p.mode !== 'walk' || p.standing || p.water) return false;
     p.board = {phase:0,pushing:false,pushFoot:1,kickWait:0,braking:false,lean:0,pitch:0,pop:0,landing:0,
       load:0,manual:0,spin:0,roll:0,shove:0,airTime:0,grab:0,tuck:0,switch:false,feedback:0};
     p.mode = 'skate';
@@ -1941,19 +1943,19 @@ export class Simulation {
       else player.standing = null;
     }
     if (stepMove(this, dt) || player.mode !== 'walk') return;
-    if (jumping && !this.subway && this.moves && tryVault(this)) return;
+    if (jumping && !player.water && !this.subway && this.moves && tryVault(this)) return;
     const magnitude = Math.hypot(input.moveX, input.moveZ);
     const divisor = Math.max(1, magnitude);
     // Fed or with a coffee inside them, the player walks and runs a little faster.
     this.pep = Math.max(0, (this.pep || 0) - dt);
-    const topSpeed = (input.run ? RUN_SPEED : input.jog ? JOG_SPEED : WALK_SPEED) * (this.pep > 0 ? 1.15 : 1);
+    const topSpeed = player.water ? 1.75 : (input.run ? RUN_SPEED : input.jog ? JOG_SPEED : WALK_SPEED) * (this.pep > 0 ? 1.15 : 1);
     const desiredX = input.moveX / divisor * topSpeed;
     const desiredZ = input.moveZ / divisor * topSpeed;
     const air = player.grounded === false;
     const sliding = (player.slide || 0) > 0;
     if (sliding) player.slide = Math.max(0, player.slide - dt);
     // A bail-out slide keeps its momentum. In the air, steering still works, just less of it.
-    const blend = 1 - Math.exp(-(sliding ? 1.8 : air ? (magnitude>.02 ? 1.7 : .28) : input.run && magnitude>.02 ? 3.4 : 10) * dt);
+    const blend = 1 - Math.exp(-(player.water ? 4.0 : sliding ? 1.8 : air ? (magnitude>.02 ? 1.7 : .28) : input.run && magnitude>.02 ? 3.4 : 10) * dt);
     if (sliding) {
       player.velocityX = player.velocityX * (1 - blend) + desiredX * blend * 0.35;
       player.velocityZ = player.velocityZ * (1 - blend) + desiredZ * blend * 0.35;
@@ -2027,9 +2029,41 @@ export class Simulation {
       }
       if (inward < 0) { player.velocityX -= inward * next.hit.nx; player.velocityZ -= inward * next.hit.nz; }
     }
+    const column=this.city.waterColumn?.(next.x,next.z,player);
+    if (player.water && !column) {
+      const floor=this._sampleSurface?.(next.x,next.z,{mode:'walk',referenceHeight:player.y})?.elevation ?? 0;
+      if(player.y+1.6<player.water.level-.2 || floor>player.water.level+2.4){
+        player.speed=player.velocityX=player.velocityZ=0;
+        this._swim(player.water,input,dt);
+        return;
+      }
+      Object.assign(player,{water:null,y:floor,grounded:true,vy:0});
+    }
     player.x = next.x;
     player.z = next.z;
+    if(column && !player.standing){
+      if(player.water || player.y<=column.level+.16){
+        this._swim(column,input,dt);
+      }else{
+        this._fall(player,dt,false,Math.max(column.bed,column.level-1.4));
+      }
+      return;
+    }
     this._fall(player, dt, jumping);
+  }
+
+  _swim(column,input,dt) {
+    const p=this.player, surface=column.level-1.42;
+    if(!p.water && column.bed<surface)this._say('Swim with the movement keys. Shift dives. Space surfaces.',5);
+    p.water=column;p.transportId=null;p.slide=0;
+    const vertical=input.lift<0?-1.55:input.lift>0?2.1:.65;
+    p.vy+=(vertical-p.vy)*(1-Math.exp(-5*dt));
+    const target=Math.max(column.bed,surface);
+    // Ease into the water from the bank. Float at shoulder height when idle.
+    if(p.y>target && vertical>=0)p.y=Math.max(target,p.y-dt*2.6);
+    else p.y=clamp(p.y+p.vy*dt,column.bed,Math.max(target,p.y));
+    p.grounded=column.bed>=surface && p.y<=column.bed+.02;
+    if(p.y<=column.bed || p.y===target && p.vy>0)p.vy=0;
   }
 
   /** Jump, step down a curb, or fall off a ledge. Grounded feet are seated by updateGrounding. */
@@ -2065,7 +2099,7 @@ export class Simulation {
     }
     player.vy = Math.max(-32, (player.vy || 0) - GRAVITY * dt);
     player.y = (Number.isFinite(player.y) ? player.y : 0) + player.vy * dt;
-    if(player.mode==='walk' && ground!==null && player.vy < -7 && player.y>ground+.25){
+    if(player.mode==='walk' && !player.water && ground!==null && player.vy < -7 && player.y>ground+.25){
       this.pushPlayer(player.velocityX,player.velocityZ,{fall:true,rest:.4,impact:-player.vy});
       if(player.reaction){player.reaction.fromHeight=true;player.reaction.clearance=player.y-ground;}
       return;

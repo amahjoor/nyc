@@ -243,11 +243,27 @@ function groundSurface(x,z){
   const surface=landscape?.sampleSurface(x,z),lift=streetscape?.offsetAt(x,z)||0;
   return surface&&lift?{...surface,elevation:surface.elevation+lift}:surface;
 }
+function waterColumn(x,z,actor) {
+  if(!water || water.waterfront.deckAt(x,z))return null;
+  // A walker may cross the river on a surveyed deck or inside a tunnel.
+  if(actor){
+    const options={mode:'walk',referenceHeight:actor.y,transportId:actor.transportId};
+    const deck=roadPilot?.sampleSurface(x,z,{...options,kind:'bridge'}) ?? streetDetail?.sampleSurface(x,z,options);
+    if(deck && Math.abs(deck.elevation-actor.y)<1.2)return null;
+  }
+  if(water.isTidal(x,z))return {level:WATER_LEVEL,bed:water.waterfront.bed(x,z),tidal:true};
+  const pond=landscape?.waterAt(x,z);
+  if(!pond)return null;
+  const bed=terrainHeight(x,z);
+  return {level:Number.isFinite(pond.elevation)?pond.elevation+.04:bed+.07,bed};
+}
 function streetSurface(x,z,options) {
   const walking=options?.mode==='walk';
   const deck=roadPilot?.sampleSurface(x,z,{...options,kind:'bridge'}) ?? streetDetail?.sampleSurface(x,z,options)
     ?? (walking ? subwayStairs?.surfaceAt(x,z) : null);
   if(deck)return deck;
+  const pier=water?.waterfront.deckAt(x,z);
+  if(pier)return {elevation:pier.y+.035,normal:{x:0,y:1,z:0},kind:'pier'};
   const ground=roadPilot?.sampleSurface(x,z,{...options,kind:'ground'}) ?? groundSurface(x,z);
   const step=walking ? storefronts?.stepHeightAt(x,z,options.referenceHeight) : null;
   return step!=null && step>=(ground?.elevation??-Infinity)
@@ -868,7 +884,7 @@ function showPlayer(dt,p,floor,eyeView,riding) {
   const mesh=playerBody.mesh;
   const driving=p.mode==='drive'||p.mode==='passenger', skating=p.mode==='skate';
   const striking=p.swing>0 || ['kick','lowKick','stomp'].includes(p.move?.kind);
-  ownBody=eyeView && firstPersonActive() && p.mode==='walk' && (!p.armed || striking) && !phoneHand?.amount &&
+  ownBody=eyeView && !p.water && firstPersonActive() && p.mode==='walk' && (!p.armed || striking) && !phoneHand?.amount &&
     !sim.seat && !sim.ending && !sim.shopping.payment && (striking || !p.carry);
   playerBody.setFirstPerson(ownBody ? camera : null);
   mesh.visible=Boolean(ownBody || ((p.mode==='walk'||skating||riding||driving)&&!eyeView));
@@ -909,6 +925,15 @@ function showPlayer(dt,p,floor,eyeView,riding) {
     mesh.position.x+=shift*Math.sin(p.angle);mesh.position.z+=shift*Math.cos(p.angle);
     mesh.quaternion.copy(boardMesh.quaternion);mesh.rotateY(-Math.PI/2);
     mesh.position.y+=.095-.075*p.board.landing-.20*p.board.load-.33*p.board.tuck;
+  }
+  else if(p.water && !p.grounded){
+    const moving=Math.min(1,Math.abs(p.speed));
+    moves.sample(moving>.15?'swim':'treadWater',sim.elapsed,pose);
+    const lean=.12+moving*.94, back=.75*Math.sin(lean);
+    mesh.rotateX(lean);
+    mesh.position.y+=1.52*(1-Math.cos(lean));
+    mesh.position.x-=Math.sin(p.angle)*back;
+    mesh.position.z-=Math.cos(p.angle)*back;
   }
   else if(driving)moves.sample(held,sim.elapsed,pose);
   else if(traversing)moves.sample(move,p.move.t/p.move.T*moves.clip(move).seconds,pose);
@@ -1676,7 +1701,8 @@ function updateCamera(dt) {
       camera.position.x=p.x+dx*ratio;camera.position.z=p.z+dz*ratio;break;
     }
   }
-  camera.position.y=Math.max(camera.position.y,terrainHeight(camera.position.x,camera.position.z)+.6);
+  const cameraBed=p.water?waterColumn(camera.position.x,camera.position.z)?.bed:null;
+  camera.position.y=Math.max(camera.position.y,(cameraBed??terrainHeight(camera.position.x,camera.position.z))+.35);
   cameraTarget.set(p.x,chaseHeight.height+aimHeight,p.z);
   if(driving)cameraTarget.add(chaseLookAhead);
   camera.lookAt(cameraTarget);
@@ -1762,7 +1788,11 @@ function frame(now) {
   const overview=cityView||!started;
   const lit=viewOverride?{x:viewOverride.target[0],y:viewOverride.target[1],z:viewOverride.target[2]}:!started?{x:INTRO.x,y:0,z:INTRO.z}
     :aerialView&&!overview?aerialTarget:{x:sim.player.x,y:sim.player.y||0,z:sim.player.z};
-  gfx.update(dt,{focus:lit,overview:(cityView&&!viewOverride)||aloft,paused:paused||mapOpen||Boolean(subwayVisit)});
+  const cameraWater=!cityView&&!subwayVisit&&!sim.room && (sim.player.water||viewOverride) ? waterColumn(camera.position.x,camera.position.z) : null;
+  const immersed=cameraWater && camera.position.y<cameraWater.level;
+  water.waterfront.underwater(camera.position,Boolean(immersed&&cameraWater.tidal));
+  water.waterfront.update(lit,terrainHeight,landscapeRevision,cityView&&!viewOverride);
+  gfx.update(dt,{underwater:Boolean(immersed),focus:lit,overview:(cityView&&!viewOverride)||aloft,paused:paused||mapOpen||Boolean(subwayVisit)});
   // The streets under an aircraft are not driven on: they are fetched again when the view comes down.
   if(bootReady&&!traveling&&!aloft)refreshRoads();
   if(bootReady&&started&&!traveling&&!cityView)refreshParkedCars();
@@ -1777,7 +1807,9 @@ function frame(now) {
     hud.update(sim,Boolean(nearestSeat()),sim.doorway?.take?null:registerAction(sim),focusedAim(),rideControls);
     updateDirections();saveProgress();updateLocation();updateTimeButton();hudTime=0;
   }
-  water.update(lit,{overview:cityView&&!viewOverride});
+  const surfaceSwimmer=sim.player.water?.tidal && sim.player.y+1.65>=WATER_LEVEL ? sim.player : null;
+  const vessel=sim.transport?.active;
+  water.update(lit,{overview:cityView&&!viewOverride,swimmer:surfaceSwimmer,vessel:vessel?.spec.kind==='boat'?vessel:null});
   // Lamps and headlights are gathered before the frame that they light.
   streetLife.update(lit,{lights:gfx.state.lightsOn,cars:sim.cars,overview:(overview&&!viewOverride)||aloft,spots:policeScene.spots});
   doorDebris?.update(paused||traveling?0:dt);
@@ -2389,7 +2421,7 @@ async function boot() {
   // What stands where, for dressing buildings decoded on the page itself; the background decoders fetch their own.
   await lotsReady();
   cityIndex=index;roadIndex=streets;boroughs=land.boroughs;roadStream=createRoadStream(roadIndex);
-  city={...seed,bounds:roadIndex.bounds,buildings:[],roads:[],boroughs,missionPoints:[],sampleSurface:streetSurface,landscapeContact:(x,z,radius)=>landscape?.contactAt(x,z,radius)};
+  city={...seed,bounds:roadIndex.bounds,buildings:[],roads:[],boroughs,missionPoints:[],sampleSurface:streetSurface,waterColumn,landscapeContact:(x,z,radius)=>landscape?.contactAt(x,z,radius)};
   $('load-text').textContent='CONNECTING TO NEW YORK…';
   // The frame is antialiased in its own multisampled target, not the canvas.
   renderer=new THREE.WebGLRenderer({canvas,antialias:false,powerPreference:'high-performance'});
@@ -2403,6 +2435,14 @@ async function boot() {
   const stairOpenings=subwayStairs.openings;
   // Rivers, harbor and sea, bounded by the borough shorelines.
   water=createWater({scene,boroughs,bounds:roadIndex.bounds,panorama:gfx.skyPanorama,stairOpenings});
+  loadData('landscape/piers.json').then(data=>water.waterfront.setPiers(data.piers)).catch(error=>console.warn('Pier survey unavailable',error));
+  Promise.all([loadData('landscape/coastal-depths.json'),fetch('./landscape/coastal-depths.bin').then(async response=>{
+    if(!response.ok)throw new Error('Missing harbor depths');
+    return new Int16Array(await response.arrayBuffer());
+  })]).then(([grid,values])=>{
+    if(values.length!==grid.cols*grid.rows)throw new Error('Incomplete harbor depths');
+    water.waterfront.setGrid({...grid,values});
+  }).catch(error=>console.warn('Coastal depth survey unavailable',error));
   // The country around the city, as a silhouette. Optional: without it the city stands in open sea.
   loadData('context-land.json').then(manifest=>{
     const image=new Image();
@@ -2414,7 +2454,7 @@ async function boot() {
   // The crowd answers for itself when a car hits it, and a death or an arrest is watched before what follows.
   sim.peopleReact=true;sim.endingSeconds=2;
   sim.transport=new TransportFleet(sim,{isLand:(x,z)=>water.isLand(x,z)&&!landscape?.waterAt(x,z),isNavigable:water.isNavigable,waterLevel:WATER_LEVEL});
-  transportScene=createTransportScene(scene,sim.transport);
+  transportScene=createTransportScene(scene,sim.transport,createPerson);
   streetLife=createStreetLife({scene,renderer,physics:sim.streetObjects,getLamps:()=>streetscape?.lamps()||noStreetFurniture,getTrees:()=>streetscape?.trees()||noStreetFurniture});
   parkedCars=createParkedCars({capacity:PARKED_LIMIT+8,library:vehicleMeshes});scene.add(parkedCars.group);
   distantTraffic=createDistantTraffic({library:vehicleMeshes});scene.add(distantTraffic.group);
