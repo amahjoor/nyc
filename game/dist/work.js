@@ -1,5 +1,6 @@
 import { hasKitchen,kitchenRole,kitchenTicket,kitchenState,kitchenActions,trayReady,advanceKitchen } from './kitchen-shift.js';
 import { deskTicket } from './service-desk.js';
+import { salesCall } from './sales-calls.js';
 import { customerUsesCash, drawerBalance } from './shop-turnover.js';
 import { SHIFTS } from './shift-catalog.js';
 import { formatMoney } from './money.js';
@@ -53,6 +54,9 @@ export class Work {
       if(hasKitchen(shift.job) && s.branch && typeof s.branch.id==='string' && typeof s.branch.name==='string' &&
         Number.isFinite(s.branch.x) && Number.isFinite(s.branch.z))shift.branch={id:s.branch.id,name:s.branch.name,x:s.branch.x,z:s.branch.z};
     }
+    this.record.calls=count(record.calls,1e7);
+    this.record.call=['hello','discovery','objection','close','declined'].includes(record.call)?record.call:null;
+    this.record.lastCall=typeof record.lastCall==='string'?record.lastCall.slice(0,100):'';
     this.lastWeekday=null;
     this.receipts=new Map();
     for(const [id,rows] of Object.entries(record.turnover||{})){
@@ -107,6 +111,7 @@ export class Work {
       };
     });
     rows.push({name:'Food courier',company:'Local restaurants',sector:'Logistics',pay:'Per order + time bonus',note:'Citywide · Flexible hours',active:this.sim.mission.phase==='active' && Boolean(this.sim.mission.meal),choose:()=>this.food()},
+      {name:'Business sales rep',company:'Borough Business Services',sector:'Office',pay:'$32 per trial booked',note:'Cold calling · Flexible hours',active:Boolean(this.record.call),choose:()=>salesCall(this)},
       {name:'Coffee cart',company:'Self-employed',sector:'Food',pay:'$5 per sale',note:this.record.cart ? `${this.record.cups} cups in stock` : 'Street vending · $60 startup',active:this.record.cart,choose:()=>this.coffee()},
       {name:'Newspaper carrier',company:'Borough Evening Post',sector:'Logistics',pay:'$18 per stop + time bonus',note:'Local paper round · Flexible hours',
         active:this.sim.mission.phase==='active' && this.sim.mission.kind==='paper',choose:()=>this.paper()});

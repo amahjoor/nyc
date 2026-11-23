@@ -78,6 +78,16 @@ test('food orders pay only after restaurant pickup and customer handoff', () => 
   const balance = f.sim.cash;f.sim._updateMission(1);assert.equal(f.sim.cash, balance);
 });
 
+test('sales calls preserve objections through reload and log a single commission or a lost lead',()=>{
+  const f=fixture(),sales=()=>{f.work.board();f.choose('Business sales rep');};
+  sales();f.choose('Dial Harbor Florals');f.choose('Introduce yourself and ask about their day');
+  f.choose('Offer Online order form');f.work.restore(structuredClone(f.work.record));sales();
+  f.choose('Offer to embed it on their site');const book=f.screen().rows[0];book.choose();book.choose();
+  assert.equal(f.sim.cash,32);f.choose('Dial Mercer Coffee');f.choose('Introduce yourself and ask about their day');
+  f.choose('Offer Online order form');f.choose('Log declined lead');assert.equal(f.sim.cash,32);
+  assert.equal(f.work.record.calls,2);assert.equal(f.work.record.lastCall,'Mercer Coffee · Declined');
+});
+
 test('coffee uses working capital and inventory, and a pedestrian can transact once', () => {
   const f = fixture();
   f.work.coffee();f.choose('Open a coffee cart');assert.equal(f.work.record.cart, false);
