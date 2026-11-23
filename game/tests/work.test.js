@@ -1,5 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { hasKitchen,kitchenTicket } from '../dist/kitchen-shift.js';
+import { deskTicket } from '../dist/service-desk.js';
 import { Simulation } from '../dist/simulation.js';
 import { Work, EMPLOYERS } from '../dist/work.js';
 
@@ -12,8 +14,8 @@ function fixture() {
   let screen, guided, now = 10000, atCounter = true;
   const called = [];
   const phone = { openList(title, rows, pick, { message }) { screen = { title, rows, pick, message }; }, setOpen() { screen = null; } };
-  const work = new Work({ sim, phone: () => phone, meet: (title,message,rows) => { screen = {title,message,rows,pick: row => row.choose(), inPerson: true}; }, pedestrian: () => person, counter: () => atCounter ? shop : null,
-    fronts: () => [], hours: () => 13, save: () => called.push(structuredClone(work.record)), random: () => .75,
+  const work = new Work({ sim, phone: () => phone, meet: (title,message,rows,available,view) => { screen = {title,message,rows,available,view,pick: row => row.choose(), inPerson: true}; }, pedestrian: () => person, counter: () => atCounter ? shop : null,
+    fronts: () => [{place:{id:'slice',name:'Corner Slice',group:'food',kind:'pizza'},x:136,z:-100,nx:1,nz:0}], hours: () => 13, save: () => called.push(structuredClone(work.record)), random: () => .75,
     now: () => now, guide: site => { guided = site; } });
   const choose = name => {
     const row = screen.rows.find(row => row.name === name);
@@ -23,25 +25,46 @@ function fixture() {
     leaveCounter() { atCounter = false; }, restock() { now += 600001; } };
 }
 
-for (const job of ['kitchen', 'finance']) test(`${job} shifts require the workplace and pay for four decisions exactly once`, () => {
-  const f = fixture(), site = EMPLOYERS[job];
-  Object.assign(f.sim.player, { x: 2000, z: 2000 });
-  f.work.board(); f.choose(site.role); f.choose('Show workplace on map'); assert.equal(f.guided(), site);
-  Object.assign(f.sim.player, { x: site.x, z: site.z });
-  f.work.job(job); f.choose('Clock in');
-  const first = f.screen().message;
-  f.work.restore(JSON.parse(JSON.stringify(f.work.record))); f.work.job(job); assert.equal(f.screen().message, first);
-  let last;
-  for (let i = 0; i < 4; i++) {
-    const { rows, message } = f.screen();
-    const answer = job === 'kitchen' ? message.match(/· (.+) with (.+)\. Which/).slice(1).join(' + ') :
-      '$' + message.match(/\$[\d,]+/g).map(x => Number(x.slice(1).replaceAll(',', ''))).reduce((n, v, j) => j === 2 ? n - v : n + v).toLocaleString('en-US');
-    last = rows.find(row => row.name === answer); assert.ok(last, message);
-    assert.equal(f.sim.cash, 0); f.choose(answer);
+for(const job of ['kitchen','pizza','barista','bakery'])test(job+' cooks, portions and hands over four saved customer orders',()=>{
+  const f=fixture(),site=EMPLOYERS[job];
+  Object.assign(f.sim.player,{x:site.x,z:site.z});f.work.job(job,true);
+  for(let i=0;i<4;i++){
+    const t=kitchenTicket(f.work.record.shift),m=t.menu;
+    assert.ok(!f.screen().rows.some(r=>r.name.startsWith('Hand tray')));
+    if(t.wantsMain){
+      f.choose(m.station);f.choose('Take '+m.mains[t.main]);f.choose(m.prep);
+      f.choose(m.turn);assert.equal(f.work.record.shift.kitchen.main,2);
+    }
+    if(t.wantsSide){f.choose(m.sideStation);f.choose(m.lower+' '+t.sideName);}
+    f.screen().view.advance(3.25);
+    f.work.restore(structuredClone(f.work.record));f.work.job(job);
+    if(t.wantsMain){f.choose(m.station);f.choose(m.turn);}
+    f.screen().view.advance(1);
+    if(t.wantsSide){f.choose(m.sideStation);f.choose(m.drain+' '+t.sideName);}
+    f.screen().view.advance(2.3);
+    if(t.wantsMain){
+      if(t.wantsSide)f.choose(m.station);
+      f.choose(m.lift);f.choose(m.dress+' '+t.garnish);
+    }
+    if(t.wantsDrink){
+      f.choose('Drink fountain');f.choose('Fill cup with '+t.drinkName);
+      f.screen().view.advance(2.1);f.choose('Release tap and lid cup');
+    }
+    const hand=f.screen().rows.find(r=>r.name==='Hand tray to '+t.customer);
+    assert.ok(hand);assert.equal(f.sim.cash,0);hand.choose();hand.choose();
   }
-  assert.equal(f.sim.cash, site.wage + 4 * site.bonus); assert.equal(f.work.record.shifts, 1);
-  last.choose(); assert.equal(f.sim.cash, site.wage + 4 * site.bonus);
-  assert.equal(f.called.at(-1).shift, null);
+  assert.equal(f.sim.cash,site.wage+site.bonus*4);assert.equal(f.work.record.shift,null);
+});
+
+test('finance associate posts the reconciled client balances',()=>{
+  const f=fixture(),site=EMPLOYERS.finance;
+  Object.assign(f.sim.player,{x:site.x,z:site.z});f.work.job('finance',true);
+  for(let i=0;i<4;i++){
+    f.choose('Open client ledger');
+    const amounts=f.screen().message.match(/\$[\d,]+/g).map(s=>Number(s.slice(1).replaceAll(',','')));
+    f.choose('$'+(amounts[0]+amounts[1]-amounts[2]).toLocaleString('en-US'));
+  }
+  assert.equal(f.sim.cash,site.wage+4*site.bonus);
 });
 
 test('food orders pay only after restaurant pickup and customer handoff', () => {
@@ -115,28 +138,25 @@ test('taking a shift saves it to My work until released or completed',()=>{
   assert.ok(!f.screen().rows.some(row=>row.active));
 });
 
-test('every advertised workplace has four distinct playable decisions and pays its advertised maximum',()=>{
-  for(const [job,site] of Object.entries(EMPLOYERS).filter(([,site])=>site.decisions)){
-    const f=fixture();
-    f.work.board();f.choose(site.role);f.choose('Take shift');
-    Object.assign(f.sim.player,{x:site.x+200,z:site.z});
-    f.choose('Clock in');assert.equal(f.work.record.shift,null);
-    Object.assign(f.sim.player,{x:site.x,z:site.z});
-    f.work.board();f.choose(site.role);f.choose('Clock in');
-    const tasks=new Set();
-    for(let block=0;block<4;block++){
-      const message=f.screen().message;
-      tasks.add(message);
+test('every service desk issues four distinct work slips, requires the site and pays its advertised maximum',()=>{
+  for(const [job,site] of Object.entries(EMPLOYERS).filter(([job])=>!hasKitchen(job)&&job!=='finance')){
+    const f=fixture();f.work.board();f.choose(site.role);f.choose('Take shift');
+    Object.assign(f.sim.player,{x:site.x+200,z:site.z});f.choose('Clock in');assert.equal(f.work.record.shift,null);
+    Object.assign(f.sim.player,{x:site.x,z:site.z});f.work.job(job,true);
+    const slips=new Set();
+    for(let i=0;i<4;i++){
+      const task=deskTicket(f.work.record.shift);slips.add(task.item);f.choose(task.open);
       f.work.restore(structuredClone(f.work.record));f.work.job(job);
-      assert.equal(f.screen().message,message);
-      const decision=site.decisions.find(([prompt])=>prompt===message);
-      const counts=message.match(/\d+/g)?.map(Number);
-      const answer=decision?decision[1]:String(counts[0]*counts[1]-counts[2]);
-      assert.equal(f.sim.cash,0);f.choose(answer);
+      if(job==='cashier'){
+        let due=Math.round(Number(task.result.slice(1))*100);
+        for(const [cents,label] of [[1000,'$10'],[500,'$5'],[100,'$1'],[25,'$0.25']]){
+          while(due>=cents){f.choose('Count out '+label);due-=cents;}
+        }
+        f.choose('Hand change to customer');
+      }else f.choose(task.actions.find(a=>a.match).name);
+      f.choose(task.complete);
     }
-    assert.equal(tasks.size,4,site.role);
-    assert.equal(f.sim.cash,site.wage+site.bonus*4);
-    assert.equal(f.work.record.booked,null);
+    assert.equal(slips.size,4);assert.equal(f.sim.cash,site.wage+4*site.bonus);
   }
 });
 

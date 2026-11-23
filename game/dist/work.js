@@ -1,3 +1,5 @@
+import { hasKitchen,kitchenRole,kitchenTicket,kitchenState,kitchenActions,trayReady,advanceKitchen } from './kitchen-shift.js';
+import { deskTicket } from './service-desk.js';
 import { customerUsesCash, drawerBalance } from './shop-turnover.js';
 import { SHIFTS } from './shift-catalog.js';
 import { formatMoney } from './money.js';
@@ -6,40 +8,22 @@ import { menuFor } from './menu.js';
 
 // Clock-in locations and pay are shared by the board, directions and payroll.
 export const EMPLOYERS = {
-  kitchen: { name: 'Greene Street Grill', role: 'Fast-food crew', district:'SoHo · Manhattan', sector:'Food', duties:'Match lunch tickets to the trays coming off the grill.', x: 138.65, z: -100.42, wage: 80, bonus: 8 },
+  kitchen: { name: 'Greene Street Grill', role: 'Fast-food crew', district:'SoHo · Manhattan', sector:'Food', duties:'Cook burgers to order, work the fryer and fill drinks for the lunch rush.', x: 138.65, z: -100.42, wage: 80, bonus: 8 },
   finance: { name: 'Wall Street Ledger', role: 'Finance associate', district:'Financial District · Manhattan', sector:'Office', duties:'Reconcile client balances and post incoming payments.', x: -773.41, z: 1820.86, wage: 120, bonus: 12 },
   ...SHIFTS,
 };
 const BLOCKS = ['9 AM', '11 AM', '1 PM', '3 PM'];
-const PLATES = ['Cheeseburger', 'Veggie burger', 'Fish sandwich', 'Chicken sandwich', 'Grilled cheese'];
-const SIDES = ['fries', 'slaw', 'salad', 'onion rings'];
 const distance = (a, b) => Math.hypot(a.x - b.x, a.z - b.z);
 const option = (name, note, choose) => ({ name, note, choose });
 const count = (value, max) => Number.isInteger(value) && value >= 0 && value <= max ? value : 0;
 
-function ticket(shift) {
+function ledger(shift) {
   // The same open ticket survives closing the phone and loading a save.
   let seed = (shift.seed + Math.imul(shift.block, 0x9e3779b9)) >>> 0;
   const pick = n => { seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0; return Math.floor(seed / 4294967296 * n); };
-  let question, answers;
-  if (shift.job === 'kitchen') {
-    const dish = pick(PLATES.length), side = pick(SIDES.length);
-    question = `Ticket ${12 + pick(80)} · ${PLATES[dish]} with ${SIDES[side]}. Which tray goes out?`;
-    answers = [`${PLATES[dish]} + ${SIDES[side]}`, `${PLATES[dish]} + ${SIDES[(side + 1) % SIDES.length]}`, `${PLATES[(dish + 1) % PLATES.length]} + ${SIDES[side]}`];
-  } else if (shift.job === 'finance') {
-    const opening = (25 + pick(80)) * 100, received = (2 + pick(15)) * 50, fee = (1 + pick(8)) * 25;
-    question = `Client balance ${formatMoney(opening)}. A payment of ${formatMoney(received)} came in and a ${formatMoney(fee)} fee went out. Post the closing balance.`;
-    answers = [opening + received - fee, opening + received, opening - received - fee].map(formatMoney);
-  } else {
-    const site = SHIFTS[shift.job], index = (shift.block + shift.seed % 4) % 4;
-    if (index < site.decisions.length) {
-      [question, ...answers] = site.decisions[index];
-    } else {
-      const boxes = 2 + pick(6), perBox = 4 + pick(9), used = 1 + pick(perBox - 1);
-      question = `You received ${boxes} packs of ${site.supply}, ${perBox} per pack. After using ${used}, how many are left?`;
-      answers = [boxes * perBox - used, boxes * perBox, boxes * perBox + used].map(String);
-    }
-  }
+  const opening = (25 + pick(80)) * 100, received = (2 + pick(15)) * 50, fee = (1 + pick(8)) * 25;
+  const question = `Client balance ${formatMoney(opening)}. A payment of ${formatMoney(received)} came in and a ${formatMoney(fee)} fee went out. Post the closing balance.`;
+  const answers = [opening + received - fee, opening + received, opening - received - fee].map(formatMoney);
   const correct = pick(3);
   [answers[0], answers[correct]] = [answers[correct], answers[0]];
   return { question, answers, correct };
@@ -60,6 +44,14 @@ export class Work {
     const s = record.shift;
     if (s && Object.hasOwn(EMPLOYERS, s.job) && Number.isInteger(s.block) && s.block >= 0 && s.block < BLOCKS.length) {
       this.record.shift = { job: s.job, seed: count(s.seed, 0xffffffff), block: s.block, correct: count(s.correct, s.block) };
+    }
+    const shift=this.record.shift;
+    if(shift){
+      shift.step=count(s.step,2);shift.clean=s.clean!==false;
+      if(shift.job==='cashier')shift.change=count(s.change,2000);
+      if(hasKitchen(shift.job))shift.kitchen=kitchenState(s.kitchen);
+      if(hasKitchen(shift.job) && s.branch && typeof s.branch.id==='string' && typeof s.branch.name==='string' &&
+        Number.isFinite(s.branch.x) && Number.isFinite(s.branch.z))shift.branch={id:s.branch.id,name:s.branch.name,x:s.branch.x,z:s.branch.z};
     }
     this.lastWeekday=null;
     this.receipts=new Map();
@@ -106,11 +98,14 @@ export class Work {
 
   jobs() {
     const s = this.record.shift;
-    const rows = Object.entries(EMPLOYERS).map(([job, site]) => ({
-      name:site.role, company:site.name, sector:site.sector, distance:distance(this.sim.player,site), wage:site.wage, pay:formatMoney(site.wage)+'–'+formatMoney(site.wage+4*site.bonus)+' / shift', active:s?.job===job || this.record.booked===job,
-      note:site.district+' · '+(s?.job===job?'Shift in progress':this.record.booked===job?'Shift accepted':'On-site'),
-      choose:()=>this.jobListing(job)
-    }));
+    const rows = Object.keys(EMPLOYERS).map(job => {
+      const site=this.site(job);
+      return {
+        name:site.role, company:site.name, sector:site.sector, distance:distance(this.sim.player,site), wage:site.wage, pay:formatMoney(site.wage)+'–'+formatMoney(site.wage+4*site.bonus)+' / shift', active:s?.job===job || this.record.booked===job,
+        note:site.district+' · '+(s?.job===job?'Shift in progress':this.record.booked===job?'Shift accepted':job==='kitchen'?'Burger grill':'On-site'),
+        choose:()=>this.jobListing(job)
+      };
+    });
     rows.push({name:'Food courier',company:'Local restaurants',sector:'Logistics',pay:'Per order + time bonus',note:'Citywide · Flexible hours',active:this.sim.mission.phase==='active' && Boolean(this.sim.mission.meal),choose:()=>this.food()},
       {name:'Coffee cart',company:'Self-employed',sector:'Food',pay:'$5 per sale',note:this.record.cart ? `${this.record.cups} cups in stock` : 'Street vending · $60 startup',active:this.record.cart,choose:()=>this.coffee()},
       {name:'Newspaper carrier',company:'Borough Evening Post',sector:'Logistics',pay:'$18 per stop + time bonus',note:'Local paper round · Flexible hours',
@@ -123,7 +118,7 @@ export class Work {
   }
 
   jobListing(job) {
-    const site=EMPLOYERS[job], booked=this.record.booked===job, active=this.record.shift?.job===job;
+    const site=this.site(job), booked=this.record.booked===job, active=this.record.shift?.job===job;
     const rows=[];
     if(booked || active) {
       rows.push(option(active?'Resume shift':'Clock in','At the workplace',()=>this.job(job,true)));
@@ -132,45 +127,123 @@ export class Work {
       rows.push(option('Take shift','Add to My work',()=>{if(this.record.booked || this.record.shift)return this.board();this.record.booked=job;this.save();this.jobListing(job);}));
     }
     rows.push(option('Show workplace on map',site.name,()=>{this.phone().setOpen(false);this.guide(site);}));
-    this.list(site.role,`${site.name} · ${site.district}. ${site.duties} 9 AM–5 PM. ${formatMoney(site.wage)} per shift plus ${formatMoney(site.bonus)} per correct ticket.`+
+    this.list(site.role,`${site.name} · ${site.district}. ${site.duties} 9 AM–5 PM. ${formatMoney(site.wage)} per shift plus ${formatMoney(site.bonus)} per quality bonus.`+
       (!booked && !active && (this.record.booked || this.record.shift)?' Finish or release your other shift first.':''),rows);
   }
 
-  job(job, clockIn = false) {
-    const site = EMPLOYERS[job], current = this.record.shift;
+  site(job){
+    const shift=this.record.shift;
+    return shift?.job===job && shift.branch?{...EMPLOYERS[job],...shift.branch,district:'Restaurant counter'}:EMPLOYERS[job];
+  }
+
+  counterShift(room){
+    const job=kitchenRole(room.place.kind),shift=this.record.shift;
+    if(!job || (this.record.booked && this.record.booked!==job) ||
+      (shift && (shift.job!==job || shift.branch?.id!==room.place.id)))return null;
+    const branch={id:room.place.id,name:placeName(room.place),x:room.x,z:room.z};
+    return {name:shift?'Resume kitchen shift':'Clock in at '+branch.name,note:EMPLOYERS[job].role,run:()=>this.job(job,true,branch)};
+  }
+
+  job(job, clockIn=false, branch=null) {
+    const current=this.record.shift, site=branch && !current?{...EMPLOYERS[job],...branch}:this.site(job);
     if ((this.record.booked && this.record.booked !== job) || (current && current.job !== job)) return this.board('Finish your current shift or quit it before taking a different job.');
-    const onSite = () => this.sim.player.mode === 'walk' && distance(this.sim.player, site) <= 25 && !this.sim.heat;
-    const quit = option('Quit shift', 'Leave without collecting this paycheck.', () => {
-      if(this.record.shift !== current)return this.board();
-      this.record.shift = null; this.record.booked=null; this.save();
-      this.board('You clocked out early.');
+    const branchId=current?.branch?.id || branch?.id;
+    const onSite=()=>this.sim.player.mode==='walk' && !this.sim.heat && !this.sim.ending &&
+      (branchId?this.sim.room?.place?.id===branchId:distance(this.sim.player,site)<=25);
+    const quit=option('Quit shift','Leave without collecting this paycheck.',()=>{
+      if(this.record.shift!==current)return this.board();
+      this.record.shift=null;this.record.booked=null;this.save();this.board('You clocked out early.');
     });
-    if (!onSite()) {
-      const rows = [option('Show workplace on map', site.name, () => { this.phone().setOpen(false); this.guide(site); })];
-      if (current) rows.push(quit);
-      return this.list(site.name, 'Arrive on foot and clear any wanted level, then open Work here.', rows);
+    if(!onSite()){
+      const rows=[option('Show workplace on map',site.name,()=>{this.phone().setOpen(false);this.guide(site);})];
+      if(current)rows.push(quit);
+      return this.list(site.name,'Return to the workplace on foot and clear any wanted level to clock in.',rows);
     }
-    if (!current) {
-      if(!clockIn)return this.list(site.name, 'Start your shift at 9 AM.', [
-        option('Clock in',site.role,()=>this.job(job,true)),
-      ]);
-      this.record.shift={job,seed:Math.floor(this.random()*0x100000000),block:0,correct:0};
+    if(!current){
+      if(!clockIn)return this.list(site.name,'Start your shift at 9 AM.',[option('Clock in',site.role,()=>this.job(job,true,branch))]);
+      this.record.shift={job,seed:Math.floor(this.random()*0x100000000),block:0,correct:0,step:0,clean:true};
+      if(branch)this.record.shift.branch=branch;
+      if(hasKitchen(job))this.record.shift.kitchen=kitchenState();
       this.save();return this.job(job);
     }
-    const round = current.block, task = ticket(current);
-    this.list(`${BLOCKS[round]} · Task ${round+1}/4`, task.question, [...task.answers.map((answer, i) => option(answer, '', () => {
-      if (this.record.shift !== current || current.block !== round || !onSite()) return this.job(job);
-      if (i === task.correct) current.correct++;
-      current.block++;
-      if (current.block < BLOCKS.length) {
-        this.save(); this.sim._say(i === task.correct ? 'Correct. Bonus earned.' : 'Supervisor corrected the ticket. Base pay protected.');
-        return this.job(job);
+    this.phone().setOpen(false);
+    const block=current.block;
+    const available=()=>this.record.shift===current && current.block===block && onSite();
+    const finish=clean=>{
+      if(!available())return;
+      current.correct+=clean?1:0;current.block++;current.step=0;current.clean=true;
+      if(job==='cashier')current.change=0;
+      if(current.block<BLOCKS.length){
+        if(hasKitchen(job))current.kitchen=kitchenState();
+        this.save();this.job(job);return;
       }
-      const pay = site.wage + current.correct * site.bonus;
-      this.record.shift = null; this.record.booked=null; this.record.shifts++; this.sim.cash += pay; this.save('Paycheck · '+site.name);
-      const message=`5 PM · ${current.correct}/4 correct · Paycheck +${formatMoney(pay)}`;
+      const pay=site.wage+current.correct*site.bonus;
+      this.record.shift=null;this.record.booked=null;this.record.shifts++;this.sim.cash+=pay;
+      this.save('Paycheck · '+site.name);
+      const message='5 PM · '+current.correct+'/4 quality bonuses · Paycheck +'+formatMoney(pay);
       this.sim._say(message);this.board(message);
-    })), quit]);
+    };
+    if(hasKitchen(job)){
+      const t=kitchenTicket(current),k=current.kitchen;
+      const stations=[];
+      if(t.wantsMain)stations.push(['main',t.menu.station]);
+      if(t.wantsSide)stations.push(['side',t.menu.sideStation]);
+      if(t.wantsDrink)stations.push(['drink','Drink fountain']);
+      const show=(station='tray',feedback='')=>{
+        if(!available())return;
+        const ready={main:k.main===5,side:k.side===2,drink:k.drink===2};
+        const rows=kitchenActions(t,k,station).map(a=>option(a.name,'',()=>{
+          if(!available())return;
+          const note=a.run();this.save();show(station,note);
+        }));
+        const actions=rows.slice();
+        const serve=()=>{
+          if(!available() || !trayReady(t,k))return;
+          this.sim._say(t.customer+' picked up order #'+t.number+'.',4);finish(k.clean);
+        };
+        if(trayReady(t,k))rows.push(option('Hand tray to '+t.customer,'Complete order #'+t.number,serve));
+        for(const [id,label] of stations){
+          if(id!==station)rows.push(option(label,ready[id]?'On tray':id==='main'?t.dish:id==='side'?t.sideName:t.drinkName,()=>show(id)));
+        }
+        rows.push(quit);
+        const order=[t.wantsMain && t.dish,t.wantsMain && t.garnish,t.wantsSide && t.sideName,t.wantsDrink && t.drinkName].filter(Boolean).join(' · ');
+        this.meet('Order #'+t.number+' · '+t.customer,order+(feedback?' — '+feedback:''),rows,available,
+          {ticket:t,state:k,job,station,actions,serve,ready:trayReady(t,k),advance:dt=>advanceKitchen(k,dt),select:id=>show(id)});
+      };
+      return show();
+    }
+    const step=current.step;
+    const next=()=>{if(available() && current.step===step){current.step++;this.save();this.job(job);}};
+    if(job==='finance'){
+      const task=ledger(current);
+      const rows=step===0?[option('Open client ledger','Match payment and fee to account',next)]:
+        task.answers.map((answer,i)=>option(answer,'Post to ledger',()=>{if(available() && current.step===step)finish(i===task.correct);}));
+      return this.meet('Ledger · '+BLOCKS[block],step===0?'Payment batch '+(block+1)+' is ready to reconcile.':task.question,[...rows,quit],available);
+    }
+    const t=deskTicket(current);
+    if(job==='cashier' && step===1){
+      const cents=current.change || 0, due=Math.round(Number(t.result.slice(1))*100);
+      const controls=[1000,500,100,25].map(value=>option('Count out '+formatMoney(value/100),'',()=>{
+        if(!available() || current.step!==step || (current.change||0)!==cents)return;
+        current.change=Math.min(2000,cents+value);this.save();this.job(job);
+      }));
+      controls.push(option('Return change to drawer','Start the count again',()=>{
+        if(available() && current.step===step){current.change=0;this.save();this.job(job);}
+      }),option('Hand change to customer',formatMoney(cents/100),()=>{
+        if(!available() || current.step!==step)return;
+        if(cents===due){next();return;}
+        current.clean=false;this.save();this.sim._say('Count back from the purchase price to the amount tendered.');
+        this.job(job);
+      }),quit);
+      return this.meet('Cash drawer',t.item+' · Counted out '+formatMoney(cents/100),controls,available);
+    }
+    const rows=step===0?[option(t.open,t.item,next)]:step===1?t.actions.map(a=>option(a.name,'',()=>{
+      if(!available() || current.step!==step)return;
+      if(a.match)next();
+      else {current.clean=false;this.save();this.sim._say('Check the work slip before releasing this item.');this.job(job);}
+    })):[option(t.complete,t.result,()=>finish(current.clean))];
+    this.meet(step===1?t.station:t.desk,step===1?'Drag the work slip to a destination or select it below.':'',
+      [...rows,quit],available,null,{from:site.name+' · '+BLOCKS[block],item:t.item,result:step===2?t.result:'',sorting:step===1});
   }
 
   food() {

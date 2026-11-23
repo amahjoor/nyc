@@ -98,3 +98,17 @@ body:has(.phone:not([hidden])) .interaction {
   body:has(.phone:not([hidden])) #interaction-options { flex: none; overflow: visible; }
   body:has(.interaction:not([hidden])) .phone { height: calc(67dvh - 130px); }
 }
+
+.interaction:has(#kitchen-worktop:not([hidden])) { width:min(610px,calc(100vw - 24px)); }
+#kitchen-worktop { flex:none; background:#243437; }
+#kitchen-surface { width:100%; height:auto; max-height:34dvh; display:block; object-fit:fill; cursor:pointer; touch-action:manipulation; }
+#kitchen-status { display:block; padding:5px 16px; color:#f4dfac; font-size:13px; }
+
+#work-slip { position:relative; flex:none; margin:12px 16px; padding:12px 14px; background:#f4edda; color:#382e29; border-left:5px solid #d2a14e; box-shadow:1px 3px 0 #0005; }
+#work-slip small,#work-slip strong { display:block; }
+#work-slip small { margin-bottom:6px; color:#715d45; font-size:11px; text-transform:uppercase; letter-spacing:.07em; }
+#work-slip-result:not(:empty) { display:inline-block; margin-top:8px; padding:3px 6px; border:1px solid #4c7560; color:#38684d; }
+#work-slip[data-sorting="true"] { touch-action:none; cursor:grab; }
+#work-slip.moving { pointer-events:none; z-index:1; opacity:.86; }
+.interaction:has(#work-slip:not([hidden])[data-sorting="true"]) #interaction-options { display:grid; grid-template-columns:1fr 1fr; }
+#interaction-options button[data-drop] { border:1px solid #647579; min-height:50px; }

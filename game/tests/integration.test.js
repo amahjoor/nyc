@@ -282,6 +282,9 @@ async function bootHarness({ stored = null, displayStored = null, unavailableSto
     set src(url) {
       this.url=url;
       if(!url)return;
+      if(url===new URL('../dist/assets/counter-menu.jpg',import.meta.url).href){
+        this.naturalWidth=1152;this.naturalHeight=768;queueMicrotask(()=>this.onload?.());return;
+      }
       // Local land and airfield masks load separately from streamed imagery.
       if(url===new URL('../dist/assets/airfield-surfaces.png',import.meta.url).href){queueMicrotask(()=>this.onload?.());return;}
       if(url.startsWith('./assets/context/')){queueMicrotask(()=>this.onload?.());return;}
@@ -2166,11 +2169,30 @@ test('a player can clock in through the phone, finish a shift and spend the payc
     app.click('start-button'); app.click('view-button'); app.key('ArrowUp');app.key('ArrowUp',false);
     app.click('phone-app-work'); app.click('phone-ride-0');
     app.click('phone-ride-0'); app.click('phone-ride-0');
-    assert.equal(app.elements.get('phone').hidden,false);
-    const initial = app.state().cash;
-    for (let block = 0; block < 4; block++) {
-      assert.match(app.elements.get('phone-list-message').textContent, /Which tray/);
-      app.click('phone-ride-0');
+    assert.equal(app.elements.get('phone').hidden,true);
+    assert.equal(app.elements.get('kitchen-worktop').hidden,false);
+    const choose=name=>{
+      const buttons=app.elements.get('interaction-options').children;
+      const button=buttons.find(el=>el.children[0].textContent===name);
+      assert.ok(button,'Missing '+name);button.click();
+    };
+    const initial=app.state().cash;
+    for(let block=0;block<4;block++){
+      const order=app.elements.get('interaction-message').textContent.split(' · ');
+      const burger=order.find(item=>item.endsWith('burger')),topping=order[1];
+      const side=order.find(item=>['Fries','Onion rings'].includes(item));
+      const drink=order.find(item=>['Cola','Lemonade','Iced tea'].includes(item));
+      const customer=app.elements.get('interaction-title').textContent.split(' · ')[1];
+      if(burger){
+        choose('Flat top');choose('Take '+(burger==='Beef burger'?'Beef patty':'Black bean patty'));
+        choose('Toast bun and grill patty');app.frames(13,250);choose('Flip patty');
+        app.frames(13,250);choose('Lift patty onto bun');choose('Close bun with '+topping);
+      }
+      if(side){choose('Fryer');choose('Lower basket of '+side);app.frames(17,250);choose('Drain and portion '+side);}
+      if(drink){
+        choose('Drink fountain');choose('Fill cup with '+drink);app.frames(9,250);choose('Release tap and lid cup');
+      }
+      choose('Hand tray to '+customer);
     }
     assert.match(app.elements.get('phone-list-message').textContent, /5 PM.*Paycheck/);
     assert.ok(app.state().cash >= initial + 80);

@@ -119,6 +119,8 @@ export function openFoodCounter(ctx){
       }else if(sim.buy(item)){sale(place,item.price);save(place.name);}
     }});
     if(near.length)rows.push({name:'Browse nearby shelf',run:shelves});
+    const shift=atCounter && ctx.work?.counterShift(room);
+    if(shift)rows.push(shift);
     interaction.openList(table?'Order at your table':place.name,rows,r=>r.run(),{...foodPreviewOptions(ctx.$),cash:sim.cash,message:bag.basket?'Unpaid basket · '+basketContents(bag.basket):'',available:()=>available() && (counterInReach(sim)||Boolean(diningTable(sim,view)))});
   }
   if(atCounter||table)counter();else if(near.length)shelves();

@@ -544,7 +544,7 @@ function action(name,event) {
     return;
   }
   if(name==='shop'&&sim.room) {
-    if(openFoodCounter({$,sim,interaction,sale:(place,amount)=>work.sale(place,amount),save:saveProgress}))return;
+    if(openFoodCounter({$,sim,interaction,work,sale:(place,amount)=>work.sale(place,amount),save:saveProgress}))return;
     // Indoors, at the counter: what the place sells.
     const menu=menuFor(sim.room.place);
     const boutique=menu.some(item=>item.sku);
@@ -2468,7 +2468,7 @@ function frame(now) {
   if(work && work.now()>=work.nextReopening)work.updateClosures();
   storefronts?.update(fronts,lit,gfx.hours,Boolean(viewOverride)||started&&!cityView&&!aerialView,
     landscapeRevision+laneSurfaceRevision,work?.closureRevision,sim.player.mode==='walk'?sim.player:null);
-  interaction?.update();
+  interaction?.update(paused||cityView||mapOpen||traveling?0:dt);
   phone?.update(elapsed);
   // A red-light camera's flash: the frame blows out for a tenth of a second.
   const flashed=sim.cameraFlash&&sim.elapsed-sim.cameraFlash.at<.11;
@@ -2900,8 +2900,8 @@ async function boot() {
       else phone.focus();
     }else canvas.focus();
   }});
-  work=new Work({sim,phone:()=>phone,meet:(title,message,rows,available)=>{
-    interaction.openList(title,rows,row=>row.choose(),{message,available});
+  work=new Work({sim,phone:()=>phone,meet:(title,message,rows,available,kitchen,slip)=>{
+    interaction.openList(title,rows,row=>row.choose(),{message,available,kitchen,slip});
   },fronts:()=>fronts,hours:()=>gfx.hours,save:saveProgress,
     guide:site=>{gameMap.setOpen(true);gameMap.showCity();gameMap.setPin(site);},
     pedestrian:()=>sim.player.mode==='walk'&&!sim.room&&!sim.player.armed?crowd?.closest(sim.player.x,sim.player.z,4,true):null,

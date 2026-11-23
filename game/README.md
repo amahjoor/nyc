@@ -306,9 +306,11 @@ Each dish is modelled the way it is handed over there (`food-kit.js`, `food-dish
 
 ## Earning money
 
-Open **Work** on the phone to browse 23 on-site jobs plus food delivery, coffee vending and neighborhood paper rounds. Search by role, employer or neighborhood, filter by sector, or sort by distance or base pay. Select a shift and choose **Take shift**. **My work** lists accepted shifts, an active delivery and your coffee cart.
+Open **Work** on the phone to browse 23 on-site jobs, driving gigs, phone sales, coffee vending and paper rounds. Choose **Take shift** to book a workplace, use **Show workplace on map** to find it, then return to **My work** on foot to clock in. On-site shifts pay after four tickets. You can leave the work surface and resume a saved ticket.
 
-- Every on-site listing marks its workplace on the map. Theater ushers seat ticket holders, mailroom clerks sort parcels, bike mechanics diagnose faults and hotel desk agents match guests to rooms. Arrive on foot, open Work again and clock in. Four decisions take your shift from 9 AM to 5 PM. The grill pays $80 plus $8 per correct tray. The office pays $120 plus $12 per correctly posted balance. An unfinished shift resumes from the same ticket.
+- **Fast-food crew** runs the grill at Greene Street Grill. Read the customer's name, burger, topping, side and drink. Select the flat top to load, flip and lift the patty. You can lower a fryer basket and start a fountain drink while the burger cooks. Stop each in the green band, assemble the burger, and serve the customer when the whole tray is ready. Tap the stations and tools or use the interaction menu. The shift pays $80 plus $8 for each correctly prepared, well-timed order.
+- **Pizza, coffee and bakery** shifts use a pizza oven, an espresso bar or a bake oven. You can also clock in at a mapped burger restaurant, pizzeria, coffee shop or bakery. Walk up to its register, press **G** and select **Clock in**.
+- **Other workplaces** issue trade-specific work slips. For example, a mailroom clerk scans an envelope, sorts it into the tenant's box and closes the slip. A finance associate opens a client ledger and posts the reconciled balance.
 - **Food courier** offers a restaurant pickup and a customer drop-off. Stop at both gold markers in order to earn the fee and a time-based tip.
 - **Newspaper carrier** pays $18 per stop plus a time bonus for completing a two- or three-stop paper round.
 - **Coffee cart** costs $60 with six cups included. Six more cost $12. Approach a pedestrian and select **Offer coffee nearby** to sell a cup for $5.
