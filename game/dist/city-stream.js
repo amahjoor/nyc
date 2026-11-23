@@ -4,6 +4,7 @@ import { mercatorCoefficients, atlasProjectionGLSL } from './imagery-projection.
 import { chooseStyle, featureRandom, writeFacade, createFacadeScratch, applyFacadeShader, HEIGHT_UNIT, setLots, setLandmarks } from './facade.js';
 import { createLots } from './lots.js';
 import { streamRanges, leadPoint } from './aloft.js';
+import { looksCoarse, inPicture } from './detail-view.js';
 import { createLandmarkBuildings } from './landmarks.js';
 import { replacedByMonument } from './monuments.js';
 
@@ -379,7 +380,7 @@ export function createCityStream(index, options = {}) {
 class CityStream {
   // Binding preserves the browser receiver when load() calls this.fetcher().
   constructor(index, { scene, onCollisionChange = () => {}, onStatus = () => {}, fetcher = globalThis.fetch.bind(globalThis),
-    concurrency = 8, maxCacheBytes = 210 * 1024 * 1024, heightAt = () => 0, decoder, store = null } = {}) {
+    concurrency = 12, maxCacheBytes = 210 * 1024 * 1024, heightAt = () => 0, decoder, store = null } = {}) {
     // Tiles already fetched on this machine are read from `store` (tile-store.js) instead of the network.
     this.store = store;
     // One pool of background decoders serves every stream on the page.
@@ -555,21 +556,52 @@ class CityStream {
     return { ready: loadedChunks === nodes.length, chunks: nodes.length, loadedChunks };
   }
 
-  /** Let go of what prepareScenery() kept. */
+  /**
+   * The same for pictures that are on their way: each of `views` is `{focus, altitude, view}` as update() will
+   * be given them (`view` from detail-view.js, or null for the street). What update() would draw for each is
+   * fetched and kept until releaseScenery(), the first view's first. Resolves when every tile has arrived or failed.
+   */
+  async prepareViews(views) {
+    if (this.disposed || !views.length) return { ready: !this.disposed, chunks: 0, loadedChunks: 0 };
+    const nodes = new Map();
+    views.forEach((each, order) => {
+      for (const node of this.select(each.focus, each.focus, streamRanges(each.altitude || 0), false, [], each.view || null)) {
+        if (!nodes.has(node.id)) nodes.set(node.id, { node, priority: order * 20000 + Math.hypot(node.x - each.focus.x, node.z - each.focus.z) - 90000 });
+      }
+    });
+    for (const id of nodes.keys()) this.held.add(id);
+    const results = await Promise.allSettled([...nodes.values()].map(({ node, priority }) => this.request(node, priority)));
+    const loadedChunks = results.filter(result => result.status === 'fulfilled').length;
+    return { ready: loadedChunks === nodes.size, chunks: nodes.size, loadedChunks };
+  }
+
+  /** Whether everything update() would draw for each of `views` (as prepareViews takes them) has arrived, or failed for now. */
+  viewsReady(views) {
+    return !this.disposed && views.every(each => this.select(each.focus, each.focus, streamRanges(each.altitude || 0), false, [], each.view || null)
+      .every(node => this.cache.has(node.id) || this.errors.has(node.id)));
+  }
+
+  /** Let go of what prepareScenery() and prepareViews() kept. */
   releaseScenery() {
     if (!this.held.size) return;
     this.held.clear();
     if (!this.disposed) this.evict();
   }
 
-  /** The tiles to draw: coarse ones far off, each refined into its children where it is near or wanted in detail. */
-  select(focus, ahead, ranges, overview, detail) {
+  /**
+   * The tiles to draw: coarse ones far off, each refined into its children where it is near or wanted in detail,
+   * and, given a `view` from above (detail-view.js), wherever the picture shows it larger than its level allows.
+   */
+  select(focus, ahead, ranges, overview, detail, view = null) {
     const selected = [];
     const visit = node => {
+      // A camera that will not turn has no use for what is outside its picture.
+      if (view?.only && !inPicture(node, view)) return;
       const here = Math.hypot(node.x - focus.x, node.z - focus.z) - node.radius, distance = Math.min(here, Math.hypot(node.x - ahead.x, node.z - ahead.z) - node.radius);
       const wanted = !overview && detail.some(circle => Math.hypot(node.x - circle.x, node.z - circle.z) - node.radius < circle.radius);
-      if (!overview && !wanted && here > ranges.cut) return;
-      if (!overview && node.children.length && (wanted || distance < ranges.refine)) {
+      const coarse = Boolean(view) && node.children.length > 0 && looksCoarse(node, view);
+      if (!overview && !wanted && !coarse && here > ranges.cut) return;
+      if (node.children.length && (coarse || !overview && (wanted || distance < ranges.refine))) {
         node.children.forEach(id => visit(this.nodes.get(id))); return;
       }
       if (node.resource !== null) selected.push(node);
@@ -585,12 +617,15 @@ class CityStream {
    * `detail` is a list of circles `{x, z, radius}` that are drawn in full detail from any height: what a camera
    * looking down from high above a place is there to show.
    */
-  update(focus, camera, { overview = false, altitude = 0, collisionAltitude = altitude, detail = [] } = {}) {
+  update(focus, camera, { overview = false, altitude = 0, collisionAltitude = altitude, detail = [], view = null } = {}) {
     if (this.disposed) return;
     this.focus = { x: focus.x, z: focus.z };
     const now = Date.now();
     // A change in what is wanted in detail is acted on at once; otherwise three selections a second are enough.
-    const detailKey = detail.length ? detail.map(circle => `${Math.round(circle.x / 50)},${Math.round(circle.z / 50)},${Math.round(circle.radius / 100)}`).join(';') : '';
+    // A view from above changes what it wants as it moves a fifth of its own height, or that far across the ground.
+    const step = view ? Math.max(40, view.eye.height * .2) : 0;
+    const detailKey = (detail.length ? detail.map(circle => `${Math.round(circle.x / 50)},${Math.round(circle.z / 50)},${Math.round(circle.radius / 100)}`).join(';') : '')
+      + (view ? `|${Math.round(Math.log(Math.max(1, view.eye.height)) * 5)},${Math.round(view.over.x / step)},${Math.round(view.over.z / step)},${view.only}` : '');
     if (now - this.lastSelection < 350 && overview === this.lastOverview && detailKey === this.lastDetail) return;
     this.lastDetail = detailKey;
     // How fast the focus is moving, from where it was at the last selection.
@@ -598,7 +633,9 @@ class CityStream {
     const velocity = was && elapsed > 0 && elapsed < 2 ? { x: (focus.x - was.x) / elapsed, z: (focus.z - was.z) / elapsed } : { x: 0, z: 0 };
     this.selectedAt = { x: focus.x, z: focus.z };
     this.lastSelection = now; this.lastOverview = overview;
-    const selected = this.select(focus, leadPoint(focus, velocity), streamRanges(altitude), overview, detail);
+    // Something flying fast is past a tile before its finer children could arrive: the faster, the coarser it is left.
+    if (view && !view.only && !overview) view = { ...view, tolerance: view.tolerance * Math.min(4, Math.max(1, 1 + (Math.hypot(velocity.x, velocity.z) - 30) / 50)) };
+    const selected = this.select(focus, leadPoint(focus, velocity), streamRanges(altitude), overview, detail, view);
     this.desired = new Set(selected.map(node => node.id));
     // Keep the player's walls loaded even when the camera rises above the street.
     const physicsRange = streamRanges(collisionAltitude).physics;
@@ -612,7 +649,9 @@ class CityStream {
       const priority = Math.hypot(node.x - focus.x, node.z - focus.z) - node.radius - 10000;
       this.request(node, priority).catch(() => {});
     }
-    for (const node of selected) this.request(node, Math.hypot(node.x - focus.x, node.z - focus.z)).catch(() => {});
+    // What the picture is of comes first: from above that is the middle of the picture, not where the player stands.
+    const first = view ? view.over : focus;
+    for (const node of selected) this.request(node, Math.hypot(node.x - first.x, node.z - first.z)).catch(() => {});
     this.queue = this.queue.filter(task => {
       if (this.desired.has(task.node.id) || this.physicsDesired.has(task.node.id) || this.protected.has(task.node.id) || this.held.has(task.node.id)) return true;
       this.requests.delete(task.node.id); task.reject(new Error('NYC tile selection changed.')); return false;
@@ -765,7 +804,7 @@ class CityStream {
       && !this.physicsDesired?.has(record.node.id) && !this.collisionDesired.has(record.node.id)
       && !this.protected.has(record.node.id) && !this.preparedCollisions.has(record.node.id) && !this.held.has(record.node.id)).sort((a, b) => a.used - b.used);
     for (const record of removable) {
-      if (bytes <= this.maxCacheBytes && this.cache.size <= 140) break;
+      if (bytes <= this.maxCacheBytes && this.cache.size <= 320) break;
       this.cache.delete(record.node.id); this.group.remove(record.mesh); record.mesh.geometry.dispose(); bytes -= record.bytes; changed ||= record.buildings.length > 0;
     }
     if (changed) this.emitCollisions();

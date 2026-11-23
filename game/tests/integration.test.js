@@ -80,7 +80,8 @@ import { createPhoneLens } from '../dist/phone-camera.js';
 import { createFleet } from '../dist/fleet.js';
 import { createVehicleMeshLibrary } from '../dist/vehicle-assets.js';
 import { designFor } from '../dist/vehicle-designs.js';
-import { createSwitchShot, LEVELS, levelsFor, ceilingFor, groundReach } from '../dist/switch-shot.js';
+import { createSwitchShot, LEVELS, levelsFor, ceilingFor, groundReach, SHOT_FOV, DRIFT } from '../dist/switch-shot.js';
+import { detailView, viewFromAbove } from '../dist/detail-view.js';
 import { createPickerFlight } from '../dist/picker-flight.js';
 import { createTileStore } from '../dist/tile-store.js';
 import { offersAt, shopRows, vehicleHandling } from '../dist/garage.js';
@@ -355,7 +356,7 @@ async function bootHarness({ stored = null, displayStored = null, unavailableSto
     // Bundled survey cells only: these tests stay offline.
     createStreetscape:options=>createStreetscape({...options,live:false,now:()=>timestamp}),
     createPhoneLens,
-    LEVELS, levelsFor, ceilingFor, groundReach,
+    LEVELS, levelsFor, ceilingFor, groundReach, SHOT_FOV, DRIFT, detailView, viewFromAbove,
     setTimeout(callback, delay) { return setTimeout(callback, delay).unref(); },
     console: { error: error => errors.push(error), warn: () => {}, log: () => {} },
     matchMedia: () => ({ matches: coarsePointer }),

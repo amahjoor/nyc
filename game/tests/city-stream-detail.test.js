@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { createCityStream } from '../dist/city-stream.js';
+import { viewFromAbove } from '../dist/detail-view.js';
 
 const index = JSON.parse(readFileSync(new URL('../dist/city-index.json', import.meta.url)));
 // The smallest tile the decoder accepts: one building that is one flat triangle ten metres across.
@@ -81,4 +82,45 @@ test('scenery fetched ahead is kept, unseen, until it is wanted or let go', asyn
   const partial = await broken.stream.prepareScenery([{ ...soho, radius: 700 }]);
   assert.deepEqual(partial, { ready: false, chunks: result.chunks, loadedChunks: result.chunks - 1 });
   assert.deepEqual(await broken.stream.prepareScenery([]), { ready: true, chunks: 0, loadedChunks: 0 });
+});
+
+test('a picture from above is drawn at the level its height shows, and the pictures of a descent can be fetched ahead', async t => {
+  const f = fixture(); t.after(() => f.stream.dispose());
+  const level = node => { let depth = 0; while (node.parent !== null && node.parent !== undefined) { node = f.stream.nodes.get(node.parent); depth++; } return depth; };
+  const under = radius => [...f.stream.desired].map(id => f.stream.nodes.get(id)).filter(node => Math.hypot(node.x - soho.x, node.z - soho.z) < radius);
+  const view = height => viewFromAbove(soho, height, 46, 16 / 9, 900);
+  // The map of the city, with the picture of it given: still the coarsest level, as it was without one.
+  f.stream.update(soho, null, { overview: true }); const plain = f.stream.desired.size;
+  f.stream.lastSelection = -Infinity; f.stream.update(soho, null, { overview: true, view: viewFromAbove(soho, 40000, 52, 16 / 9, 900, false) });
+  assert.equal(f.stream.desired.size, plain);
+  // Zoomed in on a place, the map refines it, which it never did before.
+  f.stream.update(soho, null, { overview: true, view: viewFromAbove(soho, 2940, 52, 16 / 9, 900, false) });
+  assert.ok(under(400).length > 0 && under(400).every(node => level(node) >= 3), 'no coarse tile under a camera three kilometres up');
+  assert.ok(f.stream.desired.size > plain, 'and the rest of the city is still there, coarse');
+  // The shot's camera does not turn: what is outside its picture is not drawn at all.
+  f.stream.update(soho, null, { altitude: 650, view: view(650) });
+  const reach = view(650).reach;
+  assert.ok([...f.stream.desired].every(id => { const node = f.stream.nodes.get(id); return Math.hypot(node.x - soho.x, node.z - soho.z) - node.radius < reach; }));
+  assert.ok(under(100).every(node => !node.children.length), 'and from there the place is the survey in full');
+  await f.settle();
+  // A descent fetched ahead: every picture on the way down, then the street. Nothing more is asked for as it happens.
+  const g = fixture(); t.after(() => g.stream.dispose());
+  g.stream.update({ x: 14000, z: -4500 }, null, { overview: true }); await g.settle();
+  const heights = [2940, 2660, 682, 617, 157, 142], views = heights.map(height => ({ focus: soho, altitude: height, view: view(height) })).concat({ focus: soho, altitude: 0, view: null });
+  assert.equal(g.stream.viewsReady(views), false);
+  const result = await g.stream.prepareViews(views);
+  assert.ok(result.ready && result.chunks > 20 && result.loadedChunks === result.chunks, JSON.stringify(result));
+  assert.equal(g.stream.viewsReady(views), true);
+  const asked = g.asked.length;
+  for (const height of heights) {
+    g.stream.lastSelection = -Infinity; g.stream.selectedAt = null; g.stream.update(soho, null, { altitude: height, view: view(height) });
+    assert.equal(g.stream.getStatus().loading, 0, `nothing to fetch at ${height} m`);
+    g.stream.showSelection();
+    assert.ok([...g.stream.desired].every(id => g.stream.cache.get(id)?.mesh.visible), `the picture at ${height} m is whole`);
+  }
+  assert.equal(g.asked.length, asked);
+  // Far fewer tiles than the same ground in full detail.
+  const full = await fixture().stream.prepareScenery([{ ...soho, radius: view(2940).reach / 1.15 }]);
+  assert.ok(result.chunks < full.chunks * .75, `${result.chunks} tiles against ${full.chunks}`);
+  assert.deepEqual(await g.stream.prepareViews([]), { ready: true, chunks: 0, loadedChunks: 0 });
 });

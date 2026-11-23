@@ -20,11 +20,15 @@
 /** Metres above the ground at each step: a block, a neighbourhood, a borough's width. */
 export const LEVELS = [150, 650, 2800];
 const MOVE = .32, DWELL = .46, LAND = .75, JOIN = .5, FOV = 46;
+/** The shot's field of view while it looks straight down, in degrees, and how far it drifts as it hangs, as a share of its height. */
+export const SHOT_FOV = FOV;
 // How long it will idle for a place that is not settled before it goes anyway, in seconds: first where it
 // waits for the place to arrive, then again over the place itself. A place that never settles is not a trap.
 const PATIENCE = 14, LINGER = 5;
+// How long a climb hangs on a step for the picture of the next one up to arrive, in seconds.
+const CLIMB_WAIT = 2.5;
 // How far the camera drifts while it pauses, as a share of its height: the picture never quite stands still.
-const DRIFT = .05;
+export const DRIFT = .05;
 
 const lerp = (a, b, t) => a + (b - a) * t;
 const mix = (a, b, t) => [lerp(a[0], b[0], t), lerp(a[1], b[1], t), lerp(a[2], b[2], t)];
@@ -72,9 +76,10 @@ function creeping(view, waited) {
  *   is leaving, or with `from` null waits where the camera is (`view` is its `{position, target, up, fov, near, far}`,
  *   and `view.creep` a number of metres for the held picture to ease forward while it waits). `toward`, if the
  *   destination is already known, is `{x, z}`: the climb then stops at the height that journey needs.
- *   `arrive(to)` says where the player now stands; `update(dt, settled)` advances it and gives the camera for
+ *   `arrive(to)` says where the player now stands; `update(dt, settled, climb)` advances it and gives the camera for
  *   this frame, or null once the game's own camera should take over (`settled` false makes it idle rather than
- *   cross to, or come down on, a place that is still being built); `cancel()` drops it.
+ *   cross to, or come down on, a place that is still being built; `climb` false makes a climb hang on its step
+ *   a little longer, for a higher picture that has not arrived); `cancel()` drops it.
  */
 export function createSwitchShot() {
   let stage = null, clock = 0, from = null, to = null, view = null, step = 0, top = 0, waited = 0, pending = null, cross = 0, last = null, arrived = 0;
@@ -86,6 +91,8 @@ export function createSwitchShot() {
     get stage() { return stage; },
     /** How many steps up it is, 0 at street level. */
     get level() { return stage === 'rise' ? step + 1 : stage === 'hold' || stage === 'cross' ? top + 1 : stage === 'fall' ? step + 1 : 0; },
+    /** The height of the step a climb will pull back to next, in metres: 0 when it is not climbing, or is on its last step. */
+    get climbingTo() { return stage === 'rise' && step < top ? LEVELS[step + 1] * (1 + DRIFT) : 0; },
     /** How high it hangs at the top of this journey, in metres: all the way up until the destination is known. */
     get ceiling() { return LEVELS[top] * (1 + DRIFT); },
     /** The place on the ground the picture is of, `{x, z}`: where to show the ground at its best. Null when unknown. */
@@ -107,7 +114,7 @@ export function createSwitchShot() {
       if (from) top = Math.max(stage === 'rise' ? step : 0, levelsFor(Math.hypot(place.x - from.x, place.z - from.z)) - 1);
     },
     cancel() { stage = null; pending = null; },
-    update(dt, settled = true) {
+    update(dt, settled = true, climb = true) {
       if (stage === null) return null;
       clock += Math.max(0, dt);
       if (stage === 'rise') {
@@ -115,7 +122,8 @@ export function createSwitchShot() {
         const lower = step ? above(from, LEVELS[step - 1] * (1 + DRIFT)) : view || above(from, 12), span = (step ? MOVE : JOIN) + DWELL;
         const move = snap(clock / (step ? MOVE : JOIN)), drift = 1 + DRIFT * clamp((clock - (step ? MOVE : JOIN)) / DWELL);
         last = blend(lower, above(from, LEVELS[step] * drift), move);
-        if (clock >= span) { if (step >= top) next('hold'); else { step++; clock = 0; } }
+        // It does not pull back onto a picture that has not arrived (`climb` false), though it will not hang there long.
+        if (clock >= span) { if (step >= top) next('hold'); else if (climb || clock >= span + CLIMB_WAIT) { step++; clock = 0; } }
       } else if (stage === 'hold') {
         // Waiting on the place to load: over where we left, or wherever the camera already was.
         waited += dt;

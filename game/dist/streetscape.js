@@ -389,7 +389,7 @@ function paint(writer, heightAt, ax, az, bx, bz, width, color) {
  * @param {object[]} roads street centrelines near the cell
  * @param {object} options ground sampler, the cell's bounds, and a time-slicing hook
  */
-export async function buildCell(surfaces, roads, { heightAt = () => 0, bounds = null, pause = async () => {}, excluded = null, census = null } = {}) {
+export async function buildCell(surfaces, roads, { heightAt = () => 0, bounds = null, pause = async () => {}, excluded = null, census = null, slice = () => 5 } = {}) {
   const road = new MeshWriter(), walk = new MeshWriter(3), marks = new MeshWriter(3);
   const grid = new SurfaceGrid(), lamps = [], entries = [], trees = [], planted = [], kerbs = [], parking = [], walks = [], crossings = [];
   const sample = (x, z) => { const value = heightAt(x, z); return finite(value) ? value : 0; };
@@ -437,7 +437,8 @@ export async function buildCell(surfaces, roads, { heightAt = () => 0, bounds = 
 
   const fences = [];
   let budget = performance.now(), drawn = 0;
-  const breathe = async () => { if (performance.now() - budget > 5) { await pause(); budget = performance.now(); } };
+  // `slice` is how many milliseconds of this work may be done before the page is given a turn.
+  const breathe = async () => { if (performance.now() - budget > slice()) { await pause(); budget = performance.now(); } };
 
   for (const entry of entries) {
     if (!entry.owned || entry.elevated || (excluded && excluded(entry.surface))) continue;
@@ -848,7 +849,7 @@ export function createStreetscape({ scene, index = null, origin = CITY_ORIGIN, h
   const materials = { road: asphaltMaterial(), walk: pavementMaterial(), marks: paintMaterial() };
   if (stairOpenings) for (const material of Object.values(materials)) stairOpenings.clip(material);
   const cells = new Map();
-  let wanted = new Set(), disposed = false, serial = 0, terrainRevision = 0, selection = '', active = 0, replacement = null;
+  let wanted = new Set(), disposed = false, serial = 0, terrainRevision = 0, selection = '', active = 0, replacement = null, urgent = 0;
   let crossingCache;
   let lampList = [], treeList = [], parkingList = [], walkList = [], lampsStale = true, treesStale = true, parkingStale = true, walksStale = true;
   const excluded = surface => replacement && surface.polygon.some(([x, z]) => x >= replacement.minX && x <= replacement.maxX && z >= replacement.minZ && z <= replacement.maxZ);
@@ -920,6 +921,15 @@ export function createStreetscape({ scene, index = null, origin = CITY_ORIGIN, h
     cell.grid = built.grid; cell.lamps = built.lamps; cell.trees = built.trees; cell.parking = built.parking; cell.walks = built.walks; cell.crossings = built.crossings; cell.surfaces = built.surfaces; cell.ready = true; cell.revision = terrainRevision;
     lampsStale = treesStale = parkingStale = walksStale = true;
   }
+  // The ground at eighty-one points under a cell and a little way round it: what the cell was draped on. Finer terrain
+  // arrives a region at a time, and most of it is under some other part of the city: a cell whose ground reads the same
+  // afterwards is left as it was built. A change narrower than the sixty metres between two points can be missed.
+  const probe = bounds => {
+    const heights = new Float32Array(81), x0 = bounds.minX - 60, z0 = bounds.minZ - 60, dx = (bounds.maxX - bounds.minX + 120) / 8, dz = (bounds.maxZ - bounds.minZ + 120) / 8;
+    for (let i = 0; i < 9; i++) for (let k = 0; k < 9; k++) heights[i * 9 + k] = heightAt(x0 + dx * i, z0 + dz * k) || 0;
+    return heights;
+  };
+  const sameGround = (a, b) => Boolean(a && b) && a.every((height, i) => Math.abs(height - b[i]) < .01);
   async function load(cell) {
     cell.loading = true; cell.failed = false; active++;
     const controller = new AbortController(), timer = setTimeout(() => controller.abort(), 15000);
@@ -934,9 +944,9 @@ export function createStreetscape({ scene, index = null, origin = CITY_ORIGIN, h
       if (disposed || cell.controller !== controller) return;
       const roads = await roadsFor(bounds).catch(() => []);
       if (disposed || cell.controller !== controller) return;
-      const revision = terrainRevision;
+      const revision = terrainRevision, ground = probe(bounds);
       const pause = () => new Promise(resolve => setTimeout(resolve, 0));
-      const built = await buildCell(cell.data.surfaces, roads, { heightAt, bounds, excluded, census: cell.census, pause });
+      const built = await buildCell(cell.data.surfaces, roads, { heightAt, bounds, excluded, census: cell.census, pause, slice: () => [5, 20, 80][urgent] });
       // Packing each batch for the GPU is its own piece of work; spread them over frames.
       built.geometries = {};
       for (const [name, attribute] of [['road', null], ['walk', 'aPaving'], ['marks', 'aPaint']]) {
@@ -944,7 +954,9 @@ export function createStreetscape({ scene, index = null, origin = CITY_ORIGIN, h
         if (built[name].count) { built.geometries[name] = built[name].geometry(attribute); await pause(); }
       }
       if (disposed || cell.controller !== controller || !cells.has(cell.key)) { for (const geometry of Object.values(built.geometries)) geometry.dispose(); return; }
-      install(cell, built); cell.revision = revision;
+      install(cell, built); cell.ground = ground;
+      // Terrain that changed elsewhere while this was being built has not made it stale.
+      cell.revision = revision === terrainRevision || sameGround(ground, probe(bounds)) ? terrainRevision : revision;
       onChange();
     } catch (error) {
       if (!disposed && cell.controller === controller) { cell.failed = true; cell.retryAt = now() + 5000; cell.error = error.message; }
@@ -958,7 +970,7 @@ export function createStreetscape({ scene, index = null, origin = CITY_ORIGIN, h
     if (disposed) return;
     const queue = [...wanted].map(key => cells.get(key)).filter(cell => cell && !cell.loading && (!cell.ready || cell.revision !== terrainRevision) && !(cell.failed && cell.retryAt > now()))
       .sort((a, b) => a.distance - b.distance);
-    for (const cell of queue) { if (active >= 3) break; load(cell); }
+    for (const cell of queue) { if (active >= (urgent ? 6 : 3)) break; load(cell); }
   }
   function trim() {
     for (const cell of [...cells.values()].sort((a, b) => a.used - b.used)) {
@@ -1001,6 +1013,12 @@ export function createStreetscape({ scene, index = null, origin = CITY_ORIGIN, h
       }
       if (!overview) pump();
     },
+    /**
+     * Say how much the streets are being waited for: 0 while someone is playing, when a cell is built in pieces of a few
+     * milliseconds so that driving into it does not cost a frame; 2 while an arrival is held until they are built, when
+     * more cells are fetched at once and each is built in long pieces; 1, between the two, for a place that may be asked for.
+     */
+    setUrgent(level) { const next = Math.max(0, Math.min(2, Number(level) || 0)); if (urgent === next) return; urgent = next; if (urgent) pump(); },
     /** Wait, briefly, for the streets around a destination. Never rejects. */
     async prepareAt(point, timeout = 2500) {
       if (disposed) return false;
@@ -1065,7 +1083,10 @@ export function createStreetscape({ scene, index = null, origin = CITY_ORIGIN, h
     },
     setTerrainSampler(sampler, revision = terrainRevision + 1) {
       if (disposed || (heightAt === sampler && terrainRevision === revision)) return;
-      heightAt = typeof sampler === 'function' ? sampler : () => 0; terrainRevision = revision; pump();
+      const previous = terrainRevision;
+      heightAt = typeof sampler === 'function' ? sampler : () => 0; terrainRevision = revision;
+      for (const cell of cells.values()) if (cell.ready && cell.revision === previous && sameGround(cell.ground, probe(cellBounds(cell.key, size)))) cell.revision = revision;
+      pump();
     },
     /** Leave a rectangle to another renderer, such as the reconstructed road pilot. */
     setGroundReplacementBounds(bounds) {

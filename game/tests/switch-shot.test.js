@@ -136,3 +136,21 @@ test('a place that never loads, or an arrival nobody asked for, leaves the game 
   let peak = 0; run(shot, 10, pose => { peak = Math.max(peak, height(pose)); });
   assert.equal(shot.active, false); assert.ok(peak < LEVELS[0] * 1.12);
 });
+
+test('a climb hangs on its step for a higher picture that has not arrived, but not for long', () => {
+  const shot = createSwitchShot(), from = { x: 100, y: 10, z: -100, angle: .4 };
+  shot.depart(from, chase);
+  assert.equal(shot.climbingTo > LEVELS[1] && shot.climbingTo < LEVELS[1] * 1.06, true, 'from the first step it is going to the second');
+  // The pictures are there for the first two steps and not for the third.
+  let pose = null;
+  for (let t = 0; t < 3.5; t += 1 / 60) pose = shot.update(1 / 60, true, shot.climbingTo < LEVELS[2]);
+  assert.equal(shot.stage, 'rise'); assert.ok(height(pose) > LEVELS[1] && height(pose) < LEVELS[1] * 1.06, 'it waits a neighbourhood up');
+  assert.ok(shot.climbingTo > LEVELS[2]);
+  // It arrives: the climb goes on at once.
+  for (let t = 0; t < 1; t += 1 / 60) pose = shot.update(1 / 60, true, true);
+  assert.equal(shot.stage, 'hold'); assert.ok(height(pose) > LEVELS[2]); assert.equal(shot.climbingTo, 0);
+  // A picture that never arrives holds it two and a half seconds a step, no more.
+  const stuck = createSwitchShot(); stuck.depart(from, chase);
+  for (let t = 0; t < 9; t += 1 / 60) stuck.update(1 / 60, true, false);
+  assert.equal(stuck.stage, 'hold');
+});

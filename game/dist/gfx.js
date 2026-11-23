@@ -148,7 +148,7 @@ export class Graphics {
   }
 
   /** Fit each cascade around the area in view, snapped to its own texels. */
-  _placeCascades(overview) {
+  _placeCascades(overview, height = 0) {
     const direction = this._sunDirection;
     // Light-space axes, matching the look-at the shadow camera will perform.
     this._right.crossVectors(UP, direction).normalize(); this._up.crossVectors(direction, this._right).normalize();
@@ -172,9 +172,13 @@ export class Graphics {
         camera.near = 1; camera.far = reach + extent * 2.5; camera.updateProjectionMatrix();
       }
       // The outer maps change slowly; redraw them on alternating frames.
-      light.shadow.autoUpdate = i === 0;
-      if (i === 1) light.shadow.needsUpdate = this.frame % 2 === 0;
-      if (i === 2) light.shadow.needsUpdate = this.frame % 4 === 1;
+      // From high above, a map's whole reach is a patch of the picture and nothing in it is seen to move: all three
+      // are then redrawn only now and then. A map keeps the placing it was last drawn with, so it stays true meanwhile.
+      const far = height > 700;
+      light.shadow.autoUpdate = i === 0 && !far;
+      if (i === 0 && far) light.shadow.needsUpdate = this.frame % 16 === 3;
+      if (i === 1) light.shadow.needsUpdate = far ? this.frame % 16 === 7 : this.frame % 2 === 0;
+      if (i === 2) light.shadow.needsUpdate = far ? this.frame % 8 === 1 : this.frame % 4 === 1;
     });
   }
 
@@ -182,7 +186,7 @@ export class Graphics {
    * @param {number} dt seconds since the last frame
    * @param {object} view focus point of the action and whether this is the whole-city overview
    */
-  update(dt, { focus, overview = false, paused = false, underwater = false } = {}) {
+  update(dt, { focus, overview = false, paused = false, underwater = false, height = 0 } = {}) {
     this.elapsed += dt; this.frame++;
     shared.uNycTime.value = this.elapsed;
     if (this.clockRunning && !paused) this.hours = (this.hours + dt * this.timeRate) % DAY_HOURS;
@@ -196,7 +200,7 @@ export class Graphics {
       this.fog.density=.14;
     }
     this.overview = overview;
-    if (this.shadowsActive) this._placeCascades(overview);
+    if (this.shadowsActive) this._placeCascades(overview, height);
   }
 
   render() {

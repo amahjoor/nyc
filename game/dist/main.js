@@ -5,7 +5,8 @@ import { formatMoney } from './money.js';
 import { createDoorDebris, hasAlteredGlazing } from './vehicle-detail.js';
 import { updateChaseHeight } from './vehicle-presentation.js';
 import { cabinSeatPoint, placeDriverCamera } from './driver-cabin.js';
-import { createSwitchShot, LEVELS, levelsFor, ceilingFor, groundReach } from './switch-shot.js';
+import { createSwitchShot, LEVELS, levelsFor, ceilingFor, groundReach, SHOT_FOV, DRIFT } from './switch-shot.js';
+import { detailView, viewFromAbove } from './detail-view.js';
 import { createPickerFlight } from './picker-flight.js';
 import { createTileStore } from './tile-store.js';
 import * as THREE from './vendor/three.module.min.js';
@@ -111,10 +112,9 @@ let viewOverride=null;
 const switchShot=createSwitchShot();let switchShotLive=false;
 // The spawn picker's map travelling from one chosen place to the next (picker-flight.js).
 const pickerFlight=createPickerFlight();
-// What an arrival looks down on. The buildings stand in full detail as far as the highest picture of the descent
-// reaches (no further than DESCENT_REACH metres), and the ground is photographed at the zoom each height wants
-// (arrivalZooms, coarsest first). All of it is fetched before the camera moves: see prepareDescent and arrivalSettled.
-const DESCENT_REACH=2600;
+// What an arrival looks down on. Each picture of the descent has its buildings at the level of detail that height
+// shows (buildingView), and the ground is photographed at the zoom each height wants (arrivalZooms, coarsest first).
+// All of it is fetched before the camera moves: see prepareDescent and arrivalSettled.
 let arrivalZooms=[], arrivalHeld=false;
 // Whether frames are running freely: none much longer than this machine's usual for half a second. A place being built stalls them.
 const frameCalm={quiet:0,usual:1/60,get calm(){return this.quiet>=.5;},
@@ -135,27 +135,69 @@ function showOpening(now){
   // The fade done, the canvas goes back to the stylesheet's own transitions.
   setTimeout(()=>{canvas.style.transition='';canvas.style.opacity='';},1300);
 }
+/** The heights the shot hangs at on a journey that climbs to `ceiling`, highest first: each step as it arrives there and as it leaves. */
+const shotHeights=ceiling=>LEVELS.filter(level=>level*1.02<=ceiling).reverse().flatMap(level=>[level*(1+DRIFT),level*(1-DRIFT)]);
+/** The picture the shot has looking straight down on `place` from `height`, for choosing the buildings' level of detail (detail-view.js). */
+const shotView=(place,height)=>viewFromAbove(place,height,SHOT_FOV,camera.aspect,renderer.domElement?.clientHeight);
 /** Fetch what the shot will show on its way down to `target`, and on its way up from `leaving` if there is such a place. */
 function prepareDescent(target,leaving){
   const ceiling=leaving?Math.max(switchShot.ceiling,ceilingFor(levelsFor(Math.hypot(target.x-leaving.x,target.z-leaving.z)))):ceilingFor(LEVELS.length);
-  const reach=Math.min(DESCENT_REACH,groundReach(ceiling,camera.aspect));
   arrivalZooms=[...new Set(LEVELS.filter(level=>level*1.02<=ceiling).map(level=>atlasZoomFor(level*1.06)).concat(atlasZoomFor(0)))].sort((a,b)=>a-b);
   arrivalHeld=true;
-  if(leaving)ground.prepare(leaving,arrivalZooms);
-  const ready=Promise.all([reach>850?world.prepareScenery([{x:target.x,z:target.z,radius:reach}]):null,ground.prepare(target,arrivalZooms)]);
+  if(leaving){
+    ground.prepare(leaving,arrivalZooms);
+    // The pictures of the climb are asked for at once: it hangs a step lower for the highest of them (climbReady).
+    world.prepareViews(shotHeights(ceiling).map(height=>({focus:leaving,altitude:height,view:shotView(leaving,height)}))).catch(()=>null);
+  }
+  // The buildings each picture of the descent needs at the level of detail it will be drawn in, the highest first, and then the street the player lands on.
+  const views=shotHeights(ceiling).map(height=>({focus:target,altitude:height,view:shotView(target,height)})).concat({focus:target,altitude:0,view:null});
+  const ready=Promise.all([world.prepareViews(views),ground.prepare(target,arrivalZooms)]);
   // Worth waiting for, but an arrival is never held up for good by a slow server.
   return Promise.race([ready,new Promise(resolve=>setTimeout(resolve,15000))]).catch(()=>null);
+}
+/** Whether the step a climb is about to pull back to has its picture: the buildings at that height's level of detail, and the ground. */
+function climbReady(){
+  const height=switchShot.climbingTo,over=switchShot.over;
+  if(!height||!over)return true;
+  const zoom=arrivalZooms.filter(each=>each<=atlasZoomFor(height)).at(-1)??arrivalZooms[0];
+  return world.viewsReady([{focus:over,altitude:height,view:shotView(over,height)}])&&(zoom===undefined||ground.has(over,zoom));
 }
 /** Whether the place the player has been put down in is built: nothing still loading, and frames running freely. */
 function arrivalSettled(){
   if(traveling||!frameCalm.calm)return false;
   return !(world.getStatus().loading||ground.getStatus().loading||streetDetail?.getStatus().loading||streetscape?.getStatus().loading||landscape?.getStatus().loading);
 }
-/** The circles of city the shot wants in full detail: a street's worth of the place it is leaving, and the place it is coming to as far as it can be seen from this height. */
-function arrivalDetail(){
-  if(!switchShot.active)return [];
-  const reach=Math.max(850,Math.min(DESCENT_REACH,groundReach(Math.min(viewHeight,switchShot.ceiling*1.02),camera.aspect)));
-  return switchShot.places.map(place=>({x:place.x,z:place.z,radius:place.leaving?850:reach}));
+/**
+ * The picture the buildings are chosen for (detail-view.js), or null on the street, where distance decides.
+ * The camera's own, except while the shot is on its steps: there it is the picture of the step it is at or
+ * leaving, the one that was fetched for it, so that a fast move between two steps asks for nothing new.
+ */
+function buildingView(){
+  const tall=renderer.domElement?.clientHeight;
+  if(switchShot.active&&switchShot.stage!=='land'){
+    const over=switchShot.over,step=shotHeights(switchShot.ceiling).filter(height=>height>=viewHeight*.9).at(-1);
+    if(over&&step&&Math.hypot(camera.position.x-over.x,camera.position.z-over.z)<step*.25)return shotView(over,step);
+  }
+  camera.updateMatrixWorld();
+  // The shot's camera does not turn until it lands, so nothing outside its picture is drawn for it.
+  return detailView(camera.matrixWorld.elements,camera.fov,camera.aspect,camera.position.y-viewHeight,tall,switchShot.active&&switchShot.stage!=='land');
+}
+// What can be made out from the height the shot hangs at: the city's own shapes, its ground and its water. Everything
+// else in the scene is the size of a street's furniture: people, cars, signs, shop fronts.
+const CITY_SCALE=new Set(['Streamed official NYC survey','Measured NYC landscape reconstruction','Park trees','Surveyed waterfront','Harbor and river water',
+  'NYC 2024 aerial imagery','Sky','Statue of Liberty','NYC mapped street surfaces','Street surfaces','NYC DOT bike lanes','City transport']);
+/** Whether the shot is too high over the street for anything of a street's size to show: a person is under three pixels. */
+const shotIsHigh=()=>switchShot.active&&viewHeight>700;
+/**
+ * Leave the street's own things out of this frame, and give back the ones that were hidden so that they can be shown again
+ * after it. They are a third of the picture's cost from where none of them can be seen. One frame in sixteen draws them all
+ * the same: what is new among them is then sent to the graphics card while the camera waits, not on its way down.
+ */
+function hideStreetScale(){
+  if(gfx.frame%16===0)return null;
+  const hidden=[];
+  for(const thing of scene.children)if(thing.visible&&!thing.isLight&&!CITY_SCALE.has(thing.name)&&(thing.isMesh||thing.isGroup||thing.isPoints||thing.isLine||thing.isSprite)&&thing!==avatar){thing.visible=false;hidden.push(thing);}
+  return hidden;
 }
 /** The zoom to paint the ground at for the shot's camera: the sharpest fetched one that still covers the picture. */
 function arrivalZoom(over){
@@ -1970,7 +2012,7 @@ function updateCamera(dt) {
     camera.lookAt(...v.target);camera.updateProjectionMatrix();return;
   }
   // Between two places the shot has the camera: straight up, across, and down behind the player.
-  const shotPose=switchShot.update(dt,arrivalSettled());
+  const shotPose=switchShot.update(dt,arrivalSettled(),climbReady());
   if(shotPose){
     chaseHeight=null;chaseEyeOffset=null;input.lookDelta=0;input.lookVertical=0;
     camera.up.set(...shotPose.up);camera.position.set(...shotPose.position);camera.near=shotPose.near;camera.far=shotPose.far;camera.fov=shotPose.fov;
@@ -2197,17 +2239,15 @@ function frame(now) {
   const playerAltitude=(sim.player.y||0)-groundHeight(sim.player.x,sim.player.z);
   viewHeight=Math.max(0,camera.position.y-groundHeight(camera.position.x,camera.position.z),playerAltitude);
   aloft=started&&!cityView&&!switchShot.active&&aboveTheStreet(viewHeight,aloft);
-  if(!traveling)world.update(sim.player,camera,{overview:cityView||!started,altitude:started&&!cityView?viewHeight:0,collisionAltitude:Math.max(0,playerAltitude-35),detail:arrivalDetail()});
+  if(!traveling)world.update(sim.player,camera,{overview:cityView||!started,altitude:started&&!cityView?viewHeight:0,collisionAltitude:Math.max(0,playerAltitude-35),view:started?buildingView():null});
   // Under the shot the ground is painted for the place and the height in the picture; otherwise for the street the player is on.
   const shotOver=switchShot.active?switchShot.over:null;
   ground.update(shotOver||sim.player,{overview:cityView||!started,zoom:shotOver?arrivalZoom(shotOver):undefined});
   // Once the shot is over, what was fetched for it is let go.
-  if(arrivalHeld&&!switchShot.active&&!traveling){arrivalHeld=false;arrivalZooms=[];world.releaseScenery();ground.release();}
-  // From the height the shot swoops in at, the cars at the kerb are specks and cost more than the city under them.
-  // They are left out until a street can be made out, having been drawn while the place was being built.
-  const carsHidden=(switchShot.stage==='cross'||switchShot.stage==='fall')&&viewHeight>700;
-  if(parkedCars)parkedCars.group.visible=!carsHidden;
-  if(distantTraffic)distantTraffic.group.visible=!carsHidden;
+  if(arrivalHeld&&!switchShot.active&&!traveling&&!(cityView&&warming)){arrivalHeld=false;arrivalZooms=[];world.releaseScenery();ground.release();}
+  // While the shot hangs high over a place being built, the street builders work in long pieces: a stall is not seen from there.
+  // Over the picker's map, for a place chosen there, in middling ones.
+  streetscape?.setUrgent(traveling||shotIsHigh()?2:cityView&&warming?1:0);
   world.setLocalOrthophoto(ground.localOrthophoto);
   landscape?.setLocalOrthophoto(ground.localOrthophoto);
   landscape?.update(sim.player,{overview:cityView||!started});
@@ -2231,7 +2271,7 @@ function frame(now) {
   const immersed=cameraWater && camera.position.y<cameraWater.level;
   water.waterfront.underwater(camera.position,Boolean(immersed&&cameraWater.tidal));
   water.waterfront.update(lit,terrainHeight,landscapeRevision,cityView&&!viewOverride);
-  gfx.update(dt,{underwater:Boolean(immersed),focus:lit,overview:(cityView&&!viewOverride)||aloft,paused:paused||mapOpen||Boolean(subwayVisit)});
+  gfx.update(dt,{underwater:Boolean(immersed),focus:lit,overview:(cityView&&!viewOverride)||aloft,paused:paused||mapOpen||Boolean(subwayVisit),height:viewHeight});
   // The streets under an aircraft are not driven on: they are fetched again when the view comes down.
   if(bootReady&&!traveling&&!aloft)refreshRoads();
   if(bootReady&&started&&!traveling&&!cityView)refreshParkedCars();
@@ -2503,7 +2543,9 @@ function frame(now) {
   // Above the street nothing of its furniture is drawn; each is shown again by its own update when the view comes down.
   if(aloft)for(const thing of [crowd?.mesh,signs?.group,props?.group,subwayStairs?.group,busStops?.group,shedMesh?.mesh,diningMesh?.mesh,standMesh?.mesh,bikeDocks?.group,trashMesh?.mesh])if(thing)thing.visible=false;
   if(figures)figures.group.visible=crowd.mesh.visible;
+  const unseen=shotIsHigh()?hideStreetScale():null;
   gfx.render();
+  if(unseen)for(const thing of unseen)thing.visible=true;
   if(phone?.open && phone.screen==='camera'){
     phoneLens?.preview({renderer,scene,view:camera,canvas:$('phone-lens'),player:sim.player,eye:playerBody?.eyePosition?.(lensEye)||null,facing:phone.facing,body:playerBody?.mesh,hide:phoneHand?.group});
   }
@@ -2679,6 +2721,27 @@ function focusCityDestination(place){
   // The map flies there from wherever it is: back far enough to show both places, across, and in on the new one.
   const b=city.bounds,span=Math.max(b.maxX-b.minX,b.maxZ-b.minZ);
   pickerFlight.start({x:cityFocus?.x??(b.minX+b.maxX)/2,z:cityFocus?.z??(b.minZ+b.maxZ)/2,width:span*cityZoom},{x:place.x,z:place.z,width:span*.18});
+  warmArrival(place);
+}
+// A place chosen on the picker's map is probably where the player will ask to be put down. What that arrival needs (the
+// buildings and ground of the descent, the streets under it) is fetched while the place is being looked at, so that Spawn
+// has little left to wait for. A newer choice takes over from an older one; leaving the map lets it all go.
+let warming=0;
+function warmArrival(place){
+  const turn=++warming;
+  // Not for a place the map only passes on its way to another: the choice has to stand a moment first.
+  setTimeout(async()=>{
+    if(turn!==warming||traveling||!cityView||!bootReady)return;
+    try{
+      const roads=await roadStream.loadAround(place,1000),target=place.exact?place:nearestStreet(roads,place,600);
+      if(!target||turn!==warming||traveling||!cityView)return;
+      world.releaseScenery();ground.release();
+      streetscape?.prepareAt(target,0);
+      prepareDescent(target,null);
+    }catch{
+      // Nothing is lost: the arrival fetches for itself whatever this did not.
+    }
+  },700);
 }
 function updateLocation(){
   const geo=worldToGeographic(sim.player.x,sim.player.z);
