@@ -3,6 +3,8 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { buildBody, createRig, restWorld, heightOf, palette, PAINT, HAIR, TOPS, BOTTOMS } from '../dist/body.js';
 import { createMotion, createAnimator, fitPose, WALK_CLIP_SPEED, walkClip } from '../dist/body-motion.js';
+import { receiveImpulse,stepImpulse } from '../dist/character-physics.js';
+import { fitFallPose } from '../dist/fall-pose.js';
 import { writeMovements } from '../dist/body-moves.js';
 import { createHuman } from '../dist/human.js';
 import { fitAccessories } from '../dist/human-accessories.js';
@@ -187,6 +189,36 @@ test('the movements nobody recorded are written out, and all of them leave the b
   assert.ok(where('vault', .4, 'foot_r')[1] > where('idle', 0, 'foot_r')[1]+.35, 'the legs tuck above the collision root');
 });
 
+test('falls follow the impact direction, articulate loose limbs and settle into recovery',()=>{
+  const rig=createRig(meta,{});
+  function drop(vx,vz,wall=false){
+    const actor={x:0,y:0,z:0,angle:0},r=receiveImpulse(actor,vx,vz,{fall:true,lift:2});
+    const samples=[];
+    for(let i=0;i<270 && actor.reaction;i++){
+      stepImpulse(actor,1/60,(_,x,z)=>wall && x>.6?{x:.6,z,hit:{nx:-1,nz:0}}:{x,z},()=>0);
+      const pose=fitPose(motion,rig,motion.sample(r.clip,r.time));
+      fitFallPose(rig,pose,r,actor.angle);
+      const world=restWorld(rig.bones.map((bone,j)=>({...bone,q:pose.q[j],t:j===motion.pelvis?pose.pelvis:bone.t})));
+      const at=name=>new Vector3().fromArray(world[rig.index.get(name)].p);
+      const head=at('Head'),hip=at('pelvis'),hand=at('hand_l'),elbow=at('lowerarm_l');
+      assert.ok(Math.abs(hand.distanceTo(elbow)-Math.hypot(...rig.bones[rig.index.get('hand_l')].t))<.001);
+      assert.ok(Number.isFinite(head.y) && head.y+actor.y>-.02);
+      for(const name of ['calf_l','calf_r','hand_l','hand_r','lowerarm_l','lowerarm_r','foot_l','foot_r']){
+        const clearance=at(name).y+actor.y;
+        assert.ok(clearance>-.04,name+' went below the landing surface by '+(-clearance)+' at '+i);
+      }
+      samples.push({lean:head.sub(hip),hand,arm:pose.q[rig.index.get('lowerarm_l')].slice(),recover:r.recover});
+    }
+    assert.equal(actor.reaction,null);
+    assert.ok(samples.at(-1).recover>=1.5);
+    return samples;
+  }
+  const left=drop(6,0),right=drop(-6,0),forward=drop(0,6),blocked=drop(6,0,true);
+  assert.ok(left[24].lean.x>.3 && right[24].lean.x<-.3 && forward[24].lean.z>.3);
+  assert.ok(left[18].hand.distanceTo(blocked[18].hand)>.04,'the wrist responds to the sudden stop at a wall');
+  assert.notDeepEqual(left[24].arm,right[24].arm);
+});
+
 test('the animator runs standing into walking into sprinting, and puts a punch, a jump and a fall over them', () => {
   const animator = createAnimator(motion), still = motion.newPose(), dt = 1 / 60;
   for (let i = 0; i < 30; i++) animator.update(dt, { speed: 0 });
@@ -310,12 +342,28 @@ test('street LODs share the textured cast, colours, fitted pose frames and the g
   assert.ok(STREET_CLIPS.every(id=>motion.clips.has(id)));
   const built=human.build(design,{detail:'near'}), rig=built.rig, sheet=poseSheet(motion,rig);
   const geometry=body=>({...body,cloth:new Uint8Array(body.position.length/3)});
-  const payload={...sheet,height:built.height,near:geometry(built.pieces[0]),far:geometry(human.build(design,{detail:'far'}).pieces[0]),atlas:{close(){}}};
+  const payload={...sheet,rig,height:built.height,near:geometry(built.pieces[0]),far:geometry(human.build(design,{detail:'far'}).pieces[0]),atlas:{close(){}}};
   let requests=0;
   const figures=createFigures({motion,capacity:8,grow:{member:async()=>{requests++;return payload;}}});
   try {
     figures.ask(member); figures.ask(member); await new Promise(resolve=>setImmediate(resolve)); assert.equal(requests,1);
     const type=figures.types.get(member), height=1.86;
+    const falling={heading:.4,x:0,y:0,z:0};
+    const reaction=receiveImpulse(falling,3,1,{fall:true,lift:1});
+    stepImpulse(falling,.12,(_,x,z)=>({x,z}),()=>0);
+    figures.begin();
+    figures.add(member,0,falling.y,0,.4,height,look,6,reaction.clip,reaction.time,null,0,0,null,reaction);
+    const second={heading:0,x:4,y:0,z:0},other=receiveImpulse(second,-4,1,{fall:true});
+    stepImpulse(second,.16,(_,x,z)=>({x,z}),()=>0);
+    figures.add(member,4,0,0,0,height,look,32,other.clip,other.time,null,0,0,null,other);
+    figures.end();
+    const shader={uniforms:{},vertexShader:'',fragmentShader:''};
+    type.material.onBeforeCompile(shader);
+    const palette=shader.uniforms.uNycFalls.value, rowSize=palette.image.width*4;
+    assert.deepEqual(palette.updateRanges,[{start:0,count:rowSize},{start:rowSize,count:rowSize}]);
+    assert.notDeepEqual(palette.image.data.subarray(0,rowSize),palette.image.data.subarray(rowSize,rowSize*2));
+    assert.equal(type.far.anim.getX(0),-2);
+    assert.equal(type.near.anim.getX(0),-1,'the falling citizen draws their own simulated joint matrices');
     for(const [carry,clip,weight,dist] of [['cup','walk',1,6],['tray','seatChair',.4,6],['tray','seatChair',1,45]]) {
       figures.begin();
       const y=12+(clip==='seatChair'?.45*weight:0), heading=1.6, time=.32;

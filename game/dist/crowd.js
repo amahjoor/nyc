@@ -313,6 +313,15 @@ export function createCrowd({ scene = null, life, boroughs = [], heightAt = () =
   const matrix = new THREE.Matrix4(), place = new THREE.Vector3(), turn = new THREE.Quaternion(), size = new THREE.Vector3(), up = new THREE.Vector3(0, 1, 0), colour = new THREE.Color();
   const fallenPose = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1, 0, 0), -Math.PI / 2);
 
+  const fallAxis=new THREE.Vector3(),fallTurn=new THREE.Quaternion();
+  function tiltFallingFigure(r,height){
+    if(!r?.fall || r.forward==null){turn.multiply(fallenPose);place.y+=.24;return;}
+    const angle=(r.angle+r.rock)*(1-Math.min(1,r.recover/1.5));
+    fallAxis.set(r.forward,0,-r.side).normalize();
+    turn.multiply(fallTurn.setFromAxisAngle(fallAxis,angle));
+    place.y+=height*.13*Math.sin(angle);
+  }
+
   const bodyBlocked = (person, x, z) => blocked(x, z, person.y, pedestrianRadius(person));
   function spawn(run, hours, start = 0, end = run.length, resident = null) {
     const draw = resident ? seeded(resident.id+9001) : random;
@@ -1225,9 +1234,9 @@ export function createCrowd({ scene = null, life, boroughs = [], heightAt = () =
             person.supportY=heightAt(person.x,person.z,person.y); person.sample=.22;
           }
           const impact=followFloor(person,person.supportY,dt);
-          if(impact>9.5){
+          if(impact>9.5 || person.vy < -7){
             person.state='down';person.down=2.8;person.out=false;person.calm=true;
-            receiveImpulse(person,Math.sin(person.heading),Math.cos(person.heading),{fall:true,rest:.2});
+            receiveImpulse(person,(person.x-startX)/Math.max(dt,.001),(person.z-startZ)/Math.max(dt,.001),{fall:true,rest:.2,impact:impact||-person.vy});
           }
         }
         neighbours.put(person);
@@ -1243,7 +1252,7 @@ export function createCrowd({ scene = null, life, boroughs = [], heightAt = () =
           const clip = seat ? seatClip(seat) : person.clip;
           if (figures.add(memberOf(look), px, person.y + (seat ? seatHeight(seat)*weight : 0), pz, person.heading,
             look.height * grow, look, Math.hypot(px-focus.x,pz-focus.z), clip, person.time,
-            seat ? 'idle' : person.from, person.fromTime, seat ? 1-weight : person.fade, person.carry)) continue;
+            seat ? 'idle' : person.from, person.fromTime, seat ? 1-weight : person.fade, person.carry,person.reaction)) continue;
         }
         const woman = Boolean(look.kit & KIT.woman), to = sinks[figures && woman ? 1 : 0];
         if (to.count >= to.mesh.instanceMatrix.count) continue;
@@ -1251,7 +1260,7 @@ export function createCrowd({ scene = null, life, boroughs = [], heightAt = () =
         place.set(px, person.y + (seat ? (seatHeight(seat)-.45*look.height/1.72)*weight : 0), pz);
         turn.setFromAxisAngle(up, person.heading);
         if (person.state === 'down') {
-          turn.multiply(fallenPose); place.y += .24;
+          tiltFallingFigure(person.reaction,look.height);
         }
         size.set(look.build * look.height / 1.72 * grow, look.height / 1.72 * grow, look.build * look.height / 1.72 * grow);
         matrix.compose(place, turn, size); to.mesh.setMatrixAt(at, matrix);
@@ -1277,7 +1286,7 @@ export function createCrowd({ scene = null, life, boroughs = [], heightAt = () =
           const look = extra.look, clip = extra.clip || (seat ? seatClip(seat) : extra.sitting ? 'sit' : (extra.stride || 0) > .05 ? 'walk' : 'idle');
           const time = extra.clip ? extra.time || 0 : extra.sitting ? (extra.x * 7.3 + extra.z * 3.1) % 1.6 + context.time : clip === 'walk' ? (extra.phase || 0) / TAU * walk : context.time + (extra.x + extra.z) % 2;
           const height = seat ? extra.y + seatHeight(seat) * weight : extra.y;
-          if (figures.add(extra.member ?? memberOf(look), extra.x, height, extra.z, extra.heading || 0, look.height || 0, look, Math.hypot(extra.x - focus.x, extra.z - focus.z), clip, time, seat && weight < 1 ? 'idle' : extra.from || null, extra.fromTime || 0, seat ? 1 - weight : extra.fade || 0, extra.escape || extra.suspendCarry ? null : extra.carry)) continue;
+          if (figures.add(extra.member ?? memberOf(look), extra.x, height, extra.z, extra.heading || 0, look.height || 0, look, Math.hypot(extra.x - focus.x, extra.z - focus.z), clip, time, seat && weight < 1 ? 'idle' : extra.from || null, extra.fromTime || 0, seat ? 1 - weight : extra.fade || 0, extra.escape || extra.suspendCarry ? null : extra.carry,extra.reaction)) continue;
         }
         const look = extra.look, scale = (look.height || 1.72) / 1.72, to = sinks[figures && (look.kit & KIT.woman) ? 1 : 0];
         if (to.count >= to.mesh.instanceMatrix.count) continue;
@@ -1287,7 +1296,7 @@ export function createCrowd({ scene = null, life, boroughs = [], heightAt = () =
         turn.setFromAxisAngle(up, extra.heading || 0); size.set(scale, scale, scale);
         const seat = extra.sitting && extra.seat, weight = seat?.weight ?? 1;
         if (seat) place.y += (seatHeight(seat) - .45 * scale) * weight;
-        if (extra.downUntil > context.time) { turn.multiply(fallenPose); place.y += .24; }
+        if (extra.reaction?.fall || extra.downUntil > context.time) tiltFallingFigure(extra.reaction,look.height||1.72);
         matrix.compose(place, turn, size); to.mesh.setMatrixAt(at, matrix);
         colour.setHex(look.top); to.tops.setXYZ(at, colour.r, colour.g, colour.b);
         colour.setHex(look.bottom); to.bottoms.setXYZ(at, colour.r, colour.g, colour.b);

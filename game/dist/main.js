@@ -46,6 +46,7 @@ import { diningTable } from './shopping.js';
 import { browseShop } from './shop-preview.js';
 import { fittedLook } from './shop-stock.js';
 import { loadPerson, savePerson } from './human-designs.js';
+import { fitFallPose } from './fall-pose.js';
 import { createMotion, createAnimator, fitPose, gripOffsetFor } from './body-motion.js';
 import { writeMovements } from './body-moves.js';
 import { createFigures } from './people-figures.js';
@@ -909,6 +910,7 @@ function showPlayer(dt,p,floor,eyeView,riding) {
   const eatingPlate=eating && carry.startsWith('plate-');
   fitPose(moves,playerBody.rig,pose,playerFitted,seat,carry,eatingPlate && !phoneHand?.amount?0:lift);
   if(p.mode==='bike')fitCyclist(playerBody.rig,playerFitted,bikePedal*2*Math.PI/PEDAL_PERIOD,p.speed<.18);
+  if(p.reaction?.fall && !ending)fitFallPose(playerBody.rig,playerFitted,p.reaction,p.angle);
   playerBody.pose(playerFitted);
   if(skating){
     plantSkateFeet(playerBody,p);
@@ -1109,7 +1111,7 @@ function drawOfficers(dt,p,extras){
     }
     if(!model){
       extras.push({x:officer.x,y:officer.y||0,z:officer.z,heading:officer.angle,phase:officer.phase,
-        stride:officer.stride,look,member,clip:r?.clip || (officer.cuffing?'cuffing':officer.aiming?'aim':undefined),time:r?.time??elapsed});
+        stride:officer.stride,look,member,reaction:r,clip:r?.clip || (officer.cuffing?'cuffing':officer.aiming?'aim':undefined),time:r?.time??elapsed});
       continue;
     }
     const {body,gun,animator,fitted}=model, {mesh,bones,rig}=body;
@@ -1118,7 +1120,9 @@ function drawOfficers(dt,p,extras){
     mesh.position.set(officer.x,officer.y||0,officer.z);mesh.rotation.y=officer.angle;
     const pose=animator.update(dt,{walkStyle:castWalkStyle(member),speed:officer.speed,strideScale:rig.stride,grounded:!officer.airborne,vy:officer.vy,aim:officer.aiming,held:officer.cuffing?'cuffing':null});
     if(r) moves.sample(r.clip,r.time,pose);
-    body.pose(fitPose(moves,rig,pose,fitted));
+    fitPose(moves,rig,pose,fitted);
+    if(r?.fall)fitFallPose(rig,fitted,r,officer.angle);
+    body.pose(fitted);
     if(!gun) continue;
     gun.visible=Boolean(officer.aiming && !officer.cuffing && !r);
     if(!gun.visible) continue;

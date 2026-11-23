@@ -60,6 +60,20 @@ function half(value) {
   if (exponent >= 31) return sign | 0x7c00;
   return sign | exponent << 10 | mantissa >> 13;
 }
+/** Write one pose in the matrix layout shared by the street and shadow shaders. */
+export function writeSkinRow(rig,fitted,kept,world,out,offset){
+  rig.bones.forEach((bone, i) => {
+    const t = bone.name === 'pelvis' ? fitted.pelvis : bone.t;
+    if (bone.parent < 0) { world[i] = { p: t, q: fitted.q[i] }; return; }
+    const parent = world[bone.parent], r = qrot(parent.q, t);
+    world[i] = { p: [parent.p[0] + r[0], parent.p[1] + r[1], parent.p[2] + r[2]], q: qmul(parent.q, fitted.q[i]) };
+  });
+  kept.forEach((bone, k) => {
+    const bind = rig.bind[bone], q = qmul(world[bone].q, qinv(bind.q)), moved = qrot(q, bind.p), [x, y, z, w] = q, at = offset + k * 12;
+    const m = [1 - 2 * (y * y + z * z), 2 * (x * y - z * w), 2 * (x * z + y * w), world[bone].p[0] - moved[0], 2 * (x * y + z * w), 1 - 2 * (x * x + z * z), 2 * (y * z - x * w), world[bone].p[1] - moved[1], 2 * (x * z - y * w), 2 * (y * z + x * w), 1 - 2 * (x * x + y * y), world[bone].p[2] - moved[2]];
+    for (let j = 0; j < 12; j++) out[at + j] = half(m[j]);
+  });
+}
 /**
  * Every frame of every street movement for one skeleton: for each kept bone, the three rows of the matrix
  * that carries a point from where the body was modelled to where that frame has it. Half floats, four to a texel.
@@ -88,12 +102,7 @@ export function poseSheet(motion, rig, clips = STREET_CLIPS, walkStyle) {
         fitted.q[i]=qmul(fitted.q[i],[Math.sin(angle/2),0,0,Math.cos(angle/2)]);
       }
     }
-    rig.bones.forEach((bone, i) => {
-      const t = i === motion.pelvis ? fitted.pelvis : bone.t;
-      if (bone.parent < 0) { world[i] = { p: t, q: fitted.q[i] }; return; }
-      const parent = world[bone.parent], r = qrot(parent.q, t);
-      world[i] = { p: [parent.p[0] + r[0], parent.p[1] + r[1], parent.p[2] + r[2]], q: qmul(parent.q, fitted.q[i]) };
-    });
+    writeSkinRow(rig,fitted,kept,world,out,(row.first+f)*wide*4);
     const wrist = world[hand], offset = qrot(wrist.q,offsets.get(row.carry));
     for (let axis=0; axis<3; axis++) palms[(row.first+f)*3+axis] = wrist.p[axis]+offset[axis];
     if(['giveCash','curlWeight'].includes(row.id)){
@@ -115,11 +124,7 @@ export function poseSheet(motion, rig, clips = STREET_CLIPS, walkStyle) {
       shears[f*5+4]=spread;
       ring.lerp(thumb,.5).addScaledVector(forward,.056*Math.cos(spread)-.006*Math.sin(spread)).toArray(palms,(row.first+f)*3);
     }
-    kept.forEach((bone, k) => {
-      const bind = rig.bind[bone], q = qmul(world[bone].q, qinv(bind.q)), moved = qrot(q, bind.p), [x, y, z, w] = q, at = ((row.first + f) * wide + k * 3) * 4;
-      const m = [1 - 2 * (y * y + z * z), 2 * (x * y - z * w), 2 * (x * z + y * w), world[bone].p[0] - moved[0], 2 * (x * y + z * w), 1 - 2 * (x * x + z * z), 2 * (y * z - x * w), world[bone].p[1] - moved[1], 2 * (x * z - y * w), 2 * (y * z + x * w), 1 - 2 * (x * x + y * y), world[bone].p[2] - moved[2]];
-      for (let j = 0; j < 12; j++) out[at + j] = half(m[j]);
-    });
+
   }
   return { poses: out, palms, shears, wide, frames };
 }
@@ -256,6 +261,7 @@ export async function streetFigure(human, motion, design, base) {
   const nearParts=near.pieces.map(p=>p.kind==='skin'?close:p);
   const fittedBelt=near.pieces.some(p=>p.kind==='uniform');
   const a = merged(nearParts, atlas, clothing, fittedBelt,false,near.rig), b = merged(near.pieces, atlas, clothing, fittedBelt,true), sheet = poseSheet(motion, near.rig, STREET_CLIPS, design.walkStyle);
-  return { near: a, far: b, atlas: atlas.bitmap, ...sheet, wardrobe, height: near.height,
+  return { near: a, far: b, atlas: atlas.bitmap, ...sheet, wardrobe, rig:{bones:near.rig.bones,world:near.rig.world,bind:near.rig.bind,
+      scale:near.rig.scale,stride:near.rig.stride,spread:near.rig.spread,lift:near.rig.lift}, height: near.height,
     transfer: [atlas.bitmap, sheet.poses.buffer, sheet.palms.buffer, sheet.shears.buffer, ...[a, b].flatMap(mesh => [mesh.position.buffer, mesh.normal.buffer, mesh.uv.buffer, mesh.cloth.buffer, mesh.skinIndex.buffer, mesh.skinWeight.buffer, mesh.index.buffer])] };
 }

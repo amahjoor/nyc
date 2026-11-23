@@ -66,7 +66,8 @@ test('a knockdown carries momentum until ground contact and gives control back a
     assert.ok(p.x > 1 && p.z > .5 && p.y > 4.6 && p.y < 5.1);
     assert.equal(p.reaction.recover, 0);
     assert.ok(p.reaction.angle > .5 && p.vy < 0);
-    assert.ok(p.angle < -.2 && p.angle > Math.atan2(-4,-2));
+    assert.equal(p.angle,0,'a diagonal impact tips the torso without spinning the feet to face the hit');
+    assert.ok(p.reaction.side>p.reaction.forward && p.reaction.forward>0);
     snapshots.push([p.x, p.y, p.z]);
     advance(sim, 4, {}, fps);
     assert.equal(p.reaction, null); assert.equal(p.grounded, true); assert.equal(p.y, 0);
@@ -433,6 +434,9 @@ test('jumping leaves the ground and a ledge becomes a fall', () => {
   assert.equal(flat.health, 100, 'a hop is not a fall');
   const ledge = new Simulation(city({ sampleSurface: (x, z) => ({ elevation: z < 2 ? 8 : 0 }) }));
   assert.equal(ledge.player.y, 8);
+  for(let i=0;i<360 && !ledge.player.reaction;i++)ledge.step({moveZ:1},1/120);
+  assert.ok(ledge.player.reaction?.fall && !ledge.player.grounded && ledge.player.y>1,'the tumble begins before impact');
+  assert.equal(ledge.health,100);
   advance(ledge, 3, { moveZ: 1 });
   assert.ok(ledge.player.z > 2, 'you can walk off the ledge');
   assert.ok(ledge.player.y < 1, 'and fall to the ground below');

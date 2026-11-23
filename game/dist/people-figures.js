@@ -1,18 +1,23 @@
 // Instanced textured people. Each cast member owns a fitted skeleton, a pose
 // sheet and two meshes over the same atlas. Only the outfit and pose vary per instance.
 import * as THREE from './vendor/three.module.min.js';
-import { sheetRows, streetBones } from './human-crowd.js';
-import { carryPose } from './body-motion.js';
+import { sheetRows, streetBones, writeSkinRow } from './human-crowd.js';
+import { fitFallPose } from './fall-pose.js';
+import { carryPose,fitPose } from './body-motion.js';
 import { carriedItems } from './carried-items.js';
 import { picture, CLOTH_DYE } from './human-mesh.js';
 
 const SKIN = `
 attribute vec3 aAnim;
 attribute vec4 skinIndex, skinWeight;
-uniform sampler2D uNycPoses;
+uniform sampler2D uNycPoses,uNycFalls;
+vec4 nycTexel(ivec2 p, bool live) {
+  return live ? texelFetch(uNycFalls,p,0) : texelFetch(uNycPoses,p,0);
+}
 mat4 nycBone(float bone, float row) {
-  ivec2 p = ivec2(int(bone)*3,int(row));
-  vec4 a=texelFetch(uNycPoses,p,0), b=texelFetch(uNycPoses,p+ivec2(1,0),0), c=texelFetch(uNycPoses,p+ivec2(2,0),0);
+  bool live=row<0.;
+  ivec2 p=ivec2(int(bone)*3,int(live?-row-1.:row));
+  vec4 a=nycTexel(p,live), b=nycTexel(p+ivec2(1,0),live), c=nycTexel(p+ivec2(2,0),live);
   return mat4(a.x,b.x,c.x,0., a.y,b.y,c.y,0., a.z,b.z,c.z,0., a.w,b.w,c.w,1.);
 }
 mat4 nycFrame(float row) {
@@ -39,13 +44,14 @@ function wardrobeMaps(layers) {
   return {maps,normals,dyes,bases,surfaces};
 }
 
-function skinMaterial(material, poses, colour, wardrobe) {
+function skinMaterial(material, poses, falls, colour, wardrobe) {
   const {maps,normals,dyes,bases,surfaces}=wardrobe;
   // Shader structure depends on which pieces share samplers. The actual
   // textures, base cloth colours and chosen dyes are material uniforms.
   const programKey=colour?'street-wear/'+JSON.stringify(surfaces):'street-depth';
   material.customProgramCacheKey=()=>programKey;
   material.onBeforeCompile = shader => {
+    shader.uniforms.uNycFalls = {value:falls};
     shader.uniforms.uNycPoses = {value:poses};
     const sample = 'nycSkin = nycFrame(aAnim.x)*(1.-aAnim.z) + nycFrame(aAnim.y)*aAnim.z;';
     let vertex = SKIN+'attribute float cloth; flat varying int vLayer;\n';
@@ -115,7 +121,13 @@ function makeBatch(data, compact, material, depth, capacity) {
 }
 
 export function createFigures({motion, grow, capacity=320, scene=null, layer=0, layers=[layer]}={}) {
-  const {rows} = sheetRows(motion), {compact} = streetBones(motion.bones);
+  const {rows} = sheetRows(motion), {compact,kept} = streetBones(motion.bones);
+  // A live palette for active falls. Every other figure uses its baked sheet.
+  const stride=kept.length*12, pixels=new Uint16Array(capacity*stride);
+  const falls=new THREE.DataTexture(pixels,kept.length*3,capacity,THREE.RGBAFormat,THREE.HalfFloatType);
+  falls.needsUpdate=true;
+  let fallCount=0;
+  const fallSample=motion.newPose(),fitted={q:[],pelvis:[0,0,0]},world=[];
   const group = new THREE.Group(), types = new Map(), props = carriedItems(capacity);
   group.name='People'; group.add(props.group); props.group.traverse(part=>layers.forEach(l=>part.layers.enable(l))); scene?.add(group);
   const queue = new Map();
@@ -132,13 +144,13 @@ export function createFigures({motion, grow, capacity=320, scene=null, layer=0, 
       poses.needsUpdate=true;
       const options={map,alphaTest:.35,side:THREE.DoubleSide};
       const wardrobe=wardrobeMaps(data.wardrobe || []);
-      const material=skinMaterial(new THREE.MeshStandardMaterial({...options,normalMap:wardrobe.normals[0] || null,roughness:.82}),poses,true,wardrobe);
-      const depth=skinMaterial(new THREE.MeshDepthMaterial({...options,depthPacking:THREE.RGBADepthPacking}),poses,false,wardrobe);
+      const material=skinMaterial(new THREE.MeshStandardMaterial({...options,normalMap:wardrobe.normals[0] || null,roughness:.82}),poses,falls,true,wardrobe);
+      const depth=skinMaterial(new THREE.MeshDepthMaterial({...options,depthPacking:THREE.RGBADepthPacking}),poses,falls,false,wardrobe);
       const batch = data => {
         const to=makeBatch(data,compact,material,depth,capacity);
         to.mesh.name='Person '+member; layers.forEach(l=>to.mesh.layers.enable(l)); group.add(to.mesh); return to;
       };
-      types.set(member,{near:batch(data.near),far:batch(data.far),height:data.height,palms:data.palms,shears:data.shears,map,poses,material,depth});
+      types.set(member,{near:batch(data.near),far:batch(data.far),height:data.height,rig:data.rig?{...data.rig,index:motion.index}:null,palms:data.palms,shears:data.shears,map,poses,material,depth});
     }).catch(error=>{
       if (!disposed) {types.set(member,{retry:performance.now()+15000}); console.warn('Could not load a street figure',member,error);}
     }).finally(()=>{loading--;pump();});
@@ -177,20 +189,26 @@ export function createFigures({motion, grow, capacity=320, scene=null, layer=0, 
     group,types,rows,ask,seconds:clip=>rowFor(clip).seconds,
     ready:id=>Boolean(types.get(id)?.near),
     get anyReady(){for(const entry of types.values()) if(entry?.near)return true; return false;},
-    begin(){props.begin();for(const entry of types.values()) if(entry?.near) entry.near.mesh.count=entry.far.mesh.count=0;},
+    begin(){fallCount=0;props.begin();for(const entry of types.values()) if(entry?.near) entry.near.mesh.count=entry.far.mesh.count=0;},
     palm(member,actor) {
       const entry=types.get(member); if(!entry?.near)return null;
       const p=palmAt(entry,frames(actor.clip,actor.time,actor.from,actor.fromTime,actor.fade,null),
         transform(entry,actor.x,0,actor.z,actor.heading,actor.look.height));
       return {x:p.x,y:p.y,z:p.z};
     },
-    add(member,x,y,z,heading,height,look,distance,clip,time,from,fromTime,fade,carry=null) {
+    add(member,x,y,z,heading,height,look,distance,clip,time,from,fromTime,fade,carry=null,reaction=null) {
       if (!ask(member,distance)) return false;
       const entry=types.get(member), to=distance>30 ? entry.far : entry.near;
       if(to.mesh.count>=capacity)return false;
       const at=to.mesh.count++, sample=frames(clip,time,from,fromTime,fade,carry);
       transform(entry,x,y,z,heading,height); to.mesh.setMatrixAt(at,matrix);
-      to.anim.setXYZ(at,...sample);
+      if(reaction?.fall && entry.rig && fallCount<capacity){
+        const pose=fitPose(motion,entry.rig,motion.sample(reaction.clip,reaction.time,fallSample),fitted);
+        fitFallPose(entry.rig,pose,reaction,heading);
+        writeSkinRow(entry.rig,pose,kept,world,pixels,fallCount*stride);
+        const row=-(++fallCount);
+        to.anim.setXYZ(at,row,row,0);
+      }else to.anim.setXYZ(at,...sample);
       for (const key of ['top','bottom']) {
         colour.setHex(look[key]); to[key].setXYZ(at,colour.r,colour.g,colour.b);
       }
@@ -209,10 +227,16 @@ export function createFigures({motion, grow, capacity=320, scene=null, layer=0, 
       if(carry && rowFor(clip,carry).carry) props.add(carry,palmAt(entry,sample,matrix),heading);
       return true;
     },
-    end(){for(const entry of types.values()) if(entry?.near) for(const to of [entry.near,entry.far]) if(to.mesh.count)
+    end(){
+      if(fallCount){
+        falls.clearUpdateRanges();
+        for(let row=0;row<fallCount;row++)falls.addUpdateRange(row*stride,stride);
+        falls.needsUpdate=true;
+      }
+      for(const entry of types.values()) if(entry?.near) for(const to of [entry.near,entry.far]) if(to.mesh.count)
       for(const attr of [to.anim,to.top,to.bottom,to.mesh.instanceMatrix])attr.needsUpdate=true;},
     dispose(){
-      disposed=true;queue.clear();props.dispose();
+      disposed=true;falls.dispose();queue.clear();props.dispose();
       for(const entry of types.values()) if(entry?.near){
         for(const {mesh} of [entry.near,entry.far]){mesh.geometry.dispose();mesh.dispose();}
         entry.material.dispose(); entry.depth.dispose(); entry.poses.dispose(); entry.map.dispose(); entry.map.image.close();

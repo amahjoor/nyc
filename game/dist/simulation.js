@@ -1898,6 +1898,10 @@ export class Simulation {
         actor=>this.room ? (this.doorway?.floor ?? this.room.floor ?? 0) : Math.max(carUnder(this,actor.x,actor.z,actor.y)?.top ?? -Infinity, this._sampleSurface?.(actor.x,actor.z,{referenceHeight:actor.y,mode:'walk',transportId:actor.transportId})?.elevation ?? 0));
       player.velocityX=reaction.vx;player.velocityZ=reaction.vz;player.vy=reaction.vy;player.grounded=reaction.grounded;
       player.speed=Math.hypot(reaction.vx,reaction.vz);
+      if(reaction.fromHeight && reaction.landingSpeed){
+        this._fallDamage(reaction.landingSpeed);
+        reaction.fromHeight=false;
+      }
       return;
     }
     if (this.seat) {
@@ -2035,6 +2039,11 @@ export class Simulation {
     }
     player.vy = Math.max(-32, (player.vy || 0) - GRAVITY * dt);
     player.y = (Number.isFinite(player.y) ? player.y : 0) + player.vy * dt;
+    if(player.mode==='walk' && ground!==null && player.vy < -7 && player.y>ground+.25){
+      this.pushPlayer(player.velocityX,player.velocityZ,{fall:true,rest:.4,impact:-player.vy});
+      if(player.reaction){player.reaction.fromHeight=true;player.reaction.clearance=player.y-ground;}
+      return;
+    }
     if (ground === null || player.vy > 0 || player.y > ground) return;
     const impact = -player.vy;
     player.y = ground;
@@ -2043,12 +2052,17 @@ export class Simulation {
     player.transportId = surface?.transportId || null;
     player.standing = under && ground === under.top ? { id: under.car.id, x: under.car.x, z: under.car.z, angle:under.car.angle } : null;
     if (impact > FALL_HURT) {
-      this.health = Math.max(0, this.health - (impact - (FALL_HURT - 1)) * 3.5);
-      if (this.health <= 0) this._downed = 'fall';
-      else this._say(impact > 16 ? 'That was a bad fall.' : 'You landed hard.');
-      if (impact > 13) this.pushPlayer(player.velocityX*.75,player.velocityZ*.75,{fall:true,rest:.4});
+      this._fallDamage(impact);
+      if (impact > 13) this.pushPlayer(player.velocityX*.75,player.velocityZ*.75,{fall:true,rest:.4,impact});
       else player.slide = Math.max(player.slide || 0, 0.35);
     }
+  }
+
+  _fallDamage(impact){
+    if(impact<=FALL_HURT)return;
+    this.health = Math.max(0, this.health - (impact - (FALL_HURT - 1)) * 3.5);
+    if (this.health <= 0) this._downed = 'fall';
+    else this._say(impact > 16 ? 'That was a bad fall.' : 'You landed hard.');
   }
 
   _drive(input, dt) {

@@ -540,8 +540,9 @@ export class Police {
       officer.stride = Math.min(1, officer.speed / 1.2);
       if(moved>0 || officer.airborne){
         const floor=sim._sampleSurface?.(officer.x,officer.z,{referenceHeight:officer.y,mode:'walk'})?.elevation ?? sim.groundHeight(officer.x,officer.z);
-        if(followFloor(officer,floor,dt)>9.5){
-          receiveImpulse(officer,Math.sin(heading),Math.cos(heading),{fall:true,rest:.3});
+        const impact=followFloor(officer,floor,dt);
+        if(impact>9.5 || officer.vy < -7){
+          receiveImpulse(officer,Math.sin(heading)*officer.speed,Math.cos(heading)*officer.speed,{fall:true,rest:.3,impact:impact||-officer.vy});
           continue;
         }
       }
