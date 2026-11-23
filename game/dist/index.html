@@ -86,6 +86,7 @@
         <div class="app-grid">
           <button id="phone-app-settings" class="phone-app"><i class="app-icon icon-settings" aria-hidden="true"></i><b>Settings</b></button>
           <button id="phone-app-work" class="phone-app"><i class="app-icon icon-work" aria-hidden="true"></i><b>Work</b></button>
+          <button id="phone-app-messages" class="phone-app" aria-label="Messages"><i class="app-badge" id="phone-messages-badge" hidden></i><i class="app-icon icon-messages" aria-hidden="true"></i><b>Messages</b></button>
           <button id="phone-app-rides" class="phone-app"><i class="app-icon icon-rides" aria-hidden="true"></i><b>D Ride</b></button>
         </div>
         <div class="app-dock">
@@ -163,6 +164,7 @@
           <p id="phone-contact-note"></p>
         </div>
         <button id="phone-contact-call" class="phone-action">Call</button>
+        <button id="phone-contact-message" class="phone-action">Message</button>
         <button id="phone-cab-delivery" class="phone-action"></button>
       </div>
       <div id="phone-list" class="phone-screen" hidden>
@@ -323,6 +325,48 @@
         <button id="phone-ride-request" class="phone-action">Request pickup</button>
         <button id="phone-ride-board" class="phone-action">Board & ride to destination</button>
         <button id="phone-ride-cancel" class="phone-action">Cancel</button>
+      </div>
+      <div id="phone-messages" class="phone-screen" hidden>
+        <div class="phone-list">
+          <button id="phone-inbox-0" class="phone-row" hidden><b id="phone-inbox-0-name"></b><span id="phone-inbox-0-note"></span></button>
+          <button id="phone-inbox-1" class="phone-row" hidden><b id="phone-inbox-1-name"></b><span id="phone-inbox-1-note"></span></button>
+          <button id="phone-inbox-2" class="phone-row" hidden><b id="phone-inbox-2-name"></b><span id="phone-inbox-2-note"></span></button>
+          <button id="phone-inbox-3" class="phone-row" hidden><b id="phone-inbox-3-name"></b><span id="phone-inbox-3-note"></span></button>
+          <button id="phone-inbox-4" class="phone-row" hidden><b id="phone-inbox-4-name"></b><span id="phone-inbox-4-note"></span></button>
+          <button id="phone-inbox-5" class="phone-row" hidden><b id="phone-inbox-5-name"></b><span id="phone-inbox-5-note"></span></button>
+        </div>
+        <p id="phone-messages-empty" class="phone-empty" hidden>No messages.</p>
+      </div>
+      <div id="phone-thread" class="phone-screen" hidden>
+        <div class="thread-log">
+          <p id="phone-bubble-0" hidden><b id="phone-bubble-0-who"></b><span id="phone-bubble-0-text"></span></p>
+          <p id="phone-bubble-1" hidden><b id="phone-bubble-1-who"></b><span id="phone-bubble-1-text"></span></p>
+          <p id="phone-bubble-2" hidden><b id="phone-bubble-2-who"></b><span id="phone-bubble-2-text"></span></p>
+          <p id="phone-bubble-3" hidden><b id="phone-bubble-3-who"></b><span id="phone-bubble-3-text"></span></p>
+          <p id="phone-bubble-4" hidden><b id="phone-bubble-4-who"></b><span id="phone-bubble-4-text"></span></p>
+          <p id="phone-bubble-5" hidden><b id="phone-bubble-5-who"></b><span id="phone-bubble-5-text"></span></p>
+          <p id="phone-bubble-6" hidden><b id="phone-bubble-6-who"></b><span id="phone-bubble-6-text"></span></p>
+          <p id="phone-bubble-7" hidden><b id="phone-bubble-7-who"></b><span id="phone-bubble-7-text"></span></p>
+        </div>
+        <div class="phone-pager" id="phone-thread-pager">
+          <button id="phone-thread-prev" aria-label="Previous page">‹</button>
+          <span id="phone-thread-page"></span>
+          <button id="phone-thread-next" aria-label="Next page">›</button>
+        </div>
+        <div class="compose">
+          <input id="phone-thread-draft" type="text" maxlength="140" placeholder="Message" autocomplete="off" aria-label="Message">
+          <button id="phone-thread-send" class="phone-action">Send</button>
+        </div>
+        <button id="phone-thread-call" class="phone-action">Call</button>
+      </div>
+      <div id="phone-call" class="phone-screen" hidden>
+        <div class="contact-card">
+          <i id="phone-call-avatar" class="monogram"></i>
+          <strong id="phone-call-name"></strong>
+          <span id="phone-call-status">Calling…</span>
+          <b id="phone-call-timer"></b>
+        </div>
+        <button id="phone-call-end" class="phone-action phone-end">End</button>
       </div>
     </div>
     <button id="phone-home-key" class="phone-home-key" aria-label="Home" title="Home"></button>

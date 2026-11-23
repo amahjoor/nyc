@@ -50,9 +50,9 @@ test('the nearby list is the nearest first, narrowed by category and by what is 
 });
 
 test('every part of the phone the game fills in is on the page', () => {
-  const ids = ['phone', 'phone-clock', 'phone-title', 'phone-home', 'phone-nearby', 'phone-place', 'phone-contacts', 'phone-bank', 'phone-map-nearby', 'phone-app-settings', 'phone-app-contacts', 'phone-app-bank', 'phone-app-map',
+  const ids = ['phone', 'phone-clock', 'phone-title', 'phone-home', 'phone-nearby', 'phone-place', 'phone-contacts', 'phone-bank', 'phone-map-nearby', 'phone-app-settings', 'phone-app-contacts', 'phone-app-bank', 'phone-app-map', 'phone-app-messages', 'phone-messages', 'phone-thread', 'phone-call', 'phone-messages-badge', 'phone-contact-message', 'phone-call-end', 'phone-thread-send', 'phone-thread-call',
     ...CATEGORIES.map(category => `phone-chip-${category.id}`), 'phone-search', 'phone-empty', 'phone-prev', 'phone-next', 'phone-page', 'phone-place-name', 'phone-place-kind', 'phone-place-note', 'phone-directions',
-    'phone-contact-mechanic', 'phone-bank-balance', 'phone-bank-savings', 'phone-bank-transfer', 'phone-back', 'phone-close', 'phone-button', 'place-hint'];
+    'phone-contact-mechanic', 'phone-bank-balance', 'phone-bank-savings', 'phone-bank-transfer', 'phone-back', 'phone-close', 'place-hint'];
   for (let i = 0; i < ROWS; i++) ids.push(`phone-row-${i}`, `phone-row-${i}-name`, `phone-row-${i}-note`);
   for (const id of ids) assert.equal(html.split(`id="${id}"`).length, 2, `${id} appears once`);
   for (const category of CATEGORIES) assert.match(html, new RegExp(`id="phone-chip-${category.id}">${category.label}<`));
@@ -104,11 +104,19 @@ test('the phone opens on its home screen, lists what is nearby, and sends the pl
   click('phone-app-bank');
   assert.deepEqual([$('phone-bank-balance').textContent, $('phone-bank-savings').textContent], ['$1,234.40', '$0']);
   click('phone-back'); click('phone-app-contacts'); click('phone-contact-mechanic'); assert.equal(phone.screen,'contact');click('phone-contact-call');
-  assert.deepEqual([sent, phone.open], [['HOTEL EDISON', 'mechanic'], false]);
+  assert.equal(phone.screen,'call');
+  assert.equal($('phone-call-status').textContent,'Calling…');
+  phone.update(0);
+  assert.deepEqual(sent,['HOTEL EDISON'],'ringing does not dispatch the mechanic yet');
+  phone.update(1.2);
+  assert.equal($('phone-call-status').textContent,'Connected');
+  assert.deepEqual([sent,phone.open],[['HOTEL EDISON','mechanic'],true]);
+  click('phone-call-end');
+  assert.equal(phone.screen,'contact');
   phone.setOpen(true); click('phone-app-map'); assert.equal(phone.screen,'maps');click('phone-map-full');
   assert.deepEqual([sent.at(-1), phone.open], ['map', false]);
   phone.setOpen(true); click('phone-close'); phone.setOpen(false);
-  assert.deepEqual(opened, [true, false, true, false, true, false, true, false], 'the game is told each time it is taken out or put away, once');
+  assert.deepEqual(opened, [true, false, true, false, true, false], 'the game is told each time it is taken out or put away, once');
   // With nothing loaded around, it says so.
   const empty = page(), bare = createPhone({ $: empty.$ });
   bare.setOpen(true); empty.click('phone-app-map'); empty.click('phone-map-nearby');
@@ -384,6 +392,46 @@ test('Bank investment screens place a whole-share order, update holdings and ret
   assert.match(ui.$('phone-order-position').textContent,/1 shares? held/);
   ui.click('phone-back');assert.equal(phone.screen,'market');assert.match(ui.$('phone-stock-BGL-quote').textContent,/1 shares? held/);
   ui.click('phone-back');assert.equal(phone.screen,'bank');assert.equal(ui.$('phone-activity-0-name').textContent,'Bought 1 BGL');
+});
+
+function memory(){
+  const box=new Map();
+  return {getItem:key=>box.has(key)?box.get(key):null,setItem:(key,value)=>box.set(key,String(value))};
+}
+
+test('messages keep the mechanic thread, and a call can start from it',()=>{
+  const {$,click}=page(), sent=[];
+  const storage=memory();
+  const phone=createPhone({$,storage,state:()=>({clock:'3:10 PM'}),onMechanic:()=>sent.push('mechanic')});
+  phone.setOpen(true);
+  assert.equal($('phone-messages-badge').hidden,false);
+  assert.equal($('phone-app-messages').getAttribute('aria-label'),'Messages, 1 unread');
+  click('phone-app-messages');
+  assert.equal($('phone-inbox-0-name').textContent,'Mechanic');
+  assert.match($('phone-inbox-0-note').textContent,/\$90/);
+  assert.equal($('phone-inbox-0').getAttribute('data-unread'),'true');
+  click('phone-inbox-0');
+  assert.equal(phone.screen,'thread');
+  assert.equal($('phone-title').textContent,'Mechanic');
+  assert.match($('phone-bubble-0-text').textContent,/\$90/);
+  assert.equal($('phone-messages-badge').hidden,true);
+  $('phone-thread-draft').value='How much?';
+  click('phone-thread-send');
+  assert.equal($('phone-bubble-1-who').textContent,'You · 3:10 PM');
+  assert.equal($('phone-bubble-1-text').textContent,'How much?');
+  assert.match($('phone-bubble-2-text').textContent,/Call-out is \$90/);
+  click('phone-thread-call');
+  phone.update(4);phone.update(5.2);
+  assert.equal(phone.screen,'call');
+  assert.deepEqual(sent,['mechanic']);
+  click('phone-call-end');
+  assert.equal(phone.screen,'thread');
+  click('phone-back');
+  assert.equal(phone.screen,'messages');
+  const again=page(), restored=createPhone({$:again.$,storage,state:()=>({clock:'3:11 PM'})});
+  restored.setOpen(true);again.click('phone-app-messages');again.click('phone-inbox-0');
+  assert.equal(again.$('phone-inbox-0').getAttribute('data-unread'),'false');
+  assert.equal(again.$('phone-bubble-1-text').textContent,'How much?');
 });
 
 test('citywide ride legs pick up the lane and signal objects of each newly streamed block',async()=>{

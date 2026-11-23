@@ -53,11 +53,24 @@ export function listPlaces(places, { category = 'all', query = '', x = 0, z = 0,
  * checking and savings balances. App actions go back to the game.
  */
 export function createPhone({ $, isClosed, places = () => [], state = () => ({}), onDirections = () => {}, onTransport = () => {}, onWork = () => {}, onMap = () => {}, onOpenChange = () => {}, onTap = () => {}, showTap = () => true, onMechanic = () => {}, onCab = () => {}, onTransfer = () => '', onTrade = () => '', rides, roads = () => [], storage, destinations = () => [], searchCity = async () => [] } = {}) {
-  const titles = {home:'Home', nearby:'Nearby', place:'Place', contacts:'Contacts', contact:'Contact', bank:'Bank', transfer:'Transfer', market:'Investments', order:'Trade shares', list:'Work', maps:'Maps', rides:'D Ride', settings:'Settings', wallpaper:'Wallpaper'};
+  const titles = {home:'Home', nearby:'Nearby', place:'Place', contacts:'Contacts', contact:'Contact', messages:'Messages', thread:'Message', call:'Call', bank:'Bank', transfer:'Transfer', market:'Investments', order:'Trade shares', list:'Work', maps:'Maps', rides:'D Ride', settings:'Settings', wallpaper:'Wallpaper'};
+  // Contacts is the address book. Calls start from a person, or from their
+  // texts. Messages is the inbox. There is no keypad: these are the only numbers.
   const contacts = [
-    {id:'mechanic',name:'Mechanic',initials:'M',role:'Roadside assistance',note:'Repair your current car or a nearby burned-out cab. $'+CALL_OUT+' call-out plus repairs.',call:onMechanic},
+    {id:'mechanic',name:'Mechanic',initials:'M',role:'Roadside assistance',note:'Repair your current car or a nearby burned-out cab. $'+CALL_OUT+' call-out plus repairs.',call:onMechanic,
+      texts:true,seed:['If the car will not move, call. $'+CALL_OUT+' to come out, then the repair.'],
+      reply(text){
+        const line=String(text||'').toLowerCase();
+        if(/\b(where|far|long|soon|when)\b/.test(line))return 'A few minutes. Stay with the car.';
+        if(/\b(cost|price|much|charge|pay|\$)\b/.test(line))return 'Call-out is $'+CALL_OUT+'. The repair depends on the car.';
+        if(/\b(thanks|thank)\b/.test(line))return 'Anytime. Call if it starts knocking.';
+        return 'Call when you are with the car and I will come out.';
+      }},
   ];
   let listing=null, listPage=0, visibleJobs=[], mine=false, contact=null;
+  const messagesKey='nyc-phone-messages', BUBBLES=8;
+  const threads=new Map(), seen=new Map(), inbox=[];
+  let call=null, threadPage=0;
   let selectedStock=COMPANIES[0].symbol, displayedPrice=0;
   let sector='All sectors', jobSort='Featured', boardPage=0, jobMenu=null, jobOptions=[];
   const jobOptionCount=9;
@@ -86,6 +99,52 @@ export function createPhone({ $, isClosed, places = () => [], state = () => ({})
     for(const key of Object.keys(prefs))$('phone-pref-'+key).setAttribute('aria-checked',String(prefs[key]));
   }
   applyPreferences();
+  function loadPhoneMemory(){
+    let saved=null;
+    try { saved=JSON.parse(storage?.getItem(messagesKey)||'null'); } catch {}
+    for(const person of contacts){
+      const record=saved?.[person.id];
+      const rows=Array.isArray(record)?record:Array.isArray(record?.rows)?record.rows:[];
+      const clean=rows.filter(row=>row&&(row.who==='me'||row.who==='them')&&typeof row.text==='string').slice(-40);
+      threads.set(person.id, clean.length?clean:(person.seed||[]).map(text=>({who:'them',text,time:''})));
+      seen.set(person.id, Number.isInteger(record?.seen)?record.seen:0);
+    }
+
+  }
+  function saveThreads(){
+    const data={};
+    for(const person of contacts)data[person.id]={seen:seen.get(person.id)||0,rows:threads.get(person.id)||[]};
+    try{storage?.setItem(messagesKey,JSON.stringify(data));}catch{}
+  }
+  function openThread(person=contact){
+    if(!person)return;
+    contact=person;
+    const rows=threads.get(person.id)||[];
+    seen.set(person.id, rows.length);
+    threadPage=Math.max(0,Math.ceil(rows.length/BUBBLES)-1);
+    saveThreads();
+    show('thread');
+  }
+  function sendThread(){
+    if(screen!=='thread'||!contact)return;
+    const text=$('phone-thread-draft').value.trim().slice(0,140);
+    if(!text)return;
+    const rows=threads.get(contact.id)||[];
+    rows.push({who:'me',text,time:state().clock||''});
+    if(contact.reply)rows.push({who:'them',text:contact.reply(text),time:state().clock||''});
+    threads.set(contact.id, rows.slice(-40));
+    seen.set(contact.id, threads.get(contact.id).length);
+    $('phone-thread-draft').value='';
+    threadPage=Math.max(0,Math.ceil(threads.get(contact.id).length/BUBBLES)-1);
+    saveThreads();
+    render();
+    $('phone-thread-draft').scrollIntoView?.({block:'nearest'});
+  }
+  function beginCall(){
+    if(!contact)return;
+    call={contact,from:screen==='thread'?'thread':'contact',began:null,connected:false,sent:false,elapsed:0};
+    show('call');
+  }
   const reducedMotion=()=>prefs.motion || Boolean(handset.ownerDocument?.defaultView?.matchMedia?.('(prefers-reduced-motion: reduce)').matches);
   const touch=createThumbPress(handset,$('phone-thumb'),onTap,reducedMotion,showTap);
   handset.addEventListener('pointermove',event=>{
@@ -125,6 +184,7 @@ export function createPhone({ $, isClosed, places = () => [], state = () => ({})
   }
   function show(next,backward=false) {
     const previous=screen;
+    if(previous==='call' && next!=='call')call=null;
     viewRevision++;
     if(previous==='rides' && next!=='rides'){stopSearch();quoteRevision++;quoting=false;}
     const current=handset.ownerDocument?.activeElement;
@@ -138,7 +198,7 @@ export function createPhone({ $, isClosed, places = () => [], state = () => ({})
     if(screen==='rides' && !rides?.trip && (quote || quoting))return 'rides';
     if(screen==='list' && listing?.board && jobMenu)return 'list';
     if(screen==='list')return listing?.app==='maps'?'maps':listing?.onBack?'list':'home';
-    return ({order:'market',market:'bank',wallpaper:'settings',place:'nearby',nearby:'maps',contact:'contacts',transfer:'bank'})[screen] || 'home';
+    return ({order:'market',market:'bank',wallpaper:'settings',place:'nearby',nearby:'maps',contact:'contacts',transfer:'bank',thread:'messages',call:call?.from||'contact'})[screen] || 'home';
   }
   function back() {
     if(screen==='list' && listing?.board && jobMenu){
@@ -352,10 +412,13 @@ export function createPhone({ $, isClosed, places = () => [], state = () => ({})
     const following=handset.getAttribute('data-navigation')==='keys' && focused?.closest?.('.phone-screen')?.id==='phone-'+screen;
     handset.hidden = !open;
     if (!open) return;
-    const app=({market:'bank',order:'bank',contact:'contacts',transfer:'bank',wallpaper:'settings',place:'maps',nearby:'maps',list:listing?.app || 'work'})[screen] || screen;
+    const app=({market:'bank',order:'bank',contact:'contacts',transfer:'bank',wallpaper:'settings',place:'maps',nearby:'maps',list:listing?.app || 'work',call:call?.from==='thread'?'messages':'contacts',thread:'messages'})[screen] || screen;
     handset.setAttribute('data-app',app);
+    const waiting=unread();
+    $('phone-messages-badge').hidden=waiting<1;
+    $('phone-app-messages').setAttribute('aria-label',waiting?`Messages, ${waiting} unread`:'Messages');
     $('phone-clock').textContent=prefs.clock && Number.isFinite(now.hours) ? formatClock(now.hours,true) : now.clock || '';
-    $('phone-title').textContent=screen==='list'?listing?.title:titles[screen];
+    $('phone-title').textContent=screen==='list'?listing?.title:screen==='thread'?(contact?.name||'Message'):titles[screen];
     for (const name of Object.keys(titles)) $('phone-'+name).hidden = name !== screen;
     $('phone-toolbar').hidden = screen === 'home';
     $('phone-back').hidden = screen === 'home';
@@ -426,7 +489,48 @@ export function createPhone({ $, isClosed, places = () => [], state = () => ({})
       $('phone-contact-role').textContent=contact.role;
       $('phone-contact-note').textContent=contact.note;
       $('phone-contact-call').textContent='Call '+contact.name;
+      $('phone-contact-message').hidden=!contact.texts;
       $('phone-cab-delivery').textContent='Deliver my cab · '+formatMoney(DELIVERY);
+    }
+    if(screen==='messages'){
+      inbox.length=0;
+      for(const person of contacts)if((threads.get(person.id)||[]).length)inbox.push(person);
+      for(let i=0;i<ROWS;i++){
+        const person=inbox[i], id='phone-inbox-'+i;
+        $(id).hidden=!person;
+        if(!person)continue;
+        const rows=threads.get(person.id), last=rows[rows.length-1];
+        $(id+'-name').textContent=person.name;
+        $(id+'-note').textContent=last.text;
+        $(id).setAttribute('data-unread',String(rows.length>(seen.get(person.id)||0)));
+      }
+      $('phone-messages-empty').hidden=inbox.length>0;
+    }
+    if(screen==='thread' && contact){
+      const rows=threads.get(contact.id)||[];
+      const pages=Math.max(1,Math.ceil(rows.length/BUBBLES));
+      threadPage=Math.max(0,Math.min(threadPage,pages-1));
+      for(let i=0;i<BUBBLES;i++){
+        const row=rows[threadPage*BUBBLES+i], id='phone-bubble-'+i;
+        $(id).hidden=!row;
+        if(!row)continue;
+        $(id).setAttribute('data-who',row.who);
+        $(id+'-who').textContent=(row.who==='me'?'You':contact.name)+(row.time?' · '+row.time:'');
+        $(id+'-text').textContent=row.text;
+      }
+      $('phone-thread-pager').hidden=pages<=1;
+      $('phone-thread-page').textContent=`${threadPage+1} / ${pages}`;
+      $('phone-thread-prev').disabled=threadPage<=0;
+      $('phone-thread-next').disabled=threadPage>=pages-1;
+      $('phone-thread-call').textContent='Call '+contact.name;
+    }
+    if(screen==='call' && call){
+      const person=call.contact;
+      $('phone-call-avatar').textContent=person.initials;
+      $('phone-call-avatar').setAttribute('class','monogram '+person.id);
+      $('phone-call-name').textContent=person.name;
+      $('phone-call-status').textContent=call.connected?'Connected':'Calling…';
+      $('phone-call-timer').textContent=call.connected?clocked(call.elapsed-1.1):'';
     }
     if (screen === 'list' && listing) {
       $('phone-title').textContent = listing.title;
@@ -567,7 +671,16 @@ export function createPhone({ $, isClosed, places = () => [], state = () => ({})
   for (let i = 0; i < ROWS; i++) click(`phone-ride-${i}`, () => { const row = visibleJobs[listPage * ROWS + i]; if (open && screen === 'list' && row) { const pick = listing.onPick; if (!listing.keepOpen) setOpen(false); pick(row); } });
   click('phone-ride-prev', () => { listPage--; render(); }); click('phone-ride-next', () => { listPage++; render(); });
   for(const c of contacts)click('phone-contact-'+c.id,()=>{contact=c;show('contact');});
-  click('phone-contact-call',()=>{if(!contact)return;setOpen(false);contact.call();});
+  click('phone-contact-call',beginCall);
+  click('phone-contact-message',()=>openThread());
+  click('phone-app-messages',()=>show('messages'));
+  for(let i=0;i<ROWS;i++)click('phone-inbox-'+i,()=>{const person=inbox[i];if(person)openThread(person);});
+  click('phone-thread-send',sendThread);
+  $('phone-thread-draft').addEventListener('keydown',event=>{if(event.key==='Enter'){event.preventDefault();sendThread();}});
+  click('phone-thread-prev',()=>{threadPage--;render();});
+  click('phone-thread-next',()=>{threadPage++;render();});
+  click('phone-thread-call',beginCall);
+  click('phone-call-end',()=>{if(screen==='call')show(call?.from||'contact',true);});
   click('phone-cab-delivery',()=>{setOpen(false);onCab();});
   click('phone-back', back);
   click('phone-home-key',home);
@@ -580,6 +693,19 @@ export function createPhone({ $, isClosed, places = () => [], state = () => ({})
     /** Show a list to choose from: `rows` of { name, note }; `onPick(row)` is told which. */
     openList(title, rows, onPick, { message = '', keepOpen = false, app = 'work', board = false, refresh = null, onBack = null } = {}) { if(screen==='list' && listing?.board)boardPage=listPage; listing = { title, rows, onPick, message, keepOpen, app, board, refresh, onBack }; listPage = board ? boardPage : 0; setOpen(true); show('list'); },
     /** Keep the clock, the cash and the distances current while the phone is out. `time` is in seconds. */
-    update(time = 0) { if (open && time - listed > (screen==='rides' && rides?.trip ? .25 : 1)) { listed = time; render(); } },
+    update(time = 0) {
+      if(!open)return;
+      if(screen==='call' && call){
+        if(call.began==null)call.began=time;
+        call.elapsed=Math.max(0,time-call.began);
+        const connected=call.elapsed>=1.1;
+        if(connected && !call.sent){call.sent=true;call.connected=true;call.contact.call?.();}
+        call.connected=connected;
+        const status=connected?'Connected':'Calling…';
+        if($('phone-call-status').textContent!==status)render();
+      }
+      const live=screen==='call' || (screen==='rides' && rides?.trip);
+      if(time-listed>(live?0.25:1)){listed=time;render();}
+    },
   };
 }

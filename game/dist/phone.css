@@ -71,6 +71,10 @@
 .icon-map { overflow:hidden; background:linear-gradient(75deg,transparent 50%,#8bcce9 51% 67%,transparent 68%),linear-gradient(155deg,#94d7a2 45%,#efdf9b 46%); }
 .icon-map::before { inset:0; background:linear-gradient(22deg,transparent 39%,white 40% 46%,transparent 47%),linear-gradient(100deg,transparent 30%,white 31% 38%,transparent 39%); }
 .icon-map::after { left:23px; top:10px; width:14px; height:14px; border-radius:50% 50% 50% 0; transform:rotate(-45deg); background:radial-gradient(circle,white 2px,transparent 3px),#ec5659; }
+.icon-messages { background:linear-gradient(#6ec15a,#248a3d); }
+.icon-messages::after { left:11px; right:11px; top:14px; height:16px; border-radius:8px; background:white; }
+.icon-messages::before { left:14px; bottom:12px; width:8px; height:8px; background:white; clip-path:polygon(0 0,100% 0,0 100%); }
+.app-badge { position:absolute; z-index:2; top:-1px; right:calc(50% - 30px); width:9px; height:9px; border-radius:50%; background:#e23d32; box-shadow:0 0 0 1.5px #fff; }
 .phone .phone-home-key { position:absolute; left:calc(50% - 21px); bottom:7px; width:42px; height:42px; border-radius:50%; border:1px solid #060707; background:linear-gradient(155deg,#0b0c0d 32%,#242629 77%,#424446); box-shadow:0 1px 1px #5557,inset 0 1px 2px #050505; }
 .phone-home-key::after { content:""; position:absolute; inset:12px; border-radius:4px; border:1.5px solid #b5b8bc; }
 .phone .phone-sleep { position:absolute; right:38px; top:-8px; width:48px; height:20px; }
@@ -266,7 +270,19 @@
 #phone-order-shares { background-image:none; padding-left:12px; }
 #phone-order :is(#phone-order-total,#phone-order-position),#phone-market-value { font-variant-numeric:tabular-nums; }
 #phone-market-return { margin-top:7px; font-size:12px; }
-.phone .investment-entry { margin:8px 0; width:100%; }
+.phone[data-dark="true"] .thread-log p { background:#303d43; }
+.phone[data-dark="true"] .thread-log p[data-who="me"] { background:#1f4a40; }
+.thread-log { display:flex; flex-direction:column; gap:6px; }
+.thread-log p { margin:0; max-width:88%; padding:8px 10px; border-radius:12px; background:white; }
+.thread-log p[data-who="me"] { align-self:flex-end; background:#d5eadc; }
+.thread-log p b { display:block; font-size:11px; font-weight:650; color:var(--muted); }
+.thread-log p span { display:block; }
+.phone-row[data-unread="true"] b::before { content:""; display:inline-block; width:7px; height:7px; margin-right:6px; border-radius:50%; background:#d6453d; vertical-align:1px; }
+.compose { display:flex; gap:6px; align-items:center; margin-top:10px; }
+.compose input { flex:1; margin:0; }
+.compose .phone-action { width:auto; margin:0; padding:9px 14px; }
+.phone .phone-end { background:linear-gradient(#c45448,#8d2e2a); border-color:#6d2c28; }
+#phone-call-timer { font-variant-numeric:tabular-nums; min-height:1.2em; }
 
 .stock-history { margin:10px 0; padding-bottom:6px; border-bottom:1px solid #8998a155; }
 .stock-history canvas { display:block; width:100%; height:44px; }
