@@ -17,13 +17,14 @@
 //   dist/human/human.json   what is where in the other two, and the names
 //   dist/human/body.bin     the body: points, faces, weights, targets
 //   dist/human/parts.bin    what is worn: meshes and how they are tied on
+//   dist/human/archive/*.bin  the same for the later chapters of the archive collection, fetched as they are worn
 //   dist/human/tex/*.webp   skins, cloth, hair, eyes
 //
 // usage: node scripts/build-human.mjs [--no-textures] [--refresh-wardrobe] [--out folder]
 import { readFileSync, writeFileSync, mkdirSync, existsSync, readdirSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
-import { join, basename } from 'node:path';
+import { join, basename, dirname } from 'node:path';
 import { fashionPieces, fashionFolder, cutFashion, skinUnderCloth, bakeFashion } from './fashion-materials.mjs';
 import { cutArchive, archivePieces, shapeStock, writeCatalog } from './archive-wardrobe.mjs';
 import { paintGarment, asPainted } from './garment-paint.mjs';
@@ -201,6 +202,8 @@ const bodyMeta = {
 const ONLY = flag('--only')?.split(',') || null;
 let FLOOR_Y = Infinity; for (const corner of skin.point) FLOOR_Y = Math.min(FLOOR_Y, positions[corner * 3 + 1]);
 const parts = createBin(), partList = [], textures = new Map();
+// Bins beside parts.bin, by name: what nobody needs until it is worn (a later chapter of the archive collection).
+const bins = new Map(), binPut = (name, array) => { if (!bins.has(name)) bins.set(name, createBin()); return bins.get(name).put(array); };
 /** A texture to be converted: returns the name it will have under dist/human/tex. */
 function texture(folder, file, { size = 1024, alpha = false, wardrobe = false, prefix = '' } = {}) {
   if (!file) return null;
@@ -302,8 +305,9 @@ function part(kind, id, folder, clo, design=null) {
         else bakeFashion(design,rest,point,uv,triangles,common.mapFile,join(OUT,'tex',common.map));
       }
     }
-    const made = { kind, id:design?.id || id, points: kept.length, shade, tie: parts.put(pick(tie, 3)), share: parts.put(pick(share, 3)), off: parts.put(offsets),
-      corners: parts.put(index(point)), uv: parts.put(packUv(uv)), triangles: parts.put(index(triangles)), hidden: hidden.length ? parts.put(pack16(hidden)) : null, ...common, ...extra };
+    const bin = design?.bin, put = array => bin ? binPut(bin, array) : parts.put(array);
+    const made = { kind, id:design?.id || id, ...(bin ? { bin } : {}), points: kept.length, shade, tie: put(pick(tie, 3)), share: put(pick(share, 3)), off: put(offsets),
+      corners: put(index(point)), uv: put(packUv(uv)), triangles: put(index(triangles)), hidden: hidden.length ? put(pack16(hidden)) : null, ...common, ...extra };
     delete made.mapFile;
     if(design){
       if(design.overWaist)made.overWaist=true;
@@ -367,7 +371,7 @@ for(const design of [...fashionPieces,...archivePieces().filter(piece=>piece.sou
 
 // The archive collection is cut from the body's own helper meshes and painted (archive-wardrobe.mjs).
 partList.push(...cutArchive({ positions, faces: base.faces, skinIndex, skinWeight, bones: motion.bones.map(bone => bone.name), places,
-  put: array => parts.put(array), out: OUT, textures: TEXTURES, only: ONLY }));
+  put: array => parts.put(array), binPut, out: OUT, textures: TEXTURES, only: ONLY }));
 
 // Skins and eyes are pictures only.
 const skins = [];
@@ -384,6 +388,7 @@ const irises = readdirSync(join(PACK, 'eyes/materials')).filter(name => name.end
 
 // --- Out ---------------------------------------------------------------------------------------------
 const bodyBytes = body.write(join(OUT, 'body.bin')), partBytes = parts.write(join(OUT, 'parts.bin'));
+let binBytes = 0; for (const [name, bin] of bins) { mkdirSync(dirname(join(OUT, name)), { recursive: true }); binBytes += bin.write(join(OUT, name + '.bin')); }
 writeFileSync(join(OUT, 'human.json'), JSON.stringify({
   version: 1, generated: new Date().toISOString().slice(0, 10),
   source: { name: 'MakeHuman', author: 'The MakeHuman team and community', licence: 'CC0 1.0', url: 'http://www.makehumancommunity.org' },
@@ -402,4 +407,4 @@ if (TEXTURES) {
 }
 // The shops and the wardrobe read the collection's names and prices from a module of their own; a trial build elsewhere leaves it be.
 if (!flag('--out')) writeCatalog();
-console.log(`${POINTS} points, ${skin.triangles.length / 3} triangles of skin, ${targets.length} targets (${dials.length} dials), ${partList.length} parts; body.bin ${(bodyBytes / 1048576).toFixed(1)} MB, parts.bin ${(partBytes / 1048576).toFixed(1)} MB`);
+console.log(`${POINTS} points, ${skin.triangles.length / 3} triangles of skin, ${targets.length} targets (${dials.length} dials), ${partList.length} parts; body.bin ${(bodyBytes / 1048576).toFixed(1)} MB, parts.bin ${(partBytes / 1048576).toFixed(1)} MB, ${bins.size} more bins ${(binBytes / 1048576).toFixed(1)} MB`);
