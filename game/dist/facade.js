@@ -4,10 +4,10 @@
 // looking at. This module dresses those walls: it picks a New York building
 // type from each volume's height, footprint and neighbourhood, lays window
 // bays out along every wall so they meet its corners cleanly, and shades the
-// result in the fragment stage. Window openings, brick, cornices, shop fronts
-// and fire escapes are drawn there, not modelled, so a million buildings cost
-// no extra triangles. Shapes stay surveyed; the dressing is an interpretation.
+// result in the fragment stage. Nearby facade-depth meshes use this same bay
+// layout and glass shading for recessed windows and projecting ironwork.
 
+import { CITY_SURFACE_GLSL } from './city-materials.js';
 import { airports } from './airport-data.js';
 import { lotStyle } from './lots.js';
 import { landmarkStyle, paletteFor } from './landmarks.js';
@@ -62,7 +62,7 @@ export const STYLES = [
 export const STYLE_INDEX = Object.fromEntries(STYLES.map((style, index) => [style.id, index]));
 
 // Flag bits carried per wall in the style attribute's fourth byte.
-export const FLAG = { PALETTE: 3, STONE: 4, BLANK: 16, SHOP: 32, ESCAPE: 64, SCREENS: 128 };
+export const FLAG = { PALETTE: 3, STONE: 4, INSET: 8, BLANK: 16, SHOP: 32, ESCAPE: 64, SCREENS: 128 };
 /** Height in texels of a line of sign lettering in the atlas storefronts.js keeps. */
 export const ATLAS_CELL_HEIGHT = 80;
 /** Metres per unit of the height byte. */
@@ -312,6 +312,7 @@ if ( aFacade.z > 0.5 && aFacade.y < 0.5 ) { transformed.y -= ${glslFloat(FOUNDAT
 `;
 
 export const FACADE_FRAGMENT_PARS = /* glsl */`
+${CITY_SURFACE_GLSL}
 varying vec2 vFacade;
 flat varying vec2 vFacadeWall;
 flat varying vec4 vStyle;
@@ -335,6 +336,29 @@ float nycShopOpening( vec3 point, vec3 normal ) {
 	if ( abs( outwards ) > 0.85 || abs( towardEye ) <= 0.001 ) return -1.0;
 	vec3 atPane = point - ray * ( outwards / towardEye );
 	return nycShopPane( vec2( dot( atPane.xz - center, vec2( pane.y, -pane.x ) ), atPane.y - pane.z ), pane.w );
+}
+vec3 nycOccupiedShopLocal( vec3 world ) {
+	vec3 delta = world - uNycRoom.xyz;
+	float depth = -dot( delta.xz, uNycRoomSide.xy );
+	float along = dot( delta.xz, uNycRoomEdges.xy ) - uNycRoomSide.w * depth;
+	return vec3( along, delta.y, depth );
+}
+// Use the occupied room's actual geometry. The lettering lookup is painted
+// into metre-wide texels and can lose a corner to a nearby frontage.
+bool nycOccupiedShopOpening( vec3 world ) {
+	vec3 point = nycOccupiedShopLocal( world );
+	float halfWidth = uNycRoomSide.z;
+	if ( point.y <= -0.4 || point.y >= 3.25 ) return false;
+	// The room mesh replaces the front wall, including its door and frames.
+	if ( abs( point.z ) < 0.85 && abs( point.x ) < halfWidth ) return true;
+	float side = point.x < 0.0 ? -1.0 : 1.0;
+	float length = side < 0.0 ? uNycRoomEdges.z : uNycRoomEdges.w;
+	float edge = side * halfWidth;
+	if ( length <= 0.44 || abs( point.x - edge ) > 0.85 || point.z < -0.85 || point.z > length + 0.85 ) return false;
+	vec3 ray = nycOccupiedShopLocal( cameraPosition ) - point;
+	if ( abs( ray.x ) <= 0.001 ) return false;
+	vec3 atPane = point + ray * ( ( edge - point.x ) / ray.x );
+	return nycShopPane( vec2( atPane.z - length * 0.5, atPane.y ), -length * 0.5 ) > 0.0;
 }
 ${STYLE_TABLES}
 #define NYC_MAT_BRICK ${MATERIAL.BRICK}
@@ -375,7 +399,8 @@ float nycHash13( vec3 p ) {
 }
 
 // Wall surface between the windows.
-vec3 nycWall( int material, vec3 base, vec2 at, vec2 pixel, float seed, out float roughness ) {
+vec3 nycWall( int material, vec3 base, vec2 at, vec2 pixel, float seed, out float roughness, out vec2 relief ) {
+	relief = vec2( 0.0 );
 	float size = max( pixel.x, pixel.y );
 	// Weathering: broad tonal drift, and streaks that run down the wall.
 	float drift = texture2D( uNycNoise, at * 0.041 + seed * 9.0 ).r;
@@ -384,7 +409,16 @@ vec3 nycWall( int material, vec3 base, vec2 at, vec2 pixel, float seed, out floa
 	roughness = 0.9;
 	if ( material == NYC_MAT_BRICK ) {
 		float close = 1.0 - smoothstep( 0.008, 0.03, size );
-		if ( close > 0.0 ) {
+		if ( uCitySurfaceReady ) {
+			// Fourteen courses in the source patch. Carry its chipped edges
+			// and recessed mortar into the light, in the building's own palette.
+			vec2 uv = at / 1.064 + vec2( seed * 4.13, seed * 2.57 );
+			vec4 scan = texture2D( uCitySurface, uv );
+			vec3 average = mix( color, vec3( 0.5, 0.48, 0.44 ), 0.16 );
+			color = average * exp2( 4.3 * ( scan.r - 0.5 ) );
+			relief = ( scan.gb * 2.0 - 1.0 ) * 0.85;
+			roughness = mix( 0.62, 0.98, scan.a );
+		} else if ( close > 0.0 ) {
 			float row = at.y / 0.076, course = floor( row );
 			float column = at.x / 0.22 + 0.5 * mod( course, 2.0 );
 			float mortar = 1.0 - nycPulse( row, 0.0, 0.86, pixel.y / 0.076 ) * nycPulse( column, 0.0, 0.955, pixel.x / 0.22 );
@@ -392,7 +426,7 @@ vec3 nycWall( int material, vec3 base, vec2 at, vec2 pixel, float seed, out floa
 			vec3 detailed = mix( color * tone, vec3( 0.52, 0.5, 0.46 ) * ( 0.75 + 0.3 * drift ), mortar );
 			color = mix( mix( color, vec3( 0.5, 0.48, 0.44 ), 0.16 ), detailed, close );
 		} else color = mix( color, vec3( 0.5, 0.48, 0.44 ), 0.16 );
-		roughness = 0.93;
+		if ( !uCitySurfaceReady ) roughness = 0.93;
 	} else if ( material == NYC_MAT_STONE ) {
 		float course = floor( at.y / 0.62 );
 		float column = at.x / 1.25 + 0.5 * mod( course, 2.0 );
@@ -515,8 +549,8 @@ NycFacade nycFacade( vec4 facade, vec4 styleIn, vec3 wallNormal, float facing, v
 	float upper = step( 0.0, above ) * step( 0.78 * storey + cornice, wallTop - ( ground + floorIndex * storey ) );
 	float fromTop = wallTop - v;
 
-	float roughness;
-	vec3 wall = nycWall( material, wallColor, vec2( u, v ), pixel, seed, roughness );
+	float roughness; vec2 relief;
+	vec3 wall = nycWall( material, wallColor, vec2( u, v ), pixel, seed, roughness, relief );
 	result.albedo = wall; result.roughness = roughness; result.metalness = 0.0;
 	result.emissive = vec3( 0.0 ); result.lean = vec3( 0.0 ); result.sun = 1.0; result.shade = 1.0; result.windowTrim = 0.0;
 
@@ -559,16 +593,18 @@ NycFacade nycFacade( vec4 facade, vec4 styleIn, vec3 wallNormal, float facing, v
 		if ( C.y > 0.5 ) {
 			// Vertical piers: spandrels between windows sit back and go dark.
 			float spandrelMask = columnMask * upper * ( 1.0 - opening / max( columnMask, 1e-3 ) );
+			relief *= 1.0 - spandrelMask * 0.85;
 			result.albedo = mix( result.albedo, trimColor * 0.7, spandrelMask * 0.85 );
 			result.shade *= 1.0 - 0.25 * spandrelMask;
 		}
 		if ( belt > 0.0 ) {
 			float course = ( 1.0 - nycPulse( cellV, 0.0, 1.0 - belt / storey, cellPixel.y ) ) * step( 0.0, above );
+			relief *= 1.0 - course;
 			result.albedo = mix( result.albedo, trimColor, course );
 			result.shade *= 1.0 - 0.3 * course * ( 1.0 - nycPulse( cellV, 0.0, 1.0 - 0.3 * belt / storey, cellPixel.y ) );
 		}
 		// The ray carries on past the wall face to the glass, a recess behind.
-		float depth = recess * close;
+		float depth = ( flags & ${FLAG.INSET} ) != 0 ? 0.0 : recess * close;
 		vec2 slide = vec2( eyeAlong, eyeUp ) * ( depth / eyeOut ) / vec2( bayWidth, storey );
 		vec2 seen = vec2( bayAt, floorAt ) - slide;
 		float inU = nycBox( seen.x, low, high, cellPixel.x ), inV = nycBox( seen.y, sill, head, cellPixel.y );
@@ -603,6 +639,7 @@ NycFacade nycFacade( vec4 facade, vec4 styleIn, vec3 wallNormal, float facing, v
 		pane = vec2( bayIndex, floorIndex ); roomAt = seen;
 		// A light sill under every window, and the soot that runs from it.
 		float ledgeBand = columnMask * upper * nycLine( floorAt, sill - 0.045 / storey, 0.05 / storey, cellPixel.y );
+		relief *= 1.0 - ledgeBand * ( 1.0 - opening );
 		result.albedo = mix( result.albedo, trimColor, ledgeBand * ( 1.0 - opening ) );
 		float stain = columnMask * upper * nycBox( floorAt, sill - 0.5, sill - 0.06, cellPixel.y ) * ( 1.0 - opening );
 		result.albedo *= 1.0 - 0.1 * stain * smoothstep( sill - 0.5, sill - 0.06, floorAt );
@@ -639,6 +676,7 @@ NycFacade nycFacade( vec4 facade, vec4 styleIn, vec3 wallNormal, float facing, v
 		// A building with no street storey of its own gives a tenant its first floor.
 		float storeyHeight = tenanted ? streetStorey : ground, height = v / storeyHeight;
 		if ( tenanted || ( shop && ! blank ) ) {
+			relief = vec2( 0.0 );
 			// Each shop takes two bays: plate glass over a low bulkhead, under a sign band.
 			float shopSeed = nycHash12( tenanted ? tenantAt.xy : vec2( shopIndex, seed * 173.0 ) );
 			float glazing = nycPulse( cellU, 0.05, 0.9, cellPixel.x ) * nycBox( height, 0.13, 0.74, pixel.y / storeyHeight );
@@ -732,6 +770,8 @@ NycFacade nycFacade( vec4 facade, vec4 styleIn, vec3 wallNormal, float facing, v
 			float opening = blank ? 0.0 : nycPulse( cellU, low, windowWidth * 0.8, cellPixel.x ) * nycBox( height, 0.34, 0.8, pixel.y / ground );
 			// The entrance: a darker door under a transom, in the middle bay.
 			float door = blank ? 0.0 : step( abs( bayIndex - floor( bays * 0.5 ) ), 0.1 ) * nycBox( bayAt, 0.2, 0.8, cellPixel.x ) * nycBox( height, 0.0, 0.72, pixel.y / ground );
+			relief *= ( 1.0 - door ) * ( 1.0 - 0.6 * step( 0.5, C.x ) );
+			result.roughness = mix( result.roughness, 0.75, door );
 			result.albedo = mix( result.albedo, vec3( 0.09, 0.075, 0.06 ), door );
 			result.emissive += vec3( 1.0, 0.78, 0.5 ) * ( 0.5 * lights * door * nycBox( height, 0.58, 0.7, pixel.y / ground ) );
 			glass = opening * ( 1.0 - door );
@@ -739,7 +779,9 @@ NycFacade nycFacade( vec4 facade, vec4 styleIn, vec3 wallNormal, float facing, v
 			litChance = litShare * 0.6;
 		}
 		// The line where the street storey ends.
-		result.albedo = mix( result.albedo, trimColor * 0.92, nycBox( height, 0.955, 1.0, pixel.y / storeyHeight ) );
+		float trimBand = nycBox( height, 0.955, 1.0, pixel.y / storeyHeight );
+		relief *= 1.0 - trimBand;
+		result.albedo = mix( result.albedo, trimColor * 0.92, trimBand );
 	}
 
 	// --- Cornice or coping --------------------------------------------------------
@@ -773,7 +815,17 @@ NycFacade nycFacade( vec4 facade, vec4 styleIn, vec3 wallNormal, float facing, v
 		float switched = smoothstep( ident2 * 0.85, ident2 * 0.85 + 0.12, lights );
 		// Fewer windows stay lit into the small hours; shops and lobbies keep theirs.
 		if ( pane.y > -0.5 && ! glassWall ) litChance *= mix( 1.0, 0.42, uNycLate );
-		float lit = mix( litChance * lights, step( ident, litChance ) * switched, distinct );
+		// Office suites share a switch. Clusters of lit bays remain legible
+		// from across the river even after individual mullions disappear.
+		float suiteDetail = 0.0, suite = 0.5;
+		if ( glassWall && pane.y >= 0.0 ) {
+			float suiteWidth = 5.0 + floor( fract( seed * 41.0 ) * 5.0 );
+			vec2 suiteCell = vec2( floor( pane.x / suiteWidth ), floor( pane.y ) );
+			suite = nycHash13( vec3( suiteCell, seed * 83.0 ) );
+			suiteDetail = 1.0 - smoothstep( 0.45, 1.3, max( cellPixel.x / suiteWidth, cellPixel.y ) );
+		}
+		float occupancy = clamp( litChance + ( suite - 0.5 ) * 1.2 * suiteDetail, 0.0, 1.0 );
+		float lit = mix( occupancy * lights, step( ident, occupancy ) * switched, distinct );
 		vec3 lamp = mix( vec3( 0.78, 0.88, 1.0 ), vec3( 1.0, 0.71, 0.4 ), clamp( warmth + ( ident2 - 0.5 ) * 0.5, 0.0, 1.0 ) );
 		lamp *= ( 0.24 + 0.36 * fract( ident * 9.7 ) ) * litBoost;
 		// Blinds: drawn part-way on about half the windows.
@@ -795,6 +847,9 @@ NycFacade nycFacade( vec4 facade, vec4 styleIn, vec3 wallNormal, float facing, v
 		float mirror = glassReflect * ( 1.0 - 0.55 * blind );
 		// No two panes are quite flat or quite parallel; reflections break across them.
 		vec2 tilt = ( vec2( fract( ident * 23.3 ), fract( ident2 * 41.7 ) ) - 0.5 ) * ( glassWall ? 0.011 : 0.028 ) * distinct;
+		// Pressure bows large sealed panes slightly, bending reflected cloud
+		// banks at the edges while the mullions stay straight.
+		if ( glassWall ) tilt += ( roomAt - 0.5 ) * 0.033 * distinct;
 		vec3 paneLean = along * tilt.x + vec3( 0.0, 1.0, 0.0 ) * tilt.y;
 		vec3 sash = glassWall ? trimColor * 0.6 : mix( trimColor, vec3( 0.07, 0.07, 0.075 ), step( 0.5, fract( seed * 3.3 ) ) );
 		float pure = glass * ( 1.0 - frame );
@@ -805,6 +860,10 @@ NycFacade nycFacade( vec4 facade, vec4 styleIn, vec3 wallNormal, float facing, v
 		result.lean += paneLean * pure;
 		result.shade = mix( result.shade, 1.0, pure );
 	}
+
+	// Glazing, tenant fixtures and coping have their own surface finish.
+	float bareWall = ( 1.0 - glass ) * ( 1.0 - result.windowTrim ) * step( cornice, fromTop );
+	result.lean += ( along * relief.x + vec3( 0.0, relief.y, 0.0 ) ) * bareWall;
 
 	// --- Fire escape --------------------------------------------------------------
 	if ( escape && ! blank && ! glassWall && wallLength > 4.5 && buildingHeight > 9.0 ) {
@@ -869,11 +928,7 @@ NycFacade nycFacade( vec4 facade, vec4 styleIn, vec3 wallNormal, float facing, v
 `;
 
 export const FACADE_FRAGMENT = /* glsl */`
-if ( uNycRoom.w > 0.5 ) {
-	// Standing in a room, the wall between it and the street is the room's own (interiors.js), with a doorway and windows in it.
-	vec3 nycFromRoom = cameraPosition - vViewPosition * mat3( viewMatrix ) - uNycRoom.xyz;
-	if ( abs( dot( nycFromRoom.xz, uNycRoomSide.xy ) ) < 0.7 && abs( dot( nycFromRoom.xz, vec2( uNycRoomSide.y, - uNycRoomSide.x ) ) ) < uNycRoomSide.z && nycFromRoom.y > -0.4 && nycFromRoom.y < 3.25 ) discard;
-}
+if ( uNycRoom.w > 0.5 && nycOccupiedShopOpening( cameraPosition - vViewPosition * mat3( viewMatrix ) ) ) discard;
 if ( vFacadeWall.x > 0.004 ) {
 	vec3 nycWallNormal = inverseTransformDirection( vNormal, viewMatrix );
 	vec3 nycToEye = inverseTransformDirection( vViewPosition, viewMatrix );
@@ -896,7 +951,7 @@ if ( vFacadeWall.x > 0.004 ) {
 	}
 	if ( paneEdge > -0.045 ) {
 		nycSurface.albedo = vec3( 0.09, 0.10, 0.11 ); nycSurface.emissive = vec3( 0.0 );
-		nycSurface.metalness = 0.55; nycSurface.roughness = 0.38;
+		nycSurface.metalness = 0.55; nycSurface.roughness = 0.38; nycSurface.lean = vec3( 0.0 );
 	}
 	diffuseColor.rgb = nycSurface.albedo * nycSurface.shade;
 	roughnessFactor = nycSurface.roughness;

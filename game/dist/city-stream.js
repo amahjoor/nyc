@@ -1,25 +1,33 @@
+import { createTimesSquare } from './times-square.js';
+import { collectFacadeWalls, createFacadeDepth } from './facade-depth.js';
+import { indexRoofTanks, matchRoofTanks, createRoofTankModels } from './roof-tanks.js';
 import { createRoomCutaways } from './room-cutaways.js';
 import * as THREE from './vendor/three.module.min.js';
 import { mercatorCoefficients, atlasProjectionGLSL } from './imagery-projection.js';
-import { chooseStyle, featureRandom, writeFacade, createFacadeScratch, applyFacadeShader, HEIGHT_UNIT, setLots, setLandmarks } from './facade.js';
+import { bindCitySurface } from './city-materials.js';
+import { chooseStyle, featureRandom, writeFacade, createFacadeScratch, applyFacadeShader, FLAG, HEIGHT_UNIT, setLots, setLandmarks } from './facade.js';
 import { createLots } from './lots.js';
 import { streamRanges, leadPoint } from './aloft.js';
 import { looksCoarse, inPicture } from './detail-view.js';
 import { createLandmarkBuildings } from './landmarks.js';
 import { replacedByMonument } from './monuments.js';
 
-/**
- * The tax-lot grid and the landmark record that facades are chosen from, fetched once wherever buildings
- * are decoded: on the page and in each background decoder. Resolves when it
- * is in, or has failed, in which case facades go by size and place alone.
- */
-let lotsLoading = null, lotGrid = null;
+/** City records used by the page and by each background tile decoder. */
+let lotsLoading = null, lotGrid = null, roofTankIndex = null;
 /** The tax-lot grid once lotsReady() has fetched it, or null. */
 export const lots = () => lotGrid;
 export function lotsReady() {
   if (typeof fetch !== 'function' || !/^https?:/.test(import.meta.url)) return Promise.resolve(false);
   const bytes = file => fetch(new URL(file, import.meta.url)).then(response => response.ok ? response.arrayBuffer() : null).catch(() => null);
-  return lotsLoading ||= Promise.all([bytes('./lots.bin'), bytes('./landmark-buildings.bin')]).then(([lots, landmarks]) => { lotGrid = createLots(lots); setLots(lotGrid); setLandmarks(createLandmarkBuildings(landmarks)); return Boolean(lots || landmarks); });
+  return lotsLoading ||= Promise.all([
+    bytes('./lots.bin'), bytes('./landmark-buildings.bin'), bytes('./roof-tanks.bin'),
+  ]).then(([lots, landmarks, tanks]) => {
+    roofTankIndex = indexRoofTanks(tanks);
+    lotGrid = createLots(lots);
+    setLots(lotGrid);
+    setLandmarks(createLandmarkBuildings(landmarks));
+    return Boolean(lots || landmarks);
+  });
 }
 
 const EARTH_RADIUS = 6371008.8;
@@ -215,7 +223,7 @@ function wallBackedBaseTriangles(positions, startFace, endFace) {
 }
 
 /** Decode the public I3S geometry buffer 0 without proprietary codecs or keys. */
-export function decodeI3S(buffer, node, origin, { collisions = true, heightAt = () => 0 } = {}) {
+export function decodeI3S(buffer, node, origin, { collisions = true, heightAt = () => 0, tankIndex = roofTankIndex } = {}) {
   const view = new DataView(buffer);
   if (buffer.byteLength < 8) throw new Error('NYC geometry header is truncated.');
   const vertexCount = view.getUint32(0, true), featureCount = view.getUint32(4, true);
@@ -273,26 +281,36 @@ export function decodeI3S(buffer, node, origin, { collisions = true, heightAt = 
       shapes.forEach((shape, part) => buildings.push({ id: `nyc:${id}:${part}`, featureId: id,
         ...shape, height: high - low, baseElevation: low + centerHeight, heightEstimated: false, heightSource: 'nyc-oti-2014-survey' }));
     }
-    features.push({ id, start: startFace * 3, end: (endFace + 1) * 3, x: (minX + maxX) / 2, z: (minZ + maxZ) / 2, height: high - low });
+    features.push({ id, minX, maxX, minZ, maxZ, start: startFace * 3, end: (endFace + 1) * 3, x: (minX + maxX) / 2, z: (minZ + maxZ) / 2, height: high - low });
   }
   if (expectedFace !== vertexCount / 3) throw new Error('NYC geometry includes triangles without a building identifier.');
   // A wall built against a neighbouring footprint is a windowless lot-line wall.
   const neighbours = collisions ? footprintIndex(buildings) : null;
-  for (const { id, start, end, x, z, height } of features) {
+  for (const feature of features) {
+    const { id, start, end, x, z, height } = feature;
     const [random, random2] = featureRandom(id);
     // Heights are still relative to each building's own base here.
     writeFacade(positions, start, end, { normals, facade, style, scratch: facadeScratch,
       seedByte: Math.floor(random2 * 256), heightByte: Math.min(255, Math.round(height / HEIGHT_UNIT)),
       choose: area => chooseStyle({ height, area, x, z, random, random2 }),
       isBlank: neighbours && ((px, pz) => neighbours(px, pz, id)) });
-    // I3S heights use EGM96 while the terrain uses NAVD88. Preserve each
-    // measured building's relative shape and anchor its foundation to the DEM
-    // instead of silently combining incompatible absolute vertical datums.
+    const fronts = collisions && !replacedByMonument(id) ? collectFacadeWalls(positions, facade, style, start, end) : null;
+    // The detailed district has independently mounted displays. Its parent LOD
+    // still carries the distant impression of signage in the facade shader.
+    if (collisions && (style[start * 4 + 3] & FLAG.SCREENS)) {
+      for (let vertex=start; vertex<end; vertex++) style[vertex*4+3] &= ~FLAG.SCREENS;
+    }
+    const tanks = collisions && tankIndex?.size && !replacedByMonument(id)
+      ? matchRoofTanks(tankIndex, feature, positions, normals) : null;
+    // Anchor the relative I3S shape to the NAVD88 terrain before comparing absolute heights.
     const measured = heightAt(x, z), elevation = Number.isFinite(measured) ? measured : 0;
     for (let i = start; i < end; i++) positions[i * 3 + 1] += elevation;
     // A mass that a monument's own model stands in for is drawn by that model: fold this one away to a point.
     if (replacedByMonument(id)) for (let i = start; i < end; i++) { positions[i * 3] = x; positions[i * 3 + 1] = elevation; positions[i * 3 + 2] = z; }
-    anchors.push({ start, end, x, z, elevation, featureId: id });
+    const anchor = { start, end, x, z, elevation, featureId: id };
+    if (fronts) anchor.fronts = fronts;
+    if (tanks?.length) anchor.tanks = tanks;
+    anchors.push(anchor);
   }
   return { positions, normals, facade, style, buildings, anchors, bounds, triangles: vertexCount / 3, featureCount };
 }
@@ -407,14 +425,18 @@ class CityStream {
     this.focus = { x: 0, z: 0 }; this.lastSelection = -Infinity; this.lastOverview = null;
     this.material = new THREE.MeshStandardMaterial({ color: 0xbebfb9, roughness: 0.94, side: THREE.DoubleSide });
     this.roomCutaways = createRoomCutaways();
+    this.tankModels = createRoofTankModels();
+    this.timesSquare = createTimesSquare(this.group);
     this.depthMaterial = new THREE.MeshDepthMaterial({ depthPacking: THREE.RGBADepthPacking });
+    this.facadeDepth = createFacadeDepth(this.material,this.depthMaterial);
     this.depthMaterial.onBeforeCompile = this.roomCutaways.apply;
     this.material.name = 'Official citywide measured surfaces';
     this.orthoUniforms = { cityOrtho: { value: null }, cityOrthoBounds: { value: new THREE.Vector4() }, cityUseOrtho: { value: false },
       cityMercator: { value: new THREE.Vector4() }, cityUseMercator: { value: false },
       cityLocalOrtho: { value: null }, cityLocalOrthoBounds: { value: new THREE.Vector4() }, cityUseLocalOrtho: { value: false },
       cityLocalMercator: { value: new THREE.Vector4() }, cityUseLocalMercator: { value: false } };
-    this.material.onBeforeCompile = shader => {
+    this.material.onBeforeCompile = (shader, renderer) => {
+      bindCitySurface(shader, renderer, 'brick');
       Object.assign(shader.uniforms, this.orthoUniforms);
       shader.vertexShader = 'varying vec2 vCityXZ; varying float vCityRoof;\n' + shader.vertexShader;
       shader.vertexShader = shader.vertexShader.replace('#include <begin_vertex>', '#include <begin_vertex>\nvCityXZ = position.xz; vCityRoof = abs(normal.y);');
@@ -473,8 +495,9 @@ class CityStream {
         for (let i = anchor.start; i < anchor.end; i++) positions.array[i * 3 + 1] += delta;
         anchor.elevation = elevation;changed = true;
       }
-      if (changed) { positions.needsUpdate = true;record.mesh.geometry.computeBoundingSphere(); }
+      if (changed) { record.tanks?.update(); record.signs?.update(); positions.needsUpdate = true;record.mesh.geometry.computeBoundingSphere(); }
     }
+    this.facadeDepth.reanchor();
   }
 
   setOrthophoto({ texture, bounds, mercator }) {
@@ -620,6 +643,7 @@ class CityStream {
   update(focus, camera, { overview = false, altitude = 0, collisionAltitude = altitude, detail = [], view = null } = {}) {
     if (this.disposed) return;
     this.focus = { x: focus.x, z: focus.z };
+    this.facadeDepth.update(this.cache,camera?.position || focus,!overview && altitude < 75);
     const now = Date.now();
     // A change in what is wanted in detail is acted on at once; otherwise three selections a second are enough.
     // A view from above changes what it wants as it moves a fifth of its own height, or that far across the ground.
@@ -741,7 +765,9 @@ class CityStream {
       mesh.customDepthMaterial = this.depthMaterial;
       mesh.castShadow = true; mesh.receiveShadow = true; mesh.visible = false;
       this.group.add(mesh);
-      const record = { node, mesh, buildings: data.buildings, anchors: data.anchors, bytes: data.positions.byteLength + data.normals.byteLength + data.facade.byteLength + data.style.byteLength + data.anchors.length * 64, used: ++this.serial, triangles: data.triangles };
+      const tanks = this.tankModels.batch(mesh, data.anchors);
+      const signs = !node.children.length ? this.timesSquare.attach(mesh,data.anchors) : null;
+      const record = { node, mesh, tanks, signs, buildings: data.buildings, anchors: data.anchors, bytes: data.positions.byteLength + data.normals.byteLength + data.facade.byteLength + data.style.byteLength + data.anchors.reduce((sum,anchor) => sum + 64 + (anchor.fronts?.byteLength || 0),0) + (tanks?.bytes || 0), used: ++this.serial, triangles: data.triangles };
       this.cache.set(node.id, record); this.errors.delete(node.id);
       if (!node.children.length) this.emitCollisions();
       return record;
@@ -771,7 +797,10 @@ class CityStream {
       return { ids: children.flatMap(child => child.ids), complete };
     };
     const visible = new Set(indexRoots(this.index).flatMap(id => resolve(this.nodes.get(id)).ids));
-    for (const [id, record] of this.cache) record.mesh.visible = visible.has(id);
+    for (const [id, record] of this.cache) {
+      if (record.mesh.visible !== visible.has(id)) this.facadeDepth.invalidate();
+      record.mesh.visible = visible.has(id);
+    }
   }
 
   emitCollisions() {
@@ -805,7 +834,8 @@ class CityStream {
       && !this.protected.has(record.node.id) && !this.preparedCollisions.has(record.node.id) && !this.held.has(record.node.id)).sort((a, b) => a.used - b.used);
     for (const record of removable) {
       if (bytes <= this.maxCacheBytes && this.cache.size <= 320) break;
-      this.cache.delete(record.node.id); this.group.remove(record.mesh); record.mesh.geometry.dispose(); bytes -= record.bytes; changed ||= record.buildings.length > 0;
+      this.facadeDepth.forget(record);
+      this.cache.delete(record.node.id); this.group.remove(record.mesh); record.tanks?.dispose(); record.signs?.dispose(); record.mesh.geometry.dispose(); bytes -= record.bytes; changed ||= record.buildings.length > 0;
     }
     if (changed) this.emitCollisions();
   }
@@ -829,7 +859,10 @@ class CityStream {
     this.disposed = true;
     for (const task of this.requests.values()) { task.controller.abort(); task.reject(new Error('NYC city stream has been disposed.')); }
     this.queue.length = 0; this.requests.clear(); this.held.clear();
-    for (const record of this.cache.values()) record.mesh.geometry.dispose();
+    this.facadeDepth.dispose();
+    for (const record of this.cache.values()) { record.tanks?.dispose(); record.signs?.dispose(); record.mesh.geometry.dispose(); }
+    this.tankModels.dispose();
+    this.timesSquare.dispose();
     this.cache.clear(); this.collisionRecords.clear(); this.preparedCollisions.clear(); this.material.dispose(); this.depthMaterial.dispose(); this.roomCutaways.dispose(); this.scene?.remove(this.group); this.group.clear();
   }
 }
