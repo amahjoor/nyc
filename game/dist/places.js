@@ -473,8 +473,14 @@ export function solveFrontages(places, footprints, isStreet, { reach = 28 } = {}
 // ---------------------------------------------------------------------------
 // What a place looks like from the street
 
-/** Whether a place of this kind is open at `hours` (0 to 24). */
+// Whether places keep opening hours at all. The game can let everything stay open round the clock (setOpeningHours(false)),
+// so that nothing the player wants is shut because of the hour they happened to arrive at.
+let keepsHours = true;
+/** Say whether places keep their own opening hours (true), or never close (false). */
+export function setOpeningHours(actual) { keepsHours = Boolean(actual); }
+/** Whether a place of this kind is open at `hours` (0 to 24): always, unless places are keeping their own hours. */
 export function isOpen(kind, hours) {
+  if (!keepsHours) return true;
   const group = KIND[kind]?.group, between = (from, to) => from <= to ? hours >= from && hours < to : hours >= from || hours < to;
   if (kind === 'laundromat') return between(6, 23);
   if (kind === 'gym') return between(5, 23);
