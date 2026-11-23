@@ -93,7 +93,8 @@ test('coffee uses working capital and inventory, and a pedestrian can transact o
   f.work.coffee();f.choose('Open a coffee cart');assert.equal(f.work.record.cart, false);
   f.sim.cash = 60;f.work.coffee();f.choose('Open a coffee cart');assert.equal(f.sim.cash, 0);
   f.work.restore(JSON.parse(JSON.stringify(f.work.record)));assert.equal(f.work.record.cups, 6);
-  f.work.street();f.choose('Sell a coffee');assert.equal(f.sim.cash, 5);assert.equal(f.work.record.cups, 5);
+  f.work.street();f.choose('Sell a coffee');f.choose('Pour hot coffee');f.choose('Add a splash of milk');
+  assert.equal(f.sim.cash,0);f.choose('Lid and hand over coffee');assert.equal(f.sim.cash, 5);assert.equal(f.work.record.cups, 5);
   f.work.street();f.choose('Steal wallet');assert.equal(f.sim.cash, 5);assert.equal(f.sim.heat, 0);
   f.sim.cash = 12;f.work.coffee();f.choose('Buy six cups');assert.equal(f.work.record.cups, 11);assert.equal(f.sim.cash, 0);
 });

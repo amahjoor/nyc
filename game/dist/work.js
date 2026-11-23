@@ -305,11 +305,26 @@ export class Work {
         this.street(person.resident ? replies[person.resident.id%replies.length] : 'Hey, how’s it going?');
       }));
       rows.push(option('Ask for spare change', 'They can say no.', () => this.trade(person, 'ask')));
-      if (this.record.cart) rows.push(option('Sell a coffee', `$5 · ${this.record.cups} cups left`, () => this.trade(person, 'sell')));
+      if (this.record.cart) rows.push(option('Sell a coffee', `$5 · ${this.record.cups} cups left`, () => this.pourCoffee(person)));
       rows.push(option('Steal wallet', 'Reported crime · one wanted star', () => this.trade(person, 'steal')));
     }
     if (!rows.length) return this.board('Walk up to a pedestrian and press G.');
     this.meet('Passerby', message, rows, () => this.pedestrian() === person);
+  }
+
+  pourCoffee(person){
+    if(this.met.has(person))return this.sim._say('You already served this customer.');
+    if(!this.record.cups)return this.sim._say('Restock your coffee cart first.');
+    const available=()=>this.pedestrian()===person && !this.met.has(person) && this.record.cups>0;
+    const milk=(person.resident?.id || 0)%2===0;
+    const order=milk?'A coffee with milk, please.':'Black coffee, please.';
+    const serve=()=>this.meet('Coffee cart','One cup ready.',[
+      option('Lid and hand over coffee','$5',()=>this.trade(person,'sell'))
+    ],available);
+    this.meet('Coffee cart',order,[option('Pour hot coffee','Fill a paper cup',()=>{
+      if(!available())return;
+      this.meet('Coffee cart',order,[option(milk?'Add a splash of milk':'Leave it black','',serve)],available);
+    })],available);
   }
 
   trade(person, action) {
