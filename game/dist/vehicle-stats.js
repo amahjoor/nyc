@@ -1,5 +1,5 @@
 import { roadFigures } from './vehicle-performance.js';
-import { bodyShape, vehicleName } from './fleet.js';
+import { vehicleName } from './fleet.js';
 
 const metrics = [
   ['topSpeed', 'Top speed', 'mph', 0], ['zeroToSixty', '0–60 mph', 's', 1],
@@ -7,7 +7,7 @@ const metrics = [
 ];
 
 export function performanceName(car) {
-  return vehicleName(car.identity) || (car.type === 'taxi' ? 'City cab' : bodyShape(car.type, car.id, car.shape).toUpperCase());
+  return vehicleName(car.identity);
 }
 
 export function renderStats(list, handling) {

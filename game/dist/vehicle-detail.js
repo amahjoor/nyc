@@ -1,6 +1,7 @@
 // The articulated and batched exteriors classify the same triangles as glazing.
 import * as THREE from './vendor/three.module.min.js';
-import { PANEL, doorPanel, hasDriver } from './vehicle-damage.js';
+import { PANEL, doorPanel, hasDriver, vehiclePaneBroken } from './vehicle-damage.js';
+import { poseGlass, releaseFracture } from './vehicle-glass.js';
 import { EXTERIOR_PARTS } from './vehicle-generator.js';
 
 const exteriors = new WeakMap();
@@ -16,23 +17,9 @@ function lightenInside(shader) {
 glass.onBeforeCompile = lightenInside;
 glass.name = 'Car glass';
 const char = new THREE.MeshStandardMaterial({ color: 0x292727, metalness: .23, roughness: .91, side: THREE.DoubleSide });
-const cracked = glass.clone();
-cracked.onBeforeCompile = shader => {
-  shader.vertexShader = 'varying vec3 panePoint;\n' + shader.vertexShader.replace('#include <begin_vertex>', '#include <begin_vertex>\npanePoint = position;');
-  shader.fragmentShader = 'varying vec3 panePoint;\n' + shader.fragmentShader.replace('#include <color_fragment>', `#include <color_fragment>
-    vec2 p = panePoint.xy - vec2(.24, 1.12);
-    float r = length(p), a = atan(p.y, p.x);
-    float rays = abs(sin(a * 7.0 + sin(a * 4.0) + .12 * sin(r * 34.0))) * r;
-    float rings = abs(fract(r * (14.0 + sin(a * 7.0)) + .19 * sin(5.0 * a)) - .5);
-    float crack = max(1.0 - smoothstep(.001, .008, rays), (1.0 - smoothstep(.015, .045, rings)) * (1.0 - smoothstep(.04,.24,r)));
-    diffuseColor.rgb = mix(diffuseColor.rgb, vec3(.84,.9,.91), crack);
-    diffuseColor.a = mix(diffuseColor.a, .86, crack);`);
-  lightenInside(shader);
-};
-
-const windshieldCracked = car => car.dents?.[PANEL.front] > .08;
 export function hasAlteredGlazing(car) {
-  return Boolean(car.brokenGlass || car.missingDoors || car.doorOpen || car.destroyed || windshieldCracked(car));
+  return Boolean(car.brokenGlass || car.shotGlass || car.glassDamage || car.missingDoors || car.doorOpen || car.destroyed ||
+    (car.dents && Object.values(car.dents).some(depth => depth > .055)));
 }
 
 const isGlazing = part => part === 'windshield' || part.endsWith('Glass');
@@ -120,9 +107,53 @@ export function fitExterior(chassis, built, paint) {
     hinge, latch };
 }
 
+const glassPanels = {
+  windshield:PANEL.front,rearGlass:PANEL.rear,roofGlass:PANEL.roof,
+  leftGlass:PANEL.left,leftQuarterGlass:PANEL.leftQuarter,rightGlass:PANEL.right,rightQuarterGlass:PANEL.rightQuarter,
+};
+const shotSurface = new THREE.Mesh(undefined,new THREE.MeshBasicMaterial({side:THREE.DoubleSide}));
+const shotRay = new THREE.Raycaster(), shotHits = [];
+const localShot = new THREE.Vector3(), chassisShot = new THREE.Matrix4(), shotTilt = new THREE.Matrix4(), shotInverse = new THREE.Matrix4();
+
+/** Query the same exterior panels used by detailed and batched vehicles. */
+export function vehicleShotContacts(car, drawn, built, origin, ray, range) {
+  const detail = drawn?.userData.detail, batched = !detail && built && partition(built);
+  if (!detail && !batched) return null;
+  const parts = detail?.pieces ?? batched.parts, width = detail?.width ?? batched.layout.width;
+  if (detail) drawn.updateMatrixWorld(true);
+  else {
+    chassisShot.makeRotationY(car.angle).setPosition(car.x,(car.y||0)+.025,car.z);
+    shotTilt.makeRotationFromEuler(new THREE.Euler(car.pitch||0,0,car.roll||0,'YXZ'));
+    chassisShot.multiply(shotTilt);
+  }
+  shotRay.set(origin,ray);
+  shotRay.near = .001;
+  shotRay.far = range;
+  let distance = Infinity;
+  const panes = new Map();
+  for (const [name,part] of Object.entries(parts)) {
+    const panel = glassPanels[name];
+    if (detail && (!part.visible || !part.parent.visible) || panel && vehiclePaneBroken(car,panel)) continue;
+    shotSurface.geometry = detail ? part.geometry : part;
+    shotSurface.matrixWorld.copy(detail ? part.matrixWorld : chassisShot);
+    shotHits.length = 0;
+    shotSurface.raycast(shotRay,shotHits);
+    for (const hit of shotHits) {
+      if (!panel) distance = Math.min(distance,hit.distance);
+      else if (hit.distance<(panes.get(panel)?.distance??Infinity)) {
+        localShot.copy(hit.point).applyMatrix4(shotInverse.copy(shotSurface.matrixWorld).invert());
+        const offset = Math.max(.06,Math.min(.94,.5+localShot.x/(2*width)));
+        panes.set(panel,{car,panel,distance:hit.distance,offset});
+      }
+    }
+  }
+  return {distance,panes:[...panes.values()]};
+}
+
 // Identical cars share every intact vertex. Only a damaged car gets a private
 // set of positions, shared by its doors, glass and body partitions.
 export function releaseCrumple(detail) {
+  for (const mesh of Object.values(detail.pieces)) releaseFracture(mesh,glass);
   for (const { mesh, original } of detail.deformed || []) {
     // Three releases attribute buffers on geometry disposal. The material
     // attributes and indices still belong to other vehicles in the scene.
@@ -136,17 +167,30 @@ export function releaseCrumple(detail) {
   detail.deformed = detail.positions = detail.lastDents = null;
 }
 
-function crumple(detail, dents) {
+function localCrush(zones, panel, offset, fallback) {
+  const hits = zones?.[panel];
+  if (!hits) return fallback;
+  let depth = 0;
+  for (const hit of hits) {
+    if (!hit) continue;
+    const weight = Math.max(0, 1 - Math.abs(offset-hit.offset)/hit.width);
+    depth = Math.max(depth, hit.depth*weight*weight*(3-2*weight));
+  }
+  return depth;
+}
+
+function crumple(detail, dents, zones, revision) {
   if (!dents) {
     if (detail.deformed) releaseCrumple(detail);
     return;
   }
-  if (detail.lastDents && Object.values(PANEL).every(bit => detail.lastDents[bit] === dents[bit])) return;
+  if (detail.lastDents && detail.crushRevision === revision && Object.values(PANEL).every(bit => detail.lastDents[bit] === dents[bit])) return;
   detail.lastDents = { ...dents };
+  detail.crushRevision = revision;
   if (!detail.deformed) {
     detail.deformed = [];
     detail.positions = new Map();
-    for (const mesh of [...Object.values(detail.pieces), detail.lamps]) {
+    for (const mesh of [...Object.values(detail.pieces), detail.lamps, detail.plates]) {
       const original = mesh.geometry, source = original.attributes.position;
       if (!detail.positions.has(source)) detail.positions.set(source, {
         positions: source.clone(), normals: original.attributes.normal.clone(), restNormal: original.attributes.normal,
@@ -165,9 +209,9 @@ function crumple(detail, dents) {
   for (const [source, { positions, normals, restNormal }] of detail.positions) {
     for (let i = 0; i < source.count; i++) {
       const x = source.getX(i), y = source.getY(i), z = source.getZ(i);
-      const nose = Math.max(0, 1 - (max.z-z) / (.29*length)) ** 1.4 * (dents[PANEL.front] || 0);
-      const tail = Math.max(0, 1 - (z-min.z) / (.24*length)) ** 1.4 * (dents[PANEL.rear] || 0);
-      const side = Math.max(0, Math.abs(x)/detail.width-.56) * Math.max(0, 1-Math.abs(z)/(.43*length)) * (dents[doorPanel(x)] || 0);
+      const nose = Math.max(0, 1 - (max.z-z) / (.29*length)) ** 1.4 * localCrush(zones, PANEL.front, x/detail.width, dents[PANEL.front] || 0);
+      const tail = Math.max(0, 1 - (z-min.z) / (.24*length)) ** 1.4 * localCrush(zones, PANEL.rear, x/detail.width, dents[PANEL.rear] || 0);
+      const side = Math.max(0, Math.abs(x)/detail.width-.56) * Math.max(0, 1-(2*Math.abs(z)/length)**4) * localCrush(zones, doorPanel(x), 2*z/length, dents[doorPanel(x)] || 0);
       positions.setXYZ(i, x - Math.sign(x)*.34*side,
         y + (nose+tail)*(.08 + .085*Math.sin(13*z+2*x)), z + length*(.11*tail-.13*nose));
       const ripple = (nose+tail)*.085*Math.cos(13*z+2*x);
@@ -182,30 +226,30 @@ function crumple(detail, dents) {
 
 export function poseExterior(detail, car) {
   const { doors, hood, pieces } = detail;
-  crumple(detail, car.dents);
-  const dents = car.dents || {}, broken = car.brokenGlass || 0;
+  crumple(detail, car.dents, car.crushZones, car.crushRevision);
+  const dents = car.dents || {};
   for (const [i, side] of [1,-1].entries()) {
     const door = doors[i], flag = doorPanel(side), crush = dents[flag] || 0;
     door.rotation.y = side === car.doorSide ? -side * (car.doorOpen || 0) * 1.08 : 0;
-    door.rotation.z = side * .075 * crush;
-    door.position.x = side * (detail.width - .14 * crush);
+    const doorCrush = localCrush(car.crushZones,flag,.12,crush);
+    door.rotation.z = side * .075 * doorCrush;
+    door.position.x = side * (detail.width - .14 * doorCrush);
     door.visible = !(car.missingDoors & flag);
     const pane = pieces[side > 0 ? 'leftGlass' : 'rightGlass'];
-    if (pane) pane.visible = !(broken & flag);
+    const origin = car.fractureOrigin?.[flag] ?? .5;
+    poseGlass(pane, glass, !vehiclePaneBroken(car,flag), crush, origin, true);
+    const quarter = side > 0 ? 'leftQuarterGlass' : 'rightQuarterGlass';
+    poseGlass(pieces[quarter], glass, !vehiclePaneBroken(car,glassPanels[quarter]), crush, origin, true);
   }
   const frontCrush = dents[PANEL.front] || 0;
   detail.bay.visible = frontCrush > .18;
   detail.bay.position.z = hood.position.z + detail.bay.scale.z*.40 - (detail.bounds.max.z-detail.bounds.min.z)*.065*frontCrush;
   hood.rotation.x = -.17 * (dents[PANEL.front] || 0);
-  hood.rotation.z = .055 * (dents[PANEL.front] || 0);
-  if (pieces.windshield) {
-    pieces.windshield.visible = !(broken & PANEL.front);
-    pieces.windshield.material = windshieldCracked(car) ? cracked : glass;
-  }
-  if (pieces.rearGlass) pieces.rearGlass.visible = !(broken & PANEL.rear);
-  if (pieces.leftQuarterGlass) pieces.leftQuarterGlass.visible = !(broken & PANEL.left);
-  if (pieces.rightQuarterGlass) pieces.rightQuarterGlass.visible = !(broken & PANEL.right);
-  if (pieces.roofGlass) pieces.roofGlass.visible = !car.destroyed;
+  const frontOrigin = car.fractureOrigin?.[PANEL.front] ?? .5;
+  hood.rotation.z = (frontOrigin-.5) * .19 * frontCrush;
+  poseGlass(pieces.windshield, glass, !vehiclePaneBroken(car,PANEL.front), Math.max(frontCrush,car.glassDamage||0), frontOrigin, false, car.secondFracture);
+  poseGlass(pieces.rearGlass, glass, !vehiclePaneBroken(car,PANEL.rear), dents[PANEL.rear] || 0, car.fractureOrigin?.[PANEL.rear] ?? .5, false);
+  if (pieces.roofGlass) pieces.roofGlass.visible = !car.destroyed && !vehiclePaneBroken(car,PANEL.roof);
   if (detail.charred !== !!car.destroyed) {
     detail.charred = !!car.destroyed;
     for (const key of ['body','hood','left','right']) if (pieces[key]) pieces[key].material = car.destroyed ? char : detail.paint;

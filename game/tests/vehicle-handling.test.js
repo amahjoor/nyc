@@ -102,6 +102,27 @@ test('handbrake opens a recoverable slide while service braking retains more gri
   }
 });
 
+test('the driven axle changes the line on corner exit, and cornering consumes braking grip', () => {
+  function powerExit(drive) {
+    const {sim, car} = driving(15);
+    car.identity = {performance:{drive}};
+    run(sim, car, 1, {turn:.8, forward:1});
+    return {yaw:Math.abs(car.yawRate), slip:Math.abs(car.slipAngle)};
+  }
+  const front = powerExit('F'), rear = powerExit('R');
+  assert.ok(rear.yaw > front.yaw * 1.15);
+  assert.ok(rear.slip > front.slip + .02);
+
+  function braking(turn) {
+    const {sim, car} = driving(18);
+    run(sim, car, .7, current => ({forward:cruise(current,18), turn}));
+    const start = Math.hypot(car.velocityX, car.velocityZ);
+    run(sim, car, .18, {brake:true, turn});
+    return start - Math.hypot(car.velocityX, car.velocityZ);
+  }
+  assert.ok(braking(0) > braking(.9) + .05);
+});
+
 test('reverse turns remain symmetric and preserve backward travel under steering', () => {
   const paths = [-1, 1].map(turn => {
     const { sim, car } = driving(-6);
@@ -150,8 +171,11 @@ test('lateral drift cannot tunnel through a thin wall during a long display fram
   const wall = { polygon: [[1.5, -100], [1.8, -100], [1.8, 100], [1.5, 100]] };
   const { sim, car } = driving(12, { buildings: [wall] });
   car.velocityX = 18;
+  const heard = [];
+  sim.onVehicleContact = (kind, source, other, speed) => heard.push({kind,source,speed});
   sim.step({ handbrake: true }, .25);
   assert.ok(car.x < .581, `the car remains on its original side of the wall, x=${car.x}`);
+  assert.ok(heard.some(hit=>hit.kind==='crash' && hit.source===car && hit.speed>8));
   assert.equal(sim._carContact(car.x, car.z, car.angle), null);
   assert.ok(car.velocityX <= .05, 'the wall removes inward lateral velocity');
   assert.ok(sim.health < 100, 'sideways impact energy counts even though the nose points along the wall');
@@ -250,4 +274,20 @@ test('travel returns the drifting vehicle to the garage until requested again', 
   assert.equal(sim.player.mode,'walk');
   assert.equal(sim.cars.includes(car),false);
   assert.equal(sim.ownedCab.controlled,false);
+});
+
+test('a sideswipe retains speed down the street while a heavier parked car absorbs less velocity', () => {
+  function collide(kg) {
+    const {sim,car}=driving(20);
+    car.identity={performance:{kg:1500}};
+    car.velocityX=8;
+    const target=sim._makeCar('parked','sedan',{x:1.86,z:1},0);
+    target.identity={performance:{kg}};
+    sim.cars.push(target);
+    sim.step({},STEP);
+    assert.ok(car.damage>0 && target.damage>0);
+    assert.ok(car.velocityZ>17, 'the contact impulse is mainly across the street');
+    return target.velocityX;
+  }
+  assert.ok(collide(1050)>collide(2900)*1.35);
 });

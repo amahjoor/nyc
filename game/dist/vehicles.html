@@ -3,8 +3,9 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <link rel="icon" href="data:,">
-  <title>NYC vehicle catalog · GTA NYC</title>
+  <link rel="icon" type="image/png" href="./assets/favicon.png">
+  <link rel="apple-touch-icon" href="./assets/favicon.png">
+  <title>NYC vehicle catalog · I Heart NYC</title>
   <link rel="stylesheet" href="fonts.css">
   <style>
     :root { color-scheme: dark; font: 16px/1.5 var(--ui); color: #eae9e2; background: #151b1d; }
@@ -17,13 +18,13 @@
     h1 { font-size: clamp(32px, 6vw, 60px); margin-top: 16px }
     h2 { font-size: clamp(25px, 3.5vw, 40px) }
     p { margin: 8px 0; color: #b7c2c1 }
-    a { color: #ffab8e; text-underline-offset: .18em }
+    a { color: var(--brand-blush); text-underline-offset: .18em }
     .layout { display: grid; grid-template-columns: minmax(0, 1fr) minmax(250px, 30%); gap: 28px }
     figure { margin: 0 }
     .stage { position: relative; overflow: hidden; height: clamp(290px, 39vw, 460px); border: 1px solid #445357; border-radius: 6px; background: #59696b }
     canvas { display: block; width: 100%; height: 100%; touch-action: none; cursor: grab }
     canvas:active { cursor: grabbing }
-    canvas:focus-visible { outline: 3px solid #ffab8e; outline-offset: -4px }
+    canvas:focus-visible { outline: 3px solid var(--brand-red); outline-offset: -4px }
     .status { position: absolute; left: 16px; top: 12px; background: #172024db; color: white; padding: 3px 10px; border-radius: 3px; pointer-events: none }
     .status:empty { display: none }
     figcaption { margin: 6px 0 20px; font-size: 13px; color: #b7c2c1 }
@@ -34,7 +35,7 @@
     .shortcuts { margin-top: 20px; border-top: 1px solid #435054; padding-top: 16px }
     fieldset { margin: 14px 0 0; padding: 0; border: 0 }
     fieldset label { display: inline-flex; margin: 6px 5px 0 0; cursor: pointer; padding: 3px; border: 2px solid transparent; border-radius: 50% }
-    fieldset label:has(:checked), fieldset label:focus-within { border-color: #ffab8e }
+    fieldset label:has(:checked), fieldset label:focus-within { border-color: var(--brand-blush) }
     fieldset input { position: absolute; opacity: 0; width: 1px }
     fieldset i { display: block; width: 23px; height: 23px; border: 1px solid #aaa9; border-radius: 50%; background: var(--paint) }
     #population { color: #f0eee6; font-weight: bold }
@@ -45,7 +46,7 @@
     table { border-collapse: collapse; width: 100%; margin-top: 12px; font-variant-numeric: tabular-nums }
     th, td { text-align: left; padding: 5px 0; border-bottom: 1px solid #374346 }
     th { font-size: 13px; color: #b7c2c1 } th:last-child, td:last-child { text-align: right }
-    table button { border: 0; background: transparent; cursor: pointer; padding: 3px 0; color: #ffab8e; font: inherit; text-decoration: underline; text-underline-offset: .16em }
+    table button { border: 0; background: transparent; cursor: pointer; padding: 3px 0; color: var(--brand-blush); font: inherit; text-decoration: underline; text-underline-offset: .16em }
     @media(max-width: 720px) { .layout { display: flex; flex-direction: column; gap: 16px } aside { padding: 0; border: 0; display: grid; grid-template-columns: 1fr 1fr; gap: 0 12px } .shortcuts { margin: 0; padding: 0; border: 0 } figure { order: 2 } }
   </style>
   <link rel="stylesheet" href="./vehicle-stats.css">

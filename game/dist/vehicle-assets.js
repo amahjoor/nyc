@@ -1,5 +1,6 @@
 import * as THREE from './vendor/three.module.min.js';
 import { generateVehicle } from './vehicle-generator.js';
+import { designFor } from './vehicle-designs.js';
 
 // Share the vertical surface index between instances of the same exterior.
 const importedBodies=new WeakMap(),geometrySurfaces=new WeakMap(),cellSize=.25;
@@ -109,8 +110,7 @@ const KEPT = 220;
  * Parked, distant and driven cars share one geometry per exterior. An imported
  * exterior is fetched on demand; a generated one (a spec with a `design`) is
  * built here, one per turn of the event loop so that a street of new cars
- * does not hold up a frame. Until either arrives, get() answers null and the
- * car wears its shared body.
+ * does not hold up a frame. Nearby cars can request their exact design immediately.
  */
 export function createVehicleMeshLibrary(load = async url => {
   const response = await fetch(url, { signal: AbortSignal.timeout(20000) });
@@ -119,28 +119,33 @@ export function createVehicleMeshLibrary(load = async url => {
 }, generate = generateVehicle) {
   const cache = new Map(), queue = [];
   let working = false, built = 0, clock = 0;
+  const build = entry => {
+    try { entry.mesh = generate(entry.spec); built++; } catch { entry.retry = Infinity; }
+    // Let go of the exteriors nobody has asked after for longest.
+    if (built > KEPT) {
+      const idle = [...cache.values()].filter(e => e.generated && e.mesh).sort((a, b) => a.asked - b.asked).slice(0, built - KEPT);
+      for (const old of idle) if (clock - old.asked > 600) { old.mesh.body.dispose(); old.mesh.lamps.dispose(); cache.delete(old.spec.id); built--; }
+    }
+  };
   const work = () => {
     const entry = queue.shift();
-    if (entry && cache.get(entry.spec.id) === entry) {
-      try { entry.mesh = generate(entry.spec); built++; } catch { entry.retry = Infinity; }
-      // Let go of the exteriors nobody has asked after for longest.
-      if (built > KEPT) {
-        const idle = [...cache.values()].filter(e => e.generated && e.mesh).sort((a, b) => a.asked - b.asked).slice(0, built - KEPT);
-        for (const old of idle) if (clock - old.asked > 600) { old.mesh.body.dispose(); old.mesh.lamps.dispose(); cache.delete(old.spec.id); built--; }
-      }
-    }
+    if (entry && !entry.mesh && !entry.retry && cache.get(entry.spec.id) === entry) build(entry);
     if (queue.length) setTimeout(work, 0); else working = false;
   };
-  return { get(spec) {
+  function get(spec, immediate = false) {
     if (!spec) return null;
     let entry = cache.get(spec.id);
     if (spec.design) {
       if (!entry) {
         entry = { spec, mesh: null, generated: true, asked: 0 };
-        cache.set(spec.id, entry); queue.push(entry);
-        if (!working) { working = true; setTimeout(work, 0); }
+        cache.set(spec.id, entry);
+        if (!immediate) {
+          queue.push(entry);
+          if (!working) { working = true; setTimeout(work, 0); }
+        }
       }
       entry.asked = ++clock;
+      if (immediate && !entry.mesh && !entry.retry) build(entry);
       return entry.mesh;
     }
     if (!entry || (!entry.mesh && Date.now() >= entry.retry)) {
@@ -150,5 +155,13 @@ export function createVehicleMeshLibrary(load = async url => {
         .catch(() => { entry.retry = Date.now() + 60000; });
     }
     return entry.mesh;
-  } };
+  }
+  function forCar(car, immediate = false) {
+    const identity = car.identity;
+    if (!identity) return null;
+    const spec = identity.asset || designFor(identity.make, identity.model, identity.year, identity.shape,
+      car.type === 'taxi' ? 'taxi' : car.type === 'police' ? (car.unit === 'esu' ? 'emergency-service' : 'police') : null);
+    return get(spec, immediate);
+  }
+  return { get, forCar };
 }

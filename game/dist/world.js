@@ -2,7 +2,7 @@ import { batchExterior, fitExterior, poseExterior, releaseCrumple } from './vehi
 import { hasDriver } from './vehicle-damage.js';
 import { Parts } from './transport-models.js';
 import { OFFICERS, patrolAppearance, patrolLookForMember } from './human-cast.js';
-import { updateRide } from './vehicle-presentation.js';
+import { updateRide, updateBodyLean } from './vehicle-presentation.js';
 import { bodyShape } from './fleet.js';
 import { buildCar, createCarMaterial, createLampMaterial, wheelGeometry, WHEEL, BODY_SHAPES } from './vehicle-model.js';
 import * as THREE from './vendor/three.module.min.js';
@@ -399,6 +399,7 @@ function rimOf(id = '', shape = 'sedan') {
 }
 const leftIndicator = createLampMaterial(1), rightIndicator = createLampMaterial(-1);
 const flashingSide = car => hasDriver(car) && !car.controlled ? car.indicator || 0 : 0;
+const manualLamps=createLampMaterial();manualLamps.emissiveIntensity=3.15;
 const parkedLamps = createLampMaterial();
 parkedLamps.name = 'Parked car lamps';
 parkedLamps.emissiveIntensity = .02;
@@ -468,9 +469,10 @@ function createCarSet({ name, label, capacity, lit, select, library }) {
     }
     if (!item.model) { item.built.body.dispose(); item.built.lamps.dispose(); }
   };
-  for (const shape of BODY_SHAPES) style(shape, 'sedan', shape, 0xffffff);
-  // A cab has a roof light and a band along its doors, so it is built in its own colour.
-  if (lit) { style('cab', 'taxi', 'sedan', 0xf3ba31); style('boro cab', 'taxi', 'sedan', GREEN_CAB); }
+  if (!library?.forCar) {
+    for (const shape of BODY_SHAPES) style(shape, 'sedan', shape, 0xffffff);
+    if (lit) { style('cab', 'taxi', 'sedan', 0xf3ba31); style('boro cab', 'taxi', 'sedan', GREEN_CAB); }
+  }
   const tyres = new THREE.InstancedMesh(wheelTyre, tireMaterial, capacity * 4); tyres.name = `${label} car tyres`; tyres.castShadow = true;
   // The alloys a car shows close by are the ones it shows from down the street.
   const rims = new Map(Object.entries(RIMS).map(([pattern, geometry]) => {
@@ -494,11 +496,13 @@ function createCarSet({ name, label, capacity, lit, select, library }) {
   const cabins = interiorBatch(-1), drivers = new Map();
   const FIELDS = 13, seen = new Float64Array(capacity * FIELDS), pose = new Float64Array(FIELDS);
   const matrix = new THREE.Matrix4(), interiorMatrix = new THREE.Matrix4(), position = new THREE.Vector3(), quaternion = new THREE.Quaternion(), euler = new THREE.Euler(0, 0, 0, 'YXZ'), one = new THREE.Vector3(1, 1, 1), color = new THREE.Color();
-  const ids = [], looks = [], colors = [], worn = [], shod = [], wheelScale = new THREE.Vector3();
+  const visibleCars = [], ids = [], looks = [], colors = [], worn = [], shod = [], wheelScale = new THREE.Vector3();
   let count = -1;
   const styleOf = car => {
     // A cab or a patrol car wears its own model once that is drawn: its livery is part of the exterior.
-    const model = (car.type === 'sedan' || car.identity?.asset?.livery) && library?.get(car.identity?.asset);
+    const model = library?.forCar ? library.forCar(car) :
+      (car.type === 'sedan' || car.identity?.asset?.livery) && library?.get(car.identity?.asset);
+    if (!model && library?.forCar) return null;
     if (!model && lit && car.type === 'taxi') return styles.get(color.set(car.color || '#f3ba31').getHex() === GREEN_CAB ? 'boro cab' : 'cab');
     if (model) {
       if (!styles.has(model.id)) style(model.id, car.type, car.shape, 0xffffff, model);
@@ -527,6 +531,8 @@ function createCarSet({ name, label, capacity, lit, select, library }) {
         const far = eye ? Math.hypot(car.x - eye.x, car.z - eye.z) > FAR_WHEELS + (wasFar.get(car) ? -4 : 4) : false;
         wasFar.set(car, far); pose[12] = far ? 1 : 0;
         const look = styleOf(car);
+        if (!look) continue;
+        visibleCars[n] = car;
         if (drawDriver && pose[10] >= 0) {
           quaternion.setFromEuler(euler.set(pose[4], pose[3], pose[5], 'YXZ'));
           matrix.compose(position.set(car.x, pose[1]+.025, car.z), quaternion, one);
@@ -540,6 +546,7 @@ function createCarSet({ name, label, capacity, lit, select, library }) {
         for (let i = 0; i < FIELDS; i++) if (seen[n * FIELDS + i] !== pose[i]) { changed = true; seen[n * FIELDS + i] = pose[i]; }
         n++;
       }
+      visibleCars.length = n;
       if (n !== count) changed = true;
       if (!changed) return false;
       count = n; ids.length = looks.length = colors.length = n;
@@ -548,8 +555,7 @@ function createCarSet({ name, label, capacity, lit, select, library }) {
       for (const mesh of rims.values()) mesh.count = 0;
       plates.begin();
       let wheel = 0, slot = 0, farWheel = 0, cabin = 0;
-      for (const car of cars) {
-        if (!select(car) || slot >= n) continue;
+      for (const car of visibleCars) {
         const item = looks[slot], i = item.used++, axle = item.wheels;
         const o = slot++ * FIELDS, x = seen[o], y = seen[o + 1], z = seen[o + 2], angle = seen[o + 3];
         // The same pose a driven car takes at rest: yaw at the root, tilt on the chassis.
@@ -806,7 +812,7 @@ export function updateCarVisuals(mesh, car, dt) {
   mesh.userData.detail.lamps.visible = mesh.userData.detail.plates.visible = !car.destroyed;
   const signal = flashingSide(car);
   mesh.userData.detail.lamps.material = signal > 0 ? leftIndicator : signal < 0 ? rightIndicator
-    : car.parked && !car.controlled ? parkedLamps : carGlow;
+    : car.controlled && car.lampsOn!=null ? (car.lampsOn?manualLamps:parkedLamps) : car.parked && !car.controlled ? parkedLamps : carGlow;
   const steering = Number.isFinite(car._steering) ? car._steering : 0;
   mesh.userData.detail.steeringWheel.rotation.z = -3 * steering;
   const speed = Number.isFinite(car.speed) ? car.speed : 0;
@@ -820,12 +826,9 @@ export function updateCarVisuals(mesh, car, dt) {
   // Positive lateral acceleration points along local +X. The body leans
   // outward, even when countersteering against a slide. Route-following NPCs
   // have no tire dynamics, so retain their wheel-angle approximation.
-  const lateral = Number.isFinite(car.lateralAcceleration) ? car.lateralAcceleration : steering * speed * speed / 6;
-  const longitudinal = Number.isFinite(car.longitudinalAcceleration) ? car.longitudinalAcceleration : 0;
   const chassis = mesh.userData.chassis;
   if (chassis) {
-    ride.leanRoll = THREE.MathUtils.damp(ride.leanRoll, THREE.MathUtils.clamp(lateral * .0045, -.055, .055), 7, seconds);
-    ride.leanPitch = THREE.MathUtils.damp(ride.leanPitch, THREE.MathUtils.clamp(-longitudinal * .002, -.035, .035), 8, seconds);
+    updateBodyLean(ride, car, seconds);
     const rock=car.bodyRock, weight=rock?.weight||0;
     chassis.position.y=(rock?.heave||0)*weight;
     chassis.rotation.set(ride.pitch+ride.leanPitch+(rock?.pitch||0)*weight,0,ride.roll+ride.leanRoll+(rock?.roll||0)*weight,'YXZ');
@@ -841,7 +844,9 @@ export function updateCarVisuals(mesh, car, dt) {
     if (roll) {
       // At the bottom of a +X-spinning wheel, tangential velocity points -Z,
       // canceling forward +Z travel at contact with the road.
-      roll.rotation.x = (roll.rotation.x + speed * seconds / wheel.userData.radius) % TAU;
+      const hubSpeed = speed - (car.yawRate || 0) * wheel.position.x;
+      const rolling = wheel.userData.front ? 1 : 1 - (car._handbrakeBlend || 0);
+      roll.rotation.x = (roll.rotation.x + hubSpeed * rolling * seconds / wheel.userData.radius) % TAU;
     }
   }
 }

@@ -3,6 +3,7 @@
 // Passenger registrations supply joint make, model, year and body counts
 // for each ZIP. The earlier fleet bundle supplies centroids and paint.
 
+import { designFor } from './vehicle-designs.js';
 import { carPerformance } from './vehicle-performance.js';
 
 /** The bodies the game draws (vehicle-model.js), in the order the bundle stores their shares. */
@@ -50,29 +51,43 @@ const ENOUGH = 400;
 // Of what drives past, this share is not a neighbour's car but a van or a pickup at work.
 const AT_WORK = .14;
 
-// Each pair is a catalog index and a registration count. A negative index
-// keeps the weight of an unnamed car in its DMV/vPIC body class.
-function registrationPicker(pairs, catalog) {
-  const ends = new Uint32Array(pairs.length / 2);
+// Only named registrations participate in street traffic. Keep the original counts
+// in the catalog so the data viewer can still report registration coverage.
+function registrationPicker(pairs, variants) {
+  const cars = [], ends = [];
   let total = 0;
-  for (let i = 0; i < ends.length; i++) ends[i] = total += pairs[i * 2 + 1];
+  for (let i = 0; i < pairs.length; i += 2) {
+    const car = variants[pairs[i]], count = pairs[i + 1];
+    if (!car || count <= 0) continue;
+    cars.push(car); ends.push(total += count);
+  }
+  if (!total) return null;
   return { total, draw(r) {
-    const spot = Math.min(Math.floor(r * total), total - 1);
     let lo = 0, hi = ends.length - 1;
+    const spot = Math.floor(r * total);
     while (lo < hi) {
       const mid = (lo + hi) >>> 1;
       if (spot < ends[mid]) hi = mid; else lo = mid + 1;
     }
-    const id = pairs[lo * 2], identity = id >= 0 ? catalog.variants[id] : null;
-    let shape = identity?.shape ?? catalog.fallbacks[-id - 1];
-    if (shape === 'suburban') {
-      const start = ends[lo - 1] || 0;
-      shape = drawFrom(suburbanBodies, suburbanTotals, (r * total - start) / (ends[lo] - start));
-    }
-    return { identity, shape };
+    const identity = cars[lo];
+    return { identity, shape: identity.shape };
   } };
 }
-const suburbanBodies = Object.keys(BODY_OF.SUBN), suburbanTotals = cumulative(Object.values(BODY_OF.SUBN));
+
+// A small playable fleet while city data loads or when a roster is unavailable.
+function streetModel(make, model, year, shape, livery) {
+  const plain = { make, model, year, shape, asset: designFor(make, model, year, shape) };
+  return livery ? { ...plain, asset: designFor(make, model, year, shape, livery), plain } : plain;
+}
+const starterCars = Object.fromEntries([
+  ['Honda','Accord',2017,'sedan'], ['Honda','CR-V',2018,'suv'], ['Volkswagen','Golf',2018,'hatch'],
+  ['Subaru','Outback',2019,'wagon'], ['Toyota','Sienna',2015,'minivan'], ['Ford','Mustang',2018,'coupe'],
+  ['Ford','F-150',2018,'pickup'], ['Ford','Transit',2019,'van'],
+].map(row => [row[3], streetModel(...row)]));
+const starterCab = streetModel('Toyota','Camry',2023,'sedan','taxi');
+const starterCargo = streetModel('Ford','Transit',2023,'van','cargo');
+const starterPatrol = streetModel('Ford','Police Interceptor Utility',2021,'suv','police');
+const starterESU = streetModel('Ford','Transit',2021,'van','emergency-service');
 
 /**
  * Attach an exterior to each registration variant in catalog order: an imported
@@ -115,21 +130,15 @@ function workingFleet(data, design, paints, performance) {
       const plain = { make, model, year, shape, asset: design?.(make, model, year, shape, !livery && shape === 'van' ? 'cargo' : null) || null, ...measured(name, i, { make, model, year, shape }) };
       return livery ? { ...plain, asset: design?.(make, model, year, shape, livery) || null, plain } : plain;
     });
-    const all = Math.max(named, entry?.vehicles || 0);
-    // The car a number from 0 to 1 falls on, or null for one of those the source could not name.
-    return { rows, named, all, pick(r) {
-      const spot = Math.min(Math.floor(r * all), all - 1);
-      if (spot >= named) return null;
+    if (!named) return null;
+    return r => {
+      const spot = Math.min(Math.floor(r * named), named - 1);
       let lo = 0, hi = ends.length - 1;
       while (lo < hi) { const mid = (lo + hi) >>> 1; if (spot < ends[mid]) hi = mid; else lo = mid + 1; }
       return cars[lo];
-    } };
+    };
   };
   const yellow = roster('taxis', 'taxi'), green = roster('boroTaxis', 'taxi'), work = roster('work');
-  // Of the vans and pickups nobody could name, how many are vans.
-  const count = shape => work.rows.reduce((sum, row) => sum + (row[3] === shape ? row[4] : 0), 0);
-  const spare = { van: Math.max(0, (data.work?.bodies?.van || 0) - count('van')), pickup: Math.max(0, (data.work?.bodies?.pickup || 0) - count('pickup')) };
-  const vans = spare.van + spare.pickup ? spare.van / (spare.van + spare.pickup) : .6;
   // Their paint, in the register's codes: the grey it lists is half silver, as for any car.
   const shares = paints.map(() => 0);
   for (const [code, n] of Object.entries(data.work?.colors || {})) {
@@ -139,12 +148,10 @@ function workingFleet(data, design, paints, performance) {
     else shares[index] += n;
   }
   return {
-    taxi: yellow.all || green.all ? (r, boro = false) => ({ identity: (boro && green.all ? green : yellow.all ? yellow : green).pick(r), shape: undefined }) : null,
-    work: work.all ? r => {
-      const identity = work.pick(r);
-      if (identity) return { identity, shape: identity.shape, working: true };
-      const left = (r * work.all - work.named) / Math.max(1, work.all - work.named);
-      return { identity: null, shape: left < vans ? 'van' : 'pickup', working: true };
+    taxi: yellow || green ? (r, boro = false) => ({ identity: (boro ? green || yellow : yellow || green)(r), shape: undefined }) : null,
+    work: work ? r => {
+      const identity = work(r);
+      return { identity, shape: identity.shape, working: true };
     } : null,
     paint: paints.length === PAINTS.length && shares.some(Boolean) ? cumulative(shares) : null,
     emergencyService:design ? {make:'Ford',model:'Transit',year:2021,shape:'van',asset:design('Ford','Transit',2021,'van','emergency-service')} : null,
@@ -156,12 +163,15 @@ function workingFleet(data, design, paints, performance) {
 
 function registrationCatalog(data, assets, design, performance) {
   if (data?.version !== 1 || !data.city?.length || !Array.isArray(data.variants)) return null;
-  const catalog = { variants: catalogVehicles(data, assets, design, performance), fallbacks: data.fallbacks };
-  const city = registrationPicker(data.city, catalog);
+  const variants = catalogVehicles(data, assets, design, performance);
+  const city = registrationPicker(data.city, variants);
+  if (!city) return null;
   return zip => {
     const pairs = data.zips?.[zip];
     if (!pairs?.length) return city.draw;
-    const local = registrationPicker(pairs, catalog), weight = Math.min(1, local.total / ENOUGH);
+    const local = registrationPicker(pairs, variants);
+    if (!local) return city.draw;
+    const weight = Math.min(1, local.total / ENOUGH);
     if (weight === 1) return local.draw;
     return r => r < weight ? local.draw(r / weight) : city.draw((r - weight) / (1 - weight));
   };
@@ -198,9 +208,9 @@ export function createFleet(data = null, registrations = null, assets = [], desi
   };
   return {
     zips: zips.length,
-    /** The patrol car the police drive, or null when no designer draws it. */
-    patrol: atWork?.patrol || null,
-    emergencyService: atWork?.emergencyService || null,
+    /** The named service models available to dispatch. */
+    patrol: atWork?.patrol || starterPatrol,
+    emergencyService: atWork?.emergencyService || starterESU,
     /** The mix for the ZIP code whose middle is nearest (x, z). */
     at(x, z) {
       let nearest = null, best = Infinity;
@@ -217,13 +227,19 @@ export const drawPaint = (mix, r, working = false) => drawFrom(mix.paints, (work
 
 /** One registration supplies the make, model, year and body together. */
 export function drawVehicle(mix, r, moving = false) {
-  if (!mix.registration) return { identity: null, shape: drawBody(mix, r, moving) };
-  if (moving && r < AT_WORK) return mix.work ? mix.work(r / AT_WORK) : { identity: null, shape: r < AT_WORK * .6 ? 'van' : 'pickup' };
-  return mix.registration(moving ? (r - AT_WORK) / (1 - AT_WORK) : r);
+  if (moving && r < AT_WORK) {
+    if (mix.work) return mix.work(r / AT_WORK);
+    const identity = r < AT_WORK * .6 ? starterCargo : starterCars.pickup;
+    return { identity, shape: identity.shape, working: true };
+  }
+  const passenger = moving ? (r - AT_WORK) / (1 - AT_WORK) : r;
+  if (mix.registration) return mix.registration(passenger);
+  const shape = drawBody(mix, passenger);
+  return { identity: starterCars[shape], shape };
 }
 
-/** Which cab this is: one of the medallion fleet, or with `boro` one of the green cabs. Its identity is null where the fleet is not known. */
-export const drawTaxi = (mix, r, boro = false) => mix?.taxi?.(r, boro) || { identity: null, shape: undefined };
+/** Draw a named yellow or boro cab, including while its roster is loading. */
+export const drawTaxi = (mix, r, boro = false) => mix?.taxi?.(r, boro) || { identity: starterCab, shape: undefined };
 
 export const vehicleName = identity => identity ? `${identity.year} ${identity.make} ${identity.model}` : '';
 

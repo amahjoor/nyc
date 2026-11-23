@@ -88,7 +88,7 @@ function studio(canvas) {
   new ResizeObserver(render).observe(canvas);
   return (mesh, aim = .75) => {
     if (car) scene.remove(car);
-    car = mesh; focusY = aim; scene.add(car); render();
+    car = mesh; focusY = aim; if (car) scene.add(car); render();
   };
 }
 
@@ -98,7 +98,7 @@ function link(label, href) {
 
 async function preview(v) {
   const token = ++request;
-  const asset = v.asset;
+  const asset = v.asset || designFor(v.make,v.model,v.year,v.shape);
   el('name').textContent = vehicleName(v);
   const zip = el('area').value;
   el('population').textContent = zip ? count(areaWeights.get(v.index) || 0) + ' registrations in ZIP ' + zip + ' · ' + count(v.total) + ' citywide for this year and body.'
@@ -112,13 +112,11 @@ async function preview(v) {
       : 'Estimated stock performance for this model year.';
   }
   const size = asset?.design && [asset.design.L, asset.design.W, asset.design.H].map(m => m.toFixed(2)).join(' × ') + ' m';
-  el('credit').replaceChildren(...(!asset ? ['The game represents this model year with its shared ' + shapes[v.shape] + ' body.']
-    : asset.generated ? [asset.known ? 'Drawn by the game for the ' + asset.years[0] + '–' + Math.min(asset.years[1], new Date().getFullYear() + 1) + ' generation, ' + size + ', with the make’s grille and lamps of those years. A likeness, not a survey of the car.'
+  el('credit').replaceChildren(...(asset.generated ? [asset.known ? 'Drawn by the game for the ' + asset.years[0] + '–' + Math.min(asset.years[1], new Date().getFullYear() + 1) + ' generation, ' + size + ', with the make’s grille and lamps of those years. A likeness, not a survey of the car.'
       : 'Drawn by the game as a typical ' + shapes[v.shape] + ' with the make’s grille and lamps of its years. This model’s own dimensions are not in the game yet.']
     : ['Exterior for ' + asset.years.join('–') + '. ', link(asset.title, asset.source), ' by ' + asset.author + '. ', link(asset.license, asset.licenseUrl)]));
   if (!display) return;
-  function show(mesh, status) { if (request === token) { display(createCar({ shape:v.shape,color:tint,model:mesh })); el('status').textContent = status; } }
-  if (!asset) { show(null, ''); return; }
+  function show(mesh, status) { if (request === token) { display(mesh ? createCar({ shape:v.shape,color:tint,model:mesh }) : null); el('status').textContent = status; } }
   try {
     if (!cache.has(asset.id)) {
       show(null, 'Loading exterior…');
@@ -126,7 +124,9 @@ async function preview(v) {
     }
     show(await cache.get(asset.id), '');
   } catch {
-    cache.delete(asset.id); show(null, 'Exterior unavailable. Showing shared body.');
+    cache.delete(asset.id);
+    if (request === token && !asset.generated) show(generateVehicle(designFor(v.make,v.model,v.year,v.shape)), 'Showing the generated exterior.');
+    else show(null, 'Exterior unavailable.');
   }
 }
 

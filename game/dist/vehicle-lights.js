@@ -17,7 +17,7 @@ export class VehicleLights {
     const scale = TILES / span;
     let texels = this.tiles.length;
     for (const car of cars) {
-      if ((car.parked && !car.controlled) || car.destroyed || car.burningSince != null || !Number.isFinite(car.y)) continue;
+      if ((car.controlled && car.lampsOn===false) || (car.parked && !car.controlled) || car.destroyed || car.burningSince != null || !Number.isFinite(car.y)) continue;
       const sin = Math.sin(car.angle), cos = Math.cos(car.angle);
       const end = BEAM_START + BEAM_LENGTH, back = -TAIL_OFFSET - TAIL_RADIUS;
       const mid = (end + back) / 2, half = (end - back) / 2;

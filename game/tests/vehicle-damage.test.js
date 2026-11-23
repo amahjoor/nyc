@@ -2,8 +2,8 @@ import { drivingCity } from './fixtures/parked-cab.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import * as THREE from '../dist/vendor/three.module.min.js';
-import { PANEL, impactVehicle, repairVehicle, stepVehicleFire } from '../dist/vehicle-damage.js';
-import { createDoorDebris } from '../dist/vehicle-detail.js';
+import { PANEL, carCondition, impactVehicle, repairVehicle, stepVehicleFire, strikeVehicleGlass } from '../dist/vehicle-damage.js';
+import { createDoorDebris, hasAlteredGlazing, vehicleShotContacts } from '../dist/vehicle-detail.js';
 import { placeDriverCamera } from '../dist/driver-cabin.js';
 import { createCar, updateCarVisuals } from '../dist/world.js';
 import { designFor } from '../dist/vehicle-designs.js';
@@ -13,6 +13,36 @@ import { beginEntry, stepMove, lockedAt } from '../dist/player-moves.js';
 const fresh = () => ({ id: 'test', x: 0, y: 0, z: 0, speed: 0, angle: 0, parked: true });
 const town = () => drivingCity({ bounds: { minX:-500, maxX:500, minZ:-500, maxZ:500 },
   roads: [], buildings: [], missionPoints: [], spawn: { x:0, z:0, angle:0 } });
+
+test('shots pass through modeled car panes and stop at metal in either detail level', () => {
+  const car = fresh(), model = generateVehicle(designFor('Toyota','RAV4',2021,'suv'));
+  const mesh = createCar({model}), {pieces} = mesh.userData.detail;
+  updateCarVisuals(mesh,car,0);
+  const side = new THREE.Vector3(-1,0,0), front = new THREE.Vector3(0,0,-1);
+  const cast = (drawn,x,y,z,ray) => vehicleShotContacts(car,drawn,model,new THREE.Vector3(x,y,z),ray,12);
+  for (const drawn of [null,mesh]) {
+    const {panes,distance} = cast(drawn,4,1.4,.23,side);
+    assert.deepEqual(panes.map(hit=>hit.panel),[PANEL.left,PANEL.right]);
+    assert.equal(distance,Infinity);
+    const low = cast(drawn,4,.7,.23,side);
+    assert.equal(low.panes.length,0);
+    assert.ok(Number.isFinite(low.distance));
+  }
+  const frontHit = cast(mesh,.15,1.4,4,front).panes.find(hit=>hit.panel===PANEL.front);
+  assert.ok(frontHit.offset>.5 && strikeVehicleGlass(car,frontHit.panel,frontHit.offset));
+  assert.ok(strikeVehicleGlass(car,PANEL.left,.5));
+  assert.equal(strikeVehicleGlass(car,PANEL.left,.5),false);
+  assert.ok(hasAlteredGlazing(car) && carCondition(car)<100);
+  updateCarVisuals(mesh,car,0);
+  assert.equal(pieces.windshield.material.name,'Fractured car glass');
+  assert.ok(pieces.windshield.visible && pieces.leftQuarterGlass.visible && pieces.rightGlass.visible);
+  assert.equal(pieces.leftGlass.visible,false);
+  assert.deepEqual(cast(mesh,4,1.4,.23,side).panes.map(hit=>hit.panel),[PANEL.right]);
+  repairVehicle(car);
+  updateCarVisuals(mesh,car,0);
+  assert.ok(pieces.leftGlass.visible && !hasAlteredGlazing(car));
+  assert.equal(carCondition(car),100);
+});
 
 test('the seat camera looks through the fitted windshield through damage, repair and vehicle changes', () => {
   const camera = new THREE.PerspectiveCamera();
@@ -157,4 +187,43 @@ test('an open door can snag a passing vehicle while the car body stays clear', (
   sim.step({},1/60);
   assert.equal(car.missingDoors,PANEL.left);
   assert.equal(car.damage,.08);
+});
+
+test('a corner pole strike folds that fender and spreads cracks across its own windshield on subsequent hits', () => {
+  const model=generateVehicle(designFor('Toyota','Sienna',2015,'minivan'));
+  const mesh=createCar({model}), twin=createCar({model}), car=fresh();
+  const {pieces}=mesh.userData.detail;
+  const rest=pieces.body.geometry.attributes.position;
+  const corner={x:.72,z:1.96,body:{kind:'tree'}};
+  impactVehicle(car,16,0,-1,1,corner);
+  updateCarVisuals(mesh,car,0);
+  const pos=pieces.body.geometry.attributes.position, depths=[0,0];
+  for(let i=0;i<rest.count;i++){
+    if(rest.getZ(i)>1.4 && Math.abs(rest.getX(i))>.45) {
+      const side=Number(rest.getX(i)>0);
+      depths[side]=Math.max(depths[side],rest.getZ(i)-pos.getZ(i));
+    }
+  }
+  assert.ok(depths[1]>.05 && depths[0]<.001, 'the opposite fender stays straight');
+  const initial=car.dents[PANEL.front], origin=car.fractureOrigin[PANEL.front];
+  assert.ok(origin>.7);
+  assert.equal(car.lastImpact.x,.72);
+  const cracked=pieces.windshield.material;
+  impactVehicle(car,26,0,-1,2,{...corner,x:-.75});
+  updateCarVisuals(mesh,car,0);
+  assert.equal(car.fractureOrigin[PANEL.front],origin);
+  assert.ok(car.secondFracture.origin<.3 && car.secondFracture.depth>0);
+  assert.ok(car.dents[PANEL.front]>initial && pieces.windshield.visible);
+  assert.equal(pieces.windshield.material,cracked);
+  assert.notEqual(cracked,twin.userData.detail.pieces.windshield.material);
+  impactVehicle(car,12,-1,0,3,{x:.92,z:.3});
+  updateCarVisuals(mesh,car,0);
+  assert.ok(pieces.leftGlass.visible && pieces.leftGlass.material!==pieces.rightGlass.material);
+  impactVehicle(car,19,-1,0,4,{x:.92,z:.3});
+  updateCarVisuals(mesh,car,0);
+  assert.ok(!pieces.leftGlass.visible && pieces.rightGlass.visible && car.lastImpact.shattered);
+  repairVehicle(car); updateCarVisuals(mesh,car,0);
+  assert.equal(pieces.body.geometry.attributes.position,rest);
+  assert.equal(pieces.leftGlass.material,pieces.windshield.material);
+  assert.ok(pieces.leftGlass.visible && !car.lastImpact);
 });

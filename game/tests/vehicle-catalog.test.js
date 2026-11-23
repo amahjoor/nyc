@@ -55,8 +55,8 @@ test('each car draws one registered model year at its own ZIP and retains it aft
   const left = fleet.at(-120, 0), right = fleet.at(120, 0), small = fleet.at(0, 250);
   assert.ok(drawVehicle(left, .4).identity.asset);
   assert.equal(drawVehicle(right, .4).identity.asset, null, 'a 2024 Rogue never gets the older body');
-  assert.equal(drawVehicle(right, 0, true).identity, null, 'work traffic still shares the road');
-  assert.deepEqual(drawVehicle(small, .1), { shape: 'hatch', identity: null });
+  assert.equal(drawVehicle(right, 0, true).identity.model, 'Transit');
+  assert.equal(drawVehicle(small, .1).identity.model, 'Accord', 'a ZIP with only unnamed counts draws from named citywide cars');
   assert.equal(drawVehicle(small, .99).identity.year, 2024, 'a small ZIP also draws from citywide counts');
   const sim = new Simulation({ bounds: { minX: -400, maxX: 400, minZ: -400, maxZ: 400 }, buildings: [], roads: [], spawn: { x: 0, z: 0, angle: 0 }, missionPoints: [] });
   const spaces = [{ id: 'left', x: -120, z: 0, angle: 0 }, { id: 'right', x: 120, z: 0, angle: 0 }];
@@ -76,7 +76,7 @@ test('each car draws one registered model year at its own ZIP and retains it aft
   sim.setTraffic({ taxis: 1 });
   const recycled = { id: 'traffic-used', type: 'sedan', identity, shape: 'sedan', x: -120, z: 0 };
   sim._styleTraffic(recycled);
-  assert.equal(recycled.type, 'taxi'); assert.equal(recycled.identity, null); assert.equal(recycled.shape, undefined);
+  assert.equal(recycled.type, 'taxi'); assert.equal(recycled.identity.model, 'Camry'); assert.equal(recycled.shape, undefined);
 });
 
 test('every local exterior decodes to paintable panels, forward and rear lamps and real wheel positions', () => {
@@ -237,6 +237,32 @@ test('a drawn exterior is a closed, paintable car of its published size with lam
   assert.equal(designFor('BMW', '330i', 2020, 'sedan').design.L, designFor('BMW', '328i', 2019, 'sedan').design.L, 'both badges are one 3 Series');
 });
 
+test('the startup fleet draws a named car and its exact panels in every body class', () => {
+  const library = createVehicleMeshLibrary(), parked = createParkedCars({ capacity: 1, library });
+  const traffic = createDistantTraffic({ capacity: 1, library });
+  const mix = createFleet().at(0,0);
+  for (const [i,shape] of BODIES.entries()) {
+    const draw = drawVehicle(mix, ((mix.parked[i-1] || 0) + mix.parked[i])/2);
+    const car = { id: 'starter', type: 'sedan', ...draw, color: '#234567', x: 0, z: 0, _kerb: true };
+    const model = library.forCar(car,true);
+    assert.ok(car.identity.make && car.identity.model && car.identity.year);
+    assert.equal(car.identity.shape, shape);
+    assert.equal(model.id, car.identity.asset.id);
+    assert.ok(model.layout && model.body.userData.panels.length);
+    assert.equal(library.forCar({ ...car, id: 'another', color: '#ffffff' }), model);
+    parked.update([car]); traffic.update([car]);
+    for (const [batch, label] of [[parked, 'Parked'], [traffic, 'Distant']]) {
+      const mesh = batch.group.getObjectByName(label + ' ' + model.id + ' bodies');
+      assert.equal(mesh.count, 1);
+      assert.equal(mesh.geometry.attributes.position, model.body.attributes.position);
+    }
+    const driven = createCar({ ...car, model: library.forCar(car) });
+    assert.equal(driven.userData.contactShell, model.body);
+    assert.equal(driven.userData.wheels[1].position.z, model.wheels.front);
+  }
+  parked.dispose(); traffic.dispose();
+});
+
 test('a drawn exterior is built off the frame, then shared by the kerb, the traffic and the driver', async () => {
   const spec = designFor('Toyota', 'RAV4', 2021, 'suv'), other = designFor('Honda', 'Pilot', 2019, 'suv');
   let builds = 0;
@@ -246,14 +272,14 @@ test('a drawn exterior is built off the frame, then shared by the kerb, the traf
   const next = { ...car, id: 'kerb-2', identity: { asset: other }, x: 6 };
   assert.equal(library.get(spec), null); assert.equal(library.get(other), null); assert.equal(builds, 0, 'nothing is built in the asking frame');
   parked.update([car, next]);
-  assert.equal(parked.group.getObjectByName('Parked suv bodies').count, 2, 'both wear the shared body meanwhile');
+  assert.equal(parked.count, 0, 'only completed named exteriors are drawn');
   await new Promise(resolve => setTimeout(resolve, 5));
   await new Promise(resolve => setTimeout(resolve, 5));
   const mesh = library.get(spec);
   assert.ok(mesh && library.get(other)); assert.equal(builds, 2); assert.equal(library.get(spec), mesh);
   assert.equal(parked.update([car, next]), true);
   const body = parked.group.getObjectByName('Parked ' + spec.id + ' bodies');
-  assert.equal(body.count, 1); assert.equal(parked.group.getObjectByName('Parked suv bodies').count, 0);
+  assert.equal(body.count, 1); assert.equal(parked.count, 2);
   assert.equal(body.geometry.getAttribute('position'), mesh.body.getAttribute('position'), 'the set shares the vertices and adds only its paint');
   assert.ok(body.geometry.getAttribute('aPaint') && !mesh.body.getAttribute('aPaint'));
   const driven = createCar({ color: car.color, shape: car.shape, model: mesh });
@@ -310,24 +336,24 @@ test('cabs, patrol cars and working vans are the models the city licenses and re
   assert.ok(drawnShare(working.taxis) > .99 && drawnShare(working.work) > .97, 'nearly every named one has its own dimensions');
 
   const fleet = createFleet(base, data, art, designFor, working), mix = fleet.at(0, 0), plain = createFleet(base, data, art, designFor).at(0, 0);
-  assert.deepEqual(drawTaxi(plain, .3), { identity: null, shape: undefined }, 'without the roster a cab is just a cab');
-  assert.equal(drawVehicle(plain, 0, true).identity, null);
+  assert.equal(drawTaxi(plain, .3).identity.model, 'Camry');
+  assert.equal(drawVehicle(plain, 0, true).identity.model, 'Transit');
   // Cabs: the commonest medallion car first, each in livery, and the same car out of it.
   const [make, model, year, shape] = working.taxis.variants[0], first = drawTaxi(mix, 0).identity;
   assert.deepEqual([first.make, first.model, first.year, first.shape], [make, model, year, shape]);
   assert.equal(first.asset, designFor(make, model, year, shape, 'taxi')); assert.equal(first.asset.livery, 'taxi'); assert.equal(first.asset.design.livery, 'taxi');
   assert.equal(first.plain.asset, designFor(make, model, year, shape)); assert.equal(first.plain.asset.livery, undefined);
   assert.deepEqual(first.asset.wheels, first.plain.asset.wheels);
-  assert.equal(drawTaxi(mix, .99999).identity, null, 'the few the TLC lists that no decoder names stay plain cabs');
+  assert.ok(drawTaxi(mix, 1).identity.model);
   const tally = (draw, n = 4000) => { const seen = new Map(); for (let i = 0; i < n; i++) { const car = draw((i + .5) / n); const key = car.identity ? car.identity.make + ' ' + car.identity.model : car.shape; seen.set(key, (seen.get(key) || 0) + 1 / n); } return seen; };
-  const share = (entry, name) => entry.variants.reduce((sum, row) => sum + (row[0] + ' ' + row[1] === name ? row[4] : 0), 0) / entry.vehicles;
+  const share = (entry, name) => entry.variants.reduce((sum, row) => sum + (row[0] + ' ' + row[1] === name ? row[4] : 0), 0) / entry.represented;
   const yellow = tally(r => drawTaxi(mix, r)), green = tally(r => drawTaxi(mix, r, true));
   for (const name of ['Toyota Sienna', 'Toyota RAV4', 'Ford Transit Connect']) assert.ok(Math.abs(yellow.get(name) - share(working.taxis, name)) < .01, name);
   assert.ok(Math.abs(green.get('Toyota Camry') - share(working.boroTaxis, 'Toyota Camry')) < .01 && green.get('Toyota Camry') > yellow.get('Toyota Camry') * 3, 'boro cabs are their own fleet');
-  // Work traffic: named vans and pickups in their own colours, and the unnamed remainder as plain ones.
+  // Work traffic draws exclusively from the named vans and pickups.
   const AT_WORK = .14, work = tally(r => drawVehicle(mix, r * AT_WORK * .99999, true));
   assert.ok(Math.abs(work.get('Ford Transit') - share(working.work, 'Ford Transit')) < .01);
-  assert.ok(work.get('van') > .15 && work.get('pickup') > .005 && work.get('van') > work.get('pickup') * 3);
+  assert.ok(!work.has('van') && !work.has('pickup') && work.has('Ford F-250'));
   const van = drawVehicle(mix, 0, true);
   assert.equal(van.working, true); assert.equal(van.shape, 'van'); assert.equal(van.identity.asset.design.cargo, true); assert.equal(van.identity.asset.livery, 'cargo');
   assert.equal(drawVehicle(mix, .5, true).working, undefined); assert.equal(drawVehicle(mix, 0).working, undefined, 'nobody parks a work van at the kerb for the night');
@@ -336,7 +362,7 @@ test('cabs, patrol cars and working vans are the models the city licenses and re
   assert.ok(white > 600 && white < 800 && white > whiteCar * 2, `${white / 10}% of working vans are white`);
   // The patrol car.
   assert.deepEqual([fleet.patrol.make, fleet.patrol.model, fleet.patrol.asset.livery, fleet.patrol.asset.known], ['Ford', 'Police Interceptor Utility', 'police', true]);
-  assert.equal(createFleet(base, data, art).patrol, null);
+  assert.equal(createFleet(base, data, art).patrol.model, 'Police Interceptor Utility');
 
   // What the liveries add.
   const cab = generateVehicle(first.asset), bare = generateVehicle(first.plain.asset), patrol = generateVehicle(fleet.patrol.asset);
@@ -352,7 +378,7 @@ test('traffic cabs and patrol cars keep one model, in the simulation and in what
   const working = json('working-vehicles.json'), fleet = createFleet(base, data, art, designFor, working);
   const sim = new Simulation({ bounds: { minX: -400, maxX: 400, minZ: -400, maxZ: 400 }, buildings: [], roads: [], spawn: { x: 0, z: 0, angle: 0 }, missionPoints: [] });
   const cab = sim._makeCar('traffic-7', 'taxi', { x: 10, z: 0 }, 0), police = sim._makeCar('police-1', 'police', { x: 30, z: 0 }, 0);
-  assert.equal(cab.identity, null); assert.equal(police.identity, null);
+  assert.equal(cab.identity.model, 'Camry'); assert.equal(police.identity.model, 'Police Interceptor Utility');
   sim.cars.push(cab, police); sim.setFleet(fleet);
   assert.equal(cab.identity.asset.livery, 'taxi'); assert.equal(cab.shape, undefined); assert.equal(police.identity, fleet.patrol);
   const kept = cab.identity;
@@ -368,18 +394,18 @@ test('traffic cabs and patrol cars keep one model, in the simulation and in what
   assert.equal(recycled.color, '#74b541'); assert.ok(working.boroTaxis.variants.some(([make, model, year]) => make === recycled.identity.make && model === recycled.identity.model && year === recycled.identity.year));
   sim.setTraffic({ taxis: 0 });
   let vans = 0, white = 0;
-  for (let i = 0; i < 400; i++) { sim._styleTraffic(recycled); assert.equal(recycled.type, 'sedan'); if (recycled.identity?.asset?.livery === 'cargo' || (!recycled.identity && recycled.shape === 'van')) { vans++; if (recycled.color === '#e8e9e6') white++; } }
+  for (let i = 0; i < 400; i++) { sim._styleTraffic(recycled); assert.equal(recycled.type, 'sedan'); if (recycled.identity?.asset?.livery === 'cargo') { vans++; if (recycled.color === '#e8e9e6') white++; } }
   assert.ok(vans > 20 && vans < 90 && white > vans * .5, `${vans} of 400 are vans at work, ${white} of them white`);
 
-  // Drawn: its own model once that is built, the shared cab until then.
+  // Both service cars enter the batch with their own model.
   const library = createVehicleMeshLibrary(async () => { throw Error('nothing is fetched'); });
   const distant = createDistantTraffic({ capacity: 3, library });
   const cars = [{ ...cab, color: '#f2b91c' }, { ...police, color: '#f1f2e9' }];
   distant.update(cars);
-  assert.equal(distant.group.getObjectByName('Distant cab bodies').count, 1);
+  assert.equal(distant.count, 0);
   await new Promise(resolve => setTimeout(resolve, 5)); await new Promise(resolve => setTimeout(resolve, 5));
   assert.equal(distant.update(cars), true);
-  assert.equal(distant.group.getObjectByName('Distant cab bodies').count, 0);
+  assert.equal(distant.count, 2);
   assert.equal(distant.group.getObjectByName('Distant ' + cab.identity.asset.id + ' bodies').count, 1);
   assert.equal(distant.group.getObjectByName('Distant ' + fleet.patrol.asset.id + ' bodies').count, 1);
   const tint = distant.group.getObjectByName('Distant ' + cab.identity.asset.id + ' bodies').geometry.getAttribute('aPaint');

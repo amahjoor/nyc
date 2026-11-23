@@ -66,7 +66,7 @@ test('hand strikes each land once at their own contact frame',()=>{
   const {sim}=street();
   for(const [sequence,speed,gap] of [[handStrikes,0,1.5],[closeStrikes,0,.85],[movingStrikes,2.5,1.5]]) for(const clip of sequence) {
     sim.player.speed=speed;
-    assert.ok(sim.fight({x:sim.player.x,z:sim.player.z+gap})); assert.equal(sim.player.swingClip,clip);
+    assert.ok(sim.fight({x:sim.player.x,z:sim.player.z+gap},'light')); assert.equal(sim.player.swingClip,clip);
     let elapsed=0, hits=0;
     while(sim.player.swing>0) {
       sim.step({},1/60); elapsed+=1/60;
@@ -76,6 +76,30 @@ test('hand strikes each land once at their own contact frame',()=>{
     }
     assert.equal(hits,1);
   }
+});
+
+test('an assisted strike respects a thin wall, a target leaving reach, and the approach budget',()=>{
+  function swing(mode,hz) {
+    const {sim}=street(), p=sim.player;
+    const start=p.z, target={x:p.x,z:start+1.14,y:p.y};
+    if (mode==='wall') {
+      const blocked=sim.isBlocked.bind(sim);
+      sim.isBlocked=(x,z,r,options)=>Math.abs(z-(start+.59))<.03+r || blocked(x,z,r,options);
+    }
+    assert.ok(sim.fight(target));const attack=sim.meleeAction;
+    while(!attack.committed) {
+      if (mode==='escape' && sim.elapsed-attack.started>.05) target.z=start+2.5;
+      sim.step({},1/hz);
+    }
+    assert.ok(p.z-start<=.481 && p.z>=start);
+    return {distance:p.z-start,point:attack.point};
+  }
+  for (const hz of [24,60,120]) {
+    assert.equal(swing('wall',hz).point,null);
+    assert.equal(swing('escape',hz).point,null);
+    assert.ok(swing('clear',hz).point);
+  }
+  assert.ok(Math.abs(swing('clear',24).distance-swing('clear',120).distance)<.005);
 });
 
 test('an impatient blocked driver honks with a cooldown and only confronts after repeated strikes',()=>{
@@ -125,11 +149,12 @@ test('a sudden cut-in during a phone glance can cause a physical rear-end collis
     const lead=sim._makeCar('lead','sedan',{x:car.x,z:car.z+7.8},car.angle,car._edge);
     lead.y=0; lead.speed=lead._cruise=0;
     sim.cars.push(lead);
-    for(let i=0;i<45;i++) {
-      sim.step({},1/60);
-      if(car._wait>0) return true;
-    }
-    return false;
+    let collided=false;
+    sim.onVehicleContact=(kind,source,target,speed)=>{
+      if(kind==='crash' && source===car && target===lead && speed>0) collided=true;
+    };
+    for(let i=0;i<45 && !collided;i++) sim.step({},1/60);
+    return collided;
   }
   assert.equal(cutIn(50),false);
   assert.equal(cutIn(0),true);

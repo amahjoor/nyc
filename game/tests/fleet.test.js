@@ -78,7 +78,7 @@ test('the cars that join the traffic and stand at the kerb are those registered 
   for (let i = 0; i < 60 * 60; i++) sim.step({}, 1 / 60);
   const fresh = sim.cars.filter(car => /^traffic-\d{3,}$/.test(car.id)), cabs = fresh.filter(car => car.type === 'taxi'), others = fresh.filter(car => car.type !== 'taxi');
   assert.ok(fresh.length > 30 && cabs.length > 2 && others.length > 20);
-  assert.ok(cabs.every(car => car.shape === undefined && car.color === '#f2b91c'), 'a cab stays a cab');
+  assert.ok(cabs.every(car => car.identity?.asset.livery === 'taxi' && car.color === '#f2b91c'), 'a cab stays a cab');
   assert.ok(others.every(car => ['wagon', 'coupe', 'van', 'pickup'].includes(car.shape) && ['#8a1f1f', '#1f3a6a'].includes(car.color)), 'the rest are the wagons and coupes of the place, and vans and pickups at work');
   const wagons = others.filter(car => car.shape === 'wagon').length;
   assert.ok(wagons > others.length * .4, `${wagons} of ${others.length} are wagons`);
@@ -90,10 +90,10 @@ test('the cars that join the traffic and stand at the kerb are those registered 
   assert.ok(Object.values(first).every(look => /^(wagon|coupe) #(8a1f1f|1f3a6a)$/.test(look)) && new Set(Object.values(first)).size === 4, 'both bodies in both colours');
   sim.syncParkedCars([]); sim.syncParkedCars(spaces);
   assert.deepEqual(kerb(), first);
-  // Until the game says which cars are registered here, cars look as they always did.
+  // Every car has a named exterior even before the registration catalog arrives.
   const before = new Simulation(town());
   before.syncParkedCars(spaces);
-  assert.ok(before.cars.filter(car => car._kerb).every(car => car.shape === undefined && /^#[0-9a-f]{6}$/.test(car.color)));
+  assert.ok(before.cars.filter(car => car._kerb).every(car => car.identity?.asset && car.identity.shape === car.shape && /^#[0-9a-f]{6}$/.test(car.color)));
   sim.setFleet(null); sim.setFleet({ nonsense: true });
-  assert.equal(sim._fleet, null);
+  assert.ok(sim._fleet.at(0,0));
 });

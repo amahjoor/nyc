@@ -1,7 +1,7 @@
 import { drivingCity } from './fixtures/parked-cab.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { BODY_HANDLING, PARTS, RESPRAYS, RESPRAY_PRICE, CALL_OUT, DELIVERY, WHEELS, WHEELS_PRICE, PLATES_PRICE, repairCost, offersAt, handlingFor, shopRows } from '../dist/garage.js';
+import { BODY_HANDLING, PARTS, RESPRAYS, RESPRAY_PRICE, CALL_OUT, DELIVERY, WHEELS, WHEELS_PRICE, PLATES_PRICE, repairCost, offersAt, handlingFor, vehicleHandling, shopRows } from '../dist/garage.js';
 import { plateFor } from '../dist/license-plates.js';
 import { BODIES, bodyShape } from '../dist/fleet.js';
 import { stepVehicleDynamics, resetVehicleDynamics } from '../dist/vehicle-dynamics.js';
@@ -44,7 +44,7 @@ test('a garage mends, resprays and fits parts for cash, to the car that is drive
   assert.equal(sim.vehicle, null); assert.equal(sim.garage('repair', 'repair'), false, 'on foot there is nothing to work on');
   sim.interact();
   const cab = sim.vehicle;
-  assert.ok(cab && cab.id === 'player-taxi'); assert.deepEqual(cab.handling, handlingFor('sedan'));
+  assert.ok(cab && cab.id === 'player-taxi'); assert.deepEqual(cab.handling, vehicleHandling(cab));
   sim.cash = 1000; sim.health = 60; cab.damage = .4;
   assert.equal(sim.garage('pizza', 'repair'), false);
   assert.equal(sim.garage('bodyshop', 'engine'), false, 'a body shop does not fit engines'); assert.equal(sim.garage('repair', 'respray', '#8a1f1f'), false, 'a repair shop does not paint');
@@ -53,7 +53,7 @@ test('a garage mends, resprays and fits parts for cash, to the car that is drive
   assert.equal(sim.garage('repair', 'repair'), false); assert.equal(sim.cash, 880, 'nothing to mend, nothing charged');
   // Parts, a stage at a time, while the money lasts.
   assert.equal(sim.garage('repair', 'engine'), true);
-  assert.deepEqual([cab.mods, sim.cash], [{ engine: 1 }, 480]); assert.deepEqual(cab.handling, handlingFor('sedan', { engine: 1 }));
+  assert.deepEqual([cab.mods, sim.cash], [{ engine: 1 }, 480]); assert.deepEqual(cab.handling, vehicleHandling(cab, { engine: 1 }));
   assert.equal(sim.garage('repair', 'engine'), false); assert.deepEqual([cab.mods.engine, sim.cash], [1, 480], 'stage two costs more than is left');
   assert.match(sim.notice, /\$800/);
   assert.equal(sim.garage('repair', 'tyres'), true); assert.deepEqual([cab.mods, sim.cash], [{ engine: 1, tyres: 1 }, 180]);
@@ -61,8 +61,10 @@ test('a garage mends, resprays and fits parts for cash, to the car that is drive
   for (let i = 0; i < 4; i++) sim.garage('repair', 'brakes');
   assert.equal(cab.mods.brakes, 3); assert.equal(sim.cash, 1e6 - 1650, 'no fourth stage to pay for');
   // A respray: a colour the shop keeps, and a cab out of its livery is a car like any other.
+  const plain = cab.identity.plain;
   assert.equal(sim.garage('bodyshop', 'respray', '#123456'), false);
   assert.equal(sim.garage('bodyshop', 'respray', '#1f3a6a'), true);
+  assert.equal(cab.identity, plain);
   assert.deepEqual([cab.color, cab.type, cab.shape, sim.cash], ['#1f3a6a', 'sedan', 'sedan', 1e6 - 1650 - RESPRAY_PRICE]);
   assert.equal(sim.garage('bodyshop', 'respray', '#1f3a6a'), false, 'it is that colour already');
   // New plates are a new number; new wheels are one of the patterns the shop keeps. A repair shop does neither.
