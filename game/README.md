@@ -272,6 +272,8 @@ The character editor, player, pedestrians, customers and employees share texture
 
 ## Going inside
 
+Raised shop doors have a level landing and steps fitted to the slope of the sidewalk. At Chinese Gourmet the steps run along the storefront. Walk up from the end of the flight and turn on the landing to push the door open. [Chinese Gourmet entrance in game](docs/chinese-gourmet-entrance.jpg)
+
 Walk into the glazed door of an open shop to push it inward, or walk back through it to push it outward. The room and its occupants are visible through the shop windows as you approach. No register holds the inside of a shop: `interiors.js` lays the room out. It is as wide as the place's street front (nine metres at most) and as deep as the building behind the door allows (twelve at most), and furnished in the manner of the kind of place. A pizzeria has deck ovens and pies under glass, a jeweller has lit display cases, and a florist has buckets of cut flowers. Over nine in ten enterable places have a layout for their trade. The layouts are generated interpretations of the mapped businesses.
 
 Auto repair and body shops have walk-in service counters, tool chests and displays of wheels or paint finishes. Stop outside in a vehicle for garage work. Tailors have a sewing bench, garment rail and fitting booth. Copy and shipping shops have copiers, mailing supplies and a staffed print counter. Bars and pubs serve from draft taps, with booths opposite the counter. Clubs have a DJ booth, speaker cabinets and a dance floor. With game audio enabled, a house beat plays inside.

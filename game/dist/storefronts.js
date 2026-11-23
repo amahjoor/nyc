@@ -19,6 +19,8 @@ import { isOpen, signFor, brandKey, placeName } from './places.js';
 import { bankIdentity, drawBankName } from './bank.js';
 import { roomPoint } from './room.js';
 import { buildRoom } from './interiors.js';
+import { planShopEntrance, treadHeight } from './shop-entrance.js';
+import { buildShopSteps } from './shop-steps.js';
 
 /** The map covers this many metres square, at a metre to the texel. */
 export const MAP_SPAN = 512;
@@ -90,7 +92,7 @@ export const LOGO_TRIM = 8;
  * Keep the three textures in step with the street fronts around the player.
  * `createCanvas` makes the canvas the lettering is drawn on.
  */
-export function createStorefronts({ createCanvas = () => document.createElement('canvas'), scene, roomFor, floorFor, populate, isClosed = () => false } = {}) {
+export function createStorefronts({ createCanvas = () => document.createElement('canvas'), scene, roomFor, floorFor, groundAt, clearApproach, physics, populate, isClosed = () => false } = {}) {
   const mapData = new Uint8Array(MAP_SPAN * MAP_SPAN * 2), nearest = new Float32Array(MAP_SPAN * MAP_SPAN);
   const map = new THREE.DataTexture(mapData, MAP_SPAN, MAP_SPAN, THREE.RGFormat, THREE.UnsignedByteType);
   map.name = 'Whose shop front is where'; map.magFilter = map.minFilter = THREE.NearestFilter; map.generateMipmaps = false; map.needsUpdate = true;
@@ -118,8 +120,41 @@ export function createStorefronts({ createCanvas = () => document.createElement(
   const held = new Array(cells).fill(null), where = new Map();
   let shown = [], source = null, at = null, openAt = -1, lettered = 0;
   const rooms = new Map();
+  const entries = new Map();
   let pending = [], windowsVisible = false, floorRevision = -1, closureRevision = -1;
   let faces = [], faceRows = new Map(), active = null, closingDoor = null;
+  const sameFront=(a,b)=>a===b || ['x','z','tx','tz','nx','nz','width','skew'].every(k=>a[k]===b[k]) &&
+    JSON.stringify(a.returns)===JSON.stringify(b.returns);
+  function removeSteps(entry){
+    if(!entry.mesh)return;
+    physics?.replace(entry,[]);
+    entry.mesh.removeFromParent();entry.mesh.geometry.dispose();entry.mesh.material.dispose();
+    entry.mesh=null;
+  }
+  function entranceFor(front,plan){
+    const id=front.place.id;
+    let entry=entries.get(id);
+    if(entry && sameFront(entry.front,front)){
+      if(entry.revision===floorRevision)return entry;
+      plan??=entry.plan;
+    }
+    plan??=roomFor(front);
+    if(!plan)return null;
+    const nominal=floorFor(plan);
+    const {floor,stairs}=groundAt ? planShopEntrance(plan,nominal,groundAt,clearApproach) : {floor:nominal,stairs:null};
+    if(!entry){entry={};entries.set(id,entry);}
+    const old=entry.stairs;
+    if(!old || !stairs || entry.plan!==plan || old.turn!==stairs.turn || old.count!==stairs.count || old.tread!==stairs.tread ||
+      Math.abs(old.floor-floor)>.001 || Math.abs(old.rise-stairs.rise)>.0005){
+      removeSteps(entry);
+      if(stairs){
+        entry.mesh=buildShopSteps(stairs,groundAt);scene.add(entry.mesh);
+        physics?.replace(entry,entry.mesh.userData.barriers);
+      }
+    }
+    Object.assign(entry,{front,plan,floor,stairs,revision:floorRevision});
+    return entry;
+  }
   function release(view) {
     for (const person of new Set([...(view.visitors||[]), view.visitor])) {
       if (person?.visit?.view !== view) continue;
@@ -135,11 +170,12 @@ export function createStorefronts({ createCanvas = () => document.createElement(
   function ensure(front, plan = null) {
     let view = rooms.get(front.place.id);
     if (view) return view;
-    plan ??= roomFor(front);
-    if (!plan) return null;
-    const group = buildRoom(plan, 0, { streetView: true }), floor = floorFor(plan);
+    const entry=entranceFor(front,plan);
+    if (!entry) return null;
+    plan=entry.plan;
+    const group = buildRoom(plan, 0, { streetView: true }), floor = entry.floor;
     group.position.y = floor; scene.add(group);
-    view = { plan, front, group, floor, door: group.userData.door, actors: [], occupied: new Set() };
+    view = { plan, front, group, floor, entry, groundAt, door: group.userData.door, actors: [], occupied: new Set() };
     populate?.(view); rooms.set(front.place.id, view);
     return view;
   }
@@ -157,8 +193,8 @@ export function createStorefronts({ createCanvas = () => document.createElement(
     }
     table.needsUpdate = true;
   }
-  function updateRooms(focus, visible, hours) {
-    const wanted = new Set();
+  function updateRooms(focus, visible, hours, walker) {
+    const wanted = new Set(), outside=new Set();
     pending = [];
     for (let row = 1; row <= faces.length; row++) tableData[row * ROW_SIZE + 19] = 0;
     for (const front of shown) {
@@ -166,24 +202,38 @@ export function createStorefronts({ createCanvas = () => document.createElement(
       const existing=rooms.get(id);
       const visiting = existing?.visitor?.visit || existing?.cleanups?.length || existing?.actors.some(actor=>actor.escape && !actor.gone) || (existing?.handoff && existing.clerk && !existing.clerk.gone);
       const occupied = active?.plan.place.id === id || closingDoor?.plan.place.id === id;
-      if (!visiting && !occupied && (!visible || wanted.size >= MAX_ROOMS || Math.hypot(front.x - focus.x, front.z - focus.z) > WINDOW_RANGE || !isOpen(front.place.kind, hours) || isClosed(front.place))) continue;
-      if (visiting && (!visible || Math.hypot(front.x - focus.x, front.z - focus.z) > WINDOW_RANGE + 12) && !occupied) continue;
+      const distance=Math.hypot(front.x-focus.x,front.z-focus.z);
+      if(!visiting && !occupied){
+        if(!visible || distance>WINDOW_RANGE)continue;
+        if(!isOpen(front.place.kind,hours) || isClosed(front.place)){
+          // The shutters can close while the stoop still belongs to the street.
+          if(groundAt && outside.size<MAX_ROOMS && entranceFor(front))outside.add(id);
+          continue;
+        }
+        if(wanted.size>=MAX_ROOMS)continue;
+      }
+      if (visiting && (!visible || distance>WINDOW_RANGE+12) && !occupied) continue;
       let view = rooms.get(id);
       if (view && !visiting && view !== active && view.front !== front &&
-          (['x','z','tx','tz','nx','nz','width','skew'].some(key => view.front[key] !== front[key]) || JSON.stringify(view.front.returns) !== JSON.stringify(front.returns))) {
+          !sameFront(view.front,front)) {
         release(view); view = null;
       }
       if (view) {
         // Finish the visit against the doorway its occupants are walking through.
         if (!visiting) view.front = front;
-        view.floor = floorFor(view.plan); view.group.position.y = view.floor;
+        view.entry=entranceFor(view.front,view.plan);
+        view.floor=view.entry.floor; view.group.position.y = view.floor;
         panes(view); wanted.add(id);
       } else {
-        const plan = roomFor(front);
+        const plan = entranceFor(front)?.plan;
         if (plan) { pending.push({ front, plan }); wanted.add(id); }
       }
     }
     for (const [id, view] of rooms) if (view !== active && view !== closingDoor && !wanted.has(id)) release(view);
+    for(const [id,entry] of entries)if(!wanted.has(id) && !outside.has(id) && !rooms.has(id)){
+      if(walker && treadHeight(entry.stairs,walker.x,walker.z)!==null)continue;
+      removeSteps(entry);entries.delete(id);
+    }
     table.needsUpdate = true;
   }
   // Logos fetched to this machine, by chain: { image, width, height, background }. Empty unless build-logos.mjs has been run.
@@ -195,6 +245,15 @@ export function createStorefronts({ createCanvas = () => document.createElement(
     /** The fronts in the table, row 1 first. */
     get fronts() { return shown; },
     get rooms() { return rooms.values(); },
+    stepHeightAt(x,z,referenceHeight){
+      let highest=null;
+      for(const {stairs,plan} of entries.values()){
+        if(!stairs || Math.abs(x-plan.x)>stairs.toe+2 || Math.abs(z-plan.z)>stairs.toe+2)continue;
+        const h=treadHeight(stairs,x,z);
+        if(h!==null && (!Number.isFinite(referenceHeight) || referenceHeight>=h-.34) && (highest===null || h>highest))highest=h;
+      }
+      return highest;
+    },
     get closingDoor() { return closingDoor; },
     get(id) { return rooms.get(id); },
     prepare(front) {
@@ -217,7 +276,7 @@ export function createStorefronts({ createCanvas = () => document.createElement(
      * `fronts` is solveFrontages()'s answer for the places around `focus`;
      * pass the same array until it changes. `hours` is the time of day.
      */
-    update(fronts = [], focus = { x: 0, z: 0 }, hours = 12, showWindows = true, revision = 0, closures = 0) {
+    update(fronts = [], focus = { x: 0, z: 0 }, hours = 12, showWindows = true, revision = 0, closures = 0, walker = null) {
       if (closures !== closureRevision) { closureRevision=closures; openAt=-1; }
       if (closingDoor && (!showWindows || Math.hypot(focus.x-closingDoor.plan.x,focus.z-closingDoor.plan.z)>1.4)) {
         closingDoor = null; floorRevision = -1;
@@ -282,7 +341,7 @@ export function createStorefronts({ createCanvas = () => document.createElement(
       const quarter = Math.floor(hours * 4);
       if (scene && (quarter !== openAt || windowsVisible !== showWindows || floorRevision !== revision)) {
         windowsVisible = showWindows; floorRevision = revision;
-        updateRooms(focus, showWindows, hours);
+        updateRooms(focus, showWindows, hours, walker);
       }
       if (quarter !== openAt) {
         openAt = quarter;
@@ -299,6 +358,8 @@ export function createStorefronts({ createCanvas = () => document.createElement(
     },
     dispose() {
       for (const view of rooms.values()) release(view);
+      for(const entry of entries.values())removeSteps(entry);
+      entries.clear();
       rooms.clear(); pending = [];
       map.dispose(); table.dispose(); atlas.dispose();
       if (shared.uNycPlaceMap.value === map) { shared.uNycPlaceMap.value = null; shared.uNycPlaceTable.value = null; shared.uNycPlaceAtlas.value = null; shared.uNycPlaceRect.value.w = 0; }

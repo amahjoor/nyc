@@ -944,12 +944,6 @@ export class Simulation {
     if (this.player.grounded === false || this.player.standing || this.player.reaction || ['climb','vault'].includes(this.player.move?.kind)) return;
     const surface = this._sampleSurface?.(this.player.x, this.player.z, options);
     this.player.y = finite(surface?.elevation);
-    if (this.doorway && this.player.mode === 'walk' && Math.abs(this.player.y - this.doorway.floor) < 1.6) {
-      const at = roomLocal(this.doorway.plan, this.player.x, this.player.z);
-      if (at.b < 0 && at.b > -1 && Math.abs(at.a) < DOOR / 2) {
-        this.player.y += (this.doorway.floor - this.player.y) * (1 + at.b);
-      }
-    }
     this.player.transportId = surface?.transportId || null;
     this.player.grounded = true;
     this.player.vy = 0;
@@ -1960,7 +1954,7 @@ export class Simulation {
       const da = (player.velocityX * room.tx + player.velocityZ * room.tz) * dt - skew * db;
       const b = at.b + db, a = at.a + da;
       const passage = Math.abs(a) <= DOOR / 2 - .10 && at.b >= -1.1 && b > -1.1 && b < .65;
-      if (this.room || passage && (player.grounded !== false && Math.abs(player.y - view.floor) < 1.6)) {
+      if (this.room || passage && player.grounded !== false && Math.abs(player.y - view.floor) < .34) {
         const moved = passage ? { a, b } : walkRoom(room, at.a, at.b, da, db, PLAYER_RADIUS);
         if (!this.room && view?.closed) moved.b=Math.min(moved.b,-.01);
         if (passage && Math.abs(b) < PLAYER_RADIUS) {

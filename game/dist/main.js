@@ -243,9 +243,14 @@ function groundSurface(x,z){
   return surface&&lift?{...surface,elevation:surface.elevation+lift}:surface;
 }
 function streetSurface(x,z,options) {
-  return roadPilot?.sampleSurface(x,z,{...options,kind:'bridge'}) ?? streetDetail?.sampleSurface(x,z,options)
-    ?? (options?.mode === 'walk' ? subwayStairs?.surfaceAt(x,z) : null)
-    ?? roadPilot?.sampleSurface(x,z,{...options,kind:'ground'}) ?? groundSurface(x,z);
+  const walking=options?.mode==='walk';
+  const deck=roadPilot?.sampleSurface(x,z,{...options,kind:'bridge'}) ?? streetDetail?.sampleSurface(x,z,options)
+    ?? (walking ? subwayStairs?.surfaceAt(x,z) : null);
+  if(deck)return deck;
+  const ground=roadPilot?.sampleSurface(x,z,{...options,kind:'ground'}) ?? groundSurface(x,z);
+  const step=walking ? storefronts?.stepHeightAt(x,z,options.referenceHeight) : null;
+  return step!=null && step>=(ground?.elevation??-Infinity)
+    ? {elevation:step,normal:{x:0,y:1,z:0},kind:'shop-step'} : ground;
 }
 let roadPilot=null, roadPilotIndex=null, roadPilotLoading=null, roadPilotError=null, roadPilotRetryAt=0;
 function cityPresets(){
@@ -1263,7 +1268,7 @@ function syncScene(dt,controls) {
         actor.clip = 'jog'; actor.stride = 1; actor.phase = actor.time * 7;
       }
       actor.suspendCarry=Boolean(actor===view.clerk && view.handoff);
-      actor.y = view.floor + (actor.sitting ? 0 : actor.lift);
+      if(!actor.escape)actor.y = view.floor + (actor.sitting ? 0 : actor.lift);
       extras.push(actor);pedestrians.push(actor);
     }
     if(dt&&started&&!cityView&&!aerialView&&shopOpen(view.plan.place))inviteCustomer(view,crowd.people,sim.elapsed,(shop,price)=>work.sale(shop,price,'customer'),()=>sim.seat);
@@ -1992,7 +1997,8 @@ function frame(now) {
     busStops.update(buses,lit,kerbIndex);
   }
   if(work && work.now()>=work.nextReopening)work.updateClosures();
-  storefronts?.update(fronts,lit,gfx.hours,Boolean(viewOverride)||started&&!cityView&&!aerialView,landscapeRevision,work?.closureRevision);
+  storefronts?.update(fronts,lit,gfx.hours,Boolean(viewOverride)||started&&!cityView&&!aerialView,
+    landscapeRevision+laneSurfaceRevision,work?.closureRevision,sim.player.mode==='walk'?sim.player:null);
   interaction?.update();
   phone?.update(elapsed);
   // A red-light camera's flash: the frame blows out for a tenth of a second.
@@ -2430,7 +2436,10 @@ async function boot() {
   const signalHints=(x,z)=>({...cityLife.hintsAt(x,z),core:manhattanCore(x,z)});
   sim.setActiveCity({signalHints});
   props=createStreetProps({scene,physics:sim.streetObjects,heightAt:groundHeight});
-  storefronts=createStorefronts({scene,roomFor,floorFor,isClosed:closedAfterIncident,populate:view=>populateShop(view,(x,z)=>demographics.tracts?demographics.tonesAt(x,z,.35):null)});
+  storefronts=createStorefronts({scene,roomFor,floorFor,physics:sim.streetObjects,
+    groundAt:(x,z)=>roadPilot?.sampleSurface(x,z,{kind:'ground'})?.elevation??groundHeight(x,z),
+    clearApproach:(x,z)=>!footprints.at(x,z) && streetscape?.surfaceAt(x,z)!=='road',
+    isClosed:closedAfterIncident,populate:view=>populateShop(view,(x,z)=>demographics.tracts?demographics.tonesAt(x,z,.35):null)});
   loadLogos().then(logos=>{if(logos.size)storefronts.setLogos(logos);}).catch(()=>{});
   // The registers' places, and the shops they do not list (OpenStreetMap), read as one.
   const registerPlaces=createPlaceSource({load:url=>loadData(url.replace(/^\.\//,''))}),otherShops=createPlaceSource({load:url=>loadData(url.replace(/^\.\//,'')),prefix:'o'});

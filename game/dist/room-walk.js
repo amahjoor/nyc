@@ -1,4 +1,5 @@
 import { crossesFixture, DOOR, roomLocal, roomPoint } from './room.js';
+import { treadHeight } from './shop-entrance.js';
 import { clearTravel, pedestrianRadius, walkTowards } from './pedestrian-motion.js';
 import { stepSeating } from './seating.js';
 import { WALK_CLIP_SPEED } from './body-motion.js';
@@ -96,6 +97,9 @@ export function roomWalkStep(view, actor, x, z, budget, others = peopleInRoom(vi
     return !(blocker && obstructs(blocker)) && !room.things.some(t=>t!==except && t.solid && obstructs(t));
   };
   const walked = walkTowards(actor,x,z,budget,others,inside);
+  const b=floorAt(view,actor).b;
+  if(b<0 && view.groundAt)actor.y=Math.max(view.groundAt(actor.x,actor.z),treadHeight(view.entry?.stairs,actor.x,actor.z)??-Infinity);
+  else if(b>-.6)actor.y=view.floor;
   actor.phase = (actor.phase || 0)+walked*4.6;
   actor.stride = budget > 0 ? walked/budget : 0;
   return walked;
@@ -193,7 +197,6 @@ export function followRoute(view,actor,task,dt) {
       const step=roomWalkStep(view,actor,x,z,Math.min(left,gap),others,machine);
       const next=floorAt(view,actor), skew=room.skew||0;
       if(Math.abs(next.b)<.85)view.door?.push(at.a+skew*at.b,at.b,next.a+skew*next.b,next.b,.25,dt);
-      if(next.b>-.6)actor.y=view.floor;
       left-=step;
       const remaining=Math.hypot(x-actor.x,z-actor.z);
       if(remaining>.0001){

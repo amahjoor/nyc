@@ -2,6 +2,7 @@ import { crossesFixture, DOOR, roomLocal, roomPoint } from './room.js';
 import { pathsFromDoor, peopleInRoom, roomSeatStep, roomWalkStep, shopAisle } from './room-walk.js';
 import { clearTravel } from './pedestrian-motion.js';
 import { startFacilityVisit, serviceMode, stepServiceJobs } from './facility-visits.js';
+import { shopStairRoute } from './shop-entrance.js';
 import { seatApproach } from './seating.js';
 import { menuFor } from './menu.js';
 import { servingFor,portionKey } from './food-catalog.js';
@@ -99,8 +100,12 @@ export function fleeShop(view, actor, delay) {
 
 function planEscape(view, actor, blocker) {
   const room = view.plan, at = roomLocal(room, actor.x, actor.z), escape = actor.escape;
+  const stairs=view.entry?.stairs;
+  const exit=stairs ? roomLocal(room,...stairs.point(stairs.toe+.38,0)) : {a:0,b:SIDEWALK_EXIT};
+  const turnPoint=stairs?.turn ? roomLocal(room,...stairs.point(0,0)) : null;
   if (at.b <= 0) {
-    escape.path = [{a:at.a, b:Math.min(SIDEWALK_EXIT, at.b)}];
+    escape.path = stairs ? [exit] : [{a:at.a, b:Math.min(SIDEWALK_EXIT, at.b)}];
+    if(turnPoint && stairs.local(actor.x,actor.z).s<stairs.landing)escape.path.push(turnPoint);
     actor.clip = 'jog'; actor.stride = 1;
     return;
   }
@@ -133,7 +138,7 @@ function planEscape(view, actor, blocker) {
   if (nearest) {
     const route = [];
     for (let node = nearest; node; node = node.prev) route.push(node);
-    escape.path = [{a:0,b:SIDEWALK_EXIT}, {a:0,b:0}, ...route.reverse()];
+    escape.path = [exit,...(turnPoint?[turnPoint]:[]),{a:0,b:0},...route.reverse()];
   } else {
     escape.retry = .8;
     view.exits = view.fineExits = null;
@@ -207,6 +212,7 @@ function advanceEscape(view, actor, dt, player) {
     const at = roomLocal(room,actor.x,actor.z);
     for (let i = 0; i < escape.path.length - 1; i++) {
       const target = escape.path[i];
+      if(view.entry?.stairs && target.b<0)continue;
       if (at.b > 0 && target.b <= 0) {
         const crossing = at.a + (target.a - at.a) * at.b / (at.b - target.b);
         if (Math.abs(crossing) > DOOR / 2 - BODY_RADIUS) continue;
@@ -230,7 +236,7 @@ function advanceEscape(view, actor, dt, player) {
       const actual = roomLocal(room,actor.x,actor.z);
       const skew = room.skew || 0;
       view.door?.push(at.a+skew*at.b,at.b,actual.a+skew*actual.b,actual.b,.25,dt);
-      if (actual.b <= SIDEWALK_EXIT) return true;
+      if (!view.entry?.stairs && actual.b <= SIDEWALK_EXIT) return true;
       left -= walked;
       if (Math.hypot(actor.x-x,actor.z-z)>.0001) break;
     }
@@ -260,7 +266,8 @@ export function inviteCustomer(view, people, time, sale, playerSeat = () => null
     if (trip && (trip.phase!=='waiting' || trip.shop.id!==view.plan.place.id)) continue;
     if (person.state !== 'walk' || (!person.run && !trip) || person.age < .5 || time < (person.shoppedUntil || 0)) continue;
     const start = roomLocal(room, person.x, person.z);
-    if (Number.isFinite(person.y) && Math.abs(person.y - view.floor) > 1.6) continue;
+    const street=view.entry?.stairs && view.groundAt ? view.groundAt(person.x,person.z) : view.floor;
+    if (Number.isFinite(person.y) && Math.abs(person.y - street) > 1.6) continue;
     if (start.b >= -.6 || start.b < -8 || Math.abs(start.a) > room.width / 2) continue;
     if (view.route === undefined) view.route = counterPath(room,mode==='barber' && view.clerk ? [view.clerk.spot] : room.staff);
     if (!view.route) {
@@ -275,7 +282,7 @@ export function inviteCustomer(view, people, time, sale, playerSeat = () => null
       return;
     }
     const out = { a: 0, b: Math.min(-1, start.b) };
-    const path = [start, out, ...view.route.path];
+    const path = [start, ...(shopStairRoute(room,view.entry?.stairs,start)??[out]), ...view.route.path];
     const item = view.menu[Math.floor(view.random() * view.menu.length)];
     const visit = { path: [...path, ...path.slice(0,-1).reverse()], at: 1, counter: path.length - 1,
       wait: 0, item, room, view, sale, playerSeat, step: stepCustomer };
@@ -288,7 +295,6 @@ export function inviteCustomer(view, people, time, sale, playerSeat = () => null
 function interruptService(person,dt,time,player) {
   const visit=person.visit, view=visit.view;
   if(!person.escape) fleeShop(view,person);
-  if(roomLocal(view.plan,person.x,person.z).b>-.6) person.y=view.floor;
   visit.wait=0;
   if(advanceEscape(view,person,dt,player)){
     visit.detach();person.visit=null;person.escape=null;person.state='flee';person.run=null;
@@ -349,7 +355,6 @@ export function stepCustomer(person, dt, time, player) {
     visit.spot = null;
   }
   if (person.robbery) {
-    if (roomLocal(room,person.x,person.z).b > -.6) person.y = view.floor;
     visit.wait = 0;
     if (advanceEscape(view,person,dt,player)) {
       person.visit = null; view.visitor = null; person.escape = null;
@@ -399,7 +404,6 @@ export function stepCustomer(person, dt, time, player) {
   const next = roomLocal(room, person.x, person.z);
   const skew = room.skew || 0;
   view.door.push(at.a + skew * at.b, at.b, next.a + skew * next.b, next.b, .29, dt);
-  if (next.b > -.6) person.y = view.floor;
   if (Math.hypot(x-person.x,z-person.z)>.001) return;
   if (!visit.interrupted && visit.at === visit.counter) {
     visit.wait = 3 + view.random() * 2;

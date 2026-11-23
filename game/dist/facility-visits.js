@@ -3,6 +3,7 @@
 import { foodId,pantryItem,heldFood,diningTable,beverage } from './shopping.js';
 import { DOOR, roomPoint,roomLocal } from './room.js';
 import { floorAt, facePoint, followRoute, peopleInRoom, roomSeatStep, shopAisle, walkingPose } from './room-walk.js';
+import { shopStairRoute } from './shop-entrance.js';
 import { clearTravel, hasStandingRoom } from './pedestrian-motion.js';
 import { servingFor,portionKey } from './food-catalog.js';
 import { seatApproach } from './seating.js';
@@ -403,7 +404,7 @@ function* itinerary(v) {
     }
   }
   const doorwayX=v.start.a*entrance.b/(entrance.b-v.start.b);
-  const viaDoor=Math.abs(doorwayX)<DOOR/2-.25 ? [] : [out];
+  const viaDoor=shopStairRoute(v.room,v.view.entry?.stairs,v.start) ?? (Math.abs(doorwayX)<DOOR/2-.25 ? [] : [out]);
   yield walking(v.person,entrance,'entering',[...viaDoor,entrance]);
   if(v.mode==='cafe')yield* cafe(v);
   else if(v.mode==='restaurant')yield* restaurant(v);
@@ -411,7 +412,7 @@ function* itinerary(v) {
   else if(v.mode==='grocer')yield* groceriesVisit(v);
   else yield* retail(v,v.mode);
   yield walking(v.person,entrance,'leaving');
-  yield walking(v.person,v.start,'back to sidewalk',[...viaDoor,v.start]);
+  yield walking(v.person,v.start,'back to sidewalk',[...viaDoor.reverse(),v.start]);
 }
 
 function move(v,task,dt) {
