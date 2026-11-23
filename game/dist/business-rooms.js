@@ -359,6 +359,16 @@ function apparel(r,prop) {
   };
   rail(r.half-.81,1.28);
   for (let b=3.23,i=0;b<r.depth-2.15;b+=1.75,i++) rail((i%2?1:-1)*(r.half-.84),b);
+  // Leave an aisle between the middle display and the alternating garment racks.
+  if(r.width>=6 && r.depth>=6){
+    const all=fittingStock(r.place), folded=all.filter(item=>item.slot==='bottom').slice(0,3), pairs=all.filter(item=>item.slot==='shoes').slice(0,2);
+    if(folded.length || pairs.length){
+      const at=2.25;
+      r.add(0,at,1.5,.6,.72,'#8d7a63');
+      folded.forEach((item,i)=>{r.add(-.55+i*.35,at,.29,.42,.07,item.design.bottomColour||'#3a3d45',.72,false);r.things.at(-1).sku=item.sku;});
+      pairs.forEach((item,i)=>prop('sneaker',.52,at-.14+i*.28,.30,.14,.18,item.design.shoeColour??'#464246',{y:.72,solid:false,sku:item.sku,profile:item.design.shoes}));
+    }
+  }
   const desk=r.half-.89;
   r.add(desk,r.depth-1.19,1.43,.63,1,'#93806a');
   prop('register',desk,r.depth-1.19,.4,.4,.35,'#3e4645',{y:1,solid:false});

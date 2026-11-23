@@ -8,22 +8,22 @@
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  color: #f7f5ef;
-  background: #101416f5;
+  color: var(--brand-cream);
+  background: #171419f5;
   box-shadow: 0 4px 18px #0006;
   font: 500 16px/1.25 var(--ui);
 }
 .interaction[hidden], .interaction [hidden] { display: none; }
-body:has(.interaction:not([hidden])) :is(.mission-panel, .cash-display, .place-hint) { visibility: hidden; }
-body:has(.wanted:not([hidden]):not(.calm)) .interaction {
+body:has(.interaction:not([hidden])) :is(.mission-panel, .place-hint) { visibility: hidden; }
+body:has(.hud-status :is(.wanted:not([hidden]):not(.calm), .cash-display:not([hidden]))) .interaction {
   top: 120px;
   max-height: calc(100dvh - 136px);
 }
 .interaction header {
   display: flex; align-items: baseline; justify-content: space-between; gap: 12px;
   padding: 16px 17px 11px;
-  background: linear-gradient(115deg, #243e4a, #15262e);
-  border-bottom: 3px solid #eeb351;
+  background: linear-gradient(115deg, #37262d, #20171c);
+  border-bottom: 3px solid var(--brand-red);
 }
 .interaction h2 { margin: 0; font: 700 clamp(23px, 3vw, 32px)/1 var(--heading); overflow-wrap: anywhere; }
 #interaction-balance { flex: none; color: #cef1b5; font-variant-numeric: tabular-nums; }
@@ -36,16 +36,16 @@ body:has(.wanted:not([hidden]):not(.calm)) .interaction {
 }
 #interaction-options strong { font-weight: 600; }
 #interaction-options span { text-align: right; font-size: 13px; opacity: .82; }
-#interaction-options button:hover:enabled { background: #324048; }
-#interaction-options button:focus { background: #f4f2eb; color: #11171a; outline: 0; box-shadow: inset 4px 0 #eeb351; }
+#interaction-options button:hover:enabled { background: #392e35; }
+#interaction-options button:focus { background: var(--brand-cream); color: var(--brand-ink); outline: 0; box-shadow: inset 4px 0 var(--brand-red); }
 #interaction-options button:disabled { opacity: .5; cursor: default; }
 .interaction-swatch { display: inline-block; width: .9em; height: .9em; margin-right: 7px; border: 1px solid #888; vertical-align: -.05em; }
 .interaction footer { display: flex; justify-content: space-between; align-items: center; padding: 6px 12px; font-size: 12px; color: #d3d4ce; }
 #interaction-close { padding: 5px 9px; color: inherit; background: transparent; border: 1px solid #ffffff45; font: inherit; cursor: pointer; }
-#interaction-close:focus { outline: 2px solid #eeb351; }
+#interaction-close:focus { outline: 2px solid var(--brand-red); }
 @media (max-width: 600px) {
   .interaction { right: max(8px, env(safe-area-inset-right)); top: max(8px, env(safe-area-inset-top)); }
-  body:has(.wanted:not([hidden]):not(.calm)) .interaction { top: 90px; max-height: calc(100dvh - 100px); }
+  body:has(.hud-status :is(.wanted:not([hidden]):not(.calm), .cash-display:not([hidden]))) .interaction { top: 90px; max-height: calc(100dvh - 100px); }
 }
 
 .interaction:has(#shop-preview:not([hidden])) { width: min(500px, calc(100vw - 24px)); }
@@ -55,7 +55,11 @@ body:has(.wanted:not([hidden]):not(.calm)) .interaction {
 .mirror-controls { display:flex; align-items:center; justify-content:space-between; gap:8px; padding:4px 12px; background:#292d2d; color:#f5f1ea; font-size:13px; }
 .mirror-controls button { border:0; background:transparent; color:inherit; font:22px/1.2 var(--ui); padding:2px 9px; cursor:pointer; }
 
-.package-thumb{display:inline-block;width:2.2rem;height:2.2rem;flex:none;vertical-align:middle;margin-right:.62rem;border-radius:.16rem;background:image-set(url('./assets/grocery-labels.jpg') 1x) no-repeat;background-size:303.125% 300%}
+#interaction-options strong:has(.item-thumb){display:flex;align-items:center}
+.item-thumb{width:2.2rem;height:2.2rem;flex:none;margin-right:.62rem;border-radius:.16rem}
+.package-thumb{background:url('./assets/grocery-labels.jpg') no-repeat;background-size:303.125% 300%}
+.item-glyph{display:inline-grid;place-items:center;background:#aa8d7626;font:400 1.4rem/1 "Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif}
+.item-thumb.empty-item{filter:grayscale(1);opacity:.68}
 
 body:has(.phone:not([hidden])) .interaction {
   left: max(12px, env(safe-area-inset-left));

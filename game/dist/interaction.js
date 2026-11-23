@@ -129,12 +129,17 @@ export function createInteraction({ $, onOpenChange }) {
       const label = document.createElement('strong');
       label.textContent = row.name;
       button.append(label);
-      if(row.product){
-        const pack=document.createElement('i');pack.className='package-thumb';pack.setAttribute('aria-hidden','true');
-        const tile=row.product.tile;
-        if(['apple','orange'].includes(row.product.shape)){pack.style.backgroundImage='none';pack.textContent=row.product.shape==='apple'?'🍎':'🍊';}
-        else pack.style.backgroundPosition=(tile%3*49.24)+'% '+(Math.floor(tile/3)*50)+'%';
-        label.prepend(pack);
+      if(row.product || row.icon){
+        const thumb=document.createElement('i');
+        thumb.setAttribute('aria-hidden','true');
+        const glyph=row.icon || ({apple:'🍎',orange:'🍊'}[row.product?.shape]);
+        thumb.className=`item-thumb ${glyph?'item-glyph':'package-thumb'}${row.empty?' empty-item':''}`;
+        if(glyph)thumb.textContent=glyph;
+        else{
+          const {tile}=row.product;
+          thumb.style.backgroundPosition=(tile%3*49.24)+'% '+(Math.floor(tile/3)*50)+'%';
+        }
+        label.prepend(thumb);
       }
       if (row.color) {
         const swatch = document.createElement('i');

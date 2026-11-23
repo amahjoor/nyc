@@ -1,9 +1,9 @@
 // Game stock. Garment and haircut options use IDs from the player character
 // catalog, so the fitting mirror and the character on the street wear the same mesh.
 import { FASHION_LOOKS } from './fashion.js';
-import { archiveStock } from './archive-stock.js';
+import { archiveStock, archivePiece, archiveItem } from './archive-stock.js';
 const shirts = [
-  { sku:'tee-chalk', name:'Cotton crew · Chalk', price:25, slot:'top', design:{top:'male_casualsuit04-top',topColour:'#dfd8ca'} },
+  { sku:'tee-chalk', name:'Cotton crew · Chalk', price:25, slot:'top', design:{top:'gallery-box-tee',topColour:'#dfd8ca'} },
   { sku:'shirt-indigo', name:'Button-down · Indigo', price:38, slot:'top', design:{top:'male_casualsuit03-top',topColour:'#425571'} },
   { sku:'knit-sage', name:'Knit pullover · Sage', price:48, slot:'top', design:{top:'male_casualsuit06-top',topColour:'#718075'} },
   { sku:'hoodie-clay', name:'Hoodie · Clay', price:55, slot:'top', design:{top:'male_casualsuit05-top',topColour:'#a3634a'} },
@@ -13,7 +13,10 @@ const sneakers = [
   { sku:'high-oxblood', name:'High tops · Oxblood', price:120, slot:'shoes', design:{shoes:'shoes06',shoeColour:'#823f42'} },
   { sku:'runner-graphite', name:'Runners · Graphite', price:95, slot:'shoes', design:{shoes:'shoes02',shoeColour:'#555c61'} },
 ];
-const haircuts = [['Close crop','short01',25],['Side part','short03',30],['Short curls','short04',35],['Rounded afro','afro01',35],['Chin-length bob','bob01',40],['Braids','braid01',65]]
+const haircuts = [['Close crop','short01',25],['Side part','short03',30],['Short curls','short04',35],['Rounded afro','afro01',35],['Chin-length bob','bob01',40],['Braids','braid01',65],['Quiff','culturalibre_hair_02',35],['Swept back','culturalibre_hair_05',38],['Short and messy','cortu_short_messy_hair',32],
+  ['Shag','cortu_shaggy_green_hair',55],['Shoulder length','sonntag78_junglebook_hair',45],['Long and straight','culturalibre_hair_01',50],['Fringe','cortu_straight_bangs',45],
+  ['Blunt bob','toigo_blunt_bob',45],['Blunt bob with fringe','toigo_blunt_bob_with_bangs',48],['Curled-under bob','toigo_curled_under_bob',48],['Inverted bob','toigo_inverted_bob',50],
+  ['Rounded bob','littleright_bobcut_hair',42],['Bun','rehmanpolanski_hair_bun_brown',40],['French braid','elvs_french_braid_variation',70],['Double braid','elvs_double_mh_braid',75],['Loose braid','elvs_unkempt_french_braid',65]]
   .map(([name,hair,price])=>({sku:'cut-'+hair,name,price,slot:'hair',design:{hair,hat:'none'},effect:'groom'}));
 const phones = [
   { sku:'phone-slate', name:'Handset · Slate', price:199, model:'phone', color:'#6e7d86' },
@@ -53,6 +56,21 @@ const tjMaxx=[
   dyed(shirts[1],'shirt-olive','Button-down · Olive',24,'#69735a'),
   dyed(shirts[0],'crew-sand','Cotton crew · Sand',14,'#c3ac8c'),...sneakers,
 ];
+// Everything the shops' own lines have to wear, by its number: a changing room has to know a piece its shop does not sell.
+const wearables=new Map();
+for(const item of [...shirts,...sneakers,...archive,...oldNavy,...tjMaxx])if(item.design && item.slot!=='hair')wearables.set(item.sku,item);
+/** A piece that can be worn, by its number, wherever it is sold; null for anything else. */
+export function wearable(sku){
+  if(wearables.has(sku))return wearables.get(sku);
+  const piece=archivePiece(sku);
+  return piece && !piece.part ? archiveItem(piece) : null;
+}
+/** The pieces somebody has bought and can change into, as the shops sold them. */
+export const ownedWearables=sim=>Object.keys(sim.purchases||{}).filter(sku=>sim.purchases[sku]>0).map(wearable)
+  .filter(item=>item && item.design && ['top','bottom','shoes','bag'].includes(item.slot));
+/** Whether a look has a piece on. */
+export const wearing=(look,item)=>Boolean(look && item?.design) && Object.entries(item.design).every(([key,value])=>(look[key]??null)===(value??null));
+
 export function fittingStock(place) {
   const kind=typeof place==='string'?place:place.kind, name=place.name || '';
   const chain=(kind==='clothes' || kind==='department') && (/\bold navy\b/i.test(name)?oldNavy:/\bt\.?\s*j\.?\s*maxx\b/i.test(name)?tjMaxx:null);
@@ -70,13 +88,13 @@ export function ownsWearable(sim,item) {
   return ['top','bottom','shoes','bag'].includes(item.slot) && sim.purchases?.[item.sku] > 0;
 }
 
-export function purchaseStock(sim, shop, item) {
+export function purchaseStock(sim, shop, item, {unpaid=false,sale}={}) {
   if (sim.room?.place !== shop || !fittingStock(shop).some(row=>row.sku===item.sku)) return null;
   if (ownsWearable(sim,item)) return {paid:0};
-  if (!sim.buy(item)) return null;
+  if (unpaid ? !sim.shopping.charge(shop,item.price,sale) : !sim.buy(item)) return null;
   if (item.slot !== 'hair') {
     sim.purchases ??= {};
     sim.purchases[item.sku]=(sim.purchases[item.sku] || 0) + 1;
   }
-  return {paid:item.price};
+  return {paid:unpaid?0:item.price};
 }

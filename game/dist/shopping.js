@@ -7,9 +7,15 @@ import { crossesFixture,roomLocal,roomPoint } from './room.js';
 const dishes=new Map();
 export function pantryItem(id){
   if(typeof id!=='string')return null;
+  const partial=/^partial-([1-3])-(?!partial-|empty-)(.+)$/.exec(id);
+  if(partial){
+    const food=pantryItem(partial[2]),remaining=Number(partial[1]);
+    if(!food || food.effect==='pantry' || remaining>=servingSize(food))return null;
+    return {...food,id,source:food.id,remaining};
+  }
   if(id.startsWith('empty-')){
     const source=id.slice(6);
-    if(source.startsWith('empty-'))return null;
+    if(source.startsWith('empty-') || source.startsWith('partial-'))return null;
     const food=pantryItem(source);if(!food || food.effect==='pantry')return null;
     const shape=groceries[source]?.shape,style=plateStyle(food.preparation||food.name);
     const name=({bottle:'Empty bottle',can:'Empty can',pouch:'Empty snack bag',box:'Empty box',carton:'Empty carton',apple:'Apple core',orange:'Orange peel'})[shape] ||
@@ -31,9 +37,12 @@ export function foodId(place,item){
   if(item.product)return item.product;
   return menuFor(place).some(row=>row.name===item.name)?'meal-'+place.kind+'-'+dishKey(item.name):null;
 }
-export const beverage=item=>item.id && groceries[item.id]?item.effect==='pep':carriedOrder(item)==='cup';
+export const beverage=item=>groceries[item.source||item.id]?item.effect==='pep':carriedOrder(item)==='cup';
+export const servingSize=item=>beverage(item)?4:3;
+const portionId=(item,remaining)=>remaining===0?'empty-'+item.id:remaining===servingSize(item)?item.id:'partial-'+remaining+'-'+item.id;
 export function heldFood(item){
   if(item.effect==='empty')return portionKey(heldFood(pantryItem(item.source)),0);
+  if(item.remaining)return portionKey(heldFood(pantryItem(item.source)),1);
   return groceries[item.id]?item.id:servingFor(item);
 }
 
@@ -60,11 +69,15 @@ export class Shopping{
     this.held=this.inventory[record.held]?record.held:null;
     const use=record.inUse,item=pantryItem(use?.id);
     if(item && item.effect!=='empty' && item.effect!=='pantry' && Number.isFinite(use.progress)){
-      this.beginEating(item,null,Math.max(0,Math.min(4.5,use.progress)));this.tick();
+      if(use.finish===undefined){
+        const progress=use.progress>=3.56?4:use.progress>=1.31?1.4:0;
+        this.beginEating(item,null,progress);
+      }else this.beginEating(item,null,Math.max(0,Math.min(4.5,use.progress)),{finish:use.finish===true});
+      this.tick();
     }
     this.revision++;
   }
-  record(){return {inUse:this.eating?{id:this.eating.item.id,progress:this.sim.elapsed-this.eating.start}:null,inventory:this.inventory,held:this.held,wrapped:Boolean(this.held && this.sim.player.carry==='takeout'),sold:Object.fromEntries(Object.entries(this.sold).map(([id,set])=>[id,[...set]]))};}
+  record(){const e=this.eating;return {inUse:e && !e.onRemaining?{id:portionId(e.item,e.initial),progress:this.sim.elapsed-e.start,finish:e.finish}:null,inventory:this.inventory,held:this.held,wrapped:Boolean(this.held && this.sim.player.carry==='takeout'),sold:Object.fromEntries(Object.entries(this.sold).map(([id,set])=>[id,[...set]]))};}
   missing(shop,index,visible=false){const visitor=this.reservations.get(shop)?.get(index);
     return this.sold[shop]?.has(index) || visitor && (!visible || visitor.collected) || (this.basket?.shop===shop && this.basket.units.some(s=>s.index===index)) ||
     (this.order?.shop===shop && this.order.slot?.index===index && (!visible || this.order.collected));}
@@ -107,25 +120,64 @@ export class Shopping{
     const bag=this.basket;if(this.eating || this.order || bag?.shop!==room.place.id || !bag)return false;
     const nearby=new Set(this.shelf(room).filter(s=>s.id===id).map(s=>s.index));
     const i=bag.units.findLastIndex(s=>s.id===id && nearby.has(s.index));if(i<0)return false;
-    bag.units.splice(i,1);if(!bag.units.length)this.basket=null;
+    bag.units.splice(i,1);if(!bag.units.length && !bag.charges?.length)this.basket=null;
     this.sim.player.carry=bag.units.at(-1)?.id || (this.held && heldFood(pantryItem(this.held)));this.revision++;return true;
   }
-  total(place){return this.basket?.units.reduce((sum,s)=>sum+groceryPrice(place,groceries[s.id]),0)||0;}
+  charge(place,price,sale){
+    if(this.sim.room?.place.id!==place.id || this.basket && this.basket.shop!==place.id)return false;
+    this.basket??={shop:place.id,units:[],reminded:false};
+    (this.basket.charges??=[]).push({price,sale});this.revision++;
+    return true;
+  }
+  charges(place){return this.basket?.shop===place.id?this.basket.charges?.reduce((sum,line)=>sum+line.price,0)||0:0;}
+  total(place){return this.charges(place)+(this.basket?.shop===place.id?this.basket.units.reduce((sum,s)=>sum+groceryPrice(place,groceries[s.id]),0):0);}
+  payCharges(place){
+    const due=this.charges(place);
+    if(this.sim.room?.place.id!==place.id || this.eating || this.order || !due || !this.canPay(due))return false;
+    this.pay(due);this.settleCharges(place);
+    if(!this.basket.units.length)this.basket=null;
+    this.revision++;this.sim._say('Paid $'+due.toFixed(2)+'.',4);return true;
+  }
+  pay(amount){
+    this.sim.cash=Math.round((this.sim.cash-amount)*100)/100;
+    this.sim.spent=(this.sim.spent||0)+amount;
+  }
+  settleCharges(place){
+    for(const {price,sale} of this.basket.charges||[])sale?.(place,price);
+    this.basket.charges=[];
+  }
+  eatFromBasket(id,view,finish,sale){
+    const room=this.sim.room,b=this.basket,item=pantryItem(id);
+    if(this.eating || this.order || this.sim.player.armed || !room || b?.shop!==room.place.id || !item || item.effect==='pantry')return false;
+    const index=b.units.findIndex(slot=>slot.id===id);
+    if(index<0 || !this.charge(room.place,groceryPrice(room.place,item),sale))return false;
+    this.transfer(b.shop,b.units.splice(index,1));
+    return this.consume(id,view,finish);
+  }
   transfer(shop,units){
+    if(!units.length)return;
     const removed=this.sold[shop]??=new Set();
     for(const s of units){this.inventory[s.id]=(this.inventory[s.id]||0)+1;removed.add(s.index);}
     this.setHand(units.at(-1).id);this.revision++;
   }
   canPay(amount){if(this.sim.cash>=amount)return true;this.sim._say('You need $'+(amount-this.sim.cash).toFixed(2)+' more.');return false;}
-  accept(order,toGo=false){
+  accept(order,toGo=false,unpaid=false){
     const sim=this.sim;
-    if(this.eating || !order || this.order!==order || !order.ready || sim.room?.place.id!==order.shop || order.view.closed || order.view.handoff || sim.player.armed || !this.canPay(order.price))return false;
+    if(this.eating || !order || this.order!==order || !order.ready || sim.room?.place.id!==order.shop || order.view.closed || order.view.handoff || sim.player.armed ||
+      (unpaid?order.basket:!this.canPay(order.price)))return false;
     const near=order.table?diningTable(sim,order.view)===order.table:Math.hypot(sim.player.x-order.employee.x,sim.player.z-order.employee.z)<2.65;
     if(!near)return false;
     const [x,z]=order.table?roomPoint(sim.room,order.table.a,order.table.b):[order.employee.x,order.employee.z];
-    this.payment={start:sim.elapsed,x,z};
-    sim.cash=Math.round((sim.cash-order.price)*100)/100;sim.spent=(sim.spent||0)+order.price;
+    if(unpaid){
+      if(!this.charge(sim.room.place,order.price,order.sale))return false;
+    }else{
+      this.payment={start:sim.elapsed,x,z};
+      this.pay(order.price);
+    }
+    let sale=order.price;
     if(order.basket){
+      sale-=this.charges(sim.room.place);
+      this.settleCharges(sim.room.place);
       this.transfer(order.shop,this.basket.units);
       if(this.basket.units.length>1){this.held=null;sim.player.carry='takeout';}
       this.basket=null;
@@ -135,32 +187,35 @@ export class Shopping{
       this.receive(order.food.id);
       if(order.packed || toGo && !beverage(order.food))sim.player.carry='takeout';
     }
-    order.sale?.(sim.room.place,order.price);order.paid=true;this.cancelOrder();
-    sim._say('Received '+order.label+'. $'+order.price.toFixed(2)+'.',4);return true;
+    if(!unpaid && sale>0)order.sale?.(sim.room.place,sale);
+    order.paid=!unpaid;this.cancelOrder();
+    sim._say('Received '+order.label+(unpaid?'. Payment due $':'. $')+order.price.toFixed(2)+'.',4);return true;
   }
   cancelOrder(){
     const order=this.order;if(!order)return;
     this.order=null;order.release?.();this.revision++;
   }
-  consume(id,view=null){
+  consume(id,view=null,finish=true){
     if(this.eating || !this.inventory[id])return false;
     const item=pantryItem(id);if(!item || ['pantry','empty'].includes(item.effect))return false;
     this.payment=null;
     if(--this.inventory[id]===0)delete this.inventory[id];
     this.setHand(null);
-    this.sim.pep=item.effect==='drink'?0:Math.max(this.sim.pep||0,PEP[item.effect]||PEP.pep);
-    this.beginEating(item,view);
+    this.beginEating(item,view,0,{finish});
     this.sim._say((beverage(item)?'Drinking ':'Eating ')+item.name+'.');return true;
   }
-  beginEating(item,view,progress=0){
+  beginEating(item,view,progress=0,{finish=true,remaining=item.remaining||servingSize(item),onRemaining=null}={}){
+    if(item.source)item=pantryItem(item.source);
     const seatTable=diningTable(this.sim,view),table=seatTable && !groceries[item.id] && !view.claims.has(seatTable)?seatTable:null,drink=beverage(item);
+    const level=remaining===servingSize(item)?2:1, duration=drink?1.05:1.4;
     if(table){
       view.claims.set(table,this);
-      if(!drink)view.group?.userData.mealAt?.(table,true,item);
+      if(!drink)view.group?.userData.mealAt?.(table,true,item,level);
     }
     const base=table && drink?servingFor(item,true):heldFood(item),start=this.sim.elapsed-progress;
-    const carry=table && !drink?'fork':base;
-    this.eating={item,base,style:plateStyle(item.preparation||item.name),level:2,start,until:start+4.5,table,view,drink,carry,seat:this.sim.seat};
+    const carry=table && !drink?'fork':portionKey(base,level);
+    this.eating={item,base,style:plateStyle(item.preparation||item.name),level,start,duration,
+      until:start+duration*(finish?remaining:1),initial:remaining,remaining,finish,onRemaining,table,view,drink,carry,seat:this.sim.seat};
     this.sim.player.carry=carry;this.revision++;
   }
   portion(e,level){
@@ -175,14 +230,20 @@ export class Shopping{
   }
   clearEating(){
     const e=this.eating;if(!e)return;
-    this.portion(e,0);this.eating=null;
-    if(e.table){
+    this.eating=null;
+    if(e.onRemaining?.(e.remaining,e)){
+      if(this.sim.player.carry===e.carry)this.sim.player.carry=null;
+    }else if(e.table && !e.remaining){
       const mug=e.drink?{...e.table,y:e.table.h,temporary:true}:null;
       if(mug)e.view.group?.userData.drinkAt?.(mug,'mug',true,e.item,0);
       e.view.cleanups.push({table:e.table,mug,emptyCarry:portionKey(e.base,0),server:null,left:1.4});
       if(this.sim.player.carry===e.carry)this.sim.player.carry=null;
     }else{
-      const id='empty-'+e.item.id;this.inventory[id]=(this.inventory[id]||0)+1;
+      if(e.table){
+        if(!e.drink)e.view.group?.userData.mealAt?.(e.table,false);
+        e.view.claims.delete(e.table);
+      }
+      const id=portionId(e.item,e.remaining);this.inventory[id]=(this.inventory[id]||0)+1;
       if(this.sim.player.carry===e.carry)this.setHand(id);
     }
     this.revision++;
@@ -203,14 +264,20 @@ export class Shopping{
         e.carry=sim.player.carry=portionKey(e.base,e.level);
       }
       const t=sim.elapsed-e.start;
-      this.portion(e,t>=3.56?0:t>=1.31?1:2);
+      const bites=Math.min(e.finish?e.initial:1,Math.max(0,Math.floor((t-e.duration*.54)/e.duration)+1));
+      if(e.initial-bites<e.remaining){
+        e.remaining=e.initial-bites;
+        const fraction=(servingSize(e.item)-e.remaining)/servingSize(e.item);
+        sim.pep=e.item.effect==='drink'?0:Math.max(sim.pep||0,(PEP[e.item.effect]||PEP.pep)*fraction);
+        this.portion(e,e.remaining?1:0);this.revision++;
+      }
       if(sim.elapsed>=e.until)this.clearEating();
     }
     if(!b)return;
     if(b.until && sim.room?.place.id===b.shop){delete b.until;return;}
     if(b.until && (sim.elapsed>=b.until || sim.room && sim.room.place.id!==b.shop)){this.closeUnpaid();return;}
     if(!b.until && !b.reminded && sim.room?.place.id===b.shop && sim.room.b<.60 && sim.room.b>0 && this.witness(sim.doorway)){
-      b.reminded=true;sim._say('Clerk: You still have items to pay for.',4);
+      b.reminded=true;sim._say('Clerk: You still need to pay.',4);
     }
   }
   witness(view){
@@ -220,19 +287,23 @@ export class Shopping{
     return !room.things.some(t=>t.solid && t.h+t.y>1.55 && crossesFixture(from,door,t));
   }
   leave(view){
-    this.payment=null;this.order?.walkout?.();this.cancelOrder();const b=this.basket;if(!b || b.until)return;
+    this.payment=null;
+    const order=this.order;order?.walkout?.(this.basket?.shop===order.shop);
+    this.cancelOrder();
+    const b=this.basket;if(!b || b.until)return;
     // Staff sometimes call after the customer first. Only an observed, reported exit reaches dispatch.
     b.at={x:view?.plan.x??this.sim.player.x,y:this.sim.player.y,z:view?.plan.z??this.sim.player.z};
     b.report=this.witness(view) && this.sim._random()<.68;
+    if(b.report)b.roomView=view;
     if(b.report && this.sim._random()<.55){
-      b.until=this.sim.elapsed+9;this.sim._say('Clerk: Excuse me! Come back and pay for those.',6);
+      b.until=this.sim.elapsed+9;this.sim._say('Clerk: Excuse me! Come back and pay.',6);
     }else this.closeUnpaid();
   }
   closeUnpaid(){
     const b=this.basket;if(!b)return;
     this.transfer(b.shop,b.units);this.basket=null;
-    if(b.report)this.sim.offence('theft',{...b.at,witnessReport:true,message:'A store employee reported a shop theft.'});
-    else this.sim._say('You left with the unpaid groceries.',4);
+    if(b.report)this.sim.offence('theft',{...b.at,witnessReport:true,localResponse:true,identified:false,roomView:b.roomView,message:'A store employee reported a shop theft.'});
+    else this.sim._say(b.charges?.length?'You left without settling the bill.':'You left with the unpaid groceries.',4);
   }
   interrupt(){
     this.payment=null;this.cancelOrder();this.clearEating();

@@ -7,6 +7,7 @@ import { menuFor } from '../dist/menu.js';
 import { Shopping,diningTable } from '../dist/shopping.js';
 import { roomPoint,ShopDoor } from '../dist/room.js';
 import { groceries } from '../dist/grocery-stock.js';
+import { fittingStock,purchaseStock } from '../dist/shop-stock.js';
 
 function store(kind,width=6,deep=9,name=kind){
   const place={id:kind+'-'+width,name,kind,x:0,z:0};
@@ -103,7 +104,7 @@ test('restaurant staff prepare the player’s dish and deliver it at the counter
       if(kind!=='coffee'){assert.equal(chef?.spot.role,'cook');assert.equal(server?.spot.role,'server');assert.notEqual(chef,server);}
       if(!seated)assert.equal(order.employee.carry,kind==='coffee'?'cup':'plate-eggs');
       assert.ok(bag.accept(order));assert.equal(sales[0],item.price);
-      assert.ok(bag.consume(order.food.id,view));assert.ok(sim.pep>0);tick(6);assert.equal(bag.eating,null);
+      assert.ok(bag.consume(order.food.id,view));tick(1);assert.ok(sim.pep>0);tick(5);assert.equal(bag.eating,null);
       if(seated){
         tick(50,()=>!view.cleanups.length);
         assert.equal(view.claims.size,0);assert.equal(view.cleanups.length,0);
@@ -180,4 +181,80 @@ test('a seated meal changes on the actual table when eaten and stays empty when 
     tick(40,()=>view.cleanups.some(j=>j.cleared));
     assert.ok(view.actors.some(a=>a.carry==='plate-pasta@0'));assert.equal(plate(),undefined);
   }finally{view.group.userData.dispose();}
+});
+
+test('an opened drink stays partial across saves and finishing makes an empty container',()=>{
+  const {bag,sim,view,tick}=store('bodega');
+  try{
+    const id='grocery-water',partial='partial-3-'+id;
+    bag.receive(id);
+    assert.ok(bag.consume(id,null,false));
+    assert.equal(sim.pep,undefined);
+    tick(2);
+    assert.equal(bag.eating,null);
+    assert.equal(bag.inventory[partial],1);
+    const saved=JSON.parse(JSON.stringify(bag.record()));
+    const loaded=sim.shopping=new Shopping(sim);loaded.restore(saved);
+    assert.equal(sim.player.carry,id+'@1');
+    assert.ok(loaded.consume(partial,null,true));
+    tick(.8);loaded.clearEating();
+    assert.equal(loaded.inventory['partial-2-'+id],1);
+    assert.ok(loaded.consume('partial-2-'+id));
+    tick(3);
+    assert.equal(loaded.inventory['empty-'+id],1);
+    assert.equal(loaded.inventory[partial],undefined);
+  }finally{view.group.userData.dispose();}
+});
+
+test('opening a grocery before checkout keeps the remaining food and charges for that slot once',()=>{
+  const {bag,sim,room,view,atShelf,checkout,placeOrder,tick,sales}=store('bodega');
+  try{
+    const chips=atShelf('grocery-chips');assert.ok(bag.take(sim.room,chips));
+    const recordSale=(_shop,price)=>sales.push(price);
+    assert.ok(bag.eatFromBasket(chips.id,view,false,recordSale));
+    tick(2);assert.equal(bag.inventory['partial-2-'+chips.id],1);
+    assert.ok(bag.missing(room.place.id,chips.index));
+    const chipsPrice=bag.charges(room.place);
+    const water=atShelf('grocery-water');assert.ok(bag.take(sim.room,water));
+    checkout();assert.ok(placeOrder(null,true));const order=bag.order;
+    tick(70,()=>order.ready);assert.ok(bag.accept(order));
+    assert.equal(sim.cash,100-order.price);
+    assert.deepEqual(sales,[chipsPrice,order.price-chipsPrice]);
+    assert.equal(bag.basket,null);
+  }finally{view.group.userData.dispose();}
+});
+
+test('collecting counter food with no cash can cause a single reported walkout',()=>{
+  const {bag,sim,room,view,checkout,placeOrder,tick,calls,sales}=store('pizza',5);
+  try{
+    sim.cash=0;
+    checkout();assert.ok(placeOrder(menuFor(room.place).find(item=>item.effect==='meal')));
+    const order=bag.order;tick(90,()=>order.ready);assert.ok(order.ready,order.phase);
+    assert.equal(bag.accept(order),false);
+    assert.ok(bag.accept(order,true,true));assert.equal(bag.inventory[order.food.id],1);
+    assert.equal(bag.charges(room.place),order.price);assert.equal(sales.length,0);
+    bag.witness=()=>true;
+    bag.leave(view);sim.room=null;tick(12);bag.leave(view);
+    assert.equal(calls.length,1);assert.equal(sim.cash,0);
+  }finally{view.group.userData.dispose();}
+});
+
+test('clothing and haircut services can be taken before checkout',()=>{
+  for(const kind of ['clothes','barber']){
+    const {sim,bag,room,view,sales}=store(kind);
+    try{
+      const item=fittingStock(room.place)[0];sim.cash=0;
+      const sale=(_place,price)=>sales.push(price);
+      assert.ok(purchaseStock(sim,room.place,item,{unpaid:true,sale}));
+      assert.equal(sim.cash,0);assert.equal(bag.charges(room.place),item.price);
+      if(kind==='clothes'){
+        assert.equal(sim.purchases[item.sku],1);
+        purchaseStock(sim,room.place,item,{unpaid:true,sale});
+        assert.equal(bag.charges(room.place),item.price);
+      }
+      sim.cash=item.price;
+      assert.ok(bag.payCharges(room.place));assert.equal(bag.payCharges(room.place),false);
+      assert.equal(sim.cash,0);assert.deepEqual(sales,[item.price]);
+    }finally{view.group.userData.dispose();}
+  }
 });
