@@ -386,3 +386,17 @@ test('traffic cabs and patrol cars keep one model, in the simulation and in what
   assert.ok(tint.getX(0) > .8 && tint.getZ(0) < .1, 'the cab is painted yellow, not built yellow');
   distant.dispose();
 });
+
+test('climbing samples the imported body shell at the hood and roof',async()=>{
+  const {carTop}=await import('../dist/player-moves.js');
+  const asset=art.find(model=>model.id==='honda-accord-2018'), model=decodeVehicleMesh(bufferFor(asset.url),asset);
+  const shell=new THREE.Mesh(model.body,new THREE.MeshBasicMaterial({side:THREE.DoubleSide}));
+  const car={x:0,y:3,z:0,angle:0,identity:{asset}};
+  for(const [x,z] of [[0,0],[.4,1.65],[-.45,-1.7]]){
+    const ray=new THREE.Raycaster(new THREE.Vector3(x,4,z),new THREE.Vector3(0,-1,0));
+    const surface=ray.intersectObject(shell)[0];
+    assert.ok(surface);
+    assert.ok(Math.abs(carTop(car,x,z)-3-.025-surface.point.y)<.0001);
+  }
+  assert.equal(carTop(car,3,0),null);
+});

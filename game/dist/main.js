@@ -10,7 +10,7 @@ import { Simulation, TRAFFIC_SIGHT } from './simulation.js';
 import { createPoliceScene } from './police-scene.js';
 import { shared } from './gfx-common.js';
 import { createCarSmoke } from './car-smoke.js';
-import { GUN } from './player-moves.js';
+import { GUN, carTop, setCarShell } from './player-moves.js';
 import { Input } from './input.js';
 import { HUD } from './hud.js';
 import { CityAudio } from './audio.js';
@@ -880,6 +880,7 @@ function dressPlayer() {
   }).catch(error=>{if(key===playerDesign)playerDesign='';console.warn('The player could not be drawn:',error);});
 }
 /** Put the player's body where the player is, in the pose for what they are doing. */
+let traversalPose;
 function showPlayer(dt,p,floor,eyeView,riding) {
   const mesh=playerBody.mesh;
   const driving=p.mode==='drive'||p.mode==='passenger', skating=p.mode==='skate';
@@ -908,7 +909,7 @@ function showPlayer(dt,p,floor,eyeView,riding) {
   if(armed&&(p.reloading||0)>playerSeen.reloading+.5)animator.play('reload',{rate:1.25,upperOnly:true,fadeIn:.1,fadeOut:.2});
   playerSeen.fired=p.firedAt||0;playerSeen.reloading=p.reloading||0;
   if(playerGun)playerGun.visible=armed && !ownBody;
-  const pose=animator.update(dt,{walkStyle:p.walkStyle,speed:p.mode==='walk'?(seat?.stepSpeed??p.speed):0,grounded:riding||p.grounded,vy:p.vy,strideScale:playerBody.rig.stride,guard:(p.guard||0)>0,aim:armed && !ownBody,sliding:(p.slide||0)>0,impact,held,seat});
+  const pose=animator.update(dt,{walkStyle:p.walkStyle,speed:p.mode==='walk'?(seat?.stepSpeed??p.speed):0,grounded:riding||traversing||p.grounded,vy:p.vy,strideScale:playerBody.rig.stride,guard:(p.guard||0)>0,aim:armed && !ownBody,sliding:(p.slide||0)>0,impact,held,seat});
   if(!mesh.visible && !(eyeView && (p.reaction || traversing)))return;
   mesh.position.set(p.x,floor+(p.lift||0)+(riding?.25:0),p.z);mesh.rotation.set(0,p.angle,0);
   const payment=sim.shopping.payment;
@@ -936,7 +937,15 @@ function showPlayer(dt,p,floor,eyeView,riding) {
     mesh.position.z-=Math.cos(p.angle)*back;
   }
   else if(driving)moves.sample(held,sim.elapsed,pose);
-  else if(traversing)moves.sample(move,p.move.t/p.move.T*moves.clip(move).seconds,pose);
+  else if(traversing){
+    const phase=p.move.t/p.move.T;
+    // Keep the gait clock advancing behind the move so the last frame can
+    // settle into the pose the player will actually use after the landing.
+    traversalPose??=moves.newPose();
+    moves.sample(move,phase*moves.clip(move).seconds,traversalPose);
+    const weight=THREE.MathUtils.smoothstep(phase,0,.10)*(1-THREE.MathUtils.smoothstep(phase,.83,1));
+    moves.blend(pose,traversalPose,weight,pose);
+  }
   else if(take?.hand)moves.sample('pickUp',take.clipTime,pose);
   const eating=mealMotion(carry),lift=eating?.lift||0;
   const eatingPlate=eating && carry.startsWith('plate-');
@@ -978,17 +987,19 @@ function showPlayer(dt,p,floor,eyeView,riding) {
     reachWithHand(playerBody,'r',gripOffset,phoneTarget);
     phoneHand.inPalm(palm,rig.bones[rig.index.get('middle_01_r')].t,mesh);
   }
-  if(traversing){
+  if(traversing && !p.move.support){
     const t=p.move.t/p.move.T,grip=p.move.grip;
     const w=Math.max(0,Math.min(1,t/.15,(.72-t)/.18));
     const {bones,rig}=playerBody;
     for(const side of (move==='climb'?['l','r']:['l'])){
-      const hand=bones[rig.index.get('hand_'+side)], offset=side==='l' ? .20 : -.20;
+      const hand=bones[rig.index.get('hand_'+side)],offset=side==='l'?.20:-.20;
       const edge=cashTarget.set(grip.x+Math.cos(p.angle)*offset,grip.y+.025,grip.z-Math.sin(p.angle)*offset);
-      const point=hand.localToWorld(handStart.copy(gripOffset));
-      edge.lerp(point,1-w);
+      edge.lerp(hand.localToWorld(handStart.copy(gripOffset)),1-w);
       reachWithHand(playerBody,side,gripOffset,edge);
     }
+  } else if(p.standing && p.grounded){
+    const car=sim.cars.find(c=>c.id===p.standing.id);
+    if(car)fitVehicleFeet(playerBody,p,car);
   }
   if(take?.hand) {
     for(const [i,q] of fingerPose(playerBody.rig,'pinch'))playerBody.bones[i].quaternion.fromArray(q);
@@ -1035,7 +1046,7 @@ function reachWithHand(body,side,offset,target){
   const elbow=bones[rig.index.get('lowerarm_'+side)], hand=bones[rig.index.get('hand_'+side)];
   reachJointChain(shoulder,elbow,hand,offset,target);
 }
-function reachJointChain(shoulder,elbow,hand,offset,target){
+function reachJointChain(shoulder,elbow,hand,offset,target,bendHint=null,bendWeight=0){
   shoulder.getWorldPosition(shoulderAt);elbow.getWorldPosition(elbowAt);
   hand.localToWorld(palmAt.copy(offset));
   const upper=elbowAt.distanceTo(shoulderAt), lower=palmAt.distanceTo(elbowAt);
@@ -1043,7 +1054,8 @@ function reachJointChain(shoulder,elbow,hand,offset,target){
   const gap=reachAxis.length();
   if(gap<.0001) return;
   reachAxis.divideScalar(gap);
-  bendAxis.subVectors(elbowAt,shoulderAt);
+  bendAxis.subVectors(elbowAt,shoulderAt).normalize();
+  if(bendHint)bendAxis.lerp(bendHint,bendWeight);
   bendAxis.addScaledVector(reachAxis,-bendAxis.dot(reachAxis));
   if(bendAxis.lengthSq()<1e-7){
     bendAxis.set(0,-1,0);
@@ -1056,6 +1068,106 @@ function reachJointChain(shoulder,elbow,hand,offset,target){
     .addScaledVector(bendAxis.normalize(),Math.sqrt(Math.max(0,upper*upper-along*along)));
   aimLimb(shoulder,elbow,jointOrigin,elbowGoal);
   aimLimb(elbow,hand,offset,target);
+}
+// Cache contact points in their panel's coordinates so a rocking hood or door
+// carries the planted palm with it. Raycast only when acquiring the handhold.
+const climbRay=new THREE.Raycaster(), climbDown=new THREE.Vector3(0,-1,0);
+const climbNormal=new THREE.Vector3(), climbForward=new THREE.Vector3(), climbAcross=new THREE.Vector3();
+const climbBasis=new THREE.Matrix4(), climbTurn=new THREE.Quaternion(), handTurn=new THREE.Quaternion();
+const wristTarget=new THREE.Vector3(), palmOffset=new THREE.Vector3(), shoulderShift=new THREE.Vector3();
+const gripFrames=new WeakMap();
+function findCarGrip(mesh,move,side,width,angle){
+  const sx=Math.sin(angle),sz=Math.cos(angle), pieces=Object.values(mesh.userData.detail.pieces)
+    .filter(panel=>panel.visible && panel.parent.visible);
+  const start=move.grip, spread=(side==='l'?1:-1)*width;
+  let best=null,score=Infinity;
+  for(const fraction of [1,.70,.40]){
+    for(const i of [2,1,3,0,4,-1,5,-2,6,-3,7,8,9,10,11]){
+      const depth=i*.045,offset=fraction*spread;
+      if(Math.abs(depth-.09)>=score)break;
+      climbRay.ray.origin.set(start.x+sx*depth+sz*offset,start.y+2,start.z+sz*depth-sx*offset);
+      climbRay.ray.direction.copy(climbDown);
+      const hit=climbRay.intersectObjects(pieces,false)[0];
+      if(!hit)continue;
+      climbNormal.copy(hit.face.normal).transformDirection(hit.object.matrixWorld);
+      if(climbNormal.y<.36)continue;
+      const cost=Math.abs(depth-.09)+.6*(1-fraction)+.9*Math.abs(hit.point.y-(move.kind==='climb'?move.to.y:start.y))+.28*(1-climbNormal.y);
+      if(cost>=score)continue;
+      score=cost;
+      best={panel:hit.object,point:hit.object.worldToLocal(hit.point),normal:hit.face.normal.clone()};
+    }
+    if(best)break;
+  }
+  return best;
+}
+function fitVehicleHands(body,p,mesh){
+  const move=p.move, phase=move.t/move.T, mantle=move.kind==='climb';
+  const planting=THREE.MathUtils.smoothstep(phase,0,.16);
+  const weight=planting*(1-THREE.MathUtils.smoothstep(phase,mantle?.66:.39,mantle?.82:.54));
+  if(!weight)return;
+  mesh.updateWorldMatrix(true,true);
+  let holds=gripFrames.get(move);
+  if(!holds || holds.mesh!==mesh){
+    const {rig,bones}=body;
+    const thighs=['l','r'].map(side=>bones[rig.index.get('thigh_'+side)]);
+    holds={mesh,hands:[],thighs,legTurns:thighs.map(()=>new THREE.Quaternion())};
+    for(const side of mantle?['l','r']:['l']){
+      const upper=bones[rig.index.get('upperarm_'+side)],lower=bones[rig.index.get('lowerarm_'+side)],hand=bones[rig.index.get('hand_'+side)];
+      const grip=findCarGrip(mesh,move,side,rig.height*.115,p.angle);
+      if(!grip)continue;
+      const offset=new THREE.Vector3().fromArray(rig.bones[rig.index.get('middle_01_'+side)].t).multiplyScalar(.72);
+      offset.x+=(side==='l'?1:-1)*.014;
+      holds.hands.push({...grip,side,upper,lower,hand,offset,wrist:new THREE.Vector3(),turn:new THREE.Quaternion()});
+    }
+    gripFrames.set(move,holds);
+  }
+  for(const h of holds.hands){
+    climbNormal.copy(h.normal).transformDirection(h.panel.matrixWorld);
+    climbForward.set(Math.sin(p.angle),0,Math.cos(p.angle));
+    climbForward.addScaledVector(climbNormal,-climbForward.dot(climbNormal)).normalize();
+    // The knuckles point up the panel while the palm faces into it.
+    climbAcross.copy(climbNormal).multiplyScalar(h.side==='l'?-1:1);
+    climbBasis.makeBasis(climbAcross,climbForward,reachAxis.crossVectors(climbAcross,climbForward));
+    h.turn.setFromRotationMatrix(climbBasis);
+    h.panel.localToWorld(h.wrist.copy(h.point)).sub(palmOffset.copy(h.offset).applyQuaternion(h.turn));
+  }
+  // Share load with the legs: keep the shoulders within arm's reach as
+  // the hips rise and the lead foot takes over. Do not stretch the arms.
+  if(mantle && holds.hands.length){
+    // Hinge at the waist before shifting weight. A low hood takes a deeper
+    // forward bend than a roof rail, while the legs keep their footholds.
+    const pelvis=body.bones[body.rig.index.get('pelvis')],spine=body.bones[body.rig.index.get('spine_01')];
+    const {thighs,legTurns}=holds;
+    thighs.forEach((thigh,i)=>thigh.getWorldQuaternion(legTurns[i]));
+    holds.hands[0].upper.getWorldPosition(shoulderAt);
+    const drop=shoulderAt.y-holds.hands[0].wrist.y;
+    const lean=THREE.MathUtils.smoothstep(drop,.10,1.05)*1.95*weight;
+    for(const [joint,share] of [[pelvis,.68],[spine,.32]]){
+      joint.parent.getWorldQuaternion(climbTurn);
+      reachAxis.set(Math.cos(p.angle),0,-Math.sin(p.angle)).applyQuaternion(climbTurn.invert());
+      joint.quaternion.premultiply(handTurn.setFromAxisAngle(reachAxis,share*lean));
+    }
+    thighs.forEach((thigh,i)=>{
+      thigh.parent.getWorldQuaternion(climbTurn);
+      thigh.quaternion.copy(climbTurn.invert().multiply(legTurns[i]));
+    });
+    shoulderShift.set(0,0,0);
+    for(let pass=0;pass<3;pass++)for(const h of holds.hands){
+      h.upper.getWorldPosition(shoulderAt).add(shoulderShift);
+      reachAxis.subVectors(h.wrist,shoulderAt);
+      const length=reachAxis.length(),span=h.lower.position.length()+h.hand.position.length()-.015;
+      if(length>span)shoulderShift.addScaledVector(reachAxis,(length-span)/length);
+    }
+    body.mesh.position.addScaledVector(shoulderShift,weight);
+  }
+  for(const h of holds.hands){
+    const load=mantle && h.side==='r' ? planting*(1-THREE.MathUtils.smoothstep(phase,.59,.76)) : weight;
+    h.hand.getWorldPosition(wristTarget).lerp(h.wrist,load);
+    h.hand.getWorldQuaternion(handTurn).slerp(h.turn,load);
+    reachJointChain(h.upper,h.lower,h.hand,jointOrigin,wristTarget);
+    h.hand.parent.getWorldQuaternion(climbTurn);
+    h.hand.quaternion.copy(climbTurn.invert().multiply(handTurn));
+  }
 }
 const forkHead=new THREE.Vector3(),forkTarget=new THREE.Vector3(),forkAxis=new THREE.Vector3();
 const cashPinch=new THREE.Vector3(),forkTurn=new THREE.Quaternion(),forkUp=new THREE.Vector3(0,1,0);
@@ -1087,6 +1199,78 @@ function eatFromPlate(body,plate,eating){
 }
 
 const skateTarget = new THREE.Vector3(), skateRotation = new THREE.Quaternion(), skateParent = new THREE.Quaternion();
+// During the mantle each foot rises on the approach side before swinging onto
+// its landing spot. Both soles continue sampling the local roof as the gait resumes.
+const vehicleFoot=new THREE.Vector3(), animatedFoot=new THREE.Vector3(), kneeOut=new THREE.Vector3(), toeAt=new THREE.Vector3();
+function fitVehicleFeet(body,p,car){
+  const {rig,bones}=body, move=p.move, sx=Math.sin(p.angle), sz=Math.cos(p.angle);
+  for(const side of ['l','r']){
+    const index=rig.index.get('foot_'+side), ankle=bones[index];
+    const sole=rig.world[index].p[1]+.03, width=rig.height*(side==='l'?.075:-.075);
+    ankle.getWorldPosition(animatedFoot);
+    vehicleFoot.copy(animatedFoot);
+    let bendWeight=0,flatWeight=0;
+    if(move?.kind==='climb'){
+      const phase=move.t/move.T, lead=side==='r';
+      // Open the knee toward the side while the shin is below the panel.
+      // The recorded knee points forward into the door during this part.
+      bendWeight=THREE.MathUtils.smoothstep(phase,.10,.25)*(1-THREE.MathUtils.smoothstep(phase,.55,.75));
+      const outward=side==='l'?1:-1;
+      kneeOut.set(outward*sz-.25*sx,0,-outward*sx-.25*sz).normalize();
+      const lift=THREE.MathUtils.smoothstep(phase,lead?.16:.30,lead?.52:.69);
+      const over=THREE.MathUtils.smoothstep(phase,lead?.52:.69,lead?.76:.94);
+      flatWeight=THREE.MathUtils.smoothstep(phase,lead?.16:.30,lead?.46:.64)*(1-THREE.MathUtils.smoothstep(phase,.85,1));
+      const blend=THREE.MathUtils.smoothstep(phase,.05,.21)*(1-THREE.MathUtils.smoothstep(phase,.86,1));
+      const x=move.to.x+sz*width,z=move.to.z-sx*width;
+      const top=carTop(car,x,z,.04)??move.to.y;
+      const bx=move.grip.x-.38*sx+sz*width,bz=move.grip.z-.38*sz-sx*width;
+      vehicleFoot.set(bx+(x-bx)*over,move.from.y+sole+(top-move.from.y)*lift+
+        .14*Math.sin(Math.PI*over),bz+(z-bz)*over).lerp(animatedFoot,1-blend);
+    }
+    // Include the toe on an upslope, where sampling only the heel cuts the shoe into the hood.
+    const beneath=()=>Math.max(carTop(car,vehicleFoot.x,vehicleFoot.z)??-Infinity,
+      carTop(car,vehicleFoot.x+.14*sx,vehicleFoot.z+.14*sz)??-Infinity);
+    let surface=beneath();
+    if(move?.kind==='climb'){
+      const phase=move.t/move.T,release=side==='r'?.52:.69;
+      const hip=bones[rig.index.get('thigh_'+side)].getWorldPosition(shoulderAt);
+      const tuckedHeight=1-THREE.MathUtils.smoothstep(Math.abs(vehicleFoot.y-hip.y),.13,.43);
+      const back=(vehicleFoot.x-hip.x)*sx+(vehicleFoot.z-hip.z)*sz;
+      const clearance=Math.max(0,back+.23)*tuckedHeight*(1-THREE.MathUtils.smoothstep(phase,release,release+.14));
+      vehicleFoot.x-=sx*clearance;vehicleFoot.z-=sz*clearance;
+      surface=beneath();
+      const tuck=1-THREE.MathUtils.smoothstep(phase,release-.11,release);
+      vehicleFoot.y-=Math.max(0,vehicleFoot.y-hip.y+.20)*tuck;
+      // Slide the shoe clear of a side panel while lifting it. Raising a
+      // street-level foot directly onto the roof here produces a visible pop.
+      if(phase<release+.12){
+        for(let i=0;i<15 && surface+sole>vehicleFoot.y+.05;i++){
+          vehicleFoot.x-=sx*.03;vehicleFoot.z-=sz*.03;surface=beneath();
+        }
+      }
+    }
+    if(move?.kind==='vault' && surface+sole>vehicleFoot.y+.05){
+      const outward=move.t<move.T*.5?-1:1;
+      for(let i=0;i<22 && surface+sole>vehicleFoot.y+.05;i++){
+        vehicleFoot.x+=outward*sx*.03;vehicleFoot.z+=outward*sz*.03;surface=beneath();
+      }
+    }
+    vehicleFoot.y=Math.max(vehicleFoot.y,surface+sole);
+    const toe=bones[rig.index.get('ball_'+side)];
+    toe.getWorldPosition(toeAt);
+    const toeSurface=carTop(car,toeAt.x,toeAt.z);
+    const toeLow=toeSurface!==null && toeAt.y<toeSurface+.03;
+    if(!toeLow && !bendWeight && vehicleFoot.distanceToSquared(animatedFoot)<1e-7)continue;
+    reachJointChain(bones[rig.index.get('thigh_'+side)],bones[rig.index.get('calf_'+side)],ankle,jointOrigin,vehicleFoot,kneeOut,bendWeight);
+    // Place the sole flat when bearing weight; leave the swing orientation in the air.
+    if(toeLow || vehicleFoot.y<=surface+sole+.035)flatWeight=1;
+    if(flatWeight){
+      body.mesh.getWorldQuaternion(skateRotation).multiply(skateParent.fromArray(rig.world[index].q));
+      ankle.parent.getWorldQuaternion(skateParent);
+      ankle.quaternion.slerp(skateParent.invert().multiply(skateRotation),flatWeight);
+    }
+  }
+}
 function plantSkateFeet(body,p) {
   const {rig,bones}=body, phase=p.board.phase;
   for(const side of ['l','r']){
@@ -1376,10 +1560,15 @@ function syncScene(dt,controls) {
   for(const car of sim.cars){
     if(!activeCars.has(car.id))continue;
     let mesh=carModels.get(car.id);
-    const model=vehicleMeshes.get(car.identity?.asset);
+    const loaded=vehicleMeshes.get(car.identity?.asset);
+    // Keep the same body under load if a higher-detail model finishes streaming.
+    const supporting=p.move?.support?.id===car.id || p.standing?.id===car.id;
+    const model=supporting && mesh ? mesh.userData.model : loaded;
     if(!mesh||mesh.name!==car.type||mesh.userData.unit!==(car.unit || 'patrol')||mesh.userData.model!==model||mesh.userData.tint!==car.color||mesh.userData.given!==(car.shape??null)||mesh.userData.plate!==plateFor(car).text||mesh.userData.rims!==(car.rims??null)){
       if(mesh)scene.remove(mesh);
       mesh=createCar({type:car.type,unit:car.unit,color:car.color,seed:car.id,shape:car.shape,model,plate:plateFor(car),rims:car.rims??null});
+      setCarShell(car,mesh.userData.contactShell);
+      mesh.addEventListener('removed',()=>setCarShell(car,null));
       carModels.set(car.id,mesh);scene.add(mesh);
     }
     mesh.visible=Math.hypot(car.x-p.x,car.z-p.z)<CAR_SIGHT;
@@ -1389,6 +1578,10 @@ function syncScene(dt,controls) {
     }
     mesh.userData.missingDoors = car.missingDoors || 0;
     updateCarVisuals(mesh,car,dt);
+    if(playerBody?.mesh.visible && p.move?.support?.id===car.id){
+      fitVehicleHands(playerBody,p,mesh);
+      fitVehicleFeet(playerBody,p,car);
+    }
     if(phoneHand?.amount && !playerBody?.mesh.visible && car.id===p.vehicleId && !eyeView && mesh.userData.detail?.driver){
       const lift=phoneHand.amount;
       cabinSeatPoint(mesh.userData.detail.driver,car.passengerSeat,phonePalm.set(-.12,.56+.47*lift,.05+.23*lift));

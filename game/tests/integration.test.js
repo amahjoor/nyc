@@ -335,7 +335,7 @@ async function bootHarness({ stored = null, displayStored = null, unavailableSto
     },
     updateChaseHeight, cabinSeatPoint, placeDriverCamera, createCityGround, worldToGeographic, createRoadStream, nearestStreet, localDestinations, createCityNavigation,
     createStreetDetail:(manifest,options)=>createStreetDetail(manifest,{...options,now:()=>timestamp}),
-    renderStats, performanceName, vehicleHandling, createDoorDebris, hasAlteredGlazing, carCondition, createCarSmoke, createCentralPark, GUN, fitFallPose, shared,
+    renderStats, performanceName, vehicleHandling, createDoorDebris, hasAlteredGlazing, carCondition, createCarSmoke, createCentralPark, GUN, carTop, setCarShell, fitFallPose, shared,
     fingerPose, pinchOffset, setHandSource, isOpen, roomPoint, roomLocal, crossesFixture, seatApproach, seatEyeOffset, seatHeight, beginRegisterTake, updateClerk, registerAction, inviteCustomer, populateShop, createHumanShop:(meta,options)=>createHumanShop(meta,{...options,base:'./human/'}), createHumanMesh, createMotion, createAnimator, fitPose, gripOffsetFor, writeMovements, createFigures, loadPerson, savePerson, foodPreviewOptions,openFoodCounter,openInventory,counterInReach,stepCounterOrder,promptTableService,waitsTables,diningTable,browseShop, fittedLook, patrolAppearance, carriedItems,createFoodHand,
     createStatueOfLiberty, STATUE, castWalkStyle, Landscape, RoadPilot, AbortSignal, createGraphics, createStreetLife, createWater, WATER_LEVEL, BOARDINGS, TRANSPORT, transportDestination, TransportFleet, createTransportScene, setVehicleLamps, OFFICER_LOOK, createPoliceScene, createCityLife, manhattanCore, createStreetSigns, createCrowd, dress, seeded, KIT, createStreetProps, createPlaceSource, placeName, joinPlaceSources, indexFootprints, solveFrontages, createStorefronts, createInteraction, CityRides, PhoneBank, createPhoneHand, createPhone, describePlace, createFleet, createVehicleMeshLibrary, designFor, createSwitchShot, offersAt, shopRows, planRoom, buildRoom, roomKind, hasRoom, doorBlips, plateFor, createDemographics, characterAt, createTransitNetwork, busJourney, clockTime, createBuses, createBusStops, createSheds, planSheds, createShedMesh, createDining, planDining, createDiningMesh, seatsOf, planStands, vendorOf, createStandMesh, createCollection, planTrash, createTrashMesh, aboveTheStreet, indexBikeLanes, createLaneMarkings, bikeLaneParking, createBikeTraffic, fitCyclist, PEDAL_PERIOD, createSkateboard, createBikeShare, planBikeDocks, createBikeDocks, menuFor, createSubway, createSubwayEntrances, SUBWAY_LAYER, FARE, indexKerbs, snapToKerb, formatDistance,
     // Bundled survey cells only: these tests stay offline.
@@ -2430,6 +2430,115 @@ test('Bank invests checking money and restores the shares on the next game launc
       assert.equal(app.errors.length,0,app.errors[0]?.stack);
     }finally{app.close();}
   }
+});
+
+test('both palms plant on the visible panels from the sides, ends and corner of a vehicle',async()=>{
+  const app=await bootHarness();
+  try{
+    app.click('start-button');app.click('view-button');app.frames();
+    const sim=app.simulation(),game=app.window.nycGame,cab=parkCab(sim),p=sim.player;
+    await app.until(()=>game.playerBody,'player skeleton');
+    const body=game.playerBody,ray=new THREE.Raycaster(),down=new THREE.Vector3(0,-1,0);
+    sim.moves=true;
+    const approachStart={x:p.x,y:p.y,z:p.z,standing:null,grounded:true};
+    for(const [make,model,year,shape,approach] of [
+      ['Toyota','Camry',2019,'sedan','front'],['Honda','CR-V',2018,'suv','rear'],
+      ['Ford','F-150',2018,'pickup','right'],['Ford','F-150',2018,'pickup','bed'],
+      ['Honda','Civic',2019,'hatch','corner'],['Honda','Accord',2018,'sedan','imported'],['City','cab',0,'sedan','shared']]){
+      const asset=approach==='shared'?null:approach==='imported'?JSON.parse(readFileSync(new URL('../dist/assets/vehicles/index.json',import.meta.url))).models.find(m=>m.id==='honda-accord-2018'):designFor(make,model,year,shape);
+      Object.assign(p,approachStart);
+      cab.identity={make,model,year,shape,asset};
+      let exterior;
+      await app.until(()=>{
+        app.frames();exterior=game.graphics.scene.children.find(m=>m.userData.chassis && m.userData.model?.id===asset?.id && Math.hypot(m.position.x-cab.x,m.position.z-cab.z)<.1);
+        return exterior;
+      },model+' visible exterior');
+      const bounds=exterior.userData.detail.bounds,L=bounds.max.z-bounds.min.z,W=bounds.max.x-bounds.min.x;
+      const x=['shared','imported'].includes(approach)?W/2+.35:approach==='right'?-W/2-.37:approach==='bed'?W/2+.37:approach==='corner'?W/2+.22:0;
+      const z=approach==='front'?L/2+.37:approach==='rear'?-L/2-.37:approach==='bed'?-L*.27:approach==='corner'?L/2+.22:0;
+      const localYaw={front:Math.PI,rear:0,right:Math.PI/2,bed:-Math.PI/2,corner:-Math.PI*.75,imported:-Math.PI/2,shared:-Math.PI/2}[approach];
+      const at=exterior.localToWorld(new THREE.Vector3(x,0,z));
+      Object.assign(p,{x:at.x,y:cab.y,z:at.z,angle:cab.angle+localYaw,standing:null,grounded:true,velocityX:0,velocityZ:0});
+      app.key('Space');app.frames();app.key('Space',false);
+      assert.equal(p.move?.kind,'climb',model+' '+approach);
+      const anchors={},panels=Object.values(exterior.userData.detail.pieces).filter(m=>m.visible && m.parent.visible);
+      let samples=0;
+      while(p.move){
+        if(approach==='bed'){cab.angle+=.001;cab.z+=.007;}
+        app.frames();
+        if(!p.move || p.move.t/p.move.T<.20 || p.move.t/p.move.T>.66)continue;
+        for(const side of (p.move.t/p.move.T>.59 ? ['l'] : ['l','r'])){
+          const hand=body.bones[body.rig.index.get('hand_'+side)];
+          const palm=new THREE.Vector3().fromArray(body.rig.bones[body.rig.index.get('middle_01_'+side)].t).multiplyScalar(.72);
+          palm.x+=(side==='l'?1:-1)*.014;
+          hand.localToWorld(palm);
+          ray.ray.origin.copy(palm).y+=.09;ray.ray.direction.copy(down);
+          const hit=ray.intersectObjects(panels,false)[0],label=model+' '+approach+' '+side;
+          assert.ok(hit && hit.point.distanceTo(palm)<.025,label+' palm missed the panel');
+          const normal=hit.face.normal.clone().transformDirection(hit.object.matrixWorld);
+          const downPalm=new THREE.Vector3(side==='l'?1:-1,0,0).applyQuaternion(hand.getWorldQuaternion(new THREE.Quaternion()));
+          assert.ok(downPalm.dot(normal)<-.9,label+' palm did not face the panel');
+          const local=hit.object.worldToLocal(palm);
+          if(anchors[side])assert.ok(local.distanceTo(anchors[side])<.025,label+' palm slid');
+          else anchors[side]=local;
+        }
+        samples++;
+      }
+      assert.ok(samples>12);
+    }
+  }finally{app.close();}
+});
+
+test('knees and soles clear the bodywork while climbing and vaulting different vehicles',async()=>{
+  const app=await bootHarness();
+  try{
+    app.click('start-button');app.click('view-button');app.frames();
+    const sim=app.simulation(),p=sim.player,game=app.window.nycGame;
+    await app.until(()=>game.playerBody,'player skeleton');
+    const body=game.playerBody,cab=parkCab(sim);
+    sim.moves=true;
+    const approachStart={x:p.x,y:p.y,z:p.z,standing:null,grounded:true};
+    for(const [make,model,year,shape,run] of [['Toyota','Camry',2019,'sedan'],['Honda','CR-V',2018,'suv'],
+      ['Ford','F-150',2018,'pickup'],['Honda','Civic',2019,'hatch',true]]){
+      const asset=designFor(make,model,year,shape);
+      Object.assign(p,approachStart);
+      cab.identity={make,model,year,shape,asset};
+      await app.until(()=>{
+        app.frames();return game.graphics.scene.children.some(m=>m.userData.model?.id===asset.id && Math.hypot(m.position.x-cab.x,m.position.z-cab.z)<.1);
+      },model+' visible exterior');
+      const offset=asset.design.W/2+.45;
+      Object.assign(p,{x:cab.x+offset*Math.cos(cab.angle),z:cab.z-offset*Math.sin(cab.angle),y:cab.y,
+        angle:cab.angle-Math.PI/2,standing:null,grounded:true,velocityX:0,velocityZ:0});
+      if(run){p.velocityX=-7*Math.cos(cab.angle);p.velocityZ=7*Math.sin(cab.angle);}
+      app.key('Space');app.frames();app.key('Space',false);
+      assert.equal(p.move?.kind,run?'vault':'climb',model);
+      let measured=0,deepest=0,penetrating;
+      const previous=new Map();
+      for(let i=0;i<130;i++){
+        app.frames();
+        for(const side of ['l','r'])for(const joint of ['foot','ball','calf']){
+          const index=body.rig.index.get(joint+'_'+side),at=body.bones[index].getWorldPosition(new THREE.Vector3());
+          const key=joint+side;
+          if(previous.has(key)){
+            const travel=previous.get(key).distanceTo(at);
+            assert.ok(travel<(run?.22:.18),model+' '+key+' jumped '+travel+' m in frame '+i+' phase '+(p.move?.t/p.move?.T));
+          }
+          previous.set(key,at);
+          const top=carTop(cab,at.x,at.z);
+          if(top===null)continue;
+          measured++;
+          const thickness=joint==='foot' ? body.rig.world[index].p[1] : joint==='ball' ? .025 : 0;
+          if(top+thickness-at.y>deepest){deepest=top+thickness-at.y;penetrating=[i,key,p.move?.t/p.move?.T];}
+        }
+        if(!p.move)break;
+      }
+      if(run)assert.equal(p.standing,null);
+      else assert.equal(p.standing?.id,cab.id);
+      assert.ok(measured>10);
+      assert.ok(deepest<.025,model+' penetration in metres: '+deepest+' at '+penetrating);
+      app.frames(2);
+    }
+  }finally{app.close();}
 });
 
 test('the normal attack key kicks a nearby car at the animation contact',async()=>{

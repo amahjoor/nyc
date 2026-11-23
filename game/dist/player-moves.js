@@ -1,4 +1,5 @@
 import { meleeMoves, nextStrike } from './melee-moves.js';
+import { importedSupport,exteriorSupport } from './vehicle-assets.js';
 import { vehicleTop } from './vehicle-generator.js';
 import { GRAVITY } from './character-physics.js';
 import { doorPanel } from './vehicle-damage.js';
@@ -11,13 +12,17 @@ import { doorPanel } from './vehicle-damage.js';
 /** How long each move takes, in seconds: the same as the movement drawn for it. */
 export const MOVE = { kick: .72, vault: .8, climb: 1.3, door: .5, carjack: 1.15, breakIn: 1.25 };
 const RADIUS = .38;
+const drawnShells=new WeakMap();
+export function setCarShell(car,shell){
+  if(shell)drawnShells.set(car,shell);else drawnShells.delete(car);
+}
 // A car as something to stand on: how far its body reaches from its middle, and how high it stands:
 // the roof over the cabin, and the bonnet and the boot at the ends. Tall ones are by the shape of body.
 const CAR = { along: 1.95, across: .88, cabin: 1.02, roof: 1.42, deck: .92 };
 const TALL = { suv: { roof: 1.72, deck: 1.08 }, minivan: { roof: 1.74, deck: 1.05 }, pickup: { roof: 1.76, deck: 1.1 }, van: { roof: 2.1, deck: 1.2, cabin: 1.5 } };
 const bodyOf = car => TALL[car.type === 'taxi' || car.type === 'police' ? 'sedan' : car.shape || car.type] || CAR;
 /** Whether a car is too tall to swing the legs over: it is climbed, however fast it is come at. */
-export const tooTallToVault = car => (car.identity?.asset?.design?.H ?? bodyOf(car).roof)>1.6;
+export const tooTallToVault = car => (car.identity?.asset?.design?.H ?? importedSupport(car.identity?.asset)?.height ?? bodyOf(car).roof)>1.6;
 /** The pistol: rounds in it, seconds between shots, seconds to change the magazine, and how far a shot carries. */
 export const GUN = { rounds: 12, gap: .3, reload: 1.7, range: 70 };
 
@@ -27,8 +32,9 @@ export function carTop(car, x, z, margin = 0) {
   const along = dx * sin + dz * cos, across = dx * cos - dz * sin;
   const design=car.identity?.asset?.design;
   const ground=(car.y||0)+across*Math.tan(car.roll||0)-along*Math.tan(car.pitch||0);
-  if(design){
-    const top=vehicleTop(design,along,across,margin);
+  const shell=exteriorSupport(drawnShells.get(car)) || (!design && importedSupport(car.identity?.asset));
+  if(design || shell){
+    const top=shell ? shell.top(across,along,margin) : vehicleTop(design,along,across,margin);
     return top===null ? null : ground+top+.025;
   }
   if (Math.abs(along) > CAR.along + margin || Math.abs(across) > CAR.across + margin) return null;
@@ -121,13 +127,22 @@ export function tryVault(sim) {
   if(vehicle && !tooTallToVault(vehicle) && speed>=5.5){
     for(let reach=1.5;reach<=4.4;reach+=.2){
       const to=point(reach);
-      if(sim._nearCar(to.x,to.z,RADIUS,null,y) || sim.isBlocked(to.x,to.z,RADIUS)) continue;
+      if(top(to)!=null || sim._nearCar(to.x,to.z,RADIUS,null,y) || sim.isBlocked(to.x,to.z,RADIUS)) continue;
       to.y=surface(to,y)?.elevation ?? y;
-      let apex=Math.max(to.y+.2,grip.y+.1);
-      for(let d=.2;d<reach;d+=.2) apex=Math.max(apex,(top(point(d))??y)+.1);
+      let highest=grip.y, exit=0;
+      for(let d=0;d<=reach;d+=.06){
+        const roof=top(point(d));
+        if(roof!==null){highest=Math.max(highest,roof);exit=d;}
+      }
+      const apex=Math.max(to.y+.2,highest+.28);
       const launch=Math.sqrt(2*GRAVITY*(apex-y));
       const T=(launch+Math.sqrt(2*GRAVITY*(apex-to.y)))/GRAVITY;
-      player.move={kind:'vault',t:0,T,from,to,grip,launch,support};
+      // Cross the bodywork during the part of the arc above its highest surface.
+      const span=Math.sqrt(2*(apex-highest)/GRAVITY);
+      player.move={kind:'vault',t:0,T,from,to,grip,launch,support,
+        rise:launch/GRAVITY-span,descent:launch/GRAVITY+span,
+        enter:Math.max(0,(Math.hypot(grip.x-from.x,grip.z-from.z)-.24)/reach),
+        exit:Math.min(1,(exit+.22)/reach)};
       player.grounded=false; player.vy=launch;
       return true;
     }
@@ -250,15 +265,19 @@ export function stepMove(sim, dt) {
     const x0=player.x,z0=player.z,y0=player.y;
     if(move.kind==='vault'){
       const seconds=t*move.T;
-      player.x=from.x+(to.x-from.x)*t; player.z=from.z+(to.z-from.z)*t;
+      const travel=seconds<move.rise ? move.enter*seconds/move.rise :
+        seconds<move.descent ? move.enter+(move.exit-move.enter)*(seconds-move.rise)/(move.descent-move.rise) :
+        move.exit+(1-move.exit)*(seconds-move.descent)/(move.T-move.descent);
+      player.x=from.x+(to.x-from.x)*travel; player.z=from.z+(to.z-from.z)*travel;
       player.y=from.y+move.launch*seconds-.5*GRAVITY*seconds*seconds;
       player.vy=move.launch-GRAVITY*seconds;
+      player.speed=Math.hypot(to.x-from.x,to.z-from.z)/move.T;
     } else {
-      const approach=smooth(t/.27), over=smooth((t-.39)/.55);
+      const approach=smooth(t/.27), over=smooth((t-.56)/.40);
       const braceX=grip.x-.34*Math.sin(player.angle), braceZ=grip.z-.34*Math.cos(player.angle);
       player.x=from.x+(braceX-from.x)*approach+(to.x-braceX)*over;
       player.z=from.z+(braceZ-from.z)*approach+(to.z-braceZ)*over;
-      player.y=from.y+(to.y-from.y)*smooth((t-.12)/.68);
+      player.y=from.y+(to.y-from.y)*smooth((t-.10)/.57);
       player.vy=dt>0 ? (player.y-y0)/dt : 0;
     }
     player.grounded=false;

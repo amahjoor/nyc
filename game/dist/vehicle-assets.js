@@ -1,6 +1,48 @@
 import * as THREE from './vendor/three.module.min.js';
 import { generateVehicle } from './vehicle-generator.js';
 
+// Share the vertical surface index between instances of the same exterior.
+const importedBodies=new WeakMap(),geometrySurfaces=new WeakMap(),cellSize=.25;
+export function importedSupport(spec){return exteriorSupport(importedBodies.get(spec));}
+export function exteriorSupport(geometry){
+  if(!geometry)return null;
+  let record=geometrySurfaces.get(geometry);
+  if(record)return record;
+  const vertices=geometry.attributes.position,indices=geometry.index?.array;
+  geometry.computeBoundingBox();
+  const {min,max}=geometry.boundingBox;
+  const col=x=>Math.floor((x-min.x)/cellSize), row=z=>Math.floor((z-min.z)/cellSize);
+  const cols=col(max.x)+1, cells=[];
+  const a=new THREE.Vector3(),b=new THREE.Vector3(),c=new THREE.Vector3(),point=new THREE.Vector3();
+  const triangle=i=>{
+    a.fromBufferAttribute(vertices,indices?indices[i]:i);
+    b.fromBufferAttribute(vertices,indices?indices[i+1]:i+1);
+    c.fromBufferAttribute(vertices,indices?indices[i+2]:i+2);
+  };
+  for(let i=0;i<(indices?.length??vertices.count);i+=3){
+    triangle(i);
+    for(let z=row(Math.min(a.z,b.z,c.z));z<=row(Math.max(a.z,b.z,c.z));z++)
+      for(let x=col(Math.min(a.x,b.x,c.x));x<=col(Math.max(a.x,b.x,c.x));x++)
+        (cells[z*cols+x]??=[]).push(i);
+  }
+  const ray=new THREE.Ray(new THREE.Vector3(),new THREE.Vector3(0,-1,0));
+  function sample(x,z){
+    if(x<min.x || x>max.x || z<min.z || z>max.z)return null;
+    ray.origin.set(x,max.y+1,z);
+    let height=null;
+    for(const i of cells[row(z)*cols+col(x)]||[]){
+      triangle(i);
+      if(ray.intersectTriangle(a,b,c,false,point) && (height===null || point.y>height))height=point.y;
+    }
+    return height;
+  }
+  record={height:max.y};
+  geometrySurfaces.set(geometry,record);
+  record.top=(x,z,margin)=>sample(x,z) ?? (margin>0 ? sample(x-Math.sign(x)*Math.min(Math.abs(x),margin),
+    z-Math.sign(z)*Math.min(Math.abs(z),margin)) : null);
+  return record;
+}
+
 // These local GLBs are compiled by build-vehicle-meshes.py: one rigid mesh,
 // shared float positions/normals and an indexed primitive per surface.
 const FINISH = { paint: [.34, .22, 1], glass: [.06, .9, 1], trim: [.64, .09, 0], chrome: [.22, 1, 0] };
@@ -56,6 +98,7 @@ export function decodeVehicleMesh(buffer, spec) {
   body.setAttribute('aFinish', new THREE.BufferAttribute(finishes, 3));
   body.setAttribute('aPaintWeight', new THREE.BufferAttribute(tintWeight, 1));
   body.setAttribute('aGlazing', new THREE.BufferAttribute(glazing, 1));
+  importedBodies.set(spec,body);
   return { id: spec.id, body, lamps: geometry(lenses), wheels: spec.wheels };
 }
 

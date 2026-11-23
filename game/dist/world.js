@@ -695,6 +695,7 @@ export function createCar({ unit = 'patrol', type = 'sedan', color: tint = 0xbcc
   if (model && !modelPaints.has(tint)) modelPaints.set(tint, createCarMaterial({ bodyPaint: tint, doubleSided: true }));
   // The body rides above independent wheel pivots. Each tire can follow a
   // different measured height while the chassis absorbs terrain changes.
+  group.userData.contactShell=built.body;
   const chassis = new THREE.Group();
   const detail = group.userData.detail = fitExterior(chassis, built, model ? modelPaints.get(tint) : carPaint);
   group.addEventListener('removed', () => releaseCrumple(detail));
