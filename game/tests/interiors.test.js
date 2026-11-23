@@ -15,8 +15,8 @@ const front = (kind, width = 7) => ({ place: place(kind), x: 10, z: 0, tx: 1, tz
 const building = depth => (x, z) => z < 0 && z > -depth && x > -20 && x < 40;
 
 test('a room is as deep as its building allows and furnished for the kind of place', () => {
-  assert.deepEqual(['bodega', 'pizza', 'coffee', 'bar', 'nails', 'barber', 'hotel', 'library', 'repair', 'gas', 'newsstand'].map(kind => roomKind(place(kind))), ['shop', 'eat', 'eat', 'bar', 'chairs', 'chairs', 'lobby', 'lobby', null, null, null]);
-  assert.equal(planRoom(front('repair')), null); assert.equal(planRoom(front('bodega'), building(3)), null, 'no room in a building three metres deep');
+  assert.deepEqual(['bodega', 'pizza', 'coffee', 'bar', 'nails', 'barber', 'hotel', 'library', 'repair', 'gas', 'newsstand'].map(kind => roomKind(place(kind))), ['shop', 'eat', 'eat', 'bar', 'chairs', 'chairs', 'lobby', 'lobby', 'shop', null, null]);
+  assert.equal(planRoom(front('bodyshop')).style, 'workshop'); assert.equal(planRoom(front('bodega'), building(3)), null, 'no room in a building three metres deep');
   const deli = planRoom(front('bodega', 9), building(30)), small = planRoom(front('bodega', 20), building(8));
   assert.deepEqual([deli.kind, deli.width, deli.depth, deli.x, deli.z], ['shop', 9, 12, 10, 0]);
   assert.deepEqual([small.width, small.depth], [9, 6.6], 'no wider than nine metres, no deeper than the building');
@@ -143,7 +143,7 @@ test('there is somewhere for customers to sit: at tables, at the bar and in the 
 test('each kind of place has its own manner of room, the commonest kinds first', () => {
   assert.deepEqual(['american', 'bodega', 'salon', 'secondhand', 'nails', 'chinese', 'coffee', 'barber', 'latin', 'clothes', 'pizza', 'liquor', 'mexican', 'bar', 'bank', 'laundromat', 'bakery', 'japanese', 'supermarket', 'italian', 'hotel', 'mediterranean', 'club', 'gym', 'school'].map(kind => roomStyle(place(kind))),
     ['diner', 'bodega', 'salon', 'cases', 'nails', 'takeout', 'coffee', 'barber', 'steamtable', 'clothes', 'pizza', 'liquor', 'takeout', 'bar', 'bank', 'laundromat', 'bakery', 'sushi', 'market', 'fine', 'hotel', 'halal', 'club', 'gym', 'lobby']);
-  assert.equal(roomStyle(place('repair')), null);
+  assert.equal(roomStyle(place('repair')), 'workshop');
   for (const kind of Object.keys(STYLE_OF)) assert.ok(KIND[kind], `${kind} is a kind of place`);
   // Nine places in ten that can be walked into have a manner of room made for their kind.
   const index = name => JSON.parse(readFileSync(new URL(`../dist/${name}`, import.meta.url), 'utf8')).counts, counts = { ...index('places-index.json') };

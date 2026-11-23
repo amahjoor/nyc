@@ -121,6 +121,6 @@ test('the counter lists what the shop does, and the page has a place for each', 
   const done = [], phone = createPhone({ $, onMechanic: () => done.push('mechanic'), onCab: () => done.push('cab') });
   phone.setOpen(true); $('phone-app-contacts').fire('click');
   $('phone-contact-mechanic').fire('click');assert.match($('phone-contact-note').textContent, /\$90/);
-  $('phone-contact-call').fire('click'); phone.setOpen(true); $('phone-app-contacts').fire('click'); $('phone-contact-mechanic').fire('click');$('phone-cab-delivery').fire('click');
+  $('phone-contact-call').fire('click'); phone.update(0); phone.update(1.2); phone.setOpen(true); $('phone-app-contacts').fire('click'); $('phone-contact-mechanic').fire('click');$('phone-cab-delivery').fire('click');
   assert.deepEqual(done.slice(-2), ['mechanic', 'cab']);
 });

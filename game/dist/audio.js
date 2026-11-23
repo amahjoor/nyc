@@ -1,4 +1,4 @@
-/** Small original synthesized soundscape. No music or third-party recordings. */
+/** City ambience and an original synthesized club loop. */
 export class CityAudio {
   constructor() { this.enabled = false; }
   async toggle() {
@@ -40,6 +40,25 @@ export class CityAudio {
     rotor.connect(rotorFilter).connect(chop).connect(this.rotorGain).connect(this.master); rotor.start();
     this.noise = buffer;
   }
+  makeClubLoop() {
+    const c = this.ctx, rate = 22050, beat = .5;
+    const buffer = c.createBuffer(1, 8 * beat * rate, rate);
+    const wave = buffer.getChannelData(0);
+    const bass = [55, 55, 65.406, 49, 55, 73.416, 65.406, 49];
+    let seed = 37, lastNoise = 0;
+    for (let i = 0; i < wave.length; i++) {
+      const t = i / rate, step = Math.floor(t / beat), phase = t - step * beat;
+      const hat = (phase + beat / 2) % beat;
+      seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0;
+      const noise = seed / 2147483648 - 1;
+      const kick = Math.sin(2 * Math.PI * (47 * phase + 1.8 * (1 - Math.exp(-40 * phase))));
+      const note = Math.sin(2 * Math.PI * bass[step] * hat);
+      wave[i] = .48 * kick * Math.exp(-20 * phase) + .19 * note * Math.exp(-18 * hat)
+        + .08 * (noise - lastNoise) * Math.exp(-85 * hat);
+      lastNoise = noise;
+    }
+    return buffer;
+  }
   trainDoors() {
     if(!this.ctx || !this.enabled)return;
     const c=this.ctx;
@@ -62,6 +81,25 @@ export class CityAudio {
   update(sim, time, playing) {
     if (!this.ctx) return;
     const now = this.ctx.currentTime;
+    const inClub = playing && this.enabled && sim.room?.style === 'club';
+    if (inClub && !this.clubSource) {
+      this.clubBuffer ||= this.makeClubLoop();
+      this.clubGain = this.ctx.createGain();
+      this.clubGain.connect(this.master);
+      this.clubGain.gain.setValueAtTime(0, now);
+      this.clubGain.gain.setTargetAtTime(.38, now, .12);
+      this.clubSource = this.ctx.createBufferSource();
+      this.clubSource.buffer = this.clubBuffer;
+      this.clubSource.loop = true;
+      this.clubSource.connect(this.clubGain);
+      this.clubSource.start(now, now % this.clubBuffer.duration);
+    } else if (!inClub && this.clubSource) {
+      const source = this.clubSource, gain = this.clubGain;
+      gain.gain.setTargetAtTime(0, now, .045);
+      source.stop(now + .18);
+      source.onended = () => { source.disconnect(); gain.disconnect(); };
+      this.clubSource = null;
+    }
     const ride = sim.transport?.active, kind = ride?.spec.kind;
     const motor = (sim.player.mode === 'drive' && !sim.vehicle?.destroyed && sim.vehicle?.burningSince == null) || kind === 'plane' || ride?.home.type === 'motorcycle' || ride?.home.type === 'bus' || (kind === 'boat' && ride.home.type !== 'kayak');
     const electric = sim.vehicle?.identity?.performance?.fuel === 'E';

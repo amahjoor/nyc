@@ -522,6 +522,7 @@ const KIND_SCHEMES = { bank: [['#0f2d5c', '#ffffff'], ['#0b5d2a', '#ffffff'], ['
 // What else the sign says, under the name.
 const TAGLINES = { bodega: 'DELI  GROCERY  ATM  LOTTO  COLD CUTS', grocery: 'FRESH PRODUCE  MEAT  DAIRY', supermarket: '', pizza: 'PIZZA  PASTA  HEROS', chinese: 'CHINESE RESTAURANT  TAKE OUT',
   nails: 'NAILS  WAXING  SPA', salon: 'HAIR  COLOR  STYLE', barber: 'HAIRCUTS  SHAVES  FADES', liquor: 'WINES & LIQUORS', repair: 'BRAKES  TIRES  OIL CHANGE  INSPECTION', bodyshop: 'COLLISION  PAINT  FRAME',
+  bar: 'BEER  COCKTAILS', pub: 'DRAUGHT BEER', club: 'MUSIC  DANCE FLOOR',
   dealer: 'CARS BOUGHT & SOLD', carwash: 'HAND WASH  DETAILING', coffee: 'COFFEE  ESPRESSO', bagels: 'HOT BAGELS', donuts: 'DONUTS  COFFEE', juice: 'JUICES  SMOOTHIES', chicken: 'FRIED CHICKEN',
   burgers: 'BURGERS  FRIES  SHAKES', mexican: 'TACOS  BURRITOS', japanese: 'SUSHI  RAMEN', pharmacy: 'PHARMACY  PRESCRIPTIONS', pawn: 'WE BUY GOLD  LOANS', secondhand: 'BUY  SELL  TRADE', electronics: 'PHONES  REPAIRS  ACCESSORIES',
   parking: 'PARK  24 HOURS', butcher: 'MEAT  POULTRY', fishmarket: 'FRESH FISH', produce: 'FRUITS & VEGETABLES', bakery: 'BREAD  CAKES  PASTRY', icecream: 'ICE CREAM', mediterranean: 'GYRO  FALAFEL  KEBAB', indian: 'CURRY  TANDOORI',

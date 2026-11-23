@@ -23,6 +23,8 @@ test('each trade has the fittings that mark it', () => {
     electronics: ['tv', 'showcase'], music: ['guitar'], butcher: ['showcase'], fishmarket: ['showcase'], cosmetics: ['showcase'], coffee: ['espresso', 'showcase'], bakery: ['breadrack', 'showcase'],
     mediterranean: ['spit', 'menuboard'], chinese: ['menuboard', 'cooler'], japanese: ['showcase'], pharmacy: ['cooler', 'register', 'careShelves', 'rxCabinet'], salon: ['cuttingChair','stylingStation','shampooBasin'], barber: ['cuttingChair','stylingStation'], smoke: ['showcase'],
     gym: ['treadmill', 'cableStation', 'dumbbells'], laundromat: ['laundryMachine', 'laundryCart', 'soapVendor'], postoffice: ['poBoxes', 'parcelDrop', 'mailSupplies'],
+    tailor: ['sewingMachine', 'garmentRail', 'fittingRoom'], copyshop: ['copier', 'mailSupplies'], repair: ['toolChest', 'tyreDisplay'], bodyshop: ['toolChest', 'pegboard'],
+    club: ['djDeck', 'clubSpeaker'], bar: ['draftTaps'], pub: ['draftTaps'],
     bank: ['cashMachine', 'serviceDesk', 'writingDesk', 'queueRail'], clinic: ['serviceDesk', 'deskMonitor', 'planter'] };
   for (const [kind, expected] of Object.entries(marks)) {
     const room = plan(kind, 9, 12), found = shapes(room);

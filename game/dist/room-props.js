@@ -1,3 +1,4 @@
+import { NEIGHBORHOOD_FIXTURES, NEIGHBORHOOD_ROOMS } from './neighborhood-rooms.js';
 import { COUNTER_FIXTURES, furnishCounterService } from './counter-service.js';
 import { KITCHEN_FIXTURES } from './kitchen-fixtures.js';
 import { fitKitchen } from './kitchens.js';
@@ -184,7 +185,7 @@ function showcase(t, w, d, h, hex, { items = 'watches', felt = FELT, seed = 0, d
 }
 
 const PROPS = {
-  ...BUSINESS_FIXTURES,
+  ...BUSINESS_FIXTURES, ...NEIGHBORHOOD_FIXTURES,
   ...BANK_FIXTURES,
   ...CARE_FIXTURES,
   ...COUNTER_FIXTURES,
@@ -504,7 +505,7 @@ const DRESS = {
 
 /** Manners of room this module furnishes by itself, for kinds of place interiors.js gave a room shared with others. */
 const OWN = {
-  ...BUSINESS_ROOMS,
+  ...BUSINESS_ROOMS, ...NEIGHBORHOOD_ROOMS,
   // An optician: frames up both walls, more under glass, the chart and the chair at the back, a desk by the door.
   optician(r) {
     r.floor = '#b8b4a8'; r.wall = '#f2f0e8'; r.light = { color: 0xf6faff, power: 82 };
@@ -626,7 +627,7 @@ function fresh(r, items, sign) {
 /** Kinds of place that get a manner of room of their own here, in place of the one interiors.js shares among several. */
 export const OWN_STYLE_OF = { jewelry: 'jewelry', optician: 'optician', pawn: 'pawn', shoes: 'shoes', books: 'books', florist: 'florist', bikes: 'bikes', pets: 'pets', hardware: 'hardware', pharmacy: 'pharmacy',
   electronics: 'electronics', music: 'music', butcher: 'butcher', fishmarket: 'fishmarket', cosmetics: 'cosmetics', smoke: 'smoke', dispensary: 'smoke',
-  gym: 'gym', laundromat: 'laundromat', postoffice: 'postoffice' };
+  repair: 'workshop', bodyshop: 'workshop', copyshop: 'copyshop', tailor: 'tailor', gym: 'gym', laundromat: 'laundromat', postoffice: 'postoffice' };
 export const OWN_STYLES = Object.keys(OWN), DRESSED_STYLES = Object.keys(DRESS);
 
 /** Furnish `r` in a manner of room: this module's own where it has one, otherwise `styles[style]` and then what this adds to it. */

@@ -29,7 +29,11 @@ const KITCHEN_SHAPES=new Set(Object.keys(KITCHEN_FIXTURES));
 
 /** Kinds of place with a room to walk into, by group. */
 const ROOMS = { bodega: 'shop', market: 'shop', liquor: 'shop', shop: 'shop', food: 'eat', cafe: 'eat', dining: 'eat', bar: 'bar', beauty: 'chairs', barber: 'chairs', hotel: 'lobby', public: 'lobby' };
-export const roomKind = place => ['gas', 'parking', 'storage', 'ferry'].includes(place.kind) ? null : ROOMS[KIND[place.kind]?.group] || null;
+export const roomKind = place => {
+  if (place.kind === 'repair' || place.kind === 'bodyshop') return 'shop';
+  if (['gas', 'parking', 'storage', 'ferry'].includes(place.kind)) return null;
+  return ROOMS[KIND[place.kind]?.group] || null;
+};
 
 /** The manner of room each kind of place has. Kinds not named take the plain room of their group. */
 export const STYLE_OF = {
@@ -190,31 +194,6 @@ const STYLES = {
     r.add(0, r.depth - .3, r.width - .6, .5, 2.0, '#b8a888'); for (let y = .5; y < 1.9; y += .45) r.add(0, r.depth - .5, r.width - .9, .3, .14, ['#c9772a', '#e0a23a', '#8a4a2a'][Math.round(y * 2) % 3], y, false);
     for (let b = 1.7; b < back - 1.3; b += 1.5) r.table(-r.half + 1.2, b, '#f1e3c0', '#8a4a2a');
   },
-  // A bar: the bar down one side with its bottles, stools, high tables, a booth or two, kept dim.
-  bar(r) {
-    r.wall = '#3a2a24'; r.floor = '#3b2f2a'; r.light = { color: 0xffc890, power: 30 };
-    r.add(-r.half + 1.1, r.depth / 2 + .6, .7, r.depth - 3.2, 1.1, '#2b1a12'); r.add(-r.half + .25, r.depth / 2 + .6, .3, r.depth - 3.2, 1.6, '#1a1210', .9, false);
-    for (let b = 2.3; b < r.depth - 1.4; b += .8) r.add(-r.half + .28, b, .2, .5, .3, ['#2f5a3a', '#c9a23f', '#7a1f2a', '#d9d2c0'][(r.seed + Math.round(b * 3)) % 4], 1.7, false);
-    for (let b = 2.6; b < r.depth - 1.2; b += 1.1) r.seat(-r.half + 1.9, b, -1, 0, .3, DARK, .38, .38, .75);
-    r.staff(-r.half + .62, r.depth / 2, 1, 0);
-    if (r.half > 2.9) for (let b = 2.4; b < r.depth - 3.4; b += 2.2) r.table(r.half - 1.3, b, WOOD, DARK);
-    if (r.depth > 9) r.booth(r.half - .85, r.depth - 2.2, '#5a1a1a');
-    r.panel(1, 2, 1.4, .8, 1.6, '#2f8fd0');
-  },
-  // A club: a rope at the door, the bar along one wall, a lit floor to dance on, the booth for whoever plays the records.
-  club(r) {
-    r.wall = '#14121a'; r.floor = '#101014'; r.light = { color: 0xb070ff, power: 26 };
-    r.add(-1.1, 1.7, .08, .08, .95, '#c9a23f'); r.add(-1.1, 2.6, .08, .08, .95, '#c9a23f'); r.add(-1.1, 2.15, .04, .9, .04, '#7a1f2a', .85, false); r.staff(-1.7, 2.1, 1, 0);
-    r.add(-r.half + 1.0, r.depth / 2 + 1, .7, r.depth - 4.4, 1.1, '#1a1a22'); r.add(-r.half + 1.0, r.depth / 2 + 1, .76, r.depth - 4.3, .05, '#b070ff', 1.1, false);
-    for (let b = 3.4; b < r.depth - 1.6; b += .8) r.add(-r.half + .25, b, .2, .5, .3, ['#ff4fa0', '#4fd0ff', '#b070ff', '#ffe04f'][(r.seed + Math.round(b * 3)) % 4], 1.6, false);
-    r.staff(-r.half + .5, r.depth / 2 + 1, 1, 0);
-    const size = 1.1, cols = Math.max(2, Math.floor((r.half * 2 - 3.2) / size)), rows = Math.max(2, Math.floor((r.depth - 6.2) / size));
-    for (let i = 0; i < cols; i++) for (let j = 0; j < rows; j++) r.add(-r.half + 2.5 + (i + .5) * size, 3.6 + (j + .5) * size, size - .06, size - .06, .04, ['#ff4fa0', '#4fd0ff', '#b070ff', '#ffe04f', '#3a2a5a'][(r.seed + i * 3 + j * 5) % 5], .03, false);
-    r.add(Math.min(1, r.half - 1.6), r.depth - .8, 2.2, .8, 1.1, '#1a1a22'); r.add(Math.min(1, r.half - 1.6), r.depth - .8, 1.2, .5, .1, '#4fd0ff', 1.1, false); r.staff(Math.min(1, r.half - 1.6), r.depth - .25, 0, -1);
-    for (const y of [1.2, 2.0]) r.panel(1, 3, r.depth - 5, .12, y, y > 1.5 ? '#ff4fa0' : '#4fd0ff');
-    if (r.half > 3) r.seat(r.half - .5, r.depth - 2.6, -1, 0, 0, '#5a1a4a', .7, 1.8);
-  },
-
   // A hair salon: styling chairs facing mirrors down both walls, the basins at the back, dryers, the desk by the door.
   salon(r) {
     r.wall = '#f1dfe6'; r.floor = '#b8b2a8';

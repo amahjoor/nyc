@@ -347,7 +347,7 @@ function apparel(r,prop) {
   const accent=navy?'#334763':discount?'#893e48':'#53635b';
   r.finish={floor:discount?'stone':'wood',feature:accent,accent:'#c8b696',ink:'#fff9ea',title:placeName(r.place),line:'',zones:['APPAREL','FITTING ROOM']};
   const local=fittingStock(r.place).filter(item=>item.slot==='top');
-  const cloth=local.length?local:fittingStock('clothes');
+  const cloth=local.length?local:fittingStock('clothes').filter(item=>item.slot==='top');
   prop('mannequin',-r.half+.76,1,.54,.46,1.78,cloth[r.seed%cloth.length].design.topColour);
   let index=0;
   const rail=(a,b) => {
