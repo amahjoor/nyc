@@ -1,56 +1,94 @@
-import { COMPANIES, sharePrice, restoreHoldings } from './market.js';
+import { listingBySymbol, portfolio, sharePrice, restoreHoldings } from './market.js';
 import { RideRoute } from './ride-route.js';
 import { vehicleHandling } from './garage.js';
 import { roadFigures, MPS_PER_MPH } from './vehicle-performance.js';
 const cents = value => Math.round(value * 100);
+export const BANK_HISTORY_MINUTES = 360;
 
 export class PhoneBank {
   constructor() { this.restore(null, 0); }
   restore(record, cash) {
-    this.holdings = restoreHoldings(record?.holdings);
-    this.savings = Number.isSafeInteger(record?.savings) && record.savings >= 0 ? record.savings : 0;
+    this.history = [];
+    this.clockMinute = null;
+    if (Array.isArray(record?.history)) {
+      for (const point of record.history.slice(-BANK_HISTORY_MINUTES - 1)) {
+        if (Array.isArray(point) && Number.isSafeInteger(point[0]) && point[0] >= 0 &&
+            Number.isSafeInteger(point[1]) && point[0] > (this.history.at(-1)?.[0] ?? -1)) {
+          this.history.push([point[0], point[1]]);
+        }
+      }
+    }
+    this.holdings = restoreHoldings(record?.holdings, record?.catalogVersion);
+    this.realized = Number.isSafeInteger(record?.realized) ? record.realized : 0;
+    // Earlier saves kept the wallet under cash and the deposited balance under savings.
+    const deposited = record?.checking ?? record?.savings;
+    this.checking = Number.isSafeInteger(deposited) && deposited >= 0 ? deposited : 0;
     this.entries = Array.isArray(record?.entries) ? record.entries.filter(row => row && typeof row.name === 'string' &&
       Number.isSafeInteger(row.amount) && typeof row.clock === 'string').slice(0, 16) : [];
     this.last = cents(cash);
   }
-  record() { return { savings:this.savings, entries:this.entries, holdings:this.holdings }; }
+  record() { return { catalogVersion:2, checking:this.checking, entries:this.entries, holdings:this.holdings, realized:this.realized, history:this.history }; }
+  sampleBalance(cash, hours, now = Date.now()) {
+    if (!Number.isFinite(hours) || !Number.isFinite(cash)) return;
+    const clock = Math.floor(hours * 60);
+    const last = this.history.at(-1);
+    // Resume at the saved point when the game clock restarts on load.
+    const elapsed = this.clockMinute === null ? 0 : (clock - this.clockMinute + 1440) % 1440;
+    const minute = (last?.[0] ?? 0) + elapsed;
+    this.clockMinute = clock;
+    const total = cents(cash) + this.checking + portfolio(this.holdings, now).value;
+    if (last && !elapsed) last[1] = total;
+    else this.history.push([minute, total]);
+    while (this.history[0][0] < minute - BANK_HISTORY_MINUTES) this.history.shift();
+  }
   sync(cash, clock = '', label) {
     const balance = cents(cash), change = balance - this.last;
     if (!Number.isSafeInteger(balance) || !change) return;
     this.last = balance;
-    this.entries.unshift({name:label || (change > 0 ? 'Game earnings' : 'Game spending'), amount:change, clock});
+    this.addEntry(label || (change > 0 ? 'Game earnings' : 'Game spending'), change, clock, 'Cash');
+  }
+  addEntry(name, amount, clock, account = 'Checking') {
+    this.entries.unshift({name, amount, clock, account});
     this.entries.length = Math.min(this.entries.length, 16);
   }
   trade(sim, symbol, side, raw, quoted, clock, now=Date.now()) {
-    const company=COMPANIES.find(stock=>stock.symbol===symbol);
+    const company=listingBySymbol.get(symbol);
     const shares=Number(raw);
     if(!company || !['buy','sell'].includes(side) || !/^\d+$/.test(String(raw).trim()) ||
        !Number.isSafeInteger(shares) || shares<1)return 'Enter a positive whole number of shares.';
     const price=sharePrice(company,now);
     if(price!==quoted)return 'The price changed. Review the new total and submit again.';
     const position=this.holdings[symbol] || {shares:0,cost:0}, amount=shares*price;
-    const cash=cents(sim.cash), buying=side==='buy';
+    const buying=side==='buy';
     if(!Number.isSafeInteger(amount))return 'This order is too large.';
-    if(buying && amount>cash-(sim.rideHoldCents||0))return 'Insufficient available checking balance.';
+    if(buying && company.sellOnly)return 'Only sales are available for this legacy holding.';
+    if(buying && amount>this.checking)return 'Insufficient available checking balance.';
     if(!buying && shares>position.shares)return 'You do not own that many shares.';
     this.sync(sim.cash,clock);
     if(buying)this.holdings[symbol]={shares:position.shares+shares,cost:position.cost+amount};
-    else if(shares===position.shares)delete this.holdings[symbol];
-    else this.holdings[symbol]={shares:position.shares-shares,cost:Math.round(position.cost*(1-shares/position.shares))};
-    sim.cash=(cash+(buying?-amount:amount))/100;
-    this.sync(sim.cash,clock,(buying?'Bought ':'Sold ')+shares+' '+symbol);
+    else {
+      const remaining=position.shares-shares;
+      const cost=Math.round(position.cost*(remaining/position.shares));
+      this.realized+=amount-(position.cost-cost);
+      if(remaining)this.holdings[symbol]={shares:remaining,cost};
+      else delete this.holdings[symbol];
+    }
+    const change=buying?-amount:amount;
+    this.checking+=change;
+    this.addEntry((buying?'Bought ':'Sold ')+shares+' '+symbol,change,clock);
     return '';
   }
   transfer(sim, direction, raw, clock) {
-    if (!['save','withdraw'].includes(direction) || !/^\d+(?:\.\d{1,2})?$/.test(String(raw).trim())) return 'Enter an amount in dollars and cents.';
-    const amount = cents(Number(raw)), saving = direction === 'save';
+    if (!['deposit','withdraw'].includes(direction) || !/^\d+(?:\.\d{1,2})?$/.test(String(raw).trim())) return 'Enter an amount in dollars and cents.';
+    const amount = cents(Number(raw)), deposit = direction === 'deposit';
     if (!Number.isSafeInteger(amount) || amount <= 0) return 'Enter an amount greater than zero.';
-    if (amount > (saving ? cents(sim.cash)-(sim.rideHoldCents||0) : this.savings)) return 'There is not enough money in that account.';
+    if (amount > (deposit ? cents(sim.cash)-(sim.rideHoldCents||0) : this.checking)) return deposit ? 'Not enough available cash on hand.' : 'Not enough money in checking.';
     this.sync(sim.cash, clock);
-    const delta = saving ? amount : -amount;
-    this.savings += delta;
+    const delta = deposit ? amount : -amount;
+    this.checking += delta;
     sim.cash = (cents(sim.cash) - delta) / 100;
-    this.sync(sim.cash, clock, saving ? 'Transfer to savings' : 'Transfer from savings');
+    this.last = cents(sim.cash);
+    this.addEntry(deposit ? 'ATM cash deposit' : 'ATM cash withdrawal',delta,clock);
     return '';
   }
 }
@@ -126,7 +164,7 @@ export class CityRides {
     const s=this.sim;
     if(this.trip) return 'You already have a ride.';
     if(!quote || this.pickupChanged(quote)) return 'Updating the fare from your current location.';
-    if(s.cash<quote.fare) return 'Your checking balance is too low for this fare.';
+    if(s.cash<quote.fare) return 'Your cash balance is too low for this fare.';
     if(s.mission.phase==='active') return 'Finish your active delivery before taking a ride.';
     const pickup={x:s.player.x,z:s.player.z}, stop=s._pinTaxiPlacement(pickup,null);
     const approach=stop && findApproach(s,stop);
@@ -166,7 +204,7 @@ export class CityRides {
     if(car._edge===stop.edge && (atStop<5 || alongside || (atStop<18 && car.speed<.8 && s.elapsed-t.lastProgress>4))){
       t.phase='waiting'; car.parked=true; car.speed=0; car._edge=null; car._route=[];
       t.eta=0; t.remaining=0;
-      s._say(t.driver.name+' is here. Press E by either rear door or the front passenger door to board.',7);
+      s._say(t.driver.name+' is here.',7);
       return;
     }
     const points=this.approachPoints();

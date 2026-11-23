@@ -1,5 +1,5 @@
 // A north-up street map. Everything passed to the viewport uses world metres.
-export function drawPhoneMap(canvas,{roads=[],center,places=[],trip=null,approach=[],destination=null}) {
+export function drawPhoneMap(canvas,{roads=[],center,places=[],trip=null,approach=[],destination=null,insetTop=0}) {
   const ctx=canvas?.getContext?.('2d');
   if(!ctx || !Number.isFinite(center?.x))return;
   const density=canvas.width/300, width=300, height=canvas.height/density, pickup=trip?.phase==='traveling'?center:trip?.stop.point || center;
@@ -7,8 +7,8 @@ export function drawPhoneMap(canvas,{roads=[],center,places=[],trip=null,approac
   const fit=trip?.car ? [pickup,trip.car,center,...approach] : [center,...places];
   let left=pickup.x,right=left,top=pickup.z,bottom=top;
   for(const p of fit){left=Math.min(left,p.x);right=Math.max(right,p.x);top=Math.min(top,p.z);bottom=Math.max(bottom,p.z);}
-  const scale=Math.min((width-48)/Math.max(125,right-left),(height-42)/Math.max(80,bottom-top));
-  const x=v=>width/2+(v-(left+right)/2)*scale, y=v=>height/2+(v-(top+bottom)/2)*scale;
+  const scale=Math.min((width-48)/Math.max(125,right-left),(height-insetTop-42)/Math.max(80,bottom-top));
+  const x=v=>width/2+(v-(left+right)/2)*scale, y=v=>(height+insetTop)/2+(v-(top+bottom)/2)*scale;
   ctx.fillStyle='#e2e2d3';ctx.fillRect(0,0,width,height);
   const visible=[], names=new Set(), labels=[];
   for(const road of roads){
@@ -55,4 +55,5 @@ export function drawPhoneMap(canvas,{roads=[],center,places=[],trip=null,approac
     ctx.fillStyle='#354247';ctx.fillRect(-4,1,8,4);ctx.fillRect(-4,-7,8,3);ctx.restore();
   }
   ctx.restore();
+  return places.map(p=>({left:x(p.x)/width,top:y(p.z)/height}));
 }

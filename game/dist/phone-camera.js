@@ -4,6 +4,7 @@ import * as THREE from './vendor/three.module.min.js';
 // ahead from the eyes, and a selfie looks back at the face. The first-person
 // view hides the head only for its own camera, so this one still sees it.
 const WIDTH = 216, HEIGHT = 288;
+const FRAME_INTERVAL = 1000 / 24;
 
 export function aimLens(camera, player, eye, facing) {
   const angle = player?.angle || 0, sin = Math.sin(angle), cos = Math.cos(angle);
@@ -41,8 +42,8 @@ export function createPhoneLens() {
     const { renderer, scene, view, canvas, player, eye, facing, body, hide } = context || {};
     if (!renderer?.setRenderTarget || !scene || !canvas) return false;
     const now = performance.now();
-    if (!force && fresh && now - last < 90) return true;
-    target ??= new THREE.WebGLRenderTarget(WIDTH, HEIGHT, { depthBuffer: true, type: THREE.UnsignedByteType });
+    if (!force && fresh && now - last < FRAME_INTERVAL) return true;
+    target ??= new THREE.WebGLRenderTarget(WIDTH, HEIGHT, { depthBuffer: true, type: THREE.UnsignedByteType, colorSpace: THREE.SRGBColorSpace });
     pixels ??= new Uint8Array(WIDTH * HEIGHT * 4);
     aimLens(camera, player, eye, facing);
     if (view?.layers) camera.layers.mask = view.layers.mask;
@@ -72,7 +73,11 @@ export function createPhoneLens() {
     return fresh;
   }
   return {
-    preview(next) { context = next; return draw(false); },
+    preview(next) {
+      const changed = next.facing !== context?.facing || next.canvas !== context?.canvas;
+      context = next;
+      return draw(changed);
+    },
     snapshot(canvas, facing) {
       if (context) context = { ...context, canvas, facing: facing || context.facing };
       if (!draw(true) || !canvas?.toDataURL) return '';

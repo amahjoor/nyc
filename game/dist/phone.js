@@ -1,9 +1,12 @@
-import { COMPANIES, portfolio, sharePrice } from './market.js';
+import { renderBank, renderTransfer } from './phone-bank.js';
+import { createStockScreens } from './phone-stocks.js';
 import { formatClock } from './atmosphere.js';
 import { createThumbPress } from './phone-touch.js';
+import { createPlaceSheet } from './phone-place.js';
 import { drawPhoneMap } from './phone-map.js';
 import { searchDestinations } from './geocoder.js';
 import { formatMoney } from './money.js';
+import { mechanicReply, mayaReply, requestMayaReply } from './phone-messages.js';
 // The in-game handset shares places, jobs, transport and balances with the world.
 //
 // It is a panel of the page, built in index.html; this module fills it in and
@@ -17,7 +20,7 @@ import { CALL_OUT, DELIVERY } from './garage.js';
 export const CATEGORIES = [
   { id: 'all', label: 'ALL', groups: null }, { id: 'eat', label: 'EAT', groups: ['food', 'dining'] }, { id: 'coffee', label: 'COFFEE', groups: ['cafe'] },
   { id: 'deli', label: 'DELI', groups: ['bodega', 'market'] }, { id: 'drinks', label: 'DRINKS', groups: ['bar', 'liquor'] }, { id: 'hair', label: 'HAIR', groups: ['beauty', 'barber'] },
-  { id: 'cars', label: 'CARS', groups: ['auto'] }, { id: 'more', label: 'MORE', groups: ['shop', 'hotel', 'public', 'stand'] },
+  { id: 'cars', label: 'CARS', groups: ['auto'] }, { id: 'banks', label: 'BANKS', groups: ['shop'] }, { id: 'more', label: 'MORE', groups: ['shop', 'hotel', 'public', 'stand'] },
 ];
 /** Rows the Nearby list shows at a time. */
 export const ROWS = 6;
@@ -39,6 +42,7 @@ export function listPlaces(places, { category = 'all', query = '', x = 0, z = 0,
   const rows = [];
   for (const place of places) {
     if (groups && !groups.includes(place.group)) continue;
+    if (category === 'banks' && place.kind !== 'bank') continue;
     const about = describePlace(place, hours, isClosed);
     if (wanted && !about.name.includes(wanted) && !about.kind.includes(wanted)) continue;
     const distance = Math.hypot(place.x - x, place.z - z);
@@ -50,34 +54,34 @@ export function listPlaces(places, { category = 'all', query = '', x = 0, z = 0,
 /**
  * Run the phone. `$` finds an element of the page by id. `places()` gives
  * the places within reach. The live state supplies the clock, location and
- * checking and savings balances. App actions go back to the game.
+ * wallet and checking balances. App actions go back to the game.
  */
-export function createPhone({ $, isClosed, places = () => [], state = () => ({}), onDirections = () => {}, onTransport = () => {}, onWork = () => {}, onDrive = () => {}, onMap = () => {}, onOpenChange = () => {}, onTap = () => {}, showTap = () => true, onMechanic = () => {}, onCab = () => {}, onCapture = () => '', onTransfer = () => '', onTrade = () => '', rides, roads = () => [], storage, destinations = () => [], searchCity = async () => [] } = {}) {
-  const titles = {home:'Home', nearby:'Nearby', place:'Place', contacts:'Contacts', contact:'Contact', messages:'Messages', thread:'Message', call:'Call', camera:'Camera', gallery:'Gallery', photo:'Photo', bank:'Bank', transfer:'Transfer', market:'Investments', order:'Trade shares', list:'Work', maps:'Maps', rides:'D Ride', settings:'Settings', wallpaper:'Wallpaper'};
+export function createPhone({ $, isClosed, places = () => [], state = () => ({}), onDirections = () => {}, onTransport = () => {}, onWork = () => {}, onDrive = () => {}, onMap = () => {}, onOpenChange = () => {}, onTap = () => {}, onSound = () => {}, showTap = () => true, onMechanic = () => {}, mechanicQuote = () => null, onCab = () => {}, searchMapPlaces, previewScene, onCapture = () => '', onTransfer = () => '', onTrade = () => '', generateMaya, rides, roads = () => [], storage, destinations = () => [], searchCity = async () => [] } = {}) {
+  const titles = {home:'Home', nearby:'Nearby', place:'Place', contacts:'Contacts', contact:'Contact', messages:'Messages', thread:'Message', call:'Call', camera:'Camera', gallery:'Gallery', photo:'Photo', bank:'Bank', transfer:'ATM', market:'Stocks', order:'Stock detail', list:'Work', maps:'Maps', rides:'D Ride', settings:'Settings', wallpaper:'Wallpaper'};
   // Contacts is the address book. Calls start from a person, or from their
   // texts. Messages is the inbox. There is no keypad: these are the only numbers.
   const contacts = [
     {id:'mechanic',name:'Mechanic',initials:'M',role:'Roadside assistance',note:'Repair your current car or a nearby burned-out cab. $'+CALL_OUT+' call-out plus repairs.',call:onMechanic,
-      texts:true,seed:['If the car will not move, call. $'+CALL_OUT+' to come out, then the repair.'],
-      reply(text){
-        const line=String(text||'').toLowerCase();
-        if(/\b(where|far|long|soon|when)\b/.test(line))return 'A few minutes. Stay with the car.';
-        if(/\b(cost|price|much|charge|pay|\$)\b/.test(line))return 'Call-out is $'+CALL_OUT+'. The repair depends on the car.';
-        if(/\b(thanks|thank)\b/.test(line))return 'Anytime. Call if it starts knocking.';
-        return 'Call when you are with the car and I will come out.';
-      }},
+      seed:[`Hey, got your number. Call-out is ${formatMoney(CALL_OUT)} if you ever get stuck. Text me what's wrong first.`],
+      reply:rows=>mechanicReply(rows,mechanicQuote())},
+    {id:'maya',name:'Maya',initials:'M',role:'Friend',note:'Friend from the city',seed:['hey you still in the city?'],seedRead:true,
+      reply:(rows,now)=>mayaReply(rows,now,(kind,id)=>nearbyFood(kind,now,id))},
   ];
   let listing=null, listPage=0, visibleJobs=[], mine=false, contact=null;
-  const messagesKey='nyc-phone-messages', photosKey='nyc-phone-photos', BUBBLES=8, SHOTS=8;
-  const threads=new Map(), seen=new Map(), inbox=[];
-  let call=null, facing='rear', photos=[], photoSerial=0, shot=null, threadPage=0;
-  let selectedStock=COMPANIES[0].symbol, displayedPrice=0;
+  const messagesKey='nyc-phone-messages', photosKey='nyc-phone-photos', SHOTS=8;
+  const threads=new Map(), seen=new Map(), replies=new Map(), activity=new Map(), inbox=[];
+  let messageClock=0, messageSerial=0;
+  let call=null, facing='rear', photos=[], photoSerial=0, shot=null;
+  let renderedThread=null, renderedMessage=null;
+  let marketParent='bank', nearbyParent='maps', atmAvailable=null;
   let sector='All sectors', jobSort='Featured', boardPage=0, jobMenu=null, jobOptions=[];
   const jobOptionCount=9;
   const jobSorts=['Featured','Nearest','Highest pay'];
   let destinationRows=[], quote=null, rideMessage='', searchRevision=0, quoteRevision=0, quoting=false;
   let open = false, screen = 'home', category = 'all', page = 0, rows = [], chosen = null, listed = -Infinity;
   const handset = $('phone');
+  const browser = handset.ownerDocument?.defaultView;
+  const mayaModel = generateMaya ?? (['localhost','127.0.0.1','[::1]'].includes(browser?.location?.hostname)?requestMayaReply:null);
   const papers = ['earth', 'soho', 'tide', 'six-seven', 'charles'];
   const paperKey = 'nyc-phone-wallpaper', settingsKey = 'nyc-phone-preferences';
   const prefs = {dark:false, large:false, motion:false, clock:false};
@@ -108,14 +112,18 @@ export function createPhone({ $, isClosed, places = () => [], state = () => ({})
       const rows=Array.isArray(record)?record:Array.isArray(record?.rows)?record.rows:[];
       const clean=rows.filter(row=>row&&(row.who==='me'||row.who==='them')&&typeof row.text==='string').slice(-40);
       threads.set(person.id, clean.length?clean:(person.seed||[]).map(text=>({who:'them',text,time:''})));
-      seen.set(person.id, Number.isInteger(record?.seen)?record.seen:0);
+      seen.set(person.id, Number.isInteger(record?.seen)?record.seen:person.seedRead?threads.get(person.id).length:0);
+      if(record?.pending===true && clean.at(-1)?.who==='me')replies.set(person.id,{until:1.3});
+      const order=Number.isSafeInteger(record?.activity)?record.activity:0;
+      activity.set(person.id,order);
+      messageSerial=Math.max(messageSerial,order);
     }
     if(Array.isArray(shots))photos=shots.filter(item=>item&&typeof item.image==='string'&&(item.facing==='selfie'||item.facing==='rear')).slice(0,SHOTS);
     photoSerial=photos.reduce((max,item)=>Math.max(max,item.id||0),0);
   }
   function saveThreads(){
     const data={};
-    for(const person of contacts)data[person.id]={seen:seen.get(person.id)||0,rows:threads.get(person.id)||[]};
+    for(const person of contacts)data[person.id]={seen:seen.get(person.id)||0,rows:threads.get(person.id)||[],pending:replies.has(person.id),activity:activity.get(person.id)};
     try{storage?.setItem(messagesKey,JSON.stringify(data));}catch{}
   }
   function savePhotos(){
@@ -125,12 +133,48 @@ export function createPhone({ $, isClosed, places = () => [], state = () => ({})
   loadPhoneMemory();
   const unread=()=>{let n=0;for(const person of contacts)if((threads.get(person.id)||[]).length>(seen.get(person.id)||0))n++;return n;};
   const clocked=seconds=>{const s=Math.max(0,Math.floor(seconds));return Math.floor(s/60)+':'+(s%60).toString().padStart(2,'0');};
+  const history=$('phone-thread-scroll'), log=$('phone-thread-log');
+  const atLatest=()=>history.scrollHeight-history.clientHeight-history.scrollTop<=24;
+  function scrollToLatest(){history.scrollTop=history.scrollHeight;}
+  function readVisibleThread(){
+    if(!open || screen!=='thread' || !contact || !atLatest())return;
+    const count=threads.get(contact.id).length;
+    if((seen.get(contact.id)||0)>=count)return;
+    seen.set(contact.id,count);
+    saveThreads();
+    render();
+  }
+  function renderThread(){
+    const rows=threads.get(contact.id);
+    const typing=$('phone-thread-typing'), following=atLatest()||renderedThread!==contact;
+    const last=rows.at(-1), changed=renderedThread!==contact || renderedMessage!==last;
+    if(changed){
+      const start=renderedThread===contact?rows.indexOf(renderedMessage)+1:0;
+      if(!start)log.replaceChildren();
+      for(const row of rows.slice(start)){
+        const bubble=log.ownerDocument.createElement('p');
+        const sender=log.ownerDocument.createElement('b');
+        const message=log.ownerDocument.createElement('span');
+        bubble.setAttribute('data-who',row.who);
+        sender.textContent=(row.who==='me'?'You':contact.name)+(row.time?' · '+row.time:'');
+        message.textContent=row.text;
+        bubble.append(sender,message);
+        log.append(bubble);
+      }
+      while(log.children.length>rows.length)log.firstElementChild.remove();
+      renderedThread=contact;
+      renderedMessage=last;
+    }
+    const typingHidden=!replies.has(contact.id);
+    const typingChanged=typing.hidden!==typingHidden;
+    typing.hidden=typingHidden;
+    if(following && (changed || typingChanged))scrollToLatest();
+  }
   function openThread(person=contact){
     if(!person)return;
     contact=person;
     const rows=threads.get(person.id)||[];
     seen.set(person.id, rows.length);
-    threadPage=Math.max(0,Math.ceil(rows.length/BUBBLES)-1);
     saveThreads();
     show('thread');
   }
@@ -138,19 +182,80 @@ export function createPhone({ $, isClosed, places = () => [], state = () => ({})
     if(screen!=='thread'||!contact)return;
     const text=$('phone-thread-draft').value.trim().slice(0,140);
     if(!text)return;
-    const rows=threads.get(contact.id)||[];
-    rows.push({who:'me',text,time:state().clock||''});
-    if(contact.reply)rows.push({who:'them',text:contact.reply(text),time:state().clock||''});
-    threads.set(contact.id, rows.slice(-40));
-    seen.set(contact.id, threads.get(contact.id).length);
+    const rows=appendMessage(contact,{who:'me',text,time:state().clock||''});
+    replies.get(contact.id)?.controller?.abort();
+    replies.set(contact.id,{until:messageClock+Math.min(2.8,1.1+text.length*.018)});
+    seen.set(contact.id,rows.length);
     $('phone-thread-draft').value='';
-    threadPage=Math.max(0,Math.ceil(threads.get(contact.id).length/BUBBLES)-1);
     saveThreads();
     render();
-    $('phone-thread-draft').scrollIntoView?.({block:'nearest'});
+    scrollToLatest();
+  }
+  function appendMessage(person,message){
+    const rows=threads.get(person.id);
+    rows.push(message);
+    activity.set(person.id,++messageSerial);
+    if(rows.length>40){
+      rows.shift();
+      seen.set(person.id,Math.max(0,(seen.get(person.id)||0)-1));
+    }
+    return rows;
+  }
+  function deliverReply(person,pending,reply){
+    if(replies.get(person.id)!==pending)return;
+    const reading=open && screen==='thread' && contact===person && atLatest();
+    const message=typeof reply==='string'?{text:reply}:reply;
+    const rows=appendMessage(person,{...message,who:'them',time:state().clock||''});
+    if(reading)seen.set(person.id,rows.length);
+    replies.delete(person.id);
+    saveThreads();
+    if(open)render();
+  }
+  function receiveReplies(time){
+    messageClock=time;
+    for(const [id,pending] of replies){
+      if(time<pending.until || pending.controller)continue;
+      const person=contacts.find(item=>item.id===id),rows=threads.get(id),now=state();
+      if(id==='maya' && mayaModel)receiveMaya(person,pending,rows,now);
+      else deliverReply(person,pending,person.reply(rows,now));
+    }
+  }
+  async function receiveMaya(person,pending,rows,now){
+    pending.controller=new AbortController();
+    const transcript=rows.slice(-14);
+    const previous=transcript.findLast(row=>row.who==='them' && row.placeId!=null);
+    const nearby=[];
+    const addSpot=(kind,id)=>{
+      const spot=nearbyFood(kind,now,id);
+      if(spot && !nearby.some(item=>item.id===spot.id))nearby.push({...spot,kind});
+    };
+    if(previous && ['food','coffee','pizza'].includes(previous.topic))addSpot(previous.topic,previous.placeId);
+    for(const kind of ['pizza','coffee','food'])addSpot(kind);
+    try {
+      const answer=await mayaModel(transcript,{clock:now.clock,street:now.street,onShift:now.jobActive,nearby},pending.controller.signal);
+      const text=typeof answer==='string'?answer.trim():'';
+      if(text && text.length<=240){
+        const spot=nearby.find(item=>text.toLowerCase().includes(item.name.toLowerCase()));
+        deliverReply(person,pending,spot?{text,topic:spot.kind,placeId:spot.id}:{text,topic:'chat'});
+        return;
+      }
+    } catch {}
+    if(!pending.controller.signal.aborted)deliverReply(person,pending,person.reply(rows,state()));
+  }
+  history.addEventListener('scroll',readVisibleThread);
+  function nearbyFood(kind,now,id){
+    let nearest=null, best=450;
+    for(const place of places()){
+      if(kind!=='food' && place.kind!==kind)continue;
+      if(!['food','dining','cafe'].includes(KIND[place.kind]?.group) || !isOpen(place.kind,now.hours??12) || isClosed?.(place))continue;
+      const distance=Math.hypot(place.x-now.x,place.z-now.z);
+      if(id!=null && place.id===id)return {id,name:placeName(place),distance:formatDistance(distance).toLowerCase()};
+      if(distance<best){nearest=place;best=distance;}
+    }
+    return id==null && nearest ? {id:nearest.id,name:placeName(nearest),distance:formatDistance(best).toLowerCase()} : null;
   }
   function beginCall(){
-    if(!contact)return;
+    if(!contact?.call)return;
     call={contact,from:screen==='thread'?'thread':'contact',began:null,connected:false,sent:false,elapsed:0};
     show('call');
   }
@@ -161,7 +266,7 @@ export function createPhone({ $, isClosed, places = () => [], state = () => ({})
   });
   handset.addEventListener('pointerdown',event=>{
     handset.setAttribute('data-navigation','pointer');
-    const control=event.target.closest?.('button, input, select') || handset;
+    const control=event.target.closest?.('button, input, select, textarea, a[href]') || handset;
     if(control && !control.disabled && event.isPrimary!==false && event.button===0)touch.reach(control,event);
   });
   const followThumb=(x,y)=>{
@@ -182,23 +287,27 @@ export function createPhone({ $, isClosed, places = () => [], state = () => ({})
     clearTimeout(searchTimer); pendingSearch?.abort(); pendingSearch=null; searchRevision++;
   }
   function controls(panel) {
-    return Array.from(panel.querySelectorAll?.('button, input, select') || [])
+    return Array.from(panel.querySelectorAll?.('button, input, select, textarea, a[href], [tabindex="0"]') || [])
       .filter(element => !element.disabled && !element.closest('[hidden]'));
   }
   function focusScreen(restore=false) {
     const items = controls($('phone-' + screen));
     const remembered=restore && focusHistory.get(screen);
-    const first=items.includes(remembered) ? remembered : items.find(item=>item.tagName!=='INPUT' && item.tagName!=='SELECT') || items[0] || $('phone-back');
+    const first=items.includes(remembered) ? remembered : items.find(item=>item.tagName==='BUTTON') || items[0] || $('phone-back');
     first.focus?.();
   }
   function show(next,backward=false) {
     const previous=screen;
+    if(previous==='transfer' && next!=='transfer')atmAvailable=null;
+    if(previous==='place' && next!=='place')placeSheet.close();
+    if(next==='nearby')searchMap();
     if(previous==='call' && next!=='call')call=null;
     viewRevision++;
     if(previous==='rides' && next!=='rides'){stopSearch();quoteRevision++;quoting=false;}
     const current=handset.ownerDocument?.activeElement;
     if(controls($('phone-'+previous)).includes(current))focusHistory.set(previous,current);
     screen=next;render();focusScreen(backward || next==='home');
+    if(next==='thread' && previous!=='thread'){scrollToLatest();readVisibleThread();}
     if(previous===next || reducedMotion())return;
     const start=previous==='home' || next==='home' ? 'scale(.92)' : 'translateX('+(backward?-12:12)+'%)';
     $('phone-'+next).animate?.([{transform:start,opacity:.65},{transform:'none',opacity:1}],{duration:160,easing:'ease-out'});
@@ -207,7 +316,7 @@ export function createPhone({ $, isClosed, places = () => [], state = () => ({})
     if(screen==='rides' && !rides?.trip && (quote || quoting))return 'rides';
     if(screen==='list' && listing?.board && jobMenu)return 'list';
     if(screen==='list')return listing?.app==='maps' || listing?.app==='rides'?listing.app:listing?.onBack?'list':'home';
-    return ({order:'market',market:'bank',wallpaper:'settings',place:'nearby',nearby:'maps',contact:'contacts',transfer:'bank',thread:'messages',call:call?.from||'contact',gallery:'camera',photo:'gallery'})[screen] || 'home';
+    return ({order:'market',market:marketParent,wallpaper:'settings',place:placeParent,nearby:nearbyParent,contact:'contacts',transfer:'bank',thread:'messages',call:call?.from||'contact',gallery:'camera',photo:'gallery'})[screen] || 'home';
   }
   function back() {
     if(screen==='list' && listing?.board && jobMenu){
@@ -271,13 +380,19 @@ export function createPhone({ $, isClosed, places = () => [], state = () => ({})
     } else if(!editing && (key==='Backspace' || (key==='ArrowLeft' && screen!=='home') || key==='Home')){
       event.preventDefault();
       if(!event.repeat)pressNavigation(key==='Home' || parentScreen()==='home'?'phone-home-key':'phone-back');
+    } else if (active===history && ['ArrowUp','ArrowDown','PageUp','PageDown'].includes(key)) {
+      event.preventDefault();
+      const step=key.startsWith('Page')?history.clientHeight:48;
+      const before=history.scrollTop;
+      history.scrollTop+=key.endsWith('Up')?-step:step;
+      if(event.fromPad && before===history.scrollTop)moveFocus(key,active);
     } else if (!editing && key.startsWith('Arrow')) {
       event.preventDefault();
       moveFocus(key, active);
     } else if (!editing && (key === 'Enter' || key === ' ')) {
       event.preventDefault();
       if (!event.repeat && handset.contains?.(active)) active.click();
-    } else if (!editing && event.code === 'KeyM' && !event.ctrlKey && !event.metaKey && !event.altKey) {
+    } else if (!editing && event.code === 'F7' && !event.ctrlKey && !event.metaKey && !event.altKey) {
       if (!event.repeat) {
         setOpen(false);
         onMap();
@@ -306,40 +421,27 @@ export function createPhone({ $, isClosed, places = () => [], state = () => ({})
     gesture=null;
   },{passive:false});
   handset.addEventListener('touchcancel',()=>{gesture=null;});
+  let mapMatches=[],mapQuery='',mapTimer,mapRevision=0;
+  function searchMap(){
+    clearTimeout(mapTimer);const revision=++mapRevision;
+    mapMatches=[];mapQuery=$('phone-search').value.trim();
+    if(mapQuery.length<2 || !searchMapPlaces)return;
+    mapTimer=setTimeout(async()=>{
+      try{
+        const found=await searchMapPlaces(mapQuery);
+        if(revision===mapRevision && open && screen==='nearby'){mapMatches=found;render();}
+      }catch{}
+    },230);
+  }
   function list() {
     const now = state();
     rows = listPlaces(places(), { category, query: $('phone-search').value, x: now.x, z: now.z, hours: now.hours, isClosed });
-    page = Math.max(0, Math.min(page, Math.ceil(rows.length / ROWS) - 1));
-  }
-  const shareCount=n=>n+(n===1?' share':' shares');
-  function drawStockHistory(company,time){
-    const prices=Array.from({length:21},(_,i)=>sharePrice(company,time-(20-i)*30000));
-    const change=prices.at(-1)-prices[0];
-    $('phone-stock-change').textContent='Last 10 minutes · '+(change<0?'−':'+')+formatMoney(Math.abs(change)/100);
-    const canvas=$('phone-stock-chart'),ctx=canvas.getContext?.('2d');
-    if(!ctx)return;
-    const w=canvas.width,h=canvas.height,low=Math.min(...prices),high=Math.max(...prices);
-    const y=price=>high===low?h/2:8+(high-price)/(high-low)*(h-16);
-    ctx.clearRect(0,0,w,h);
-    ctx.beginPath();
-    prices.forEach((price,i)=>ctx[i?'lineTo':'moveTo'](3+(w-6)*i/(prices.length-1),y(price)));
-    ctx.strokeStyle=change<0?'#ba6d4b':'#418768';ctx.lineWidth=3;ctx.lineJoin='round';ctx.stroke();
-    ctx.lineTo(w,h);ctx.lineTo(0,h);ctx.closePath();
-    ctx.fillStyle=change<0?'#ba6d4b1c':'#4187681c';ctx.fill();
-  }
-  function renderBank(now) {
-    $('phone-bank-balance').textContent=formatMoney(now.availableCash??now.cash??0);
-    $('phone-bank-savings').textContent=formatMoney((now.bank?.savings || 0)/100);
-    $('phone-bank-invested').textContent=formatMoney(portfolio(now.bank?.holdings||{}).value/100)+' market value';
-    const entries=now.bank?.entries || [];
-    $('phone-bank-empty').hidden=entries.length>0;
-    for(let i=0;i<16;i++){
-      const row=entries[i], id='phone-activity-'+i;
-      $(id).hidden=!row;
-      if(!row)continue;
-      $(id+'-name').textContent=row.name; $(id+'-time').textContent=row.clock;
-      $(id+'-amount').textContent=(row.amount>0?'+':'−')+formatMoney(Math.abs(row.amount)/100);
+    if(mapMatches.length && mapQuery===$('phone-search').value.trim()){
+      const seen=new Set(rows.map(({place:p})=>JSON.stringify([p.name,p.x,p.z])));
+      const distant=mapMatches.filter(p=>!seen.has(JSON.stringify([p.name,p.x,p.z])));
+      rows.push(...listPlaces(distant,{...now,category,isClosed}));
     }
+    page = Math.max(0, Math.min(page, Math.ceil(rows.length / ROWS) - 1));
   }
   function renderRide(now) {
     const trip=rides?.trip, selected=trip || quote;
@@ -422,7 +524,7 @@ export function createPhone({ $, isClosed, places = () => [], state = () => ({})
     const following=handset.getAttribute('data-navigation')==='keys' && focused?.closest?.('.phone-screen')?.id==='phone-'+screen;
     handset.hidden = !open;
     if (!open) return;
-    const app=({market:'bank',order:'bank',contact:'contacts',transfer:'bank',wallpaper:'settings',place:'maps',nearby:'maps',list:listing?.app || 'work',call:call?.from==='thread'?'messages':'contacts',thread:'messages',gallery:'camera',photo:'camera'})[screen] || screen;
+    const app=({market:'stocks',order:'stocks',contact:'contacts',transfer:'bank',wallpaper:'settings',place:'maps',nearby:'maps',list:listing?.app || 'work',call:call?.from==='thread'?'messages':'contacts',thread:'messages',gallery:'camera',photo:'camera'})[screen] || screen;
     handset.setAttribute('data-app',app);
     const waiting=unread();
     $('phone-messages-badge').hidden=waiting<1;
@@ -434,35 +536,25 @@ export function createPhone({ $, isClosed, places = () => [], state = () => ({})
     $('phone-back').hidden = screen === 'home';
     $('phone-back').textContent=titles[parentScreen()];
     if(screen==='rides')renderRide(now);
-    if(screen==='bank')renderBank(now);
-    if(screen==='market' || screen==='order'){
-      const time=Date.now(),market=portfolio(now.bank?.holdings||{},time);
-      const gain=value=>(value<0?'−':'+')+formatMoney(Math.abs(value)/100);
-      if(screen==='market'){
-        $('phone-market-value').textContent=formatMoney(market.value/100);
-        $('phone-market-return').textContent=gain(market.value-market.cost)+' open gain / loss';
-        for(const stock of market.stocks)$('phone-stock-'+stock.symbol+'-quote').textContent=
-          stock.symbol+' · '+formatMoney(stock.price/100)+' · '+shareCount(stock.shares)+' held';
-      }else{
-        const stock=market.stocks.find(row=>row.symbol===selectedStock);
-        displayedPrice=stock.price;
-        drawStockHistory(COMPANIES.find(company=>company.symbol===selectedStock),time);
-        const quantity=Number($('phone-order-shares').value), valid=Number.isSafeInteger(quantity)&&quantity>0;
-        const total=quantity*stock.price;
-        $('phone-order-name').textContent=stock.name+' · '+stock.symbol;
-        $('phone-order-price').textContent=formatMoney(stock.price/100);
-        $('phone-order-position').textContent=shareCount(stock.shares)+' held · '+gain(stock.value-stock.cost)+' open gain / loss';
-        $('phone-order-cash').textContent=formatMoney(now.availableCash??now.cash??0)+' available in checking';
-        $('phone-order-total').textContent=valid?'Order total '+formatMoney(total/100):'Enter a whole number of shares.';
-        $('phone-order-buy').disabled=!valid || total>Math.round((now.availableCash??now.cash??0)*100);
-        $('phone-order-sell').disabled=!valid || quantity>stock.shares;
-      }
-    }
+    if(screen==='bank')renderBank($,now);
+    if(screen==='transfer')renderTransfer($,now);
+    if(screen==='market' || screen==='order')renderStocks(screen,now);
     if(screen==='maps'){
       $('phone-map-street').textContent=now.street || 'Current location';
       const nearby=listPlaces(places(),{...now,isClosed}).slice(0,3);
-      $('phone-map-nearby-note').textContent=nearby.length?nearby.map(row=>row.name).join(' · '):'Browse places around you';
-      drawPhoneMap($('phone-map-preview'), {roads:roads(),center:now,places:nearby.map(row=>row.place)});
+      mapPicks=nearby;
+      for(let i=0;i<3;i++){
+        const row=nearby[i];$('map-pick-'+i).hidden=!row;
+        if(row){$('map-pick-'+i+'-name').textContent=row.name;$('map-pick-'+i+'-note').textContent=row.note;}
+      }
+      const pins=drawPhoneMap($('phone-map-preview'), {roads:roads(),center:now,places:nearby.map(row=>row.place),insetTop:48}) || [];
+      for(let i=0;i<3;i++){
+        const pin=$('map-pin-'+i),point=pins[i];pin.hidden=!point;
+        if(point){
+          pin.style.left=(point.left*100)+'%';pin.style.top=(point.top*100)+'%';
+          pin.setAttribute('aria-label',nearby[i].name);pin.title=nearby[i].name;
+        }
+      }
     }
     if(screen==='settings')$('phone-paper-name').textContent=$('phone-wall-'+paper).textContent.trim();
     if(screen==='wallpaper')for(const id of papers)$('phone-wall-'+id).setAttribute('aria-pressed',String(paper===id));
@@ -499,12 +591,15 @@ export function createPhone({ $, isClosed, places = () => [], state = () => ({})
       $('phone-contact-role').textContent=contact.role;
       $('phone-contact-note').textContent=contact.note;
       $('phone-contact-call').textContent='Call '+contact.name;
-      $('phone-contact-message').hidden=!contact.texts;
+      $('phone-contact-call').hidden=!contact.call;
+      $('phone-contact-message').hidden=!contact.reply;
+      $('phone-cab-delivery').hidden=contact.id!=='mechanic';
       $('phone-cab-delivery').textContent='Deliver my cab · '+formatMoney(DELIVERY);
     }
     if(screen==='messages'){
       inbox.length=0;
       for(const person of contacts)if((threads.get(person.id)||[]).length)inbox.push(person);
+      inbox.sort((a,b)=>activity.get(b.id)-activity.get(a.id));
       for(let i=0;i<ROWS;i++){
         const person=inbox[i], id='phone-inbox-'+i;
         $(id).hidden=!person;
@@ -517,21 +612,8 @@ export function createPhone({ $, isClosed, places = () => [], state = () => ({})
       $('phone-messages-empty').hidden=inbox.length>0;
     }
     if(screen==='thread' && contact){
-      const rows=threads.get(contact.id)||[];
-      const pages=Math.max(1,Math.ceil(rows.length/BUBBLES));
-      threadPage=Math.max(0,Math.min(threadPage,pages-1));
-      for(let i=0;i<BUBBLES;i++){
-        const row=rows[threadPage*BUBBLES+i], id='phone-bubble-'+i;
-        $(id).hidden=!row;
-        if(!row)continue;
-        $(id).setAttribute('data-who',row.who);
-        $(id+'-who').textContent=(row.who==='me'?'You':contact.name)+(row.time?' · '+row.time:'');
-        $(id+'-text').textContent=row.text;
-      }
-      $('phone-thread-pager').hidden=pages<=1;
-      $('phone-thread-page').textContent=`${threadPage+1} / ${pages}`;
-      $('phone-thread-prev').disabled=threadPage<=0;
-      $('phone-thread-next').disabled=threadPage>=pages-1;
+      renderThread();
+      $('phone-thread-call').hidden=!contact.call;
       $('phone-thread-call').textContent='Call '+contact.name;
     }
     if(screen==='call' && call){
@@ -543,6 +625,7 @@ export function createPhone({ $, isClosed, places = () => [], state = () => ({})
       $('phone-call-timer').textContent=call.connected?clocked(call.elapsed-1.1):'';
     }
     if(screen==='camera'){
+      $('phone-lens').setAttribute('data-facing',facing);
       $('phone-camera-status').textContent=$('phone-camera-status').textContent||(facing==='selfie'?'Front camera':'Rear camera');
     }
     if(screen==='gallery'){
@@ -617,6 +700,8 @@ export function createPhone({ $, isClosed, places = () => [], state = () => ({})
     next = Boolean(next);
     if (next === open) return;
     touch.cancel();viewRevision++;
+    if(!next)atmAvailable=null;
+    if(!next && screen==='place')placeSheet.close();
     open = next; stopSearch(); quoteRevision++; quoting=false;
     if(open && navigation)handset.setAttribute('data-navigation',navigation);
     if (open) { screen = 'home'; $('phone-search').value = ''; page = 0; }
@@ -626,7 +711,9 @@ export function createPhone({ $, isClosed, places = () => [], state = () => ({})
     if(!open || button.disabled || button.closest?.('[hidden]'))return;
     const revision=viewRevision;
     touch.press(button,event,()=>{
-      if(open && revision===viewRevision && !button.disabled && !button.closest?.('[hidden]'))action();
+      if(!open || revision!==viewRevision || button.disabled || button.closest?.('[hidden]'))return;
+      if(button.id!=='phone-shutter')onSound('phoneTap');
+      action();
     });
   }
   const click = (id, action) => {
@@ -647,21 +734,39 @@ export function createPhone({ $, isClosed, places = () => [], state = () => ({})
     try { storage?.setItem(paperKey,id); } catch {}
     render();
   });
-  click('phone-map-nearby', () => { page = 0; show('nearby'); }); click('phone-app-contacts', () => { $('phone-contact-search').value='';show('contacts'); });
-  click('phone-app-bank', () => show('bank'));
-  click('phone-bank-invest',()=>show('market'));
-  for(const {symbol} of COMPANIES)click('phone-stock-'+symbol,()=>{
-    selectedStock=symbol;$('phone-order-shares').value='1';$('phone-order-status').textContent='';show('order');
+  const placeSheet=createPlaceSheet({$,click,storage,roll:()=>photos,previewScene});
+  let mapPicks=[],placeParent='nearby';
+  function openPlace(place){
+    if(!place)return;
+    placeParent=screen;chosen=place;show('place');placeSheet.open(place);
+    $('phone-place').scrollTop=0;
+  }
+  for(let i=0;i<3;i++)for(const prefix of ['map-pick-','map-pin-'])click(prefix+i,()=>openPlace(mapPicks[i]?.place));
+  for(const filter of ['eat','coffee','hair'])click('map-'+filter,()=>{
+    nearbyParent='maps';category=filter;page=0;$('phone-search').value='';show('nearby');
   });
-  $('phone-order-shares').addEventListener('input',render);
-  for(const side of ['buy','sell'])click('phone-order-'+side,()=>{
-    const qty=$('phone-order-shares').value;
-    const error=onTrade(selectedStock,side,qty,displayedPrice);
-    $('phone-order-status').textContent=error || (side==='buy'?'Bought ':'Sold ')+qty+' '+selectedStock+' at '+formatMoney(displayedPrice/100)+'.';
+  click('phone-map-nearby', () => { nearbyParent='maps';category='all';page = 0; $('phone-search').value='';show('nearby'); }); click('phone-app-contacts', () => { $('phone-contact-search').value='';show('contacts'); });
+  click('phone-app-bank', () => show('bank'));
+  const renderStocks=createStockScreens({$,click,activate,show,render,onTrade});
+  click('phone-bank-invest',()=>{marketParent='bank';show('market');});
+  click('phone-app-stocks',()=>{marketParent='home';show('market');});
+  click('phone-bank-locate',()=>{
+    nearbyParent='bank';category='banks';page=0;$('phone-search').value='';show('nearby');
+  });
+  click('phone-bank-direction',()=>{
+    const direction=$('phone-bank-direction');
+    direction.value=direction.value==='deposit'?'withdraw':'deposit';
+    $('phone-bank-message').textContent='';
     render();
   });
-  click('phone-bank-transfer',()=>{ $('phone-bank-message').textContent='';$('phone-bank-amount').value='';$('phone-bank-direction').value='save';show('transfer'); });
-  click('phone-bank-confirm',()=>{ const error=onTransfer($('phone-bank-direction').value,$('phone-bank-amount').value);
+  $('phone-bank-amount').addEventListener('input',()=>{ $('phone-bank-message').textContent=''; });
+  for(const preset of ['20','100','all'])click('phone-atm-'+preset,()=>{
+    $('phone-bank-amount').value=$('phone-atm-'+preset).value;
+    $('phone-bank-message').textContent='';
+  });
+  click('phone-bank-confirm',()=>{
+    if(!atmAvailable?.()){setOpen(false);return;}
+    const error=onTransfer($('phone-bank-direction').value,$('phone-bank-amount').value);
     if(error)$('phone-bank-message').textContent=error;else show('bank'); });
   click('phone-app-rides',()=>{quote=null;rideMessage='';$('phone-ride-search').value='';show('rides');findDestination();});
   $('phone-ride-search').addEventListener('input',()=>{
@@ -694,8 +799,8 @@ export function createPhone({ $, isClosed, places = () => [], state = () => ({})
   click('phone-app-map',()=>show('maps'));
   click('phone-map-full',()=>{setOpen(false);onMap();});
   for (const item of CATEGORIES) click(`phone-chip-${item.id}`, () => { category = item.id; page = 0; render(); });
-  $('phone-search').addEventListener('input', () => { page = 0; render(); });
-  for (let i = 0; i < ROWS; i++) click(`phone-row-${i}`, () => { const row = rows[page * ROWS + i]; if (row) { chosen = row.place; show('place'); } });
+  $('phone-search').addEventListener('input', () => { page = 0; searchMap();render(); });
+  for (let i = 0; i < ROWS; i++) click(`phone-row-${i}`, () => { const row = rows[page * ROWS + i]; if (row) openPlace(row.place); });
   click('phone-prev', () => { page = Math.max(0, page - 1); render(); }); click('phone-next', () => { page++; render(); });
   click('phone-directions', () => { if (chosen) { onDirections(chosen); setOpen(false); } });
   for (let i = 0; i < ROWS; i++) click(`phone-ride-${i}`, () => { const row = visibleJobs[listPage * ROWS + i]; if (open && screen === 'list' && row) { const pick = listing.onPick; if (!listing.keepOpen) setOpen(false); pick(row); } });
@@ -706,9 +811,9 @@ export function createPhone({ $, isClosed, places = () => [], state = () => ({})
   click('phone-app-messages',()=>show('messages'));
   for(let i=0;i<ROWS;i++)click('phone-inbox-'+i,()=>{const person=inbox[i];if(person)openThread(person);});
   click('phone-thread-send',sendThread);
-  $('phone-thread-draft').addEventListener('keydown',event=>{if(event.key==='Enter'){event.preventDefault();sendThread();}});
-  click('phone-thread-prev',()=>{threadPage--;render();});
-  click('phone-thread-next',()=>{threadPage++;render();});
+  $('phone-thread-draft').addEventListener('keydown',event=>{
+    if(event.key==='Enter' && !event.isComposing){event.preventDefault();activate($('phone-thread-send'),event,sendThread);}
+  });
   click('phone-thread-call',beginCall);
   click('phone-call-end',()=>{if(screen==='call')show(call?.from||'contact',true);});
   click('phone-app-camera',()=>{facing='rear';$('phone-camera-status').textContent='Rear camera';show('camera');});
@@ -720,6 +825,7 @@ export function createPhone({ $, isClosed, places = () => [], state = () => ({})
   click('phone-shutter',()=>{
     const image=onCapture(facing)||'';
     if(!image){$('phone-camera-status').textContent='The lens is still opening.';return;}
+    onSound('phoneShutter');
     photos.unshift({id:++photoSerial,facing,time:state().clock||'',image});
     photos.splice(SHOTS);
     savePhotos();
@@ -743,10 +849,20 @@ export function createPhone({ $, isClosed, places = () => [], state = () => ({})
     get screen() { return screen; },
     get facing() { return facing; },
     setOpen, handleKey, handlePad, focus:()=>focusScreen(true), toggle: navigation => setOpen(!open,navigation),
+    openATM(available) {
+      if(!available())return;
+      setOpen(true);
+      atmAvailable=available;
+      $('phone-bank-direction').value='deposit';
+      $('phone-bank-amount').value='';$('phone-bank-message').textContent='';
+      show('transfer');
+    },
     /** Show a list to choose from: `rows` of { name, note }; `onPick(row)` is told which. */
     openList(title, rows, onPick, { message = '', keepOpen = false, app = 'work', board = false, refresh = null, onBack = null } = {}) { if(screen==='list' && listing?.board)boardPage=listPage; listing = { title, rows, onPick, message, keepOpen, app, board, refresh, onBack }; listPage = board ? boardPage : 0; setOpen(true); show('list'); },
     /** Keep the clock, the cash and the distances current while the phone is out. `time` is in seconds. */
     update(time = 0) {
+      if(open && screen==='transfer' && !atmAvailable?.())setOpen(false);
+      receiveReplies(time);
       if(!open)return;
       if(screen==='call' && call){
         if(call.began==null)call.began=time;

@@ -13,11 +13,31 @@ const around = () => [place('FANELLI CAFE', 'american', 30, 0, { grade: 'A' }), 
 // The page as far as the phone uses it: elements by id, with a text, a hidden flag, a value and listeners.
 function page() {
   const elements = new Map();
+  function messageNode() {
+    return { children:[], textContent:'', attributes:{},
+      setAttribute(name,value){this.attributes[name]=value;},
+      append(...nodes){for(const node of nodes){node.parent=this;this.children.push(node);}},
+      replaceChildren(){this.children.length=0;},
+      get firstElementChild(){return this.children[0];},
+      remove(){this.parent.children.splice(this.parent.children.indexOf(this),1);},
+    };
+  }
   const $ = id => {
     if (!elements.has(id)) {
       const listeners = {}, attributes = {};
       elements.set(id, { id, hidden: false, disabled: false, textContent: '', value: '0', attributes, setAttribute: (name, value) => { attributes[name] = value; }, getAttribute: name => attributes[name],
         addEventListener: (name, listener) => { (listeners[name] ||= []).push(listener); }, fire: name => (listeners[name] || []).forEach(listener => listener({})) });
+      const element=elements.get(id);
+      if(id==='phone-thread-log')Object.defineProperties(element,Object.getOwnPropertyDescriptors(messageNode()));
+      if(id==='phone-thread-log')element.ownerDocument={createElement:messageNode};
+      if(id==='phone-thread-scroll'){
+        let top=0;
+        element.clientHeight=180;
+        Object.defineProperties(element,{
+          scrollHeight:{get:()=>$('phone-thread-log').children.length*60},
+          scrollTop:{get:()=>top,set:value=>{top=Math.max(0,Math.min(value,element.scrollHeight-element.clientHeight));}},
+        });
+      }
     }
     return elements.get(id);
   };
@@ -52,12 +72,12 @@ test('the nearby list is the nearest first, narrowed by category and by what is 
 test('every part of the phone the game fills in is on the page', () => {
   const ids = ['phone', 'phone-clock', 'phone-title', 'phone-home', 'phone-nearby', 'phone-place', 'phone-contacts', 'phone-bank', 'phone-map-nearby', 'phone-app-settings', 'phone-app-contacts', 'phone-app-bank', 'phone-app-map', 'phone-app-messages', 'phone-app-camera', 'phone-messages', 'phone-thread', 'phone-call', 'phone-camera', 'phone-gallery', 'phone-photo', 'phone-messages-badge', 'phone-contact-message', 'phone-call-end', 'phone-thread-send', 'phone-thread-call', 'phone-shutter', 'phone-camera-flip', 'phone-camera-roll', 'phone-lens', 'phone-gallery-empty', 'phone-photo-delete',
     ...CATEGORIES.map(category => `phone-chip-${category.id}`), 'phone-search', 'phone-empty', 'phone-prev', 'phone-next', 'phone-page', 'phone-place-name', 'phone-place-kind', 'phone-place-note', 'phone-directions',
-    'phone-contact-mechanic', 'phone-bank-balance', 'phone-bank-savings', 'phone-bank-transfer', 'phone-back', 'phone-close', 'place-hint'];
+    'phone-contact-mechanic', 'phone-bank-balance', 'phone-bank-cash', 'phone-bank-locate', 'phone-back', 'phone-close', 'place-hint'];
   for (let i = 0; i < ROWS; i++) ids.push(`phone-row-${i}`, `phone-row-${i}-name`, `phone-row-${i}-note`);
   for (const id of ids) assert.equal(html.split(`id="${id}"`).length, 2, `${id} appears once`);
   for (const category of CATEGORIES) assert.match(html, new RegExp(`id="phone-chip-${category.id}">${category.label}<`));
   assert.match(html, /<section id="phone" class="phone" hidden/);
-  assert.match(html, /Open phone<\/span><kbd>↑<\/kbd>/);
+  assert.match(html, /Open phone<\/span><kbd>↑ \/ MIDDLE CLICK<\/kbd>/);
 });
 
 test('the phone opens on its home screen, lists what is nearby, and sends the player to a place', () => {
@@ -102,7 +122,7 @@ test('the phone opens on its home screen, lists what is nearby, and sends the pl
   phone.setOpen(true);
   assert.equal(phone.screen, 'home', 'it opens on the home screen again');
   click('phone-app-bank');
-  assert.deepEqual([$('phone-bank-balance').textContent, $('phone-bank-savings').textContent], ['$1,234.40', '$0']);
+  assert.deepEqual([$('phone-bank-cash').textContent, $('phone-bank-balance').textContent], ['$1,234.40', '$0']);
   click('phone-back'); click('phone-app-contacts'); click('phone-contact-mechanic'); assert.equal(phone.screen,'contact');click('phone-contact-call');
   assert.equal(phone.screen,'call');
   assert.equal($('phone-call-status').textContent,'Calling…');
@@ -174,16 +194,16 @@ test('bank transfers preserve total funds, reject invalid amounts and restore sa
   const {PhoneBank}=await import('../dist/phone-services.js');
   const bank=new PhoneBank(), sim={cash:30.25};
   bank.restore(null,sim.cash);
-  for(const bad of ['-4','0','7.123','Infinity','1000']) assert.ok(bank.transfer(sim,'save',bad,'Noon'));
-  assert.equal(bank.transfer(sim,'save','10.25','Noon'),'');
-  assert.equal(sim.cash,20);assert.equal(bank.savings,1025);
+  for(const bad of ['-4','0','7.123','Infinity','1000']) assert.ok(bank.transfer(sim,'deposit',bad,'Noon'));
+  assert.equal(bank.transfer(sim,'deposit','10.25','Noon'),'');
+  assert.equal(sim.cash,20);assert.equal(bank.checking,1025);
   const restored=new PhoneBank();restored.restore(JSON.parse(JSON.stringify(bank.record())),sim.cash);
-  assert.equal(restored.entries[0].amount,-1025);
+  assert.equal(restored.entries[0].amount,1025);
   assert.ok(restored.transfer(sim,'withdraw','10.26','1 PM'));
   assert.equal(restored.transfer(sim,'withdraw','2.15','1 PM'),'');
-  assert.equal(sim.cash,22.15);assert.equal(restored.savings,810);
+  assert.equal(sim.cash,22.15);assert.equal(restored.checking,810);
   sim.cash+=5;restored.sync(sim.cash,'2 PM');restored.sync(sim.cash,'2 PM');
-  assert.deepEqual(restored.entries.map(row=>row.amount),[500,215,-1025]);
+  assert.deepEqual(restored.entries.map(row=>row.amount),[500,-215,1025]);
 });
 
 test('D Ride passengers follow the dispatched driver, can hurry or stop early, and settle on drop-off', async()=>{
@@ -231,19 +251,19 @@ test('D Ride passengers follow the dispatched driver, can hurry or stop early, a
 
 test('stock orders settle the displayed price, retain remaining cost basis and survive reload',async()=>{
   const {PhoneBank}=await import('../dist/phone-services.js');
-  const {portfolio}=await import('../dist/market.js');
+  const {listingBySymbol,sharePrice}=await import('../dist/market.js');
   const bank=new PhoneBank(),sim={cash:100},time=12345678;
-  bank.restore(null,sim.cash);
-  const stock=portfolio({},time).stocks[0];
+  bank.restore({checking:10000},sim.cash);
+  const company=listingBySymbol.get('F'),stock={symbol:'F',price:sharePrice(company,time)};
   const trade=(side,count,price=stock.price,now=time)=>bank.trade(sim,stock.symbol,side,count,price,'Noon',now);
   assert.ok(trade('buy',0));assert.ok(trade('buy','1.2'));assert.ok(trade('buy',10000));assert.ok(trade('buy',1,stock.price+1));
   assert.equal(sim.cash,100);assert.equal(trade('buy',3),'');assert.ok(trade('sell',4));
   const saved=JSON.parse(JSON.stringify(bank.record()));bank.restore(saved,sim.cash);
-  const later=time+3600000,newPrice=portfolio(bank.holdings,later).stocks[0].price;
+  const later=time+3600000,newPrice=sharePrice(company,later);
   assert.notEqual(newPrice,stock.price);assert.equal(trade('sell',2,newPrice,later),'');
   assert.deepEqual(bank.holdings[stock.symbol],{shares:1,cost:stock.price});
   assert.equal(trade('sell',1,newPrice,later),'');assert.deepEqual(bank.holdings,{});
-  assert.equal(sim.cash,(10000+3*(newPrice-stock.price))/100);assert.equal(bank.entries.length,3);
+  assert.equal(sim.cash,100);assert.equal(bank.checking,10000+3*(newPrice-stock.price));assert.equal(bank.entries.length,3);
 });
 
 test('Settings remembers the wallpaper and Nearby belongs to Maps',()=>{
@@ -384,14 +404,14 @@ test('the Work board filters sectors, sorts pay, searches neighborhoods and show
 
 test('Bank investment screens place a whole-share order, update holdings and return to recent activity',async()=>{
   const {PhoneBank}=await import('../dist/phone-services.js');
-  const ui=page(), bank=new PhoneBank(),sim={cash:80};bank.restore(null,sim.cash);
+  const ui=page(), bank=new PhoneBank(),sim={cash:80};bank.restore({checking:8000},sim.cash);
   const phone=createPhone({$:ui.$,state:()=>({cash:sim.cash,bank:bank.record()}),onTrade:(...args)=>bank.trade(sim,...args,'Noon')});
-  phone.setOpen(true);ui.click('phone-app-bank');ui.click('phone-bank-invest');ui.click('phone-stock-BGL');
+  phone.setOpen(true);ui.click('phone-app-bank');ui.click('phone-bank-invest');ui.click('phone-quote-0');
   assert.equal(phone.screen,'order');assert.equal(ui.$('phone-order-sell').disabled,true);
-  ui.click('phone-order-buy');assert.equal(bank.holdings.BGL.shares,1);
+  ui.click('phone-order-buy');assert.equal(bank.holdings.F.shares,1);
   assert.match(ui.$('phone-order-position').textContent,/1 shares? held/);
-  ui.click('phone-back');assert.equal(phone.screen,'market');assert.match(ui.$('phone-stock-BGL-quote').textContent,/1 shares? held/);
-  ui.click('phone-back');assert.equal(phone.screen,'bank');assert.equal(ui.$('phone-activity-0-name').textContent,'Bought 1 BGL');
+  ui.click('phone-back');assert.equal(phone.screen,'market');assert.match(ui.$('phone-quote-0-name').textContent,/1 held/);
+  ui.click('phone-back');assert.equal(phone.screen,'bank');assert.equal(ui.$('phone-activity-0-name').textContent,'Bought 1 F');
 });
 
 function memory(){
@@ -401,6 +421,7 @@ function memory(){
 
 test('messages keep the mechanic thread, and a call can start from it',()=>{
   const {$,click}=page(), sent=[];
+  const bubble=index=>$('phone-thread-log').children[index];
   const storage=memory();
   const phone=createPhone({$,storage,state:()=>({clock:'3:10 PM'}),onMechanic:()=>sent.push('mechanic')});
   phone.setOpen(true);
@@ -413,13 +434,17 @@ test('messages keep the mechanic thread, and a call can start from it',()=>{
   click('phone-inbox-0');
   assert.equal(phone.screen,'thread');
   assert.equal($('phone-title').textContent,'Mechanic');
-  assert.match($('phone-bubble-0-text').textContent,/\$90/);
+  assert.match(bubble(0).children[1].textContent,/\$90/);
   assert.equal($('phone-messages-badge').hidden,true);
   $('phone-thread-draft').value='How much?';
   click('phone-thread-send');
-  assert.equal($('phone-bubble-1-who').textContent,'You · 3:10 PM');
-  assert.equal($('phone-bubble-1-text').textContent,'How much?');
-  assert.match($('phone-bubble-2-text').textContent,/Call-out is \$90/);
+  assert.equal(bubble(1).children[0].textContent,'You · 3:10 PM');
+  assert.equal(bubble(1).children[1].textContent,'How much?');
+  assert.equal($('phone-thread-typing').hidden,false);
+  phone.update(1);assert.equal(bubble(2),undefined);
+  phone.update(2);
+  assert.match(bubble(2).children[1].textContent,/Call-out is \$90/);
+  assert.equal($('phone-thread-typing').hidden,true);
   click('phone-thread-call');
   phone.update(4);phone.update(5.2);
   assert.equal(phone.screen,'call');
@@ -431,20 +456,119 @@ test('messages keep the mechanic thread, and a call can start from it',()=>{
   const again=page(), restored=createPhone({$:again.$,storage,state:()=>({clock:'3:11 PM'})});
   restored.setOpen(true);again.click('phone-app-messages');again.click('phone-inbox-0');
   assert.equal(again.$('phone-inbox-0').getAttribute('data-unread'),'false');
-  assert.equal(again.$('phone-bubble-1-text').textContent,'How much?');
+  assert.equal(again.$('phone-thread-log').children[1].children[1].textContent,'How much?');
+});
+
+test('texts use nearby places and a delayed message arrives after closing or restoring the phone',()=>{
+  const storage=memory();
+  let x=0;
+  const now=()=>({clock:'3:10 PM',hours:15,x,z:0});
+  const places=()=>[...around(),place('ANOTHER PIZZA', 'pizza', 230, 0)];
+  const ui=page(), phone=createPhone({$:ui.$,storage,places,state:now});
+  phone.setOpen(true);ui.click('phone-app-messages');ui.click('phone-inbox-1');
+  assert.equal(ui.$('phone-title').textContent,'Maya');
+  ui.$('phone-thread-draft').value='anywhere for pizza';
+  ui.click('phone-thread-send');
+  assert.equal(ui.$('phone-thread-typing').hidden,false);
+  phone.setOpen(false);
+  const restoredUI=page(), restored=createPhone({$:restoredUI.$,storage,places,state:now});
+  restored.update(2);restored.setOpen(true);restoredUI.click('phone-app-messages');
+  assert.equal(restoredUI.$('phone-inbox-0-name').textContent,'Maya');
+  assert.equal(restoredUI.$('phone-inbox-0').getAttribute('data-unread'),'true');
+  assert.match(restoredUI.$('phone-inbox-0-note').textContent,/RAYS/i);
+  x=200;
+  restoredUI.click('phone-inbox-0');restoredUI.$('phone-thread-draft').value='where';
+  restoredUI.click('phone-thread-send');restored.update(4);
+  const message=index=>restoredUI.$('phone-thread-log').children[index].children[1].textContent;
+  assert.match(message(4),/RAYS.*330 ft/i);
+  assert.notEqual(message(4),message(2));
+  restoredUI.$('phone-thread-draft').value='actually where can i get coffee';
+  restoredUI.click('phone-thread-send');restored.update(7);
+  assert.match(message(6),/THUMA/i);
+  restoredUI.$('phone-thread-draft').value='wya';
+  restoredUI.click('phone-thread-send');restored.update(9);
+  assert.match(message(8),/in brooklyn/i);
+  restoredUI.$('phone-thread-draft').value='where';
+  restoredUI.click('phone-thread-send');restored.update(11);
+  assert.equal(message(10),'where for what?');
+  restoredUI.$('phone-thread-draft').value='not hungry anymore';
+  restoredUI.click('phone-thread-send');restored.update(13);
+  assert.match(message(12),/^(all good|fair enough)$/);
+  restoredUI.$('phone-thread-draft').value='wanna grab pizza later?';
+  restoredUI.click('phone-thread-send');restored.update(15);
+  assert.match(message(14),/be down later/);
+  restoredUI.$('phone-thread-draft').value='im at work';
+  restoredUI.click('phone-thread-send');restored.update(17);
+  assert.equal(message(16),'what time are you off?');
+});
+
+test('a long text thread opens at the latest message and stays put while reading back',()=>{
+  const {$,click}=page(), storage=memory();
+  const rows=Array.from({length:16},(_,i)=>({who:i%2?'me':'them',text:'Text '+i}));
+  storage.setItem('nyc-phone-messages',JSON.stringify({maya:{rows,seen:rows.length},mechanic:{seen:1}}));
+  const phone=createPhone({$,storage});
+  phone.setOpen(true);click('phone-app-messages');click('phone-inbox-1');
+  const history=$('phone-thread-scroll'), log=$('phone-thread-log');
+  assert.equal(history.scrollTop,history.scrollHeight-history.clientHeight);
+  assert.equal(log.children.length,16);
+  assert.equal(log.firstElementChild.children[1].textContent,'Text 0');
+  $('phone-thread-draft').value='hey';
+  click('phone-thread-send');
+  assert.equal(history.scrollTop,history.scrollHeight-history.clientHeight);
+  history.scrollTop=60;
+  phone.update(2);
+  assert.equal(log.children.length,18);
+  assert.equal(history.scrollTop,60);
+  assert.equal($('phone-messages-badge').hidden,false);
+  history.scrollTop=history.scrollHeight;
+  history.fire('scroll');
+  assert.equal($('phone-messages-badge').hidden,true);
+  assert.doesNotMatch(html,/id="phone-thread-(?:prev|next|pager)"/);
+});
+
+test('Maya uses the recent transcript and game context for local generation and ignores a superseded reply',async()=>{
+  const {$,click}=page(), requests=[];
+  const generateMaya=(rows,context,signal)=>new Promise(resolve=>requests.push({rows,context,signal,resolve}));
+  const phone=createPhone({$,places:around,state:()=>({clock:'3:10 PM',hours:15,x:0,z:0,street:'Greene St'}),generateMaya});
+  const send=(text,time)=>{
+    $('phone-thread-draft').value=text;
+    click('phone-thread-send');phone.update(time);
+  };
+  const log=$('phone-thread-log'), text=()=>log.children.at(-1).children[1].textContent;
+  phone.setOpen(true);click('phone-app-messages');click('phone-inbox-1');
+  send('I missed the train.',2);
+  assert.equal(requests.length,1);
+  assert.equal(requests[0].rows[0].text,'hey you still in the city?');
+  assert.equal(requests[0].context.street,'Greene St');
+  assert.ok(requests[0].context.nearby.some(spot=>/rays/i.test(spot.name)));
+  send('Actually I caught it.',4);
+  assert.equal(requests[0].signal.aborted,true);
+  assert.equal(requests[1].rows.at(-1).text,'Actually I caught it.');
+  requests[0].resolve('take the next one');
+  requests[1].resolve('nice, did you get a seat?');
+  await new Promise(resolve=>setImmediate(resolve));
+  assert.equal(text(),'nice, did you get a seat?');
+  assert.equal(log.children.length,4);
+  assert.equal($('phone-thread-typing').hidden,true);
+  send('not hungry anymore',7);
+  requests[2].resolve('');
+  await new Promise(resolve=>setImmediate(resolve));
+  assert.match(text(),/^(all good|fair enough)$/);
 });
 
 test('the camera stores a street photo and a selfie, and deleting one leaves the other',async()=>{
-  const {$,click}=page(), storage=memory();
-  const phone=createPhone({$,storage,state:()=>({clock:'9:01 PM'}),onCapture:facing=>facing==='selfie'?'data:image/jpeg,selfie':'data:image/jpeg,street'});
+  const {$,click}=page(), storage=memory(), sounds=[];
+  const phone=createPhone({$,storage,state:()=>({clock:'9:01 PM'}),onSound:cue=>sounds.push(cue),onCapture:facing=>facing==='selfie'?'data:image/jpeg,selfie':'data:image/jpeg,street'});
   phone.setOpen(true);click('phone-app-camera');
   assert.deepEqual([phone.screen,phone.facing,$('phone-camera-status').textContent],['camera','rear','Rear camera']);
   click('phone-shutter');
   assert.equal($('phone-camera-status').textContent,'Saved.');
   click('phone-camera-flip');
   assert.equal(phone.facing,'selfie');
+  assert.equal($('phone-lens').getAttribute('data-facing'),'selfie');
   assert.equal($('phone-camera-status').textContent,'Front camera');
   click('phone-shutter');
+  assert.deepEqual(sounds,['phoneTap','phoneShutter','phoneTap','phoneShutter']);
   click('phone-camera-roll');
   assert.equal($('phone-shot-0-image').getAttribute('alt'),'Selfie');
   assert.equal($('phone-shot-1-image').getAttribute('src'),'data:image/jpeg,street');
@@ -497,4 +621,64 @@ test('third-person phone controls act immediately without reaching for the scree
   assert.equal(touch.reach(control),false);
   touch.press(control,null,()=>actions++);
   assert.equal(actions,1);assert.equal(touch.phase,'idle');
+});
+
+test('Maps pins open their own place and return to the map, and galleries match the branch',async()=>{
+  const {matchBranch,mapsURL}=await import('../dist/place-guide.js');
+  const catalog=JSON.parse(readFileSync(new URL('../dist/assets/phone/places/guide.json',import.meta.url)));
+  const katz=place("KATZ'S DELICATESSEN",'kosher',1197,111);
+  const other=place(katz.name,'kosher',1521,3633);
+  assert.equal(matchBranch(katz,catalog).photos.length,3);
+  assert.equal(matchBranch(other,catalog),null);
+  assert.equal(matchBranch({...katz,name:''},catalog),null);
+  const url=new URL(mapsURL(katz,matchBranch(katz,catalog).address));
+  assert.match(url.searchParams.get('query'),/205 East Houston/);
+  const ui=page(),phone=createPhone({$:ui.$,places:()=>[katz,other],state:()=>({x:1195,z:112,hours:12})});
+  phone.toggle();ui.click('phone-app-map');ui.click('map-pin-0');
+  assert.equal(ui.$('phone-place-name').textContent,katz.name);
+  ui.click('phone-back');assert.equal(phone.screen,'maps');
+});
+
+test('total money spans midnight, includes stock moves and survives a clock restart', async () => {
+  const {PhoneBank}=await import('../dist/phone-services.js');
+  const {listingBySymbol,sharePrice}=await import('../dist/market.js');
+  const sim={cash:90,rideHoldCents:3000}, bank=new PhoneBank();
+  bank.restore({savings:1000},sim.cash);
+  const time=12345678, company=listingBySymbol.get('F'), price=sharePrice(company,time);
+  bank.sampleBalance(sim.cash,23.5,time);
+  assert.ok(bank.transfer(sim,'deposit','61',''));
+  assert.equal(bank.transfer(sim,'deposit','40',''),'');
+  assert.equal(bank.trade(sim,'F','buy',1,price,'',time),'');
+  bank.sampleBalance(sim.cash,0,time);
+  assert.deepEqual(bank.history,[[0,10000],[30,10000]]);
+  const later=time+3600000, newValue=10000+sharePrice(company,later)-price;
+  bank.sampleBalance(sim.cash,.5,later);
+  assert.deepEqual(bank.history.at(-1),[60,newValue]);
+  const copy=new PhoneBank();copy.restore(JSON.parse(JSON.stringify(bank.record())),sim.cash);
+  copy.sampleBalance(sim.cash,12,later);
+  assert.deepEqual(copy.history,bank.history);
+  copy.sampleBalance(sim.cash,18,later);
+  assert.equal(copy.history[0][0],60);
+});
+
+test('index details lead to a tracking fund or a searchable member list, and legacy BGL remains sellable', async () => {
+  const {PhoneBank}=await import('../dist/phone-services.js');
+  const {listingBySymbol,sharePrice}=await import('../dist/market.js');
+  const bank=new PhoneBank(), sim={cash:20};
+  bank.restore({savings:100000,holdings:{BGL:{shares:2,cost:1600}}},sim.cash);
+  const old=listingBySymbol.get('BGL.OLD'), price=sharePrice(old,0);
+  assert.equal(bank.holdings.BGL,undefined);
+  assert.match(bank.trade(sim,old.symbol,'buy',1,price,'',0),/legacy/);
+  assert.equal(bank.trade(sim,old.symbol,'sell',2,price,'',0),'');
+  const ui=page(),phone=createPhone({$:ui.$,state:()=>({cash:sim.cash,bank:bank.record()}),onTrade:(...args)=>bank.trade(sim,...args,'')});
+  phone.setOpen(true);ui.click('phone-app-stocks');
+  ui.click('phone-index-2');assert.equal(ui.$('phone-stock-ticket').hidden,true);
+  ui.click('phone-index-browse');
+  const search=ui.$('phone-market-search');
+  search.value='MSFT';search.fire('input');
+  assert.equal(ui.$('phone-quote-0-symbol').textContent,'MSFT');
+  search.value='NOT-A-SYMBOL';search.fire('input');assert.equal(ui.$('phone-holdings-empty').hidden,false);
+  ui.click('phone-index-1');ui.click('phone-index-fund');
+  assert.equal(ui.$('phone-order-symbol').textContent,'SPY');ui.click('phone-order-buy');
+  assert.equal(bank.holdings.SPY.shares,1);assert.equal(sim.cash,20);
 });

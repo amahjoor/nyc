@@ -83,9 +83,7 @@ export function createPhoneHand(roomLayer, viewLayer, handset) {
     const weight=bend*bend*(3-2*bend);
     const x=THREE.MathUtils.lerp(.032,shownX*.076,weight);
     const y=THREE.MathUtils.lerp(-.035,shownY*.144,weight);
-    palm.position.set(-.023+.25*(x-.032),-.043+.75*(y+.035),-.025);
-    // Lead distant buttons with the wrist. The pad descends onto the
-    // glass while the four supporting fingers keep their grip.
+    palm.position.copy(grip.position);
     overlayHand.reachThumb(point.set(x,y,.011+.009*(1-weight)));
     overlay.render(stage,lens);
     return true;
