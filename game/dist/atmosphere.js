@@ -237,7 +237,9 @@ export function skyState(hours) {
   // Exposure follows the light the way a camera operator would.
   // A low sun leaves most of a street in shade, so the lens stays open until the sun is well up.
   const day = smoothstep(-2, 24, sunElevation);
-  state.exposure = mix(mix(5.2, 2.1, smoothstep(-12, -2, sunElevation)), .84, day);
+  // Not all the way: at night the lens is held where lamps, windows and headlights are what is seen, and what they do
+  // not reach is left dark. Opened further, a street at eleven looked like the same street on an overcast afternoon.
+  state.exposure = mix(mix(3.0, 2.0, smoothstep(-12, -2, sunElevation)), .84, day);
   state.starVisibility = smoothstep(-4, -12, sunElevation);
   return state;
 }
