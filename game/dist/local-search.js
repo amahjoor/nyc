@@ -23,6 +23,14 @@ const ALSO = [['AVE OF THE AMERICAS', '6 AVE'], ['AVE OF AMERICAS', '6 AVE'], ['
 export const BOROUGH_NAMES = ['', 'Manhattan', 'Bronx', 'Brooklyn', 'Queens', 'Staten Island'];
 const BOROUGH_WORDS = [[/\b(MANHATTAN|NEW YORK CITY|NEW YORK|NYC|NY)\s*$/, 1], [/\b(THE BRONX|BRONX|BX)\s*$/, 2], [/\b(BROOKLYN|BKLYN|BK)\s*$/, 3], [/\b(QUEENS|QNS)\s*$/, 4], [/\b(STATEN ISLAND|SI)\s*$/, 5]];
 
+const TRADE_QUERIES = new Map(Object.entries({
+  'Basketball Court': ['BASKETBALL', 'BASKETBALL COURT', 'BASKETBALL COURTS'],
+  'Soccer Field': ['SOCCER', 'SOCCER FIELD', 'SOCCER FIELDS', 'SOCCER PITCH'],
+  Club: ['CLUB', 'CLUBS', 'NIGHTCLUB', 'NIGHTCLUBS'], Pub: ['PUB', 'PUBS'], Bar: ['BAR', 'BARS'],
+  'Copies and Shipping': ['COPY SHOP', 'PRINT SHOP'], Tailor: ['TAILOR', 'TAILORS'],
+  'Auto Repair': ['AUTO REPAIR', 'REPAIR SHOP'], 'Auto Body': ['AUTO BODY', 'BODY SHOP'],
+}).flatMap(([kind, queries]) => queries.map(query => [query, kind])));
+
 const plain = text => String(text ?? '').normalize('NFD').replace(/[̀-ͯ]/g, '').toUpperCase().replace(/['’`]/g, '').replace(/[^A-Z0-9&@/+]+/g, ' ').replace(/\s+/g, ' ').trim();
 
 /** Match the city's named arrival points, preserving their coordinates and travel options. */
@@ -221,6 +229,7 @@ export function createPlaceIndex(data = null) {
     search(text, { borough = 0, near = null, limit = 6 } = {}) {
       const asked = plain(text).split(' ').filter(word => word && !/^[&@/+]$/.test(word)), whole = asked.join(' ');
       if (!whole || whole.length < 2) return [];
+      const kindQuery = TRADE_QUERIES.get(whole);
       const lifeTime = /^LIFE ?TIME(?: FITNESS)?$/.test(whole);
       const found = [];
       for (const place of places) {
@@ -228,7 +237,8 @@ export function createPlaceIndex(data = null) {
         const name = place.words.join(' ');
         let score = 0;
         // The mapped clubs use both spellings, and some share a name with their café.
-        if (lifeTime && place.kind === 'Gym' && /^LIFE ?TIME(?: FITNESS)?$/.test(name)) score = 6;
+        if (kindQuery === place.kind) score = 5;
+        else if (lifeTime && place.kind === 'Gym' && /^LIFE ?TIME(?: FITNESS)?$/.test(name)) score = 6;
         else if (name === whole) score = 5;
         else if (name.startsWith(`${whole} `)) score = 4;
         else if (asked.every((word, i) => place.words.some(own => own === word || (word.length >= (i === asked.length - 1 ? 2 : 3) && own.startsWith(word))))) score = name.startsWith(asked[0]) ? 3 : 2;

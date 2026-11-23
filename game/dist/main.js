@@ -1,3 +1,4 @@
+import { createSportsCourts, addCourtPlaces } from './sports-courts.js';
 import { renderStats, performanceName } from './vehicle-stats.js';
 import { createDoorDebris, hasAlteredGlazing } from './vehicle-detail.js';
 import { updateChaseHeight } from './vehicle-presentation.js';
@@ -235,7 +236,17 @@ let landscape=null, landscapeRevision=0, landscapeDirty=false, landscapeManifest
 // The opening shot: a slow sweep around the Financial District from the harbor.
 const INTRO={x:-420,z:1760,radius:2700,height:150,aim:150,aside:620,bearing:-.82,sweep:.38};
 let introTime=0;
-let centralPark=null, statue=null;
+let centralPark=null, statue=null, sportsCourts=null, courtData=null;
+function loadCourts() {
+  courtData ||= loadData('courts.json').then(({ courts }) => {
+    sportsCourts = createSportsCourts(courts, { scene, heightAt: groundHeight, physics: sim.streetObjects });
+    return courts;
+  }).catch(error => {
+    courtData = null;
+    throw error;
+  });
+  return courtData;
+}
 const terrainHeight=(x,z)=>landscape?.sampleHeight(x,z)??0;
 // Where actors stand: the bare terrain plus the street surface laid on it.
 const groundHeight=(x,z)=>terrainHeight(x,z)+(streetscape?.offsetAt(x,z)||0);
@@ -1975,6 +1986,7 @@ function frame(now) {
   world.setLocalOrthophoto(ground.localOrthophoto);
   landscape?.setLocalOrthophoto(ground.localOrthophoto);
   landscape?.update(sim.player,{overview:cityView||!started});
+  sportsCourts?.update(sim.player, started && !cityView && !aloft, landscapeRevision + laneSurfaceRevision);
   centralPark?.update(sim.player,{overview:cityView||!started,eye:camera.position});
   (statue||=createStatueOfLiberty({scene,heightAt:terrainHeight})).update(camera.position);
   streetDetail?.setLocalOrthophoto(ground.localOrthophoto);
@@ -2416,10 +2428,11 @@ let streetIndex=null, placeIndex=null, placeIndexReady=null;
 // Search, map layers and recovery share one citywide list of places.
 function loadPlaceNames(){
   const read=file=>fetch('./'+file,{signal:AbortSignal.timeout(30000)}).then(response=>response.ok?response.json():null);
-  placeIndexReady||=Promise.all([read('place-names.json'),read('landmarks.json').catch(()=>null)]).then(([data,named])=>{
+  placeIndexReady||=Promise.all([read('place-names.json'),read('landmarks.json').catch(()=>null),loadCourts().catch(()=>[])]).then(([data,named,courts])=>{
     if(!data)throw new Error('The citywide places could not load.');
     // The city's individual landmarks are searched and mapped by name with everything else.
     if(named){const kind=data.kinds.length;data.kinds.push('Landmark');for(const [name,x,z] of named.landmarks)data.places.push([name,x,z,kind,0]);}
+    addCourtPlaces(data, courts);
     placeIndex=createPlaceIndex(data);gameMap?.setPlaces(createPlaceLayer(data));
   }).catch(()=>{placeIndexReady=null;});
   return placeIndexReady;
@@ -2696,6 +2709,7 @@ async function boot() {
   // on foot. Without them the model answers alone and nothing is lost but detail.
   const signalHints=(x,z)=>({...cityLife.hintsAt(x,z),core:manhattanCore(x,z)});
   sim.setActiveCity({signalHints});
+  loadCourts().catch(error => console.warn('Court data unavailable', error));
   props=createStreetProps({scene,physics:sim.streetObjects,heightAt:groundHeight});
   storefronts=createStorefronts({scene,roomFor,floorFor,physics:sim.streetObjects,
     groundAt:(x,z)=>roadPilot?.sampleSurface(x,z,{kind:'ground'})?.elevation??groundHeight(x,z),

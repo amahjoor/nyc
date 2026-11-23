@@ -207,7 +207,7 @@ The 1,439 individual landmarks are also kept by name (`dist/landmarks.json`): th
 
 ## What is where, on the map
 
-Open the street map with **M**. The right-hand **Map key** toggles transit, bike lanes, nearby walk-in doors, and citywide categories including businesses, landmarks. Hover or focus a category and press **← / →**, or click its arrows, to center each location and see its number and name. Click the name or its marker to pin it for directions or spawning. Every enabled place stays at its own coordinates through the five-borough view. Markers shrink beyond 1.4 km across, and names appear at block level where they fit.
+Open the street map with **M**. The right-hand **Map key** toggles transit, bike lanes, nearby walk-in doors, and citywide categories including businesses, landmarks, and 1,154 basketball courts and 97 soccer fields. Hover or focus a category and press **← / →**, or click its arrows, to center each location and see its number and name. Click the name or its marker to pin it for directions or spawning. Every enabled place stays at its own coordinates through the five-borough view. Markers shrink beyond 1.4 km across, and names appear at block level where they fit.
 
 ## Shops the registers do not list
 
@@ -277,6 +277,8 @@ Raised shop doors have a level landing and steps fitted to the slope of the side
 Walk into the glazed door of an open shop to push it inward, or walk back through it to push it outward. The room and its occupants are visible through the shop windows as you approach. No register holds the inside of a shop: `interiors.js` lays the room out. It is as wide as the place's street front (nine metres at most) and as deep as the building behind the door allows (twelve at most), and furnished in the manner of the kind of place. A pizzeria has deck ovens and pies under glass, a jeweller has lit display cases, and a florist has buckets of cut flowers. Over nine in ten enterable places have a layout for their trade. The layouts are generated interpretations of the mapped businesses.
 
 Auto repair and body shops have walk-in service counters, tool chests and displays of wheels or paint finishes. Stop outside in a vehicle for garage work. Tailors have a sewing bench, garment rail and fitting booth. Copy and shipping shops have copiers, mailing supplies and a staffed print counter. Bars and pubs serve from draft taps, with booths opposite the counter. Clubs have a DJ booth, speaker cabinets and a dance floor. With game audio enabled, a house beat plays inside.
+
+Open **M → Courts & Fields**, or search for **basketball** or **soccer** to find a nearby playing area. Grand Canal Court and James J Walker Park are close to SoHo. The game fits painted courts, hoops and goals inside the city's surveyed park footprints. Equipment positions and markings are generated. [NYC Planimetric Database, Open Space (Parks)](https://data.cityofnewyork.us/d/y6ja-fw4f)
 
 Planet Fitness has purple cardio lanes and cable stations. Equinox has a strength floor with dumbbell racks and benches. Life Time has lounge seating, towels and wood-framed reformers. Named yoga, Pilates and cycling studios get their own equipment. Members jog on occupied treadmills. Laundromats have front-loading washers, stacked dryers and, where space allows, folding tables and soap dispensers. Post offices have PO boxes, parcel drops and a staffed mailing counter.
 

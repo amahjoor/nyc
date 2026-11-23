@@ -19,6 +19,7 @@ export const MAP_CATEGORIES = [
   { id: 'stay', label: 'HOTELS & SHOWS', colour: '#ffd27a', groups: ['hotel'] },
   { id: 'public', label: 'SCHOOLS & PUBLIC', colour: '#8fa0ff', groups: ['public'] },
   { id: 'shops', label: 'OTHER SHOPS', colour: '#d0d9d5', groups: ['shop', 'stand'] },
+  { id: 'courts', label: 'COURTS & FIELDS', colour: '#72c69c', labels: ['Basketball Court', 'Soccer Field'] },
   // Not a kind of business: the city's individual landmarks, by name (landmarks.json).
   { id: 'landmark', label: 'LANDMARKS', colour: '#ffffff', labels: ['Landmark'] },
 ];
