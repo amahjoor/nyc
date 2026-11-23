@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import * as THREE from '../dist/vendor/three.module.min.js';
-import { AERIAL_SERVICE, CITY_ORIGIN, NYC_BBOX, geographicToWorld, worldToGeographic, tileForPoint, tileBounds, overviewTiles, createCityGround } from '../dist/city-ground.js';
+import { AERIAL_SERVICE, CITY_ORIGIN, NYC_BBOX, geographicToWorld, worldToGeographic, tileForPoint, tileBounds, overviewTiles, atlasZoomFor, createCityGround } from '../dist/city-ground.js';
 
 const boroughs = [
   ['Manhattan', -74.0015, 40.7235], ['Brooklyn', -73.9779, 40.6842],
@@ -374,4 +374,76 @@ test('timed-out image requests are aborted before replacement requests start', t
   assert.ok(f.maxActive <= 6);
   f.drain();
   assert.equal(f.ground.getStatus().loading, 0);
+});
+
+test('the close atlas is painted from the zoom that suits the height it is seen from', t => {
+  // On the street and over a block, the finest; a neighbourhood and a borough's width, coarser and wider.
+  assert.deepEqual([0, 1.7, 157, 683, 2940, 9000, NaN].map(height => atlasZoomFor(height)), [19, 19, 19, 17, 15, 14, 19]);
+  for (let height = 0, previous = 19; height < 60000; height += 37) {
+    const zoom = atlasZoomFor(height), tile = tileBounds(0, 0, zoom), across = (tile.maxX - tile.minX) * 9;
+    assert.ok(zoom <= previous && zoom >= 13); previous = zoom;
+    // Nine tiles reach across a picture one and three quarter times as wide as the camera is high, with room to stand off-centre.
+    if (zoom > 13) assert.ok(across >= 1.8 * height + 120, `${height} m: zoom ${zoom} spans ${across.toFixed(0)} m`);
+  }
+  const f = fixture(t);f.drain();
+  const here = { x: 300, z: -200 }, geo = worldToGeographic(here.x, here.z);
+  f.ground.update(here, { zoom: 15 });f.drain();
+  const shown = f.ground.group.children.slice(1).filter(mesh => mesh.visible), centre = tileForPoint(geo.lon, geo.lat, 15);
+  assert.equal(shown.length, 81);
+  assert.ok(shown.every(mesh => mesh.material.map.image.src.startsWith(`${AERIAL_SERVICE}/tile/15/`)));
+  // The atlas says where it lies and how it is projected, as it does at any zoom: nine tiles around the place.
+  const { bounds, mercator } = f.ground.localOrthophoto, nw = tileBounds(centre.column - 4, centre.row - 4, 15), se = tileBounds(centre.column + 4, centre.row + 4, 15);
+  close(bounds.minX, nw.minX);close(bounds.maxX, se.maxX);close(bounds.minZ, nw.minZ);close(bounds.maxZ, se.maxZ);
+  close(mercator.north, Math.PI * (1 - 2 * (centre.row - 4) / 2 ** 15));close(mercator.south, Math.PI * (1 - 2 * (centre.row + 5) / 2 ** 15));
+  assert.ok(bounds.maxX - bounds.minX > 8000 && bounds.maxX - bounds.minX < 8700);
+  const atlas = f.contexts.at(-1);
+  assert.equal(atlas.cells.size, 81);assert.ok(atlas.cells.get('4,4').endsWith(`/15/${centre.row}/${centre.column}`));
+  // Back on the street: the same place at the finest zoom, and only that zoom on show.
+  f.ground.update(here);f.drain();
+  const street = f.ground.group.children.slice(1).filter(mesh => mesh.visible);
+  assert.equal(street.length, 81);assert.ok(street.every(mesh => mesh.material.map.image.src.startsWith(`${AERIAL_SERVICE}/tile/19/`)));
+  assert.ok([...atlas.cells.values()].every(src => src.includes('/tile/19/')), 'the atlas holds one zoom at a time');
+  assert.ok(f.ground.localOrthophoto.bounds.maxX - f.ground.localOrthophoto.bounds.minX < 600);
+});
+
+test('imagery fetched ahead is kept unseen, makes the change of zoom a single repaint, and is let go afterwards', async t => {
+  const f = fixture(t);f.drain();
+  const here = { x: 300, z: -200 }, there = { x: 9000, z: 4000 };
+  f.ground.update(here, { overview: true });
+  assert.equal(f.ground.has(there, 15), false);
+  let result = null;
+  const prepared = f.ground.prepare(there, [15, 17, 19]).then(value => { result = value; });
+  assert.equal(f.pending().length, 6, 'no more requests at once than ever');
+  // The map goes on being looked at while the place loads: nothing fetched ahead is cancelled or dropped.
+  f.ground.update({ x: 5000, z: 5000 }, { overview: true });f.ground.update(here, { overview: true });
+  f.drain();await prepared;
+  assert.deepEqual(result, { ready: true, tiles: 243, loaded: 243 });
+  assert.ok(f.maxActive <= 6);
+  assert.ok([15, 17, 19].every(zoom => f.ground.has(there, zoom)) && !f.ground.has(there, 16) && !f.ground.has(here, 15));
+  assert.equal(f.ground.group.children.slice(1).filter(mesh => mesh.visible).length, 0, 'none of it on show over the map');
+  assert.equal(f.ground.getStatus().loading, 0);
+  // Coming down on the place: each zoom in turn is on show at once, with nothing to wait for.
+  const atlas = f.contexts.at(-1), images = f.images.length;
+  for (const zoom of [15, 17, 19]) {
+    f.ground.update(there, { zoom });
+    assert.equal(f.pending().length, 0);assert.equal(atlas.cells.size, 81);
+    assert.ok([...atlas.cells.values()].every(src => src.includes(`/tile/${zoom}/`)));
+    assert.equal(f.ground.group.children.slice(1).filter(mesh => mesh.visible).length, 81);
+  }
+  assert.equal(f.images.length, images, 'no tile asked for twice');
+  // Let go: what is on show stays, the rest is trimmed to the usual bound.
+  f.ground.release();
+  assert.ok(f.ground.getStatus().cached <= 128);assert.equal(f.ground.group.children.slice(1).filter(mesh => mesh.visible).length, 81);
+  assert.ok(f.ground.has(there, 19));
+  // Imagery that cannot be had does not hold a traveller up: it reports what it got.
+  const far = { x: -9000, z: 9000 };let partial = null;
+  const failing = f.ground.prepare(far, [17]).then(value => { partial = value; });
+  // (Two tiles that fail however often they are asked for; each is tried twice.)
+  const bad = new Set();f.drain(image => { if (bad.size < 2) bad.add(image.src); if (bad.has(image.src)) image.fail(); else image.succeed(); });
+  await failing;
+  assert.deepEqual(partial, { ready: false, tiles: 81, loaded: 79 });assert.ok(f.ground.has(far, 17), 'known to be unavailable counts as settled');
+  // And one that never answers is given up on.
+  let slow = null;const waiting = f.ground.prepare({ x: -15000, z: -9000 }, [15], 20).then(value => { slow = value; });
+  await waiting;assert.equal(slow.ready, false);assert.equal(slow.tiles, 81);
+  f.ground.release();assert.equal(f.pending().length, 0, 'what nobody is waiting for is not fetched');
 });

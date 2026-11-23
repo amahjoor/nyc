@@ -21,6 +21,17 @@ export function tileBounds(column, row, zoom, origin = CITY_ORIGIN) {
   const nw = corner(column, row), se = corner(column + 1, row + 1);
   return { minX: nw.x, maxX: se.x, minZ: nw.z, maxZ: se.z };
 }
+/**
+ * Which zoom of the aerial survey the close atlas should be painted from for a camera `height` metres up:
+ * the sharpest whose nine tiles across still cover what is on screen from there. On the street that is
+ * the finest there is, six centimetres a pixel over a few blocks; from three kilometres, a borough's
+ * width at a few metres a pixel.
+ */
+export function atlasZoomFor(height, origin = CITY_ORIGIN) {
+  const across = 1.8 * Math.max(0, Number.isFinite(height) ? height : 0) + 120;
+  const finest = 2 * Math.PI * R * Math.cos(origin.lat * Math.PI / 180) * LOCAL_GRID / across;
+  return Math.min(LOCAL_ZOOM, Math.max(13, Math.floor(Math.log2(finest))));
+}
 export function overviewTiles(bbox = NYC_BBOX, zoom = 12) {
   const nw = tileForPoint(bbox[0], bbox[3], zoom), se = tileForPoint(bbox[2], bbox[1], zoom);
   const tiles = [];
@@ -114,18 +125,26 @@ export function createCityGround({ scene, renderer = null, origin = CITY_ORIGIN,
   const localOrthophoto = { texture: localTexture, bounds: { minX: 0, maxX: 0, minZ: 0, maxZ: 0 }, mercator: {
     north: 0, south: 0, originLat: origin.lat*Math.PI/180, radius: R,
   } };
-  let localColumn = 0, localRow = 0;
-  const cache = new Map(), queue = [], desired = new Set(), requests = new Set();
+  let localColumn = 0, localRow = 0, localZoom = LOCAL_ZOOM;
+  // `held` are tiles fetched ahead for a view that is on its way (prepare): kept whether or not they are on show.
+  const cache = new Map(), queue = [], desired = new Set(), requests = new Set(), held = new Set(), waiters = new Set();
+  const tileKey = (zoom, column, row) => `${zoom}/${column},${row}`;
+  const keep = key => desired.has(key) || held.has(key);
   let disposed = false, generation = 0, coarseLoaded = 0, failures = 0, currentCell = '', overview = false;
   const status = () => ({ loading: requests.size + queue.length,
     loaded: coarseLoaded + [...cache.values()].filter(entry => entry.mesh).length,
     cached: cache.size, active: requests.size, failures });
-  const report = () => { if (!disposed) onStatus(status()); };
-  const wanted = job => !job.key || (desired.has(job.key) && cache.get(job.key) === job.entry);
+  const report = () => {
+    if (disposed) return;
+    for (const waiter of [...waiters]) if (waiter.entries.every(entry => entry.mesh || entry.failed)) waiter.finish();
+    onStatus(status());
+  };
+  const wanted = job => !job.key || (keep(job.key) && cache.get(job.key) === job.entry);
   function pump() {
     // Reorder only local slots. Coarse coverage keeps its existing queue order,
     // while both newly queued and retried detail requests follow today's focus.
-    const distance = job => (job.column - localColumn - LOCAL_RADIUS) ** 2 + (job.row - localRow - LOCAL_RADIUS) ** 2;
+    // (A tile of another zoom is measured in the atlas's own tiles.)
+    const distance = job => { const scale = 2 ** (localZoom - job.zoom); return ((job.column + .5) * scale - localColumn - LOCAL_RADIUS - .5) ** 2 + ((job.row + .5) * scale - localRow - LOCAL_RADIUS - .5) ** 2; };
     const localJobs = queue.filter(job => job.key).sort((a, b) => distance(a) - distance(b));
     let localIndex = 0;
     for (let i = 0; i < queue.length; i++) if (queue[i].key) queue[i] = localJobs[localIndex++];
@@ -176,22 +195,22 @@ export function createCityGround({ scene, renderer = null, origin = CITY_ORIGIN,
     if (!entry.mesh) return;
     group.remove(entry.mesh);entry.mesh.geometry.dispose();entry.mesh.material.map.dispose();entry.mesh.material.dispose();
   }
-  function paintLocal(column, row, map) {
+  function paintLocal(zoom, column, row, map) {
     // A surviving request can finish after the atlas moves by one tile. Its
     // source coordinates, not its old canvas offset, determine where it belongs.
-    if (disposed || !desired.has(`${column},${row}`)) return;
+    if (disposed || zoom !== localZoom || !desired.has(tileKey(zoom, column, row))) return;
     const x = column - localColumn, y = row - localRow;
     if (x < 0 || x >= LOCAL_GRID || y < 0 || y >= LOCAL_GRID) return;
     if (painter) painter.paint([{ x, y, map }], false);
     else { localContext.drawImage(map.image, x * 256, y * 256, 256, 256);localTexture.needsUpdate = true; }
   }
   function recenterLocal(tile) {
-    localColumn = tile.column - LOCAL_RADIUS;localRow = tile.row - LOCAL_RADIUS;
-    const nw = tileBounds(localColumn, localRow, LOCAL_ZOOM, origin);
-    const se = tileBounds(localColumn + LOCAL_GRID - 1, localRow + LOCAL_GRID - 1, LOCAL_ZOOM, origin);
+    localColumn = tile.column - LOCAL_RADIUS;localRow = tile.row - LOCAL_RADIUS;localZoom = tile.zoom;
+    const nw = tileBounds(localColumn, localRow, localZoom, origin);
+    const se = tileBounds(localColumn + LOCAL_GRID - 1, localRow + LOCAL_GRID - 1, localZoom, origin);
     Object.assign(localOrthophoto.bounds, { minX: nw.minX, maxX: se.maxX, minZ: nw.minZ, maxZ: se.maxZ });
-    localOrthophoto.mercator.north = Math.PI * (1 - 2 * localRow / 2 ** LOCAL_ZOOM);
-    localOrthophoto.mercator.south = Math.PI * (1 - 2 * (localRow + LOCAL_GRID) / 2 ** LOCAL_ZOOM);
+    localOrthophoto.mercator.north = Math.PI * (1 - 2 * localRow / 2 ** localZoom);
+    localOrthophoto.mercator.south = Math.PI * (1 - 2 * (localRow + LOCAL_GRID) / 2 ** localZoom);
     // Transparency is coverage metadata for roof/street sampling. Never fill
     // missing cells with a guessed color or imagery from the previous location.
     if (painter) {
@@ -200,8 +219,7 @@ export function createCityGround({ scene, renderer = null, origin = CITY_ORIGIN,
       for (const key of desired) {
         const entry = cache.get(key);
         if (!entry?.mesh) continue;
-        const [column, row] = key.split(',').map(Number);
-        tiles.push({ x: column - localColumn, y: row - localRow, map: entry.mesh.material.map });
+        tiles.push({ x: entry.column - localColumn, y: entry.row - localRow, map: entry.mesh.material.map });
       }
       painter.paint(tiles, true);
       return;
@@ -209,27 +227,52 @@ export function createCityGround({ scene, renderer = null, origin = CITY_ORIGIN,
     localContext.clearRect(0, 0, localCanvas.width, localCanvas.height);
     for (const key of desired) {
       const entry = cache.get(key);
-      if (entry?.mesh) {
-        const [column, row] = key.split(',').map(Number);
-        paintLocal(column, row, entry.mesh.material.map);
-      }
+      if (entry?.mesh) paintLocal(entry.zoom, entry.column, entry.row, entry.mesh.material.map);
     }
     localTexture.needsUpdate = true;
   }
-  function enqueue(column, row, tileKey, entry) {
+  function enqueue(key, entry) {
+    const { zoom, column, row } = entry;
     entry.failed = false;
-    queue.push({ key: tileKey, entry, column, row, zoom: LOCAL_ZOOM, complete(image) {
+    queue.push({ key, entry, column, row, zoom, complete(image) {
       // Ownership matters after a rapid departure and return to the same key:
       // an older request must not attach a mesh to its replacement cache entry.
-      if (cache.get(tileKey) !== entry) return;
+      if (cache.get(key) !== entry) return;
       const map = new THREE.Texture(image);map.colorSpace = THREE.SRGBColorSpace;map.anisotropy = 4;map.needsUpdate = true;
-      entry.mesh = plane(tileBounds(column, row, LOCAL_ZOOM, origin), -.035,
+      entry.mesh = plane(tileBounds(column, row, zoom, origin), -.035,
         new THREE.MeshStandardMaterial({ map, color: 0xffffff, roughness: 1, side: THREE.DoubleSide, depthWrite: false }));
       stairOpenings?.clip(entry.mesh.material);
       entry.mesh.renderOrder = -10;entry.mesh.receiveShadow = true;
-      entry.mesh.visible = desired.has(tileKey);group.add(entry.mesh);
-      paintLocal(column, row, map);
+      entry.mesh.visible = desired.has(key);group.add(entry.mesh);
+      paintLocal(zoom, column, row, map);
     } });
+  }
+  // The nine-by-nine block of tiles around a point at one zoom, each fetched if it is not already here.
+  function block(point, zoom, each) {
+    const geo = worldToGeographic(point.x, point.z, origin), tile = tileForPoint(geo.lon, geo.lat, zoom);
+    for (let row = tile.row - LOCAL_RADIUS; row <= tile.row + LOCAL_RADIUS; row++) for (let column = tile.column - LOCAL_RADIUS; column <= tile.column + LOCAL_RADIUS; column++) {
+      const key = tileKey(zoom, column, row);
+      let entry = cache.get(key);
+      if (!entry) { entry = { last: generation, mesh: null, zoom, column, row };cache.set(key, entry);enqueue(key, entry); }
+      else if (entry.failed && entry.retryAt <= now()) enqueue(key, entry);
+      each(key, entry);
+    }
+    return tile;
+  }
+  // Drop what nothing wants: pending work first, then the least recently shown imagery beyond what backtracking needs.
+  function trim() {
+    // Cancel obsolete pending work before trimming resident imagery. Pending
+    // entries count toward the limit too, even if the network is stalled.
+    for (const [key, entry] of cache) if (!keep(key) && !entry.mesh) cache.delete(key);
+    for (let i = queue.length - 1; i >= 0; i--) if (!wanted(queue[i])) queue.splice(i, 1);
+    for (const request of [...requests]) if (!wanted(request.job)) request.cancel();
+    // Bound memory while preserving recently visited imagery for backtracking.
+    for (const [key, entry] of cache) if (entry.mesh) entry.mesh.visible = desired.has(key);
+    for (const [key, entry] of [...cache].sort((a, b) => a[1].last - b[1].last)) {
+      if (cache.size <= 128 + held.size) break;
+      if (keep(key)) continue;
+      release(entry);cache.delete(key);
+    }
   }
   return {
     get localOrthophoto() { return localOrthophoto; },
@@ -237,42 +280,60 @@ export function createCityGround({ scene, renderer = null, origin = CITY_ORIGIN,
       north: Math.PI*(1-2*first.row/4096), south: Math.PI*(1-2*(last.row+1)/4096),
       originLat: origin.lat*Math.PI/180, radius: R,
     } },
-    update(focus, { overview: wide = false } = {}) {
+    /**
+     * `zoom` is the survey zoom the close atlas is painted from: the finest on the street, coarser and wider
+     * for a camera high above the place (atlasZoomFor).
+     */
+    update(focus, { overview: wide = false, zoom = LOCAL_ZOOM } = {}) {
       if (disposed) return;
-      const geo = worldToGeographic(focus.x, focus.z, origin), tile = tileForPoint(geo.lon, geo.lat, LOCAL_ZOOM);
-      const key = `${tile.column},${tile.row}`;
-      const retryDue = [...desired].some(tileKey => cache.get(tileKey)?.failed && cache.get(tileKey).retryAt <= now());
+      const geo = worldToGeographic(focus.x, focus.z, origin), tile = tileForPoint(geo.lon, geo.lat, zoom);
+      const key = tileKey(zoom, tile.column, tile.row);
+      const retryDue = [...desired].some(key => cache.get(key)?.failed && cache.get(key).retryAt <= now());
       if (key === currentCell && overview === wide && !retryDue) return;
       currentCell = key;overview = wide;generation++;desired.clear();
-      if (!overview) for (let row = tile.row - LOCAL_RADIUS; row <= tile.row + LOCAL_RADIUS; row++) for (let column = tile.column - LOCAL_RADIUS; column <= tile.column + LOCAL_RADIUS; column++) {
-        const tileKey = `${column},${row}`;desired.add(tileKey);
-        if (cache.has(tileKey)) {
-          const entry = cache.get(tileKey);entry.last = generation;
-          if (entry.failed && entry.retryAt <= now()) enqueue(column, row, tileKey, entry);
-          continue;
-        }
-        const entry = { last: generation, mesh: null };cache.set(tileKey, entry);
-        enqueue(column, row, tileKey, entry);
-      }
-      // Cancel obsolete pending work before trimming resident imagery. Pending
-      // entries count toward the limit too, even if the network is stalled.
-      for (const [tileKey, entry] of cache) if (!desired.has(tileKey) && !entry.mesh) cache.delete(tileKey);
-      for (let i = queue.length - 1; i >= 0; i--) if (!wanted(queue[i])) queue.splice(i, 1);
-      for (const request of [...requests]) if (!wanted(request.job)) request.cancel();
-      // Bound memory while preserving recently visited imagery for backtracking.
-      for (const [tileKey, entry] of cache) if (entry.mesh) entry.mesh.visible = desired.has(tileKey);
-      for (const [tileKey, entry] of [...cache].sort((a, b) => a[1].last - b[1].last)) {
-        if (cache.size <= 128) break;
-        if (desired.has(tileKey)) continue;
-        release(entry);cache.delete(tileKey);
-      }
+      if (!overview) block(focus, zoom, (key, entry) => { desired.add(key);entry.last = generation; });
+      trim();
       recenterLocal(tile);
       pump();
+    },
+    /**
+     * Fetch ahead of time the imagery around `point` at each of `zooms`, without showing it: what the atlas will
+     * be painted from as a camera comes down on, or climbs away from, the place. Kept until release().
+     * Resolves, with `ready` true if all of it is here, once every tile has arrived or failed, or after `timeout` ms.
+     */
+    prepare(point, zooms, timeout = 8000) {
+      if (disposed) return Promise.resolve({ ready: false, tiles: 0, loaded: 0 });
+      const entries = [];
+      for (const zoom of zooms) block(point, zoom, (key, entry) => { held.add(key);entries.push(entry); });
+      return new Promise(resolve => {
+        const waiter = { entries, finish() {
+          clearTimeout(timer);waiters.delete(waiter);
+          const loaded = entries.filter(entry => entry.mesh).length;
+          resolve({ ready: loaded === entries.length, tiles: entries.length, loaded });
+        } };
+        const timer = setTimeout(waiter.finish, timeout);
+        waiters.add(waiter);pump();
+      });
+    },
+    /** Whether the imagery around `point` at `zoom` is all here (or known to be unavailable): the atlas can change to it without a blank. */
+    has(point, zoom) {
+      const geo = worldToGeographic(point.x, point.z, origin), tile = tileForPoint(geo.lon, geo.lat, zoom);
+      for (let row = tile.row - LOCAL_RADIUS; row <= tile.row + LOCAL_RADIUS; row++) for (let column = tile.column - LOCAL_RADIUS; column <= tile.column + LOCAL_RADIUS; column++) {
+        const entry = cache.get(tileKey(zoom, column, row));
+        if (!entry || !(entry.mesh || entry.failed)) return false;
+      }
+      return true;
+    },
+    /** Let go of what prepare() kept. */
+    release() {
+      if (disposed || !held.size) return;
+      held.clear();trim();pump();
     },
     getStatus: status,
     dispose() {
       if (disposed) return;
-      disposed = true;queue.length = 0;desired.clear();
+      disposed = true;queue.length = 0;desired.clear();held.clear();
+      for (const waiter of [...waiters]) waiter.finish();
       for (const request of [...requests]) request.cancel();
       for (const entry of cache.values()) release(entry);
       cache.clear();texture.dispose();

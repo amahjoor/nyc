@@ -3,7 +3,9 @@ import { renderStats, performanceName } from './vehicle-stats.js';
 import { createDoorDebris, hasAlteredGlazing } from './vehicle-detail.js';
 import { updateChaseHeight } from './vehicle-presentation.js';
 import { cabinSeatPoint, placeDriverCamera } from './driver-cabin.js';
-import { createSwitchShot } from './switch-shot.js';
+import { createSwitchShot, LEVELS, levelsFor, ceilingFor, groundReach } from './switch-shot.js';
+import { createPickerFlight } from './picker-flight.js';
+import { createTileStore } from './tile-store.js';
 import * as THREE from './vendor/three.module.min.js';
 import { createCar, createParkedCars, createDistantTraffic, createPerson, updateCarVisuals, setVehicleLamps } from './world.js';
 import { plateFor } from './license-plates.js';
@@ -16,7 +18,7 @@ import { Input } from './input.js';
 import { HUD } from './hud.js';
 import { CityAudio } from './audio.js';
 import { lots, lotsReady, createCityStream } from './city-stream.js';
-import { createCityGround, worldToGeographic } from './city-ground.js';
+import { createCityGround, worldToGeographic, atlasZoomFor } from './city-ground.js';
 import { createStreetDetail } from './street-detail.js';
 import { Landscape } from './landscape.js';
 import { createCentralPark } from './central-park.js';
@@ -104,6 +106,59 @@ let cityIndex, roadIndex, roadStream, ground, streetDetail, bootReady=false, tra
 let viewOverride=null;
 // The satellite shot that carries the view from one place to the next (switch-shot.js).
 const switchShot=createSwitchShot();let switchShotLive=false;
+// The spawn picker's map travelling from one chosen place to the next (picker-flight.js).
+const pickerFlight=createPickerFlight();
+// What an arrival looks down on. The buildings stand in full detail as far as the highest picture of the descent
+// reaches (no further than DESCENT_REACH metres), and the ground is photographed at the zoom each height wants
+// (arrivalZooms, coarsest first). All of it is fetched before the camera moves: see prepareDescent and arrivalSettled.
+const DESCENT_REACH=2600;
+let arrivalZooms=[], arrivalHeld=false;
+// Whether frames are running freely: none much longer than this machine's usual for half a second. A place being built stalls them.
+const frameCalm={quiet:0,usual:1/60,get calm(){return this.quiet>=.5;},
+  note(seconds){
+    if(seconds>Math.max(.05,this.usual*2.2))this.quiet=0;else this.quiet+=seconds;
+    // The usual frame is learned from every frame, a stall counting for no more than a slow one.
+    this.usual+=(Math.min(seconds,this.usual*2.2,.25)-this.usual)*.06;
+  }};
+// The opening is shown whole. The city is fetched and built behind a veil, and the picture fades up once the
+// skyline is all there and frames are running freely: nobody watches it being assembled. It never waits for ever.
+let openingVeiled=false, openingSince=0;
+function veilOpening(){openingVeiled=true;openingSince=0;canvas.style.opacity='0';}
+function showOpening(now){
+  openingSince||=now;
+  const whole=bootReady&&frameCalm.calm&&!world.getStatus().loading&&!ground.getStatus().loading;
+  if(!started&&!whole&&now-openingSince<20000)return;
+  openingVeiled=false;canvas.style.transition='opacity 1.2s ease-out';canvas.style.opacity='1';
+  // The fade done, the canvas goes back to the stylesheet's own transitions.
+  setTimeout(()=>{canvas.style.transition='';canvas.style.opacity='';},1300);
+}
+/** Fetch what the shot will show on its way down to `target`, and on its way up from `leaving` if there is such a place. */
+function prepareDescent(target,leaving){
+  const ceiling=leaving?Math.max(switchShot.ceiling,ceilingFor(levelsFor(Math.hypot(target.x-leaving.x,target.z-leaving.z)))):ceilingFor(LEVELS.length);
+  const reach=Math.min(DESCENT_REACH,groundReach(ceiling,camera.aspect));
+  arrivalZooms=[...new Set(LEVELS.filter(level=>level*1.02<=ceiling).map(level=>atlasZoomFor(level*1.06)).concat(atlasZoomFor(0)))].sort((a,b)=>a-b);
+  arrivalHeld=true;
+  if(leaving)ground.prepare(leaving,arrivalZooms);
+  const ready=Promise.all([reach>850?world.prepareScenery([{x:target.x,z:target.z,radius:reach}]):null,ground.prepare(target,arrivalZooms)]);
+  // Worth waiting for, but an arrival is never held up for good by a slow server.
+  return Promise.race([ready,new Promise(resolve=>setTimeout(resolve,15000))]).catch(()=>null);
+}
+/** Whether the place the player has been put down in is built: nothing still loading, and frames running freely. */
+function arrivalSettled(){
+  if(traveling||!frameCalm.calm)return false;
+  return !(world.getStatus().loading||ground.getStatus().loading||streetDetail?.getStatus().loading||streetscape?.getStatus().loading||landscape?.getStatus().loading);
+}
+/** The circles of city the shot wants in full detail: a street's worth of the place it is leaving, and the place it is coming to as far as it can be seen from this height. */
+function arrivalDetail(){
+  if(!switchShot.active)return [];
+  const reach=Math.max(850,Math.min(DESCENT_REACH,groundReach(Math.min(viewHeight,switchShot.ceiling*1.02),camera.aspect)));
+  return switchShot.places.map(place=>({x:place.x,z:place.z,radius:place.leaving?850:reach}));
+}
+/** The zoom to paint the ground at for the shot's camera: the sharpest fetched one that still covers the picture. */
+function arrivalZoom(over){
+  const best=atlasZoomFor(viewHeight),ready=arrivalZooms.filter(zoom=>ground.has(over,zoom));
+  return ready.filter(zoom=>zoom<=best).at(-1)??ready[0];
+}
 let cityView=false, cityZoom=1, cityOrbit=0, cityFocus=null, roadCell='', roadEpoch=0, roadBusy=false, buildings=[], boroughs=[];
 let streetscape=null, streetLife=null, water=null, parkedCars=null, distantTraffic=null, signs=null, crowd=null, props=null, cityLife=createCityLife(null), lifeTimer=0;
 const noStreetFurniture=[], crowdAhead=new THREE.Vector3();
@@ -663,7 +718,7 @@ $('road-pilot-mode-button').addEventListener('click',()=>{
   updateRoadPilotControls();
 });
 canvas.addEventListener('wheel',event=>{
-  if(cityView){event.preventDefault();cityZoom=clamp(cityZoom*Math.exp(event.deltaY*.001),.07,1.8);}
+  if(cityView){event.preventDefault();pickerFlight.cancel();cityZoom=clamp(cityZoom*Math.exp(event.deltaY*.001),.07,1.8);}
   else if(aerialView&&started&&!paused){event.preventDefault();zoomAerial(Math.exp(clamp(event.deltaY*(event.deltaMode===1?16:1),-500,500)*.0015));}
 },{passive:false});
 // Plus and minus do the same from the keyboard.
@@ -1760,7 +1815,7 @@ function updateCamera(dt) {
     camera.lookAt(...v.target);camera.updateProjectionMatrix();return;
   }
   // Between two places the shot has the camera: straight up, across, and down behind the player.
-  const shotPose=switchShot.update(dt,switchShot.stage!=='cross'||!world.getStatus().loading);
+  const shotPose=switchShot.update(dt,arrivalSettled());
   if(shotPose){
     chaseHeight=null;chaseEyeOffset=null;input.lookDelta=0;input.lookVertical=0;
     camera.up.set(...shotPose.up);camera.position.set(...shotPose.position);camera.near=shotPose.near;camera.far=shotPose.far;camera.fov=shotPose.fov;
@@ -1781,9 +1836,13 @@ function updateCamera(dt) {
   if(cityView){
     chaseHeight=null;chaseEyeOffset=null;
     input.lookVertical=0;cityOrbit+=input.lookDelta;input.lookDelta=0;
-    const b=city.bounds,cx=cityFocus?.x??(b.minX+b.maxX)/2,cz=cityFocus?.z??(b.minZ+b.maxZ)/2,span=Math.max(b.maxX-b.minX,b.maxZ-b.minZ);
+    const b=city.bounds,span=Math.max(b.maxX-b.minX,b.maxZ-b.minZ);
+    // On its way to a chosen place the map is where the flight puts it, frame by frame.
+    const flying=pickerFlight.update(dt);
+    if(flying){cityFocus={x:flying.x,z:flying.z};cityZoom=flying.width/span;}
+    const cx=cityFocus?.x??(b.minX+b.maxX)/2,cz=cityFocus?.z??(b.minZ+b.maxZ)/2;
     desiredCamera.set(cx+Math.sin(cityOrbit-.3)*span*.65*cityZoom,span*.86*cityZoom,cz+Math.cos(cityOrbit-.3)*span*.65*cityZoom);
-    camera.position.lerp(desiredCamera,1-Math.exp(-dt*5));camera.near=10;camera.far=150000;camera.fov=52;camera.lookAt(cx,terrainHeight(cx,cz),cz);camera.updateProjectionMatrix();return;
+    if(flying)camera.position.copy(desiredCamera);else camera.position.lerp(desiredCamera,1-Math.exp(-dt*5));camera.near=10;camera.far=150000;camera.fov=52;camera.lookAt(cx,terrainHeight(cx,cz),cz);camera.updateProjectionMatrix();return;
   }
   camera.near=.15;camera.far=6500;
   if(aerialView){
@@ -1929,6 +1988,8 @@ function frame(now) {
   const elapsedSeconds=Math.max(0,(now-(lastFrame||now))/1000);
   const frameSeconds=Math.min(.25,elapsedSeconds);
   const dt=frameSeconds*(sim?.ending ? .36 : 1);lastFrame=now;
+  frameCalm.note(elapsedSeconds);
+  if(openingVeiled)showOpening(now);
   if(sim)sim.paintedCrossings=streetscape?.paintedCrossings(sim.junctions);
   let controls={forward:0,turn:0,brake:false,run:false,moveX:0,moveZ:0};
   if(started){
@@ -1981,8 +2042,17 @@ function frame(now) {
   const playerAltitude=(sim.player.y||0)-groundHeight(sim.player.x,sim.player.z);
   viewHeight=Math.max(0,camera.position.y-groundHeight(camera.position.x,camera.position.z),playerAltitude);
   aloft=started&&!cityView&&!switchShot.active&&aboveTheStreet(viewHeight,aloft);
-  if(!traveling)world.update(sim.player,camera,{overview:cityView||!started,altitude:started&&!cityView?viewHeight:0,collisionAltitude:Math.max(0,playerAltitude-35)});
-  ground.update(sim.player,{overview:cityView||!started});
+  if(!traveling)world.update(sim.player,camera,{overview:cityView||!started,altitude:started&&!cityView?viewHeight:0,collisionAltitude:Math.max(0,playerAltitude-35),detail:arrivalDetail()});
+  // Under the shot the ground is painted for the place and the height in the picture; otherwise for the street the player is on.
+  const shotOver=switchShot.active?switchShot.over:null;
+  ground.update(shotOver||sim.player,{overview:cityView||!started,zoom:shotOver?arrivalZoom(shotOver):undefined});
+  // Once the shot is over, what was fetched for it is let go.
+  if(arrivalHeld&&!switchShot.active&&!traveling){arrivalHeld=false;arrivalZooms=[];world.releaseScenery();ground.release();}
+  // From the height the shot swoops in at, the cars at the kerb are specks and cost more than the city under them.
+  // They are left out until a street can be made out, having been drawn while the place was being built.
+  const carsHidden=(switchShot.stage==='cross'||switchShot.stage==='fall')&&viewHeight>700;
+  if(parkedCars)parkedCars.group.visible=!carsHidden;
+  if(distantTraffic)distantTraffic.group.visible=!carsHidden;
   world.setLocalOrthophoto(ground.localOrthophoto);
   landscape?.setLocalOrthophoto(ground.localOrthophoto);
   landscape?.update(sim.player,{overview:cityView||!started});
@@ -2299,6 +2369,7 @@ function setView(mode){
   if(mode!=='aerial'||!aerialView)aerialTracking=false;
   chaseLookAhead.set(0,0,0);
   if(mode==='city'&&!cityView){cityFocus=null;cityZoom=1;}
+  pickerFlight.cancel();
   cityView=mode==='city';aerialView=mode==='aerial';input.clear();
   if(cityView)phone?.setOpen(false);
   headAnchor=undefined;input.lookDelta=0;input.lookVertical=0;
@@ -2448,12 +2519,9 @@ async function findLocally(query){
   return [...presets,...found];
 }
 function focusCityDestination(place){
-  cityFocus={x:place.x,z:place.z};cityZoom=.18;
+  // The map flies there from wherever it is: back far enough to show both places, across, and in on the new one.
   const b=city.bounds,span=Math.max(b.maxX-b.minX,b.maxZ-b.minZ);
-  // A search may select a different borough while the map is tightly zoomed.
-  // Center both eye and target immediately so the selected pin stays visible.
-  camera.position.set(place.x+Math.sin(cityOrbit-.3)*span*.65*cityZoom,span*.86*cityZoom,place.z+Math.cos(cityOrbit-.3)*span*.65*cityZoom);
-  camera.lookAt(place.x,terrainHeight(place.x,place.z),place.z);camera.updateMatrixWorld();
+  pickerFlight.start({x:cityFocus?.x??(b.minX+b.maxX)/2,z:cityFocus?.z??(b.minZ+b.maxZ)/2,width:span*cityZoom},{x:place.x,z:place.z,width:span*.18});
 }
 function updateLocation(){
   const geo=worldToGeographic(sim.player.x,sim.player.z);
@@ -2543,9 +2611,12 @@ async function travel(place,recovery=null){
   interaction?.close();
   traveling=true;roadEpoch++;input.clear();
   // Leave by the sky. From indoors, or from a map, there is no street on screen to rise from: hold the picture instead.
-  camera.getWorldDirection(cameraForward);
-  switchShot.depart(!subwayVisit&&started&&!cityView&&!aerialView&&!mapOpen&&!sim.room?{x:sim.player.x,y:sim.player.y||0,z:sim.player.z,angle:sim.player.angle}:null,
-    {position:camera.position.toArray(),target:camera.position.clone().addScaledVector(cameraForward,30).toArray(),up:[0,1,0],fov:camera.fov,near:camera.near,far:camera.far});
+  camera.getWorldDirection(cameraForward);pickerFlight.cancel();
+  const leaving=!subwayVisit&&started&&!cityView&&!aerialView&&!mapOpen&&!sim.room?{x:sim.player.x,y:sim.player.y||0,z:sim.player.z,angle:sim.player.angle}:null;
+  // Over the picker's map the held picture eases toward the place while it loads; a known destination sets how high the climb goes.
+  switchShot.depart(leaving,
+    {position:camera.position.toArray(),target:camera.position.clone().addScaledVector(cameraForward,30).toArray(),up:[0,1,0],fov:camera.fov,near:camera.near,far:camera.far,creep:cityView&&!mapOpen?camera.position.y*.06:0},
+    !recovery&&Number.isFinite(place.x)&&Number.isFinite(place.z)?place:null);
   navigation?.setTraveling(true);
   $('travel-note').textContent='Loading surveyed buildings and streets…';
   if(mapOpen)gameMap.setStatus('Loading measured ground and buildings at the pin…');
@@ -2562,7 +2633,7 @@ async function travel(place,recovery=null){
     if(!target)throw new Error('Choose a point closer to a street. Water and unmapped areas cannot be arrival points.');
     if(place.exact&&!landscape?.getStatus().baseReady)throw new Error('Measured ground is unavailable. Wait for the terrain to load before spawning at this pin.');
     // Street surfaces are worth a short wait, but never hold up an arrival.
-    await Promise.all([world.prepareAt(target,300),landscape?.prepareAt(target),streetscape?.prepareAt(target),place.roadPilot?ensureRoadPilot():nearRoadPilot(target)?ensureRoadPilot().catch(()=>null):null]);
+    await Promise.all([world.prepareAt(target,300),landscape?.prepareAt(target),streetscape?.prepareAt(target),place.roadPilot?ensureRoadPilot():nearRoadPilot(target)?ensureRoadPilot().catch(()=>null):null,prepareDescent(target,leaving)]);
     if(place.exact&&!landscape?.getStatus().baseWaterReady)throw new Error('Mapped water data is unavailable. Try again when it has loaded before spawning at this pin.');
     if(place.busExit){
       const edge=kerbIndex&&snapToKerb(kerbIndex,place.x,place.z,14);
@@ -2648,6 +2719,7 @@ async function boot() {
   $('load-text').textContent='CONNECTING TO NEW YORK…';
   // The frame is antialiased in its own multisampled target, not the canvas.
   renderer=new THREE.WebGLRenderer({canvas,antialias:false,powerPreference:'high-performance'});
+  veilOpening();
   scene=new THREE.Scene();
   camera=new THREE.PerspectiveCamera(52,innerWidth/innerHeight,10,150000);
   // Sky, sun, haze and the screen-space finish share one time of day.
@@ -2764,7 +2836,7 @@ async function boot() {
     onWork:()=>work.board(),onMap:()=>action('map'),
     onOpenChange:open=>{$('phone-button').setAttribute('aria-expanded',String(open));$('mission-panel').classList.toggle('behind-phone',open);if(!open){if(interaction?.open)interaction.focus();else canvas.focus();}}});
   loadData('street-life.json').then(data=>{cityLife=createCityLife(data);props.setData(data);sim.setActiveCity({signalHints});}).catch(()=>{});
-  world=createCityStream(cityIndex,{scene,onCollisionChange:applyBuildings,onStatus:updateStreaming,heightAt:terrainHeight});
+  world=createCityStream(cityIndex,{scene,onCollisionChange:applyBuildings,onStatus:updateStreaming,heightAt:terrainHeight,store:createTileStore()});
   ground=createCityGround({scene,renderer,stairOpenings,onStatus:status=>{if(status.failures)$('imagery-status').textContent='Some aerial tiles are unavailable. NYC imagery will retry as you explore; surveyed geometry loads separately.';}});
   world.setOrthophoto(ground.orthophoto);
   const landscapeReady=loadData('landscape-index.json').then(async index=>{

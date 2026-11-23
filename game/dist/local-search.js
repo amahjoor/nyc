@@ -42,7 +42,7 @@ export function matchPresets(query, presets, { exact = false } = {}) {
     if (exact) return plain(place.name) === name;
     const label = plain([place.name, place.borough, place.keywords].filter(Boolean).join(' '));
     return words.every(word => label.includes(word));
-  });
+  }).sort((a,b) => Number(plain(b.name).startsWith(name)) - Number(plain(a.name).startsWith(name)));
 }
 
 /** Words as written to tokens with numbers as digits: "FIFTY THIRD" and "53RD" are both "53". */

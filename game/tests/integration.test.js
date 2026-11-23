@@ -25,7 +25,7 @@ import { Input } from '../dist/input.js';
 import { HUD } from '../dist/hud.js';
 import { CityAudio } from '../dist/audio.js';
 import { createCityStream } from '../dist/city-stream.js';
-import { createCityGround, geographicToWorld, worldToGeographic } from '../dist/city-ground.js';
+import { createCityGround, geographicToWorld, worldToGeographic, atlasZoomFor } from '../dist/city-ground.js';
 import { createRoadStream, nearestStreet, localDestinations, cellsAround } from '../dist/road-stream.js';
 import { createCityNavigation } from '../dist/city-navigation.js';
 import { createStreetDetail } from '../dist/street-detail.js';
@@ -77,7 +77,9 @@ import { createPhone, describePlace } from '../dist/phone.js';
 import { createFleet } from '../dist/fleet.js';
 import { createVehicleMeshLibrary } from '../dist/vehicle-assets.js';
 import { designFor } from '../dist/vehicle-designs.js';
-import { createSwitchShot } from '../dist/switch-shot.js';
+import { createSwitchShot, LEVELS, levelsFor, ceilingFor, groundReach } from '../dist/switch-shot.js';
+import { createPickerFlight } from '../dist/picker-flight.js';
+import { createTileStore } from '../dist/tile-store.js';
 import { offersAt, shopRows, vehicleHandling } from '../dist/garage.js';
 import { planRoom, buildRoom, roomKind, hasRoom } from '../dist/interiors.js';
 import { doorBlips } from '../dist/map-blips.js';
@@ -339,13 +341,15 @@ async function bootHarness({ stored = null, displayStored = null, unavailableSto
       assert.equal(fullIndex.stats.buildingFeatures,index.stats.buildingFeatures);
       return createCityStream(geometryIndex,options);
     },
-    updateChaseHeight, cabinSeatPoint, placeDriverCamera, createCityGround, worldToGeographic, createRoadStream, nearestStreet, localDestinations, createCityNavigation,
+    updateChaseHeight, cabinSeatPoint, placeDriverCamera, createCityGround, worldToGeographic, atlasZoomFor, createRoadStream, nearestStreet, localDestinations, createCityNavigation,
     createStreetDetail:(manifest,options)=>createStreetDetail(manifest,{...options,now:()=>timestamp}),
     renderStats, performanceName, vehicleHandling, createDoorDebris, hasAlteredGlazing, carCondition, createCarSmoke, createCentralPark, GUN, carTop, setCarShell, fitFallPose, shared,
     fingerPose, pinchOffset, setHandSource, isOpen, roomPoint, roomLocal, crossesFixture, seatApproach, seatEyeOffset, seatHeight, beginRegisterTake, updateClerk, registerAction, inviteCustomer, populateShop, createHumanShop:(meta,options)=>createHumanShop(meta,{...options,base:'./human/'}), createHumanMesh, createMotion, createAnimator, fitPose, gripOffsetFor, writeMovements, createFigures, loadPerson, savePerson, foodPreviewOptions,openFoodCounter,openInventory,counterInReach,stepCounterOrder,promptTableService,waitsTables,diningTable,browseShop, fittedLook, patrolAppearance, carriedItems,createFoodHand,
-    createSportsCourts, addCourtPlaces, createStatueOfLiberty, STATUE, castWalkStyle, Landscape, RoadPilot, AbortSignal, createGraphics, createStreetLife, createWater, WATER_LEVEL, BOARDINGS, TRANSPORT, transportDestination, TransportFleet, createTransportScene, setVehicleLamps, OFFICER_LOOK, createPoliceScene, createCityLife, manhattanCore, createStreetSigns, createCrowd, dress, seeded, KIT, createStreetProps, createPlaceSource, placeName, joinPlaceSources, indexFootprints, solveFrontages, createStorefronts, createInteraction, CityRides, PhoneBank, createPhoneHand, createPhone, describePlace, createFleet, createVehicleMeshLibrary, designFor, createSwitchShot, offersAt, shopRows, planRoom, buildRoom, roomKind, hasRoom, doorBlips, plateFor, createDemographics, characterAt, createTransitNetwork, busJourney, clockTime, createBuses, createBusStops, createSheds, planSheds, createShedMesh, createDining, planDining, createDiningMesh, seatsOf, planStands, vendorOf, createStandMesh, createCollection, planTrash, createTrashMesh, aboveTheStreet, indexBikeLanes, createLaneMarkings, bikeLaneParking, createBikeTraffic, fitCyclist, PEDAL_PERIOD, createSkateboard, createBikeShare, planBikeDocks, createBikeDocks, menuFor, createSubway, createSubwayEntrances, SUBWAY_LAYER, FARE, indexKerbs, snapToKerb, formatDistance,
+    createSportsCourts, addCourtPlaces, createStatueOfLiberty, STATUE, castWalkStyle, Landscape, RoadPilot, AbortSignal, createGraphics, createStreetLife, createWater, WATER_LEVEL, BOARDINGS, TRANSPORT, transportDestination, TransportFleet, createTransportScene, setVehicleLamps, OFFICER_LOOK, createPoliceScene, createCityLife, manhattanCore, createStreetSigns, createCrowd, dress, seeded, KIT, createStreetProps, createPlaceSource, placeName, joinPlaceSources, indexFootprints, solveFrontages, createStorefronts, createInteraction, CityRides, PhoneBank, createPhoneHand, createPhone, describePlace, createFleet, createVehicleMeshLibrary, designFor, createSwitchShot, createPickerFlight, createTileStore, offersAt, shopRows, planRoom, buildRoom, roomKind, hasRoom, doorBlips, plateFor, createDemographics, characterAt, createTransitNetwork, busJourney, clockTime, createBuses, createBusStops, createSheds, planSheds, createShedMesh, createDining, planDining, createDiningMesh, seatsOf, planStands, vendorOf, createStandMesh, createCollection, planTrash, createTrashMesh, aboveTheStreet, indexBikeLanes, createLaneMarkings, bikeLaneParking, createBikeTraffic, fitCyclist, PEDAL_PERIOD, createSkateboard, createBikeShare, planBikeDocks, createBikeDocks, menuFor, createSubway, createSubwayEntrances, SUBWAY_LAYER, FARE, indexKerbs, snapToKerb, formatDistance,
     // Bundled survey cells only: these tests stay offline.
     createStreetscape:options=>createStreetscape({...options,live:false,now:()=>timestamp}),
+    LEVELS, levelsFor, ceilingFor, groundReach,
+    setTimeout(callback, delay) { return setTimeout(callback, delay).unref(); },
     console: { error: error => errors.push(error), warn: () => {}, log: () => {} },
     matchMedia: () => ({ matches: coarsePointer }),
     innerWidth: 1440, innerHeight: 900, devicePixelRatio: 2,

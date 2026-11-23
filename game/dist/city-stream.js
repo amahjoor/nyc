@@ -335,11 +335,14 @@ function anchorToTerrain(data, heightAt) {
   return data;
 }
 
+// As many decoders as the machine can spare, leaving the page's own thread and the browser's theirs: two at least, four at most.
+const decoderCount = () => Math.min(4, Math.max(2, (globalThis.navigator?.hardwareConcurrency || 4) - 2));
+
 /**
  * A decoder that works in background threads where the browser has them.
  * Returns null elsewhere (Node, tests), and the stream then decodes inline.
  */
-export function createTileDecoder({ workers = 2, WorkerClass = globalThis.Worker } = {}) {
+export function createTileDecoder({ workers = decoderCount(), WorkerClass = globalThis.Worker } = {}) {
   if (typeof WorkerClass !== 'function' || typeof document === 'undefined') return null;
   const pool = [], pending = new Map();
   let next = 0, serial = 0, broken = false;
@@ -376,7 +379,9 @@ export function createCityStream(index, options = {}) {
 class CityStream {
   // Binding preserves the browser receiver when load() calls this.fetcher().
   constructor(index, { scene, onCollisionChange = () => {}, onStatus = () => {}, fetcher = globalThis.fetch.bind(globalThis),
-    concurrency = 5, maxCacheBytes = 210 * 1024 * 1024, heightAt = () => 0, decoder } = {}) {
+    concurrency = 8, maxCacheBytes = 210 * 1024 * 1024, heightAt = () => 0, decoder, store = null } = {}) {
+    // Tiles already fetched on this machine are read from `store` (tile-store.js) instead of the network.
+    this.store = store;
     // One pool of background decoders serves every stream on the page.
     this.decoder = decoder === undefined ? (sharedDecoder === undefined ? (sharedDecoder = createTileDecoder()) : sharedDecoder) : decoder;
     this.index = index; this.nodes = new Map(index.nodes.map(node => [node.id, node]));
@@ -396,7 +401,7 @@ class CityStream {
     this.heightAt = heightAt;this.terrainRevision = null;
     this.group = new THREE.Group(); this.group.name = 'Streamed official NYC survey'; scene?.add(this.group);
     this.cache = new Map(); this.requests = new Map(); this.queue = []; this.errors = new Map();
-    this.active = 0; this.serial = 0; this.disposed = false; this.desired = new Set(); this.protected = new Set();
+    this.active = 0; this.serial = 0; this.disposed = false; this.desired = new Set(); this.protected = new Set(); this.held = new Set();
     this.collisionDesired = new Set(); this.preparedCollisions = new Set(); this.collisionRecords = new Map();
     this.focus = { x: 0, z: 0 }; this.lastSelection = -Infinity; this.lastOverview = null;
     this.material = new THREE.MeshStandardMaterial({ color: 0xbebfb9, roughness: 0.94, side: THREE.DoubleSide });
@@ -533,31 +538,67 @@ class CityStream {
   }
 
   /**
-   * `altitude` is how high the view is above the ground. From the air the far city is kept in its coarse form
-   * however far off, full detail is asked for ahead of a fast aircraft as well as under it, and walls are made
-   * solid only when there is something near enough to fly into (aloft.js).
+   * Fetch ahead of time, without drawing them or making them solid, the tiles that update() would draw for a
+   * camera high over `circles` (`{x, z, radius}`) with each of them wanted in detail: the full-detail tiles
+   * inside them, and the neighbours those must be drawn together with. They are kept, whatever else is selected
+   * meanwhile, until releaseScenery(). Resolves when every one has arrived or failed.
    */
-  update(focus, camera, { overview = false, altitude = 0, collisionAltitude = altitude } = {}) {
-    if (this.disposed) return;
-    this.focus = { x: focus.x, z: focus.z };
-    const now = Date.now();
-    if (now - this.lastSelection < 350 && overview === this.lastOverview) return;
-    // How fast the focus is moving, from where it was at the last selection.
-    const elapsed = (now - this.lastSelection) / 1000, was = this.selectedAt;
-    const velocity = was && elapsed > 0 && elapsed < 2 ? { x: (focus.x - was.x) / elapsed, z: (focus.z - was.z) / elapsed } : { x: 0, z: 0 };
-    this.selectedAt = { x: focus.x, z: focus.z };
-    this.lastSelection = now; this.lastOverview = overview;
-    const ranges = streamRanges(altitude), ahead = leadPoint(focus, velocity);
+  async prepareScenery(circles) {
+    if (this.disposed || !circles.length) return { ready: !this.disposed, chunks: 0, loadedChunks: 0 };
+    const roots = new Set(indexRoots(this.index)), centre = circles[0];
+    // Everything below the coarsest level: the coarsest is the map of the whole city, which is there already or on its way.
+    const nodes = this.select(centre, centre, { cut: Infinity, refine: 0 }, false, circles).filter(node => !roots.has(node.id));
+    for (const node of nodes) this.held.add(node.id);
+    // Nearest first; ahead of the far city's scenery, behind the walls a traveller is about to stand among.
+    const results = await Promise.allSettled(nodes.map(node => this.request(node, Math.min(...circles.map(circle => Math.hypot(node.x - circle.x, node.z - circle.z))) - 50000)));
+    const loadedChunks = results.filter(result => result.status === 'fulfilled').length;
+    return { ready: loadedChunks === nodes.length, chunks: nodes.length, loadedChunks };
+  }
+
+  /** Let go of what prepareScenery() kept. */
+  releaseScenery() {
+    if (!this.held.size) return;
+    this.held.clear();
+    if (!this.disposed) this.evict();
+  }
+
+  /** The tiles to draw: coarse ones far off, each refined into its children where it is near or wanted in detail. */
+  select(focus, ahead, ranges, overview, detail) {
     const selected = [];
     const visit = node => {
       const here = Math.hypot(node.x - focus.x, node.z - focus.z) - node.radius, distance = Math.min(here, Math.hypot(node.x - ahead.x, node.z - ahead.z) - node.radius);
-      if (!overview && here > ranges.cut) return;
-      if (!overview && node.children.length && distance < ranges.refine) {
+      const wanted = !overview && detail.some(circle => Math.hypot(node.x - circle.x, node.z - circle.z) - node.radius < circle.radius);
+      if (!overview && !wanted && here > ranges.cut) return;
+      if (!overview && node.children.length && (wanted || distance < ranges.refine)) {
         node.children.forEach(id => visit(this.nodes.get(id))); return;
       }
       if (node.resource !== null) selected.push(node);
     };
     indexRoots(this.index).forEach(id => visit(this.nodes.get(id)));
+    return selected;
+  }
+
+  /**
+   * `altitude` is how high the view is above the ground. From the air the far city is kept in its coarse form
+   * however far off, full detail is asked for ahead of a fast aircraft as well as under it, and walls are made
+   * solid only when there is something near enough to fly into (aloft.js).
+   * `detail` is a list of circles `{x, z, radius}` that are drawn in full detail from any height: what a camera
+   * looking down from high above a place is there to show.
+   */
+  update(focus, camera, { overview = false, altitude = 0, collisionAltitude = altitude, detail = [] } = {}) {
+    if (this.disposed) return;
+    this.focus = { x: focus.x, z: focus.z };
+    const now = Date.now();
+    // A change in what is wanted in detail is acted on at once; otherwise three selections a second are enough.
+    const detailKey = detail.length ? detail.map(circle => `${Math.round(circle.x / 50)},${Math.round(circle.z / 50)},${Math.round(circle.radius / 100)}`).join(';') : '';
+    if (now - this.lastSelection < 350 && overview === this.lastOverview && detailKey === this.lastDetail) return;
+    this.lastDetail = detailKey;
+    // How fast the focus is moving, from where it was at the last selection.
+    const elapsed = (now - this.lastSelection) / 1000, was = this.selectedAt;
+    const velocity = was && elapsed > 0 && elapsed < 2 ? { x: (focus.x - was.x) / elapsed, z: (focus.z - was.z) / elapsed } : { x: 0, z: 0 };
+    this.selectedAt = { x: focus.x, z: focus.z };
+    this.lastSelection = now; this.lastOverview = overview;
+    const selected = this.select(focus, leadPoint(focus, velocity), streamRanges(altitude), overview, detail);
     this.desired = new Set(selected.map(node => node.id));
     // Keep the player's walls loaded even when the camera rises above the street.
     const physicsRange = streamRanges(collisionAltitude).physics;
@@ -573,7 +614,7 @@ class CityStream {
     }
     for (const node of selected) this.request(node, Math.hypot(node.x - focus.x, node.z - focus.z)).catch(() => {});
     this.queue = this.queue.filter(task => {
-      if (this.desired.has(task.node.id) || this.physicsDesired.has(task.node.id) || this.protected.has(task.node.id)) return true;
+      if (this.desired.has(task.node.id) || this.physicsDesired.has(task.node.id) || this.protected.has(task.node.id) || this.held.has(task.node.id)) return true;
       this.requests.delete(task.node.id); task.reject(new Error('NYC tile selection changed.')); return false;
     });
     this.emitCollisions(); this.showSelection(); this.evict(); this.emitStatus(); this.pump();
@@ -615,18 +656,29 @@ class CityStream {
         if (this.disposed) throw new Error('NYC city stream has been disposed.');
         const controller = task.controller;
         const timeout = setTimeout(() => controller.abort(), 20000);
+        const url = `${this.index.source.service}/nodes/${node.resource}/geometries/0`;
+        let kept = false;
         try {
-          const response = await this.fetcher(`${this.index.source.service}/nodes/${node.resource}/geometries/0`, { signal: controller.signal });
-          if (!response.ok) throw new Error(`NYC geometry service returned ${response.status}.`);
-          const buffer = await response.arrayBuffer(), collisions = !node.children.length;
+          let buffer = this.store ? await this.store.get(url) : null;
+          kept = Boolean(buffer);
+          if (!buffer) {
+            const response = await this.fetcher(url, { signal: controller.signal });
+            if (!response.ok) throw new Error(`NYC geometry service returned ${response.status}.`);
+            buffer = await response.arrayBuffer();
+          }
+          const collisions = !node.children.length;
           if (this.decoder?.available) {
             // The copy stays here in case the background thread fails.
             let decoded = null;
             try { decoded = await this.decoder.decode(buffer.slice(0), node, this.index.origin, collisions); } catch (caught) { if (this.decoder.available) throw caught; }
             data = decoded ? anchorToTerrain(decoded, this.heightAt) : decodeI3S(buffer, node, this.index.origin, { collisions, heightAt: this.heightAt });
           } else data = decodeI3S(buffer, node, this.index.origin, { collisions, heightAt: this.heightAt });
+          // Only what has decoded is worth keeping.
+          if (this.store && !kept) this.store.put(url, buffer);
           break;
         } catch (caught) {
+          // A kept copy that will not decode is forgotten, and the tile fetched afresh.
+          if (kept) await this.store.remove(url);
           // An old attempt's timer must not abort its replacement controller
           // during backoff when a response fails just before the deadline.
           clearTimeout(timeout);
@@ -711,7 +763,7 @@ class CityStream {
     let bytes = [...this.cache.values()].reduce((sum, record) => sum + record.bytes, 0), changed = false;
     const removable = [...this.cache.values()].filter(record => !record.mesh.visible && !this.desired.has(record.node.id)
       && !this.physicsDesired?.has(record.node.id) && !this.collisionDesired.has(record.node.id)
-      && !this.protected.has(record.node.id) && !this.preparedCollisions.has(record.node.id)).sort((a, b) => a.used - b.used);
+      && !this.protected.has(record.node.id) && !this.preparedCollisions.has(record.node.id) && !this.held.has(record.node.id)).sort((a, b) => a.used - b.used);
     for (const record of removable) {
       if (bytes <= this.maxCacheBytes && this.cache.size <= 140) break;
       this.cache.delete(record.node.id); this.group.remove(record.mesh); record.mesh.geometry.dispose(); bytes -= record.bytes; changed ||= record.buildings.length > 0;
@@ -737,7 +789,7 @@ class CityStream {
   dispose() {
     this.disposed = true;
     for (const task of this.requests.values()) { task.controller.abort(); task.reject(new Error('NYC city stream has been disposed.')); }
-    this.queue.length = 0; this.requests.clear();
+    this.queue.length = 0; this.requests.clear(); this.held.clear();
     for (const record of this.cache.values()) record.mesh.geometry.dispose();
     this.cache.clear(); this.collisionRecords.clear(); this.preparedCollisions.clear(); this.material.dispose(); this.depthMaterial.dispose(); this.roomCutaways.dispose(); this.scene?.remove(this.group); this.group.clear();
   }
