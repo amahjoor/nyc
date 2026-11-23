@@ -123,6 +123,9 @@ function makeBatch(data, compact, material, depth, capacity) {
 // Beyond DISTANT metres somebody is drawn from their coarsest mesh. Beyond UNSEEN_BEYOND, somebody out of the picture
 // is not drawn at all, unless within SHADOW_REACH metres of its edge.
 const DISTANT=60, UNSEEN_BEYOND=20, SHADOW_REACH=10;
+// Within NEAR metres somebody is drawn from their finest mesh, twenty-five thousand triangles; past it from one of a fifth
+// as many, whose corners are a pixel or two out at that distance.
+const NEAR=22;
 export function createFigures({motion, grow, capacity=320, scene=null, layer=0, layers=[layer]}={}) {
   const {rows} = sheetRows(motion), {compact,kept} = streetBones(motion.bones);
   // A live palette for active falls. Every other figure uses its baked sheet.
@@ -218,7 +221,7 @@ export function createFigures({motion, grow, capacity=320, scene=null, layer=0, 
     add(member,x,y,z,heading,height,look,distance,clip,time,from,fromTime,fade,carry=null,reaction=null) {
       if (!ask(member,distance)) return false;
       if(sight && distance>UNSEEN_BEYOND && !sight.intersectsSphere(around.set(point.set(x,y+1,z),SHADOW_REACH)))return true;
-      const entry=types.get(member), to=distance>30 ? (distance>DISTANT && entry.distant ? entry.distant : entry.far) : entry.near;
+      const entry=types.get(member), to=distance>NEAR ? (distance>DISTANT && entry.distant ? entry.distant : entry.far) : entry.near;
       if(to.mesh.count>=capacity)return false;
       const at=to.mesh.count++, sample=frames(clip,time,from,fromTime,fade,carry);
       transform(entry,x,y,z,heading,height); to.mesh.setMatrixAt(at,matrix);
@@ -253,8 +256,12 @@ export function createFigures({motion, grow, capacity=320, scene=null, layer=0, 
         for(let row=0;row<fallCount;row++)falls.addUpdateRange(row*stride,stride);
         falls.needsUpdate=true;
       }
-      for(const entry of types.values()) if(entry?.near) for(const to of levels(entry)) if(to.mesh.count)
-      for(const attr of [to.anim,to.top,to.bottom,to.mesh.instanceMatrix])attr.needsUpdate=true;},
+      // A mesh nobody is drawn from this frame is not handed to the renderer at all: there are three for each of a
+      // hundred kinds of people, and each would be set up for every pass only to draw nothing.
+      for(const entry of types.values()) if(entry?.near) for(const to of levels(entry)) {
+        to.mesh.visible=to.mesh.count>0;
+        if(to.mesh.count) for(const attr of [to.anim,to.top,to.bottom,to.mesh.instanceMatrix])attr.needsUpdate=true;
+      }},
     dispose(){
       disposed=true;falls.dispose();queue.clear();props.dispose();
       for(const entry of types.values()) if(entry?.near){

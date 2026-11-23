@@ -583,6 +583,12 @@ function createCarSet({ name, label, capacity, lit, select, library }) {
       }
       for (const [key, item] of styles) {
         for (const mesh of item.meshes) { mesh.count = item.used; mesh.visible = item.used > 0; }
+        // A style's cars are few and stand apart: the sphere round them says whether any is in the picture, or in a
+        // shadow map's reach, and its glass and lamps go by the same sphere as its bodywork.
+        if (item.used) {
+          item.body.computeBoundingSphere();
+          for (const mesh of item.meshes) { mesh.boundingSphere = item.body.boundingSphere; mesh.frustumCulled = true; }
+        }
         if (item.used) { item.idle = 0; item.indicators.needsUpdate = item.body.instanceMatrix.needsUpdate = item.tint.needsUpdate = true; }
         else if (item.model && ++item.idle > 900) {
           styles.delete(key); removeStyle(item);

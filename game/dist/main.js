@@ -125,6 +125,9 @@ const frameCalm={quiet:0,usual:1/60,get calm(){return this.quiet>=.5;},
   }};
 // The opening is shown whole. The city is fetched and built behind a veil, and the picture fades up once the
 // skyline is all there and frames are running freely: nobody watches it being assembled. It never waits for ever.
+// What only the street needs (routes, bicycle lanes, trains and buses, the cast of people) is fetched once the city itself
+// is up: before that it would only take the page's attention from the buildings and ground the title is waiting for.
+let cityUp;const afterCityUp=new Promise(resolve=>{cityUp=resolve;});
 let openingVeiled=false, openingSince=0;
 function veilOpening(){openingVeiled=true;openingSince=0;canvas.style.opacity='0';}
 function showOpening(now){
@@ -3045,8 +3048,10 @@ async function boot() {
   sim.dockedBikes=bikeDocks.available;
   loadData('bikes.json').then(data=>{bikeShare=createBikeShare(data);frontsFor=null;}).catch(()=>{});
   loadData('sheds.json').then(data=>{sheds=createSheds(data);frontsFor=null;}).catch(()=>{});
-  loadTransitNetwork().catch(()=>loadData('bus-stops.json').then(data=>{if(!transitNetwork)buses=createBuses(data);}).catch(()=>{}));
-  loadData('transit.json').then(data=>{subway=createSubway(data);}).catch(()=>{});
+  afterCityUp.then(()=>{
+    loadTransitNetwork().catch(()=>loadData('bus-stops.json').then(data=>{if(!transitNetwork)buses=createBuses(data);}).catch(()=>{}));
+    loadData('transit.json').then(data=>{subway=createSubway(data);}).catch(()=>{});
+  });
   sim.setFleet(fleet);
   // Every car in the street is one the game draws (vehicle-generator.js). The scanned exteriors in assets/vehicles are
   // lumpier than those and carry the shadows of their photographs on their glass; the catalog page still shows them.
@@ -3054,7 +3059,7 @@ async function boot() {
     .then(([base,catalog,working,performance])=>{fleet=createFleet(base,catalog,null,designFor,working,performance);sim.setFleet(fleet);});
   // People are grown here (body.js): the street's cast and the player, once the skeleton and its movements have loaded.
   // Bodies are grown on another thread; where there is none, the blocked-out figures stay.
-  Promise.all([loadData('motion.json'),fetch('./motion.bin').then(response=>{if(!response.ok)throw new Error('motion');return response.arrayBuffer();})]).then(([meta,buffer])=>{
+  afterCityUp.then(()=>Promise.all([loadData('motion.json'),fetch('./motion.bin').then(response=>{if(!response.ok)throw new Error('motion');return response.arrayBuffer();})])).then(([meta,buffer])=>{
     moves=writeMovements(createMotion(meta,new Int16Array(buffer)));
     animator=createAnimator(moves);bodyShop=createHumanShop(meta,{moves});dressPlayer();
     if(typeof Worker!=='undefined' || typeof OffscreenCanvas!=='undefined'){
@@ -3137,7 +3142,7 @@ async function boot() {
     onSpawn:pin=>travel({...pin,exact:true}),
     onOpenChange:open=>{if(open)interaction?.close();mapOpen=open;input.clear();input.lookDelta=0;input.lookVertical=0;if(!open)canvas.focus();markDoors();}});
   hud.attachMap(gameMap);
-  loadData('bike-lanes.json').then(async data=>{
+  afterCityUp.then(()=>loadData('bike-lanes.json')).then(async data=>{
     const lanes=await indexBikeLanes(data);
     gameMap.bikeLanes=lanes;gameMap.dirty=true;
     const laneHeight=(x,z,level)=>{
@@ -3164,7 +3169,7 @@ async function boot() {
   }).catch(()=>{});
   // The compact citywide graph is optional: a failed route download must not
   // prevent entering the game or using a measured, validated spawn point.
-  plannerReady=loadData('navigation-roads.json').then(data=>{
+  plannerReady=afterCityUp.then(()=>loadData('navigation-roads.json')).then(data=>{
     routePlanner=createRoutePlanner(data);gameMap.setRoads(routePlanner.roads);return routePlanner;
   }).catch(()=>null);
   const b=city.bounds;camera.position.set((b.minX+b.maxX)/2-14000,44000,(b.minZ+b.maxZ)/2+32000);
@@ -3173,7 +3178,7 @@ async function boot() {
   requestAnimationFrame(frame);
   const [roads]=await Promise.all([roadStream.loadAround(seed.spawn),world.prepareAt(seed.spawn,300),landscapeReady]);
   sim.setActiveCity({roads,buildings,isReadyAt:(x,z,radius,y)=>world.isReadyAt(x,z,radius,Number.isFinite(y)?y-terrainHeight(x,z):0),missionPoints:destinationsFor(roads,seed.spawn)},{spawn:seed.spawn});city=sim.city;yaw=sim.player.angle;
-  bootReady=true;
+  bootReady=true;cityUp();
   $('start-button').disabled=false;$('load-text').textContent='Explore New York';
 }
 restoreDisplaySettings();

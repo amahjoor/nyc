@@ -10,7 +10,12 @@ http.createServer(async(req,res)=>{
     const pathname=decodeURIComponent(new URL(req.url,'http://localhost').pathname);
     let path=resolve(root,'.'+pathname);
     if(path!==resolve(root)&&!path.startsWith(resolve(root)+sep)){res.writeHead(403);res.end('Forbidden');return;}
-    if((await stat(path)).isDirectory())path=resolve(path,'index.html');
-    const body=await readFile(path);res.writeHead(200,{'Content-Type':types[extname(path)]||'application/octet-stream','Cache-Control':'no-cache'});res.end(body);
+    let info=await stat(path);
+    if(info.isDirectory()){path=resolve(path,'index.html');info=await stat(path);}
+    // The browser asks every time (no-cache) but is told when its copy is still good: a reload then re-reads none of the data.
+    const tag=`"${info.size.toString(16)}-${Math.round(info.mtimeMs).toString(16)}"`;
+    const headers={'Content-Type':types[extname(path)]||'application/octet-stream','Cache-Control':'no-cache','ETag':tag};
+    if(req.headers['if-none-match']===tag){res.writeHead(304,headers);res.end();return;}
+    const body=await readFile(path);res.writeHead(200,headers);res.end(body);
   }catch{res.writeHead(404);res.end('Not found');}
 }).listen(port,'127.0.0.1',()=>console.log(`Local: http://localhost:${port}`));
