@@ -185,3 +185,36 @@ test('a mounted Citi Bike stops against a streetlamp and leaves it standing', ()
   assert.ok(sim.player.z > 4 && sim.player.z < 4.4);
   assert.equal(sim.streetObjects.damage.size, 0);
 });
+
+test('a bumper rolls a soft bag and tears it at speed; collection clears the collision and scraps',async()=>{
+  const {createTrashMesh}=await import('../dist/trash.js');
+  for(const speed of [3,14]){
+    const {sim,car}=driving(speed);
+    const trash=createTrashMesh({physics:sim.streetObjects}), heaps=[{x:0,z:3,tx:1,tz:0,bags:1,days:1}];
+    trash.setHeaps(heaps);trash.show(6,21);
+    step(sim,150,{forward:speed<7?0:.4});
+    const [pose]=sim.streetObjects.damage.values();
+    assert.ok(pose && Math.hypot(pose.dx,pose.dz)>.1 && pose.tilt>0);
+    assert.equal(Boolean(pose.torn),speed>7);
+    trash.setHeaps(heaps);trash.show(0,4);
+    assert.equal(trash.mesh.children[0].count,speed>7?4:0);
+    assert.ok(car.z>1);
+    trash.show(0,9);
+    assert.equal(sim.streetObjects.grid.size,0);
+    assert.equal(sim.streetObjects.damage.size,0);
+    assert.equal(trash.mesh.children[0].count,0);
+    trash.dispose();
+  }
+});
+
+test('a head-on sprint into a fixed post recoils, while walking into it just stops',()=>{
+  for(const run of [false,true]){
+    const sim=game();sim.cars=[];
+    sim.streetObjects.replace('signalPole',[{fixed:true,x:0,y:0,z:5,radius:.15,height:7}]);
+    const p=sim.player; Object.assign(p,{x:0,y:0,z:0,angle:0});
+    for(let i=0;i<420 && !p.reaction;i++)step(sim,1,{moveZ:1,run});
+    assert.equal(Boolean(p.reaction),run);
+    assert.ok(p.z<4.6);
+    if(run)assert.ok(p.reaction.vz<0);
+  }
+});

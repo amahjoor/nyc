@@ -11,6 +11,7 @@
 import * as THREE from './vendor/three.module.min.js';
 import { paintStop, paintNoEntry } from './regulatory-signs.js';
 import { paintOneWay } from './one-way-sign.js';
+import { propId } from './street-objects.js';
 import { laneLayout } from './lanes.js';
 import { vehicleAspect, crossingAspect } from './signal-plan.js';
 
@@ -313,7 +314,7 @@ function paintSymbols(canvas) {
  * Draw the hardware for the junctions near the player.
  * `heightAt(x, z)` is the surface people stand on; `raised(x, z)` whether a point is on a sidewalk.
  */
-export function createStreetSigns({ scene, heightAt = () => 0, raised = null, createCanvas = () => document.createElement('canvas'), range = 260, farRange = 800, capacity = 3400 } = {}) {
+export function createStreetSigns({ scene, physics = null, heightAt = () => 0, raised = null, createCanvas = () => document.createElement('canvas'), range = 260, farRange = 800, capacity = 3400 } = {}) {
   const group = new THREE.Group(); group.name = 'Signals and street signs'; scene?.add(group);
   const steel = new THREE.MeshStandardMaterial({ color: 0x8b9193, metalness: .55, roughness: .5 }); steel.name = 'Galvanised signal pole';
   const housing = new THREE.MeshStandardMaterial({ color: 0xc99a06, metalness: .1, roughness: .55 }); housing.name = 'Signal head';
@@ -375,6 +376,7 @@ export function createStreetSigns({ scene, heightAt = () => 0, raised = null, cr
 
   function rebuild(junctions, distant) {
     const count = { poles: 0, arms: 0, heads: 0, lamps: 0, walkers: 0, figures: 0, faces: 0, stops: 0, noEntry: 0 };
+    const bodies=[];
     lamps = []; figures = [];
     const wanted = [...new Set(junctions.flatMap(junction => junction.layout.names.map(name => name.text)))];
     const columns = Math.ceil((wanted.length + 5) / ROWS);
@@ -411,6 +413,8 @@ export function createStreetSigns({ scene, heightAt = () => 0, raised = null, cr
       for (const item of layout.poles || []) {
         if (!room('poles')) break;
         const y = ground(item.x, item.z), tall = item.mast ? MAST.pole : item.height;
+        if(physics)bodies.push({id:propId('signalPole',item.x,item.z),x:item.x,y,z:item.z,height:tall,
+          radius:item.mast ? .175 : .09,fixed:true});
         place(meshes.poles, count.poles++, item.x, y, item.z, 0, item.mast ? 1.25 : .62, tall, item.mast ? 1.25 : .62);
       }
       for (const signal of layout.signals) drawSignal(signal, plan, true);
@@ -444,6 +448,7 @@ export function createStreetSigns({ scene, heightAt = () => 0, raised = null, cr
     for (const junction of distant) for (const signal of junction.layout.signals) drawSignal(signal, junction.plan, false);
     for (const [name, mesh] of Object.entries(meshes)) { mesh.count = count[name]; mesh.instanceMatrix.needsUpdate = true; }
     cells.needsUpdate = stopCells.needsUpdate = meshes.noEntry.geometry.getAttribute('aCell').needsUpdate = true;
+    physics?.replace('signalPole', bodies);
     lamps.length = count.lamps; figures.length = count.figures;
   }
 
@@ -516,6 +521,7 @@ export function createStreetSigns({ scene, heightAt = () => 0, raised = null, cr
       if (changed) glow.needsUpdate = figureCells.needsUpdate = true;
     },
     dispose() {
+      physics?.replace('signalPole',[]);
       for (const mesh of Object.values(meshes)) { mesh.geometry.dispose(); mesh.dispose(); }
       for (const material of [steel, housing, dark, lamp, face, stopFace, figure]) material.dispose();
       atlas.dispose(); symbols.dispose(); group.removeFromParent();

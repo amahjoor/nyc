@@ -847,7 +847,8 @@ export class Simulation {
           checked.add(building);
           if (Number.isFinite(baseHeight) && Number.isFinite(building.height)
               && baseHeight > this.groundHeight(x,z) + building.height + .6) continue;
-          keep(circlePolygonContact(x, z, radius, building.polygon, building.holes));
+          const wall=circlePolygonContact(x,z,radius,building.polygon,building.holes);
+          if(wall)keep({...wall,kind:'building'});
         }
       }
     }
@@ -1999,6 +2000,13 @@ export class Simulation {
     player.speed = Math.hypot(next.x - player.x, next.z - player.z) / dt;
     if (next.hit) {
       const inward = player.velocityX * next.hit.nx + player.velocityZ * next.hit.nz;
+      if (inward < -3.4 && player.grounded && !(player.bumpUntil>this.elapsed) &&
+          ['building','prop','bicycle'].includes(next.hit.kind)) {
+        const {nx,nz}=next.hit;
+        player.x=next.x;player.z=next.z;player.bumpUntil=this.elapsed+.7;
+        this.pushPlayer(-nx*inward*.28,-nz*inward*.28,{fall:inward < -7.4,lift:.16,rest:.2});
+        return;
+      }
       if (inward < 0) { player.velocityX -= inward * next.hit.nx; player.velocityZ -= inward * next.hit.nz; }
     }
     player.x = next.x;

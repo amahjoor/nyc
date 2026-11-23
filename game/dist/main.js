@@ -2429,7 +2429,7 @@ async function boot() {
     pedestrian:()=>sim.player.mode==='walk'&&!sim.room&&!sim.player.armed?crowd?.closest(sim.player.x,sim.player.z,4,true):null,
     counter:()=>registerAction(sim)?sim.room.place:null});
   restoreProgress();yaw=sim.player.angle;
-  signs=createStreetSigns({scene,heightAt:groundHeight,raised:(x,z)=>{const offset=streetscape?.offsetAt(x,z);return offset ? offset>.1 : null;}});
+  signs=createStreetSigns({scene,physics:sim.streetObjects,heightAt:groundHeight,raised:(x,z)=>{const offset=streetscape?.offsetAt(x,z);return offset ? offset>.1 : null;}});
   crowd=createCrowd({scene,boroughs,heightAt:(x,z,y)=>streetSurface(x,z,{mode:'walk',referenceHeight:y})?.elevation ?? groundHeight(x,z),blocked:(x,z,y,radius)=>sim.isBlocked(x,z,radius,{baseHeight:y}),isRoad:(x,z)=>streetscape?.surfaceAt(x,z)==='road',
     life:{crowding:(x,z,hours)=>cityLife.crowding(x,z,hours),wardrobe:(x,z,hours)=>cityLife.wardrobe(x,z,hours),
       // Offices, shops and sights fill a street with people from all over the city; at home, and at night, it is the neighbours.
@@ -2453,7 +2453,7 @@ async function boot() {
   loadData('demographics.json').then(data=>{demographics=createDemographics(data);}).catch(()=>{});
   busStops=createBusStops({scene,heightAt:groundHeight,kerb:(x,z)=>kerbIndex&&snapToKerb(kerbIndex,x,z,14)});
   shedMesh=createShedMesh({scene,heightAt:groundHeight,physics:sim.streetObjects});
-  trashMesh=createTrashMesh({scene,heightAt:groundHeight});
+  trashMesh=createTrashMesh({scene,physics:sim.streetObjects,heightAt:groundHeight});
   fetch('./collection.bin').then(response=>response.ok?response.arrayBuffer():null).then(buffer=>{collection=createCollection(buffer);frontsFor=null;}).catch(()=>{});
   diningMesh=createDiningMesh({scene,heightAt:groundHeight});standMesh=createStandMesh({scene,heightAt:groundHeight});
   loadData('dining.json').then(data=>{dining=createDining(data);frontsFor=null;}).catch(()=>{});

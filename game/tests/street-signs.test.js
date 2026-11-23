@@ -270,3 +270,18 @@ test('signal faces point back to the opposite painted end, including the flat ba
     assert.ok(layout.poles.some(p=>p.x===head.x && p.z===head.z));
   }
 });
+
+test('each drawn signal pole stops contact on its own level and streams out with the junction',async()=>{
+  const {StreetObjects}=await import('../dist/street-objects.js');
+  const physics=new StreetObjects(),j=junction();
+  const signs=createStreetSigns({physics,heightAt:()=>12,createCanvas:canvas});
+  signs.update([j],j);
+  assert.ok(signs.poles.length>0);
+  for(const {x,z} of signs.poles){
+    assert.ok(physics.contact(x,z,.38,12));
+    assert.equal(physics.contact(x,z,.38,0),null);
+  }
+  signs.update([],{x:5000,z:5000});
+  assert.equal(physics.grid.size,0);
+  signs.dispose();
+});

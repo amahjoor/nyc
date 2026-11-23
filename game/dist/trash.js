@@ -10,6 +10,7 @@
 // than a row house, in a heap at the kerb. Recycling, bins and the trucks
 // themselves are not modelled.
 import * as THREE from './vendor/three.module.min.js';
+import { propId } from './street-objects.js';
 import { wallFinder } from './places.js';
 
 /** Metres to a cell of the collection grid. */
@@ -90,7 +91,7 @@ export function bagsOf(heap) {
 }
 
 /** Draw the bags of planTrash()'s heaps. */
-export function createTrashMesh({ scene = null, heightAt = () => 0, capacity = 2600 } = {}) {
+export function createTrashMesh({ scene = null, heightAt = () => 0, physics = null, capacity = 2600 } = {}) {
   // A bag: a slumped ball, drawn in and tied at the top.
   const body = new THREE.IcosahedronGeometry(1, 1); body.scale(1, .78, 1); body.translate(0, .74, 0);
   const position = body.attributes.position;
@@ -100,7 +101,42 @@ export function createTrashMesh({ scene = null, heightAt = () => 0, capacity = 2
   const mesh = new THREE.InstancedMesh(body, plastic, capacity); mesh.name = 'Refuse bags'; mesh.count = 0; mesh.frustumCulled = false; mesh.castShadow = true; mesh.receiveShadow = true; mesh.visible = false;
   scene?.add(mesh);
   const matrix = new THREE.Matrix4(), place = new THREE.Vector3(), turn = new THREE.Quaternion(), size = new THREE.Vector3(), up = new THREE.Vector3(0, 1, 0), colour = new THREE.Color();
-  let heaps = [], shown = '';
+  const litter = new THREE.InstancedMesh(new THREE.DodecahedronGeometry(1),
+    new THREE.MeshStandardMaterial({roughness:.95}),capacity*4);
+  litter.count=0; litter.frustumCulled=false; mesh.add(litter);
+  let heaps = [], shown = '', collectionNight = null;
+  function clearBags() {
+    physics?.replace('bag',[]);
+    if (physics) for (const id of physics.damage.keys()) if (id.startsWith('bag:')) {
+      physics.damage.delete(id); physics.moving.delete(id);
+    }
+  }
+  function bagMotion(bag,slot,baseY) {
+    let firstScrap=-1;
+    const scaleY=size.y;
+    return pose=>{
+      const radius=bag.size, flatten=pose.torn ? .38 : 1;
+      const center=scaleY*.74*flatten;
+      turn.setFromAxisAngle(up.set(pose.nz,0,-pose.nx),pose.tilt);
+      size.set(radius,scaleY*flatten,radius);
+      place.set(0,-center,0).applyQuaternion(turn);
+      place.x+=bag.x+pose.dx; place.y+=baseY+pose.lift+center; place.z+=bag.z+pose.dz;
+      mesh.setMatrixAt(slot,matrix.compose(place,turn,size));mesh.instanceMatrix.needsUpdate=true;
+      up.set(0,1,0);
+      if (!pose.torn) return;
+      const {x,z,nx,nz,speed,age}=pose.torn;
+      if (firstScrap<0) { firstScrap=litter.count; litter.count+=4; }
+      for (let j=0;j<4;j++) {
+        const spread=(j-1.5)*.36, t=Math.min(age,1.1), travel=speed*(1-Math.exp(-3*t))/3;
+        const px=x+(nx+nz*spread)*travel, pz=z+(nz-nx*spread)*travel;
+        place.set(px,heightAt(px,pz)+.034+Math.max(0,.15+(1.4+j*.28)*t-4.905*t*t),pz);
+        turn.setFromAxisAngle(up,bag.turn+j*2+t*5); size.set(.06+j*.014,.034,.085);
+        litter.setMatrixAt(firstScrap+j,matrix.compose(place,turn,size));
+        litter.setColorAt(firstScrap+j,colour.setHex([0xb9a187,0xc5c6bc,0x768665,0x876846][j]));
+      }
+      litter.instanceMatrix.needsUpdate=litter.instanceColor.needsUpdate=true;
+    };
+  }
   return {
     mesh,
     get heaps() { return heaps; },
@@ -112,6 +148,10 @@ export function createTrashMesh({ scene = null, heightAt = () => 0, capacity = 2
       const key = `${day}:${hours >= SET_OUT ? 2 : hours < COLLECTED ? 1 : 0}:${heaps.length}:${heaps[0]?.x ?? 0}`;
       if (key === shown) { mesh.visible = mesh.count > 0; return mesh.count; }
       shown = key;
+      const night=hours>=SET_OUT ? (day+1)%7 : hours<COLLECTED ? day : null;
+      if (collectionNight!==night) clearBags();
+      collectionNight=night;
+      const bodies=[]; litter.count=0;
       let n = 0;
       for (const heap of heaps) {
         if (!bagsOut(heap.days, day, hours)) continue;
@@ -119,12 +159,15 @@ export function createTrashMesh({ scene = null, heightAt = () => 0, capacity = 2
           if (n >= capacity) break;
           place.set(bag.x, heightAt(bag.x, bag.z) + bag.y, bag.z); turn.setFromAxisAngle(up, bag.turn); size.set(bag.size, bag.size * (.85 + .3 * ((bag.turn * 7) % 1)), bag.size); matrix.compose(place, turn, size);
           // Black, most of them; now and then one of the clear ones.
+          if (physics) bodies.push({id:propId('bag',bag.x,bag.z)+':'+bag.y,x:bag.x,y:place.y,z:bag.z,
+            stackHeight:bag.y,radius:bag.size,height:size.y*1.3,draw:bagMotion(bag,n,place.y)});
           mesh.setMatrixAt(n, matrix); mesh.setColorAt(n, colour.setHex((bag.turn * 13) % 1 < .12 ? 0x9fb3bd : 0x121416)); n++;
         }
       }
+      physics?.replace('bag',bodies);
       mesh.count = n; mesh.visible = n > 0; mesh.instanceMatrix.needsUpdate = true; if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
       return n;
     },
-    dispose() { body.dispose(); plastic.dispose(); mesh.dispose(); mesh.removeFromParent(); },
+    dispose() { clearBags(); litter.geometry.dispose(); litter.material.dispose(); litter.dispose(); body.dispose(); plastic.dispose(); mesh.dispose(); mesh.removeFromParent(); },
   };
 }

@@ -13,7 +13,7 @@ export class StreetObjects {
   }
 
   _index(body, add) {
-    // Include the fall arc. Only loose baskets can leave their original cells.
+    // Include the fall arc of upright poles. Loose props are reindexed as they move.
     const reach = body.radius + (body.half || 0) + (body.kind === 'lamp' || body.kind === 'sapling' ? body.height : 1);
     const x = body.x + (body.pose?.dx || 0), z = body.z + (body.pose?.dz || 0);
     for (let i = Math.floor((x - reach) / CELL); i <= Math.floor((x + reach) / CELL); i++) {
@@ -81,7 +81,7 @@ export class StreetObjects {
           const pose = body.pose;
           // Give the striking bumper time to clear the falling object.
           if (actor && pose && pose.actor === (actor.id ?? 'player') && time < pose.clearAt) continue;
-          const tilt = pose?.tilt || 0, sin = Math.sin(tilt), cos = Math.cos(tilt);
+          const tilt = body.kind==='bag' ? 0 : pose?.tilt || 0, sin = Math.sin(tilt), cos = Math.cos(tilt);
           const base = body.y + (pose?.lift || 0);
           const low = Number.isFinite(y) ? y : body.y;
           const top = base + body.height * cos + body.radius;
@@ -111,8 +111,8 @@ export class StreetObjects {
   }
 
   strike(hit, actor, vx, vz, vehicle, time) {
-    const body = hit.body, basket = body.kind === 'basket';
-    if (body.fixed || body.belowGrade || body.kind === 'tree' || (!basket && (!vehicle || body.pose))) return null;
+    const body = hit.body, bag = body.kind === 'bag', loose = bag || body.kind === 'basket';
+    if (body.fixed || body.belowGrade || body.kind === 'tree' || (!loose && (!vehicle || body.pose))) return null;
     let closing = -(vx * hit.nx + vz * hit.nz), nx = -hit.nx, nz = -hit.nz;
     if (body.kind === 'rail') {
       // Only the component across the panel can fold it around the lower edge.
@@ -121,7 +121,7 @@ export class StreetObjects {
       nx = Math.sign(across) * body.tz;
       nz = -Math.sign(across) * body.tx;
     }
-    const threshold = basket ? .7 : body.kind === 'rail' ? 5 : 9;
+    const threshold = loose ? .7 : body.kind === 'rail' ? 5 : 9;
     if (closing < threshold) return null;
 
     const pose = body.pose || { dx: 0, dz: 0, lift: 0, tilt: 0, nx, nz };
@@ -129,19 +129,50 @@ export class StreetObjects {
     const armReach = body.kind === 'lamp' ? (body.nx * nx + body.nz * nz) * 2.8 : 0;
     pose.restTilt = armReach > body.radius ? Math.atan2(8.7, armReach - body.radius) : Math.PI / 2;
     if (body.kind === 'sapling') pose.restTilt = Math.acos(clamp(body.crownRadius / body.height, 0, 1));
-    const launch = basket ? Math.min(7, closing * .85) : 0;
-    Object.assign(pose, { vx: nx * launch, vz: nz * launch, spin: basket ? 3 + launch : 1.1,
-      settled: false, actor: actor.id ?? 'player', clearAt: time + (basket ? .35 : .85) });
+    const launch = loose ? Math.min(bag ? 11 : 7, closing * .85) : 0;
+    if (bag) {
+      Object.assign(pose,{nx,nz,vy:Math.min(2.8,closing*.17),air:Math.max(0,pose.air??body.stackHeight??0)});
+      if (vehicle && closing >= 7 && !pose.torn) {
+        pose.torn = {x:body.x+pose.dx, z:body.z+pose.dz, nx,nz,speed:launch, age:0};
+      }
+    }
+    Object.assign(pose, { vx: nx * launch, vz: nz * launch, spin: loose ? 3 + launch : 1.1,
+      settled: false, actor: actor.id ?? 'player', clearAt: time + (loose ? .35 : .85) });
     body.pose = pose;
     this.damage.set(body.id, pose);
     this.moving.set(body.id, body);
     body.draw?.(pose);
-    return basket ? .94 : body.kind === 'lamp' ? .61 : .78;
+    return bag ? .995 : loose ? .94 : body.kind === 'lamp' ? .61 : .78;
   }
 
   step(dt, blocked, heightAt) {
     for (const body of this.moving.values()) {
       const p = body.pose, basket = body.kind === 'basket';
+      if (body.kind === 'bag') {
+        if (body.loaded) this._index(body,false);
+        const dx=p.dx+p.vx*dt, dz=p.dz+p.vz*dt;
+        if (body.loaded && blocked(body.x+dx,body.z+dz,body.radius,body.y+p.lift)) {
+          p.vx*=-.22; p.vz*=-.22;
+        } else { p.dx=dx; p.dz=dz; }
+        p.vy-=9.81*dt;
+        p.air=Math.max(0,p.air+p.vy*dt);
+        if (!p.air && p.vy<0) p.vy=p.vy < -.9 ? -p.vy*.23 : 0;
+        const drag=Math.exp(-(p.air ? .5 : 3.1)*dt);
+        p.vx*=drag; p.vz*=drag;
+        const speed=Math.hypot(p.vx,p.vz);
+        p.tilt+=speed*dt/body.radius;
+        if (p.torn) p.torn.age+=dt;
+        if (body.loaded) {
+          p.groundOffset=heightAt(body.x+p.dx,body.z+p.dz)-body.y;
+          this._index(body,true);
+        }
+        p.lift=(p.groundOffset||0)+p.air;
+        if (speed<.08 && !p.air && (!p.torn || p.torn.age>1.5)) {
+          p.settled=true; p.actor=null; this.moving.delete(body.id);
+        }
+        body.draw?.(p);
+        continue;
+      }
       p.spin += (basket ? 3 : 4.5) * Math.sin(p.tilt) * dt;
       let tilt = Math.min(p.restTilt, p.tilt + p.spin * dt);
       if (basket) {
