@@ -2,12 +2,18 @@ import http from 'node:http';
 import {readFile, stat} from 'node:fs/promises';
 import {resolve, extname, sep} from 'node:path';
 import {fileURLToPath} from 'node:url';
+import {handleMayaChat} from './phone-chat.mjs';
 const root=fileURLToPath(new URL('../dist/',import.meta.url));
 const port=Number(process.env.PORT||5173);
-const types={'.html':'text/html; charset=utf-8','.css':'text/css; charset=utf-8','.js':'text/javascript; charset=utf-8','.json':'application/json; charset=utf-8','.txt':'text/plain; charset=utf-8','.jpg':'image/jpeg','.png':'image/png'};
+const types={'.mjs':'text/javascript; charset=utf-8','.wasm':'application/wasm','.mp3':'audio/mpeg','.flac':'audio/flac','.html':'text/html; charset=utf-8','.css':'text/css; charset=utf-8','.js':'text/javascript; charset=utf-8','.json':'application/json; charset=utf-8','.txt':'text/plain; charset=utf-8','.jpg':'image/jpeg','.png':'image/png'};
 http.createServer(async(req,res)=>{
   try{
     const pathname=decodeURIComponent(new URL(req.url,'http://localhost').pathname);
+    if(pathname==='/api/phone/maps'){
+      res.writeHead(200,{'Content-Type':'application/json','Cache-Control':'no-store'});
+      res.end(JSON.stringify({browserKey:process.env.GOOGLE_MAPS_BROWSER_KEY || ''}));return;
+    }
+    if(pathname==='/api/phone/maya'){await handleMayaChat(req,res);return;}
     let path=resolve(root,'.'+pathname);
     if(path!==resolve(root)&&!path.startsWith(resolve(root)+sep)){res.writeHead(403);res.end('Forbidden');return;}
     let info=await stat(path);
