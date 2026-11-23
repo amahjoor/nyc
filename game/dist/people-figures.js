@@ -120,6 +120,9 @@ function makeBatch(data, compact, material, depth, capacity) {
   return {mesh,anim:instance('aAnim'),top:instance('aTop'),bottom:instance('aBottom')};
 }
 
+// Beyond DISTANT metres somebody is drawn from their coarsest mesh. Beyond UNSEEN_BEYOND, somebody out of the picture
+// is not drawn at all, unless within SHADOW_REACH metres of its edge.
+const DISTANT=60, UNSEEN_BEYOND=20, SHADOW_REACH=10;
 export function createFigures({motion, grow, capacity=320, scene=null, layer=0, layers=[layer]}={}) {
   const {rows} = sheetRows(motion), {compact,kept} = streetBones(motion.bones);
   // A live palette for active falls. Every other figure uses its baked sheet.
@@ -150,7 +153,10 @@ export function createFigures({motion, grow, capacity=320, scene=null, layer=0, 
         const to=makeBatch(data,compact,material,depth,capacity);
         to.mesh.name='Person '+member; layers.forEach(l=>to.mesh.layers.enable(l)); group.add(to.mesh); return to;
       };
-      types.set(member,{near:batch(data.near),far:batch(data.far),height:data.height,rig:data.rig?{...data.rig,index:motion.index}:null,palms:data.palms,shears:data.shears,map,poses,material,depth});
+      // The mesh for somebody down the block throws no shadow: it would be a smudge, and it is most of the crowd.
+      const distant=data.distant?batch(data.distant):null;
+      if(distant)distant.mesh.castShadow=false;
+      types.set(member,{near:batch(data.near),far:batch(data.far),distant,height:data.height,rig:data.rig?{...data.rig,index:motion.index}:null,palms:data.palms,shears:data.shears,map,poses,material,depth});
     }).catch(error=>{
       if (!disposed) {types.set(member,{retry:performance.now()+15000}); console.warn('Could not load a street figure',member,error);}
     }).finally(()=>{loading--;pump();});
@@ -176,6 +182,10 @@ export function createFigures({motion, grow, capacity=320, scene=null, layer=0, 
     return [row.first+first,row.first+(row.loop ? (first+1)%row.count : Math.min(row.count-1,first+1)),f-first];
   }
   const point=new THREE.Vector3(), matrix=new THREE.Matrix4(), colour=new THREE.Color(), size=new THREE.Vector3();
+  // The meshes somebody has, finest first: the third, for the far end of the block, is missing from an older figure.
+  const levels=entry=>entry.distant?[entry.near,entry.far,entry.distant]:[entry.near,entry.far];
+  const frustum=new THREE.Frustum(), projection=new THREE.Matrix4(), inverse=new THREE.Matrix4(), around=new THREE.Sphere();
+  let sight=null;
   const toolFrame=new THREE.Quaternion(),toolNext=new THREE.Quaternion(),toolUp=new THREE.Vector3(0,1,0);
   function palmAt(entry,[a,b,t],matrix) {
     const axis=i=>entry.palms[a*3+i]*(1-t)+entry.palms[b*3+i]*t;
@@ -189,7 +199,16 @@ export function createFigures({motion, grow, capacity=320, scene=null, layer=0, 
     group,types,rows,ask,seconds:clip=>rowFor(clip).seconds,
     ready:id=>Boolean(types.get(id)?.near),
     get anyReady(){for(const entry of types.values()) if(entry?.near)return true; return false;},
-    begin(){fallCount=0;props.begin();for(const entry of types.values()) if(entry?.near) entry.near.mesh.count=entry.far.mesh.count=0;},
+    begin(){fallCount=0;props.begin();for(const entry of types.values()) if(entry?.near) for(const to of levels(entry)) to.mesh.count=0;},
+    /**
+     * Say where the street is being seen from: `camera` is a three.js camera whose world matrix is up to date, or
+     * null. With one, somebody more than UNSEEN_BEYOND metres off who is not in the picture, nor near enough to its
+     * edge for their shadow to fall into it, is not drawn. Without one, everybody is.
+     */
+    look(camera){
+      if(!camera){sight=null;return;}
+      sight=frustum.setFromProjectionMatrix(projection.multiplyMatrices(camera.projectionMatrix,inverse.copy(camera.matrixWorld).invert()));
+    },
     palm(member,actor) {
       const entry=types.get(member); if(!entry?.near)return null;
       const p=palmAt(entry,frames(actor.clip,actor.time,actor.from,actor.fromTime,actor.fade,null),
@@ -198,7 +217,8 @@ export function createFigures({motion, grow, capacity=320, scene=null, layer=0, 
     },
     add(member,x,y,z,heading,height,look,distance,clip,time,from,fromTime,fade,carry=null,reaction=null) {
       if (!ask(member,distance)) return false;
-      const entry=types.get(member), to=distance>30 ? entry.far : entry.near;
+      if(sight && distance>UNSEEN_BEYOND && !sight.intersectsSphere(around.set(point.set(x,y+1,z),SHADOW_REACH)))return true;
+      const entry=types.get(member), to=distance>30 ? (distance>DISTANT && entry.distant ? entry.distant : entry.far) : entry.near;
       if(to.mesh.count>=capacity)return false;
       const at=to.mesh.count++, sample=frames(clip,time,from,fromTime,fade,carry);
       transform(entry,x,y,z,heading,height); to.mesh.setMatrixAt(at,matrix);
@@ -233,12 +253,12 @@ export function createFigures({motion, grow, capacity=320, scene=null, layer=0, 
         for(let row=0;row<fallCount;row++)falls.addUpdateRange(row*stride,stride);
         falls.needsUpdate=true;
       }
-      for(const entry of types.values()) if(entry?.near) for(const to of [entry.near,entry.far]) if(to.mesh.count)
+      for(const entry of types.values()) if(entry?.near) for(const to of levels(entry)) if(to.mesh.count)
       for(const attr of [to.anim,to.top,to.bottom,to.mesh.instanceMatrix])attr.needsUpdate=true;},
     dispose(){
       disposed=true;falls.dispose();queue.clear();props.dispose();
       for(const entry of types.values()) if(entry?.near){
-        for(const {mesh} of [entry.near,entry.far]){mesh.geometry.dispose();mesh.dispose();}
+        for(const {mesh} of levels(entry)){mesh.geometry.dispose();mesh.dispose();}
         entry.material.dispose(); entry.depth.dispose(); entry.poses.dispose(); entry.map.dispose(); entry.map.image.close();
       }
       types.clear();group.removeFromParent();

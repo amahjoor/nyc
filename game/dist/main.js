@@ -1690,7 +1690,7 @@ function syncScene(dt,controls) {
     else if(away<CAR_SIGHT)distantCars.push(car);
   }
   for(const [id,mesh] of carModels)if(!activeCars.has(id)){scene.remove(mesh);carModels.delete(id);}
-  parkedCars?.update(batchedParked);
+  parkedCars?.update(batchedParked,null,camera.position);
   const extras=[], pedestrians=[];
   if(bikeTraffic){
     bikeTraffic.update(p,dt,{visible:started&&!cityView&&!aloft&&!traveling,
@@ -1707,7 +1707,7 @@ function syncScene(dt,controls) {
       z:seat.z+Math.cos(car.angle)*ahead,heading:car.angle,look,clip:'drive',carry:car.onPhone?'phone':null,sitting:true,time:elapsed});
     return true;
   }
-  distantTraffic?.update(distantCars,drawDriver);
+  distantTraffic?.update(distantCars,drawDriver,camera.position);
   // Bags are at the kerb from the evening before a collection day until the truck has been the next morning.
   if(gfx){if(clockWas!==null&&gfx.hours<clockWas-12)weekday=(weekday+1)%7;clockWas=gfx.hours;work?.advanceShopClock(weekday,gfx.hours);trashMesh?.show(weekday,gfx.hours);if(trashMesh&&cityView&&!viewOverride)trashMesh.mesh.visible=false;}
   // Once the modelled figures are in, the player and whoever is serving are drawn as two of them.
@@ -2311,6 +2311,8 @@ function frame(now) {
   crowd.mesh.visible=started&&(!cityView||Boolean(viewOverride))&&!aloft;
   if(crowd.mesh.visible){
     const ahead=camera.getWorldDirection(crowdAhead),flat=Math.hypot(ahead.x,ahead.z)||1;
+    // People out of the picture are not drawn. The phone's camera looks its own way, so while it is up they all are.
+    if(phone?.open&&phone.screen==='camera')figures?.look(null);else{camera.updateMatrixWorld();figures?.look(camera);}
     crowd.update(paused||mapOpen||traveling?0:dt,{walks:streetscape?.walks()||noStreetFurniture,focus:lit,forward:[ahead.x/flat,ahead.z/flat],hours:gfx.hours,time:sim.elapsed,junctions:sim.junctions,cars:sim.cars,player:sim.player,officers:sim.police.officers.concat(sim.police.downOfficers),enclosedSubway:subwayVisit?.enclosed && !aerialView && !cityView});
     if(crowd.damage){
       sim.hurt(crowd.damage);

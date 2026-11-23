@@ -180,9 +180,13 @@ async function atlasFor(pieces, look, base) {
   return { bitmap: canvas.transferToImageBitmap(), place: piece => placed.get(piece.kind + '/' + piece.id) };
 }
 
+// How many times wider than the far mesh's the distant mesh's grid is.
+const DISTANT_GRID = 3;
 /** Pack the dressed mesh, collapsing nearby corners on the far LOD. Keep a
  * separate grid per piece, UV neighbourhood and dominant bone so a jacket
- * retains its hem, the shoes retain their soles and joints still articulate. */
+ * retains its hem, the shoes retain their soles and joints still articulate.
+ * `distant` is how coarse: false for the mesh seen close by, true (or 1) for
+ * the far one, and a larger number for a grid that many times wider still. */
 function merged(pieces, atlas, clothing, fittedBelt, distant=false, rig=null) {
   const position=[], normal=[], uv=[], cloth=[], skinIndex=[], skinWeight=[], index=[];
   const handBones=new Set(rig?.bones.flatMap((b,i)=>/^(lowerarm|hand|thumb|index|middle|ring|pinky)_/.test(b.name)?[i]:[]));
@@ -195,8 +199,9 @@ function merged(pieces, atlas, clothing, fittedBelt, distant=false, rig=null) {
     // Keep the close skin continuous across the wrist. Cluster its other
     // surfaces more finely than the distant mesh, preserving UV seams.
     const closeSkin=rig && piece.kind==='skin';
-    const cellSize=closeSkin ? .014 : (piece.kind==='garment' ? .048 : .027) * (fittedBelt ? .55 : 1);
-    const uvGrid=closeSkin?48:piece.kind==='uniform'?128:8;
+    const wider=Math.max(1,Number(distant)||1);
+    const cellSize=closeSkin ? .014 : (piece.kind==='garment' ? .048 : .027) * (fittedBelt ? .55 : 1) * wider;
+    const uvGrid=closeSkin?48:piece.kind==='uniform'?(wider>1?24:128):(wider>1?4:8);
     function corner(i) {
       if (remap[i]>=0) return remap[i];
       const p=i*3, u=i*2, b=i*4;
@@ -249,8 +254,8 @@ export function streetWardrobe(pieces, design, look, base) {
 }
 
 /**
- * Somebody for the street. Returns { near, far, atlas, poses, wide, frames, height, transfer }:
- * two meshes, their textures, and every frame of every street movement for their skeleton.
+ * Somebody for the street. Returns { near, far, distant, atlas, poses, wide, frames, height, transfer }:
+ * three meshes, their textures, and every frame of every street movement for their skeleton.
  */
 export async function streetFigure(human, motion, design, base) {
   const dressed = lookOf(design, human), wear = dressed.wear.filter(key => !/^(lashes|teeth)\//.test(key));
@@ -261,7 +266,9 @@ export async function streetFigure(human, motion, design, base) {
   const nearParts=near.pieces.map(p=>p.kind==='skin'?close:p);
   const fittedBelt=near.pieces.some(p=>p.kind==='uniform');
   const a = merged(nearParts, atlas, clothing, fittedBelt,false,near.rig), b = merged(near.pieces, atlas, clothing, fittedBelt,true), sheet = poseSheet(motion, near.rig, STREET_CLIPS, design.walkStyle);
-  return { near: a, far: b, atlas: atlas.bitmap, ...sheet, wardrobe, rig:{bones:near.rig.bones,world:near.rig.world,bind:near.rig.bind,
+  // Somebody at the far end of the block is thirty pixels tall: a grid three times as wide again is a pixel or two of them.
+  const c = merged(near.pieces, atlas, clothing, fittedBelt, DISTANT_GRID);
+  return { near: a, far: b, distant: c, atlas: atlas.bitmap, ...sheet, wardrobe, rig:{bones:near.rig.bones,world:near.rig.world,bind:near.rig.bind,
       scale:near.rig.scale,stride:near.rig.stride,spread:near.rig.spread,lift:near.rig.lift}, height: near.height,
-    transfer: [atlas.bitmap, sheet.poses.buffer, sheet.palms.buffer, sheet.shears.buffer, ...[a, b].flatMap(mesh => [mesh.position.buffer, mesh.normal.buffer, mesh.uv.buffer, mesh.cloth.buffer, mesh.skinIndex.buffer, mesh.skinWeight.buffer, mesh.index.buffer])] };
+    transfer: [atlas.bitmap, sheet.poses.buffer, sheet.palms.buffer, sheet.shears.buffer, ...[a, b, c].flatMap(mesh => [mesh.position.buffer, mesh.normal.buffer, mesh.uv.buffer, mesh.cloth.buffer, mesh.skinIndex.buffer, mesh.skinWeight.buffer, mesh.index.buffer])] };
 }

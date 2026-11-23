@@ -359,6 +359,25 @@ function roadWheel({ spokes = 5, aero = false, thin = false, face = 0xb1bac1, ba
   batch.finish(group);
   return group.children[0].geometry;
 }
+// A wheel seen from down the street: a dark ring round a disc the colour of its face, a hundred and forty triangles
+// where the one drawn close by has two and a half thousand. Past FAR_WHEELS metres a spoke is narrower than a pixel.
+const FAR_WHEELS = 45;
+const farTyre = new THREE.LatheGeometry([[.6,-.125],[.96,-.125],[1,-.06],[1,.06],[.96,.125],[.6,.125]].map(([r,x]) => new THREE.Vector2(r*WHEEL.radius,x)),12).rotateZ(Math.PI/2);
+const farRim = (() => {
+  const position = [], normal = [], color = [], R = WHEEL.radius*.6;
+  for (const side of [-1, 1]) for (let i = 0; i < 12; i++) {
+    const a = i*Math.PI/6, b = (i+1)*Math.PI/6, x = side*.127;
+    // Wound so that each disc faces away from the car.
+    const rim = side > 0 ? [a, b] : [b, a];
+    position.push(x,0,0, x,Math.cos(rim[0])*R,Math.sin(rim[0])*R, x,Math.cos(rim[1])*R,Math.sin(rim[1])*R);
+    for (let k = 0; k < 3; k++) { normal.push(side,0,0); color.push(1,1,1); }
+  }
+  const geometry = new THREE.BufferGeometry();
+  geometry.setAttribute('position',new THREE.Float32BufferAttribute(position,3)); geometry.setAttribute('normal',new THREE.Float32BufferAttribute(normal,3));
+  geometry.setAttribute('color',new THREE.Float32BufferAttribute(color,3));
+  return geometry;
+})();
+const RIM_FACES = { alloy: 0xb1bac1, sport: 0xb1bac1, aero: 0xb1bac1, multi: 0xc6cdd2, dark: 0x2c2f33, steel: 0x9aa0a5, black: 0x15171a };
 /** The wheels there are: alloys in five patterns, and pressed steel in silver and in black. */
 export const RIMS = {
   alloy: roadWheel(), sport: roadWheel({ spokes: 8 }), aero: roadWheel({ aero: true }), multi: roadWheel({ spokes: 14, thin: true, face: 0xc6cdd2 }),
@@ -461,13 +480,19 @@ function createCarSet({ name, label, capacity, lit, select, library }) {
   // Each car's own number, front and back.
   const plates = createPlateBatch(capacity, `${label} number plates`); group.add(plates.mesh);
   add(tyres);
+  // The wheels of the cars down the street, all in two draws, and the colour each pattern's face shows from there.
+  const farTyres = new THREE.InstancedMesh(farTyre, tireMaterial, capacity * 4); farTyres.name = `${label} car tyres, far`; add(farTyres);
+  const farRims = new THREE.InstancedMesh(farRim, wheelFinish, capacity * 4); farRims.name = `${label} car wheels, far`; add(farRims);
+  farRims.setColorAt(0, new THREE.Color(1, 1, 1));
+  const faces = new Map(Object.entries(RIMS).map(([pattern, geometry]) => [geometry, new THREE.Color(RIM_FACES[pattern] ?? 0xb1bac1)]));
+  const wasFar = new WeakMap();
   const interiorBatch = occupant => {
     const template = cabinMesh(occupant, true), mesh = new THREE.InstancedMesh(template.geometry, template.material, capacity);
     mesh.name = `${label} ${template.name}`;
     mesh.receiveShadow = true; add(mesh); return mesh;
   };
   const cabins = interiorBatch(-1), drivers = new Map();
-  const FIELDS = 12, seen = new Float64Array(capacity * FIELDS), pose = new Float64Array(FIELDS);
+  const FIELDS = 13, seen = new Float64Array(capacity * FIELDS), pose = new Float64Array(FIELDS);
   const matrix = new THREE.Matrix4(), interiorMatrix = new THREE.Matrix4(), position = new THREE.Vector3(), quaternion = new THREE.Quaternion(), euler = new THREE.Euler(0, 0, 0, 'YXZ'), one = new THREE.Vector3(1, 1, 1), color = new THREE.Color();
   const ids = [], looks = [], colors = [], worn = [], shod = [], wheelScale = new THREE.Vector3();
   let count = -1;
@@ -484,8 +509,12 @@ function createCarSet({ name, label, capacity, lit, select, library }) {
   return {
     group,
     get count() { return Math.max(0, count); },
-    /** A stationary row needs no new uploads until its appearance or occupancy changes. */
-    update(cars = [], drawDriver = null) {
+    /**
+     * A stationary row needs no new uploads until its appearance or occupancy changes. `eye` (`{x, z}`) is where the
+     * cars are seen from: those more than FAR_WHEELS metres off are given plain wheels and no upholstery. Without
+     * it every car is drawn as if it were close.
+     */
+    update(cars = [], drawDriver = null, eye = null) {
       let n = 0, changed = false;
       for (const car of cars) {
         if (!select(car) || n >= capacity) continue;
@@ -494,6 +523,9 @@ function createCarSet({ name, label, capacity, lit, select, library }) {
         for (let i = 0; i < 4; i++) pose[6 + i] = Number.isFinite(wheels[i]) ? wheels[i] : pose[1];
         pose[10] = hasDriver(car) ? driverLook(car.id,car.type,car.unit) : -1;
         pose[11] = flashingSide(car);
+        // A car at the line does not flicker between its two sets of wheels: it changes four metres past it either way.
+        const far = eye ? Math.hypot(car.x - eye.x, car.z - eye.z) > FAR_WHEELS + (wasFar.get(car) ? -4 : 4) : false;
+        wasFar.set(car, far); pose[12] = far ? 1 : 0;
         const look = styleOf(car);
         if (drawDriver && pose[10] >= 0) {
           quaternion.setFromEuler(euler.set(pose[4], pose[3], pose[5], 'YXZ'));
@@ -515,7 +547,7 @@ function createCarSet({ name, label, capacity, lit, select, library }) {
       for (const driver of drivers.values()) driver.count = 0;
       for (const mesh of rims.values()) mesh.count = 0;
       plates.begin();
-      let wheel = 0, slot = 0;
+      let wheel = 0, slot = 0, farWheel = 0, cabin = 0;
       for (const car of cars) {
         if (!select(car) || slot >= n) continue;
         const item = looks[slot], i = item.used++, axle = item.wheels;
@@ -524,7 +556,8 @@ function createCarSet({ name, label, capacity, lit, select, library }) {
         position.set(x, y + .025, z); euler.set(seen[o + 4], angle, seen[o + 5], 'YXZ'); quaternion.setFromEuler(euler);
         matrix.compose(position, quaternion, one); item.body.setMatrixAt(i, matrix);
         plates.add(matrix, item.built, plateFor(car));
-        cabins.setMatrixAt(slot - 1, interiorMatrix.multiplyMatrices(matrix, item.cabin));
+        const far = seen[o + 12] === 1;
+        if (!far) cabins.setMatrixAt(cabin++, interiorMatrix.multiplyMatrices(matrix, item.cabin));
         item.indicators.setX(i,seen[o + 11]);
         const occupant = seen[o + 10];
         if (occupant >= 0) {
@@ -542,8 +575,10 @@ function createCarSet({ name, label, capacity, lit, select, library }) {
           // Each tyre stands on its own measured patch of road.
           position.set(x + cos * side + sin * reach, seen[o + 6 + k++] + axle.radius + .035, z - sin * side + cos * reach);
           // The wheels a body shop has fitted, or the model's own.
-          const rim = rims.get(RIMS[car.rims] || item.rim);
-          matrix.compose(position, quaternion, wheelScale); tyres.setMatrixAt(wheel++, matrix); rim.setMatrixAt(rim.count++, matrix);
+          const pattern = RIMS[car.rims] || item.rim, rim = rims.get(pattern);
+          matrix.compose(position, quaternion, wheelScale);
+          if (far) { farTyres.setMatrixAt(farWheel, matrix); farRims.setMatrixAt(farWheel, matrix); farRims.setColorAt(farWheel++, faces.get(pattern)); }
+          else { tyres.setMatrixAt(wheel++, matrix); rim.setMatrixAt(rim.count++, matrix); }
         }
       }
       for (const [key, item] of styles) {
@@ -553,7 +588,9 @@ function createCarSet({ name, label, capacity, lit, select, library }) {
           styles.delete(key); removeStyle(item);
         }
       }
-      cabins.count = n; cabins.visible = n > 0; cabins.instanceMatrix.needsUpdate = true;
+      cabins.count = cabin; cabins.visible = cabin > 0; cabins.instanceMatrix.needsUpdate = true;
+      for (const mesh of [farTyres, farRims]) { mesh.count = farWheel; mesh.visible = farWheel > 0; mesh.instanceMatrix.needsUpdate = true; }
+      farRims.instanceColor.needsUpdate = true;
       for (const driver of drivers.values()) { driver.visible = driver.count > 0; driver.instanceMatrix.needsUpdate = true; }
       tyres.count = wheel; tyres.visible = wheel > 0; tyres.instanceMatrix.needsUpdate = true;
       for (const mesh of rims.values()) { mesh.visible = mesh.count > 0; mesh.instanceMatrix.needsUpdate = true; }

@@ -719,12 +719,15 @@ test('street view builds surveyed SoHo street surfaces and shares source imagery
     const parked=app.state().parkedCars,parkedGroup=scene.getObjectByName('Parked cars');
     assert.ok(parked>20,`${parked} cars are parked around the SoHo spawn`);
     assert.equal(parkedGroup.children.filter(child=>/bodies$/.test(child.name)).reduce((sum,child)=>sum+child.count,0),parked);
-    assert.equal(parkedGroup.getObjectByName('Parked car tyres').count,parked*4);
+    // Four wheels a car: those close by in full, those down the street as plain rings.
+    const fineTyres=parkedGroup.getObjectByName('Parked car tyres').count,plainTyres=parkedGroup.getObjectByName('Parked car tyres, far').count;
+    assert.equal(fineTyres+plainTyres,parked*4);assert.ok(fineTyres>0&&plainTyres>0,`${fineTyres} fine and ${plainTyres} plain tyres`);
+    assert.equal(parkedGroup.getObjectByName('Parked Cabin upholstery').count,fineTyres/4,'only the cars close by have their seats drawn');
     // Of the cars that move, those close by have a model of their own; the rest are drawn together too, out to where cars are drawn at all.
     const models=scene.children.filter(child=>child.userData?.chassis).length,distant=scene.getObjectByName('Distant traffic');
     const together=distant.children.filter(child=>/bodies$/.test(child.name)&&child.visible).reduce((sum,child)=>sum+child.count,0);
     assert.ok(models>=1&&models+together<=app.state().cars-parked,`${models} models and ${together} drawn together, of ${app.state().cars-parked} that move`);
-    assert.equal(distant.getObjectByName('Distant car tyres').count,together*4);
+    assert.equal(distant.getObjectByName('Distant car tyres').count+distant.getObjectByName('Distant car tyres, far').count,together*4);
     const sim = app.simulation();
     const farCar = sim.cars.find(car => car._kerb && Math.hypot(car.x - sim.player.x, car.z - sim.player.z) > 52);
     const exterior = () => scene.children.find(mesh => mesh.userData.chassis && mesh.position.x === farCar.x && mesh.position.z === farCar.z);

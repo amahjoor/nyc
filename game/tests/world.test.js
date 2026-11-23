@@ -280,7 +280,7 @@ test('visual suspension filters bumps while individual tires retain measured non
 test('kerbside cars are drawn as a few instanced meshes that change only when the kerb does', () => {
   const parked = createParkedCars({ capacity: 40 });
   const meshes = parked.group.children;
-  assert.equal(meshes.length, 8 * 3 + 10, 'each style batches its body, glass and lamps, plus shared tyres, cabins, number plates and the seven wheels a car may wear');
+  assert.equal(meshes.length, 8 * 3 + 12, 'each style batches its body, glass and lamps, plus shared tyres, cabins, number plates, the seven wheels a car may wear, and the plain tyre and wheel of a car down the street');
   assert.ok(meshes.every(mesh => mesh.isInstancedMesh && mesh.count === 0));
   const kerb = (id, x, extra = {}) => ({ id, type: 'sedan', color: '#7a1f1f', x, y: 2, z: 5, angle: Math.PI / 2, pitch: 0, roll: 0, wheelHeights: [2, 2, 2, 2], _kerb: true, ...extra });
   const cars = [kerb('kerb:1', 0), kerb('kerb:2', 6), kerb('kerb:3', 12), { id: 'traffic-1', type: 'sedan', x: 3, y: 2, z: 0, angle: 0 }, kerb('kerb:4', 18, { controlled: true })];
@@ -313,7 +313,7 @@ test('kerbside cars are drawn as a few instanced meshes that change only when th
 test('traffic beyond a few car lengths is drawn together, cabs in their own colours and with their lamps lit', () => {
   const traffic = createDistantTraffic({ capacity: 8 });
   const named = name => traffic.group.getObjectByName(name);
-  assert.equal(traffic.group.children.length, 10 * 3 + 10, 'eight body styles and two cabs share cabin, tyre, wheel and number plate batches');
+  assert.equal(traffic.group.children.length, 10 * 3 + 12, 'eight body styles and two cabs share cabin, tyre, wheel and number plate batches, with the plain wheels of cars down the street');
   const cars = [
     { id: 'traffic-101', type: 'sedan', color: '#a64438', x: 10, y: 2, z: 20, angle: Math.PI / 2, pitch: .02, roll: -.01, wheelHeights: [2, 2.1, 2, 2.1], _edge: {} },
     { id: 'traffic-102', type: 'taxi', color: '#f2b91c', x: 30, y: 0, z: 0, angle: 0 },
@@ -395,4 +395,34 @@ test('traffic beyond a few car lengths is drawn together, cabs in their own colo
   assert.equal(traffic.update(cars.slice(1)), true); assert.equal(traffic.count, 2); assert.equal(sedan.visible, false);
   traffic.dispose();
   assert.equal(traffic.group.parent, null);
+});
+
+test('a car down the street is drawn with plain wheels and no upholstery, and changes over without flickering', () => {
+  const parked = createParkedCars({ capacity: 40 }), meshes = parked.group.children;
+  const named = name => meshes.find(mesh => mesh.name === name);
+  const tyres = named('Parked car tyres'), farTyres = named('Parked car tyres, far'), farRims = named('Parked car wheels, far'), cabins = named('Parked Cabin upholstery');
+  const triangles = mesh => (mesh.geometry.index ? mesh.geometry.index.count : mesh.geometry.attributes.position.count) / 3;
+  const fine = meshes.filter(mesh => /car wheels, (?!far)/.test(mesh.name));
+  assert.ok(triangles(farTyres) + triangles(farRims) < (triangles(tyres) + Math.min(...fine.map(triangles))) / 12, 'a twelfth of the triangles at most');
+  assert.equal(farTyres.castShadow, false);
+  const kerb = (id, x) => ({ id, type: 'sedan', color: '#7a1f1f', x, y: 0, z: 0, angle: 0, pitch: 0, roll: 0, wheelHeights: [0, 0, 0, 0], _kerb: true });
+  const cars = [kerb('kerb:1', 10), kerb('kerb:2', 30), kerb('kerb:3', 80), kerb('kerb:4', 120)];
+  const counts = () => [tyres.count, fine.reduce((sum, mesh) => sum + mesh.count, 0), farTyres.count, farRims.count, cabins.count];
+  // Seen from nowhere in particular, every car is drawn in full, as before.
+  parked.update(cars); assert.deepEqual(counts(), [16, 16, 0, 0, 4]);
+  // From the origin two are close and two are down the street. All four still have their bodies.
+  assert.equal(parked.update(cars, null, { x: 0, z: 0 }), true);
+  assert.deepEqual(counts(), [8, 8, 8, 8, 2]);
+  assert.equal(meshes.filter(mesh => /bodies$/.test(mesh.name)).reduce((sum, mesh) => sum + mesh.count, 0), 4);
+  // A far wheel stands where the fine one did, in the colour of its face.
+  const matrix = new THREE.Matrix4(), far = new THREE.Vector3(), colour = new THREE.Color();
+  farTyres.getMatrixAt(0, matrix); far.setFromMatrixPosition(matrix);
+  assert.ok(Math.abs(far.x - 80) < 2 && far.y > .2 && far.y < .5, JSON.stringify(far));
+  farRims.getColorAt(0, colour); assert.ok(colour.r > .05 && colour.r <= 1);
+  // Standing still costs nothing; walking a few metres about the line changes nothing; walking well past it does.
+  assert.equal(parked.update(cars, null, { x: 0, z: 0 }), false);
+  assert.equal(parked.update(cars, null, { x: 37, z: 0 }), false, 'eighty metres off is now forty-three: within four of the line, it keeps its plain wheels');
+  assert.equal(parked.update(cars, null, { x: 42, z: 0 }), true);
+  assert.deepEqual(counts(), [12, 12, 4, 4, 3]);
+  assert.equal(parked.update(cars, null, { x: 33, z: 0 }), false, 'and going back the same few metres does not change it again');
 });
