@@ -52,7 +52,7 @@ export function listPlaces(places, { category = 'all', query = '', x = 0, z = 0,
  * the places within reach. The live state supplies the clock, location and
  * checking and savings balances. App actions go back to the game.
  */
-export function createPhone({ $, isClosed, places = () => [], state = () => ({}), onDirections = () => {}, onTransport = () => {}, onWork = () => {}, onMap = () => {}, onOpenChange = () => {}, onTap = () => {}, showTap = () => true, onMechanic = () => {}, onCab = () => {}, onCapture = () => '', onTransfer = () => '', onTrade = () => '', rides, roads = () => [], storage, destinations = () => [], searchCity = async () => [] } = {}) {
+export function createPhone({ $, isClosed, places = () => [], state = () => ({}), onDirections = () => {}, onTransport = () => {}, onWork = () => {}, onDrive = () => {}, onMap = () => {}, onOpenChange = () => {}, onTap = () => {}, showTap = () => true, onMechanic = () => {}, onCab = () => {}, onCapture = () => '', onTransfer = () => '', onTrade = () => '', rides, roads = () => [], storage, destinations = () => [], searchCity = async () => [] } = {}) {
   const titles = {home:'Home', nearby:'Nearby', place:'Place', contacts:'Contacts', contact:'Contact', messages:'Messages', thread:'Message', call:'Call', camera:'Camera', gallery:'Gallery', photo:'Photo', bank:'Bank', transfer:'Transfer', market:'Investments', order:'Trade shares', list:'Work', maps:'Maps', rides:'D Ride', settings:'Settings', wallpaper:'Wallpaper'};
   // Contacts is the address book. Calls start from a person, or from their
   // texts. Messages is the inbox. There is no keypad: these are the only numbers.
@@ -206,7 +206,7 @@ export function createPhone({ $, isClosed, places = () => [], state = () => ({})
   function parentScreen() {
     if(screen==='rides' && !rides?.trip && (quote || quoting))return 'rides';
     if(screen==='list' && listing?.board && jobMenu)return 'list';
-    if(screen==='list')return listing?.app==='maps'?'maps':listing?.onBack?'list':'home';
+    if(screen==='list')return listing?.app==='maps' || listing?.app==='rides'?listing.app:listing?.onBack?'list':'home';
     return ({order:'market',market:'bank',wallpaper:'settings',place:'nearby',nearby:'maps',contact:'contacts',transfer:'bank',thread:'messages',call:call?.from||'contact',gallery:'camera',photo:'gallery'})[screen] || 'home';
   }
   function back() {
@@ -343,6 +343,7 @@ export function createPhone({ $, isClosed, places = () => [], state = () => ({})
   }
   function renderRide(now) {
     const trip=rides?.trip, selected=trip || quote;
+    $('phone-drive').hidden=Boolean(selected || quoting);
     $('phone-ride-street').textContent=trip?.pickupName || now.street || 'Current location';
     $('phone-ride-destination').textContent=selected?.destination.name || 'Choose a destination';
     $('phone-ride-picker').hidden=Boolean(selected || trip);
@@ -674,6 +675,7 @@ export function createPhone({ $, isClosed, places = () => [], state = () => ({})
     if(rideMessage && rides.pickupChanged(quote)){chooseDestination(quote.destination);return;}
     if(rides.trip){rides.trip.pickupName=state().street;quote=null;}render();});
   click('phone-ride-cancel',()=>{rides?.cancel();quote=null;rideMessage='';$('phone-ride-search').value='';findDestination();});
+  click('phone-drive',onDrive);
   click('phone-ride-board',()=>{if(rides?.canBoard()){rides.board();render();}});
   click('phone-job-sector',()=>{
     jobMenu=jobMenu==='sector'?null:'sector';render();

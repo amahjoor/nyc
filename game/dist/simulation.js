@@ -1,3 +1,4 @@
+import { stepDriverTrip } from './driver-work.js';
 import { meleeMoves, nextStrike, handGroup } from './melee-moves.js';
 import { TRICKS, startTrick, animateAir, landTrick } from './skate-tricks.js';
 import { motorist, phoneGlance } from './motorists.js';
@@ -2732,9 +2733,10 @@ export class Simulation {
     this.mission.timeLeft = Math.max(0, this.mission.timeLeft - dt);
     if (this.mission.timeLeft <= 0) {
       this.mission.phase = 'failed';
-      this._say('Delivery timed out. Press N to try another job.', 6);
+      this._say(this.mission.kind==='driver'?'The rider canceled the late trip.':'Delivery timed out. Open Work for another offer.', 6);
       return;
     }
+    if (this.mission.kind==='driver' || this.mission.kind==='courier') {stepDriverTrip(this,dt);return;}
     if (this.mission.kind==='paper' || ridingSubway || this.player.mode === 'transport' && !this.player.grounded) return;
     if (distance(this.player, this.mission.target) < 10 && playerTravelSpeed(this.player) < 3) {
       if (this.mission.meal && this.room) return;

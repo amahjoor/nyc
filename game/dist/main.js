@@ -1,4 +1,5 @@
 import { createSportsCourts, addCourtPlaces } from './sports-courts.js';
+import { interactWithTrip, courierBag } from './driver-work.js';
 import { renderStats, performanceName } from './vehicle-stats.js';
 import { formatMoney } from './money.js';
 import { createDoorDebris, hasAlteredGlazing } from './vehicle-detail.js';
@@ -624,7 +625,7 @@ function action(name,event) {
   if(name==='skate'){if(!mapOpen&&sim.toggleSkateboard()){input.skating=sim.player.mode==='skate';headAnchor=undefined;snapChase=true;}return;}
   if(name==='cash'){hud.showCash(sim.cash);return;}
   if(name==='interact'){
-    if(sim.dropPaper())return;
+    if(interactWithTrip(sim) || sim.dropPaper())return;
     if(sim.player.mode==='skate'){sim.toggleSkateboard();return;}
     if(sim.player.mode==='passenger'){cityRides.stopEarly();return;}
 
@@ -1092,7 +1093,7 @@ function showPlayer(dt,p,floor,eyeView,riding) {
   const driving=p.mode==='drive'||p.mode==='passenger', skating=p.mode==='skate';
   const striking=p.swing>0 || ['kick','lowKick','stomp'].includes(p.move?.kind);
   ownBody=eyeView && !p.water && firstPersonActive() && p.mode==='walk' && (!p.armed || striking) && !phoneHand?.amount &&
-    !sim.seat && !sim.ending && !sim.shopping.payment && (striking || !p.carry);
+    !sim.seat && !sim.ending && !sim.shopping.payment && (striking || !(courierBag(sim.mission) || p.carry));
   playerBody.setFirstPerson(ownBody ? camera : null);
   mesh.visible=Boolean(ownBody || ((p.mode==='walk'||skating||riding||driving)&&!eyeView));
   // What the simulation has just begun is begun here too: a swing, a kick, a vault, a hand to a car door.
@@ -1119,7 +1120,7 @@ function showPlayer(dt,p,floor,eyeView,riding) {
   if(!mesh.visible && !(eyeView && (p.reaction || traversing)))return;
   mesh.position.set(p.x,floor+(p.lift||0)+(riding?.25:0),p.z);mesh.rotation.set(0,p.angle,0);
   const payment=sim.shopping.payment;
-  const carry=!p.reaction && p.mode==='walk' && !held && !take && !armed && !p.move && !p.swing ? (payment?'cash':p.carry) : null;
+  const carry=!p.reaction && p.mode==='walk' && !held && !take && !armed && !p.move && !p.swing ? (payment?'cash':courierBag(sim.mission) || p.carry) : null;
   if(p.reaction && !ending)moves.sample(p.reaction.clip,p.reaction.time,pose);
   else if(p.mode==='bike'){
     moves.sample(p.speed<.18?'cycleStop':'cycle',bikePedal,pose);
@@ -1837,6 +1838,25 @@ function syncScene(dt,controls) {
       if(light.material)light.material.emissiveIntensity=sim.heat>.1?(Math.sin(elapsed*14+i*Math.PI)>0?3:.1):.15;
     }
   }
+  const gig=sim.mission;
+  if(['courier','driver'].includes(gig.kind) && (gig.phase==='active' || gig.phase==='complete' && sim.elapsed-gig.finishedAt<5)){
+    const curb=gig.phase==='complete'?gig.dropoff:gig.target;
+    if(Math.hypot(curb.x-p.x,curb.z-p.z)<125 || gig.kind==='driver' && gig.stage==='dropoff'){
+      const staff=gig.kind==='courier' && gig.stage==='pickup';
+      const look=staff?(gig.staffLook??=dress('casual',seeded(gig.number*53))):(gig.look??=dress('casual',seeded(gig.number*97)));
+      let x=curb.x,z=curb.z,y=groundHeight(x,z),sitting=false,heading=Math.atan2(p.x-x,p.z-z);
+      const cabin=gig.kind==='driver' && gig.phase==='active' && carModels.get(gig.vehicleId)?.userData.detail?.driver;
+      if(cabin && gig.stage!=='pickup'){
+        const t=gig.stage==='boarding'?gig.transfer:gig.stage==='alighting'?1-gig.transfer:1;
+        cabinSeatPoint(cabin,{side:-1,along:0},driverSeat.set(0,.56,0));
+        x+=(driverSeat.x-x)*t;z+=(driverSeat.z-z)*t;y+=(driverSeat.y-.54*(look.height/1.76)-y)*t;
+        sitting=t>.9;heading=p.angle;
+      }
+      extras.push({x,y,z,heading,look,sitting,clip:sitting?'sit':null,
+        carry:gig.kind==='courier' && (gig.stage==='pickup'||gig.phase==='complete')?'takeout':null,
+        stride:cabin && !sitting && gig.stage!=='pickup'?.65:0,phase:elapsed*5});
+    }
+  }
   crowd?.setExtras(extras,pedestrians);
   if(sim.mission.phase==='active'&&sim.mission.target){
     marker.visible=true;marker.position.set(sim.mission.target.x,groundHeight(sim.mission.target.x,sim.mission.target.z),sim.mission.target.z);markerDiamond.rotation.y=elapsed*.7;markerDiamond.position.y=5+Math.sin(elapsed*2)*.3;
@@ -2164,7 +2184,7 @@ function frame(now) {
   }
   syncScene(paused||traveling||cityView||mapOpen?0:dt,controls);if(!mapOpen)updateCamera(dt);updateViewPistol();
   if(firstPersonActive() && phoneHand?.amount)phoneHand.cameraGrip(camera,scene,$('phone').getBoundingClientRect(),innerWidth,innerHeight,renderer);
-  const handItem=firstPersonActive() && sim.player.mode==='walk' && !sim.player.armed && !sim.ending && !sim.player.swing && !sim.player.move && (sim.shopping.payment?'cash':sim.player.carry);
+  const handItem=firstPersonActive() && sim.player.mode==='walk' && !sim.player.armed && !sim.ending && !sim.player.swing && !sim.player.move && (sim.shopping.payment?'cash':courierBag(sim.mission) || sim.player.carry);
   if(handItem && !foodHand)foodHand=createFoodHand(camera,scene,VIEW_PISTOL_LAYER);
   const eating=mealMotion(handItem);
   const utensil=phoneHand?.amount && eating && handItem.startsWith('plate-') ? null : eating;
@@ -2224,7 +2244,7 @@ function frame(now) {
     const rideControls=paused || traveling || mapOpen || interaction?.open ? null : cityRides;
     hud.city=sim.city;
     hud.update(sim,Boolean(nearestSeat()),sim.doorway?.take?null:registerAction(sim),focusedAim(),rideControls);
-    updateDirections();saveProgress();updateLocation();updateTimeButton();hudTime=0;
+    updateJobDirections();updateDirections();saveProgress();updateLocation();updateTimeButton();hudTime=0;
   }
   const surfaceSwimmer=sim.player.water?.tidal && sim.player.y+1.65>=WATER_LEVEL ? sim.player : null;
   const vessel=sim.transport?.active;
@@ -2812,6 +2832,18 @@ async function travel(place,recovery=null){
   finally{traveling=false;navigation?.setTraveling(false);}
 }
 
+let jobStop=null, jobRouteEpoch=0;
+function updateJobDirections(){
+  const m=sim.mission;
+  const target=m.phase==='active' && (m.kind==='courier' || m.kind==='driver') ? m.target : null;
+  if(jobStop===target)return;
+  if(target){
+    requestDirections(target);
+    jobRouteEpoch=routeEpoch;
+  }else if(routeEpoch===jobRouteEpoch)clearDirections();
+  jobStop=target;
+}
+
 function clearDirections(){
   routeEpoch++;activeRoute=null;routeDestination=null;routeGuidance=null;gameMap?.setRoute(null);
 }
@@ -2861,7 +2893,7 @@ async function boot() {
   camera=new THREE.PerspectiveCamera(52,innerWidth/innerHeight,10,150000);
   // Sky, sun, haze and the screen-space finish share one time of day.
   gfx=createGraphics({renderer,scene,camera});
-  sim=new Simulation(city,{onRecovery:recovery=>travel({x:sim.player.x,z:sim.player.z},recovery)});
+  sim=new Simulation(city,{onTripPaid:saveProgress,onRecovery:recovery=>travel({x:sim.player.x,z:sim.player.z},recovery)});
   subwayStairs=createSubwayEntrances({scene,physics:sim.streetObjects,heightAt:groundHeight,
     kerbAt:(x,z)=>kerbIndex&&snapToKerb(kerbIndex,x,z,12)});
   const stairOpenings=subwayStairs.openings;
@@ -2903,7 +2935,7 @@ async function boot() {
   }});
   work=new Work({sim,phone:()=>phone,meet:(title,message,rows,available,kitchen,slip)=>{
     interaction.openList(title,rows,row=>row.choose(),{message,available,kitchen,slip});
-  },fronts:()=>fronts,hours:()=>gfx.hours,save:saveProgress,
+  },fronts:()=>fronts,hours:()=>gfx.hours,save:saveProgress,passengerTrip:()=>cityRides?.trip,
     guide:site=>{gameMap.setOpen(true);gameMap.showCity();gameMap.setPin(site);},
     pedestrian:()=>sim.player.mode==='walk'&&!sim.room&&!sim.player.armed?crowd?.closest(sim.player.x,sim.player.z,4,true):null,
     counter:()=>registerAction(sim)?sim.room.place:null});
@@ -2972,7 +3004,7 @@ async function boot() {
     onMechanic:()=>{if(sim.callMechanic())saveProgress('Roadside assistance');},onCab:()=>{if(sim.summonCab())saveProgress('Cab delivery');},
     onDirections:place=>{const name=place.name||describePlace(place,gfx.hours).name;requestDirections({x:place.x,z:place.z}).then(found=>announce(found?'Directions to '+name+'. Follow the highlighted streets.':'No way to '+name+' along mapped streets.'));},
     onTransport:()=>phone.openList('Travel to a boarding point',BOARDINGS.map(stop=>({stop,name:TRANSPORT[stop.type].name,note:stop.place+' · '+stop.borough})),row=>travel(transportDestination(row.stop)),{app:'maps'}),
-    onWork:()=>work.board(),onMap:()=>action('map'),
+    onWork:()=>work.board(),onDrive:()=>work.driving('driver','rides'),onMap:()=>action('map'),
     onOpenChange:open=>{$('mission-panel').classList.toggle('behind-phone',open);if(!open){if(interaction?.open)interaction.focus();else canvas.focus();}}});
   loadData('street-life.json').then(data=>{cityLife=createCityLife(data);props.setData(data);sim.setActiveCity({signalHints});}).catch(()=>{});
   world=createCityStream(cityIndex,{scene,onCollisionChange:applyBuildings,onStatus:updateStreaming,heightAt:terrainHeight,store:createTileStore()});

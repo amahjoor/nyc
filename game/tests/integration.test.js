@@ -1,4 +1,5 @@
 import { createSportsCourts, addCourtPlaces } from '../dist/sports-courts.js';
+import { interactWithTrip, courierBag } from '../dist/driver-work.js';
 import { parkCab } from './fixtures/parked-cab.js';
 import { createStatueOfLiberty, STATUE } from '../dist/liberty.js';
 import { carCondition, PANEL } from '../dist/vehicle-damage.js';
@@ -340,7 +341,7 @@ async function bootHarness({ stored = null, displayStored = null, unavailableSto
   const context = vm.createContext({
     ...globals,
     THREE: { ...THREE, WebGLRenderer: RendererStub },
-    createCar, createParkedCars, createDistantTraffic, createPerson, updateCarVisuals, Simulation, TRAFFIC_SIGHT, Input, HUD, CityAudio, GameMap, Work, createStreetIndex, createPlaceIndex, matchPresets, searchLocal, title, createPlaceLayer, createRoutePlanner,
+    interactWithTrip,courierBag,createCar, createParkedCars, createDistantTraffic, createPerson, updateCarVisuals, Simulation, TRAFFIC_SIGHT, Input, HUD, CityAudio, GameMap, Work, createStreetIndex, createPlaceIndex, matchPresets, searchLocal, title, createPlaceLayer, createRoutePlanner,
     lotsReady:async()=>false,lots:()=>null,
     createCityStream:(fullIndex,options)=>{
       assert.equal(fullIndex.stats.buildingFeatures,index.stats.buildingFeatures);
@@ -2163,6 +2164,41 @@ test('G opens the shop’s own fitting catalog from the sales floor and Escape l
   }finally{app.close();}
 });
 
+test('a burger restaurant accepts a courier pickup at the counter and offers its own playable kitchen',async()=>{
+  const app=await bootHarness();
+  try{
+    app.click('start-button');app.click('view-button');app.frames();
+    const game=app.window.nycGame,sim=app.simulation(),footprints=indexFootprints(sim.city.buildings);
+    game.graphics.setHours(13);
+    let front,view;
+    for(const building of sim.city.buildings){
+      const [x,z]=building.polygon[0],place={id:'counter-burger',group:'food',kind:'burgers',name:'Canal Burgers',x,z};
+      [front]=solveFrontages([place],footprints,()=>true);
+      if(front && (view=game.storefronts.prepare(front))?.plan.register)break;
+    }
+    assert.ok(view?.plan.register);app.setShopStreet(front);
+    const key=code=>{app.key(code);app.key(code,false);};
+    const {plan,clerk}=view;
+    sim.doorway=view;assert.ok(sim.enterRoom(plan,{a:0,b:.3}));
+    const till=plan.register,a=till.a+till.da*.8,b=till.b+till.db*.8;
+    [sim.player.x,sim.player.z]=roomPoint(plan,a,b);Object.assign(sim.room,{a,b});
+    app.key('ArrowUp');app.key('ArrowUp',false);app.click('phone-app-work');
+    const search=app.elements.get('phone-job-search');search.value='Food courier';search.dispatch('input');
+    app.click('phone-ride-0');app.click('phone-ride-0');
+    const m=sim.mission;assert.equal(m.kind,'courier');assert.equal(m.pickup.name,'Canal Burgers');
+    Object.assign(sim.player,{x:clerk.x,z:clerk.z});key('KeyE');assert.equal(m.stage,'dropoff');
+    Object.assign(sim.room,{a:0,b:0});assert.ok(sim.leaveRoom());Object.assign(sim.player,{x:m.target.x,z:m.target.z,y:sim.groundHeight(m.target.x,m.target.z)});
+    key('KeyE');assert.equal(m.phase,'complete');
+    sim.doorway=view;assert.ok(sim.enterRoom(plan,{a:0,b:.3}));Object.assign(sim.room,{a,b});
+    [sim.player.x,sim.player.z]=roomPoint(plan,a,b);key('KeyG');
+    const clockIn=app.elements.get('interaction-options').children.find(el=>el.children[0].textContent==='Clock in at Canal Burgers');
+    assert.ok(clockIn);clockIn.click();
+    assert.equal(app.elements.get('kitchen-worktop').hidden,false);
+    const record=JSON.parse(app.storage.get('nyc-after-hours-v1'));
+    assert.equal(record.work.shift.branch.id,'counter-burger');assert.equal(record.bank.entries[0].name,'Food courier');
+  }finally{app.close();}
+});
+
 test('a player can clock in through the phone, finish a shift and spend the paycheck', async () => {
   const app = await bootHarness();
   try {
@@ -2386,6 +2422,30 @@ test('the equipped pistol can be aimed, fired and reloaded through the on-foot c
     pad.buttons[7].value=0;pad.buttons[12].pressed=true;app.frames();assert.ok(p.reloading>0);
     pad.buttons[6].value=0;app.frames();assert.equal(prop.visible,false);
     assert.equal(app.errors.length,0,app.errors[0]?.stack);
+  }finally{app.close();}
+});
+
+test('D Ride driver requests use the street controls for both doors and deposit the quoted fare',async()=>{
+  const app=await bootHarness();
+  try{
+    app.click('start-button');app.click('view-button');app.frames(2);
+    const key=code=>{app.key(code);app.key(code,false);};
+    const sim=app.simulation();parkCab(sim);key('KeyE');const car=sim.vehicle;
+    assert.ok(car);
+    app.key('ArrowUp');app.key('ArrowUp',false);app.click('phone-app-rides');app.click('phone-drive');
+    assert.equal(app.elements.get('phone-title').textContent,'D Ride driver');
+    app.click('phone-back');assert.equal(app.elements.get('phone-rides').hidden,false);
+    app.click('phone-drive');app.click('phone-ride-1');app.click('phone-ride-0');
+    const m=sim.mission, cash=sim.cash;assert.equal(m.kind,'driver');
+    function parkAt(stop){
+      const at={x:stop.x,z:stop.z,y:sim.groundHeight(stop.x,stop.z),speed:0,velocityX:0,velocityZ:0};
+      Object.assign(car,at);Object.assign(sim.player,at);
+    }
+    parkAt(m.pickup);key('KeyE');assert.equal(m.stage,'boarding');assert.equal(car.doorSide,-1);
+    app.frames(10,240);assert.equal(m.stage,'dropoff');assert.equal(sim.cash,cash);
+    parkAt(m.dropoff);key('KeyE');app.frames(10,240);assert.equal(m.phase,'complete');
+    assert.equal(sim.cash,cash+m.reward);
+    assert.equal(JSON.parse(app.storage.get('nyc-after-hours-v1')).bank.entries[0].name,'D Ride fare');
   }finally{app.close();}
 });
 

@@ -4,8 +4,8 @@ import { salesCall } from './sales-calls.js';
 import { customerUsesCash, drawerBalance } from './shop-turnover.js';
 import { SHIFTS } from './shift-catalog.js';
 import { formatMoney } from './money.js';
-import { isOpen, placeName } from './places.js';
-import { menuFor } from './menu.js';
+import { placeName } from './places.js';
+import { driverOffer, driverEligible, startDriverOffer, tripInstruction } from './driver-work.js';
 
 // Clock-in locations and pay are shared by the board, directions and payroll.
 export const EMPLOYERS = {
@@ -31,8 +31,9 @@ function ledger(shift) {
 }
 
 export class Work {
-  constructor({ sim, phone, meet, fronts, hours, guide, pedestrian, counter, save, random = Math.random, now = Date.now }) {
-    Object.assign(this, { sim, phone, meet, fronts, hours, guide, pedestrian, counter, save, random, now });
+  constructor({ sim, phone, meet, fronts, hours, guide, pedestrian, counter, save, passengerTrip = () => null, random = Math.random, now = Date.now }) {
+    Object.assign(this, { sim, phone, meet, fronts, hours, guide, pedestrian, counter, save, passengerTrip, random, now });
+    this.offerSerial=Math.floor(random()*900);this.offers={};
     this.met = new WeakSet();
     this.restore();
   }
@@ -96,8 +97,8 @@ export class Work {
     this.updateClosures();
   }
 
-  list(title, message, rows, board = false) {
-    this.phone().openList(title, rows, row => row.choose(), { message, keepOpen: true, app:'work', board, refresh:board ? ()=>this.jobs() : null, onBack:board ? null : () => this.board() });
+  list(title, message, rows, board = false, app='work') {
+    this.phone().openList(title, rows, row => row.choose(), { message, keepOpen: true, app, board, refresh:board ? ()=>this.jobs() : null, onBack:board || app==='rides' ? null : () => this.board() });
   }
 
   jobs() {
@@ -110,7 +111,8 @@ export class Work {
         choose:()=>this.jobListing(job)
       };
     });
-    rows.push({name:'Food courier',company:'Local restaurants',sector:'Logistics',pay:'Per order + time bonus',note:'Citywide · Flexible hours',active:this.sim.mission.phase==='active' && Boolean(this.sim.mission.meal),choose:()=>this.food()},
+    rows.push({name:'Food courier',company:'Local restaurants',sector:'Logistics',pay:'Per order + time bonus',note:'Food delivery · Flexible hours',active:this.sim.mission.phase==='active' && Boolean(this.sim.mission.meal),choose:()=>this.food()},
+      {name:'D Ride driver',company:'D Ride',sector:'Logistics',pay:'Quoted fare per ride',note:'Curbside pickups · Bring a car',active:this.sim.mission.phase==='active' && this.sim.mission.kind==='driver',choose:()=>this.driving('driver')},
       {name:'Business sales rep',company:'Borough Business Services',sector:'Office',pay:'$32 per trial booked',note:'Cold calling · Flexible hours',active:Boolean(this.record.call),choose:()=>salesCall(this)},
       {name:'Coffee cart',company:'Self-employed',sector:'Food',pay:'$5 per sale',note:this.record.cart ? `${this.record.cups} cups in stock` : 'Street vending · $60 startup',active:this.record.cart,choose:()=>this.coffee()},
       {name:'Newspaper carrier',company:'Borough Evening Post',sector:'Logistics',pay:'$18 per stop + time bonus',note:'Local paper round · Flexible hours',
@@ -252,22 +254,42 @@ export class Work {
   }
 
   food() {
-    if (this.sim.mission.phase === 'active') {
-      const target=this.sim.mission.target;
-      return this.list('Current delivery',target?.name || 'Follow the delivery marker.',[
-        option('Return to delivery','Follow the marker in the city',()=>this.phone().setOpen(false))]);
+    this.driving('courier');
+  }
+
+  driving(kind, app='work', message='') {
+    const sim=this.sim, title=kind==='driver'?'D Ride driver':'Food courier', m=sim.mission;
+    const list=(message,rows)=>this.list(title,message,rows,false,app);
+    if(m.phase==='active'){
+      if(m.kind!==kind)return list('Finish your current trip first.',[]);
+      return list(tripInstruction(m),[
+        option('Return to trip',m.target.name,()=>this.phone().setOpen(false)),
+        option('Show stop on map',m.target.name,()=>{this.phone().setOpen(false);this.guide(m.target);}),
+        option('Cancel trip','Forfeit this fare',()=>{
+          if(sim.mission===m && m.phase==='active'){m.phase='failed';sim._say('Trip canceled.');}
+          this.driving(kind,app);
+        })
+      ]);
     }
-    const candidates = this.fronts().filter(f => ['food', 'dining', 'cafe'].includes(f.place.group) && !this.isClosed(f.place) && isOpen(f.place.kind, this.hours()))
-      .sort((a, b) => distance(a, this.sim.player) - distance(b, this.sim.player));
-    const front = candidates[0];
-    const pickup = front ? { name: placeName(front.place), x: front.x + front.nx * 3.2, z: front.z + front.nz * 3.2 } : { ...EMPLOYERS.kitchen };
-    const items = front && menuFor(front.place);
-    const meal = items?.find(item => item.effect === 'meal')?.name || 'Lunch special';
-    this.list('Food courier', `${pickup.name} has a ${meal.toLowerCase()} ready. Stop at the gold marker to collect it, then follow it to the customer.`, [
-      option('Accept order', 'Delivery fee + time bonus at drop-off', () => {
-        if (!this.sim.startMission({ pickup, meal })) return this.board(this.sim.notice);
-        this.phone().setOpen(false);
+    if(this.passengerTrip())return list('Finish or cancel your passenger booking in D Ride first.',[]);
+    const offer=driverOffer(this,kind,this.offerSerial);
+    this.offers[kind]=offer;
+    if(!offer)return list(kind==='courier'?'No open restaurant has an order nearby. Try another block or come back during meal service.':'No local rider requests. Try another street.',[
+      option('Refresh requests','Check nearby again',()=>{this.offerSerial++;this.driving(kind,app);})
+    ]);
+    const accept=kind==='driver'?'Accept ride':'Accept order';
+    list([message,kind==='driver'?offer.customer+' needs a ride.':offer.customer+' ordered '+offer.meal+'.',
+      offer.pickup.name+' → '+offer.dropoff.name+' · '+offer.meters+' m apart · '+formatMoney(offer.reward)+(kind==='courier'?' + tip':' fare')].filter(Boolean).join(' '),[
+      option(accept,kind==='driver'?'Use the car you are driving':'Collect at the restaurant entrance or counter',()=>{
+        if(this.offers[kind]!==offer || this.passengerTrip())return this.driving(kind,app);
+        if(kind==='driver' && !driverEligible(sim))return this.driving(kind,app,'Get into a passenger car to accept.');
+        if(!startDriverOffer(sim,offer))return this.driving(kind,app,'Finish your current trip first.');
+        this.offers[kind]=null;this.offerSerial++;this.phone().setOpen(false);
       }),
+      option(kind==='driver'?'Decline ride':'Decline order','See the next request',()=>{
+        if(this.offers[kind]===offer)this.offerSerial++;
+        this.driving(kind,app);
+      })
     ]);
   }
 

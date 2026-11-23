@@ -1,5 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { interactWithTrip,courierBag } from '../dist/driver-work.js';
 import { hasKitchen,kitchenTicket } from '../dist/kitchen-shift.js';
 import { deskTicket } from '../dist/service-desk.js';
 import { Simulation } from '../dist/simulation.js';
@@ -67,15 +68,33 @@ test('finance associate posts the reconciled client balances',()=>{
   assert.equal(f.sim.cash,site.wage+4*site.bonus);
 });
 
-test('food orders pay only after restaurant pickup and customer handoff', () => {
-  const f = fixture();f.work.food();f.choose('Accept order');
-  const job = f.sim.mission;assert.equal(job.stage, 'pickup');
-  Object.assign(f.sim.player, job.dropoff);f.sim._updateMission(1);assert.equal(job.stage, 'pickup');
-  Object.assign(f.sim.player, { x: job.target.x, z: job.target.z });f.sim._updateMission(1);
-  assert.equal(job.stage, 'dropoff');assert.equal(f.sim.cash, 0);
-  Object.assign(f.sim.player, job.target);f.sim._updateMission(1);
-  assert.equal(job.phase, 'complete');assert.ok(f.sim.cash >= job.reward);
-  const balance = f.sim.cash;f.sim._updateMission(1);assert.equal(f.sim.cash, balance);
+test('declining changes the offer and entering either marker cannot complete a food handoff',()=>{
+  const f=fixture();f.work.food();const old=f.screen().message;
+  const stale=f.screen().rows[0];f.choose('Decline order');assert.notEqual(f.screen().message,old);
+  stale.choose();assert.notEqual(f.sim.mission.phase,'active');f.choose('Accept order');
+  const m=f.sim.mission;assert.equal(m.stage,'pickup');assert.equal(m.pickup.name,'Corner Slice');
+  Object.assign(f.sim.player,m.dropoff);assert.equal(interactWithTrip(f.sim),false);
+  Object.assign(f.sim.player,m.target);f.sim._updateMission(1);assert.equal(m.stage,'pickup');
+  f.sim.player.mode='drive';assert.equal(interactWithTrip(f.sim),false);
+  f.sim.player.mode='walk';assert.ok(interactWithTrip(f.sim));assert.equal(courierBag(m),'takeout');
+  Object.assign(f.sim.player,m.target);f.sim._updateMission(1);assert.equal(f.sim.cash,0);
+  assert.ok(interactWithTrip(f.sim));assert.equal(courierBag(m),null);
+  assert.equal(interactWithTrip(f.sim),false);assert.equal(f.sim.cash,m.payout);
+});
+
+test('D Ride drivers stop for boarding and alighting in the accepted car and receive one fare',()=>{
+  const f=fixture(),s=f.sim;
+  s.city.missionPoints=[{name:'Prince',x:70,z:0},{name:'Spring',x:293,z:250}];
+  f.work.driving('driver');f.choose('Accept ride');assert.equal(s.mission.phase,'idle');
+  const car={id:'own',type:'sedan',speed:0};s.cars.push(car);
+  Object.assign(s.player,{mode:'drive',vehicleId:car.id});f.choose('Accept ride');
+  const m=s.mission;Object.assign(s.player,m.pickup);assert.ok(interactWithTrip(s));
+  car.speed=2;s._updateMission(.1);assert.equal(m.stage,'pickup');assert.ok(interactWithTrip(s));assert.equal(m.stage,'pickup');
+  car.speed=0;assert.ok(interactWithTrip(s));s._updateMission(2);assert.equal(m.stage,'dropoff');
+  Object.assign(s.player,m.dropoff);assert.ok(interactWithTrip(s));assert.equal(s.cash,0);
+  s._updateMission(2);s._updateMission(2);assert.equal(s.cash,m.reward);assert.equal(s.deliveries,0);
+  f.work.driving('driver');f.choose('Accept ride');s.player.mode='walk';s._updateMission(.1);
+  assert.equal(s.mission.phase,'failed');assert.equal(s.cash,m.reward);
 });
 
 test('sales calls preserve objections through reload and log a single commission or a lost lead',()=>{

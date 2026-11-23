@@ -1,3 +1,4 @@
+import { tripInstruction, tripAction } from './driver-work.js';
 import {TRICKS} from './skate-tricks.js';
 import { GUN } from './player-moves.js';
 import {carCondition} from './vehicle-damage.js';
@@ -90,7 +91,7 @@ export class HUD {
     const trip=cityRides?.trip;
     $('ride-speed').hidden=!(passenger && trip?.phase==='traveling' && !trip.stopping && !sim.ending);
     if (!$('ride-speed').hidden) this.text('ride-speed-label',trip.car.rideHurry?'ASK FOR NORMAL SPEED':'ASK DRIVER TO HURRY');
-    const interactLabel = sim.canDropPaper()?'LEAVE PAPER BUNDLE':p.mode==='passenger' ? 'ASK TO PULL OVER' : cityRides?.canBoard() ? 'BOARD RIDE' : sim.seat ? 'STAND' : register==='collect' ? 'COLLECT CASH' : register==='drawer' ? 'TAKE TILL CASH' : canSit ? 'SIT' : null;
+    const interactLabel = tripAction(sim) || (sim.canDropPaper()?'LEAVE PAPER BUNDLE':p.mode==='passenger' ? 'ASK TO PULL OVER' : cityRides?.canBoard() ? 'BOARD RIDE' : sim.seat ? 'STAND' : register==='collect' ? 'COLLECT CASH' : register==='drawer' ? 'TAKE TILL CASH' : canSit ? 'SIT' : null);
     $('touch-equip').hidden = p.mode!=='walk' || Boolean(sim.seat || sim.subway);
     this.text('touch-equip',p.armed?'HOLSTER':'EQUIP');
     prompt.hidden = Boolean(sim.subway) || !interactLabel && !ride && !boarding && !driving && !cycling && !skating && !bike && !near && !punching;
@@ -103,14 +104,14 @@ export class HUD {
     $('toast').classList.toggle('visible', Boolean(sim.notice && sim.noticeTime>0));
     const active=mission.phase==='active' && mission.target;
     if(active) {
-      this.text('mission-kicker', mission.kind==='paper' ? 'PAPER ROUND · '+(mission.index+1)+'/'+mission.stops.length : mission.stage === 'pickup' ? 'FOOD PICKUP' : mission.meal ? 'FOOD DROP-OFF' : 'SPECIAL DELIVERY');
+      this.text('mission-kicker', mission.kind==='driver'?'D RIDE · '+mission.customer.toUpperCase():mission.kind==='paper' ? 'PAPER ROUND · '+(mission.index+1)+'/'+mission.stops.length : mission.stage === 'pickup' ? 'FOOD PICKUP' : mission.meal ? 'FOOD DROP-OFF' : 'SPECIAL DELIVERY');
       this.text('mission-title', mission.target.name);
-      this.text('mission-description', mission.kind==='paper'?'Stop on foot or by bike. Press E to leave the bundle.':mission.meal ? `Stop at the marker to ${mission.stage === 'pickup' ? 'collect' : 'deliver'} the ${mission.meal.toLowerCase()}.` : 'Follow the orange marker. Slow to a stop inside the ring to make the drop.');
-      this.text('mission-distance', Math.round(Math.hypot(p.x-mission.target.x,p.z-mission.target.z))+(mission.stage === 'pickup' ? ' M TO PICKUP' : ' M TO DROP'));
+      this.text('mission-description', ['driver','courier'].includes(mission.kind)?tripInstruction(mission):mission.kind==='paper'?'Stop on foot or by bike. Press E to leave the bundle.':mission.meal ? `Stop at the marker to ${mission.stage === 'pickup' ? 'collect' : 'deliver'} the ${mission.meal.toLowerCase()}.` : 'Follow the orange marker. Slow to a stop inside the ring to make the drop.');
+      this.text('mission-distance', Math.round(Math.hypot(p.x-mission.target.x,p.z-mission.target.z))+(mission.stage === 'pickup' || mission.stage === 'boarding' ? ' M TO PICKUP' : ' M TO DROP'));
       const sec=Math.max(0,Math.ceil(mission.timeLeft));
       this.text('mission-timer',Math.floor(sec/60)+':'+String(sec%60).padStart(2,'0'));
     } else {
-      this.text('mission-kicker', mission.phase==='complete'?'DELIVERY COMPLETE':'THE NIGHT SHIFT');
+      this.text('mission-kicker', mission.phase==='complete'?(mission.kind==='driver'?'RIDE COMPLETE':'DELIVERY COMPLETE'):'THE NIGHT SHIFT');
       this.text('mission-title', mission.phase==='complete'?'Another block. Another dollar.':mission.phase==='failed'?'Next one’s yours.':'Make your first drop.');
       this.text('mission-description',mission.phase==='complete'?'Your payment is in. Keep exploring or pick up another delivery.':'Find a car and take a delivery job. The city is yours to explore.');
       this.text('mission-distance','FREE ROAM'); this.text('mission-timer','NO RUSH');
