@@ -453,6 +453,14 @@ function spawnAtPreset(app, name) {
   app.click('spawn-button');
 }
 
+async function finishArrival(app) {
+  for (let i = 0; i < 500 && app.state().switching; i++) {
+    app.frames(1, 50);
+    if (i % 10 === 0) await new Promise(resolve => setImmediate(resolve));
+  }
+  assert.equal(app.state().switching, false, 'the arrival camera should reach street level');
+}
+
 test('the street advances a real second in ten rendered frames and K toggles the board', async () => {
   const app=await bootHarness();
   try {
@@ -1564,10 +1572,10 @@ test('an address result selects a spawn and waits for real destination data befo
     assert.equal(navigation.classes.has('is-picking'),false);
     assert.equal(app.elements.get('spawn-button').disabled,false);
     assert.deepEqual(app.state().player,before,'choosing a result only previews the location');
-    app.frames();assert.equal(app.elements.get('spawn-pin').hidden,false);
+    app.frames(12,250);assert.equal(app.elements.get('spawn-pin').hidden,false);
     const selected=app.state().navigation.selected,projected=app.screenPoint(selected.x,selected.z);
     assert.ok(Math.abs(projected.clientX-720)<30&&Math.abs(projected.clientY-450)<30,
-      'choosing an address recenters its pin near the viewport center even after a close zoom');
+      'the picker flight centers the chosen address even after a close zoom');
     hold=true;app.click('spawn-button');
     await app.until(()=>app.waitingRoads()>0);
     assert.equal(app.state().traveling,true);
@@ -1808,11 +1816,12 @@ test('road pilot loads on demand, arrives on measured pavement and toggles appea
     // The view comes down from the sky to the player, who stands still until it lands.
     assert.equal(app.state().switching,true);assert.equal(app.elements.get('hud').classes.has('switch-shot'),true);
     const landed={x:sim.player.x,z:sim.player.z};
-    app.key('KeyW');for(let i=0;i<900&&app.state().switching;i++)app.frames();app.key('KeyW',false);
-    assert.equal(app.state().switching,false);assert.deepEqual({x:sim.player.x,z:sim.player.z},landed);
+    app.key('KeyW');await finishArrival(app);app.key('KeyW',false);
+    assert.deepEqual({x:sim.player.x,z:sim.player.z},landed);
     app.frames();assert.equal(app.elements.get('hud').classes.has('switch-shot'),false);
     orbitWalkingCamera(app,Math.atan2(cab.x-sim.player.x,cab.z-sim.player.z));
     app.key('KeyW');for(let i=0;i<180&&!sim.getNearbyCar();i++)app.frames();app.key('KeyW',false);
+    sim.bikeTraffic=null;sim.dockedBikes=[];
     app.key('KeyE');app.key('KeyE',false);assert.equal(sim.player.mode,'drive');
     const before={x:sim.player.x,z:sim.player.z};
     app.key('KeyW');app.frames(45);app.key('KeyW',false);
@@ -2249,7 +2258,7 @@ test('the transport picker, touch flight controls, camera and phone all use the 
     options.find(button=>button.textContent.startsWith('Tour helicopter')).click();
     app.click('spawn-button');await app.until(()=>!app.state().traveling);
     const sim=app.simulation();
-    for(let i=0;i<900 && app.state().switching;i++)app.frames();
+    await finishArrival(app);
     app.frames(6);assert.match(app.elements.get('interact-prompt').querySelector('span').textContent,/BOARD TOUR HELICOPTER/);
     app.key('KeyE');app.key('KeyE',false);app.frames(6);
     assert.equal(sim.transport.active.home.id,'pier6');assert.equal(app.elements.get('touch-climb').hidden,false);
@@ -2264,7 +2273,7 @@ test('the transport picker, touch flight controls, camera and phone all use the 
     assert.match(app.elements.get('phone-title').textContent,/boarding point/i);
     app.click('phone-ride-4');await app.until(()=>!app.state().traveling);
     assert.equal(sim.player.mode,'walk');assert.equal(sim.transport.active,null);
-    for(let i=0;i<900 && app.state().switching;i++)app.frames();
+    await finishArrival(app);
     app.key('KeyE');app.key('KeyE',false);app.frames(8);assert.equal(sim.transport.active.home.id,'pier11');
     assert.equal(app.elements.get('touch-climb').hidden,true);
     const start={...sim.player};app.key('KeyW');app.frames(50);app.key('KeyW',false);
