@@ -1,0 +1,3894 @@
+[
+ {
+  "n": 421,
+  "id": "si-ice-jacket-amber",
+  "designer": "Stone Island",
+  "name": "Ice Jacket (Yellow to Orange)",
+  "season": "FW1989",
+  "price": 3000,
+  "slot": "top",
+  "colour": "#e3b21c",
+  "finish": {
+   "roughness": 0.6
+  },
+  "cut": {
+   "like": "parka",
+   "ease": {
+    "shoulder": 0.0132,
+    "chest": 0.044,
+    "waist": 0.066,
+    "hip": 0.066,
+    "sleeve": 0.023,
+    "cuff": 0.023
+   },
+   "hem": "hip-0.05",
+   "hemBack": 0,
+   "shoulderDrop": 0.02
+  },
+  "note": "The heat-sensitive coating turns from yellow to orange as it cools; it is caught here halfway. The blue-to-green one is earlier in the list.",
+  "paint": [
+   {
+    "step": "fabric",
+    "type": "nylon"
+   },
+   {
+    "step": "gradient",
+    "from": [
+     "hem",
+     "#d9661f"
+    ],
+    "to": [
+     "chest+0.05",
+     "#e3c21c"
+    ],
+    "rough": 0.25,
+    "keepShade": 1,
+    "where": {
+     "zone": [
+      "body",
+      "hood",
+      "collar"
+     ]
+    }
+   },
+   {
+    "step": "gradient",
+    "from": [
+     0.25,
+     "#e3c21c"
+    ],
+    "to": [
+     0.95,
+     "#d9661f"
+    ],
+    "along": "s",
+    "rough": 0.2,
+    "keepShade": 1,
+    "where": {
+     "zone": "sleeves"
+    }
+   },
+   {
+    "step": "pattern",
+    "type": "clouds",
+    "colours": [
+     "#c9541a"
+    ],
+    "freq": 6,
+    "amount": 0.4
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0,
+      "hem"
+     ],
+     [
+      0,
+      "top"
+     ]
+    ],
+    "style": "tape",
+    "width": 0.05,
+    "colour": "#d9a01c",
+    "raise": 0.0014
+   },
+   {
+    "step": "dots",
+    "frame": "front",
+    "from": [
+     0.016,
+     "hem+0.05"
+    ],
+    "to": [
+     0.016,
+     "neck-0.03"
+    ],
+    "count": 6,
+    "r": 0.006,
+    "style": "stud",
+    "colour": "#2c2e2a"
+   },
+   {
+    "step": "rect",
+    "frame": "front",
+    "at": [
+     0.11,
+     "chest+0.02"
+    ],
+    "size": [
+     0.1,
+     0.1
+    ],
+    "style": "flap",
+    "flap": 0.3,
+    "mirror": true,
+    "stitch": "#8a5a1c",
+    "pleat": true,
+    "raise": 0.0024
+   },
+   {
+    "step": "rect",
+    "frame": "front",
+    "at": [
+     0.115,
+     "hip+0.02"
+    ],
+    "size": [
+     0.14,
+     0.14
+    ],
+    "style": "flap",
+    "flap": 0.3,
+    "mirror": true,
+    "stitch": "#8a5a1c",
+    "pleat": true,
+    "raise": 0.0024
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      -0.4,
+      "hem+0.025"
+     ],
+     [
+      0.4,
+      "hem+0.025"
+     ]
+    ],
+    "style": "twin",
+    "colour": "#8a5a1c",
+    "gap": 0.014
+   },
+   {
+    "step": "line",
+    "frame": "back",
+    "pts": [
+     [
+      -0.4,
+      "hem+0.025"
+     ],
+     [
+      0.4,
+      "hem+0.025"
+     ]
+    ],
+    "style": "twin",
+    "colour": "#8a5a1c",
+    "gap": 0.014
+   },
+   {
+    "step": "line",
+    "frame": "sleeves",
+    "pts": [
+     [
+      -0.3,
+      0.93
+     ],
+     [
+      0.3,
+      0.93
+     ]
+    ],
+    "style": "twin",
+    "colour": "#8a5a1c"
+   },
+   {
+    "step": "print",
+    "frame": "sleeveL",
+    "art": "si-compass-badge",
+    "at": [
+     0,
+     0.3
+    ],
+    "width": 0.08,
+    "raise": 0.0012
+   },
+   {
+    "step": "dots",
+    "frame": "sleeveL",
+    "pts": [
+     [
+      -0.02,
+      0.235
+     ],
+     [
+      0.02,
+      0.235
+     ]
+    ],
+    "r": 0.005,
+    "style": "button",
+    "colour": "#111312"
+   },
+   {
+    "step": "panel",
+    "colour": "#2f4a8c",
+    "where": {
+     "zone": "lining"
+    }
+   },
+   {
+    "step": "distress",
+    "type": "crumple",
+    "amount": 0.12
+   }
+  ]
+ },
+ {
+  "n": 422,
+  "id": "si-raso-gommato-jacket",
+  "designer": "Stone Island",
+  "name": "Raso Gommato Jacket",
+  "season": "FW1983",
+  "price": 700,
+  "slot": "top",
+  "colour": "#3a3f33",
+  "finish": {
+   "roughness": 0.5
+  },
+  "cut": {
+   "like": "parka",
+   "ease": {
+    "shoulder": 0.0138,
+    "chest": 0.046,
+    "waist": 0.069,
+    "hip": 0.069,
+    "sleeve": 0.0235,
+    "cuff": 0.0235
+   },
+   "hem": "hip-0.08",
+   "hemBack": 0,
+   "shoulderDrop": 0.02
+  },
+  "note": "Military satin bonded with rubber on the inside: stiff, matte and waterproof.",
+  "paint": [
+   {
+    "step": "fabric",
+    "type": "rubber"
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0,
+      "hem"
+     ],
+     [
+      0,
+      "top"
+     ]
+    ],
+    "style": "tape",
+    "width": 0.05,
+    "colour": "#33382d",
+    "raise": 0.0014
+   },
+   {
+    "step": "dots",
+    "frame": "front",
+    "from": [
+     0.016,
+     "hem+0.05"
+    ],
+    "to": [
+     0.016,
+     "neck-0.03"
+    ],
+    "count": 6,
+    "r": 0.006,
+    "style": "stud",
+    "colour": "#2c2e2a"
+   },
+   {
+    "step": "rect",
+    "frame": "front",
+    "at": [
+     0.11,
+     "chest+0.02"
+    ],
+    "size": [
+     0.1,
+     0.1
+    ],
+    "style": "flap",
+    "flap": 0.3,
+    "mirror": true,
+    "stitch": "#2a2e25",
+    "pleat": true,
+    "raise": 0.0024
+   },
+   {
+    "step": "rect",
+    "frame": "front",
+    "at": [
+     0.115,
+     "hip+0.02"
+    ],
+    "size": [
+     0.14,
+     0.14
+    ],
+    "style": "flap",
+    "flap": 0.3,
+    "mirror": true,
+    "stitch": "#2a2e25",
+    "pleat": true,
+    "raise": 0.0024
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      -0.4,
+      "hem+0.025"
+     ],
+     [
+      0.4,
+      "hem+0.025"
+     ]
+    ],
+    "style": "twin",
+    "colour": "#2a2e25",
+    "gap": 0.014
+   },
+   {
+    "step": "line",
+    "frame": "back",
+    "pts": [
+     [
+      -0.4,
+      "hem+0.025"
+     ],
+     [
+      0.4,
+      "hem+0.025"
+     ]
+    ],
+    "style": "twin",
+    "colour": "#2a2e25",
+    "gap": 0.014
+   },
+   {
+    "step": "line",
+    "frame": "sleeves",
+    "pts": [
+     [
+      -0.3,
+      0.93
+     ],
+     [
+      0.3,
+      0.93
+     ]
+    ],
+    "style": "twin",
+    "colour": "#2a2e25"
+   },
+   {
+    "step": "print",
+    "frame": "sleeveL",
+    "art": "si-compass-badge",
+    "at": [
+     0,
+     0.3
+    ],
+    "width": 0.08,
+    "raise": 0.0012
+   },
+   {
+    "step": "dots",
+    "frame": "sleeveL",
+    "pts": [
+     [
+      -0.02,
+      0.235
+     ],
+     [
+      0.02,
+      0.235
+     ]
+    ],
+    "r": 0.005,
+    "style": "button",
+    "colour": "#111312"
+   },
+   {
+    "step": "panel",
+    "colour": "#b3661e",
+    "where": {
+     "zone": "lining"
+    }
+   },
+   {
+    "step": "distress",
+    "type": "crumple",
+    "amount": 0.14
+   },
+   {
+    "step": "distress",
+    "type": "edges",
+    "amount": 0.25,
+    "colour": "#5a6050"
+   }
+  ]
+ },
+ {
+  "n": 423,
+  "id": "si-reflective-jacket-bronze",
+  "designer": "Stone Island",
+  "name": "Reflective Jacket (Early, Bronze)",
+  "season": "FW1991",
+  "price": 2500,
+  "slot": "top",
+  "colour": "#8a7a5c",
+  "finish": {
+   "roughness": 0.32,
+   "metalness": 0.78
+  },
+  "cut": {
+   "like": "parka",
+   "ease": {
+    "shoulder": 0.0132,
+    "chest": 0.044,
+    "waist": 0.066,
+    "hip": 0.066,
+    "sleeve": 0.023,
+    "cuff": 0.023
+   },
+   "hem": "hip-0.05",
+   "hemBack": 0,
+   "shoulderDrop": 0.02
+  },
+  "note": "Glass microspheres on a khaki ground; the silver one is earlier in the list.",
+  "paint": [
+   {
+    "step": "fabric",
+    "type": "nylon"
+   },
+   {
+    "step": "pattern",
+    "type": "speckle",
+    "colours": [
+     "#e9dcb8",
+     "#6b5c40"
+    ],
+    "freq": 1200,
+    "density": 0.3,
+    "amount": 0.5
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0,
+      "hem"
+     ],
+     [
+      0,
+      "top"
+     ]
+    ],
+    "style": "tape",
+    "width": 0.05,
+    "colour": "#7a6c50",
+    "raise": 0.0014
+   },
+   {
+    "step": "dots",
+    "frame": "front",
+    "from": [
+     0.016,
+     "hem+0.05"
+    ],
+    "to": [
+     0.016,
+     "neck-0.03"
+    ],
+    "count": 6,
+    "r": 0.006,
+    "style": "stud",
+    "colour": "#2c2e2a"
+   },
+   {
+    "step": "rect",
+    "frame": "front",
+    "at": [
+     0.11,
+     "chest+0.02"
+    ],
+    "size": [
+     0.1,
+     0.1
+    ],
+    "style": "flap",
+    "flap": 0.3,
+    "mirror": true,
+    "stitch": "#5c4f38",
+    "pleat": true,
+    "raise": 0.0024
+   },
+   {
+    "step": "rect",
+    "frame": "front",
+    "at": [
+     0.115,
+     "hip+0.02"
+    ],
+    "size": [
+     0.14,
+     0.14
+    ],
+    "style": "flap",
+    "flap": 0.3,
+    "mirror": true,
+    "stitch": "#5c4f38",
+    "pleat": true,
+    "raise": 0.0024
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      -0.4,
+      "hem+0.025"
+     ],
+     [
+      0.4,
+      "hem+0.025"
+     ]
+    ],
+    "style": "twin",
+    "colour": "#5c4f38",
+    "gap": 0.014
+   },
+   {
+    "step": "line",
+    "frame": "back",
+    "pts": [
+     [
+      -0.4,
+      "hem+0.025"
+     ],
+     [
+      0.4,
+      "hem+0.025"
+     ]
+    ],
+    "style": "twin",
+    "colour": "#5c4f38",
+    "gap": 0.014
+   },
+   {
+    "step": "line",
+    "frame": "sleeves",
+    "pts": [
+     [
+      -0.3,
+      0.93
+     ],
+     [
+      0.3,
+      0.93
+     ]
+    ],
+    "style": "twin",
+    "colour": "#5c4f38"
+   },
+   {
+    "step": "print",
+    "frame": "sleeveL",
+    "art": "si-compass-badge",
+    "at": [
+     0,
+     0.3
+    ],
+    "width": 0.08,
+    "raise": 0.0012
+   },
+   {
+    "step": "dots",
+    "frame": "sleeveL",
+    "pts": [
+     [
+      -0.02,
+      0.235
+     ],
+     [
+      0.02,
+      0.235
+     ]
+    ],
+    "r": 0.005,
+    "style": "button",
+    "colour": "#111312"
+   },
+   {
+    "step": "distress",
+    "type": "crumple",
+    "depth": 0.0014,
+    "freq": 18
+   }
+  ]
+ },
+ {
+  "n": 424,
+  "id": "si-liquid-reflective-jacket",
+  "designer": "Stone Island",
+  "name": "Liquid Reflective Jacket",
+  "season": "FW2013",
+  "price": 1500,
+  "slot": "top",
+  "colour": "#77797d",
+  "finish": {
+   "roughness": 0.3,
+   "metalness": 0.8
+  },
+  "cut": {
+   "like": "parka",
+   "hem": "hip-0.04",
+   "hemBack": 0,
+   "shoulderDrop": 0.02
+  },
+  "note": "Each one hand-sprayed with reflective resin, so no two are marked alike.",
+  "paint": [
+   {
+    "step": "fabric",
+    "type": "nylon"
+   },
+   {
+    "step": "pattern",
+    "type": "clouds",
+    "colours": [
+     "#2a2b2e",
+     "#c9cbd0"
+    ],
+    "freq": 10,
+    "amount": 0.75
+   },
+   {
+    "step": "pattern",
+    "type": "splatter",
+    "colours": [
+     "#1b1b1d",
+     "#e3e5e8"
+    ],
+    "size": 0.02,
+    "density": 0.2
+   },
+   {
+    "step": "pattern",
+    "type": "speckle",
+    "colours": [
+     "#f2f3f4"
+    ],
+    "freq": 1300,
+    "density": 0.25,
+    "amount": 0.5
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0,
+      "hem"
+     ],
+     [
+      0,
+      "top"
+     ]
+    ],
+    "style": "tape",
+    "width": 0.05,
+    "colour": "#55565a",
+    "raise": 0.0014
+   },
+   {
+    "step": "dots",
+    "frame": "front",
+    "from": [
+     0.016,
+     "hem+0.05"
+    ],
+    "to": [
+     0.016,
+     "neck-0.03"
+    ],
+    "count": 6,
+    "r": 0.006,
+    "style": "stud",
+    "colour": "#2c2e2a"
+   },
+   {
+    "step": "rect",
+    "frame": "front",
+    "at": [
+     0.115,
+     "hip+0.02"
+    ],
+    "size": [
+     0.14,
+     0.14
+    ],
+    "style": "flap",
+    "flap": 0.3,
+    "mirror": true,
+    "stitch": "#3a3b3f",
+    "pleat": true,
+    "raise": 0.0024
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      -0.4,
+      "hem+0.025"
+     ],
+     [
+      0.4,
+      "hem+0.025"
+     ]
+    ],
+    "style": "twin",
+    "colour": "#3a3b3f",
+    "gap": 0.014
+   },
+   {
+    "step": "line",
+    "frame": "back",
+    "pts": [
+     [
+      -0.4,
+      "hem+0.025"
+     ],
+     [
+      0.4,
+      "hem+0.025"
+     ]
+    ],
+    "style": "twin",
+    "colour": "#3a3b3f",
+    "gap": 0.014
+   },
+   {
+    "step": "line",
+    "frame": "sleeves",
+    "pts": [
+     [
+      -0.3,
+      0.93
+     ],
+     [
+      0.3,
+      0.93
+     ]
+    ],
+    "style": "twin",
+    "colour": "#3a3b3f"
+   },
+   {
+    "step": "print",
+    "frame": "sleeveL",
+    "art": "si-compass-badge",
+    "at": [
+     0,
+     0.3
+    ],
+    "width": 0.08,
+    "raise": 0.0012
+   },
+   {
+    "step": "dots",
+    "frame": "sleeveL",
+    "pts": [
+     [
+      -0.02,
+      0.235
+     ],
+     [
+      0.02,
+      0.235
+     ]
+    ],
+    "r": 0.005,
+    "style": "button",
+    "colour": "#111312"
+   },
+   {
+    "step": "distress",
+    "type": "crumple",
+    "depth": 0.0014,
+    "freq": 18
+   }
+  ]
+ },
+ {
+  "n": 425,
+  "id": "si-heat-reactive-jacket",
+  "designer": "Stone Island",
+  "name": "Heat Reactive Jacket",
+  "season": "FW2010",
+  "price": 900,
+  "slot": "top",
+  "colour": "#2f4a8c",
+  "finish": {
+   "roughness": 0.6
+  },
+  "cut": {
+   "like": "parka",
+   "hem": "hip-0.04",
+   "hemBack": 0,
+   "shoulderDrop": 0.02
+  },
+  "note": "Thermo-sensitive: it pales where the body warms it, at the shoulders and chest.",
+  "paint": [
+   {
+    "step": "fabric",
+    "type": "nylon"
+   },
+   {
+    "step": "gradient",
+    "from": [
+     "hem",
+     "#2f4a8c"
+    ],
+    "to": [
+     "shoulder",
+     "#a9c0dc"
+    ],
+    "keepShade": 1,
+    "where": {
+     "zone": [
+      "body",
+      "hood",
+      "collar"
+     ]
+    }
+   },
+   {
+    "step": "gradient",
+    "from": [
+     0.1,
+     "#a9c0dc"
+    ],
+    "to": [
+     0.95,
+     "#2f4a8c"
+    ],
+    "along": "s",
+    "keepShade": 1,
+    "where": {
+     "zone": "sleeves"
+    }
+   },
+   {
+    "step": "pattern",
+    "type": "clouds",
+    "colours": [
+     "#d9e3ee"
+    ],
+    "freq": 5,
+    "amount": 0.35
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0,
+      "hem"
+     ],
+     [
+      0,
+      "top"
+     ]
+    ],
+    "style": "zip",
+    "width": 0.004,
+    "colour": "#1f3366",
+    "colour2": "#111113"
+   },
+   {
+    "step": "rect",
+    "frame": "front",
+    "at": [
+     0.12,
+     "hip+0.04"
+    ],
+    "size": [
+     0.1,
+     0.009
+    ],
+    "style": "zip",
+    "rot": 75,
+    "colour": "#1f3366",
+    "mirror": true
+   },
+   {
+    "step": "print",
+    "frame": "sleeveL",
+    "art": "si-compass-badge",
+    "at": [
+     0,
+     0.3
+    ],
+    "width": 0.08,
+    "raise": 0.0012
+   },
+   {
+    "step": "dots",
+    "frame": "sleeveL",
+    "pts": [
+     [
+      -0.02,
+      0.235
+     ],
+     [
+      0.02,
+      0.235
+     ]
+    ],
+    "r": 0.005,
+    "style": "button",
+    "colour": "#111312"
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      -0.4,
+      "hem+0.025"
+     ],
+     [
+      0.4,
+      "hem+0.025"
+     ]
+    ],
+    "style": "twin",
+    "colour": "#1f3366",
+    "gap": 0.014
+   },
+   {
+    "step": "line",
+    "frame": "back",
+    "pts": [
+     [
+      -0.4,
+      "hem+0.025"
+     ],
+     [
+      0.4,
+      "hem+0.025"
+     ]
+    ],
+    "style": "twin",
+    "colour": "#1f3366",
+    "gap": 0.014
+   }
+  ]
+ },
+ {
+  "n": 426,
+  "id": "si-tela-stella-jacket",
+  "designer": "Stone Island",
+  "name": "Tela Stella Jacket",
+  "season": "SS1982",
+  "price": 2200,
+  "slot": "top",
+  "colour": "#a8402a",
+  "finish": {
+   "roughness": 0.85
+  },
+  "cut": {
+   "like": "parka",
+   "ease": {
+    "shoulder": 0.0144,
+    "chest": 0.048,
+    "waist": 0.072,
+    "hip": 0.072,
+    "sleeve": 0.024,
+    "cuff": 0.024
+   },
+   "hem": "hip-0.1",
+   "hemBack": 0,
+   "shoulderDrop": 0.02,
+   "add": [
+    {
+     "type": "collar",
+     "style": "fold",
+     "height": 0.06,
+     "gap": 0.03,
+     "points": 0.4
+    },
+    {
+     "type": "lip"
+    },
+    {
+     "type": "hood",
+     "only": false
+    }
+   ]
+  },
+  "note": "The first Stone Island cloth: truck tarpaulin, stone-washed, red outside and blue inside.",
+  "paint": [
+   {
+    "step": "fabric",
+    "type": "canvas"
+   },
+   {
+    "step": "distress",
+    "type": "wash",
+    "amount": 0.5,
+    "colour": "#c98a70"
+   },
+   {
+    "step": "panel",
+    "colour": "#1f2a5c",
+    "where": {
+     "zone": "lining"
+    }
+   },
+   {
+    "step": "panel",
+    "colour": "#1f2a5c",
+    "where": {
+     "zone": "collar"
+    }
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0,
+      "hem"
+     ],
+     [
+      0,
+      "top"
+     ]
+    ],
+    "style": "tape",
+    "width": 0.05,
+    "colour": "#93382a",
+    "raise": 0.0014
+   },
+   {
+    "step": "dots",
+    "frame": "front",
+    "from": [
+     0.016,
+     "hem+0.05"
+    ],
+    "to": [
+     0.016,
+     "neck-0.03"
+    ],
+    "count": 6,
+    "r": 0.006,
+    "style": "stud",
+    "colour": "#2c2e2a"
+   },
+   {
+    "step": "rect",
+    "frame": "front",
+    "at": [
+     0.11,
+     "chest+0.02"
+    ],
+    "size": [
+     0.1,
+     0.1
+    ],
+    "style": "flap",
+    "flap": 0.3,
+    "mirror": true,
+    "stitch": "#6b2a1c",
+    "pleat": true,
+    "raise": 0.0024
+   },
+   {
+    "step": "rect",
+    "frame": "front",
+    "at": [
+     0.115,
+     "hip+0.02"
+    ],
+    "size": [
+     0.14,
+     0.14
+    ],
+    "style": "flap",
+    "flap": 0.3,
+    "mirror": true,
+    "stitch": "#6b2a1c",
+    "pleat": true,
+    "raise": 0.0024
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      -0.4,
+      "hem+0.025"
+     ],
+     [
+      0.4,
+      "hem+0.025"
+     ]
+    ],
+    "style": "twin",
+    "colour": "#6b2a1c",
+    "gap": 0.014
+   },
+   {
+    "step": "line",
+    "frame": "back",
+    "pts": [
+     [
+      -0.4,
+      "hem+0.025"
+     ],
+     [
+      0.4,
+      "hem+0.025"
+     ]
+    ],
+    "style": "twin",
+    "colour": "#6b2a1c",
+    "gap": 0.014
+   },
+   {
+    "step": "line",
+    "frame": "sleeves",
+    "pts": [
+     [
+      -0.3,
+      0.93
+     ],
+     [
+      0.3,
+      0.93
+     ]
+    ],
+    "style": "twin",
+    "colour": "#6b2a1c"
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0.1,
+      "shoulder-0.012"
+     ],
+     [
+      0.165,
+      "shoulder-0.03"
+     ]
+    ],
+    "style": "twin",
+    "gap": 0.022,
+    "width": 0.002,
+    "colour": "#6b2a1c",
+    "mirror": true
+   },
+   {
+    "step": "print",
+    "frame": "sleeveL",
+    "art": "si-compass-badge",
+    "at": [
+     0,
+     0.3
+    ],
+    "width": 0.08,
+    "raise": 0.0012
+   },
+   {
+    "step": "dots",
+    "frame": "sleeveL",
+    "pts": [
+     [
+      -0.02,
+      0.235
+     ],
+     [
+      0.02,
+      0.235
+     ]
+    ],
+    "r": 0.005,
+    "style": "button",
+    "colour": "#111312"
+   },
+   {
+    "step": "distress",
+    "type": "edges",
+    "amount": 0.5,
+    "colour": "#d9a890"
+   },
+   {
+    "step": "distress",
+    "type": "folds",
+    "freq": 10,
+    "depth": 0.004
+   }
+  ]
+ },
+ {
+  "n": 427,
+  "id": "si-formula-steel-jacket",
+  "designer": "Stone Island",
+  "name": "Formula Steel Jacket",
+  "season": "FW1996",
+  "price": 800,
+  "slot": "top",
+  "colour": "#4a5560",
+  "finish": {
+   "roughness": 0.38,
+   "metalness": 0.6
+  },
+  "cut": {
+   "like": "parka",
+   "ease": {
+    "shoulder": 0.0126,
+    "chest": 0.042,
+    "waist": 0.063,
+    "hip": 0.063,
+    "sleeve": 0.0225,
+    "cuff": 0.0225
+   },
+   "hem": "hip-0.03",
+   "hemBack": 0,
+   "shoulderDrop": 0.02,
+   "add": [
+    {
+     "type": "collar",
+     "height": 0.06,
+     "flare": 0.006,
+     "only": true
+    },
+    {
+     "type": "lip"
+    }
+   ]
+  },
+  "note": "Nylon woven with a stainless-steel thread.",
+  "paint": [
+   {
+    "step": "fabric",
+    "type": "nylon"
+   },
+   {
+    "step": "pattern",
+    "type": "speckle",
+    "colours": [
+     "#9aa6b3",
+     "#2a3038"
+    ],
+    "freq": 1500,
+    "density": 0.3,
+    "amount": 0.5
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0,
+      "hem"
+     ],
+     [
+      0,
+      "top"
+     ]
+    ],
+    "style": "zip",
+    "width": 0.005,
+    "colour": "#2a3038",
+    "colour2": "#111113"
+   },
+   {
+    "step": "rect",
+    "frame": "front",
+    "at": [
+     0.11,
+     "chest+0.02"
+    ],
+    "size": [
+     0.1,
+     0.009
+    ],
+    "style": "zip",
+    "colour": "#2a3038",
+    "mirror": true
+   },
+   {
+    "step": "rect",
+    "frame": "front",
+    "at": [
+     0.12,
+     "hip+0.04"
+    ],
+    "size": [
+     0.1,
+     0.009
+    ],
+    "style": "zip",
+    "rot": 75,
+    "colour": "#2a3038",
+    "mirror": true
+   },
+   {
+    "step": "print",
+    "frame": "sleeveL",
+    "art": "si-compass-badge",
+    "at": [
+     0,
+     0.3
+    ],
+    "width": 0.08,
+    "raise": 0.0012
+   },
+   {
+    "step": "dots",
+    "frame": "sleeveL",
+    "pts": [
+     [
+      -0.02,
+      0.235
+     ],
+     [
+      0.02,
+      0.235
+     ]
+    ],
+    "r": 0.005,
+    "style": "button",
+    "colour": "#111312"
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      -0.4,
+      "hem+0.025"
+     ],
+     [
+      0.4,
+      "hem+0.025"
+     ]
+    ],
+    "style": "twin",
+    "colour": "#2a3038",
+    "gap": 0.014
+   },
+   {
+    "step": "line",
+    "frame": "back",
+    "pts": [
+     [
+      -0.4,
+      "hem+0.025"
+     ],
+     [
+      0.4,
+      "hem+0.025"
+     ]
+    ],
+    "style": "twin",
+    "colour": "#2a3038",
+    "gap": 0.014
+   },
+   {
+    "step": "distress",
+    "type": "crumple",
+    "amount": 0.12
+   }
+  ]
+ },
+ {
+  "n": 428,
+  "id": "si-metal-shell-jacket",
+  "designer": "Stone Island",
+  "name": "Metal Shell Jacket",
+  "season": "SS2015",
+  "price": 500,
+  "slot": "top",
+  "colour": "#55708a",
+  "finish": {
+   "roughness": 0.3,
+   "metalness": 0.55
+  },
+  "cut": {
+   "like": "parka",
+   "hem": "hip-0.04",
+   "hemBack": 0,
+   "shoulderDrop": 0.02
+  },
+  "paint": [
+   {
+    "step": "fabric",
+    "type": "nylon"
+   },
+   {
+    "step": "gradient",
+    "from": [
+     "hem",
+     "#6a5a8a"
+    ],
+    "to": [
+     "shoulder",
+     "#4a7a8a"
+    ],
+    "amount": 0.6,
+    "keepShade": 1
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0,
+      "hem"
+     ],
+     [
+      0,
+      "top"
+     ]
+    ],
+    "style": "zip",
+    "width": 0.004,
+    "colour": "#2a3a4a",
+    "colour2": "#111113"
+   },
+   {
+    "step": "rect",
+    "frame": "front",
+    "at": [
+     0.12,
+     "hip+0.04"
+    ],
+    "size": [
+     0.1,
+     0.009
+    ],
+    "style": "zip",
+    "rot": 75,
+    "colour": "#2a3a4a",
+    "mirror": true
+   },
+   {
+    "step": "print",
+    "frame": "sleeveL",
+    "art": "si-compass-badge",
+    "at": [
+     0,
+     0.3
+    ],
+    "width": 0.08,
+    "raise": 0.0012
+   },
+   {
+    "step": "dots",
+    "frame": "sleeveL",
+    "pts": [
+     [
+      -0.02,
+      0.235
+     ],
+     [
+      0.02,
+      0.235
+     ]
+    ],
+    "r": 0.005,
+    "style": "button",
+    "colour": "#111312"
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      -0.4,
+      "hem+0.025"
+     ],
+     [
+      0.4,
+      "hem+0.025"
+     ]
+    ],
+    "style": "groove",
+    "colour": "#3a3a3e",
+    "width": 0.004
+   },
+   {
+    "step": "line",
+    "frame": "back",
+    "pts": [
+     [
+      -0.4,
+      "hem+0.025"
+     ],
+     [
+      0.4,
+      "hem+0.025"
+     ]
+    ],
+    "style": "groove",
+    "colour": "#3a3a3e",
+    "width": 0.004
+   },
+   {
+    "step": "distress",
+    "type": "crumple",
+    "amount": 0.16
+   }
+  ]
+ },
+ {
+  "n": 429,
+  "id": "si-nylon-metal-overshirt",
+  "designer": "Stone Island",
+  "name": "Nylon Metal Overshirt",
+  "season": "SS2012",
+  "price": 350,
+  "slot": "top",
+  "colour": "#3a5a4a",
+  "finish": {
+   "roughness": 0.3,
+   "metalness": 0.5
+  },
+  "cut": {
+   "like": "shirt",
+   "ease": {
+    "shoulder": 0.0078,
+    "chest": 0.026,
+    "waist": 0.0455,
+    "hip": 0.0455,
+    "sleeve": 0.0148,
+    "cuff": 0.0102
+   },
+   "hem": "hip-0.08",
+   "hemCurve": 0.01
+  },
+  "paint": [
+   {
+    "step": "fabric",
+    "type": "nylon"
+   },
+   {
+    "step": "gradient",
+    "from": [
+     "hem",
+     "#5a5a3a"
+    ],
+    "to": [
+     "shoulder",
+     "#3a5a5a"
+    ],
+    "amount": 0.5,
+    "keepShade": 1
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0.016,
+      "hem"
+     ],
+     [
+      0.016,
+      "top"
+     ]
+    ],
+    "style": "seam",
+    "width": 0.0014
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      -0.016,
+      "hem"
+     ],
+     [
+      -0.016,
+      "top"
+     ]
+    ],
+    "style": "stitch",
+    "width": 0.001,
+    "colour": "#2a3a30"
+   },
+   {
+    "step": "dots",
+    "frame": "front",
+    "from": [
+     0,
+     "hem+0.05"
+    ],
+    "to": [
+     0,
+     "neck-0.045"
+    ],
+    "count": 6,
+    "r": 0.0048,
+    "style": "button",
+    "colour": "#2a3a30"
+   },
+   {
+    "step": "line",
+    "frame": "back",
+    "pts": [
+     [
+      -0.3,
+      "shoulder-0.03"
+     ],
+     [
+      0.3,
+      "shoulder-0.03"
+     ]
+    ],
+    "style": "seam",
+    "width": 0.0014
+   },
+   {
+    "step": "line",
+    "frame": "sleeves",
+    "pts": [
+     [
+      -0.3,
+      0.92
+     ],
+     [
+      0.3,
+      0.92
+     ]
+    ],
+    "style": "seam",
+    "width": 0.0014
+   },
+   {
+    "step": "dots",
+    "frame": "sleeves",
+    "pts": [
+     [
+      -0.03,
+      0.96
+     ]
+    ],
+    "r": 0.0045,
+    "style": "button",
+    "colour": "#2a3a30"
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      -0.4,
+      "hem+0.012"
+     ],
+     [
+      0.4,
+      "hem+0.012"
+     ]
+    ],
+    "style": "stitch",
+    "colour": "#2a3a30",
+    "width": 0.001
+   },
+   {
+    "step": "line",
+    "frame": "back",
+    "pts": [
+     [
+      -0.4,
+      "hem+0.012"
+     ],
+     [
+      0.4,
+      "hem+0.012"
+     ]
+    ],
+    "style": "stitch",
+    "colour": "#2a3a30",
+    "width": 0.001
+   },
+   {
+    "step": "rect",
+    "frame": "front",
+    "at": [
+     0.1,
+     "chest+0.02"
+    ],
+    "size": [
+     0.1,
+     0.1
+    ],
+    "style": "flap",
+    "flap": 0.3,
+    "mirror": true,
+    "stitch": "#2a3a30",
+    "raise": 0.002
+   },
+   {
+    "step": "print",
+    "frame": "sleeveL",
+    "art": "si-compass-badge",
+    "at": [
+     0,
+     0.3
+    ],
+    "width": 0.08,
+    "raise": 0.0012
+   },
+   {
+    "step": "dots",
+    "frame": "sleeveL",
+    "pts": [
+     [
+      -0.02,
+      0.235
+     ],
+     [
+      0.02,
+      0.235
+     ]
+    ],
+    "r": 0.005,
+    "style": "button",
+    "colour": "#111312"
+   },
+   {
+    "step": "distress",
+    "type": "crumple",
+    "amount": 0.16
+   }
+  ]
+ },
+ {
+  "n": 430,
+  "id": "si-nylon-metal-trousers",
+  "designer": "Stone Island",
+  "name": "Nylon Metal Trousers",
+  "season": "SS2012",
+  "price": 300,
+  "slot": "bottom",
+  "colour": "#3a5a4a",
+  "finish": {
+   "roughness": 0.3,
+   "metalness": 0.5
+  },
+  "cut": {
+   "like": "cargo",
+   "ease": {
+    "waist": 0.002,
+    "seat": 0.0238,
+    "thigh": 0.0333,
+    "knee": 0.0333,
+    "hem": 0.0285
+   },
+   "hem": "ankle+0.0"
+  },
+  "paint": [
+   {
+    "step": "fabric",
+    "type": "nylon"
+   },
+   {
+    "step": "gradient",
+    "from": [
+     "hem",
+     "#5a5a3a"
+    ],
+    "to": [
+     "top",
+     "#3a5a5a"
+    ],
+    "amount": 0.5,
+    "keepShade": 1
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      -0.4,
+      "top-0.045"
+     ],
+     [
+      0.4,
+      "top-0.045"
+     ]
+    ],
+    "style": "twin",
+    "colour": "#2a3a30",
+    "gap": 0.004,
+    "width": 0.0014
+   },
+   {
+    "step": "line",
+    "frame": "back",
+    "pts": [
+     [
+      -0.4,
+      "top-0.045"
+     ],
+     [
+      0.4,
+      "top-0.045"
+     ]
+    ],
+    "style": "twin",
+    "colour": "#2a3a30",
+    "gap": 0.004,
+    "width": 0.0014
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0,
+      "top-0.045"
+     ],
+     [
+      0.012,
+      "top-0.14"
+     ],
+     [
+      0,
+      "top-0.19"
+     ]
+    ],
+    "style": "twin",
+    "colour": "#2a3a30",
+    "gap": 0.004,
+    "width": 0.0014
+   },
+   {
+    "step": "line",
+    "frame": "legs",
+    "pts": [
+     [
+      0,
+      -0.3
+     ],
+     [
+      0,
+      1.05
+     ]
+    ],
+    "style": "seam"
+   },
+   {
+    "step": "rect",
+    "frame": "legs",
+    "at": [
+     -0.005,
+     0.42
+    ],
+    "size": [
+     0.15,
+     0.17
+    ],
+    "style": "flap",
+    "flap": 0.3,
+    "pleat": true,
+    "snap": true,
+    "stitch": "#2a3a30",
+    "raise": 0.003
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0.165,
+      "top-0.045"
+     ],
+     [
+      0.115,
+      "top-0.2"
+     ]
+    ],
+    "style": "groove",
+    "width": 0.002,
+    "mirror": true
+   },
+   {
+    "step": "rect",
+    "frame": "back",
+    "at": [
+     0.088,
+     "top-0.17"
+    ],
+    "size": [
+     0.12,
+     0.05
+    ],
+    "style": "flap",
+    "flap": 1,
+    "stitch": "#2a3a30",
+    "mirror": true
+   },
+   {
+    "step": "line",
+    "frame": "legs",
+    "pts": [
+     [
+      -0.3,
+      0.5
+     ],
+     [
+      0.3,
+      0.5
+     ]
+    ],
+    "style": "seam"
+   },
+   {
+    "step": "line",
+    "frame": "legs",
+    "pts": [
+     [
+      -0.3,
+      0.62
+     ],
+     [
+      0.3,
+      0.62
+     ]
+    ],
+    "style": "seam"
+   },
+   {
+    "step": "print",
+    "frame": "legL",
+    "art": "si-compass-badge",
+    "at": [
+     0.02,
+     0.34
+    ],
+    "width": 0.06,
+    "raise": 0.0012
+   },
+   {
+    "step": "distress",
+    "type": "crumple",
+    "amount": 0.16
+   }
+  ]
+ },
+ {
+  "n": 431,
+  "id": "si-david-tc-parka",
+  "designer": "Stone Island",
+  "name": "David-TC Parka",
+  "season": "FW2012",
+  "price": 650,
+  "slot": "top",
+  "colour": "#3f4a3a",
+  "finish": {
+   "roughness": 0.7
+  },
+  "cut": {
+   "like": "parka",
+   "ease": {
+    "shoulder": 0.0138,
+    "chest": 0.046,
+    "waist": 0.069,
+    "hip": 0.069,
+    "sleeve": 0.0235,
+    "cuff": 0.0235
+   },
+   "hem": "thigh+0.06",
+   "hemBack": 0,
+   "shoulderDrop": 0.02,
+   "add": [
+    {
+     "type": "hood",
+     "size": 1.15,
+     "drop": 0.24
+    },
+    {
+     "type": "lip"
+    }
+   ]
+  },
+  "note": "A Japanese star-shaped polyester and nylon cloth, garment-dyed under pressure until it looks like old leather.",
+  "paint": [
+   {
+    "step": "fabric",
+    "type": "canvas"
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0,
+      "hem"
+     ],
+     [
+      0,
+      "top"
+     ]
+    ],
+    "style": "tape",
+    "width": 0.05,
+    "colour": "#374132",
+    "raise": 0.0014
+   },
+   {
+    "step": "dots",
+    "frame": "front",
+    "from": [
+     0.016,
+     "hem+0.05"
+    ],
+    "to": [
+     0.016,
+     "neck-0.03"
+    ],
+    "count": 6,
+    "r": 0.006,
+    "style": "stud",
+    "colour": "#2c2e2a"
+   },
+   {
+    "step": "rect",
+    "frame": "front",
+    "at": [
+     0.11,
+     "chest+0.02"
+    ],
+    "size": [
+     0.1,
+     0.1
+    ],
+    "style": "flap",
+    "flap": 0.3,
+    "mirror": true,
+    "stitch": "#2a3226",
+    "pleat": true,
+    "raise": 0.0024
+   },
+   {
+    "step": "rect",
+    "frame": "front",
+    "at": [
+     0.115,
+     "hip+0.02"
+    ],
+    "size": [
+     0.14,
+     0.14
+    ],
+    "style": "flap",
+    "flap": 0.3,
+    "mirror": true,
+    "stitch": "#2a3226",
+    "pleat": true,
+    "raise": 0.0024
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      -0.4,
+      "hem+0.025"
+     ],
+     [
+      0.4,
+      "hem+0.025"
+     ]
+    ],
+    "style": "twin",
+    "colour": "#2a3226",
+    "gap": 0.014
+   },
+   {
+    "step": "line",
+    "frame": "back",
+    "pts": [
+     [
+      -0.4,
+      "hem+0.025"
+     ],
+     [
+      0.4,
+      "hem+0.025"
+     ]
+    ],
+    "style": "twin",
+    "colour": "#2a3226",
+    "gap": 0.014
+   },
+   {
+    "step": "line",
+    "frame": "sleeves",
+    "pts": [
+     [
+      -0.3,
+      0.93
+     ],
+     [
+      0.3,
+      0.93
+     ]
+    ],
+    "style": "twin",
+    "colour": "#2a3226"
+   },
+   {
+    "step": "print",
+    "frame": "sleeveL",
+    "art": "si-compass-badge",
+    "at": [
+     0,
+     0.3
+    ],
+    "width": 0.08,
+    "raise": 0.0012
+   },
+   {
+    "step": "dots",
+    "frame": "sleeveL",
+    "pts": [
+     [
+      -0.02,
+      0.235
+     ],
+     [
+      0.02,
+      0.235
+     ]
+    ],
+    "r": 0.005,
+    "style": "button",
+    "colour": "#111312"
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      -0.4,
+      "waist-0.02"
+     ],
+     [
+      0.4,
+      "waist-0.02"
+     ]
+    ],
+    "style": "groove",
+    "colour": "#3a3a3e",
+    "width": 0.004
+   },
+   {
+    "step": "line",
+    "frame": "back",
+    "pts": [
+     [
+      -0.4,
+      "waist-0.02"
+     ],
+     [
+      0.4,
+      "waist-0.02"
+     ]
+    ],
+    "style": "groove",
+    "colour": "#3a3a3e",
+    "width": 0.004
+   },
+   {
+    "step": "distress",
+    "type": "wash",
+    "amount": 0.25,
+    "colour": "#6a7560"
+   },
+   {
+    "step": "distress",
+    "type": "crumple",
+    "amount": 0.14
+   },
+   {
+    "step": "distress",
+    "type": "folds",
+    "freq": 12,
+    "depth": 0.004,
+    "where": {
+     "zone": "body",
+     "h": [
+      "hem",
+      "waist"
+     ]
+    }
+   }
+  ]
+ },
+ {
+  "n": 432,
+  "id": "si-shadow-project-articulated-jacket",
+  "designer": "Stone Island Shadow Project",
+  "name": "Shadow Project Articulated Jacket",
+  "season": "FW2009",
+  "price": 900,
+  "slot": "top",
+  "colour": "#1d1e21",
+  "finish": {
+   "roughness": 0.55
+  },
+  "cut": {
+   "like": "parka",
+   "hem": "hip-0.06",
+   "hemBack": 0.04,
+   "add": [
+    {
+     "type": "hood",
+     "size": 1.1,
+     "drop": 0.2
+    },
+    {
+     "type": "lip"
+    }
+   ]
+  },
+  "note": "Errolson Hugh's cut: seams shaped to the bent elbow, the badge in black on black.",
+  "paint": [
+   {
+    "step": "fabric",
+    "type": "nylon"
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0.03,
+      "hem"
+     ],
+     [
+      0.0,
+      "chest"
+     ],
+     [
+      0.05,
+      "top"
+     ]
+    ],
+    "style": "zip",
+    "width": 0.004,
+    "colour": "#3a3b3f",
+    "colour2": "#111113"
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0.1,
+      "hem"
+     ],
+     [
+      0.13,
+      "waist"
+     ],
+     [
+      0.08,
+      "chest+0.08"
+     ]
+    ],
+    "style": "seam",
+    "mirror": true
+   },
+   {
+    "step": "line",
+    "frame": "sleeves",
+    "pts": [
+     [
+      -0.3,
+      0.42
+     ],
+     [
+      0.3,
+      0.46
+     ]
+    ],
+    "style": "seam"
+   },
+   {
+    "step": "line",
+    "frame": "sleeves",
+    "pts": [
+     [
+      -0.3,
+      0.56
+     ],
+     [
+      0.3,
+      0.52
+     ]
+    ],
+    "style": "seam"
+   },
+   {
+    "step": "line",
+    "frame": "sleeves",
+    "pts": [
+     [
+      0,
+      0.46
+     ],
+     [
+      0,
+      1.0
+     ]
+    ],
+    "style": "seam"
+   },
+   {
+    "step": "line",
+    "frame": "back",
+    "pts": [
+     [
+      0.09,
+      "hem"
+     ],
+     [
+      0.06,
+      "waist"
+     ],
+     [
+      0.09,
+      "chest+0.06"
+     ]
+    ],
+    "style": "seam",
+    "mirror": true
+   },
+   {
+    "step": "rect",
+    "frame": "front",
+    "at": [
+     0.12,
+     "hip+0.05"
+    ],
+    "size": [
+     0.1,
+     0.009
+    ],
+    "style": "zip",
+    "rot": 65,
+    "colour": "#3a3b3f",
+    "mirror": true
+   },
+   {
+    "step": "rect",
+    "frame": "front",
+    "at": [
+     -0.09,
+     "chest+0.02"
+    ],
+    "size": [
+     0.09,
+     0.009
+    ],
+    "style": "zip",
+    "rot": -80,
+    "colour": "#3a3b3f"
+   },
+   {
+    "step": "print",
+    "frame": "sleeveL",
+    "art": "si-compass-badge",
+    "at": [
+     0,
+     0.3
+    ],
+    "width": 0.08,
+    "opacity": 0.35,
+    "raise": 0.0012
+   },
+   {
+    "step": "distress",
+    "type": "crumple",
+    "amount": 0.1
+   }
+  ]
+ },
+ {
+  "n": 433,
+  "id": "si-shadow-project-cargo-trousers",
+  "designer": "Stone Island Shadow Project",
+  "name": "Shadow Project Cargo Trousers",
+  "season": "FW2009",
+  "price": 450,
+  "slot": "bottom",
+  "colour": "#1d1e21",
+  "finish": {
+   "roughness": 0.55
+  },
+  "cut": {
+   "like": "cargo",
+   "ease": {
+    "waist": 0.002,
+    "seat": 0.0225,
+    "thigh": 0.0315,
+    "knee": 0.0315,
+    "hem": 0.027
+   },
+   "hem": "ankle+0.02",
+   "taper": 0.15
+  },
+  "paint": [
+   {
+    "step": "fabric",
+    "type": "nylon"
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      -0.4,
+      "top-0.045"
+     ],
+     [
+      0.4,
+      "top-0.045"
+     ]
+    ],
+    "style": "twin",
+    "colour": "#3a3b3f",
+    "gap": 0.004,
+    "width": 0.0014
+   },
+   {
+    "step": "line",
+    "frame": "back",
+    "pts": [
+     [
+      -0.4,
+      "top-0.045"
+     ],
+     [
+      0.4,
+      "top-0.045"
+     ]
+    ],
+    "style": "twin",
+    "colour": "#3a3b3f",
+    "gap": 0.004,
+    "width": 0.0014
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0,
+      "top-0.045"
+     ],
+     [
+      0.012,
+      "top-0.14"
+     ],
+     [
+      0,
+      "top-0.19"
+     ]
+    ],
+    "style": "twin",
+    "colour": "#3a3b3f",
+    "gap": 0.004,
+    "width": 0.0014
+   },
+   {
+    "step": "line",
+    "frame": "legs",
+    "pts": [
+     [
+      0,
+      -0.3
+     ],
+     [
+      0,
+      1.05
+     ]
+    ],
+    "style": "seam"
+   },
+   {
+    "step": "rect",
+    "frame": "legs",
+    "at": [
+     -0.005,
+     0.46
+    ],
+    "size": [
+     0.13,
+     0.16
+    ],
+    "style": "flap",
+    "flap": 0.3,
+    "pleat": true,
+    "snap": true,
+    "stitch": "#3a3b3f",
+    "raise": 0.003
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0.165,
+      "top-0.045"
+     ],
+     [
+      0.115,
+      "top-0.2"
+     ]
+    ],
+    "style": "groove",
+    "width": 0.002,
+    "mirror": true
+   },
+   {
+    "step": "rect",
+    "frame": "back",
+    "at": [
+     0.088,
+     "top-0.17"
+    ],
+    "size": [
+     0.12,
+     0.05
+    ],
+    "style": "flap",
+    "flap": 1,
+    "stitch": "#3a3b3f",
+    "mirror": true
+   },
+   {
+    "step": "line",
+    "frame": "legs",
+    "pts": [
+     [
+      -0.3,
+      0.5
+     ],
+     [
+      0.3,
+      0.5
+     ]
+    ],
+    "style": "seam"
+   },
+   {
+    "step": "line",
+    "frame": "legs",
+    "pts": [
+     [
+      -0.3,
+      0.62
+     ],
+     [
+      0.3,
+      0.62
+     ]
+    ],
+    "style": "seam"
+   },
+   {
+    "step": "line",
+    "frame": "legs",
+    "pts": [
+     [
+      0.0,
+      0.3
+     ],
+     [
+      0.03,
+      0.6
+     ]
+    ],
+    "style": "seam"
+   },
+   {
+    "step": "rect",
+    "frame": "legs",
+    "at": [
+     0.035,
+     0.2
+    ],
+    "size": [
+     0.09,
+     0.008
+    ],
+    "style": "zip",
+    "rot": 80,
+    "colour": "#3a3b3f"
+   },
+   {
+    "step": "distress",
+    "type": "crumple",
+    "amount": 0.1
+   }
+  ]
+ },
+ {
+  "n": 434,
+  "id": "si-shadow-project-utility-vest",
+  "designer": "Stone Island Shadow Project",
+  "name": "Shadow Project Utility Vest",
+  "season": "SS2010",
+  "price": 500,
+  "slot": "top",
+  "colour": "#1d1e21",
+  "finish": {
+   "roughness": 0.55
+  },
+  "cut": {
+   "like": "vest",
+   "hem": "hip-0.02",
+   "armhole": 0.34,
+   "neck": {
+    "y": 0.02,
+    "depth": 0.025,
+    "round": 0.08
+   },
+   "add": [
+    {
+     "type": "collar",
+     "height": 0.04,
+     "flare": 0.006,
+     "gap": 0.01
+    }
+   ]
+  },
+  "under": {
+   "colour": "#3a3b3f",
+   "cut": {
+    "like": "longsleeve",
+    "hem": "hip+0.02",
+    "overWaist": false,
+    "neck": {
+     "y": 0.012,
+     "depth": 0.02,
+     "round": 0.075
+    }
+   },
+   "paint": [
+    {
+     "step": "fabric",
+     "type": "knit"
+    }
+   ]
+  },
+  "paint": [
+   {
+    "step": "fabric",
+    "type": "nylon"
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0,
+      "hem"
+     ],
+     [
+      0,
+      "top"
+     ]
+    ],
+    "style": "zip",
+    "width": 0.0045,
+    "colour": "#3a3b3f",
+    "colour2": "#111113"
+   },
+   {
+    "step": "rect",
+    "frame": "front",
+    "at": [
+     0.115,
+     "hip+0.09"
+    ],
+    "size": [
+     0.12,
+     0.12
+    ],
+    "style": "flap",
+    "flap": 0.3,
+    "stitch": "#3a3b3f",
+    "mirror": true,
+    "pleat": true,
+    "raise": 0.002
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      -0.4,
+      "hem+0.015"
+     ],
+     [
+      0.4,
+      "hem+0.015"
+     ]
+    ],
+    "style": "stitch",
+    "colour": "#3a3b3f",
+    "width": 0.001
+   },
+   {
+    "step": "line",
+    "frame": "back",
+    "pts": [
+     [
+      -0.4,
+      "hem+0.015"
+     ],
+     [
+      0.4,
+      "hem+0.015"
+     ]
+    ],
+    "style": "stitch",
+    "colour": "#3a3b3f",
+    "width": 0.001
+   },
+   {
+    "step": "rect",
+    "frame": "front",
+    "at": [
+     0.1,
+     "chest+0.0"
+    ],
+    "size": [
+     0.09,
+     0.1
+    ],
+    "style": "flap",
+    "flap": 0.3,
+    "stitch": "#3a3b3f",
+    "mirror": true,
+    "pleat": true,
+    "raise": 0.003
+   },
+   {
+    "step": "rect",
+    "frame": "back",
+    "at": [
+     0,
+     "chest+0.0"
+    ],
+    "size": [
+     0.2,
+     0.16
+    ],
+    "style": "pocket",
+    "stitch": "#3a3b3f",
+    "raise": 0.002
+   }
+  ]
+ },
+ {
+  "n": 435,
+  "id": "cp-mille-miglia-goggle-jacket-navy",
+  "designer": "C.P. Company",
+  "name": "Goggle Jacket (Mille Miglia, Navy)",
+  "season": "FW1988",
+  "price": 1100,
+  "slot": "top",
+  "colour": "#232a3d",
+  "finish": {
+   "roughness": 0.85
+  },
+  "cut": {
+   "like": "parka",
+   "hem": "thigh+0.1",
+   "hemBack": 0,
+   "add": [
+    {
+     "type": "hood",
+     "size": 1.15,
+     "drop": 0.24
+    },
+    {
+     "type": "lip"
+    }
+   ]
+  },
+  "note": "The navy one; the olive Mille Miglia jacket is earlier in the list.",
+  "paint": [
+   {
+    "step": "fabric",
+    "type": "canvas"
+   },
+   {
+    "step": "distress",
+    "type": "wash",
+    "amount": 0.25,
+    "colour": "#3d465c"
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0,
+      "hem"
+     ],
+     [
+      0,
+      "top"
+     ]
+    ],
+    "style": "tape",
+    "width": 0.048,
+    "colour": "#1c2233",
+    "raise": 0.0014
+   },
+   {
+    "step": "dots",
+    "frame": "front",
+    "from": [
+     0,
+     "hem+0.06"
+    ],
+    "to": [
+     0,
+     "neck-0.03"
+    ],
+    "count": 6,
+    "r": 0.008,
+    "style": "button",
+    "colour": "#12151f"
+   },
+   {
+    "step": "rect",
+    "frame": "front",
+    "at": [
+     0.105,
+     "chest+0.02"
+    ],
+    "size": [
+     0.11,
+     0.11
+    ],
+    "style": "flap",
+    "flap": 0.3,
+    "mirror": true,
+    "stitch": "#12151f",
+    "pleat": true,
+    "raise": 0.0024
+   },
+   {
+    "step": "rect",
+    "frame": "front",
+    "at": [
+     0.115,
+     "hip+0.01"
+    ],
+    "size": [
+     0.15,
+     0.15
+    ],
+    "style": "flap",
+    "flap": 0.3,
+    "mirror": true,
+    "stitch": "#12151f",
+    "pleat": true,
+    "raise": 0.0024
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      -0.4,
+      "waist-0.01"
+     ],
+     [
+      0.4,
+      "waist-0.01"
+     ]
+    ],
+    "style": "twin",
+    "colour": "#12151f",
+    "gap": 0.018
+   },
+   {
+    "step": "line",
+    "frame": "back",
+    "pts": [
+     [
+      -0.4,
+      "waist-0.01"
+     ],
+     [
+      0.4,
+      "waist-0.01"
+     ]
+    ],
+    "style": "twin",
+    "colour": "#12151f",
+    "gap": 0.018
+   },
+   {
+    "step": "rect",
+    "frame": "hood",
+    "at": [
+     0.045,
+     "top-0.085"
+    ],
+    "size": [
+     0.07,
+     0.05
+    ],
+    "style": "window",
+    "colour": "#2b3136",
+    "round": 0.024,
+    "mirror": true,
+    "opacity": 0.95
+   },
+   {
+    "step": "rect",
+    "frame": "sleeveL",
+    "at": [
+     0,
+     0.9
+    ],
+    "size": [
+     0.04,
+     0.04
+    ],
+    "style": "window",
+    "colour": "#2b3136",
+    "round": 0.02,
+    "opacity": 0.95
+   },
+   {
+    "step": "line",
+    "frame": "sleeves",
+    "pts": [
+     [
+      -0.3,
+      0.94
+     ],
+     [
+      0.3,
+      0.94
+     ]
+    ],
+    "style": "twin",
+    "colour": "#12151f"
+   },
+   {
+    "step": "distress",
+    "type": "folds",
+    "freq": 12,
+    "depth": 0.004,
+    "where": {
+     "zone": "body",
+     "h": [
+      "hem",
+      "waist"
+     ]
+    }
+   },
+   {
+    "step": "distress",
+    "type": "shade",
+    "amount": 0.5
+   }
+  ]
+ },
+ {
+  "n": 436,
+  "id": "cp-metropolis-jacket",
+  "designer": "C.P. Company",
+  "name": "Metropolis Jacket",
+  "season": "FW1999",
+  "price": 1200,
+  "slot": "top",
+  "colour": "#1b1c1f",
+  "finish": {
+   "roughness": 0.5
+  },
+  "cut": {
+   "like": "parka",
+   "hem": "thigh+0.08",
+   "hemBack": 0,
+   "add": [
+    {
+     "type": "collar",
+     "style": "funnel",
+     "height": 0.11,
+     "flare": 0.01,
+     "gap": 0.0,
+     "only": true
+    },
+    {
+     "type": "hood",
+     "size": 1.1,
+     "drop": 0.22
+    },
+    {
+     "type": "lip"
+    }
+   ]
+  },
+  "note": "From Urban Protection: Dynafil nylon with an anti-smog mask built into the collar.",
+  "paint": [
+   {
+    "step": "fabric",
+    "type": "rubber"
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0,
+      "hem"
+     ],
+     [
+      0,
+      "top"
+     ]
+    ],
+    "style": "zip",
+    "width": 0.005,
+    "colour": "#3a3b3f",
+    "colour2": "#111113"
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0.03,
+      "hem"
+     ],
+     [
+      0.03,
+      "top"
+     ]
+    ],
+    "style": "seam",
+    "width": 0.002
+   },
+   {
+    "step": "rect",
+    "frame": "front",
+    "at": [
+     0.11,
+     "hip+0.0"
+    ],
+    "size": [
+     0.13,
+     0.15
+    ],
+    "style": "flap",
+    "flap": 0.25,
+    "mirror": true,
+    "stitch": "#2f3034",
+    "raise": 0.002
+   },
+   {
+    "step": "rect",
+    "frame": "front",
+    "at": [
+     -0.1,
+     "chest+0.02"
+    ],
+    "size": [
+     0.07,
+     0.11
+    ],
+    "style": "pocket",
+    "stitch": "#2f3034",
+    "raise": 0.002
+   },
+   {
+    "step": "rect",
+    "frame": "collar",
+    "at": [
+     0,
+     0.02
+    ],
+    "size": [
+     0.07,
+     0.05
+    ],
+    "style": "window",
+    "colour": "#3a4046",
+    "round": 0.02,
+    "opacity": 0.9
+   },
+   {
+    "step": "dots",
+    "frame": "collar",
+    "pts": [
+     [
+      0.05,
+      0.03
+     ]
+    ],
+    "r": 0.012,
+    "style": "eyelet",
+    "colour": "#55565a",
+    "mirror": true
+   },
+   {
+    "step": "rect",
+    "frame": "sleeveL",
+    "at": [
+     0,
+     0.9
+    ],
+    "size": [
+     0.04,
+     0.04
+    ],
+    "style": "window",
+    "colour": "#3a4046",
+    "round": 0.02,
+    "opacity": 0.95
+   },
+   {
+    "step": "distress",
+    "type": "crumple",
+    "amount": 0.1
+   }
+  ]
+ },
+ {
+  "n": 437,
+  "id": "cp-explorer-jacket",
+  "designer": "C.P. Company",
+  "name": "Explorer Jacket",
+  "season": "1990s",
+  "price": 700,
+  "slot": "top",
+  "colour": "#c9661f",
+  "finish": {
+   "roughness": 0.6
+  },
+  "cut": {
+   "like": "parka",
+   "ease": {
+    "shoulder": 0.0126,
+    "chest": 0.042,
+    "waist": 0.063,
+    "hip": 0.063,
+    "sleeve": 0.0225,
+    "cuff": 0.0225
+   },
+   "hem": "hip-0.08",
+   "hemBack": 0,
+   "add": [
+    {
+     "type": "hood",
+     "size": 1.15,
+     "drop": 0.22
+    },
+    {
+     "type": "lip"
+    }
+   ]
+  },
+  "paint": [
+   {
+    "step": "fabric",
+    "type": "nylon"
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0,
+      "hem"
+     ],
+     [
+      0,
+      "top"
+     ]
+    ],
+    "style": "zip",
+    "width": 0.005,
+    "colour": "#3a3b3f",
+    "colour2": "#111113"
+   },
+   {
+    "step": "rect",
+    "frame": "front",
+    "at": [
+     0.105,
+     "chest+0.02"
+    ],
+    "size": [
+     0.11,
+     0.11
+    ],
+    "style": "flap",
+    "flap": 0.3,
+    "mirror": true,
+    "stitch": "#8a4514",
+    "pleat": true,
+    "raise": 0.0024
+   },
+   {
+    "step": "rect",
+    "frame": "front",
+    "at": [
+     0.115,
+     "hip+0.03"
+    ],
+    "size": [
+     0.14,
+     0.13
+    ],
+    "style": "flap",
+    "flap": 0.3,
+    "mirror": true,
+    "stitch": "#8a4514",
+    "pleat": true,
+    "raise": 0.0024
+   },
+   {
+    "step": "rect",
+    "frame": "hood",
+    "at": [
+     0.045,
+     "top-0.085"
+    ],
+    "size": [
+     0.07,
+     0.05
+    ],
+    "style": "window",
+    "colour": "#2b3136",
+    "round": 0.024,
+    "mirror": true,
+    "opacity": 0.95
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      -0.4,
+      "hem+0.025"
+     ],
+     [
+      0.4,
+      "hem+0.025"
+     ]
+    ],
+    "style": "twin",
+    "colour": "#8a4514",
+    "gap": 0.014
+   },
+   {
+    "step": "line",
+    "frame": "back",
+    "pts": [
+     [
+      -0.4,
+      "hem+0.025"
+     ],
+     [
+      0.4,
+      "hem+0.025"
+     ]
+    ],
+    "style": "twin",
+    "colour": "#8a4514",
+    "gap": 0.014
+   },
+   {
+    "step": "line",
+    "frame": "sleeves",
+    "pts": [
+     [
+      -0.3,
+      0.93
+     ],
+     [
+      0.3,
+      0.93
+     ]
+    ],
+    "style": "twin",
+    "colour": "#8a4514"
+   },
+   {
+    "step": "distress",
+    "type": "crumple",
+    "amount": 0.14
+   }
+  ]
+ },
+ {
+  "n": 438,
+  "id": "cp-lens-detail-sweatshirt",
+  "designer": "C.P. Company",
+  "name": "Lens-Detail Sweatshirt",
+  "season": "2010s",
+  "price": 180,
+  "slot": "top",
+  "colour": "#3a4a5c",
+  "finish": {
+   "roughness": 0.88
+  },
+  "cut": {
+   "like": "sweatshirt",
+   "ease": {
+    "shoulder": 0.0105,
+    "chest": 0.0368,
+    "waist": 0.0578,
+    "hip": 0.0578,
+    "sleeve": 0.0184,
+    "cuff": 0.0143
+   }
+  },
+  "note": "Garment-dyed fleece with the lens on the left arm.",
+  "paint": [
+   {
+    "step": "fabric",
+    "type": "jersey"
+   },
+   {
+    "step": "rib",
+    "where": {
+     "zone": "body",
+     "h": [
+      "hem",
+      "hem+0.06"
+     ]
+    },
+    "gauge": 0.005
+   },
+   {
+    "step": "rib",
+    "where": {
+     "zone": "sleeves",
+     "s": [
+      0.88,
+      1.3
+     ]
+    },
+    "gauge": 0.005
+   },
+   {
+    "step": "rib",
+    "where": {
+     "zone": "collar"
+    },
+    "gauge": 0.005
+   },
+   {
+    "step": "rect",
+    "frame": "sleeveL",
+    "at": [
+     0,
+     0.9
+    ],
+    "size": [
+     0.04,
+     0.04
+    ],
+    "style": "window",
+    "colour": "#2b3136",
+    "round": 0.02,
+    "opacity": 0.95
+   },
+   {
+    "step": "line",
+    "frame": "sleeveL",
+    "pts": [
+     [
+      -0.3,
+      0.86
+     ],
+     [
+      0.3,
+      0.86
+     ]
+    ],
+    "style": "seam"
+   },
+   {
+    "step": "distress",
+    "type": "wash",
+    "amount": 0.2,
+    "colour": "#5a6a7c"
+   },
+   {
+    "step": "distress",
+    "type": "shade",
+    "amount": 0.5
+   }
+  ]
+ },
+ {
+  "n": 439,
+  "id": "cp-garment-dyed-field-jacket",
+  "designer": "C.P. Company",
+  "name": "Garment-Dyed Field Jacket",
+  "season": "1990s",
+  "price": 450,
+  "slot": "top",
+  "colour": "#6b5a3c",
+  "finish": {
+   "roughness": 0.85
+  },
+  "cut": {
+   "like": "trucker",
+   "ease": {
+    "shoulder": 0.0096,
+    "chest": 0.0264,
+    "waist": 0.036,
+    "hip": 0.036,
+    "sleeve": 0.0131,
+    "cuff": 0.0109
+   },
+   "hem": "hip-0.08",
+   "add": [
+    {
+     "type": "collar",
+     "style": "fold",
+     "height": 0.055,
+     "gap": 0.02,
+     "points": 0.5
+    }
+   ]
+  },
+  "paint": [
+   {
+    "step": "fabric",
+    "type": "canvas"
+   },
+   {
+    "step": "distress",
+    "type": "wash",
+    "amount": 0.35,
+    "colour": "#93825f"
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0,
+      "hem"
+     ],
+     [
+      0,
+      "top"
+     ]
+    ],
+    "style": "zip",
+    "width": 0.0045,
+    "colour": "#3a3020",
+    "colour2": "#111113"
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0.03,
+      "hem"
+     ],
+     [
+      0.03,
+      "top"
+     ]
+    ],
+    "style": "seam",
+    "width": 0.002
+   },
+   {
+    "step": "dots",
+    "frame": "front",
+    "from": [
+     0.016,
+     "hem+0.06"
+    ],
+    "to": [
+     0.016,
+     "neck-0.03"
+    ],
+    "count": 6,
+    "r": 0.0055,
+    "style": "snap",
+    "colour": "#3a3020"
+   },
+   {
+    "step": "rect",
+    "frame": "front",
+    "at": [
+     0.115,
+     "hip+0.01"
+    ],
+    "size": [
+     0.14,
+     0.14
+    ],
+    "style": "flap",
+    "flap": 0.3,
+    "mirror": true,
+    "stitch": "#4a3c28",
+    "pleat": true,
+    "raise": 0.002
+   },
+   {
+    "step": "rect",
+    "frame": "front",
+    "at": [
+     0.1,
+     "chest+0.02"
+    ],
+    "size": [
+     0.1,
+     0.1
+    ],
+    "style": "flap",
+    "flap": 0.3,
+    "mirror": true,
+    "stitch": "#4a3c28",
+    "pleat": true,
+    "raise": 0.002
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      -0.4,
+      "waist-0.03"
+     ],
+     [
+      0.4,
+      "waist-0.03"
+     ]
+    ],
+    "style": "groove",
+    "colour": "#3a3a3e",
+    "width": 0.004
+   },
+   {
+    "step": "line",
+    "frame": "back",
+    "pts": [
+     [
+      -0.4,
+      "waist-0.03"
+     ],
+     [
+      0.4,
+      "waist-0.03"
+     ]
+    ],
+    "style": "groove",
+    "colour": "#3a3a3e",
+    "width": 0.004
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0.03,
+      "waist-0.03"
+     ],
+     [
+      0.045,
+      "waist-0.16"
+     ]
+    ],
+    "style": "tape",
+    "width": 0.005,
+    "colour": "#4a3c28",
+    "mirror": true
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      -0.4,
+      "hem+0.025"
+     ],
+     [
+      0.4,
+      "hem+0.025"
+     ]
+    ],
+    "style": "twin",
+    "colour": "#4a3c28",
+    "gap": 0.014
+   },
+   {
+    "step": "line",
+    "frame": "back",
+    "pts": [
+     [
+      -0.4,
+      "hem+0.025"
+     ],
+     [
+      0.4,
+      "hem+0.025"
+     ]
+    ],
+    "style": "twin",
+    "colour": "#4a3c28",
+    "gap": 0.014
+   },
+   {
+    "step": "line",
+    "frame": "sleeves",
+    "pts": [
+     [
+      -0.3,
+      0.93
+     ],
+     [
+      0.3,
+      0.93
+     ]
+    ],
+    "style": "twin",
+    "colour": "#4a3c28"
+   },
+   {
+    "step": "rect",
+    "frame": "sleeveL",
+    "at": [
+     0,
+     0.9
+    ],
+    "size": [
+     0.04,
+     0.04
+    ],
+    "style": "window",
+    "colour": "#2b3136",
+    "round": 0.02,
+    "opacity": 0.95
+   },
+   {
+    "step": "distress",
+    "type": "edges",
+    "amount": 0.4,
+    "colour": "#a8977a"
+   },
+   {
+    "step": "distress",
+    "type": "crumple",
+    "amount": 0.12
+   }
+  ]
+ },
+ {
+  "n": 440,
+  "id": "cp-technical-utility-vest",
+  "designer": "C.P. Company",
+  "name": "Technical Utility Vest",
+  "season": "2000s",
+  "price": 400,
+  "slot": "top",
+  "colour": "#3f4a3a",
+  "finish": {
+   "roughness": 0.6
+  },
+  "cut": {
+   "like": "vest",
+   "hem": "hip-0.0",
+   "armhole": 0.34,
+   "neck": {
+    "y": 0.02,
+    "depth": 0.025,
+    "round": 0.08
+   },
+   "add": [
+    {
+     "type": "collar",
+     "height": 0.04,
+     "flare": 0.006,
+     "gap": 0.01
+    },
+    {
+     "type": "hood",
+     "size": 1.0,
+     "drop": 0.18
+    }
+   ]
+  },
+  "under": {
+   "colour": "#2a2c2a",
+   "cut": {
+    "like": "longsleeve",
+    "hem": "hip+0.02",
+    "overWaist": false,
+    "neck": {
+     "y": 0.012,
+     "depth": 0.02,
+     "round": 0.075
+    }
+   },
+   "paint": [
+    {
+     "step": "fabric",
+     "type": "knit"
+    }
+   ]
+  },
+  "paint": [
+   {
+    "step": "fabric",
+    "type": "nylon"
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0,
+      "hem"
+     ],
+     [
+      0,
+      "top"
+     ]
+    ],
+    "style": "zip",
+    "width": 0.0045,
+    "colour": "#2a3226",
+    "colour2": "#111113"
+   },
+   {
+    "step": "rect",
+    "frame": "front",
+    "at": [
+     0.115,
+     "hip+0.09"
+    ],
+    "size": [
+     0.12,
+     0.12
+    ],
+    "style": "flap",
+    "flap": 0.3,
+    "stitch": "#2a3226",
+    "mirror": true,
+    "pleat": true,
+    "raise": 0.002
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      -0.4,
+      "hem+0.015"
+     ],
+     [
+      0.4,
+      "hem+0.015"
+     ]
+    ],
+    "style": "stitch",
+    "colour": "#2a3226",
+    "width": 0.001
+   },
+   {
+    "step": "line",
+    "frame": "back",
+    "pts": [
+     [
+      -0.4,
+      "hem+0.015"
+     ],
+     [
+      0.4,
+      "hem+0.015"
+     ]
+    ],
+    "style": "stitch",
+    "colour": "#2a3226",
+    "width": 0.001
+   },
+   {
+    "step": "rect",
+    "frame": "front",
+    "at": [
+     0.1,
+     "chest+0.0"
+    ],
+    "size": [
+     0.09,
+     0.1
+    ],
+    "style": "flap",
+    "flap": 0.3,
+    "stitch": "#2a3226",
+    "mirror": true,
+    "pleat": true,
+    "raise": 0.003
+   },
+   {
+    "step": "rect",
+    "frame": "hood",
+    "at": [
+     0.045,
+     "top-0.085"
+    ],
+    "size": [
+     0.07,
+     0.05
+    ],
+    "style": "window",
+    "colour": "#2b3136",
+    "round": 0.024,
+    "mirror": true,
+    "opacity": 0.95
+   },
+   {
+    "step": "distress",
+    "type": "crumple",
+    "amount": 0.12
+   }
+  ]
+ }
+]

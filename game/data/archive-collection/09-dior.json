@@ -1,0 +1,5165 @@
+[
+ {
+  "n": 161,
+  "id": "dior-solitaire-leather-jacket",
+  "designer": "Dior Homme",
+  "name": "Solitaire Leather Jacket",
+  "season": "SS2001",
+  "price": 2500,
+  "slot": "top",
+  "colour": "#1c1c1e",
+  "finish": {
+   "roughness": 0.38
+  },
+  "cut": {
+   "like": "biker",
+   "ease": {
+    "shoulder": 0.0068,
+    "chest": 0.0153,
+    "waist": 0.0187,
+    "hip": 0.0187,
+    "sleeve": 0.0084,
+    "cuff": 0.0065
+   },
+   "hem": "hip+0.07",
+   "add": [
+    {
+     "type": "collar",
+     "height": 0.035,
+     "flare": 0.004,
+     "only": true
+    }
+   ]
+  },
+  "paint": [
+   {
+    "step": "fabric",
+    "type": "leather"
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0,
+      "hem"
+     ],
+     [
+      0,
+      "top"
+     ]
+    ],
+    "style": "zip",
+    "width": 0.005,
+    "colour": "#b9babd",
+    "colour2": "#111113"
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0.1,
+      "hem"
+     ],
+     [
+      0.085,
+      "chest+0.08"
+     ]
+    ],
+    "style": "seam",
+    "width": 0.002,
+    "mirror": true
+   },
+   {
+    "step": "line",
+    "frame": "back",
+    "pts": [
+     [
+      0.085,
+      "hem"
+     ],
+     [
+      0.07,
+      "chest+0.06"
+     ]
+    ],
+    "style": "seam",
+    "width": 0.002,
+    "mirror": true
+   },
+   {
+    "step": "rect",
+    "frame": "front",
+    "at": [
+     0.12,
+     "waist+0.0"
+    ],
+    "size": [
+     0.09,
+     0.008
+    ],
+    "style": "zip",
+    "rot": 80,
+    "colour": "#b9babd",
+    "mirror": true
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      -0.4,
+      "hem+0.03"
+     ],
+     [
+      0.4,
+      "hem+0.03"
+     ]
+    ],
+    "style": "seam",
+    "colour": "#3a3a3e",
+    "width": 0.002
+   },
+   {
+    "step": "line",
+    "frame": "back",
+    "pts": [
+     [
+      -0.4,
+      "hem+0.03"
+     ],
+     [
+      0.4,
+      "hem+0.03"
+     ]
+    ],
+    "style": "seam",
+    "colour": "#3a3a3e",
+    "width": 0.002
+   },
+   {
+    "step": "line",
+    "frame": "sleeves",
+    "pts": [
+     [
+      -0.035,
+      0.82
+     ],
+     [
+      -0.035,
+      1.12
+     ]
+    ],
+    "style": "zip",
+    "width": 0.004,
+    "colour": "#b9babd",
+    "colour2": "#111113"
+   },
+   {
+    "step": "dots",
+    "frame": "front",
+    "pts": [
+     [
+      0,
+      "top-0.015"
+     ]
+    ],
+    "r": 0.005,
+    "style": "snap",
+    "colour": "#b9babd"
+   },
+   {
+    "step": "distress",
+    "type": "crumple",
+    "amount": 0.1
+   }
+  ]
+ },
+ {
+  "n": 162,
+  "id": "dior-solitaire-slim-blazer",
+  "designer": "Dior Homme",
+  "name": "Solitaire Slim Tailored Blazer",
+  "season": "SS2001",
+  "price": 900,
+  "slot": "top",
+  "colour": "#19191b",
+  "finish": {
+   "roughness": 0.95
+  },
+  "cut": {
+   "like": "blazer",
+   "ease": {
+    "shoulder": 0.0078,
+    "chest": 0.0172,
+    "waist": 0.0234,
+    "hip": 0.0273,
+    "sleeve": 0.0108,
+    "cuff": 0.0099
+   },
+   "hem": "hip-0.07",
+   "neck": {
+    "v": 0.25,
+    "width": 0.07,
+    "depth": 0.03
+   },
+   "waist": 0.07,
+   "hang": 0.85,
+   "tube": 0.6
+  },
+  "under": {
+   "colour": "#e9e7e0",
+   "cut": {
+    "like": "shirt",
+    "sleeve": 0,
+    "armhole": 0.4,
+    "hem": "hip+0.03",
+    "hemCurve": 0,
+    "overWaist": false,
+    "ease": {
+     "shoulder": 0.004,
+     "chest": 0.008,
+     "waist": 0.012,
+     "hip": 0.012,
+     "sleeve": 0.006,
+     "cuff": 0.006
+    }
+   },
+   "paint": [
+    {
+     "step": "fabric",
+     "type": "plain"
+    },
+    {
+     "step": "line",
+     "frame": "front",
+     "pts": [
+      [
+       0.012,
+       "hem"
+      ],
+      [
+       0.012,
+       "top"
+      ]
+     ],
+     "style": "seam",
+     "width": 0.0012
+    },
+    {
+     "step": "dots",
+     "frame": "front",
+     "from": [
+      0,
+      "hem+0.06"
+     ],
+     "to": [
+      0,
+      "neck-0.05"
+     ],
+     "count": 6,
+     "r": 0.0045,
+     "style": "button",
+     "colour": "#d8d5cc"
+    },
+    {
+     "step": "line",
+     "frame": "front",
+     "pts": [
+      [
+       0,
+       "hem"
+      ],
+      [
+       0,
+       "top"
+      ]
+     ],
+     "style": "tape",
+     "width": 0.03,
+     "colour": "#111113",
+     "raise": 0.0008
+    },
+    {
+     "step": "rect",
+     "frame": "front",
+     "at": [
+      0,
+      "neck-0.035"
+     ],
+     "size": [
+      0.034,
+      0.03
+     ],
+     "style": "patch",
+     "colour": "#111113",
+     "stitch": false,
+     "round": 0.008
+    }
+   ]
+  },
+  "paint": [
+   {
+    "step": "fabric",
+    "type": "wool"
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0.012,
+      "neck-0.285"
+     ],
+     [
+      0.085,
+      "chest+0.085"
+     ],
+     [
+      0.07,
+      "shoulder+0.005"
+     ]
+    ],
+    "style": "groove",
+    "width": 0.002,
+    "mirror": true
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0.085,
+      "chest+0.085"
+     ],
+     [
+      0.062,
+      "chest+0.105"
+     ]
+    ],
+    "style": "groove",
+    "width": 0.002,
+    "mirror": true
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0.012,
+      "neck-0.285"
+     ],
+     [
+      0.03,
+      "hem+0.04"
+     ],
+     [
+      0.07,
+      "hem"
+     ]
+    ],
+    "style": "seam"
+   },
+   {
+    "step": "dots",
+    "frame": "front",
+    "pts": [
+     [
+      0.012,
+      "waist+0.03+0"
+     ]
+    ],
+    "r": 0.009,
+    "style": "button",
+    "colour": "#111113"
+   },
+   {
+    "step": "rect",
+    "frame": "front",
+    "at": [
+     0.125,
+     "hip+0.02"
+    ],
+    "size": [
+     0.13,
+     0.04
+    ],
+    "style": "flap",
+    "flap": 1,
+    "snap": false,
+    "mirror": true,
+    "stitch": "#2c2c30"
+   },
+   {
+    "step": "rect",
+    "frame": "front",
+    "at": [
+     0.1,
+     "chest+0.03"
+    ],
+    "size": [
+     0.085,
+     0.012
+    ],
+    "style": "welt"
+   },
+   {
+    "step": "dots",
+    "frame": "sleeves",
+    "from": [
+     -0.03,
+     0.9
+    ],
+    "to": [
+     -0.03,
+     0.98
+    ],
+    "count": 4,
+    "r": 0.0045,
+    "style": "button",
+    "colour": "#111113"
+   },
+   {
+    "step": "line",
+    "frame": "back",
+    "pts": [
+     [
+      0,
+      "hem"
+     ],
+     [
+      0,
+      "hip+0.02"
+     ]
+    ],
+    "style": "groove",
+    "width": 0.002
+   }
+  ]
+ },
+ {
+  "n": 163,
+  "id": "dior-reflection-skinny-trousers",
+  "designer": "Dior Homme",
+  "name": "Reflection Skinny Trousers",
+  "season": "FW2001",
+  "price": 450,
+  "slot": "bottom",
+  "colour": "#19191b",
+  "finish": {
+   "roughness": 0.7
+  },
+  "cut": {
+   "like": "slim",
+   "ease": {
+    "waist": 0.002,
+    "seat": 0.0088,
+    "thigh": 0.0088,
+    "knee": 0.0088,
+    "hem": 0.0132
+   },
+   "rise": "waist-0.1"
+  },
+  "note": "A satin stripe runs down the outside of each leg.",
+  "paint": [
+   {
+    "step": "fabric",
+    "type": "wool"
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      -0.4,
+      "top-0.04"
+     ],
+     [
+      0.4,
+      "top-0.04"
+     ]
+    ],
+    "style": "seam",
+    "colour": "#3a3a3e",
+    "width": 0.002
+   },
+   {
+    "step": "line",
+    "frame": "back",
+    "pts": [
+     [
+      -0.4,
+      "top-0.04"
+     ],
+     [
+      0.4,
+      "top-0.04"
+     ]
+    ],
+    "style": "seam",
+    "colour": "#3a3a3e",
+    "width": 0.002
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0,
+      "top-0.04"
+     ],
+     [
+      0.01,
+      "top-0.12"
+     ],
+     [
+      0,
+      "top-0.19"
+     ]
+    ],
+    "style": "stitch",
+    "colour": "#2f2f33",
+    "width": 0.0011
+   },
+   {
+    "step": "dots",
+    "frame": "front",
+    "pts": [
+     [
+      0,
+      "top-0.02"
+     ]
+    ],
+    "r": 0.007,
+    "style": "button",
+    "colour": "#2a2a2c"
+   },
+   {
+    "step": "line",
+    "frame": "legs",
+    "pts": [
+     [
+      0,
+      -0.3
+     ],
+     [
+      0,
+      1.05
+     ]
+    ],
+    "style": "seam"
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0.165,
+      "top-0.04"
+     ],
+     [
+      0.115,
+      "top-0.2"
+     ]
+    ],
+    "style": "groove",
+    "width": 0.002,
+    "mirror": true
+   },
+   {
+    "step": "rect",
+    "frame": "back",
+    "at": [
+     0.085,
+     "top-0.13"
+    ],
+    "size": [
+     0.11,
+     0.01
+    ],
+    "style": "welt",
+    "mirror": true
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0.085,
+      "top-0.2"
+     ],
+     [
+      0.085,
+      "hem"
+     ]
+    ],
+    "style": "groove",
+    "width": 0.0025,
+    "depth": 0.0012,
+    "mirror": true
+   },
+   {
+    "step": "line",
+    "frame": "back",
+    "pts": [
+     [
+      0.085,
+      "top-0.25"
+     ],
+     [
+      0.085,
+      "hem"
+     ]
+    ],
+    "style": "groove",
+    "width": 0.0025,
+    "depth": 0.0012,
+    "mirror": true
+   },
+   {
+    "step": "rect",
+    "frame": "front",
+    "at": [
+     0.1,
+     "top-0.02"
+    ],
+    "size": [
+     0.01,
+     0.045
+    ],
+    "style": "patch",
+    "stitch": false,
+    "mirror": true,
+    "raise": 0.001
+   },
+   {
+    "step": "rect",
+    "frame": "back",
+    "at": [
+     0.1,
+     "top-0.02"
+    ],
+    "size": [
+     0.01,
+     0.045
+    ],
+    "style": "patch",
+    "stitch": false,
+    "mirror": true,
+    "raise": 0.001
+   },
+   {
+    "step": "panel",
+    "colour": "#101012",
+    "where": {
+     "zone": "legs",
+     "ang": [
+      -0.25,
+      0.25
+     ]
+    },
+    "keepShade": 1
+   },
+   {
+    "step": "distress",
+    "type": "shade",
+    "amount": 0.3
+   }
+  ]
+ },
+ {
+  "n": 164,
+  "id": "dior-reflection-leather-jacket",
+  "designer": "Dior Homme",
+  "name": "Reflection Leather Jacket",
+  "season": "FW2001",
+  "price": 2500,
+  "slot": "top",
+  "colour": "#1c1c1e",
+  "finish": {
+   "roughness": 0.3,
+   "metalness": 0.15
+  },
+  "cut": {
+   "like": "biker",
+   "ease": {
+    "shoulder": 0.0068,
+    "chest": 0.0153,
+    "waist": 0.0187,
+    "hip": 0.0187,
+    "sleeve": 0.0084,
+    "cuff": 0.0065
+   },
+   "hem": "hip+0.05",
+   "neck": {
+    "v": 0.1,
+    "width": 0.065
+   },
+   "add": [
+    {
+     "type": "collar",
+     "style": "fold",
+     "height": 0.055,
+     "flare": 0.03,
+     "points": 0.9
+    }
+   ]
+  },
+  "under": {
+   "colour": "#1b1b1d",
+   "cut": {
+    "like": "tank",
+    "overWaist": false,
+    "hem": "hip+0.06",
+    "armhole": 0.22,
+    "neck": {
+     "depth": 0.035,
+     "round": 0.075
+    },
+    "ease": {
+     "shoulder": 0.002,
+     "chest": 0.004,
+     "waist": 0.004,
+     "hip": 0.004
+    }
+   },
+   "paint": [
+    {
+     "step": "fabric",
+     "type": "jersey"
+    }
+   ]
+  },
+  "note": "Polished to a mirror shine, as the show's name has it.",
+  "paint": [
+   {
+    "step": "fabric",
+    "type": "leather"
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0.11,
+      "hem"
+     ],
+     [
+      0.105,
+      "waist+0.08"
+     ],
+     [
+      0.09,
+      "chest+0.05"
+     ]
+    ],
+    "style": "seam",
+    "width": 0.0025,
+    "mirror": true
+   },
+   {
+    "step": "line",
+    "frame": "back",
+    "pts": [
+     [
+      -0.2,
+      "chest+0.06"
+     ],
+     [
+      0.2,
+      "chest+0.06"
+     ]
+    ],
+    "style": "seam",
+    "width": 0.0025
+   },
+   {
+    "step": "line",
+    "frame": "back",
+    "pts": [
+     [
+      0.09,
+      "hem"
+     ],
+     [
+      0.085,
+      "chest+0.06"
+     ]
+    ],
+    "style": "seam",
+    "width": 0.0025,
+    "mirror": true
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0.04,
+      "chest+0.13"
+     ],
+     [
+      0.105,
+      "chest+0.075"
+     ],
+     [
+      0.05,
+      "chest+0.02"
+     ]
+    ],
+    "style": "seam",
+    "width": 0.0028
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      -0.04,
+      "chest+0.13"
+     ],
+     [
+      -0.095,
+      "chest+0.075"
+     ],
+     [
+      0,
+      "waist+0.1"
+     ]
+    ],
+    "style": "seam",
+    "width": 0.0028
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      -0.022,
+      "hem"
+     ],
+     [
+      -0.005,
+      "waist+0.06"
+     ],
+     [
+      0.05,
+      "chest+0.02"
+     ]
+    ],
+    "style": "zip",
+    "width": 0.006,
+    "colour": "#c9cacd",
+    "colour2": "#1a1a1c"
+   },
+   {
+    "step": "rect",
+    "frame": "front",
+    "at": [
+     0.135,
+     "waist+0.045"
+    ],
+    "size": [
+     0.1,
+     0.01
+    ],
+    "style": "zip",
+    "rot": 78,
+    "colour": "#c9cacd",
+    "mirror": true
+   },
+   {
+    "step": "dots",
+    "frame": "front",
+    "pts": [
+     [
+      0.092,
+      "chest+0.078"
+     ],
+     [
+      -0.082,
+      "chest+0.078"
+     ]
+    ],
+    "r": 0.0055,
+    "style": "snap",
+    "colour": "#c9cacd"
+   },
+   {
+    "step": "line",
+    "frame": "sleeves",
+    "pts": [
+     [
+      -0.035,
+      0.8
+     ],
+     [
+      -0.035,
+      1.12
+     ]
+    ],
+    "style": "zip",
+    "width": 0.0045,
+    "colour": "#c9cacd",
+    "colour2": "#1a1a1c"
+   },
+   {
+    "step": "distress",
+    "type": "crumple",
+    "amount": 0.08
+   }
+  ]
+ },
+ {
+  "n": 165,
+  "id": "dior-boys-dont-cry-graphic-shirt",
+  "designer": "Dior Homme",
+  "name": "Boys Don't Cry Graphic Shirt",
+  "season": "FW2002",
+  "price": 750,
+  "slot": "top",
+  "colour": "#e9e7e0",
+  "finish": {
+   "roughness": 0.8
+  },
+  "cut": {
+   "like": "shirt",
+   "ease": {
+    "shoulder": 0.0045,
+    "chest": 0.015,
+    "waist": 0.0263,
+    "hip": 0.0263,
+    "sleeve": 0.0115,
+    "cuff": 0.008
+   },
+   "hem": "hip-0.07",
+   "waist": 0.04
+  },
+  "paint": [
+   {
+    "step": "fabric",
+    "type": "plain"
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0.016,
+      "hem"
+     ],
+     [
+      0.016,
+      "top"
+     ]
+    ],
+    "style": "seam",
+    "width": 0.0014
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      -0.016,
+      "hem"
+     ],
+     [
+      -0.016,
+      "top"
+     ]
+    ],
+    "style": "stitch",
+    "width": 0.001,
+    "colour": "#cfcabd"
+   },
+   {
+    "step": "dots",
+    "frame": "front",
+    "from": [
+     0,
+     "hem+0.05"
+    ],
+    "to": [
+     0,
+     "neck-0.045"
+    ],
+    "count": 7,
+    "r": 0.0048,
+    "style": "button",
+    "colour": "#d9d6cc"
+   },
+   {
+    "step": "line",
+    "frame": "back",
+    "pts": [
+     [
+      -0.3,
+      "shoulder-0.03"
+     ],
+     [
+      0.3,
+      "shoulder-0.03"
+     ]
+    ],
+    "style": "seam",
+    "width": 0.0014
+   },
+   {
+    "step": "line",
+    "frame": "sleeves",
+    "pts": [
+     [
+      -0.3,
+      0.92
+     ],
+     [
+      0.3,
+      0.92
+     ]
+    ],
+    "style": "seam",
+    "width": 0.0014
+   },
+   {
+    "step": "dots",
+    "frame": "sleeves",
+    "pts": [
+     [
+      -0.03,
+      0.96
+     ]
+    ],
+    "r": 0.0045,
+    "style": "button",
+    "colour": "#d9d6cc"
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      -0.4,
+      "hem+0.012"
+     ],
+     [
+      0.4,
+      "hem+0.012"
+     ]
+    ],
+    "style": "stitch",
+    "colour": "#cfcabd",
+    "width": 0.001
+   },
+   {
+    "step": "line",
+    "frame": "back",
+    "pts": [
+     [
+      -0.4,
+      "hem+0.012"
+     ],
+     [
+      0.4,
+      "hem+0.012"
+     ]
+    ],
+    "style": "stitch",
+    "colour": "#cfcabd",
+    "width": 0.001
+   },
+   {
+    "step": "print",
+    "frame": "front",
+    "art": "dior-boys-dont-cry-text",
+    "at": [
+     0.09,
+     "chest+0.02"
+    ],
+    "width": 0.1
+   },
+   {
+    "step": "print",
+    "frame": "back",
+    "art": "dior-boys-dont-cry-text",
+    "at": [
+     0,
+     "chest+0.03"
+    ],
+    "width": 0.2,
+    "opacity": 0.9
+   },
+   {
+    "step": "distress",
+    "type": "shade",
+    "amount": 0.3
+   }
+  ]
+ },
+ {
+  "n": 166,
+  "id": "dior-boys-dont-cry-military-jacket",
+  "designer": "Dior Homme",
+  "name": "Boys Don't Cry Military Jacket",
+  "season": "FW2002",
+  "price": 1900,
+  "slot": "top",
+  "colour": "#1a1a1d",
+  "finish": {
+   "roughness": 0.95
+  },
+  "cut": {
+   "like": "trucker",
+   "ease": {
+    "shoulder": 0.0064,
+    "chest": 0.0176,
+    "waist": 0.024,
+    "hip": 0.024,
+    "sleeve": 0.0109,
+    "cuff": 0.0091
+   },
+   "hem": "hip+0.03",
+   "waist": 0.05,
+   "add": [
+    {
+     "type": "collar",
+     "height": 0.045,
+     "flare": 0.003,
+     "gap": 0.01,
+     "only": true
+    },
+    {
+     "type": "lip"
+    }
+   ]
+  },
+  "paint": [
+   {
+    "step": "fabric",
+    "type": "wool"
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0.016,
+      "hem"
+     ],
+     [
+      0.016,
+      "top"
+     ]
+    ],
+    "style": "seam"
+   },
+   {
+    "step": "dots",
+    "frame": "front",
+    "pts": [
+     [
+      -0.045,
+      "waist-0.04+0"
+     ],
+     [
+      -0.045,
+      "waist-0.04+0.058"
+     ],
+     [
+      -0.045,
+      "waist-0.04+0.116"
+     ],
+     [
+      -0.045,
+      "waist-0.04+0.174"
+     ],
+     [
+      -0.045,
+      "waist-0.04+0.232"
+     ],
+     [
+      -0.045,
+      "waist-0.04+0.29"
+     ]
+    ],
+    "r": 0.008,
+    "style": "button",
+    "colour": "#b9a05a"
+   },
+   {
+    "step": "dots",
+    "frame": "front",
+    "pts": [
+     [
+      0.045,
+      "waist-0.04+0"
+     ],
+     [
+      0.045,
+      "waist-0.04+0.058"
+     ],
+     [
+      0.045,
+      "waist-0.04+0.116"
+     ],
+     [
+      0.045,
+      "waist-0.04+0.174"
+     ],
+     [
+      0.045,
+      "waist-0.04+0.232"
+     ],
+     [
+      0.045,
+      "waist-0.04+0.29"
+     ]
+    ],
+    "r": 0.008,
+    "style": "button",
+    "colour": "#b9a05a"
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      -0.045,
+      "waist-0.04+0"
+     ],
+     [
+      0.045,
+      "waist-0.04+0"
+     ]
+    ],
+    "style": "ridge",
+    "width": 0.003,
+    "colour": "#2a2a2e"
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      -0.045,
+      "waist-0.04+0.058"
+     ],
+     [
+      0.045,
+      "waist-0.04+0.058"
+     ]
+    ],
+    "style": "ridge",
+    "width": 0.003,
+    "colour": "#2a2a2e"
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      -0.045,
+      "waist-0.04+0.116"
+     ],
+     [
+      0.045,
+      "waist-0.04+0.116"
+     ]
+    ],
+    "style": "ridge",
+    "width": 0.003,
+    "colour": "#2a2a2e"
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      -0.045,
+      "waist-0.04+0.174"
+     ],
+     [
+      0.045,
+      "waist-0.04+0.174"
+     ]
+    ],
+    "style": "ridge",
+    "width": 0.003,
+    "colour": "#2a2a2e"
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      -0.045,
+      "waist-0.04+0.232"
+     ],
+     [
+      0.045,
+      "waist-0.04+0.232"
+     ]
+    ],
+    "style": "ridge",
+    "width": 0.003,
+    "colour": "#2a2a2e"
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      -0.045,
+      "waist-0.04+0.29"
+     ],
+     [
+      0.045,
+      "waist-0.04+0.29"
+     ]
+    ],
+    "style": "ridge",
+    "width": 0.003,
+    "colour": "#2a2a2e"
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0.1,
+      "shoulder-0.012"
+     ],
+     [
+      0.165,
+      "shoulder-0.03"
+     ]
+    ],
+    "style": "twin",
+    "gap": 0.022,
+    "width": 0.002,
+    "colour": "#3a3a3f",
+    "mirror": true
+   },
+   {
+    "step": "dots",
+    "frame": "front",
+    "pts": [
+     [
+      0.108,
+      "shoulder-0.013"
+     ]
+    ],
+    "r": 0.006,
+    "style": "button",
+    "colour": "#b9a05a",
+    "mirror": true
+   },
+   {
+    "step": "panel",
+    "colour": "#7a1f1c",
+    "where": {
+     "zone": "lining"
+    }
+   },
+   {
+    "step": "line",
+    "frame": "sleeves",
+    "pts": [
+     [
+      -0.3,
+      0.9
+     ],
+     [
+      0.3,
+      0.9
+     ]
+    ],
+    "style": "ridge",
+    "width": 0.003,
+    "colour": "#b9a05a"
+   },
+   {
+    "step": "line",
+    "frame": "back",
+    "pts": [
+     [
+      0.09,
+      "hem"
+     ],
+     [
+      0.075,
+      "chest+0.06"
+     ]
+    ],
+    "style": "seam",
+    "mirror": true
+   }
+  ]
+ },
+ {
+  "n": 167,
+  "id": "dior-luster-metallic-suit",
+  "designer": "Dior Homme",
+  "name": "Luster Metallic Tailored Suit",
+  "season": "FW2003",
+  "price": 2400,
+  "slot": "top",
+  "colour": "#2a2b30",
+  "finish": {
+   "roughness": 0.36,
+   "metalness": 0.55
+  },
+  "cut": {
+   "like": "blazer",
+   "ease": {
+    "shoulder": 0.0078,
+    "chest": 0.0172,
+    "waist": 0.0234,
+    "hip": 0.0273,
+    "sleeve": 0.0108,
+    "cuff": 0.0099
+   },
+   "hem": "hip-0.07",
+   "neck": {
+    "v": 0.24,
+    "width": 0.07,
+    "depth": 0.03
+   },
+   "waist": 0.07,
+   "hang": 0.85,
+   "tube": 0.6
+  },
+  "under": {
+   "colour": "#e9e7e0",
+   "cut": {
+    "like": "shirt",
+    "sleeve": 0,
+    "armhole": 0.4,
+    "hem": "hip+0.03",
+    "hemCurve": 0,
+    "overWaist": false,
+    "ease": {
+     "shoulder": 0.004,
+     "chest": 0.008,
+     "waist": 0.012,
+     "hip": 0.012,
+     "sleeve": 0.006,
+     "cuff": 0.006
+    }
+   },
+   "paint": [
+    {
+     "step": "fabric",
+     "type": "plain"
+    },
+    {
+     "step": "line",
+     "frame": "front",
+     "pts": [
+      [
+       0.012,
+       "hem"
+      ],
+      [
+       0.012,
+       "top"
+      ]
+     ],
+     "style": "seam",
+     "width": 0.0012
+    },
+    {
+     "step": "dots",
+     "frame": "front",
+     "from": [
+      0,
+      "hem+0.06"
+     ],
+     "to": [
+      0,
+      "neck-0.05"
+     ],
+     "count": 6,
+     "r": 0.0045,
+     "style": "button",
+     "colour": "#d8d5cc"
+    },
+    {
+     "step": "line",
+     "frame": "front",
+     "pts": [
+      [
+       0,
+       "hem"
+      ],
+      [
+       0,
+       "top"
+      ]
+     ],
+     "style": "tape",
+     "width": 0.03,
+     "colour": "#111113",
+     "raise": 0.0008
+    },
+    {
+     "step": "rect",
+     "frame": "front",
+     "at": [
+      0,
+      "neck-0.035"
+     ],
+     "size": [
+      0.034,
+      0.03
+     ],
+     "style": "patch",
+     "colour": "#111113",
+     "stitch": false,
+     "round": 0.008
+    }
+   ]
+  },
+  "with": "dior-luster-metallic-trousers",
+  "paint": [
+   {
+    "step": "fabric",
+    "type": "satin"
+   },
+   {
+    "step": "pattern",
+    "type": "speckle",
+    "colours": [
+     "#8f9298",
+     "#c9ccd2",
+     "#55585e"
+    ],
+    "freq": 1400,
+    "density": 0.2
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0.012,
+      "neck-0.275"
+     ],
+     [
+      0.085,
+      "chest+0.085"
+     ],
+     [
+      0.07,
+      "shoulder+0.005"
+     ]
+    ],
+    "style": "groove",
+    "width": 0.002,
+    "mirror": true
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0.085,
+      "chest+0.085"
+     ],
+     [
+      0.062,
+      "chest+0.105"
+     ]
+    ],
+    "style": "groove",
+    "width": 0.002,
+    "mirror": true
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0.012,
+      "neck-0.275"
+     ],
+     [
+      0.03,
+      "hem+0.04"
+     ],
+     [
+      0.07,
+      "hem"
+     ]
+    ],
+    "style": "seam"
+   },
+   {
+    "step": "dots",
+    "frame": "front",
+    "pts": [
+     [
+      0.012,
+      "waist+0.04+0"
+     ]
+    ],
+    "r": 0.009,
+    "style": "button",
+    "colour": "#0e0e10"
+   },
+   {
+    "step": "rect",
+    "frame": "front",
+    "at": [
+     0.125,
+     "hip+0.02"
+    ],
+    "size": [
+     0.13,
+     0.04
+    ],
+    "style": "flap",
+    "flap": 1,
+    "snap": false,
+    "mirror": true,
+    "stitch": "#2c2c30"
+   },
+   {
+    "step": "rect",
+    "frame": "front",
+    "at": [
+     0.1,
+     "chest+0.03"
+    ],
+    "size": [
+     0.085,
+     0.012
+    ],
+    "style": "welt"
+   },
+   {
+    "step": "dots",
+    "frame": "sleeves",
+    "from": [
+     -0.03,
+     0.9
+    ],
+    "to": [
+     -0.03,
+     0.98
+    ],
+    "count": 4,
+    "r": 0.0045,
+    "style": "button",
+    "colour": "#0e0e10"
+   },
+   {
+    "step": "line",
+    "frame": "back",
+    "pts": [
+     [
+      0,
+      "hem"
+     ],
+     [
+      0,
+      "hip+0.02"
+     ]
+    ],
+    "style": "groove",
+    "width": 0.002
+   }
+  ]
+ },
+ {
+  "n": 167,
+  "id": "dior-luster-metallic-trousers",
+  "designer": "Dior Homme",
+  "name": "Luster Metallic Trousers",
+  "season": "FW2003",
+  "slot": "bottom",
+  "colour": "#2a2b30",
+  "finish": {
+   "roughness": 0.36,
+   "metalness": 0.55
+  },
+  "cut": {
+   "like": "slim",
+   "ease": {
+    "waist": 0.002,
+    "seat": 0.0088,
+    "thigh": 0.0088,
+    "knee": 0.0088,
+    "hem": 0.0132
+   },
+   "rise": "waist-0.1"
+  },
+  "part": true,
+  "paint": [
+   {
+    "step": "fabric",
+    "type": "satin"
+   },
+   {
+    "step": "pattern",
+    "type": "speckle",
+    "colours": [
+     "#8f9298",
+     "#c9ccd2",
+     "#55585e"
+    ],
+    "freq": 1400,
+    "density": 0.2
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      -0.4,
+      "top-0.04"
+     ],
+     [
+      0.4,
+      "top-0.04"
+     ]
+    ],
+    "style": "seam",
+    "colour": "#3a3a3e",
+    "width": 0.002
+   },
+   {
+    "step": "line",
+    "frame": "back",
+    "pts": [
+     [
+      -0.4,
+      "top-0.04"
+     ],
+     [
+      0.4,
+      "top-0.04"
+     ]
+    ],
+    "style": "seam",
+    "colour": "#3a3a3e",
+    "width": 0.002
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0,
+      "top-0.04"
+     ],
+     [
+      0.01,
+      "top-0.12"
+     ],
+     [
+      0,
+      "top-0.19"
+     ]
+    ],
+    "style": "stitch",
+    "colour": "#2f2f33",
+    "width": 0.0011
+   },
+   {
+    "step": "dots",
+    "frame": "front",
+    "pts": [
+     [
+      0,
+      "top-0.02"
+     ]
+    ],
+    "r": 0.007,
+    "style": "button",
+    "colour": "#2a2a2c"
+   },
+   {
+    "step": "line",
+    "frame": "legs",
+    "pts": [
+     [
+      0,
+      -0.3
+     ],
+     [
+      0,
+      1.05
+     ]
+    ],
+    "style": "seam"
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0.165,
+      "top-0.04"
+     ],
+     [
+      0.115,
+      "top-0.2"
+     ]
+    ],
+    "style": "groove",
+    "width": 0.002,
+    "mirror": true
+   },
+   {
+    "step": "rect",
+    "frame": "back",
+    "at": [
+     0.085,
+     "top-0.13"
+    ],
+    "size": [
+     0.11,
+     0.01
+    ],
+    "style": "welt",
+    "mirror": true
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0.085,
+      "top-0.2"
+     ],
+     [
+      0.085,
+      "hem"
+     ]
+    ],
+    "style": "groove",
+    "width": 0.0025,
+    "depth": 0.0012,
+    "mirror": true
+   },
+   {
+    "step": "line",
+    "frame": "back",
+    "pts": [
+     [
+      0.085,
+      "top-0.25"
+     ],
+     [
+      0.085,
+      "hem"
+     ]
+    ],
+    "style": "groove",
+    "width": 0.0025,
+    "depth": 0.0012,
+    "mirror": true
+   },
+   {
+    "step": "rect",
+    "frame": "front",
+    "at": [
+     0.1,
+     "top-0.02"
+    ],
+    "size": [
+     0.01,
+     0.045
+    ],
+    "style": "patch",
+    "stitch": false,
+    "mirror": true,
+    "raise": 0.001
+   },
+   {
+    "step": "rect",
+    "frame": "back",
+    "at": [
+     0.1,
+     "top-0.02"
+    ],
+    "size": [
+     0.01,
+     0.045
+    ],
+    "style": "patch",
+    "stitch": false,
+    "mirror": true,
+    "raise": 0.001
+   }
+  ]
+ },
+ {
+  "n": 168,
+  "id": "dior-luster-metallic-knitwear",
+  "designer": "Dior Homme",
+  "name": "Luster Metallic Knitwear",
+  "season": "FW2003",
+  "price": 600,
+  "slot": "top",
+  "colour": "#3a3b40",
+  "finish": {
+   "roughness": 0.5,
+   "metalness": 0.45
+  },
+  "cut": {
+   "like": "knit",
+   "ease": {
+    "shoulder": 0.0056,
+    "chest": 0.0175,
+    "waist": 0.028,
+    "hip": 0.028,
+    "sleeve": 0.013,
+    "cuff": 0.0095
+   },
+   "hem": "hip-0.0",
+   "neck": {
+    "depth": 0.03,
+    "v": 0.1,
+    "width": 0.06
+   }
+  },
+  "paint": [
+   {
+    "step": "fabric",
+    "type": "knit",
+    "gauge": 0.0022
+   },
+   {
+    "step": "pattern",
+    "type": "speckle",
+    "colours": [
+     "#b9bcc2",
+     "#8f9298"
+    ],
+    "freq": 1600,
+    "density": 0.3
+   },
+   {
+    "step": "rib",
+    "where": {
+     "zone": "body",
+     "h": [
+      "hem",
+      "hem+0.045"
+     ]
+    },
+    "gauge": 0.003,
+    "depth": 0.0005,
+    "colour": "#2a2b30"
+   },
+   {
+    "step": "rib",
+    "where": {
+     "zone": "sleeves",
+     "s": [
+      0.91,
+      1.3
+     ]
+    },
+    "gauge": 0.003,
+    "depth": 0.0005,
+    "colour": "#2a2b30"
+   },
+   {
+    "step": "rib",
+    "where": {
+     "zone": "collar"
+    },
+    "gauge": 0.003,
+    "depth": 0.0004,
+    "colour": "#2a2b30"
+   }
+  ]
+ },
+ {
+  "n": 169,
+  "id": "dior-luster-leather-jacket",
+  "designer": "Dior Homme",
+  "name": "Luster Leather Jacket",
+  "season": "FW2003",
+  "price": 3600,
+  "slot": "top",
+  "colour": "#1a1a1c",
+  "finish": {
+   "roughness": 0.32,
+   "metalness": 0.3
+  },
+  "cut": {
+   "like": "biker",
+   "ease": {
+    "shoulder": 0.0068,
+    "chest": 0.0153,
+    "waist": 0.0187,
+    "hip": 0.0187,
+    "sleeve": 0.0084,
+    "cuff": 0.0065
+   },
+   "hem": "hip+0.06",
+   "neck": {
+    "v": 0.1,
+    "width": 0.065
+   },
+   "add": [
+    {
+     "type": "collar",
+     "style": "fold",
+     "height": 0.055,
+     "flare": 0.03,
+     "points": 0.9
+    }
+   ]
+  },
+  "under": {
+   "colour": "#1b1b1d",
+   "cut": {
+    "like": "tank",
+    "overWaist": false,
+    "hem": "hip+0.06",
+    "armhole": 0.22,
+    "neck": {
+     "depth": 0.035,
+     "round": 0.075
+    },
+    "ease": {
+     "shoulder": 0.002,
+     "chest": 0.004,
+     "waist": 0.004,
+     "hip": 0.004
+    }
+   },
+   "paint": [
+    {
+     "step": "fabric",
+     "type": "jersey"
+    }
+   ]
+  },
+  "paint": [
+   {
+    "step": "fabric",
+    "type": "leather"
+   },
+   {
+    "step": "pattern",
+    "type": "speckle",
+    "colours": [
+     "#77797f",
+     "#b9bcc2"
+    ],
+    "freq": 1500,
+    "density": 0.1
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0.11,
+      "hem"
+     ],
+     [
+      0.105,
+      "waist+0.08"
+     ],
+     [
+      0.09,
+      "chest+0.05"
+     ]
+    ],
+    "style": "seam",
+    "width": 0.0025,
+    "mirror": true
+   },
+   {
+    "step": "line",
+    "frame": "back",
+    "pts": [
+     [
+      -0.2,
+      "chest+0.06"
+     ],
+     [
+      0.2,
+      "chest+0.06"
+     ]
+    ],
+    "style": "seam",
+    "width": 0.0025
+   },
+   {
+    "step": "line",
+    "frame": "back",
+    "pts": [
+     [
+      0.09,
+      "hem"
+     ],
+     [
+      0.085,
+      "chest+0.06"
+     ]
+    ],
+    "style": "seam",
+    "width": 0.0025,
+    "mirror": true
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0.04,
+      "chest+0.13"
+     ],
+     [
+      0.105,
+      "chest+0.075"
+     ],
+     [
+      0.05,
+      "chest+0.02"
+     ]
+    ],
+    "style": "seam",
+    "width": 0.0028
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      -0.04,
+      "chest+0.13"
+     ],
+     [
+      -0.095,
+      "chest+0.075"
+     ],
+     [
+      0,
+      "waist+0.1"
+     ]
+    ],
+    "style": "seam",
+    "width": 0.0028
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      -0.022,
+      "hem"
+     ],
+     [
+      -0.005,
+      "waist+0.06"
+     ],
+     [
+      0.05,
+      "chest+0.02"
+     ]
+    ],
+    "style": "zip",
+    "width": 0.006,
+    "colour": "#c9cacd",
+    "colour2": "#1a1a1c"
+   },
+   {
+    "step": "rect",
+    "frame": "front",
+    "at": [
+     0.135,
+     "waist+0.045"
+    ],
+    "size": [
+     0.1,
+     0.01
+    ],
+    "style": "zip",
+    "rot": 78,
+    "colour": "#c9cacd",
+    "mirror": true
+   },
+   {
+    "step": "rect",
+    "frame": "front",
+    "at": [
+     -0.09,
+     "chest-0.035"
+    ],
+    "size": [
+     0.095,
+     0.01
+    ],
+    "style": "zip",
+    "rot": -24,
+    "colour": "#c9cacd"
+   },
+   {
+    "step": "rect",
+    "frame": "front",
+    "at": [
+     0.065,
+     "hem+0.06"
+    ],
+    "size": [
+     0.055,
+     0.045
+    ],
+    "style": "flap",
+    "flap": 1,
+    "snap": true,
+    "stitch": "#2c2c2f"
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0.1,
+      "shoulder-0.012"
+     ],
+     [
+      0.165,
+      "shoulder-0.03"
+     ]
+    ],
+    "style": "twin",
+    "gap": 0.02,
+    "width": 0.002,
+    "colour": "#3a3a3f",
+    "mirror": true
+   },
+   {
+    "step": "dots",
+    "frame": "front",
+    "pts": [
+     [
+      0.108,
+      "shoulder-0.013"
+     ]
+    ],
+    "r": 0.0055,
+    "style": "snap",
+    "colour": "#c9cacd",
+    "mirror": true
+   },
+   {
+    "step": "dots",
+    "frame": "front",
+    "pts": [
+     [
+      0.092,
+      "chest+0.078"
+     ],
+     [
+      -0.082,
+      "chest+0.078"
+     ]
+    ],
+    "r": 0.0055,
+    "style": "snap",
+    "colour": "#c9cacd"
+   },
+   {
+    "step": "line",
+    "frame": "sleeves",
+    "pts": [
+     [
+      -0.035,
+      0.8
+     ],
+     [
+      -0.035,
+      1.12
+     ]
+    ],
+    "style": "zip",
+    "width": 0.0045,
+    "colour": "#c9cacd",
+    "colour2": "#1a1a1c"
+   },
+   {
+    "step": "distress",
+    "type": "crumple",
+    "amount": 0.1
+   }
+  ]
+ },
+ {
+  "n": 170,
+  "id": "dior-strip-striped-tailored-jacket",
+  "designer": "Dior Homme",
+  "name": "Strip Striped Tailored Jacket",
+  "season": "SS2004",
+  "price": 1100,
+  "slot": "top",
+  "colour": "#19191b",
+  "finish": {
+   "roughness": 0.95
+  },
+  "cut": {
+   "like": "blazer",
+   "ease": {
+    "shoulder": 0.0078,
+    "chest": 0.0172,
+    "waist": 0.0234,
+    "hip": 0.0273,
+    "sleeve": 0.0108,
+    "cuff": 0.0099
+   },
+   "hem": "hip-0.07",
+   "neck": {
+    "v": 0.24,
+    "width": 0.07,
+    "depth": 0.03
+   },
+   "waist": 0.07,
+   "hang": 0.85,
+   "tube": 0.6
+  },
+  "under": {
+   "colour": "#e9e7e0",
+   "cut": {
+    "like": "shirt",
+    "sleeve": 0,
+    "armhole": 0.4,
+    "hem": "hip+0.03",
+    "hemCurve": 0,
+    "overWaist": false,
+    "ease": {
+     "shoulder": 0.004,
+     "chest": 0.008,
+     "waist": 0.012,
+     "hip": 0.012,
+     "sleeve": 0.006,
+     "cuff": 0.006
+    }
+   },
+   "paint": [
+    {
+     "step": "fabric",
+     "type": "plain"
+    },
+    {
+     "step": "line",
+     "frame": "front",
+     "pts": [
+      [
+       0.012,
+       "hem"
+      ],
+      [
+       0.012,
+       "top"
+      ]
+     ],
+     "style": "seam",
+     "width": 0.0012
+    },
+    {
+     "step": "dots",
+     "frame": "front",
+     "from": [
+      0,
+      "hem+0.06"
+     ],
+     "to": [
+      0,
+      "neck-0.05"
+     ],
+     "count": 6,
+     "r": 0.0045,
+     "style": "button",
+     "colour": "#d8d5cc"
+    },
+    {
+     "step": "line",
+     "frame": "front",
+     "pts": [
+      [
+       0,
+       "hem"
+      ],
+      [
+       0,
+       "top"
+      ]
+     ],
+     "style": "tape",
+     "width": 0.03,
+     "colour": "#111113",
+     "raise": 0.0008
+    },
+    {
+     "step": "rect",
+     "frame": "front",
+     "at": [
+      0,
+      "neck-0.035"
+     ],
+     "size": [
+      0.034,
+      0.03
+     ],
+     "style": "patch",
+     "colour": "#111113",
+     "stitch": false,
+     "round": 0.008
+    }
+   ]
+  },
+  "paint": [
+   {
+    "step": "fabric",
+    "type": "wool"
+   },
+   {
+    "step": "pattern",
+    "type": "stripes",
+    "colours": [
+     "#e9e7e0"
+    ],
+    "period": 0.022,
+    "width": 0.005,
+    "dir": "v"
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0.012,
+      "neck-0.275"
+     ],
+     [
+      0.085,
+      "chest+0.085"
+     ],
+     [
+      0.07,
+      "shoulder+0.005"
+     ]
+    ],
+    "style": "groove",
+    "width": 0.002,
+    "mirror": true
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0.085,
+      "chest+0.085"
+     ],
+     [
+      0.062,
+      "chest+0.105"
+     ]
+    ],
+    "style": "groove",
+    "width": 0.002,
+    "mirror": true
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0.012,
+      "neck-0.275"
+     ],
+     [
+      0.03,
+      "hem+0.04"
+     ],
+     [
+      0.07,
+      "hem"
+     ]
+    ],
+    "style": "seam"
+   },
+   {
+    "step": "dots",
+    "frame": "front",
+    "pts": [
+     [
+      0.012,
+      "waist+0.04+0"
+     ]
+    ],
+    "r": 0.009,
+    "style": "button",
+    "colour": "#0e0e10"
+   },
+   {
+    "step": "rect",
+    "frame": "front",
+    "at": [
+     0.125,
+     "hip+0.02"
+    ],
+    "size": [
+     0.13,
+     0.04
+    ],
+    "style": "flap",
+    "flap": 1,
+    "snap": false,
+    "mirror": true,
+    "stitch": "#2c2c30"
+   },
+   {
+    "step": "rect",
+    "frame": "front",
+    "at": [
+     0.1,
+     "chest+0.03"
+    ],
+    "size": [
+     0.085,
+     0.012
+    ],
+    "style": "welt"
+   },
+   {
+    "step": "dots",
+    "frame": "sleeves",
+    "from": [
+     -0.03,
+     0.9
+    ],
+    "to": [
+     -0.03,
+     0.98
+    ],
+    "count": 4,
+    "r": 0.0045,
+    "style": "button",
+    "colour": "#0e0e10"
+   },
+   {
+    "step": "line",
+    "frame": "back",
+    "pts": [
+     [
+      0,
+      "hem"
+     ],
+     [
+      0,
+      "hip+0.02"
+     ]
+    ],
+    "style": "groove",
+    "width": 0.002
+   }
+  ]
+ },
+ {
+  "n": 171,
+  "id": "dior-strip-leather-jacket",
+  "designer": "Dior Homme",
+  "name": "Strip Leather Jacket",
+  "season": "SS2004",
+  "price": 3000,
+  "slot": "top",
+  "colour": "#e9e6de",
+  "finish": {
+   "roughness": 0.4
+  },
+  "cut": {
+   "like": "biker",
+   "ease": {
+    "shoulder": 0.0068,
+    "chest": 0.0153,
+    "waist": 0.0187,
+    "hip": 0.0187,
+    "sleeve": 0.0084,
+    "cuff": 0.0065
+   },
+   "hem": "hip+0.07",
+   "add": [
+    {
+     "type": "collar",
+     "height": 0.035,
+     "flare": 0.004,
+     "only": true
+    }
+   ]
+  },
+  "note": "White leather with a black racing stripe down each sleeve.",
+  "paint": [
+   {
+    "step": "fabric",
+    "type": "leather"
+   },
+   {
+    "step": "line",
+    "frame": "sleeves",
+    "pts": [
+     [
+      0,
+      0.0
+     ],
+     [
+      0,
+      1.1
+     ]
+    ],
+    "style": "tape",
+    "width": 0.022,
+    "colour": "#17171a"
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0,
+      "hem"
+     ],
+     [
+      0,
+      "top"
+     ]
+    ],
+    "style": "zip",
+    "width": 0.005,
+    "colour": "#b9babd",
+    "colour2": "#17171a"
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0.1,
+      "hem"
+     ],
+     [
+      0.085,
+      "chest+0.08"
+     ]
+    ],
+    "style": "seam",
+    "width": 0.002,
+    "mirror": true
+   },
+   {
+    "step": "rect",
+    "frame": "front",
+    "at": [
+     0.12,
+     "waist+0.0"
+    ],
+    "size": [
+     0.09,
+     0.008
+    ],
+    "style": "zip",
+    "rot": 80,
+    "colour": "#b9babd",
+    "mirror": true
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      -0.4,
+      "hem+0.03"
+     ],
+     [
+      0.4,
+      "hem+0.03"
+     ]
+    ],
+    "style": "tape",
+    "colour": "#17171a",
+    "width": 0.014
+   },
+   {
+    "step": "line",
+    "frame": "back",
+    "pts": [
+     [
+      -0.4,
+      "hem+0.03"
+     ],
+     [
+      0.4,
+      "hem+0.03"
+     ]
+    ],
+    "style": "tape",
+    "colour": "#17171a",
+    "width": 0.014
+   },
+   {
+    "step": "distress",
+    "type": "crumple",
+    "amount": 0.1
+   }
+  ]
+ },
+ {
+  "n": 172,
+  "id": "dior-strip-slim-tailored-trousers",
+  "designer": "Dior Homme",
+  "name": "Strip Slim Tailored Trousers",
+  "season": "SS2004",
+  "price": 400,
+  "slot": "bottom",
+  "colour": "#19191b",
+  "finish": {
+   "roughness": 0.95
+  },
+  "cut": {
+   "like": "slim",
+   "ease": {
+    "waist": 0.002,
+    "seat": 0.0092,
+    "thigh": 0.0092,
+    "knee": 0.0092,
+    "hem": 0.0138
+   },
+   "rise": "waist-0.1"
+  },
+  "paint": [
+   {
+    "step": "fabric",
+    "type": "wool"
+   },
+   {
+    "step": "pattern",
+    "type": "stripes",
+    "colours": [
+     "#e9e7e0"
+    ],
+    "period": 0.022,
+    "width": 0.005,
+    "dir": "v"
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      -0.4,
+      "top-0.04"
+     ],
+     [
+      0.4,
+      "top-0.04"
+     ]
+    ],
+    "style": "seam",
+    "colour": "#3a3a3e",
+    "width": 0.002
+   },
+   {
+    "step": "line",
+    "frame": "back",
+    "pts": [
+     [
+      -0.4,
+      "top-0.04"
+     ],
+     [
+      0.4,
+      "top-0.04"
+     ]
+    ],
+    "style": "seam",
+    "colour": "#3a3a3e",
+    "width": 0.002
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0,
+      "top-0.04"
+     ],
+     [
+      0.01,
+      "top-0.12"
+     ],
+     [
+      0,
+      "top-0.19"
+     ]
+    ],
+    "style": "stitch",
+    "colour": "#2f2f33",
+    "width": 0.0011
+   },
+   {
+    "step": "dots",
+    "frame": "front",
+    "pts": [
+     [
+      0,
+      "top-0.02"
+     ]
+    ],
+    "r": 0.007,
+    "style": "button",
+    "colour": "#2a2a2c"
+   },
+   {
+    "step": "line",
+    "frame": "legs",
+    "pts": [
+     [
+      0,
+      -0.3
+     ],
+     [
+      0,
+      1.05
+     ]
+    ],
+    "style": "seam"
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0.165,
+      "top-0.04"
+     ],
+     [
+      0.115,
+      "top-0.2"
+     ]
+    ],
+    "style": "groove",
+    "width": 0.002,
+    "mirror": true
+   },
+   {
+    "step": "rect",
+    "frame": "back",
+    "at": [
+     0.085,
+     "top-0.13"
+    ],
+    "size": [
+     0.11,
+     0.01
+    ],
+    "style": "welt",
+    "mirror": true
+   },
+   {
+    "step": "rect",
+    "frame": "front",
+    "at": [
+     0.1,
+     "top-0.02"
+    ],
+    "size": [
+     0.01,
+     0.045
+    ],
+    "style": "patch",
+    "stitch": false,
+    "mirror": true,
+    "raise": 0.001
+   },
+   {
+    "step": "rect",
+    "frame": "back",
+    "at": [
+     0.1,
+     "top-0.02"
+    ],
+    "size": [
+     0.01,
+     0.045
+    ],
+    "style": "patch",
+    "stitch": false,
+    "mirror": true,
+    "raise": 0.001
+   }
+  ]
+ },
+ {
+  "n": 173,
+  "id": "dior-victim-of-the-crime-biker-jacket",
+  "designer": "Dior Homme",
+  "name": "Victim of the Crime Biker Jacket",
+  "season": "FW2004",
+  "price": 4500,
+  "slot": "top",
+  "colour": "#1c1c1e",
+  "finish": {
+   "roughness": 0.38
+  },
+  "cut": {
+   "like": "biker",
+   "ease": {
+    "shoulder": 0.0068,
+    "chest": 0.0153,
+    "waist": 0.0187,
+    "hip": 0.0187,
+    "sleeve": 0.0084,
+    "cuff": 0.0065
+   },
+   "hem": "hip+0.05",
+   "neck": {
+    "v": 0.1,
+    "width": 0.07
+   },
+   "add": [
+    {
+     "type": "collar",
+     "style": "fold",
+     "height": 0.065,
+     "flare": 0.035,
+     "points": 1
+    }
+   ]
+  },
+  "under": {
+   "colour": "#1b1b1d",
+   "cut": {
+    "like": "tank",
+    "overWaist": false,
+    "hem": "hip+0.06",
+    "armhole": 0.22,
+    "neck": {
+     "depth": 0.035,
+     "round": 0.075
+    },
+    "ease": {
+     "shoulder": 0.002,
+     "chest": 0.004,
+     "waist": 0.004,
+     "hip": 0.004
+    }
+   },
+   "paint": [
+    {
+     "step": "fabric",
+     "type": "jersey"
+    }
+   ]
+  },
+  "paint": [
+   {
+    "step": "fabric",
+    "type": "leather"
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0.11,
+      "hem"
+     ],
+     [
+      0.105,
+      "waist+0.08"
+     ],
+     [
+      0.09,
+      "chest+0.05"
+     ]
+    ],
+    "style": "seam",
+    "width": 0.0025,
+    "mirror": true
+   },
+   {
+    "step": "line",
+    "frame": "back",
+    "pts": [
+     [
+      -0.2,
+      "chest+0.06"
+     ],
+     [
+      0.2,
+      "chest+0.06"
+     ]
+    ],
+    "style": "seam",
+    "width": 0.0025
+   },
+   {
+    "step": "line",
+    "frame": "back",
+    "pts": [
+     [
+      0.09,
+      "hem"
+     ],
+     [
+      0.085,
+      "chest+0.06"
+     ]
+    ],
+    "style": "seam",
+    "width": 0.0025,
+    "mirror": true
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0.04,
+      "chest+0.13"
+     ],
+     [
+      0.105,
+      "chest+0.075"
+     ],
+     [
+      0.05,
+      "chest+0.02"
+     ]
+    ],
+    "style": "seam",
+    "width": 0.0028
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      -0.04,
+      "chest+0.13"
+     ],
+     [
+      -0.095,
+      "chest+0.075"
+     ],
+     [
+      0,
+      "waist+0.1"
+     ]
+    ],
+    "style": "seam",
+    "width": 0.0028
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      -0.022,
+      "hem"
+     ],
+     [
+      -0.005,
+      "waist+0.06"
+     ],
+     [
+      0.05,
+      "chest+0.02"
+     ]
+    ],
+    "style": "zip",
+    "width": 0.006,
+    "colour": "#c9cacd",
+    "colour2": "#1a1a1c"
+   },
+   {
+    "step": "rect",
+    "frame": "front",
+    "at": [
+     0.135,
+     "waist+0.045"
+    ],
+    "size": [
+     0.1,
+     0.01
+    ],
+    "style": "zip",
+    "rot": 78,
+    "colour": "#c9cacd",
+    "mirror": true
+   },
+   {
+    "step": "rect",
+    "frame": "front",
+    "at": [
+     -0.09,
+     "chest-0.035"
+    ],
+    "size": [
+     0.095,
+     0.01
+    ],
+    "style": "zip",
+    "rot": -24,
+    "colour": "#c9cacd"
+   },
+   {
+    "step": "rect",
+    "frame": "front",
+    "at": [
+     0.065,
+     "hem+0.06"
+    ],
+    "size": [
+     0.055,
+     0.045
+    ],
+    "style": "flap",
+    "flap": 1,
+    "snap": true,
+    "stitch": "#2c2c2f"
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0.1,
+      "shoulder-0.012"
+     ],
+     [
+      0.165,
+      "shoulder-0.03"
+     ]
+    ],
+    "style": "twin",
+    "gap": 0.02,
+    "width": 0.002,
+    "colour": "#3a3a3f",
+    "mirror": true
+   },
+   {
+    "step": "dots",
+    "frame": "front",
+    "pts": [
+     [
+      0.108,
+      "shoulder-0.013"
+     ]
+    ],
+    "r": 0.0055,
+    "style": "snap",
+    "colour": "#c9cacd",
+    "mirror": true
+   },
+   {
+    "step": "dots",
+    "frame": "front",
+    "pts": [
+     [
+      0.092,
+      "chest+0.078"
+     ],
+     [
+      -0.082,
+      "chest+0.078"
+     ]
+    ],
+    "r": 0.0055,
+    "style": "snap",
+    "colour": "#c9cacd"
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      -0.4,
+      "hem+0.03"
+     ],
+     [
+      0.4,
+      "hem+0.03"
+     ]
+    ],
+    "style": "strap",
+    "width": 0.03,
+    "colour": "#141416"
+   },
+   {
+    "step": "line",
+    "frame": "back",
+    "pts": [
+     [
+      -0.4,
+      "hem+0.03"
+     ],
+     [
+      0.4,
+      "hem+0.03"
+     ]
+    ],
+    "style": "strap",
+    "width": 0.03,
+    "colour": "#141416"
+   },
+   {
+    "step": "rect",
+    "frame": "front",
+    "at": [
+     0.07,
+     "hem+0.03"
+    ],
+    "size": [
+     0.045,
+     0.042
+    ],
+    "style": "buckle",
+    "colour": "#c9cacd"
+   },
+   {
+    "step": "line",
+    "frame": "sleeves",
+    "pts": [
+     [
+      -0.035,
+      0.8
+     ],
+     [
+      -0.035,
+      1.12
+     ]
+    ],
+    "style": "zip",
+    "width": 0.0045,
+    "colour": "#c9cacd",
+    "colour2": "#1a1a1c"
+   },
+   {
+    "step": "quilt",
+    "type": "h",
+    "size": 0.022,
+    "puff": 0.003,
+    "where": {
+     "zone": "sleeves",
+     "s": [
+      0.05,
+      0.3
+     ]
+    }
+   },
+   {
+    "step": "quilt",
+    "type": "h",
+    "size": 0.022,
+    "puff": 0.003,
+    "where": {
+     "zone": "back",
+     "h": [
+      "hem+0.05",
+      "waist-0.02"
+     ]
+    }
+   },
+   {
+    "step": "print",
+    "frame": "back",
+    "art": "dior-victim-star",
+    "at": [
+     0,
+     "chest+0.0"
+    ],
+    "width": 0.11,
+    "raise": 0.0006
+   },
+   {
+    "step": "distress",
+    "type": "crumple",
+    "amount": 0.12
+   },
+   {
+    "step": "distress",
+    "type": "edges",
+    "amount": 0.15,
+    "colour": "#3a3a3d"
+   }
+  ]
+ },
+ {
+  "n": 174,
+  "id": "dior-victim-of-the-crime-tailored-coat",
+  "designer": "Dior Homme",
+  "name": "Victim of the Crime Tailored Coat",
+  "season": "FW2004",
+  "price": 1500,
+  "slot": "top",
+  "colour": "#19191b",
+  "finish": {
+   "roughness": 0.95
+  },
+  "cut": {
+   "like": "coat",
+   "ease": {
+    "shoulder": 0.0064,
+    "chest": 0.02,
+    "waist": 0.028,
+    "hip": 0.028,
+    "sleeve": 0.0127,
+    "cuff": 0.0127
+   },
+   "hem": "knee+0.06",
+   "waist": 0.06,
+   "flare": 0.03,
+   "neck": {
+    "v": 0.2,
+    "width": 0.07,
+    "depth": 0.03
+   },
+   "add": [
+    {
+     "type": "collar",
+     "style": "fold",
+     "height": 0.06,
+     "gap": 0.03,
+     "points": 0.6
+    }
+   ]
+  },
+  "under": {
+   "colour": "#e9e7e0",
+   "cut": {
+    "like": "shirt",
+    "sleeve": 0,
+    "armhole": 0.4,
+    "hem": "hip+0.03",
+    "hemCurve": 0,
+    "overWaist": false,
+    "ease": {
+     "shoulder": 0.004,
+     "chest": 0.008,
+     "waist": 0.012,
+     "hip": 0.012,
+     "sleeve": 0.006,
+     "cuff": 0.006
+    }
+   },
+   "paint": [
+    {
+     "step": "fabric",
+     "type": "plain"
+    },
+    {
+     "step": "line",
+     "frame": "front",
+     "pts": [
+      [
+       0.012,
+       "hem"
+      ],
+      [
+       0.012,
+       "top"
+      ]
+     ],
+     "style": "seam",
+     "width": 0.0012
+    },
+    {
+     "step": "dots",
+     "frame": "front",
+     "from": [
+      0,
+      "hem+0.06"
+     ],
+     "to": [
+      0,
+      "neck-0.05"
+     ],
+     "count": 6,
+     "r": 0.0045,
+     "style": "button",
+     "colour": "#d8d5cc"
+    },
+    {
+     "step": "line",
+     "frame": "front",
+     "pts": [
+      [
+       0,
+       "hem"
+      ],
+      [
+       0,
+       "top"
+      ]
+     ],
+     "style": "tape",
+     "width": 0.03,
+     "colour": "#111113",
+     "raise": 0.0008
+    },
+    {
+     "step": "rect",
+     "frame": "front",
+     "at": [
+      0,
+      "neck-0.035"
+     ],
+     "size": [
+      0.034,
+      0.03
+     ],
+     "style": "patch",
+     "colour": "#111113",
+     "stitch": false,
+     "round": 0.008
+    }
+   ]
+  },
+  "paint": [
+   {
+    "step": "fabric",
+    "type": "wool"
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0.014,
+      "neck-0.235"
+     ],
+     [
+      0.085,
+      "chest+0.085"
+     ],
+     [
+      0.07,
+      "shoulder+0.005"
+     ]
+    ],
+    "style": "groove",
+    "width": 0.002,
+    "mirror": true
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0.085,
+      "chest+0.085"
+     ],
+     [
+      0.062,
+      "chest+0.105"
+     ]
+    ],
+    "style": "groove",
+    "width": 0.002,
+    "mirror": true
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0.014,
+      "neck-0.2"
+     ],
+     [
+      0.014,
+      "hem"
+     ]
+    ],
+    "style": "seam"
+   },
+   {
+    "step": "dots",
+    "frame": "front",
+    "pts": [
+     [
+      0,
+      "waist-0.1+0"
+     ],
+     [
+      0,
+      "waist-0.1+0.1"
+     ],
+     [
+      0,
+      "waist-0.1+0.2"
+     ]
+    ],
+    "r": 0.011,
+    "style": "button",
+    "colour": "#101012"
+   },
+   {
+    "step": "rect",
+    "frame": "front",
+    "at": [
+     0.125,
+     "hip-0.02"
+    ],
+    "size": [
+     0.15,
+     0.05
+    ],
+    "style": "flap",
+    "flap": 1,
+    "snap": false,
+    "mirror": true,
+    "stitch": "#3a3a40"
+   },
+   {
+    "step": "line",
+    "frame": "back",
+    "pts": [
+     [
+      0,
+      "hem"
+     ],
+     [
+      0,
+      "hip-0.05"
+     ]
+    ],
+    "style": "groove",
+    "width": 0.002
+   },
+   {
+    "step": "line",
+    "frame": "back",
+    "pts": [
+     [
+      -0.25,
+      "shoulder-0.05"
+     ],
+     [
+      0.25,
+      "shoulder-0.05"
+     ]
+    ],
+    "style": "seam",
+    "width": 0.0015
+   },
+   {
+    "step": "distress",
+    "type": "folds",
+    "freq": 12,
+    "depth": 0.003,
+    "where": {
+     "zone": "body",
+     "h": [
+      "hem",
+      "hip"
+     ]
+    }
+   }
+  ]
+ },
+ {
+  "n": 175,
+  "id": "dior-the-end-graphic-tee",
+  "designer": "Dior Homme",
+  "name": "The End Graphic T-Shirt",
+  "season": "SS2005",
+  "price": 350,
+  "slot": "top",
+  "colour": "#19191b",
+  "finish": {
+   "roughness": 0.88
+  },
+  "cut": {
+   "like": "tee",
+   "ease": {
+    "shoulder": 0.0042,
+    "chest": 0.0126,
+    "waist": 0.021,
+    "hip": 0.021,
+    "sleeve": 0.0121,
+    "cuff": 0.0138
+   },
+   "hem": "hip-0.0",
+   "sleeve": 0.24
+  },
+  "paint": [
+   {
+    "step": "fabric",
+    "type": "jersey"
+   },
+   {
+    "step": "rib",
+    "where": {
+     "zone": "collar"
+    },
+    "gauge": 0.003,
+    "depth": 0.0004
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      -0.4,
+      "hem+0.02"
+     ],
+     [
+      0.4,
+      "hem+0.02"
+     ]
+    ],
+    "style": "twin",
+    "colour": "#3a3a3e",
+    "width": 0.001
+   },
+   {
+    "step": "line",
+    "frame": "back",
+    "pts": [
+     [
+      -0.4,
+      "hem+0.02"
+     ],
+     [
+      0.4,
+      "hem+0.02"
+     ]
+    ],
+    "style": "twin",
+    "colour": "#3a3a3e",
+    "width": 0.001
+   },
+   {
+    "step": "line",
+    "frame": "sleeves",
+    "pts": [
+     [
+      -0.3,
+      0.215
+     ],
+     [
+      0.3,
+      0.215
+     ]
+    ],
+    "style": "twin",
+    "colour": "#3a3a3e",
+    "width": 0.001
+   },
+   {
+    "step": "print",
+    "frame": "front",
+    "art": "dior-the-end-text",
+    "at": [
+     0,
+     "chest+0.0"
+    ],
+    "width": 0.2,
+    "crack": 0.2
+   }
+  ]
+ },
+ {
+  "n": 176,
+  "id": "dior-the-end-clawmark-denim",
+  "designer": "Dior Homme",
+  "name": "The End Distressed Denim (Clawmark)",
+  "season": "SS2005",
+  "price": 1300,
+  "slot": "bottom",
+  "colour": "#3a4660",
+  "finish": {
+   "roughness": 0.85
+  },
+  "cut": {
+   "like": "slim",
+   "rise": "waist-0.105"
+  },
+  "note": "Bleached scratches rake across both thighs.",
+  "paint": [
+   {
+    "step": "fabric",
+    "type": "denim",
+    "colour2": "#8a9ab5"
+   },
+   {
+    "step": "line",
+    "frame": "legs",
+    "pts": [
+     [
+      0,
+      -0.3
+     ],
+     [
+      0,
+      1.05
+     ]
+    ],
+    "style": "twin",
+    "colour": "#8a8a8e",
+    "width": 0.0011,
+    "gap": 0.006
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      -0.4,
+      "top-0.04"
+     ],
+     [
+      0.4,
+      "top-0.04"
+     ]
+    ],
+    "style": "twin",
+    "colour": "#8a8a8e",
+    "width": 0.0011,
+    "gap": 0.034
+   },
+   {
+    "step": "line",
+    "frame": "back",
+    "pts": [
+     [
+      -0.4,
+      "top-0.04"
+     ],
+     [
+      0.4,
+      "top-0.04"
+     ]
+    ],
+    "style": "twin",
+    "colour": "#8a8a8e",
+    "width": 0.0011,
+    "gap": 0.034
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0.0,
+      "top-0.04"
+     ],
+     [
+      0.004,
+      "top-0.1"
+     ],
+     [
+      0.03,
+      "top-0.17"
+     ],
+     [
+      0.0,
+      "top-0.19"
+     ]
+    ],
+    "style": "twin",
+    "colour": "#8a8a8e",
+    "width": 0.0011
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0.06,
+      "top-0.045"
+     ],
+     [
+      0.09,
+      "top-0.11"
+     ],
+     [
+      0.17,
+      "top-0.12"
+     ]
+    ],
+    "style": "twin",
+    "colour": "#8a8a8e",
+    "width": 0.0011,
+    "mirror": true
+   },
+   {
+    "step": "dots",
+    "frame": "front",
+    "pts": [
+     [
+      0,
+      "top-0.02"
+     ]
+    ],
+    "r": 0.008,
+    "style": "stud",
+    "colour": "#77736a"
+   },
+   {
+    "step": "dots",
+    "frame": "front",
+    "pts": [
+     [
+      0.062,
+      "top-0.05"
+     ],
+     [
+      0.168,
+      "top-0.118"
+     ]
+    ],
+    "r": 0.0035,
+    "style": "stud",
+    "colour": "#8a7a5a",
+    "mirror": true
+   },
+   {
+    "step": "line",
+    "frame": "back",
+    "pts": [
+     [
+      -0.3,
+      "top-0.075"
+     ],
+     [
+      0,
+      "top-0.115"
+     ],
+     [
+      0.3,
+      "top-0.075"
+     ]
+    ],
+    "style": "twin",
+    "colour": "#8a8a8e",
+    "width": 0.0011
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      -0.4,
+      "hem+0.014"
+     ],
+     [
+      0.4,
+      "hem+0.014"
+     ]
+    ],
+    "style": "stitch",
+    "colour": "#8a8a8e",
+    "width": 0.0011
+   },
+   {
+    "step": "line",
+    "frame": "back",
+    "pts": [
+     [
+      -0.4,
+      "hem+0.014"
+     ],
+     [
+      0.4,
+      "hem+0.014"
+     ]
+    ],
+    "style": "stitch",
+    "colour": "#8a8a8e",
+    "width": 0.0011
+   },
+   {
+    "step": "rect",
+    "frame": "back",
+    "at": [
+     0.088,
+     "top-0.2"
+    ],
+    "size": [
+     0.125,
+     0.135
+    ],
+    "style": "pocket",
+    "stitch": "#8a8a8e",
+    "mirror": true,
+    "round": 0.012
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0.05,
+      "thigh+0.1"
+     ],
+     [
+      0.08,
+      "thigh-0.02"
+     ]
+    ],
+    "style": "paint",
+    "width": 0.006,
+    "colour": "#c9d3dc",
+    "opacity": 0.75,
+    "dry": true
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0.07,
+      "thigh+0.1"
+     ],
+     [
+      0.1,
+      "thigh-0.02"
+     ]
+    ],
+    "style": "paint",
+    "width": 0.006,
+    "colour": "#c9d3dc",
+    "opacity": 0.75,
+    "dry": true
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0.09,
+      "thigh+0.1"
+     ],
+     [
+      0.12,
+      "thigh-0.02"
+     ]
+    ],
+    "style": "paint",
+    "width": 0.006,
+    "colour": "#c9d3dc",
+    "opacity": 0.75,
+    "dry": true
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0.11,
+      "thigh+0.1"
+     ],
+     [
+      0.14,
+      "thigh-0.02"
+     ]
+    ],
+    "style": "paint",
+    "width": 0.006,
+    "colour": "#c9d3dc",
+    "opacity": 0.75,
+    "dry": true
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      -0.05,
+      "thigh+0.04"
+     ],
+     [
+      -0.08,
+      "thigh-0.08"
+     ]
+    ],
+    "style": "paint",
+    "width": 0.006,
+    "colour": "#c9d3dc",
+    "opacity": 0.75,
+    "dry": true
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      -0.07,
+      "thigh+0.04"
+     ],
+     [
+      -0.1,
+      "thigh-0.08"
+     ]
+    ],
+    "style": "paint",
+    "width": 0.006,
+    "colour": "#c9d3dc",
+    "opacity": 0.75,
+    "dry": true
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      -0.09,
+      "thigh+0.04"
+     ],
+     [
+      -0.12,
+      "thigh-0.08"
+     ]
+    ],
+    "style": "paint",
+    "width": 0.006,
+    "colour": "#c9d3dc",
+    "opacity": 0.75,
+    "dry": true
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      -0.11,
+      "thigh+0.04"
+     ],
+     [
+      -0.14,
+      "thigh-0.08"
+     ]
+    ],
+    "style": "paint",
+    "width": 0.006,
+    "colour": "#c9d3dc",
+    "opacity": 0.75,
+    "dry": true
+   },
+   {
+    "step": "rect",
+    "frame": "front",
+    "at": [
+     0.08,
+     "knee+0.02"
+    ],
+    "size": [
+     0.07,
+     0.02
+    ],
+    "style": "hole",
+    "colour": "#d9d5c8"
+   },
+   {
+    "step": "distress",
+    "type": "wash",
+    "amount": 0.2
+   },
+   {
+    "step": "distress",
+    "type": "fade",
+    "amount": 0.5,
+    "frame": "front",
+    "at": [
+     0.09,
+     "thigh+0.02"
+    ],
+    "size": [
+     0.12,
+     0.3
+    ],
+    "mirror": true
+   },
+   {
+    "step": "distress",
+    "type": "fade",
+    "amount": 0.5,
+    "frame": "front",
+    "at": [
+     0.085,
+     "knee+0.02"
+    ],
+    "size": [
+     0.1,
+     0.12
+    ],
+    "mirror": true
+   },
+   {
+    "step": "distress",
+    "type": "whisker",
+    "amount": 0.5,
+    "frame": "front",
+    "at": [
+     0.08,
+     "crotch+0.0"
+    ],
+    "size": [
+     0.14,
+     0.1
+    ],
+    "mirror": true
+   }
+  ]
+ },
+ {
+  "n": 177,
+  "id": "dior-in-the-morning-leather-jacket",
+  "designer": "Dior Homme",
+  "name": "In the Morning Leather Jacket",
+  "season": "FW2005",
+  "price": 3000,
+  "slot": "top",
+  "colour": "#2a211c",
+  "finish": {
+   "roughness": 0.45
+  },
+  "cut": {
+   "like": "biker",
+   "ease": {
+    "shoulder": 0.0068,
+    "chest": 0.0153,
+    "waist": 0.0187,
+    "hip": 0.0187,
+    "sleeve": 0.0084,
+    "cuff": 0.0065
+   },
+   "hem": "hip+0.06",
+   "add": [
+    {
+     "type": "collar",
+     "style": "fold",
+     "height": 0.05,
+     "gap": 0.02,
+     "points": 0.6
+    }
+   ]
+  },
+  "paint": [
+   {
+    "step": "fabric",
+    "type": "leather"
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0,
+      "hem"
+     ],
+     [
+      0,
+      "top"
+     ]
+    ],
+    "style": "zip",
+    "width": 0.005,
+    "colour": "#a8915a",
+    "colour2": "#111113"
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0.1,
+      "hem"
+     ],
+     [
+      0.085,
+      "chest+0.08"
+     ]
+    ],
+    "style": "seam",
+    "width": 0.002,
+    "mirror": true
+   },
+   {
+    "step": "line",
+    "frame": "back",
+    "pts": [
+     [
+      -0.2,
+      "chest+0.06"
+     ],
+     [
+      0.2,
+      "chest+0.06"
+     ]
+    ],
+    "style": "seam",
+    "width": 0.0025
+   },
+   {
+    "step": "rect",
+    "frame": "front",
+    "at": [
+     0.1,
+     "chest+0.02"
+    ],
+    "size": [
+     0.085,
+     0.008
+    ],
+    "style": "zip",
+    "colour": "#a8915a",
+    "mirror": true
+   },
+   {
+    "step": "rect",
+    "frame": "front",
+    "at": [
+     0.12,
+     "waist+0.0"
+    ],
+    "size": [
+     0.09,
+     0.008
+    ],
+    "style": "zip",
+    "rot": 80,
+    "colour": "#a8915a",
+    "mirror": true
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      -0.4,
+      "hem+0.03"
+     ],
+     [
+      0.4,
+      "hem+0.03"
+     ]
+    ],
+    "style": "seam",
+    "colour": "#3a3a3e",
+    "width": 0.002
+   },
+   {
+    "step": "line",
+    "frame": "back",
+    "pts": [
+     [
+      -0.4,
+      "hem+0.03"
+     ],
+     [
+      0.4,
+      "hem+0.03"
+     ]
+    ],
+    "style": "seam",
+    "colour": "#3a3a3e",
+    "width": 0.002
+   },
+   {
+    "step": "line",
+    "frame": "sleeves",
+    "pts": [
+     [
+      -0.035,
+      0.82
+     ],
+     [
+      -0.035,
+      1.12
+     ]
+    ],
+    "style": "zip",
+    "width": 0.004,
+    "colour": "#a8915a",
+    "colour2": "#111113"
+   },
+   {
+    "step": "distress",
+    "type": "crumple",
+    "amount": 0.14
+   },
+   {
+    "step": "distress",
+    "type": "edges",
+    "amount": 0.3,
+    "colour": "#5c4a3c"
+   }
+  ]
+ },
+ {
+  "n": 178,
+  "id": "dior-boy-looked-at-johnny-skinny-jeans",
+  "designer": "Dior Homme",
+  "name": "The Boy Looked at Johnny Skinny Jeans",
+  "season": "SS2006",
+  "price": 600,
+  "slot": "bottom",
+  "colour": "#8a8b8e",
+  "finish": {
+   "roughness": 0.85
+  },
+  "cut": {
+   "like": "slim",
+   "ease": {
+    "waist": 0.002,
+    "seat": 0.0064,
+    "thigh": 0.0064,
+    "knee": 0.0064,
+    "hem": 0.0096
+   },
+   "rise": "waist-0.105"
+  },
+  "paint": [
+   {
+    "step": "fabric",
+    "type": "denim",
+    "colour2": "#c4c5c8"
+   },
+   {
+    "step": "line",
+    "frame": "legs",
+    "pts": [
+     [
+      0,
+      -0.3
+     ],
+     [
+      0,
+      1.05
+     ]
+    ],
+    "style": "twin",
+    "colour": "#6a6b6e",
+    "width": 0.0011,
+    "gap": 0.006
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      -0.4,
+      "top-0.04"
+     ],
+     [
+      0.4,
+      "top-0.04"
+     ]
+    ],
+    "style": "twin",
+    "colour": "#6a6b6e",
+    "width": 0.0011,
+    "gap": 0.034
+   },
+   {
+    "step": "line",
+    "frame": "back",
+    "pts": [
+     [
+      -0.4,
+      "top-0.04"
+     ],
+     [
+      0.4,
+      "top-0.04"
+     ]
+    ],
+    "style": "twin",
+    "colour": "#6a6b6e",
+    "width": 0.0011,
+    "gap": 0.034
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0.0,
+      "top-0.04"
+     ],
+     [
+      0.004,
+      "top-0.1"
+     ],
+     [
+      0.03,
+      "top-0.17"
+     ],
+     [
+      0.0,
+      "top-0.19"
+     ]
+    ],
+    "style": "twin",
+    "colour": "#6a6b6e",
+    "width": 0.0011
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0.06,
+      "top-0.045"
+     ],
+     [
+      0.09,
+      "top-0.11"
+     ],
+     [
+      0.17,
+      "top-0.12"
+     ]
+    ],
+    "style": "twin",
+    "colour": "#6a6b6e",
+    "width": 0.0011,
+    "mirror": true
+   },
+   {
+    "step": "dots",
+    "frame": "front",
+    "pts": [
+     [
+      0,
+      "top-0.02"
+     ]
+    ],
+    "r": 0.008,
+    "style": "stud",
+    "colour": "#77736a"
+   },
+   {
+    "step": "dots",
+    "frame": "front",
+    "pts": [
+     [
+      0.062,
+      "top-0.05"
+     ],
+     [
+      0.168,
+      "top-0.118"
+     ]
+    ],
+    "r": 0.0035,
+    "style": "stud",
+    "colour": "#8a7a5a",
+    "mirror": true
+   },
+   {
+    "step": "line",
+    "frame": "back",
+    "pts": [
+     [
+      -0.3,
+      "top-0.075"
+     ],
+     [
+      0,
+      "top-0.115"
+     ],
+     [
+      0.3,
+      "top-0.075"
+     ]
+    ],
+    "style": "twin",
+    "colour": "#6a6b6e",
+    "width": 0.0011
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      -0.4,
+      "hem+0.014"
+     ],
+     [
+      0.4,
+      "hem+0.014"
+     ]
+    ],
+    "style": "stitch",
+    "colour": "#6a6b6e",
+    "width": 0.0011
+   },
+   {
+    "step": "line",
+    "frame": "back",
+    "pts": [
+     [
+      -0.4,
+      "hem+0.014"
+     ],
+     [
+      0.4,
+      "hem+0.014"
+     ]
+    ],
+    "style": "stitch",
+    "colour": "#6a6b6e",
+    "width": 0.0011
+   },
+   {
+    "step": "rect",
+    "frame": "back",
+    "at": [
+     0.088,
+     "top-0.2"
+    ],
+    "size": [
+     0.125,
+     0.135
+    ],
+    "style": "pocket",
+    "stitch": "#6a6b6e",
+    "mirror": true,
+    "round": 0.012
+   },
+   {
+    "step": "distress",
+    "type": "wash",
+    "amount": 0.25
+   },
+   {
+    "step": "distress",
+    "type": "fade",
+    "amount": 0.5,
+    "frame": "front",
+    "at": [
+     0.09,
+     "thigh+0.02"
+    ],
+    "size": [
+     0.12,
+     0.3
+    ],
+    "mirror": true
+   },
+   {
+    "step": "distress",
+    "type": "fade",
+    "amount": 0.5,
+    "frame": "front",
+    "at": [
+     0.085,
+     "knee+0.02"
+    ],
+    "size": [
+     0.1,
+     0.12
+    ],
+    "mirror": true
+   },
+   {
+    "step": "distress",
+    "type": "whisker",
+    "amount": 0.5,
+    "frame": "front",
+    "at": [
+     0.08,
+     "crotch+0.0"
+    ],
+    "size": [
+     0.14,
+     0.1
+    ],
+    "mirror": true
+   },
+   {
+    "step": "distress",
+    "type": "folds",
+    "freq": 30,
+    "depth": 0.002,
+    "where": {
+     "zone": "legs",
+     "s": [
+      0.7,
+      1.1
+     ]
+    }
+   }
+  ]
+ },
+ {
+  "n": 179,
+  "id": "dior-these-grey-days-tailored-jacket",
+  "designer": "Dior Homme",
+  "name": "These Grey Days Tailored Jacket",
+  "season": "FW2006",
+  "price": 900,
+  "slot": "top",
+  "colour": "#6a6c70",
+  "finish": {
+   "roughness": 0.95
+  },
+  "cut": {
+   "like": "blazer",
+   "ease": {
+    "shoulder": 0.0078,
+    "chest": 0.0172,
+    "waist": 0.0234,
+    "hip": 0.0273,
+    "sleeve": 0.0108,
+    "cuff": 0.0099
+   },
+   "hem": "hip-0.05",
+   "neck": {
+    "v": 0.23,
+    "width": 0.07,
+    "depth": 0.03
+   },
+   "waist": 0.07,
+   "hang": 0.85,
+   "tube": 0.6
+  },
+  "under": {
+   "colour": "#e9e7e0",
+   "cut": {
+    "like": "shirt",
+    "sleeve": 0,
+    "armhole": 0.4,
+    "hem": "hip+0.03",
+    "hemCurve": 0,
+    "overWaist": false,
+    "ease": {
+     "shoulder": 0.004,
+     "chest": 0.008,
+     "waist": 0.012,
+     "hip": 0.012,
+     "sleeve": 0.006,
+     "cuff": 0.006
+    }
+   },
+   "paint": [
+    {
+     "step": "fabric",
+     "type": "plain"
+    },
+    {
+     "step": "line",
+     "frame": "front",
+     "pts": [
+      [
+       0.012,
+       "hem"
+      ],
+      [
+       0.012,
+       "top"
+      ]
+     ],
+     "style": "seam",
+     "width": 0.0012
+    },
+    {
+     "step": "dots",
+     "frame": "front",
+     "from": [
+      0,
+      "hem+0.06"
+     ],
+     "to": [
+      0,
+      "neck-0.05"
+     ],
+     "count": 6,
+     "r": 0.0045,
+     "style": "button",
+     "colour": "#d8d5cc"
+    },
+    {
+     "step": "line",
+     "frame": "front",
+     "pts": [
+      [
+       0,
+       "hem"
+      ],
+      [
+       0,
+       "top"
+      ]
+     ],
+     "style": "tape",
+     "width": 0.03,
+     "colour": "#3a3b3f",
+     "raise": 0.0008
+    },
+    {
+     "step": "rect",
+     "frame": "front",
+     "at": [
+      0,
+      "neck-0.035"
+     ],
+     "size": [
+      0.034,
+      0.03
+     ],
+     "style": "patch",
+     "colour": "#3a3b3f",
+     "stitch": false,
+     "round": 0.008
+    }
+   ]
+  },
+  "paint": [
+   {
+    "step": "fabric",
+    "type": "wool"
+   },
+   {
+    "step": "pattern",
+    "type": "herringbone",
+    "colours": [
+     "#55575b"
+    ],
+    "scale": 0.7
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0.012,
+      "neck-0.265"
+     ],
+     [
+      0.085,
+      "chest+0.085"
+     ],
+     [
+      0.07,
+      "shoulder+0.005"
+     ]
+    ],
+    "style": "groove",
+    "width": 0.002,
+    "mirror": true
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0.085,
+      "chest+0.085"
+     ],
+     [
+      0.062,
+      "chest+0.105"
+     ]
+    ],
+    "style": "groove",
+    "width": 0.002,
+    "mirror": true
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0.012,
+      "neck-0.265"
+     ],
+     [
+      0.03,
+      "hem+0.04"
+     ],
+     [
+      0.07,
+      "hem"
+     ]
+    ],
+    "style": "seam"
+   },
+   {
+    "step": "dots",
+    "frame": "front",
+    "pts": [
+     [
+      0.012,
+      "waist-0.02+0"
+     ],
+     [
+      0.012,
+      "waist-0.02+0.075"
+     ]
+    ],
+    "r": 0.009,
+    "style": "button",
+    "colour": "#2a2b2e"
+   },
+   {
+    "step": "rect",
+    "frame": "front",
+    "at": [
+     0.125,
+     "hip+0.02"
+    ],
+    "size": [
+     0.13,
+     0.04
+    ],
+    "style": "flap",
+    "flap": 1,
+    "snap": false,
+    "mirror": true,
+    "stitch": "#2c2c30"
+   },
+   {
+    "step": "rect",
+    "frame": "front",
+    "at": [
+     0.1,
+     "chest+0.03"
+    ],
+    "size": [
+     0.085,
+     0.012
+    ],
+    "style": "welt"
+   },
+   {
+    "step": "dots",
+    "frame": "sleeves",
+    "from": [
+     -0.03,
+     0.9
+    ],
+    "to": [
+     -0.03,
+     0.98
+    ],
+    "count": 4,
+    "r": 0.0045,
+    "style": "button",
+    "colour": "#2a2b2e"
+   },
+   {
+    "step": "line",
+    "frame": "back",
+    "pts": [
+     [
+      0,
+      "hem"
+     ],
+     [
+      0,
+      "hip+0.02"
+     ]
+    ],
+    "style": "groove",
+    "width": 0.002
+   }
+  ]
+ },
+ {
+  "n": 180,
+  "id": "dior-navigate-waxed-denim",
+  "designer": "Dior Homme",
+  "name": "Navigate Waxed Denim",
+  "season": "FW2007",
+  "price": 700,
+  "slot": "bottom",
+  "colour": "#17181b",
+  "finish": {
+   "roughness": 0.4
+  },
+  "cut": {
+   "like": "slim",
+   "rise": "waist-0.105"
+  },
+  "paint": [
+   {
+    "step": "fabric",
+    "type": "waxed"
+   },
+   {
+    "step": "line",
+    "frame": "legs",
+    "pts": [
+     [
+      0,
+      -0.3
+     ],
+     [
+      0,
+      1.05
+     ]
+    ],
+    "style": "twin",
+    "colour": "#3a3b3f",
+    "width": 0.0011,
+    "gap": 0.006
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      -0.4,
+      "top-0.04"
+     ],
+     [
+      0.4,
+      "top-0.04"
+     ]
+    ],
+    "style": "twin",
+    "colour": "#3a3b3f",
+    "width": 0.0011,
+    "gap": 0.034
+   },
+   {
+    "step": "line",
+    "frame": "back",
+    "pts": [
+     [
+      -0.4,
+      "top-0.04"
+     ],
+     [
+      0.4,
+      "top-0.04"
+     ]
+    ],
+    "style": "twin",
+    "colour": "#3a3b3f",
+    "width": 0.0011,
+    "gap": 0.034
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0.0,
+      "top-0.04"
+     ],
+     [
+      0.004,
+      "top-0.1"
+     ],
+     [
+      0.03,
+      "top-0.17"
+     ],
+     [
+      0.0,
+      "top-0.19"
+     ]
+    ],
+    "style": "twin",
+    "colour": "#3a3b3f",
+    "width": 0.0011
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0.06,
+      "top-0.045"
+     ],
+     [
+      0.09,
+      "top-0.11"
+     ],
+     [
+      0.17,
+      "top-0.12"
+     ]
+    ],
+    "style": "twin",
+    "colour": "#3a3b3f",
+    "width": 0.0011,
+    "mirror": true
+   },
+   {
+    "step": "dots",
+    "frame": "front",
+    "pts": [
+     [
+      0,
+      "top-0.02"
+     ]
+    ],
+    "r": 0.008,
+    "style": "stud",
+    "colour": "#77736a"
+   },
+   {
+    "step": "dots",
+    "frame": "front",
+    "pts": [
+     [
+      0.062,
+      "top-0.05"
+     ],
+     [
+      0.168,
+      "top-0.118"
+     ]
+    ],
+    "r": 0.0035,
+    "style": "stud",
+    "colour": "#8a7a5a",
+    "mirror": true
+   },
+   {
+    "step": "line",
+    "frame": "back",
+    "pts": [
+     [
+      -0.3,
+      "top-0.075"
+     ],
+     [
+      0,
+      "top-0.115"
+     ],
+     [
+      0.3,
+      "top-0.075"
+     ]
+    ],
+    "style": "twin",
+    "colour": "#3a3b3f",
+    "width": 0.0011
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      -0.4,
+      "hem+0.014"
+     ],
+     [
+      0.4,
+      "hem+0.014"
+     ]
+    ],
+    "style": "stitch",
+    "colour": "#3a3b3f",
+    "width": 0.0011
+   },
+   {
+    "step": "line",
+    "frame": "back",
+    "pts": [
+     [
+      -0.4,
+      "hem+0.014"
+     ],
+     [
+      0.4,
+      "hem+0.014"
+     ]
+    ],
+    "style": "stitch",
+    "colour": "#3a3b3f",
+    "width": 0.0011
+   },
+   {
+    "step": "rect",
+    "frame": "back",
+    "at": [
+     0.088,
+     "top-0.2"
+    ],
+    "size": [
+     0.125,
+     0.135
+    ],
+    "style": "pocket",
+    "stitch": "#3a3b3f",
+    "mirror": true,
+    "round": 0.012
+   },
+   {
+    "step": "line",
+    "frame": "legs",
+    "pts": [
+     [
+      -0.3,
+      0.44
+     ],
+     [
+      0.3,
+      0.47
+     ]
+    ],
+    "style": "seam",
+    "width": 0.002
+   },
+   {
+    "step": "line",
+    "frame": "legs",
+    "pts": [
+     [
+      -0.3,
+      0.58
+     ],
+     [
+      0.3,
+      0.55
+     ]
+    ],
+    "style": "seam",
+    "width": 0.002
+   },
+   {
+    "step": "rect",
+    "frame": "legs",
+    "at": [
+     0.05,
+     0.5
+    ],
+    "size": [
+     0.07,
+     0.007
+    ],
+    "style": "zip",
+    "colour": "#8a8b8e"
+   },
+   {
+    "step": "distress",
+    "type": "crackle",
+    "amount": 0.3
+   },
+   {
+    "step": "distress",
+    "type": "folds",
+    "freq": 34,
+    "depth": 0.002,
+    "where": {
+     "zone": "legs",
+     "s": [
+      0.45,
+      1.1
+     ]
+    }
+   }
+  ]
+ }
+]

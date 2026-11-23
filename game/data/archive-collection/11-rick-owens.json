@@ -1,0 +1,3798 @@
+[
+ {
+  "n": 201,
+  "id": "ro-stooges-blistered-leather",
+  "designer": "Rick Owens",
+  "name": "Stooges Leather Jacket (Blistered Leather)",
+  "season": "FW2009",
+  "price": 1900,
+  "slot": "top",
+  "colour": "#2a2420",
+  "finish": {
+   "roughness": 0.55
+  },
+  "cut": {
+   "like": "biker",
+   "hem": "hip+0.085",
+   "neck": {
+    "v": 0.1,
+    "width": 0.07
+   },
+   "add": [
+    {
+     "type": "collar",
+     "style": "fold",
+     "height": 0.065,
+     "flare": 0.035,
+     "points": 1
+    },
+    {
+     "type": "cuff",
+     "length": 0.035,
+     "flare": 0
+    }
+   ]
+  },
+  "under": {
+   "colour": "#1b1b1d",
+   "cut": {
+    "like": "tank",
+    "overWaist": false,
+    "hem": "hip+0.06",
+    "armhole": 0.22,
+    "neck": {
+     "depth": 0.035,
+     "round": 0.075
+    },
+    "ease": {
+     "shoulder": 0.002,
+     "chest": 0.004,
+     "waist": 0.004,
+     "hip": 0.004
+    }
+   },
+   "paint": [
+    {
+     "step": "fabric",
+     "type": "jersey"
+    }
+   ]
+  },
+  "note": "The blistered lamb version: the hide is puckered and cracked all over.",
+  "paint": [
+   {
+    "step": "fabric",
+    "type": "leather"
+   },
+   {
+    "step": "pattern",
+    "type": "clouds",
+    "colours": [
+     "#3a302a",
+     "#1a1614"
+    ],
+    "freq": 26,
+    "amount": 0.6
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0.11,
+      "hem"
+     ],
+     [
+      0.105,
+      "waist+0.08"
+     ],
+     [
+      0.09,
+      "chest+0.05"
+     ]
+    ],
+    "style": "seam",
+    "width": 0.0025,
+    "mirror": true
+   },
+   {
+    "step": "line",
+    "frame": "back",
+    "pts": [
+     [
+      -0.2,
+      "chest+0.06"
+     ],
+     [
+      0.2,
+      "chest+0.06"
+     ]
+    ],
+    "style": "seam",
+    "width": 0.0025
+   },
+   {
+    "step": "line",
+    "frame": "back",
+    "pts": [
+     [
+      0.09,
+      "hem"
+     ],
+     [
+      0.085,
+      "chest+0.06"
+     ]
+    ],
+    "style": "seam",
+    "width": 0.0025,
+    "mirror": true
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0.04,
+      "chest+0.13"
+     ],
+     [
+      0.105,
+      "chest+0.075"
+     ],
+     [
+      0.05,
+      "chest+0.02"
+     ]
+    ],
+    "style": "seam",
+    "width": 0.0028
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      -0.04,
+      "chest+0.13"
+     ],
+     [
+      -0.095,
+      "chest+0.075"
+     ],
+     [
+      0,
+      "waist+0.1"
+     ]
+    ],
+    "style": "seam",
+    "width": 0.0028
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      -0.022,
+      "hem"
+     ],
+     [
+      -0.005,
+      "waist+0.06"
+     ],
+     [
+      0.05,
+      "chest+0.02"
+     ]
+    ],
+    "style": "zip",
+    "width": 0.006,
+    "colour": "#8a8b8e",
+    "colour2": "#1a1a1c"
+   },
+   {
+    "step": "rect",
+    "frame": "front",
+    "at": [
+     0.135,
+     "waist+0.045"
+    ],
+    "size": [
+     0.1,
+     0.01
+    ],
+    "style": "zip",
+    "rot": 78,
+    "colour": "#8a8b8e",
+    "mirror": true
+   },
+   {
+    "step": "rect",
+    "frame": "front",
+    "at": [
+     -0.09,
+     "chest-0.035"
+    ],
+    "size": [
+     0.095,
+     0.01
+    ],
+    "style": "zip",
+    "rot": -24,
+    "colour": "#8a8b8e"
+   },
+   {
+    "step": "rect",
+    "frame": "front",
+    "at": [
+     0.065,
+     "hem+0.06"
+    ],
+    "size": [
+     0.055,
+     0.045
+    ],
+    "style": "flap",
+    "flap": 1,
+    "snap": true,
+    "stitch": "#2c2c2f"
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0.1,
+      "shoulder-0.012"
+     ],
+     [
+      0.165,
+      "shoulder-0.03"
+     ]
+    ],
+    "style": "twin",
+    "gap": 0.02,
+    "width": 0.002,
+    "colour": "#3a3a3f",
+    "mirror": true
+   },
+   {
+    "step": "dots",
+    "frame": "front",
+    "pts": [
+     [
+      0.108,
+      "shoulder-0.013"
+     ]
+    ],
+    "r": 0.0055,
+    "style": "snap",
+    "colour": "#8a8b8e",
+    "mirror": true
+   },
+   {
+    "step": "dots",
+    "frame": "front",
+    "pts": [
+     [
+      0.092,
+      "chest+0.078"
+     ],
+     [
+      -0.082,
+      "chest+0.078"
+     ]
+    ],
+    "r": 0.0055,
+    "style": "snap",
+    "colour": "#8a8b8e"
+   },
+   {
+    "step": "line",
+    "frame": "sleeves",
+    "pts": [
+     [
+      -0.035,
+      0.8
+     ],
+     [
+      -0.035,
+      1.12
+     ]
+    ],
+    "style": "zip",
+    "width": 0.0045,
+    "colour": "#8a8b8e",
+    "colour2": "#1a1a1c"
+   },
+   {
+    "step": "distress",
+    "type": "crackle",
+    "amount": 0.6,
+    "colour": "#4a3f38"
+   },
+   {
+    "step": "distress",
+    "type": "crumple",
+    "amount": 0.2
+   },
+   {
+    "step": "distress",
+    "type": "edges",
+    "amount": 0.35,
+    "colour": "#5c5048"
+   }
+  ]
+ },
+ {
+  "n": 202,
+  "id": "ro-intarsia-high-collar-leather",
+  "designer": "Rick Owens",
+  "name": "Intarsia Leather Jacket (High Collar)",
+  "season": "FW2008",
+  "price": 1500,
+  "slot": "top",
+  "colour": "#1c1c1e",
+  "finish": {
+   "roughness": 0.42
+  },
+  "cut": {
+   "like": "biker",
+   "ease": {
+    "shoulder": 0.0072,
+    "chest": 0.0162,
+    "waist": 0.0198,
+    "hip": 0.0198,
+    "sleeve": 0.0086,
+    "cuff": 0.0067
+   },
+   "hem": "hip+0.07",
+   "add": [
+    {
+     "type": "collar",
+     "style": "funnel",
+     "height": 0.11,
+     "flare": 0.02,
+     "gap": 0.03,
+     "only": true
+    },
+    {
+     "type": "lip"
+    },
+    {
+     "type": "cuff",
+     "length": 0.04,
+     "flare": 0
+    }
+   ]
+  },
+  "under": {
+   "colour": "#1b1b1d",
+   "cut": {
+    "like": "tank",
+    "overWaist": false,
+    "hem": "hip+0.06",
+    "armhole": 0.22,
+    "neck": {
+     "depth": 0.035,
+     "round": 0.075
+    },
+    "ease": {
+     "shoulder": 0.002,
+     "chest": 0.004,
+     "waist": 0.004,
+     "hip": 0.004
+    }
+   },
+   "paint": [
+    {
+     "step": "fabric",
+     "type": "jersey"
+    }
+   ]
+  },
+  "paint": [
+   {
+    "step": "fabric",
+    "type": "leather"
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      -0.03,
+      "hem"
+     ],
+     [
+      0.0,
+      "waist+0.02"
+     ],
+     [
+      0.06,
+      "top"
+     ]
+    ],
+    "style": "zip",
+    "width": 0.006,
+    "colour": "#8a8b8e",
+    "colour2": "#1a1a1c"
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0.02,
+      "shoulder"
+     ],
+     [
+      0.12,
+      "chest"
+     ],
+     [
+      0.1,
+      "hem"
+     ]
+    ],
+    "style": "seam",
+    "width": 0.003,
+    "mirror": true
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0.06,
+      "chest+0.05"
+     ],
+     [
+      0.16,
+      "waist"
+     ]
+    ],
+    "style": "seam",
+    "width": 0.003,
+    "mirror": true
+   },
+   {
+    "step": "line",
+    "frame": "back",
+    "pts": [
+     [
+      0,
+      "top"
+     ],
+     [
+      0.1,
+      "chest"
+     ],
+     [
+      0.09,
+      "hem"
+     ]
+    ],
+    "style": "seam",
+    "width": 0.003,
+    "mirror": true
+   },
+   {
+    "step": "rib",
+    "where": {
+     "zone": "sleeves",
+     "s": [
+      0.7,
+      1.3
+     ]
+    },
+    "gauge": 0.008,
+    "depth": 0.0008
+   },
+   {
+    "step": "line",
+    "frame": "sleeves",
+    "pts": [
+     [
+      0,
+      0.0
+     ],
+     [
+      0.02,
+      0.7
+     ]
+    ],
+    "style": "seam",
+    "width": 0.003
+   },
+   {
+    "step": "distress",
+    "type": "crumple",
+    "amount": 0.15
+   }
+  ]
+ },
+ {
+  "n": 203,
+  "id": "ro-bauhaus-cargo-trousers",
+  "designer": "Rick Owens",
+  "name": "Bauhaus Cargo Trousers",
+  "season": "FW2018",
+  "price": 700,
+  "slot": "bottom",
+  "colour": "#19191b",
+  "finish": {
+   "roughness": 0.85
+  },
+  "cut": {
+   "like": "cargo",
+   "ease": {
+    "waist": 0.002,
+    "seat": 0.0225,
+    "thigh": 0.0315,
+    "knee": 0.0315,
+    "hem": 0.027
+   },
+   "rise": "waist-0.1",
+   "hem": "ankle+0.0",
+   "add": [
+    {
+     "type": "tail",
+     "from": {
+      "on": "front",
+      "x": 0.02,
+      "h": "top-0.02"
+     },
+     "length": 0.42,
+     "width": 0.012,
+     "out": 0.012
+    },
+    {
+     "type": "tail",
+     "from": {
+      "on": "front",
+      "x": -0.02,
+      "h": "top-0.02"
+     },
+     "length": 0.36,
+     "width": 0.012,
+     "out": 0.012
+    }
+   ]
+  },
+  "paint": [
+   {
+    "step": "fabric",
+    "type": "canvas"
+   },
+   {
+    "step": "rib",
+    "where": {
+     "zone": "legs",
+     "h": [
+      "top-0.045",
+      "top"
+     ]
+    },
+    "gauge": 0.004,
+    "depth": 0.0006
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      -0.4,
+      "top-0.045"
+     ],
+     [
+      0.4,
+      "top-0.045"
+     ]
+    ],
+    "style": "twin",
+    "colour": "#3c3c40",
+    "gap": 0.004,
+    "width": 0.0014
+   },
+   {
+    "step": "line",
+    "frame": "back",
+    "pts": [
+     [
+      -0.4,
+      "top-0.045"
+     ],
+     [
+      0.4,
+      "top-0.045"
+     ]
+    ],
+    "style": "twin",
+    "colour": "#3c3c40",
+    "gap": 0.004,
+    "width": 0.0014
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0,
+      "top-0.045"
+     ],
+     [
+      0.012,
+      "top-0.14"
+     ],
+     [
+      0,
+      "top-0.19"
+     ]
+    ],
+    "style": "twin",
+    "colour": "#3c3c40",
+    "gap": 0.004,
+    "width": 0.0014
+   },
+   {
+    "step": "line",
+    "frame": "legs",
+    "pts": [
+     [
+      0,
+      -0.3
+     ],
+     [
+      0,
+      1.05
+     ]
+    ],
+    "style": "seam"
+   },
+   {
+    "step": "rect",
+    "frame": "legs",
+    "at": [
+     -0.005,
+     0.44
+    ],
+    "size": [
+     0.13,
+     0.2
+    ],
+    "style": "flap",
+    "flap": 0.3,
+    "pleat": true,
+    "snap": true,
+    "stitch": "#3c3c40",
+    "raise": 0.003
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0.165,
+      "top-0.045"
+     ],
+     [
+      0.115,
+      "top-0.2"
+     ]
+    ],
+    "style": "groove",
+    "width": 0.002,
+    "mirror": true
+   },
+   {
+    "step": "rect",
+    "frame": "back",
+    "at": [
+     0.088,
+     "top-0.17"
+    ],
+    "size": [
+     0.12,
+     0.05
+    ],
+    "style": "flap",
+    "flap": 1,
+    "stitch": "#3c3c40",
+    "mirror": true
+   },
+   {
+    "step": "line",
+    "frame": "legs",
+    "pts": [
+     [
+      -0.3,
+      0.5
+     ],
+     [
+      0.3,
+      0.5
+     ]
+    ],
+    "style": "seam"
+   },
+   {
+    "step": "line",
+    "frame": "legs",
+    "pts": [
+     [
+      -0.3,
+      0.62
+     ],
+     [
+      0.3,
+      0.62
+     ]
+    ],
+    "style": "seam"
+   },
+   {
+    "step": "line",
+    "frame": "legs",
+    "pts": [
+     [
+      -0.3,
+      0.32
+     ],
+     [
+      0.3,
+      0.32
+     ]
+    ],
+    "style": "seam"
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0,
+      "top-0.05"
+     ],
+     [
+      0,
+      "top-0.19"
+     ]
+    ],
+    "style": "zip",
+    "width": 0.004,
+    "colour": "#8a8b8e",
+    "colour2": "#111113"
+   },
+   {
+    "step": "panel",
+    "colour": "#e3ddcc",
+    "where": {
+     "zone": "strap"
+    }
+   },
+   {
+    "step": "distress",
+    "type": "shade",
+    "amount": 0.3
+   }
+  ]
+ },
+ {
+  "n": 204,
+  "id": "ro-creatch-cargo-trousers",
+  "designer": "Rick Owens",
+  "name": "Creatch Cargo Trousers",
+  "season": "FW2012",
+  "price": 600,
+  "slot": "bottom",
+  "colour": "#1b1b1d",
+  "finish": {
+   "roughness": 0.85
+  },
+  "cut": {
+   "like": "dropcrotch",
+   "rise": "waist-0.1",
+   "hem": "ankle+0.03",
+   "dropCrotch": 0.13,
+   "taper": 0.3,
+   "add": [
+    {
+     "type": "tail",
+     "from": {
+      "on": "front",
+      "x": 0.02,
+      "h": "top-0.02"
+     },
+     "length": 0.42,
+     "width": 0.012,
+     "out": 0.012
+    },
+    {
+     "type": "tail",
+     "from": {
+      "on": "front",
+      "x": -0.02,
+      "h": "top-0.02"
+     },
+     "length": 0.36,
+     "width": 0.012,
+     "out": 0.012
+    }
+   ]
+  },
+  "paint": [
+   {
+    "step": "fabric",
+    "type": "canvas"
+   },
+   {
+    "step": "rib",
+    "where": {
+     "zone": "legs",
+     "h": [
+      "top-0.045",
+      "top"
+     ]
+    },
+    "gauge": 0.004,
+    "depth": 0.0006
+   },
+   {
+    "step": "line",
+    "frame": "legs",
+    "pts": [
+     [
+      0,
+      -0.3
+     ],
+     [
+      0,
+      1.05
+     ]
+    ],
+    "style": "seam"
+   },
+   {
+    "step": "rect",
+    "frame": "legs",
+    "at": [
+     -0.01,
+     0.46
+    ],
+    "size": [
+     0.16,
+     0.2
+    ],
+    "style": "flap",
+    "flap": 0.3,
+    "pleat": true,
+    "snap": true,
+    "stitch": "#3c3c40",
+    "raise": 0.004
+   },
+   {
+    "step": "line",
+    "frame": "legs",
+    "pts": [
+     [
+      -0.3,
+      0.7
+     ],
+     [
+      0.3,
+      0.7
+     ]
+    ],
+    "style": "seam"
+   },
+   {
+    "step": "panel",
+    "colour": "#2a2a2d",
+    "where": {
+     "zone": "strap"
+    }
+   },
+   {
+    "step": "distress",
+    "type": "folds",
+    "freq": 22,
+    "depth": 0.003,
+    "where": {
+     "zone": "legs",
+     "s": [
+      0.6,
+      1.1
+     ]
+    }
+   }
+  ]
+ },
+ {
+  "n": 205,
+  "id": "ro-astaires-trousers",
+  "designer": "Rick Owens",
+  "name": "Astaires Trousers",
+  "season": "SS2014",
+  "price": 450,
+  "slot": "bottom",
+  "colour": "#1b1b1d",
+  "finish": {
+   "roughness": 0.95
+  },
+  "cut": {
+   "like": "slim",
+   "ease": {
+    "waist": 0.002,
+    "seat": 0.0128,
+    "thigh": 0.0128,
+    "knee": 0.0128,
+    "hem": 0.0192
+   },
+   "rise": "waist-0.08",
+   "hem": "ankle+0.07",
+   "dropCrotch": 0.05,
+   "overBoot": false
+  },
+  "paint": [
+   {
+    "step": "fabric",
+    "type": "wool"
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      -0.4,
+      "top-0.04"
+     ],
+     [
+      0.4,
+      "top-0.04"
+     ]
+    ],
+    "style": "seam",
+    "colour": "#3a3a3e",
+    "width": 0.002
+   },
+   {
+    "step": "line",
+    "frame": "back",
+    "pts": [
+     [
+      -0.4,
+      "top-0.04"
+     ],
+     [
+      0.4,
+      "top-0.04"
+     ]
+    ],
+    "style": "seam",
+    "colour": "#3a3a3e",
+    "width": 0.002
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0,
+      "top-0.04"
+     ],
+     [
+      0.01,
+      "top-0.12"
+     ],
+     [
+      0,
+      "top-0.19"
+     ]
+    ],
+    "style": "stitch",
+    "colour": "#2f2f33",
+    "width": 0.0011
+   },
+   {
+    "step": "dots",
+    "frame": "front",
+    "pts": [
+     [
+      0,
+      "top-0.02"
+     ]
+    ],
+    "r": 0.007,
+    "style": "button",
+    "colour": "#2a2a2c"
+   },
+   {
+    "step": "line",
+    "frame": "legs",
+    "pts": [
+     [
+      0,
+      -0.3
+     ],
+     [
+      0,
+      1.05
+     ]
+    ],
+    "style": "seam"
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0.165,
+      "top-0.04"
+     ],
+     [
+      0.115,
+      "top-0.2"
+     ]
+    ],
+    "style": "groove",
+    "width": 0.002,
+    "mirror": true
+   },
+   {
+    "step": "rect",
+    "frame": "back",
+    "at": [
+     0.085,
+     "top-0.13"
+    ],
+    "size": [
+     0.11,
+     0.01
+    ],
+    "style": "welt",
+    "mirror": true
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0.085,
+      "top-0.2"
+     ],
+     [
+      0.085,
+      "hem"
+     ]
+    ],
+    "style": "groove",
+    "width": 0.0025,
+    "depth": 0.0012,
+    "mirror": true
+   },
+   {
+    "step": "line",
+    "frame": "back",
+    "pts": [
+     [
+      0.085,
+      "top-0.25"
+     ],
+     [
+      0.085,
+      "hem"
+     ]
+    ],
+    "style": "groove",
+    "width": 0.0025,
+    "depth": 0.0012,
+    "mirror": true
+   },
+   {
+    "step": "distress",
+    "type": "shade",
+    "amount": 0.3
+   }
+  ]
+ },
+ {
+  "n": 206,
+  "id": "ro-pod-shorts",
+  "designer": "Rick Owens",
+  "name": "Pod Shorts",
+  "season": "SS2010",
+  "price": 400,
+  "slot": "bottom",
+  "colour": "#1b1b1d",
+  "finish": {
+   "roughness": 0.88
+  },
+  "cut": {
+   "like": "shorts",
+   "ease": {
+    "waist": 0.002,
+    "seat": 0.0375,
+    "thigh": 0.06,
+    "knee": 0.0675,
+    "hem": 0.0675
+   },
+   "rise": "waist-0.1",
+   "hem": "knee-0.06",
+   "dropCrotch": 0.2,
+   "add": [
+    {
+     "type": "tail",
+     "from": {
+      "on": "front",
+      "x": 0.02,
+      "h": "top-0.02"
+     },
+     "length": 0.3,
+     "width": 0.012,
+     "out": 0.012
+    },
+    {
+     "type": "tail",
+     "from": {
+      "on": "front",
+      "x": -0.02,
+      "h": "top-0.02"
+     },
+     "length": 0.26,
+     "width": 0.012,
+     "out": 0.012
+    }
+   ]
+  },
+  "paint": [
+   {
+    "step": "fabric",
+    "type": "jersey"
+   },
+   {
+    "step": "rib",
+    "where": {
+     "zone": "legs",
+     "h": [
+      "top-0.045",
+      "top"
+     ]
+    },
+    "gauge": 0.004,
+    "depth": 0.0006
+   },
+   {
+    "step": "line",
+    "frame": "legs",
+    "pts": [
+     [
+      0,
+      -0.3
+     ],
+     [
+      0,
+      1.05
+     ]
+    ],
+    "style": "seam"
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      -0.4,
+      "hem+0.02"
+     ],
+     [
+      0.4,
+      "hem+0.02"
+     ]
+    ],
+    "style": "twin",
+    "colour": "#3a3a3e",
+    "width": 0.001
+   },
+   {
+    "step": "line",
+    "frame": "back",
+    "pts": [
+     [
+      -0.4,
+      "hem+0.02"
+     ],
+     [
+      0.4,
+      "hem+0.02"
+     ]
+    ],
+    "style": "twin",
+    "colour": "#3a3a3e",
+    "width": 0.001
+   },
+   {
+    "step": "panel",
+    "colour": "#2a2a2d",
+    "where": {
+     "zone": "strap"
+    }
+   },
+   {
+    "step": "distress",
+    "type": "folds",
+    "freq": 10,
+    "depth": 0.004
+   },
+   {
+    "step": "distress",
+    "type": "shade",
+    "amount": 0.4
+   }
+  ]
+ },
+ {
+  "n": 207,
+  "id": "ro-prisoner-drawstring-pants",
+  "designer": "Rick Owens",
+  "name": "Drop-Crotch Prisoner Pants",
+  "season": "SS2011",
+  "price": 450,
+  "slot": "bottom",
+  "colour": "#1b1b1d",
+  "finish": {
+   "roughness": 0.88
+  },
+  "cut": {
+   "like": "dropcrotch",
+   "rise": "waist-0.1",
+   "hem": "ankle+0.04",
+   "dropCrotch": 0.16,
+   "taper": 0.35,
+   "add": [
+    {
+     "type": "tail",
+     "from": {
+      "on": "front",
+      "x": 0.02,
+      "h": "top-0.02"
+     },
+     "length": 0.42,
+     "width": 0.012,
+     "out": 0.012
+    },
+    {
+     "type": "tail",
+     "from": {
+      "on": "front",
+      "x": -0.02,
+      "h": "top-0.02"
+     },
+     "length": 0.36,
+     "width": 0.012,
+     "out": 0.012
+    }
+   ]
+  },
+  "paint": [
+   {
+    "step": "fabric",
+    "type": "jersey"
+   },
+   {
+    "step": "rib",
+    "where": {
+     "zone": "legs",
+     "h": [
+      "top-0.045",
+      "top"
+     ]
+    },
+    "gauge": 0.004,
+    "depth": 0.0006
+   },
+   {
+    "step": "line",
+    "frame": "legs",
+    "pts": [
+     [
+      0,
+      -0.3
+     ],
+     [
+      0,
+      1.05
+     ]
+    ],
+    "style": "seam"
+   },
+   {
+    "step": "rib",
+    "where": {
+     "zone": "legs",
+     "h": [
+      "hem",
+      "hem+0.07"
+     ]
+    },
+    "gauge": 0.005,
+    "depth": 0.0006
+   },
+   {
+    "step": "panel",
+    "colour": "#e3ddcc",
+    "where": {
+     "zone": "strap"
+    }
+   },
+   {
+    "step": "distress",
+    "type": "folds",
+    "freq": 18,
+    "depth": 0.003
+   },
+   {
+    "step": "distress",
+    "type": "shade",
+    "amount": 0.4
+   }
+  ]
+ },
+ {
+  "n": 208,
+  "id": "ro-longline-tank-top",
+  "designer": "Rick Owens",
+  "name": "Longline Tank Top",
+  "season": "SS2009",
+  "price": 200,
+  "slot": "top",
+  "colour": "#e3ddcc",
+  "finish": {
+   "roughness": 0.88
+  },
+  "cut": {
+   "like": "tank",
+   "hem": "crotch-0.08",
+   "armhole": 0.2,
+   "hang": 0.5,
+   "neck": {
+    "depth": 0.11,
+    "round": 0.1
+   }
+  },
+  "paint": [
+   {
+    "step": "fabric",
+    "type": "jersey"
+   },
+   {
+    "step": "rib",
+    "where": {
+     "zone": "body"
+    },
+    "gauge": 0.0022,
+    "depth": 0.0003
+   },
+   {
+    "step": "line",
+    "frame": "back",
+    "pts": [
+     [
+      0,
+      "hem"
+     ],
+     [
+      0,
+      "top"
+     ]
+    ],
+    "style": "seam",
+    "width": 0.0016
+   },
+   {
+    "step": "distress",
+    "type": "folds",
+    "freq": 14,
+    "depth": 0.002
+   },
+   {
+    "step": "distress",
+    "type": "shade",
+    "amount": 0.5
+   }
+  ]
+ },
+ {
+  "n": 209,
+  "id": "ro-jumbo-peter-flight-jacket",
+  "designer": "Rick Owens",
+  "name": "Jumbo Peter Flight Jacket",
+  "season": "FW2021",
+  "price": 1800,
+  "slot": "top",
+  "colour": "#1b1b1d",
+  "finish": {
+   "roughness": 0.6
+  },
+  "cut": {
+   "like": "bomber",
+   "ease": {
+    "shoulder": 0.0204,
+    "chest": 0.0595,
+    "waist": 0.082,
+    "hip": 0.082,
+    "sleeve": 0.0289,
+    "cuff": 0.0237
+   },
+   "hem": "hip+0.06",
+   "shoulderDrop": 0.06,
+   "cinch": 0.26,
+   "rib": 0.07,
+   "cuffCinch": 0.3,
+   "relax": 5,
+   "add": [
+    {
+     "type": "collar",
+     "height": 0.05,
+     "flare": 0.01
+    }
+   ]
+  },
+  "note": "The flight jacket blown up to twice its size.",
+  "paint": [
+   {
+    "step": "fabric",
+    "type": "nylon"
+   },
+   {
+    "step": "rib",
+    "where": {
+     "zone": "body",
+     "h": [
+      "hem",
+      "hem+0.065"
+     ]
+    },
+    "gauge": 0.006,
+    "colour": "#141416"
+   },
+   {
+    "step": "rib",
+    "where": {
+     "zone": "sleeves",
+     "s": [
+      0.875,
+      1.3
+     ]
+    },
+    "gauge": 0.006,
+    "colour": "#141416"
+   },
+   {
+    "step": "rib",
+    "where": {
+     "zone": "collar"
+    },
+    "gauge": 0.006,
+    "colour": "#141416"
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0.022,
+      "hem+0.065"
+     ],
+     [
+      0.022,
+      "top"
+     ]
+    ],
+    "style": "seam",
+    "width": 0.0016
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0,
+      "hem"
+     ],
+     [
+      0,
+      "top"
+     ]
+    ],
+    "style": "zip",
+    "width": 0.0045,
+    "colour": "#8a8b8e",
+    "colour2": "#111113"
+   },
+   {
+    "step": "panel",
+    "colour": "#e3ddcc",
+    "where": {
+     "zone": "lining"
+    }
+   },
+   {
+    "step": "rect",
+    "frame": "front",
+    "at": [
+     0.115,
+     "waist-0.02"
+    ],
+    "size": [
+     0.15,
+     0.062
+    ],
+    "style": "flap",
+    "flap": 1,
+    "rot": 24,
+    "mirror": true,
+    "snap": true,
+    "stitch": "#2a2d22"
+   },
+   {
+    "step": "rect",
+    "frame": "sleeveL",
+    "at": [
+     0,
+     0.3
+    ],
+    "size": [
+     0.085,
+     0.14
+    ],
+    "style": "pocket",
+    "flap": 0,
+    "stitch": "#2a2d22"
+   },
+   {
+    "step": "rect",
+    "frame": "sleeveL",
+    "at": [
+     -0.018,
+     0.3
+    ],
+    "size": [
+     0.008,
+     0.12
+    ],
+    "style": "zip",
+    "rot": 90,
+    "colour": "#8a8b8e"
+   },
+   {
+    "step": "quilt",
+    "type": "h",
+    "size": 0.09,
+    "puff": 0.006,
+    "where": {
+     "zone": "body",
+     "h": [
+      "hem+0.07",
+      "top"
+     ]
+    }
+   },
+   {
+    "step": "distress",
+    "type": "crumple",
+    "amount": 0.18
+   }
+  ]
+ },
+ {
+  "n": 212,
+  "id": "ro-megalace-cargo-trousers",
+  "designer": "Rick Owens",
+  "name": "Megalace Cargo Trousers",
+  "season": "SS2020",
+  "price": 500,
+  "slot": "bottom",
+  "colour": "#8a8378",
+  "finish": {
+   "roughness": 0.85
+  },
+  "cut": {
+   "like": "dropcrotch",
+   "rise": "waist-0.1",
+   "hem": "ankle+0.03",
+   "dropCrotch": 0.1,
+   "taper": 0.3,
+   "add": [
+    {
+     "type": "tail",
+     "from": {
+      "on": "front",
+      "x": 0.02,
+      "h": "top-0.02"
+     },
+     "length": 0.42,
+     "width": 0.012,
+     "out": 0.012
+    },
+    {
+     "type": "tail",
+     "from": {
+      "on": "front",
+      "x": -0.02,
+      "h": "top-0.02"
+     },
+     "length": 0.36,
+     "width": 0.012,
+     "out": 0.012
+    }
+   ]
+  },
+  "note": "The dust-coloured pair with black megalaces; the black Tecuatl pair is earlier in the list.",
+  "paint": [
+   {
+    "step": "fabric",
+    "type": "canvas"
+   },
+   {
+    "step": "rib",
+    "where": {
+     "zone": "legs",
+     "h": [
+      "top-0.045",
+      "top"
+     ]
+    },
+    "gauge": 0.004,
+    "depth": 0.0006
+   },
+   {
+    "step": "line",
+    "frame": "legs",
+    "pts": [
+     [
+      0,
+      -0.3
+     ],
+     [
+      0,
+      1.05
+     ]
+    ],
+    "style": "seam"
+   },
+   {
+    "step": "rect",
+    "frame": "legs",
+    "at": [
+     -0.01,
+     0.4
+    ],
+    "size": [
+     0.15,
+     0.17
+    ],
+    "style": "flap",
+    "flap": 0.3,
+    "pleat": true,
+    "snap": false,
+    "stitch": "#6a645a",
+    "raise": 0.003
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0.035,
+      0.786
+     ],
+     [
+      0.11,
+      0.718
+     ],
+     [
+      0.185,
+      0.776
+     ]
+    ],
+    "style": "tape",
+    "width": 0.011,
+    "colour": "#1b1b1d",
+    "colour2": "#0f0f10",
+    "raise": 0.0018
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0.035,
+      0.649
+     ],
+     [
+      0.11,
+      0.711
+     ],
+     [
+      0.185,
+      0.658
+     ]
+    ],
+    "style": "tape",
+    "width": 0.011,
+    "colour": "#1b1b1d",
+    "colour2": "#0f0f10",
+    "raise": 0.0018
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0.035,
+      0.603
+     ],
+     [
+      0.11,
+      0.651
+     ],
+     [
+      0.185,
+      0.61
+     ]
+    ],
+    "style": "tape",
+    "width": 0.011,
+    "colour": "#1b1b1d",
+    "colour2": "#0f0f10",
+    "raise": 0.0018
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0.035,
+      0.606
+     ],
+     [
+      0.11,
+      0.56
+     ],
+     [
+      0.185,
+      0.599
+     ]
+    ],
+    "style": "tape",
+    "width": 0.011,
+    "colour": "#1b1b1d",
+    "colour2": "#0f0f10",
+    "raise": 0.0018
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0.035,
+      0.546
+     ],
+     [
+      0.11,
+      0.543
+     ],
+     [
+      0.185,
+      0.545
+     ]
+    ],
+    "style": "tape",
+    "width": 0.011,
+    "colour": "#1b1b1d",
+    "colour2": "#0f0f10",
+    "raise": 0.0018
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0.035,
+      0.447
+     ],
+     [
+      0.11,
+      0.498
+     ],
+     [
+      0.185,
+      0.454
+     ]
+    ],
+    "style": "tape",
+    "width": 0.011,
+    "colour": "#1b1b1d",
+    "colour2": "#0f0f10",
+    "raise": 0.0018
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0.035,
+      0.397
+     ],
+     [
+      0.11,
+      0.427
+     ],
+     [
+      0.185,
+      0.401
+     ]
+    ],
+    "style": "tape",
+    "width": 0.011,
+    "colour": "#1b1b1d",
+    "colour2": "#0f0f10",
+    "raise": 0.0018
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0.035,
+      0.393
+     ],
+     [
+      0.11,
+      0.355
+     ],
+     [
+      0.185,
+      0.388
+     ]
+    ],
+    "style": "tape",
+    "width": 0.011,
+    "colour": "#1b1b1d",
+    "colour2": "#0f0f10",
+    "raise": 0.0018
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0.035,
+      0.313
+     ],
+     [
+      0.11,
+      0.317
+     ],
+     [
+      0.185,
+      0.313
+     ]
+    ],
+    "style": "tape",
+    "width": 0.011,
+    "colour": "#1b1b1d",
+    "colour2": "#0f0f10",
+    "raise": 0.0018
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0.035,
+      0.231
+     ],
+     [
+      0.11,
+      0.273
+     ],
+     [
+      0.185,
+      0.237
+     ]
+    ],
+    "style": "tape",
+    "width": 0.011,
+    "colour": "#1b1b1d",
+    "colour2": "#0f0f10",
+    "raise": 0.0018
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0.035,
+      0.217
+     ],
+     [
+      0.11,
+      0.216
+     ],
+     [
+      0.185,
+      0.217
+     ]
+    ],
+    "style": "tape",
+    "width": 0.011,
+    "colour": "#1b1b1d",
+    "colour2": "#0f0f10",
+    "raise": 0.0018
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      -0.035,
+      0.74
+     ],
+     [
+      -0.11,
+      0.733
+     ],
+     [
+      -0.185,
+      0.739
+     ]
+    ],
+    "style": "tape",
+    "width": 0.011,
+    "colour": "#1b1b1d",
+    "colour2": "#0f0f10",
+    "raise": 0.0018
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      -0.035,
+      0.657
+     ],
+     [
+      -0.11,
+      0.704
+     ],
+     [
+      -0.185,
+      0.663
+     ]
+    ],
+    "style": "tape",
+    "width": 0.011,
+    "colour": "#1b1b1d",
+    "colour2": "#0f0f10",
+    "raise": 0.0018
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      -0.035,
+      0.597
+     ],
+     [
+      -0.11,
+      0.653
+     ],
+     [
+      -0.185,
+      0.605
+     ]
+    ],
+    "style": "tape",
+    "width": 0.011,
+    "colour": "#1b1b1d",
+    "colour2": "#0f0f10",
+    "raise": 0.0018
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      -0.035,
+      0.619
+     ],
+     [
+      -0.11,
+      0.575
+     ],
+     [
+      -0.185,
+      0.613
+     ]
+    ],
+    "style": "tape",
+    "width": 0.011,
+    "colour": "#1b1b1d",
+    "colour2": "#0f0f10",
+    "raise": 0.0018
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      -0.035,
+      0.58
+     ],
+     [
+      -0.11,
+      0.527
+     ],
+     [
+      -0.185,
+      0.573
+     ]
+    ],
+    "style": "tape",
+    "width": 0.011,
+    "colour": "#1b1b1d",
+    "colour2": "#0f0f10",
+    "raise": 0.0018
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      -0.035,
+      0.527
+     ],
+     [
+      -0.11,
+      0.464
+     ],
+     [
+      -0.185,
+      0.518
+     ]
+    ],
+    "style": "tape",
+    "width": 0.011,
+    "colour": "#1b1b1d",
+    "colour2": "#0f0f10",
+    "raise": 0.0018
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      -0.035,
+      0.449
+     ],
+     [
+      -0.11,
+      0.426
+     ],
+     [
+      -0.185,
+      0.446
+     ]
+    ],
+    "style": "tape",
+    "width": 0.011,
+    "colour": "#1b1b1d",
+    "colour2": "#0f0f10",
+    "raise": 0.0018
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      -0.035,
+      0.32
+     ],
+     [
+      -0.11,
+      0.384
+     ],
+     [
+      -0.185,
+      0.329
+     ]
+    ],
+    "style": "tape",
+    "width": 0.011,
+    "colour": "#1b1b1d",
+    "colour2": "#0f0f10",
+    "raise": 0.0018
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      -0.035,
+      0.358
+     ],
+     [
+      -0.11,
+      0.302
+     ],
+     [
+      -0.185,
+      0.35
+     ]
+    ],
+    "style": "tape",
+    "width": 0.011,
+    "colour": "#1b1b1d",
+    "colour2": "#0f0f10",
+    "raise": 0.0018
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      -0.035,
+      0.314
+     ],
+     [
+      -0.11,
+      0.269
+     ],
+     [
+      -0.185,
+      0.307
+     ]
+    ],
+    "style": "tape",
+    "width": 0.011,
+    "colour": "#1b1b1d",
+    "colour2": "#0f0f10",
+    "raise": 0.0018
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      -0.035,
+      0.189
+     ],
+     [
+      -0.11,
+      0.232
+     ],
+     [
+      -0.185,
+      0.195
+     ]
+    ],
+    "style": "tape",
+    "width": 0.011,
+    "colour": "#1b1b1d",
+    "colour2": "#0f0f10",
+    "raise": 0.0018
+   },
+   {
+    "step": "panel",
+    "colour": "#1b1b1d",
+    "where": {
+     "zone": "strap"
+    }
+   }
+  ]
+ },
+ {
+  "n": 213,
+  "id": "ro-geth-jeans",
+  "designer": "Rick Owens",
+  "name": "Geth Jeans",
+  "season": "FW2021",
+  "price": 500,
+  "slot": "bottom",
+  "colour": "#2a2a2e",
+  "finish": {
+   "roughness": 0.85
+  },
+  "cut": {
+   "like": "slim",
+   "ease": {
+    "waist": 0.002,
+    "seat": 0.0096,
+    "thigh": 0.0096,
+    "knee": 0.0096,
+    "hem": 0.0144
+   },
+   "rise": "waist-0.08",
+   "hem": "ankle-0.04",
+   "flare": 0.25
+  },
+  "note": "Seamed at the knee and flared over the boot.",
+  "paint": [
+   {
+    "step": "fabric",
+    "type": "denim",
+    "colour2": "#55565c"
+   },
+   {
+    "step": "line",
+    "frame": "legs",
+    "pts": [
+     [
+      0,
+      -0.3
+     ],
+     [
+      0,
+      1.05
+     ]
+    ],
+    "style": "twin",
+    "colour": "#3a3a40",
+    "width": 0.0011,
+    "gap": 0.006
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      -0.4,
+      "top-0.04"
+     ],
+     [
+      0.4,
+      "top-0.04"
+     ]
+    ],
+    "style": "twin",
+    "colour": "#3a3a40",
+    "width": 0.0011,
+    "gap": 0.034
+   },
+   {
+    "step": "line",
+    "frame": "back",
+    "pts": [
+     [
+      -0.4,
+      "top-0.04"
+     ],
+     [
+      0.4,
+      "top-0.04"
+     ]
+    ],
+    "style": "twin",
+    "colour": "#3a3a40",
+    "width": 0.0011,
+    "gap": 0.034
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0.0,
+      "top-0.04"
+     ],
+     [
+      0.004,
+      "top-0.1"
+     ],
+     [
+      0.03,
+      "top-0.17"
+     ],
+     [
+      0.0,
+      "top-0.19"
+     ]
+    ],
+    "style": "twin",
+    "colour": "#3a3a40",
+    "width": 0.0011
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0.06,
+      "top-0.045"
+     ],
+     [
+      0.09,
+      "top-0.11"
+     ],
+     [
+      0.17,
+      "top-0.12"
+     ]
+    ],
+    "style": "twin",
+    "colour": "#3a3a40",
+    "width": 0.0011,
+    "mirror": true
+   },
+   {
+    "step": "dots",
+    "frame": "front",
+    "pts": [
+     [
+      0,
+      "top-0.02"
+     ]
+    ],
+    "r": 0.008,
+    "style": "stud",
+    "colour": "#77736a"
+   },
+   {
+    "step": "dots",
+    "frame": "front",
+    "pts": [
+     [
+      0.062,
+      "top-0.05"
+     ],
+     [
+      0.168,
+      "top-0.118"
+     ]
+    ],
+    "r": 0.0035,
+    "style": "stud",
+    "colour": "#8a7a5a",
+    "mirror": true
+   },
+   {
+    "step": "line",
+    "frame": "back",
+    "pts": [
+     [
+      -0.3,
+      "top-0.075"
+     ],
+     [
+      0,
+      "top-0.115"
+     ],
+     [
+      0.3,
+      "top-0.075"
+     ]
+    ],
+    "style": "twin",
+    "colour": "#3a3a40",
+    "width": 0.0011
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      -0.4,
+      "hem+0.014"
+     ],
+     [
+      0.4,
+      "hem+0.014"
+     ]
+    ],
+    "style": "stitch",
+    "colour": "#3a3a40",
+    "width": 0.0011
+   },
+   {
+    "step": "line",
+    "frame": "back",
+    "pts": [
+     [
+      -0.4,
+      "hem+0.014"
+     ],
+     [
+      0.4,
+      "hem+0.014"
+     ]
+    ],
+    "style": "stitch",
+    "colour": "#3a3a40",
+    "width": 0.0011
+   },
+   {
+    "step": "line",
+    "frame": "legs",
+    "pts": [
+     [
+      -0.3,
+      0.45
+     ],
+     [
+      0.3,
+      0.5
+     ]
+    ],
+    "style": "twin",
+    "colour": "#55565c",
+    "gap": 0.006
+   },
+   {
+    "step": "line",
+    "frame": "legs",
+    "pts": [
+     [
+      -0.3,
+      0.52
+     ],
+     [
+      0.3,
+      0.57
+     ]
+    ],
+    "style": "twin",
+    "colour": "#55565c",
+    "gap": 0.006
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0.06,
+      "top-0.05"
+     ],
+     [
+      0.1,
+      "knee+0.06"
+     ]
+    ],
+    "style": "seam",
+    "mirror": true
+   },
+   {
+    "step": "distress",
+    "type": "wash",
+    "amount": 0.2
+   },
+   {
+    "step": "distress",
+    "type": "fade",
+    "amount": 0.4,
+    "frame": "front",
+    "at": [
+     0.09,
+     "thigh+0.02"
+    ],
+    "size": [
+     0.12,
+     0.3
+    ],
+    "mirror": true
+   }
+  ]
+ },
+ {
+  "n": 214,
+  "id": "ro-bolan-banana-cut-jeans",
+  "designer": "Rick Owens",
+  "name": "Bolan Banana Cut Jeans",
+  "season": "SS2019",
+  "price": 450,
+  "slot": "bottom",
+  "colour": "#1c1c1f",
+  "finish": {
+   "roughness": 0.85
+  },
+  "cut": {
+   "like": "slim",
+   "ease": {
+    "waist": 0.002,
+    "seat": 0.0088,
+    "thigh": 0.0088,
+    "knee": 0.0088,
+    "hem": 0.0132
+   },
+   "rise": "waist-0.07",
+   "hem": "ankle-0.05",
+   "flare": 0.35
+  },
+  "note": "A curved seam runs round each leg like the cut of a banana.",
+  "paint": [
+   {
+    "step": "fabric",
+    "type": "denim",
+    "colour2": "#3a3a40"
+   },
+   {
+    "step": "line",
+    "frame": "legs",
+    "pts": [
+     [
+      0,
+      -0.3
+     ],
+     [
+      0,
+      1.05
+     ]
+    ],
+    "style": "twin",
+    "colour": "#3a3a40",
+    "width": 0.0011,
+    "gap": 0.006
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      -0.4,
+      "top-0.04"
+     ],
+     [
+      0.4,
+      "top-0.04"
+     ]
+    ],
+    "style": "twin",
+    "colour": "#3a3a40",
+    "width": 0.0011,
+    "gap": 0.034
+   },
+   {
+    "step": "line",
+    "frame": "back",
+    "pts": [
+     [
+      -0.4,
+      "top-0.04"
+     ],
+     [
+      0.4,
+      "top-0.04"
+     ]
+    ],
+    "style": "twin",
+    "colour": "#3a3a40",
+    "width": 0.0011,
+    "gap": 0.034
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0.0,
+      "top-0.04"
+     ],
+     [
+      0.004,
+      "top-0.1"
+     ],
+     [
+      0.03,
+      "top-0.17"
+     ],
+     [
+      0.0,
+      "top-0.19"
+     ]
+    ],
+    "style": "twin",
+    "colour": "#3a3a40",
+    "width": 0.0011
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0.06,
+      "top-0.045"
+     ],
+     [
+      0.09,
+      "top-0.11"
+     ],
+     [
+      0.17,
+      "top-0.12"
+     ]
+    ],
+    "style": "twin",
+    "colour": "#3a3a40",
+    "width": 0.0011,
+    "mirror": true
+   },
+   {
+    "step": "dots",
+    "frame": "front",
+    "pts": [
+     [
+      0,
+      "top-0.02"
+     ]
+    ],
+    "r": 0.008,
+    "style": "stud",
+    "colour": "#77736a"
+   },
+   {
+    "step": "dots",
+    "frame": "front",
+    "pts": [
+     [
+      0.062,
+      "top-0.05"
+     ],
+     [
+      0.168,
+      "top-0.118"
+     ]
+    ],
+    "r": 0.0035,
+    "style": "stud",
+    "colour": "#8a7a5a",
+    "mirror": true
+   },
+   {
+    "step": "line",
+    "frame": "back",
+    "pts": [
+     [
+      -0.3,
+      "top-0.075"
+     ],
+     [
+      0,
+      "top-0.115"
+     ],
+     [
+      0.3,
+      "top-0.075"
+     ]
+    ],
+    "style": "twin",
+    "colour": "#3a3a40",
+    "width": 0.0011
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      -0.4,
+      "hem+0.014"
+     ],
+     [
+      0.4,
+      "hem+0.014"
+     ]
+    ],
+    "style": "stitch",
+    "colour": "#3a3a40",
+    "width": 0.0011
+   },
+   {
+    "step": "line",
+    "frame": "back",
+    "pts": [
+     [
+      -0.4,
+      "hem+0.014"
+     ],
+     [
+      0.4,
+      "hem+0.014"
+     ]
+    ],
+    "style": "stitch",
+    "colour": "#3a3a40",
+    "width": 0.0011
+   },
+   {
+    "step": "rect",
+    "frame": "back",
+    "at": [
+     0.088,
+     "top-0.2"
+    ],
+    "size": [
+     0.125,
+     0.135
+    ],
+    "style": "pocket",
+    "stitch": "#3a3a40",
+    "mirror": true,
+    "round": 0.012
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0.1,
+      "top-0.05"
+     ],
+     [
+      0.03,
+      "knee"
+     ],
+     [
+      0.1,
+      "hem"
+     ]
+    ],
+    "style": "seam",
+    "mirror": true
+   },
+   {
+    "step": "distress",
+    "type": "folds",
+    "freq": 30,
+    "depth": 0.002,
+    "where": {
+     "zone": "legs",
+     "s": [
+      0.75,
+      1.1
+     ]
+    }
+   }
+  ]
+ },
+ {
+  "n": 215,
+  "id": "ro-fogachine-leather-coat",
+  "designer": "Rick Owens",
+  "name": "Fogachine Leather Outerwear",
+  "season": "SS2022",
+  "price": 3600,
+  "slot": "top",
+  "colour": "#1c1c1e",
+  "finish": {
+   "roughness": 0.42
+  },
+  "cut": {
+   "like": "coat",
+   "ease": {
+    "shoulder": 0.0072,
+    "chest": 0.0225,
+    "waist": 0.0315,
+    "hip": 0.0315,
+    "sleeve": 0.0134,
+    "cuff": 0.0134
+   },
+   "hem": "calf+0.12",
+   "waist": 0.05,
+   "shoulderDrop": -0.0,
+   "flare": 0.05,
+   "neck": {
+    "v": 0.2,
+    "width": 0.07,
+    "depth": 0.03
+   },
+   "bumps": [
+    [
+     0.2,
+     "shoulder+0.0",
+     0,
+     0.07,
+     0.05
+    ],
+    [
+     -0.2,
+     "shoulder+0.0",
+     0,
+     0.07,
+     0.05
+    ]
+   ],
+   "add": [
+    {
+     "type": "collar",
+     "style": "fold",
+     "height": 0.07,
+     "gap": 0.03,
+     "points": 0.9
+    }
+   ]
+  },
+  "under": {
+   "colour": "#1b1b1d",
+   "cut": {
+    "like": "tank",
+    "overWaist": false,
+    "hem": "hip+0.06",
+    "armhole": 0.22,
+    "neck": {
+     "depth": 0.035,
+     "round": 0.075
+    },
+    "ease": {
+     "shoulder": 0.002,
+     "chest": 0.004,
+     "waist": 0.004,
+     "hip": 0.004
+    }
+   },
+   "paint": [
+    {
+     "step": "fabric",
+     "type": "jersey"
+    }
+   ]
+  },
+  "note": "The pointed shoulders are swellings in the cut.",
+  "paint": [
+   {
+    "step": "fabric",
+    "type": "leather"
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0.012,
+      "neck-0.235"
+     ],
+     [
+      0.085,
+      "chest+0.085"
+     ],
+     [
+      0.07,
+      "shoulder+0.005"
+     ]
+    ],
+    "style": "groove",
+    "width": 0.002,
+    "mirror": true
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0.085,
+      "chest+0.085"
+     ],
+     [
+      0.062,
+      "chest+0.105"
+     ]
+    ],
+    "style": "groove",
+    "width": 0.002,
+    "mirror": true
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0.014,
+      "neck-0.2"
+     ],
+     [
+      0.014,
+      "hem"
+     ]
+    ],
+    "style": "zip",
+    "width": 0.005,
+    "colour": "#8a8b8e",
+    "colour2": "#1a1a1c"
+   },
+   {
+    "step": "rect",
+    "frame": "front",
+    "at": [
+     0.13,
+     "hip-0.02"
+    ],
+    "size": [
+     0.13,
+     0.009
+    ],
+    "style": "zip",
+    "rot": 75,
+    "colour": "#8a8b8e",
+    "mirror": true
+   },
+   {
+    "step": "line",
+    "frame": "back",
+    "pts": [
+     [
+      0,
+      "top"
+     ],
+     [
+      0,
+      "hem"
+     ]
+    ],
+    "style": "seam",
+    "width": 0.003
+   },
+   {
+    "step": "distress",
+    "type": "folds",
+    "freq": 10,
+    "depth": 0.004,
+    "where": {
+     "zone": "body",
+     "h": [
+      "hem",
+      "waist"
+     ]
+    }
+   },
+   {
+    "step": "distress",
+    "type": "crumple",
+    "amount": 0.12
+   }
+  ]
+ },
+ {
+  "n": 216,
+  "id": "ro-mountain-hoodie",
+  "designer": "Rick Owens",
+  "name": "Mountain Hoodie",
+  "season": "FW2012",
+  "price": 600,
+  "slot": "top",
+  "colour": "#1b1b1d",
+  "finish": {
+   "roughness": 0.88
+  },
+  "cut": {
+   "like": "hoodie",
+   "ease": {
+    "shoulder": 0.009,
+    "chest": 0.0315,
+    "waist": 0.0495,
+    "hip": 0.0495,
+    "sleeve": 0.0172,
+    "cuff": 0.0134
+   },
+   "hem": "crotch-0.04",
+   "hang": 0.7,
+   "cinch": 0,
+   "rib": 0,
+   "neck": {
+    "depth": 0.07
+   },
+   "add": [
+    {
+     "type": "hood",
+     "size": 1.25,
+     "drop": 0.28
+    }
+   ]
+  },
+  "note": "Long, with the zip running off to one shoulder.",
+  "paint": [
+   {
+    "step": "fabric",
+    "type": "jersey"
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      -0.06,
+      "hem"
+     ],
+     [
+      -0.02,
+      "waist"
+     ],
+     [
+      0.07,
+      "top"
+     ]
+    ],
+    "style": "zip",
+    "width": 0.005,
+    "colour": "#8a8b8e",
+    "colour2": "#1a1a1c"
+   },
+   {
+    "step": "rect",
+    "frame": "front",
+    "at": [
+     0.11,
+     "hip+0.06"
+    ],
+    "size": [
+     0.1,
+     0.012
+    ],
+    "style": "welt",
+    "rot": 60,
+    "mirror": true
+   },
+   {
+    "step": "rib",
+    "where": {
+     "zone": "sleeves",
+     "s": [
+      0.86,
+      1.3
+     ]
+    },
+    "gauge": 0.005
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      -0.4,
+      "hem+0.02"
+     ],
+     [
+      0.4,
+      "hem+0.02"
+     ]
+    ],
+    "style": "twin",
+    "colour": "#3a3a3e",
+    "width": 0.001
+   },
+   {
+    "step": "line",
+    "frame": "back",
+    "pts": [
+     [
+      -0.4,
+      "hem+0.02"
+     ],
+     [
+      0.4,
+      "hem+0.02"
+     ]
+    ],
+    "style": "twin",
+    "colour": "#3a3a3e",
+    "width": 0.001
+   },
+   {
+    "step": "distress",
+    "type": "folds",
+    "freq": 14,
+    "depth": 0.003
+   },
+   {
+    "step": "distress",
+    "type": "shade",
+    "amount": 0.4
+   }
+  ]
+ },
+ {
+  "n": 217,
+  "id": "ro-funnel-neck-leather-jacket",
+  "designer": "Rick Owens",
+  "name": "Funnel-Neck Leather Jacket",
+  "season": "FW2010",
+  "price": 1600,
+  "slot": "top",
+  "colour": "#1c1c1e",
+  "finish": {
+   "roughness": 0.42
+  },
+  "cut": {
+   "like": "biker",
+   "ease": {
+    "shoulder": 0.0072,
+    "chest": 0.0162,
+    "waist": 0.0198,
+    "hip": 0.0198,
+    "sleeve": 0.0086,
+    "cuff": 0.0067
+   },
+   "hem": "hip+0.08",
+   "add": [
+    {
+     "type": "collar",
+     "style": "funnel",
+     "height": 0.1,
+     "flare": 0.015,
+     "gap": 0.02,
+     "only": true
+    },
+    {
+     "type": "lip"
+    },
+    {
+     "type": "cuff",
+     "length": 0.04,
+     "flare": 0
+    }
+   ]
+  },
+  "paint": [
+   {
+    "step": "fabric",
+    "type": "leather"
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0,
+      "hem"
+     ],
+     [
+      0,
+      "top"
+     ]
+    ],
+    "style": "zip",
+    "width": 0.006,
+    "colour": "#8a8b8e",
+    "colour2": "#111113"
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0.1,
+      "hem"
+     ],
+     [
+      0.085,
+      "chest+0.08"
+     ]
+    ],
+    "style": "seam",
+    "width": 0.0025,
+    "mirror": true
+   },
+   {
+    "step": "line",
+    "frame": "back",
+    "pts": [
+     [
+      0.085,
+      "hem"
+     ],
+     [
+      0.07,
+      "chest+0.06"
+     ]
+    ],
+    "style": "seam",
+    "width": 0.0025,
+    "mirror": true
+   },
+   {
+    "step": "rect",
+    "frame": "front",
+    "at": [
+     0.125,
+     "waist+0.02"
+    ],
+    "size": [
+     0.1,
+     0.009
+    ],
+    "style": "zip",
+    "rot": 78,
+    "colour": "#8a8b8e",
+    "mirror": true
+   },
+   {
+    "step": "rib",
+    "where": {
+     "zone": "body",
+     "h": [
+      "hem",
+      "hem+0.05"
+     ]
+    },
+    "gauge": 0.006,
+    "colour": "#141416"
+   },
+   {
+    "step": "rib",
+    "where": {
+     "zone": "sleeves",
+     "s": [
+      0.86,
+      1.3
+     ]
+    },
+    "gauge": 0.006,
+    "colour": "#141416"
+   },
+   {
+    "step": "distress",
+    "type": "crumple",
+    "amount": 0.15
+   }
+  ]
+ },
+ {
+  "n": 218,
+  "id": "ro-drkshdw-detroit-cut-denim",
+  "designer": "Rick Owens DRKSHDW",
+  "name": "DRKSHDW Detroit Cut Denim",
+  "season": "SS2010",
+  "price": 280,
+  "slot": "bottom",
+  "colour": "#3a3a3f",
+  "finish": {
+   "roughness": 0.85
+  },
+  "cut": {
+   "like": "slim",
+   "rise": "waist-0.1",
+   "hem": "ankle-0.04"
+  },
+  "note": "The washed grey-black pair, stacked at the ankle; the waxed pair is earlier in the list.",
+  "paint": [
+   {
+    "step": "fabric",
+    "type": "denim",
+    "colour2": "#77787e"
+   },
+   {
+    "step": "line",
+    "frame": "legs",
+    "pts": [
+     [
+      0,
+      -0.3
+     ],
+     [
+      0,
+      1.05
+     ]
+    ],
+    "style": "twin",
+    "colour": "#55565c",
+    "width": 0.0011,
+    "gap": 0.006
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      -0.4,
+      "top-0.04"
+     ],
+     [
+      0.4,
+      "top-0.04"
+     ]
+    ],
+    "style": "twin",
+    "colour": "#55565c",
+    "width": 0.0011,
+    "gap": 0.034
+   },
+   {
+    "step": "line",
+    "frame": "back",
+    "pts": [
+     [
+      -0.4,
+      "top-0.04"
+     ],
+     [
+      0.4,
+      "top-0.04"
+     ]
+    ],
+    "style": "twin",
+    "colour": "#55565c",
+    "width": 0.0011,
+    "gap": 0.034
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0.0,
+      "top-0.04"
+     ],
+     [
+      0.004,
+      "top-0.1"
+     ],
+     [
+      0.03,
+      "top-0.17"
+     ],
+     [
+      0.0,
+      "top-0.19"
+     ]
+    ],
+    "style": "twin",
+    "colour": "#55565c",
+    "width": 0.0011
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0.06,
+      "top-0.045"
+     ],
+     [
+      0.09,
+      "top-0.11"
+     ],
+     [
+      0.17,
+      "top-0.12"
+     ]
+    ],
+    "style": "twin",
+    "colour": "#55565c",
+    "width": 0.0011,
+    "mirror": true
+   },
+   {
+    "step": "dots",
+    "frame": "front",
+    "pts": [
+     [
+      0,
+      "top-0.02"
+     ]
+    ],
+    "r": 0.008,
+    "style": "stud",
+    "colour": "#77736a"
+   },
+   {
+    "step": "dots",
+    "frame": "front",
+    "pts": [
+     [
+      0.062,
+      "top-0.05"
+     ],
+     [
+      0.168,
+      "top-0.118"
+     ]
+    ],
+    "r": 0.0035,
+    "style": "stud",
+    "colour": "#8a7a5a",
+    "mirror": true
+   },
+   {
+    "step": "line",
+    "frame": "back",
+    "pts": [
+     [
+      -0.3,
+      "top-0.075"
+     ],
+     [
+      0,
+      "top-0.115"
+     ],
+     [
+      0.3,
+      "top-0.075"
+     ]
+    ],
+    "style": "twin",
+    "colour": "#55565c",
+    "width": 0.0011
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      -0.4,
+      "hem+0.014"
+     ],
+     [
+      0.4,
+      "hem+0.014"
+     ]
+    ],
+    "style": "stitch",
+    "colour": "#55565c",
+    "width": 0.0011
+   },
+   {
+    "step": "line",
+    "frame": "back",
+    "pts": [
+     [
+      -0.4,
+      "hem+0.014"
+     ],
+     [
+      0.4,
+      "hem+0.014"
+     ]
+    ],
+    "style": "stitch",
+    "colour": "#55565c",
+    "width": 0.0011
+   },
+   {
+    "step": "rect",
+    "frame": "back",
+    "at": [
+     0.088,
+     "top-0.2"
+    ],
+    "size": [
+     0.125,
+     0.135
+    ],
+    "style": "pocket",
+    "stitch": "#55565c",
+    "mirror": true,
+    "round": 0.012
+   },
+   {
+    "step": "distress",
+    "type": "wash",
+    "amount": 0.3
+   },
+   {
+    "step": "distress",
+    "type": "fade",
+    "amount": 0.55,
+    "frame": "front",
+    "at": [
+     0.09,
+     "thigh+0.02"
+    ],
+    "size": [
+     0.12,
+     0.3
+    ],
+    "mirror": true
+   },
+   {
+    "step": "distress",
+    "type": "fade",
+    "amount": 0.5,
+    "frame": "front",
+    "at": [
+     0.085,
+     "knee+0.02"
+    ],
+    "size": [
+     0.1,
+     0.12
+    ],
+    "mirror": true
+   },
+   {
+    "step": "distress",
+    "type": "whisker",
+    "amount": 0.5,
+    "frame": "front",
+    "at": [
+     0.08,
+     "crotch+0.0"
+    ],
+    "size": [
+     0.14,
+     0.1
+    ],
+    "mirror": true
+   },
+   {
+    "step": "distress",
+    "type": "folds",
+    "freq": 32,
+    "depth": 0.0025,
+    "where": {
+     "zone": "legs",
+     "s": [
+      0.7,
+      1.1
+     ]
+    }
+   }
+  ]
+ },
+ {
+  "n": 219,
+  "id": "ro-drkshdw-waxed-memphis-jeans",
+  "designer": "Rick Owens DRKSHDW",
+  "name": "DRKSHDW Waxed Memphis Jeans",
+  "season": "FW2011",
+  "price": 300,
+  "slot": "bottom",
+  "colour": "#161618",
+  "finish": {
+   "roughness": 0.4
+  },
+  "cut": {
+   "like": "slim",
+   "ease": {
+    "waist": 0.002,
+    "seat": 0.01,
+    "thigh": 0.01,
+    "knee": 0.01,
+    "hem": 0.015
+   },
+   "rise": "waist-0.09",
+   "hem": "ankle-0.03",
+   "dropCrotch": 0.03
+  },
+  "paint": [
+   {
+    "step": "fabric",
+    "type": "waxed"
+   },
+   {
+    "step": "line",
+    "frame": "legs",
+    "pts": [
+     [
+      0,
+      -0.3
+     ],
+     [
+      0,
+      1.05
+     ]
+    ],
+    "style": "twin",
+    "colour": "#2a2a2e",
+    "width": 0.0011,
+    "gap": 0.006
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      -0.4,
+      "top-0.04"
+     ],
+     [
+      0.4,
+      "top-0.04"
+     ]
+    ],
+    "style": "twin",
+    "colour": "#2a2a2e",
+    "width": 0.0011,
+    "gap": 0.034
+   },
+   {
+    "step": "line",
+    "frame": "back",
+    "pts": [
+     [
+      -0.4,
+      "top-0.04"
+     ],
+     [
+      0.4,
+      "top-0.04"
+     ]
+    ],
+    "style": "twin",
+    "colour": "#2a2a2e",
+    "width": 0.0011,
+    "gap": 0.034
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0.0,
+      "top-0.04"
+     ],
+     [
+      0.004,
+      "top-0.1"
+     ],
+     [
+      0.03,
+      "top-0.17"
+     ],
+     [
+      0.0,
+      "top-0.19"
+     ]
+    ],
+    "style": "twin",
+    "colour": "#2a2a2e",
+    "width": 0.0011
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0.06,
+      "top-0.045"
+     ],
+     [
+      0.09,
+      "top-0.11"
+     ],
+     [
+      0.17,
+      "top-0.12"
+     ]
+    ],
+    "style": "twin",
+    "colour": "#2a2a2e",
+    "width": 0.0011,
+    "mirror": true
+   },
+   {
+    "step": "dots",
+    "frame": "front",
+    "pts": [
+     [
+      0,
+      "top-0.02"
+     ]
+    ],
+    "r": 0.008,
+    "style": "stud",
+    "colour": "#77736a"
+   },
+   {
+    "step": "dots",
+    "frame": "front",
+    "pts": [
+     [
+      0.062,
+      "top-0.05"
+     ],
+     [
+      0.168,
+      "top-0.118"
+     ]
+    ],
+    "r": 0.0035,
+    "style": "stud",
+    "colour": "#8a7a5a",
+    "mirror": true
+   },
+   {
+    "step": "line",
+    "frame": "back",
+    "pts": [
+     [
+      -0.3,
+      "top-0.075"
+     ],
+     [
+      0,
+      "top-0.115"
+     ],
+     [
+      0.3,
+      "top-0.075"
+     ]
+    ],
+    "style": "twin",
+    "colour": "#2a2a2e",
+    "width": 0.0011
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      -0.4,
+      "hem+0.014"
+     ],
+     [
+      0.4,
+      "hem+0.014"
+     ]
+    ],
+    "style": "stitch",
+    "colour": "#2a2a2e",
+    "width": 0.0011
+   },
+   {
+    "step": "line",
+    "frame": "back",
+    "pts": [
+     [
+      -0.4,
+      "hem+0.014"
+     ],
+     [
+      0.4,
+      "hem+0.014"
+     ]
+    ],
+    "style": "stitch",
+    "colour": "#2a2a2e",
+    "width": 0.0011
+   },
+   {
+    "step": "rect",
+    "frame": "back",
+    "at": [
+     0.088,
+     "top-0.2"
+    ],
+    "size": [
+     0.125,
+     0.135
+    ],
+    "style": "pocket",
+    "stitch": "#2a2a2e",
+    "mirror": true,
+    "round": 0.012
+   },
+   {
+    "step": "line",
+    "frame": "legs",
+    "pts": [
+     [
+      -0.3,
+      0.5
+     ],
+     [
+      0.3,
+      0.5
+     ]
+    ],
+    "style": "seam"
+   },
+   {
+    "step": "distress",
+    "type": "crackle",
+    "amount": 0.3
+   },
+   {
+    "step": "distress",
+    "type": "folds",
+    "freq": 30,
+    "depth": 0.0025,
+    "where": {
+     "zone": "legs",
+     "s": [
+      0.5,
+      1.1
+     ]
+    }
+   }
+  ]
+ }
+]

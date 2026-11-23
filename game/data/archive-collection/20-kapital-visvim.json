@@ -1,0 +1,4087 @@
+[
+ {
+  "n": 381,
+  "id": "kapital-century-denim-jeans",
+  "designer": "Kapital",
+  "name": "Century Denim Jeans",
+  "season": "2010s",
+  "price": 600,
+  "slot": "bottom",
+  "colour": "#1f2b45",
+  "finish": {
+   "roughness": 0.85
+  },
+  "cut": {
+   "like": "straight",
+   "ease": {
+    "waist": 0.002,
+    "seat": 0.0133,
+    "thigh": 0.019,
+    "knee": 0.0209,
+    "hem": 0.0285
+   }
+  },
+  "paint": [
+   {
+    "step": "fabric",
+    "type": "denim",
+    "colour2": "#3b4a68"
+   },
+   {
+    "step": "pattern",
+    "type": "stripes",
+    "colours": [
+     "#d9d6c8"
+    ],
+    "period": 0.012,
+    "width": 0.0016,
+    "dir": "h",
+    "amount": 0.75
+   },
+   {
+    "step": "pattern",
+    "type": "stripes",
+    "colours": [
+     "#d9d6c8"
+    ],
+    "period": 0.012,
+    "width": 0.0016,
+    "dir": "v",
+    "amount": 0.45
+   },
+   {
+    "step": "line",
+    "frame": "legs",
+    "pts": [
+     [
+      0,
+      -0.3
+     ],
+     [
+      0,
+      1.05
+     ]
+    ],
+    "style": "twin",
+    "colour": "#d9d6c8",
+    "width": 0.0011,
+    "gap": 0.006
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      -0.4,
+      "top-0.04"
+     ],
+     [
+      0.4,
+      "top-0.04"
+     ]
+    ],
+    "style": "twin",
+    "colour": "#d9d6c8",
+    "width": 0.0011,
+    "gap": 0.034
+   },
+   {
+    "step": "line",
+    "frame": "back",
+    "pts": [
+     [
+      -0.4,
+      "top-0.04"
+     ],
+     [
+      0.4,
+      "top-0.04"
+     ]
+    ],
+    "style": "twin",
+    "colour": "#d9d6c8",
+    "width": 0.0011,
+    "gap": 0.034
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0.0,
+      "top-0.04"
+     ],
+     [
+      0.004,
+      "top-0.1"
+     ],
+     [
+      0.03,
+      "top-0.17"
+     ],
+     [
+      0.0,
+      "top-0.19"
+     ]
+    ],
+    "style": "twin",
+    "colour": "#d9d6c8",
+    "width": 0.0011
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0.06,
+      "top-0.045"
+     ],
+     [
+      0.09,
+      "top-0.11"
+     ],
+     [
+      0.17,
+      "top-0.12"
+     ]
+    ],
+    "style": "twin",
+    "colour": "#d9d6c8",
+    "width": 0.0011,
+    "mirror": true
+   },
+   {
+    "step": "dots",
+    "frame": "front",
+    "pts": [
+     [
+      0,
+      "top-0.02"
+     ]
+    ],
+    "r": 0.008,
+    "style": "stud",
+    "colour": "#77736a"
+   },
+   {
+    "step": "dots",
+    "frame": "front",
+    "pts": [
+     [
+      0.062,
+      "top-0.05"
+     ],
+     [
+      0.168,
+      "top-0.118"
+     ]
+    ],
+    "r": 0.0035,
+    "style": "stud",
+    "colour": "#8a7a5a",
+    "mirror": true
+   },
+   {
+    "step": "line",
+    "frame": "back",
+    "pts": [
+     [
+      -0.3,
+      "top-0.075"
+     ],
+     [
+      0,
+      "top-0.115"
+     ],
+     [
+      0.3,
+      "top-0.075"
+     ]
+    ],
+    "style": "twin",
+    "colour": "#d9d6c8",
+    "width": 0.0011
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      -0.4,
+      "hem+0.014"
+     ],
+     [
+      0.4,
+      "hem+0.014"
+     ]
+    ],
+    "style": "stitch",
+    "colour": "#d9d6c8",
+    "width": 0.0011
+   },
+   {
+    "step": "line",
+    "frame": "back",
+    "pts": [
+     [
+      -0.4,
+      "hem+0.014"
+     ],
+     [
+      0.4,
+      "hem+0.014"
+     ]
+    ],
+    "style": "stitch",
+    "colour": "#d9d6c8",
+    "width": 0.0011
+   },
+   {
+    "step": "rect",
+    "frame": "back",
+    "at": [
+     0.088,
+     "top-0.2"
+    ],
+    "size": [
+     0.125,
+     0.135
+    ],
+    "style": "pocket",
+    "stitch": "#d9d6c8",
+    "mirror": true,
+    "round": 0.012
+   },
+   {
+    "step": "distress",
+    "type": "wash",
+    "amount": 0.15
+   },
+   {
+    "step": "distress",
+    "type": "fade",
+    "amount": 0.35,
+    "frame": "front",
+    "at": [
+     0.09,
+     "thigh+0.02"
+    ],
+    "size": [
+     0.12,
+     0.3
+    ],
+    "mirror": true
+   },
+   {
+    "step": "distress",
+    "type": "fade",
+    "amount": 0.5,
+    "frame": "front",
+    "at": [
+     0.085,
+     "knee+0.02"
+    ],
+    "size": [
+     0.1,
+     0.12
+    ],
+    "mirror": true
+   }
+  ]
+ },
+ {
+  "n": 382,
+  "id": "kapital-century-denim-jacket",
+  "designer": "Kapital",
+  "name": "Century Denim Jacket",
+  "season": "2010s",
+  "price": 700,
+  "slot": "top",
+  "colour": "#1f2b45",
+  "finish": {
+   "roughness": 0.85
+  },
+  "cut": {
+   "like": "trucker",
+   "hem": "hip+0.04"
+  },
+  "note": "Century denim: sashiko thread woven through the indigo, so that it fades like something a hundred years old.",
+  "paint": [
+   {
+    "step": "fabric",
+    "type": "denim",
+    "colour2": "#3b4a68"
+   },
+   {
+    "step": "pattern",
+    "type": "stripes",
+    "colours": [
+     "#d9d6c8"
+    ],
+    "period": 0.012,
+    "width": 0.0016,
+    "dir": "h",
+    "amount": 0.75
+   },
+   {
+    "step": "pattern",
+    "type": "stripes",
+    "colours": [
+     "#d9d6c8"
+    ],
+    "period": 0.012,
+    "width": 0.0016,
+    "dir": "v",
+    "amount": 0.45
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      -0.4,
+      "hem+0.042"
+     ],
+     [
+      0.4,
+      "hem+0.042"
+     ]
+    ],
+    "style": "twin",
+    "colour": "#d9d6c8",
+    "gap": 0.005,
+    "width": 0.0017
+   },
+   {
+    "step": "line",
+    "frame": "back",
+    "pts": [
+     [
+      -0.4,
+      "hem+0.042"
+     ],
+     [
+      0.4,
+      "hem+0.042"
+     ]
+    ],
+    "style": "twin",
+    "colour": "#d9d6c8",
+    "gap": 0.005,
+    "width": 0.0017
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0.02,
+      "chest+0.065"
+     ],
+     [
+      0.2,
+      "chest+0.065"
+     ]
+    ],
+    "style": "twin",
+    "mirror": true,
+    "gap": 0.005,
+    "width": 0.0017,
+    "colour": "#d9d6c8"
+   },
+   {
+    "step": "line",
+    "frame": "back",
+    "pts": [
+     [
+      -0.25,
+      "chest+0.075"
+     ],
+     [
+      0.25,
+      "chest+0.075"
+     ]
+    ],
+    "style": "twin",
+    "gap": 0.005,
+    "width": 0.0017,
+    "colour": "#d9d6c8"
+   },
+   {
+    "step": "line",
+    "frame": "back",
+    "pts": [
+     [
+      0.105,
+      "chest+0.075"
+     ],
+     [
+      0.08,
+      "hem+0.042"
+     ]
+    ],
+    "style": "twin",
+    "mirror": true,
+    "gap": 0.005,
+    "width": 0.0017,
+    "colour": "#d9d6c8"
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0.02,
+      "hem"
+     ],
+     [
+      0.02,
+      "top"
+     ]
+    ],
+    "style": "twin",
+    "mirror": true,
+    "gap": 0.005,
+    "width": 0.0017,
+    "colour": "#d9d6c8"
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0.05,
+      "chest-0.005"
+     ],
+     [
+      0.068,
+      "hem+0.042"
+     ]
+    ],
+    "style": "twin",
+    "mirror": true,
+    "gap": 0.005,
+    "width": 0.0017,
+    "colour": "#d9d6c8"
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0.14,
+      "chest-0.005"
+     ],
+     [
+      0.11,
+      "hem+0.042"
+     ]
+    ],
+    "style": "twin",
+    "mirror": true,
+    "gap": 0.005,
+    "width": 0.0017,
+    "colour": "#d9d6c8"
+   },
+   {
+    "step": "line",
+    "frame": "sleeves",
+    "pts": [
+     [
+      -0.3,
+      0.93
+     ],
+     [
+      0.3,
+      0.93
+     ]
+    ],
+    "style": "twin",
+    "gap": 0.005,
+    "width": 0.0017,
+    "colour": "#d9d6c8"
+   },
+   {
+    "step": "rect",
+    "frame": "front",
+    "at": [
+     0.095,
+     "chest+0.035"
+    ],
+    "size": [
+     0.1,
+     0.055
+    ],
+    "style": "flap",
+    "flap": 1,
+    "stitch": "#d9d6c8",
+    "mirror": true
+   },
+   {
+    "step": "dots",
+    "frame": "front",
+    "pts": [
+     [
+      0.095,
+      "chest+0.022"
+     ]
+    ],
+    "r": 0.007,
+    "style": "button",
+    "colour": "#8a6a3a",
+    "mirror": true
+   },
+   {
+    "step": "dots",
+    "frame": "front",
+    "from": [
+     0,
+     "hem+0.02"
+    ],
+    "to": [
+     0,
+     "neck-0.04"
+    ],
+    "count": 6,
+    "r": 0.0075,
+    "style": "button",
+    "colour": "#8a6a3a"
+   },
+   {
+    "step": "distress",
+    "type": "wash",
+    "amount": 0.15
+   }
+  ]
+ },
+ {
+  "n": 383,
+  "id": "kapital-kamakura-anorak",
+  "designer": "Kapital",
+  "name": "Kamakura Anorak",
+  "season": "2010s",
+  "price": 600,
+  "slot": "top",
+  "colour": "#3a4a3a",
+  "finish": {
+   "roughness": 0.6
+  },
+  "cut": {
+   "like": "parka",
+   "ease": {
+    "shoulder": 0.0132,
+    "chest": 0.044,
+    "waist": 0.066,
+    "hip": 0.066,
+    "sleeve": 0.023,
+    "cuff": 0.023
+   },
+   "hem": "hip-0.1",
+   "hemBack": 0.03,
+   "add": [
+    {
+     "type": "hood",
+     "size": 1.1,
+     "drop": 0.2
+    }
+   ]
+  },
+  "note": "A pullover anorak with a kangaroo pocket, blocked in colours.",
+  "paint": [
+   {
+    "step": "fabric",
+    "type": "nylon"
+   },
+   {
+    "step": "panel",
+    "colour": "#c2452a",
+    "where": {
+     "zone": "hood"
+    }
+   },
+   {
+    "step": "panel",
+    "colour": "#e3b21c",
+    "where": {
+     "zone": "sleeveL",
+     "s": [
+      0.5,
+      1.3
+     ]
+    }
+   },
+   {
+    "step": "panel",
+    "colour": "#1f2a5c",
+    "where": {
+     "zone": "sleeveR",
+     "s": [
+      0.5,
+      1.3
+     ]
+    }
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0,
+      "chest-0.08"
+     ],
+     [
+      0,
+      "top"
+     ]
+    ],
+    "style": "zip",
+    "width": 0.004,
+    "colour": "#19191b",
+    "colour2": "#111113"
+   },
+   {
+    "step": "rect",
+    "frame": "front",
+    "at": [
+     0,
+     "waist+0.03"
+    ],
+    "size": [
+     0.26,
+     0.14
+    ],
+    "style": "flap",
+    "flap": 0.3,
+    "stitch": "#19191b",
+    "snap": true,
+    "raise": 0.003
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      -0.4,
+      "hem+0.03"
+     ],
+     [
+      0.4,
+      "hem+0.03"
+     ]
+    ],
+    "style": "groove",
+    "colour": "#3a3a3e",
+    "width": 0.004
+   },
+   {
+    "step": "line",
+    "frame": "back",
+    "pts": [
+     [
+      -0.4,
+      "hem+0.03"
+     ],
+     [
+      0.4,
+      "hem+0.03"
+     ]
+    ],
+    "style": "groove",
+    "colour": "#3a3a3e",
+    "width": 0.004
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0.05,
+      "hem+0.03"
+     ],
+     [
+      0.06,
+      "hem-0.08"
+     ]
+    ],
+    "style": "tape",
+    "width": 0.005,
+    "colour": "#e8e5dc",
+    "mirror": true
+   },
+   {
+    "step": "distress",
+    "type": "crumple",
+    "amount": 0.14
+   }
+  ]
+ },
+ {
+  "n": 384,
+  "id": "kapital-boro-reconstructed-jeans",
+  "designer": "Kapital",
+  "name": "Boro Reconstructed Jeans",
+  "season": "2010s",
+  "price": 1500,
+  "slot": "bottom",
+  "colour": "#1f2b45",
+  "finish": {
+   "roughness": 0.85
+  },
+  "cut": {
+   "like": "straight",
+   "ease": {
+    "waist": 0.002,
+    "seat": 0.0161,
+    "thigh": 0.023,
+    "knee": 0.0253,
+    "hem": 0.0345
+   }
+  },
+  "paint": [
+   {
+    "step": "fabric",
+    "type": "denim",
+    "colour2": "#3b4a68"
+   },
+   {
+    "step": "pattern",
+    "type": "boro",
+    "colours": [
+     "#1f2b45",
+     "#40557a",
+     "#2a3350",
+     "#6f8cae",
+     "#17203a",
+     "#8a8676"
+    ],
+    "size": 0.07,
+    "stitch": "#d9d6c8"
+   },
+   {
+    "step": "line",
+    "frame": "legs",
+    "pts": [
+     [
+      0,
+      -0.3
+     ],
+     [
+      0,
+      1.05
+     ]
+    ],
+    "style": "twin",
+    "colour": "#d9d6c8",
+    "width": 0.0011,
+    "gap": 0.006
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      -0.4,
+      "top-0.04"
+     ],
+     [
+      0.4,
+      "top-0.04"
+     ]
+    ],
+    "style": "twin",
+    "colour": "#d9d6c8",
+    "width": 0.0011,
+    "gap": 0.034
+   },
+   {
+    "step": "line",
+    "frame": "back",
+    "pts": [
+     [
+      -0.4,
+      "top-0.04"
+     ],
+     [
+      0.4,
+      "top-0.04"
+     ]
+    ],
+    "style": "twin",
+    "colour": "#d9d6c8",
+    "width": 0.0011,
+    "gap": 0.034
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0.0,
+      "top-0.04"
+     ],
+     [
+      0.004,
+      "top-0.1"
+     ],
+     [
+      0.03,
+      "top-0.17"
+     ],
+     [
+      0.0,
+      "top-0.19"
+     ]
+    ],
+    "style": "twin",
+    "colour": "#d9d6c8",
+    "width": 0.0011
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0.06,
+      "top-0.045"
+     ],
+     [
+      0.09,
+      "top-0.11"
+     ],
+     [
+      0.17,
+      "top-0.12"
+     ]
+    ],
+    "style": "twin",
+    "colour": "#d9d6c8",
+    "width": 0.0011,
+    "mirror": true
+   },
+   {
+    "step": "dots",
+    "frame": "front",
+    "pts": [
+     [
+      0,
+      "top-0.02"
+     ]
+    ],
+    "r": 0.008,
+    "style": "stud",
+    "colour": "#77736a"
+   },
+   {
+    "step": "dots",
+    "frame": "front",
+    "pts": [
+     [
+      0.062,
+      "top-0.05"
+     ],
+     [
+      0.168,
+      "top-0.118"
+     ]
+    ],
+    "r": 0.0035,
+    "style": "stud",
+    "colour": "#8a7a5a",
+    "mirror": true
+   },
+   {
+    "step": "line",
+    "frame": "back",
+    "pts": [
+     [
+      -0.3,
+      "top-0.075"
+     ],
+     [
+      0,
+      "top-0.115"
+     ],
+     [
+      0.3,
+      "top-0.075"
+     ]
+    ],
+    "style": "twin",
+    "colour": "#d9d6c8",
+    "width": 0.0011
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      -0.4,
+      "hem+0.014"
+     ],
+     [
+      0.4,
+      "hem+0.014"
+     ]
+    ],
+    "style": "stitch",
+    "colour": "#d9d6c8",
+    "width": 0.0011
+   },
+   {
+    "step": "line",
+    "frame": "back",
+    "pts": [
+     [
+      -0.4,
+      "hem+0.014"
+     ],
+     [
+      0.4,
+      "hem+0.014"
+     ]
+    ],
+    "style": "stitch",
+    "colour": "#d9d6c8",
+    "width": 0.0011
+   },
+   {
+    "step": "rect",
+    "frame": "back",
+    "at": [
+     0.088,
+     "top-0.2"
+    ],
+    "size": [
+     0.125,
+     0.135
+    ],
+    "style": "pocket",
+    "stitch": "#d9d6c8",
+    "mirror": true,
+    "round": 0.012
+   },
+   {
+    "step": "rect",
+    "frame": "front",
+    "at": [
+     0.09,
+     "knee+0.02"
+    ],
+    "size": [
+     0.07,
+     0.03
+    ],
+    "style": "hole",
+    "colour": "#d9d6c8"
+   },
+   {
+    "step": "distress",
+    "type": "wash",
+    "amount": 0.25
+   },
+   {
+    "step": "distress",
+    "type": "fade",
+    "amount": 0.4,
+    "frame": "front",
+    "at": [
+     0.09,
+     "thigh+0.02"
+    ],
+    "size": [
+     0.12,
+     0.3
+    ],
+    "mirror": true
+   },
+   {
+    "step": "distress",
+    "type": "fade",
+    "amount": 0.5,
+    "frame": "front",
+    "at": [
+     0.085,
+     "knee+0.02"
+    ],
+    "size": [
+     0.1,
+     0.12
+    ],
+    "mirror": true
+   },
+   {
+    "step": "distress",
+    "type": "edges",
+    "amount": 0.4,
+    "colour": "#8fa3bd"
+   }
+  ]
+ },
+ {
+  "n": 385,
+  "id": "kapital-boro-reconstructed-coat",
+  "designer": "Kapital",
+  "name": "Boro Reconstructed Coat",
+  "season": "2010s",
+  "price": 2800,
+  "slot": "top",
+  "colour": "#1f2b45",
+  "finish": {
+   "roughness": 0.85
+  },
+  "cut": {
+   "like": "coat",
+   "ease": {
+    "shoulder": 0.0112,
+    "chest": 0.035,
+    "waist": 0.049,
+    "hip": 0.049,
+    "sleeve": 0.0165,
+    "cuff": 0.0165
+   },
+   "hem": "knee+0.02",
+   "shoulderDrop": 0.03,
+   "flare": 0.04,
+   "neck": {
+    "v": 0.22,
+    "width": 0.07,
+    "depth": 0.03
+   },
+   "add": [
+    {
+     "type": "collar",
+     "height": 0.012,
+     "only": true
+    },
+    {
+     "type": "lip"
+    }
+   ]
+  },
+  "under": {
+   "colour": "#e8e5dc",
+   "cut": {
+    "like": "tee",
+    "hem": "hip-0.0",
+    "overWaist": false,
+    "ease": {
+     "shoulder": 0.004,
+     "chest": 0.01,
+     "waist": 0.016,
+     "hip": 0.016,
+     "sleeve": 0.012,
+     "cuff": 0.014
+    }
+   },
+   "paint": [
+    {
+     "step": "fabric",
+     "type": "jersey"
+    }
+   ]
+  },
+  "note": "A kimono-collared coat pieced from indigo rags, the longer companion of the Boro jacket earlier in the list.",
+  "paint": [
+   {
+    "step": "fabric",
+    "type": "canvas"
+   },
+   {
+    "step": "pattern",
+    "type": "boro",
+    "colours": [
+     "#1f2b45",
+     "#40557a",
+     "#2a3350",
+     "#6f8cae",
+     "#17203a",
+     "#8a8676"
+    ],
+    "size": 0.085,
+    "stitch": "#d9d6c8"
+   },
+   {
+    "step": "pattern",
+    "type": "stripes",
+    "colours": [
+     "#d9d6c8"
+    ],
+    "period": 0.009,
+    "width": 0.0016,
+    "dir": "h",
+    "amount": 0.75,
+    "where": {
+     "zone": "sleeves"
+    }
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0.03,
+      "hem"
+     ],
+     [
+      0.04,
+      "neck-0.2"
+     ]
+    ],
+    "style": "ridge",
+    "width": 0.03,
+    "colour": "#17203a",
+    "mirror": true
+   },
+   {
+    "step": "rect",
+    "frame": "front",
+    "at": [
+     0.13,
+     "hip-0.04"
+    ],
+    "size": [
+     0.15,
+     0.16
+    ],
+    "style": "pocket",
+    "mirror": true,
+    "stitch": "#d9d6c8"
+   },
+   {
+    "step": "distress",
+    "type": "wash",
+    "amount": 0.3
+   },
+   {
+    "step": "distress",
+    "type": "edges",
+    "amount": 0.5,
+    "colour": "#8fa3bd"
+   }
+  ]
+ },
+ {
+  "n": 386,
+  "id": "kapital-bandana-patchwork-jacket",
+  "designer": "Kapital",
+  "name": "Bandana Patchwork Jacket",
+  "season": "2010s",
+  "price": 900,
+  "slot": "top",
+  "colour": "#b3261e",
+  "finish": {
+   "roughness": 0.8
+  },
+  "cut": {
+   "like": "trucker",
+   "ease": {
+    "shoulder": 0.0092,
+    "chest": 0.0253,
+    "waist": 0.0345,
+    "hip": 0.0345,
+    "sleeve": 0.0128,
+    "cuff": 0.0107
+   },
+   "hem": "hip-0.02",
+   "add": [
+    {
+     "type": "collar",
+     "style": "fold",
+     "height": 0.05,
+     "gap": 0.02,
+     "points": 0.5
+    }
+   ]
+  },
+  "paint": [
+   {
+    "step": "fabric",
+    "type": "plain"
+   },
+   {
+    "step": "pattern",
+    "type": "patchwork",
+    "colours": [
+     "#b3261e",
+     "#1f2a5c",
+     "#e3b21c",
+     "#19191b",
+     "#2f6a4a",
+     "#7a3a8c"
+    ],
+    "size": 0.2,
+    "stitch": "#e8e5dc"
+   },
+   {
+    "step": "pattern",
+    "type": "dots",
+    "colours": [
+     "#e8e5dc"
+    ],
+    "size": 0.025,
+    "r": 0.2
+   },
+   {
+    "step": "pattern",
+    "type": "opart",
+    "colours": [
+     "#e8e5dc"
+    ],
+    "size": 0.05,
+    "freq": 9,
+    "amount": 0.35
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0.016,
+      "hem"
+     ],
+     [
+      0.016,
+      "top"
+     ]
+    ],
+    "style": "seam"
+   },
+   {
+    "step": "dots",
+    "frame": "front",
+    "from": [
+     0,
+     "hem+0.05"
+    ],
+    "to": [
+     0,
+     "neck-0.05"
+    ],
+    "count": 5,
+    "r": 0.007,
+    "style": "snap",
+    "colour": "#c9c9cc"
+   },
+   {
+    "step": "rect",
+    "frame": "front",
+    "at": [
+     0.1,
+     "chest+0.02"
+    ],
+    "size": [
+     0.1,
+     0.1
+    ],
+    "style": "pocket",
+    "mirror": true,
+    "stitch": "#e8e5dc"
+   },
+   {
+    "step": "distress",
+    "type": "wash",
+    "amount": 0.15
+   }
+  ]
+ },
+ {
+  "n": 387,
+  "id": "kapital-bandana-patchwork-trousers",
+  "designer": "Kapital",
+  "name": "Bandana Patchwork Trousers",
+  "season": "2010s",
+  "price": 600,
+  "slot": "bottom",
+  "colour": "#1f2a5c",
+  "finish": {
+   "roughness": 0.8
+  },
+  "cut": {
+   "like": "straight",
+   "ease": {
+    "waist": 0.002,
+    "seat": 0.0182,
+    "thigh": 0.026,
+    "knee": 0.0286,
+    "hem": 0.039
+   },
+   "hem": "ankle+0.02",
+   "add": [
+    {
+     "type": "tail",
+     "from": {
+      "on": "front",
+      "x": 0.03,
+      "h": "top-0.03"
+     },
+     "length": 0.2,
+     "width": 0.012
+    },
+    {
+     "type": "tail",
+     "from": {
+      "on": "front",
+      "x": -0.02,
+      "h": "top-0.03"
+     },
+     "length": 0.17,
+     "width": 0.012
+    }
+   ]
+  },
+  "paint": [
+   {
+    "step": "fabric",
+    "type": "plain"
+   },
+   {
+    "step": "pattern",
+    "type": "patchwork",
+    "colours": [
+     "#b3261e",
+     "#1f2a5c",
+     "#e3b21c",
+     "#19191b",
+     "#2f6a4a",
+     "#7a3a8c"
+    ],
+    "size": 0.2,
+    "stitch": "#e8e5dc"
+   },
+   {
+    "step": "pattern",
+    "type": "dots",
+    "colours": [
+     "#e8e5dc"
+    ],
+    "size": 0.025,
+    "r": 0.2
+   },
+   {
+    "step": "pattern",
+    "type": "opart",
+    "colours": [
+     "#e8e5dc"
+    ],
+    "size": 0.05,
+    "freq": 9,
+    "amount": 0.35
+   },
+   {
+    "step": "rib",
+    "where": {
+     "zone": "legs",
+     "h": [
+      "top-0.045",
+      "top"
+     ]
+    },
+    "gauge": 0.005,
+    "depth": 0.0007
+   },
+   {
+    "step": "line",
+    "frame": "legs",
+    "pts": [
+     [
+      0,
+      -0.3
+     ],
+     [
+      0,
+      1.05
+     ]
+    ],
+    "style": "seam"
+   },
+   {
+    "step": "panel",
+    "colour": "#e8e5dc",
+    "where": {
+     "zone": "strap"
+    }
+   },
+   {
+    "step": "distress",
+    "type": "wash",
+    "amount": 0.15
+   }
+  ]
+ },
+ {
+  "n": 388,
+  "id": "kapital-damask-fleece-jacket",
+  "designer": "Kapital",
+  "name": "Damask Fleece Jacket",
+  "season": "2010s",
+  "price": 500,
+  "slot": "top",
+  "colour": "#7a2a26",
+  "finish": {
+   "roughness": 0.95
+  },
+  "cut": {
+   "like": "bomber",
+   "ease": {
+    "shoulder": 0.0144,
+    "chest": 0.042,
+    "waist": 0.082,
+    "hip": 0.082,
+    "sleeve": 0.024,
+    "cuff": 0.0196
+   },
+   "hem": "hip-0.02",
+   "cinch": 0.08,
+   "cuffCinch": 0.12,
+   "add": [
+    {
+     "type": "collar",
+     "height": 0.06,
+     "flare": 0.008,
+     "only": true
+    },
+    {
+     "type": "lip"
+    }
+   ]
+  },
+  "paint": [
+   {
+    "step": "fabric",
+    "type": "fur",
+    "scale": 0.5
+   },
+   {
+    "step": "pattern",
+    "type": "tapestry",
+    "colours": [
+     "#1f2a5c",
+     "#e3b21c",
+     "#e8e5dc",
+     "#2f6a4a"
+    ]
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0,
+      "hem"
+     ],
+     [
+      0,
+      "top"
+     ]
+    ],
+    "style": "zip",
+    "width": 0.005,
+    "colour": "#19191b",
+    "colour2": "#111113"
+   },
+   {
+    "step": "panel",
+    "colour": "#19191b",
+    "where": {
+     "zone": "collar"
+    },
+    "keepShade": 1
+   },
+   {
+    "step": "rect",
+    "frame": "front",
+    "at": [
+     -0.09,
+     "chest+0.02"
+    ],
+    "size": [
+     0.11,
+     0.12
+    ],
+    "style": "pocket",
+    "colour": "#19191b",
+    "stitch": "#e3b21c"
+   },
+   {
+    "step": "rect",
+    "frame": "front",
+    "at": [
+     -0.09,
+     "chest+0.07"
+    ],
+    "size": [
+     0.1,
+     0.008
+    ],
+    "style": "zip",
+    "colour": "#c9c9cc"
+   },
+   {
+    "step": "line",
+    "frame": "sleeves",
+    "pts": [
+     [
+      -0.3,
+      0.93
+     ],
+     [
+      0.3,
+      0.93
+     ]
+    ],
+    "style": "ridge",
+    "width": 0.006,
+    "colour": "#19191b"
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      -0.4,
+      "hem+0.01"
+     ],
+     [
+      0.4,
+      "hem+0.01"
+     ]
+    ],
+    "style": "ridge",
+    "colour": "#19191b",
+    "width": 0.008
+   },
+   {
+    "step": "line",
+    "frame": "back",
+    "pts": [
+     [
+      -0.4,
+      "hem+0.01"
+     ],
+     [
+      0.4,
+      "hem+0.01"
+     ]
+    ],
+    "style": "ridge",
+    "colour": "#19191b",
+    "width": 0.008
+   },
+   {
+    "step": "distress",
+    "type": "pill",
+    "amount": 0.5
+   }
+  ]
+ },
+ {
+  "n": 389,
+  "id": "kapital-damask-fleece-pants",
+  "designer": "Kapital",
+  "name": "Damask Fleece Pants",
+  "season": "2010s",
+  "price": 380,
+  "slot": "bottom",
+  "colour": "#7a2a26",
+  "finish": {
+   "roughness": 0.95
+  },
+  "cut": {
+   "like": "straight",
+   "ease": {
+    "waist": 0.002,
+    "seat": 0.0196,
+    "thigh": 0.028,
+    "knee": 0.0308,
+    "hem": 0.042
+   },
+   "hem": "ankle+0.03",
+   "taper": 0.2,
+   "overBoot": false
+  },
+  "paint": [
+   {
+    "step": "fabric",
+    "type": "fur",
+    "scale": 0.5
+   },
+   {
+    "step": "pattern",
+    "type": "tapestry",
+    "colours": [
+     "#1f2a5c",
+     "#e3b21c",
+     "#e8e5dc",
+     "#2f6a4a"
+    ]
+   },
+   {
+    "step": "rib",
+    "where": {
+     "zone": "legs",
+     "h": [
+      "top-0.045",
+      "top"
+     ]
+    },
+    "gauge": 0.005,
+    "depth": 0.0007,
+    "colour": "#19191b"
+   },
+   {
+    "step": "rib",
+    "where": {
+     "zone": "legs",
+     "h": [
+      "hem",
+      "hem+0.05"
+     ]
+    },
+    "gauge": 0.005,
+    "depth": 0.0007,
+    "colour": "#19191b"
+   },
+   {
+    "step": "line",
+    "frame": "legs",
+    "pts": [
+     [
+      0,
+      -0.3
+     ],
+     [
+      0,
+      1.05
+     ]
+    ],
+    "style": "seam"
+   },
+   {
+    "step": "distress",
+    "type": "pill",
+    "amount": 0.5
+   }
+  ]
+ },
+ {
+  "n": 390,
+  "id": "kapital-sashiko-denim-jacket",
+  "designer": "Kapital",
+  "name": "Sashiko Denim Jacket",
+  "season": "2010s",
+  "price": 650,
+  "slot": "top",
+  "colour": "#17203a",
+  "finish": {
+   "roughness": 0.85
+  },
+  "cut": {
+   "like": "trucker",
+   "ease": {
+    "shoulder": 0.0084,
+    "chest": 0.0231,
+    "waist": 0.0315,
+    "hip": 0.0315,
+    "sleeve": 0.0123,
+    "cuff": 0.0102
+   },
+   "hem": "hip+0.03"
+  },
+  "note": "Quilted all over in white diamond sashiko.",
+  "paint": [
+   {
+    "step": "fabric",
+    "type": "canvas"
+   },
+   {
+    "step": "quilt",
+    "type": "diamond",
+    "size": 0.022,
+    "puff": 0.001,
+    "colour": "#d9d6c8"
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      -0.4,
+      "hem+0.042"
+     ],
+     [
+      0.4,
+      "hem+0.042"
+     ]
+    ],
+    "style": "twin",
+    "colour": "#d9d6c8",
+    "gap": 0.005,
+    "width": 0.0017
+   },
+   {
+    "step": "line",
+    "frame": "back",
+    "pts": [
+     [
+      -0.4,
+      "hem+0.042"
+     ],
+     [
+      0.4,
+      "hem+0.042"
+     ]
+    ],
+    "style": "twin",
+    "colour": "#d9d6c8",
+    "gap": 0.005,
+    "width": 0.0017
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0.02,
+      "chest+0.065"
+     ],
+     [
+      0.2,
+      "chest+0.065"
+     ]
+    ],
+    "style": "twin",
+    "mirror": true,
+    "gap": 0.005,
+    "width": 0.0017,
+    "colour": "#d9d6c8"
+   },
+   {
+    "step": "line",
+    "frame": "back",
+    "pts": [
+     [
+      -0.25,
+      "chest+0.075"
+     ],
+     [
+      0.25,
+      "chest+0.075"
+     ]
+    ],
+    "style": "twin",
+    "gap": 0.005,
+    "width": 0.0017,
+    "colour": "#d9d6c8"
+   },
+   {
+    "step": "line",
+    "frame": "back",
+    "pts": [
+     [
+      0.105,
+      "chest+0.075"
+     ],
+     [
+      0.08,
+      "hem+0.042"
+     ]
+    ],
+    "style": "twin",
+    "mirror": true,
+    "gap": 0.005,
+    "width": 0.0017,
+    "colour": "#d9d6c8"
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0.02,
+      "hem"
+     ],
+     [
+      0.02,
+      "top"
+     ]
+    ],
+    "style": "twin",
+    "mirror": true,
+    "gap": 0.005,
+    "width": 0.0017,
+    "colour": "#d9d6c8"
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0.05,
+      "chest-0.005"
+     ],
+     [
+      0.068,
+      "hem+0.042"
+     ]
+    ],
+    "style": "twin",
+    "mirror": true,
+    "gap": 0.005,
+    "width": 0.0017,
+    "colour": "#d9d6c8"
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0.14,
+      "chest-0.005"
+     ],
+     [
+      0.11,
+      "hem+0.042"
+     ]
+    ],
+    "style": "twin",
+    "mirror": true,
+    "gap": 0.005,
+    "width": 0.0017,
+    "colour": "#d9d6c8"
+   },
+   {
+    "step": "line",
+    "frame": "sleeves",
+    "pts": [
+     [
+      -0.3,
+      0.93
+     ],
+     [
+      0.3,
+      0.93
+     ]
+    ],
+    "style": "twin",
+    "gap": 0.005,
+    "width": 0.0017,
+    "colour": "#d9d6c8"
+   },
+   {
+    "step": "rect",
+    "frame": "front",
+    "at": [
+     0.095,
+     "chest+0.035"
+    ],
+    "size": [
+     0.1,
+     0.055
+    ],
+    "style": "flap",
+    "flap": 1,
+    "stitch": "#d9d6c8",
+    "mirror": true
+   },
+   {
+    "step": "dots",
+    "frame": "front",
+    "pts": [
+     [
+      0.095,
+      "chest+0.022"
+     ]
+    ],
+    "r": 0.007,
+    "style": "button",
+    "colour": "#8a6a3a",
+    "mirror": true
+   },
+   {
+    "step": "dots",
+    "frame": "front",
+    "from": [
+     0,
+     "hem+0.02"
+    ],
+    "to": [
+     0,
+     "neck-0.04"
+    ],
+    "count": 6,
+    "r": 0.0075,
+    "style": "button",
+    "colour": "#8a6a3a"
+   },
+   {
+    "step": "distress",
+    "type": "wash",
+    "amount": 0.1
+   }
+  ]
+ },
+ {
+  "n": 391,
+  "id": "kapital-sashiko-denim-jeans",
+  "designer": "Kapital",
+  "name": "Sashiko Denim Jeans",
+  "season": "2010s",
+  "price": 550,
+  "slot": "bottom",
+  "colour": "#17203a",
+  "finish": {
+   "roughness": 0.85
+  },
+  "cut": {
+   "like": "straight",
+   "ease": {
+    "waist": 0.002,
+    "seat": 0.0147,
+    "thigh": 0.021,
+    "knee": 0.0231,
+    "hem": 0.0315
+   }
+  },
+  "paint": [
+   {
+    "step": "fabric",
+    "type": "canvas"
+   },
+   {
+    "step": "quilt",
+    "type": "diamond",
+    "size": 0.022,
+    "puff": 0.001,
+    "colour": "#d9d6c8"
+   },
+   {
+    "step": "line",
+    "frame": "legs",
+    "pts": [
+     [
+      0,
+      -0.3
+     ],
+     [
+      0,
+      1.05
+     ]
+    ],
+    "style": "twin",
+    "colour": "#d9d6c8",
+    "width": 0.0011,
+    "gap": 0.006
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      -0.4,
+      "top-0.04"
+     ],
+     [
+      0.4,
+      "top-0.04"
+     ]
+    ],
+    "style": "twin",
+    "colour": "#d9d6c8",
+    "width": 0.0011,
+    "gap": 0.034
+   },
+   {
+    "step": "line",
+    "frame": "back",
+    "pts": [
+     [
+      -0.4,
+      "top-0.04"
+     ],
+     [
+      0.4,
+      "top-0.04"
+     ]
+    ],
+    "style": "twin",
+    "colour": "#d9d6c8",
+    "width": 0.0011,
+    "gap": 0.034
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0.0,
+      "top-0.04"
+     ],
+     [
+      0.004,
+      "top-0.1"
+     ],
+     [
+      0.03,
+      "top-0.17"
+     ],
+     [
+      0.0,
+      "top-0.19"
+     ]
+    ],
+    "style": "twin",
+    "colour": "#d9d6c8",
+    "width": 0.0011
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0.06,
+      "top-0.045"
+     ],
+     [
+      0.09,
+      "top-0.11"
+     ],
+     [
+      0.17,
+      "top-0.12"
+     ]
+    ],
+    "style": "twin",
+    "colour": "#d9d6c8",
+    "width": 0.0011,
+    "mirror": true
+   },
+   {
+    "step": "dots",
+    "frame": "front",
+    "pts": [
+     [
+      0,
+      "top-0.02"
+     ]
+    ],
+    "r": 0.008,
+    "style": "stud",
+    "colour": "#77736a"
+   },
+   {
+    "step": "dots",
+    "frame": "front",
+    "pts": [
+     [
+      0.062,
+      "top-0.05"
+     ],
+     [
+      0.168,
+      "top-0.118"
+     ]
+    ],
+    "r": 0.0035,
+    "style": "stud",
+    "colour": "#8a7a5a",
+    "mirror": true
+   },
+   {
+    "step": "line",
+    "frame": "back",
+    "pts": [
+     [
+      -0.3,
+      "top-0.075"
+     ],
+     [
+      0,
+      "top-0.115"
+     ],
+     [
+      0.3,
+      "top-0.075"
+     ]
+    ],
+    "style": "twin",
+    "colour": "#d9d6c8",
+    "width": 0.0011
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      -0.4,
+      "hem+0.014"
+     ],
+     [
+      0.4,
+      "hem+0.014"
+     ]
+    ],
+    "style": "stitch",
+    "colour": "#d9d6c8",
+    "width": 0.0011
+   },
+   {
+    "step": "line",
+    "frame": "back",
+    "pts": [
+     [
+      -0.4,
+      "hem+0.014"
+     ],
+     [
+      0.4,
+      "hem+0.014"
+     ]
+    ],
+    "style": "stitch",
+    "colour": "#d9d6c8",
+    "width": 0.0011
+   },
+   {
+    "step": "rect",
+    "frame": "back",
+    "at": [
+     0.088,
+     "top-0.2"
+    ],
+    "size": [
+     0.125,
+     0.135
+    ],
+    "style": "pocket",
+    "stitch": "#d9d6c8",
+    "mirror": true,
+    "round": 0.012
+   },
+   {
+    "step": "distress",
+    "type": "wash",
+    "amount": 0.1
+   },
+   {
+    "step": "distress",
+    "type": "fade",
+    "amount": 0.3,
+    "frame": "front",
+    "at": [
+     0.09,
+     "thigh+0.02"
+    ],
+    "size": [
+     0.12,
+     0.3
+    ],
+    "mirror": true
+   },
+   {
+    "step": "distress",
+    "type": "fade",
+    "amount": 0.5,
+    "frame": "front",
+    "at": [
+     0.085,
+     "knee+0.02"
+    ],
+    "size": [
+     0.1,
+     0.12
+    ],
+    "mirror": true
+   }
+  ]
+ },
+ {
+  "n": 392,
+  "id": "kapital-smiley-face-knit-sweater",
+  "designer": "Kapital",
+  "name": "Smiley Face Knit Sweater",
+  "season": "2010s",
+  "price": 600,
+  "slot": "top",
+  "colour": "#3a3a40",
+  "finish": {
+   "roughness": 0.95
+  },
+  "cut": {
+   "like": "knit",
+   "ease": {
+    "shoulder": 0.0104,
+    "chest": 0.0325,
+    "waist": 0.052,
+    "hip": 0.052,
+    "sleeve": 0.017,
+    "cuff": 0.0125
+   },
+   "hem": "hip-0.03"
+  },
+  "note": "Smiley patches at the elbows.",
+  "paint": [
+   {
+    "step": "fabric",
+    "type": "knit",
+    "gauge": 0.005
+   },
+   {
+    "step": "pattern",
+    "type": "stripes",
+    "colours": [
+     "#e3b21c",
+     "#b3261e",
+     "#2f6a4a",
+     "#1f2a5c",
+     "#e8e5dc"
+    ],
+    "period": 0.05,
+    "width": 0.02,
+    "dir": "h",
+    "where": {
+     "zone": "body",
+     "h": [
+      "hem+0.05",
+      "chest-0.02"
+     ]
+    }
+   },
+   {
+    "step": "rib",
+    "where": {
+     "zone": "body",
+     "h": [
+      "hem",
+      "hem+0.05"
+     ]
+    },
+    "gauge": 0.005,
+    "depth": 0.0005,
+    "colour": "#19191b"
+   },
+   {
+    "step": "rib",
+    "where": {
+     "zone": "sleeves",
+     "s": [
+      0.9,
+      1.3
+     ]
+    },
+    "gauge": 0.005,
+    "depth": 0.0005,
+    "colour": "#19191b"
+   },
+   {
+    "step": "rib",
+    "where": {
+     "zone": "collar"
+    },
+    "gauge": 0.003,
+    "depth": 0.0004,
+    "colour": "#19191b"
+   },
+   {
+    "step": "print",
+    "frame": "sleeves",
+    "art": "kapital-smiley",
+    "at": [
+     0.045,
+     0.5
+    ],
+    "width": 0.09,
+    "raise": 0.001
+   },
+   {
+    "step": "print",
+    "frame": "back",
+    "art": "kapital-smiley",
+    "at": [
+     0,
+     "chest+0.04"
+    ],
+    "width": 0.08,
+    "raise": 0.001
+   },
+   {
+    "step": "distress",
+    "type": "pill",
+    "amount": 0.4
+   },
+   {
+    "step": "distress",
+    "type": "shade",
+    "amount": 0.4
+   }
+  ]
+ },
+ {
+  "n": 393,
+  "id": "kapital-bone-print-denim",
+  "designer": "Kapital",
+  "name": "Bone Print Denim",
+  "season": "2010s",
+  "price": 700,
+  "slot": "bottom",
+  "colour": "#1d1d20",
+  "finish": {
+   "roughness": 0.85
+  },
+  "cut": {
+   "like": "straight",
+   "ease": {
+    "waist": 0.002,
+    "seat": 0.0133,
+    "thigh": 0.019,
+    "knee": 0.0209,
+    "hem": 0.0285
+   }
+  },
+  "note": "A skeleton's leg bones printed down each leg.",
+  "paint": [
+   {
+    "step": "fabric",
+    "type": "denim",
+    "colour2": "#3a3a40"
+   },
+   {
+    "step": "line",
+    "frame": "legs",
+    "pts": [
+     [
+      0,
+      -0.3
+     ],
+     [
+      0,
+      1.05
+     ]
+    ],
+    "style": "twin",
+    "colour": "#3a3a40",
+    "width": 0.0011,
+    "gap": 0.006
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      -0.4,
+      "top-0.04"
+     ],
+     [
+      0.4,
+      "top-0.04"
+     ]
+    ],
+    "style": "twin",
+    "colour": "#3a3a40",
+    "width": 0.0011,
+    "gap": 0.034
+   },
+   {
+    "step": "line",
+    "frame": "back",
+    "pts": [
+     [
+      -0.4,
+      "top-0.04"
+     ],
+     [
+      0.4,
+      "top-0.04"
+     ]
+    ],
+    "style": "twin",
+    "colour": "#3a3a40",
+    "width": 0.0011,
+    "gap": 0.034
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0.0,
+      "top-0.04"
+     ],
+     [
+      0.004,
+      "top-0.1"
+     ],
+     [
+      0.03,
+      "top-0.17"
+     ],
+     [
+      0.0,
+      "top-0.19"
+     ]
+    ],
+    "style": "twin",
+    "colour": "#3a3a40",
+    "width": 0.0011
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0.06,
+      "top-0.045"
+     ],
+     [
+      0.09,
+      "top-0.11"
+     ],
+     [
+      0.17,
+      "top-0.12"
+     ]
+    ],
+    "style": "twin",
+    "colour": "#3a3a40",
+    "width": 0.0011,
+    "mirror": true
+   },
+   {
+    "step": "dots",
+    "frame": "front",
+    "pts": [
+     [
+      0,
+      "top-0.02"
+     ]
+    ],
+    "r": 0.008,
+    "style": "stud",
+    "colour": "#77736a"
+   },
+   {
+    "step": "dots",
+    "frame": "front",
+    "pts": [
+     [
+      0.062,
+      "top-0.05"
+     ],
+     [
+      0.168,
+      "top-0.118"
+     ]
+    ],
+    "r": 0.0035,
+    "style": "stud",
+    "colour": "#8a7a5a",
+    "mirror": true
+   },
+   {
+    "step": "line",
+    "frame": "back",
+    "pts": [
+     [
+      -0.3,
+      "top-0.075"
+     ],
+     [
+      0,
+      "top-0.115"
+     ],
+     [
+      0.3,
+      "top-0.075"
+     ]
+    ],
+    "style": "twin",
+    "colour": "#3a3a40",
+    "width": 0.0011
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      -0.4,
+      "hem+0.014"
+     ],
+     [
+      0.4,
+      "hem+0.014"
+     ]
+    ],
+    "style": "stitch",
+    "colour": "#3a3a40",
+    "width": 0.0011
+   },
+   {
+    "step": "line",
+    "frame": "back",
+    "pts": [
+     [
+      -0.4,
+      "hem+0.014"
+     ],
+     [
+      0.4,
+      "hem+0.014"
+     ]
+    ],
+    "style": "stitch",
+    "colour": "#3a3a40",
+    "width": 0.0011
+   },
+   {
+    "step": "rect",
+    "frame": "back",
+    "at": [
+     0.088,
+     "top-0.2"
+    ],
+    "size": [
+     0.125,
+     0.135
+    ],
+    "style": "pocket",
+    "stitch": "#3a3a40",
+    "mirror": true,
+    "round": 0.012
+   },
+   {
+    "step": "print",
+    "frame": "front",
+    "art": "kapital-bone-print-leg",
+    "at": [
+     0.092,
+     "knee+0.02"
+    ],
+    "width": 0.075,
+    "crack": 0.15
+   },
+   {
+    "step": "print",
+    "frame": "front",
+    "art": "kapital-bone-print-leg",
+    "at": [
+     -0.092,
+     "knee+0.02"
+    ],
+    "width": 0.075,
+    "crack": 0.15
+   },
+   {
+    "step": "print",
+    "frame": "back",
+    "art": "kapital-bone-print-leg",
+    "at": [
+     0.09,
+     "knee+0.0"
+    ],
+    "width": 0.075,
+    "crack": 0.15
+   },
+   {
+    "step": "print",
+    "frame": "back",
+    "art": "kapital-bone-print-leg",
+    "at": [
+     -0.09,
+     "knee+0.0"
+    ],
+    "width": 0.075,
+    "crack": 0.15
+   },
+   {
+    "step": "distress",
+    "type": "wash",
+    "amount": 0.15
+   }
+  ]
+ },
+ {
+  "n": 394,
+  "id": "kapital-bone-print-jacket",
+  "designer": "Kapital",
+  "name": "Bone Print Jacket",
+  "season": "2010s",
+  "price": 800,
+  "slot": "top",
+  "colour": "#1d1d20",
+  "finish": {
+   "roughness": 0.85
+  },
+  "cut": {
+   "like": "trucker",
+   "ease": {
+    "shoulder": 0.0084,
+    "chest": 0.0231,
+    "waist": 0.0315,
+    "hip": 0.0315,
+    "sleeve": 0.0123,
+    "cuff": 0.0102
+   },
+   "hem": "hip+0.03"
+  },
+  "paint": [
+   {
+    "step": "fabric",
+    "type": "denim",
+    "colour2": "#3a3a40"
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      -0.4,
+      "hem+0.042"
+     ],
+     [
+      0.4,
+      "hem+0.042"
+     ]
+    ],
+    "style": "twin",
+    "colour": "#3a3a40",
+    "gap": 0.005,
+    "width": 0.0017
+   },
+   {
+    "step": "line",
+    "frame": "back",
+    "pts": [
+     [
+      -0.4,
+      "hem+0.042"
+     ],
+     [
+      0.4,
+      "hem+0.042"
+     ]
+    ],
+    "style": "twin",
+    "colour": "#3a3a40",
+    "gap": 0.005,
+    "width": 0.0017
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0.02,
+      "chest+0.065"
+     ],
+     [
+      0.2,
+      "chest+0.065"
+     ]
+    ],
+    "style": "twin",
+    "mirror": true,
+    "gap": 0.005,
+    "width": 0.0017,
+    "colour": "#3a3a40"
+   },
+   {
+    "step": "line",
+    "frame": "back",
+    "pts": [
+     [
+      -0.25,
+      "chest+0.075"
+     ],
+     [
+      0.25,
+      "chest+0.075"
+     ]
+    ],
+    "style": "twin",
+    "gap": 0.005,
+    "width": 0.0017,
+    "colour": "#3a3a40"
+   },
+   {
+    "step": "line",
+    "frame": "back",
+    "pts": [
+     [
+      0.105,
+      "chest+0.075"
+     ],
+     [
+      0.08,
+      "hem+0.042"
+     ]
+    ],
+    "style": "twin",
+    "mirror": true,
+    "gap": 0.005,
+    "width": 0.0017,
+    "colour": "#3a3a40"
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0.02,
+      "hem"
+     ],
+     [
+      0.02,
+      "top"
+     ]
+    ],
+    "style": "twin",
+    "mirror": true,
+    "gap": 0.005,
+    "width": 0.0017,
+    "colour": "#3a3a40"
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0.05,
+      "chest-0.005"
+     ],
+     [
+      0.068,
+      "hem+0.042"
+     ]
+    ],
+    "style": "twin",
+    "mirror": true,
+    "gap": 0.005,
+    "width": 0.0017,
+    "colour": "#3a3a40"
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0.14,
+      "chest-0.005"
+     ],
+     [
+      0.11,
+      "hem+0.042"
+     ]
+    ],
+    "style": "twin",
+    "mirror": true,
+    "gap": 0.005,
+    "width": 0.0017,
+    "colour": "#3a3a40"
+   },
+   {
+    "step": "line",
+    "frame": "sleeves",
+    "pts": [
+     [
+      -0.3,
+      0.93
+     ],
+     [
+      0.3,
+      0.93
+     ]
+    ],
+    "style": "twin",
+    "gap": 0.005,
+    "width": 0.0017,
+    "colour": "#3a3a40"
+   },
+   {
+    "step": "dots",
+    "frame": "front",
+    "from": [
+     0,
+     "hem+0.02"
+    ],
+    "to": [
+     0,
+     "neck-0.04"
+    ],
+    "count": 6,
+    "r": 0.0075,
+    "style": "button",
+    "colour": "#55565a"
+   },
+   {
+    "step": "print",
+    "frame": "back",
+    "art": "kapital-bone-knit-sweater-back",
+    "at": [
+     0,
+     "waist+0.1"
+    ],
+    "width": 0.3
+   },
+   {
+    "step": "print",
+    "frame": "sleeves",
+    "art": "kapital-bone-knit-sweater-arm",
+    "at": [
+     0,
+     0.5
+    ],
+    "width": 0.09
+   },
+   {
+    "step": "distress",
+    "type": "wash",
+    "amount": 0.15
+   }
+  ]
+ },
+ {
+  "n": 395,
+  "id": "kapital-ring-coat",
+  "designer": "Kapital",
+  "name": "Ring Coat",
+  "season": "2010s",
+  "price": 900,
+  "slot": "top",
+  "colour": "#57583f",
+  "finish": {
+   "roughness": 0.85
+  },
+  "cut": {
+   "like": "coat",
+   "ease": {
+    "shoulder": 0.012,
+    "chest": 0.0375,
+    "waist": 0.0525,
+    "hip": 0.0525,
+    "sleeve": 0.0172,
+    "cuff": 0.0172
+   },
+   "hem": "knee-0.02",
+   "flare": 0.1,
+   "shoulderDrop": 0.03,
+   "neck": {
+    "v": 0.14,
+    "width": 0.07,
+    "depth": 0.03
+   },
+   "add": [
+    {
+     "type": "collar",
+     "style": "fold",
+     "height": 0.08,
+     "gap": 0.04,
+     "points": 0.5
+    }
+   ]
+  },
+  "note": "A ring of buttons round the hem lets it be buttoned up into a shorter coat or a cape.",
+  "paint": [
+   {
+    "step": "fabric",
+    "type": "canvas"
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0.014,
+      "neck-0.14"
+     ],
+     [
+      0.014,
+      "hem"
+     ]
+    ],
+    "style": "seam"
+   },
+   {
+    "step": "dots",
+    "frame": "front",
+    "from": [
+     0,
+     "hip-0.1"
+    ],
+    "to": [
+     0,
+     "chest"
+    ],
+    "count": 5,
+    "r": 0.011,
+    "style": "button",
+    "colour": "#2a2b22"
+   },
+   {
+    "step": "dots",
+    "frame": "front",
+    "pts": [
+     [
+      0.06,
+      "hem+0.03"
+     ],
+     [
+      0.14,
+      "hem+0.03"
+     ],
+     [
+      0.22,
+      "hem+0.03"
+     ]
+    ],
+    "r": 0.009,
+    "style": "button",
+    "colour": "#2a2b22",
+    "mirror": true
+   },
+   {
+    "step": "dots",
+    "frame": "back",
+    "pts": [
+     [
+      0.0,
+      "hem+0.03"
+     ],
+     [
+      0.08,
+      "hem+0.03"
+     ],
+     [
+      0.16,
+      "hem+0.03"
+     ]
+    ],
+    "r": 0.009,
+    "style": "button",
+    "colour": "#2a2b22",
+    "mirror": true
+   },
+   {
+    "step": "rect",
+    "frame": "front",
+    "at": [
+     0.14,
+     "hip-0.05"
+    ],
+    "size": [
+     0.15,
+     0.17
+    ],
+    "style": "flap",
+    "flap": 0.3,
+    "mirror": true,
+    "stitch": "#3a3b2c",
+    "pleat": true
+   },
+   {
+    "step": "panel",
+    "colour": "#b3261e",
+    "where": {
+     "zone": "lining"
+    }
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      -0.4,
+      "waist-0.02"
+     ],
+     [
+      0.4,
+      "waist-0.02"
+     ]
+    ],
+    "style": "groove",
+    "colour": "#3a3a3e",
+    "width": 0.004
+   },
+   {
+    "step": "line",
+    "frame": "back",
+    "pts": [
+     [
+      -0.4,
+      "waist-0.02"
+     ],
+     [
+      0.4,
+      "waist-0.02"
+     ]
+    ],
+    "style": "groove",
+    "colour": "#3a3a3e",
+    "width": 0.004
+   },
+   {
+    "step": "distress",
+    "type": "wash",
+    "amount": 0.15
+   },
+   {
+    "step": "distress",
+    "type": "folds",
+    "freq": 8,
+    "depth": 0.005
+   }
+  ]
+ },
+ {
+  "n": 396,
+  "id": "visvim-one-oh-one-denim-jacket",
+  "designer": "Visvim",
+  "name": "101 Denim Jacket",
+  "season": "2010s",
+  "price": 900,
+  "slot": "top",
+  "colour": "#2a3a5c",
+  "finish": {
+   "roughness": 0.85
+  },
+  "cut": {
+   "like": "trucker",
+   "hem": "hip+0.05"
+  },
+  "note": "Hand-distressed in Japan (\"damaged\"), on the pattern of a 1950s type II.",
+  "paint": [
+   {
+    "step": "fabric",
+    "type": "denim",
+    "colour2": "#6f8cae"
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      -0.4,
+      "hem+0.042"
+     ],
+     [
+      0.4,
+      "hem+0.042"
+     ]
+    ],
+    "style": "twin",
+    "colour": "#c9a35c",
+    "gap": 0.005,
+    "width": 0.0017
+   },
+   {
+    "step": "line",
+    "frame": "back",
+    "pts": [
+     [
+      -0.4,
+      "hem+0.042"
+     ],
+     [
+      0.4,
+      "hem+0.042"
+     ]
+    ],
+    "style": "twin",
+    "colour": "#c9a35c",
+    "gap": 0.005,
+    "width": 0.0017
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0.02,
+      "chest+0.065"
+     ],
+     [
+      0.2,
+      "chest+0.065"
+     ]
+    ],
+    "style": "twin",
+    "mirror": true,
+    "gap": 0.005,
+    "width": 0.0017,
+    "colour": "#c9a35c"
+   },
+   {
+    "step": "line",
+    "frame": "back",
+    "pts": [
+     [
+      -0.25,
+      "chest+0.075"
+     ],
+     [
+      0.25,
+      "chest+0.075"
+     ]
+    ],
+    "style": "twin",
+    "gap": 0.005,
+    "width": 0.0017,
+    "colour": "#c9a35c"
+   },
+   {
+    "step": "line",
+    "frame": "back",
+    "pts": [
+     [
+      0.105,
+      "chest+0.075"
+     ],
+     [
+      0.08,
+      "hem+0.042"
+     ]
+    ],
+    "style": "twin",
+    "mirror": true,
+    "gap": 0.005,
+    "width": 0.0017,
+    "colour": "#c9a35c"
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0.02,
+      "hem"
+     ],
+     [
+      0.02,
+      "top"
+     ]
+    ],
+    "style": "twin",
+    "mirror": true,
+    "gap": 0.005,
+    "width": 0.0017,
+    "colour": "#c9a35c"
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0.05,
+      "chest-0.005"
+     ],
+     [
+      0.068,
+      "hem+0.042"
+     ]
+    ],
+    "style": "twin",
+    "mirror": true,
+    "gap": 0.005,
+    "width": 0.0017,
+    "colour": "#c9a35c"
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0.14,
+      "chest-0.005"
+     ],
+     [
+      0.11,
+      "hem+0.042"
+     ]
+    ],
+    "style": "twin",
+    "mirror": true,
+    "gap": 0.005,
+    "width": 0.0017,
+    "colour": "#c9a35c"
+   },
+   {
+    "step": "line",
+    "frame": "sleeves",
+    "pts": [
+     [
+      -0.3,
+      0.93
+     ],
+     [
+      0.3,
+      0.93
+     ]
+    ],
+    "style": "twin",
+    "gap": 0.005,
+    "width": 0.0017,
+    "colour": "#c9a35c"
+   },
+   {
+    "step": "rect",
+    "frame": "front",
+    "at": [
+     0.095,
+     "chest+0.035"
+    ],
+    "size": [
+     0.1,
+     0.055
+    ],
+    "style": "flap",
+    "flap": 1,
+    "stitch": "#c9a35c",
+    "mirror": true
+   },
+   {
+    "step": "dots",
+    "frame": "front",
+    "pts": [
+     [
+      0.095,
+      "chest+0.022"
+     ]
+    ],
+    "r": 0.007,
+    "style": "button",
+    "colour": "#8a6a3a",
+    "mirror": true
+   },
+   {
+    "step": "dots",
+    "frame": "front",
+    "from": [
+     0,
+     "hem+0.02"
+    ],
+    "to": [
+     0,
+     "neck-0.04"
+    ],
+    "count": 6,
+    "r": 0.0075,
+    "style": "button",
+    "colour": "#8a6a3a"
+   },
+   {
+    "step": "distress",
+    "type": "wash",
+    "amount": 0.3
+   },
+   {
+    "step": "distress",
+    "type": "fade",
+    "amount": 0.4,
+    "frame": "back",
+    "at": [
+     0,
+     "chest-0.05"
+    ],
+    "size": [
+     0.3,
+     0.3
+    ]
+   },
+   {
+    "step": "distress",
+    "type": "edges",
+    "amount": 0.35,
+    "colour": "#c9d3dc"
+   }
+  ]
+ },
+ {
+  "n": 397,
+  "id": "visvim-social-sculpture-jeans",
+  "designer": "Visvim",
+  "name": "Social Sculpture 01 Jeans",
+  "season": "2010s",
+  "price": 700,
+  "slot": "bottom",
+  "colour": "#2a3a5c",
+  "finish": {
+   "roughness": 0.85
+  },
+  "cut": {
+   "like": "slim",
+   "ease": {
+    "waist": 0.002,
+    "seat": 0.012,
+    "thigh": 0.012,
+    "knee": 0.012,
+    "hem": 0.018
+   }
+  },
+  "paint": [
+   {
+    "step": "fabric",
+    "type": "denim",
+    "colour2": "#8fa3bd"
+   },
+   {
+    "step": "line",
+    "frame": "legs",
+    "pts": [
+     [
+      0,
+      -0.3
+     ],
+     [
+      0,
+      1.05
+     ]
+    ],
+    "style": "twin",
+    "colour": "#c9a35c",
+    "width": 0.0011,
+    "gap": 0.006
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      -0.4,
+      "top-0.04"
+     ],
+     [
+      0.4,
+      "top-0.04"
+     ]
+    ],
+    "style": "twin",
+    "colour": "#c9a35c",
+    "width": 0.0011,
+    "gap": 0.034
+   },
+   {
+    "step": "line",
+    "frame": "back",
+    "pts": [
+     [
+      -0.4,
+      "top-0.04"
+     ],
+     [
+      0.4,
+      "top-0.04"
+     ]
+    ],
+    "style": "twin",
+    "colour": "#c9a35c",
+    "width": 0.0011,
+    "gap": 0.034
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0.0,
+      "top-0.04"
+     ],
+     [
+      0.004,
+      "top-0.1"
+     ],
+     [
+      0.03,
+      "top-0.17"
+     ],
+     [
+      0.0,
+      "top-0.19"
+     ]
+    ],
+    "style": "twin",
+    "colour": "#c9a35c",
+    "width": 0.0011
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0.06,
+      "top-0.045"
+     ],
+     [
+      0.09,
+      "top-0.11"
+     ],
+     [
+      0.17,
+      "top-0.12"
+     ]
+    ],
+    "style": "twin",
+    "colour": "#c9a35c",
+    "width": 0.0011,
+    "mirror": true
+   },
+   {
+    "step": "dots",
+    "frame": "front",
+    "pts": [
+     [
+      0,
+      "top-0.02"
+     ]
+    ],
+    "r": 0.008,
+    "style": "stud",
+    "colour": "#77736a"
+   },
+   {
+    "step": "dots",
+    "frame": "front",
+    "pts": [
+     [
+      0.062,
+      "top-0.05"
+     ],
+     [
+      0.168,
+      "top-0.118"
+     ]
+    ],
+    "r": 0.0035,
+    "style": "stud",
+    "colour": "#8a7a5a",
+    "mirror": true
+   },
+   {
+    "step": "line",
+    "frame": "back",
+    "pts": [
+     [
+      -0.3,
+      "top-0.075"
+     ],
+     [
+      0,
+      "top-0.115"
+     ],
+     [
+      0.3,
+      "top-0.075"
+     ]
+    ],
+    "style": "twin",
+    "colour": "#c9a35c",
+    "width": 0.0011
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      -0.4,
+      "hem+0.014"
+     ],
+     [
+      0.4,
+      "hem+0.014"
+     ]
+    ],
+    "style": "stitch",
+    "colour": "#c9a35c",
+    "width": 0.0011
+   },
+   {
+    "step": "line",
+    "frame": "back",
+    "pts": [
+     [
+      -0.4,
+      "hem+0.014"
+     ],
+     [
+      0.4,
+      "hem+0.014"
+     ]
+    ],
+    "style": "stitch",
+    "colour": "#c9a35c",
+    "width": 0.0011
+   },
+   {
+    "step": "rect",
+    "frame": "back",
+    "at": [
+     0.088,
+     "top-0.2"
+    ],
+    "size": [
+     0.125,
+     0.135
+    ],
+    "style": "pocket",
+    "stitch": "#c9a35c",
+    "mirror": true,
+    "round": 0.012
+   },
+   {
+    "step": "distress",
+    "type": "wash",
+    "amount": 0.35
+   },
+   {
+    "step": "distress",
+    "type": "fade",
+    "amount": 0.6,
+    "frame": "front",
+    "at": [
+     0.09,
+     "thigh+0.02"
+    ],
+    "size": [
+     0.12,
+     0.3
+    ],
+    "mirror": true
+   },
+   {
+    "step": "distress",
+    "type": "fade",
+    "amount": 0.5,
+    "frame": "front",
+    "at": [
+     0.085,
+     "knee+0.02"
+    ],
+    "size": [
+     0.1,
+     0.12
+    ],
+    "mirror": true
+   },
+   {
+    "step": "rect",
+    "frame": "front",
+    "at": [
+     0.085,
+     "knee+0.01"
+    ],
+    "size": [
+     0.06,
+     0.02
+    ],
+    "style": "hole",
+    "colour": "#d9d5c8"
+   },
+   {
+    "step": "distress",
+    "type": "whisker",
+    "amount": 0.5,
+    "frame": "front",
+    "at": [
+     0.08,
+     "crotch+0.0"
+    ],
+    "size": [
+     0.14,
+     0.1
+    ],
+    "mirror": true
+   },
+   {
+    "step": "distress",
+    "type": "edges",
+    "amount": 0.3,
+    "colour": "#c9d3dc"
+   }
+  ]
+ },
+ {
+  "n": 399,
+  "id": "visvim-sanjuro-kimono-jacket",
+  "designer": "Visvim",
+  "name": "Sanjuro Kimono Jacket",
+  "season": "2010s",
+  "price": 1800,
+  "slot": "top",
+  "colour": "#1f2b45",
+  "finish": {
+   "roughness": 0.85
+  },
+  "cut": {
+   "like": "trucker",
+   "ease": {
+    "shoulder": 0.0128,
+    "chest": 0.0352,
+    "waist": 0.048,
+    "hip": 0.048,
+    "sleeve": 0.034,
+    "cuff": 0.034
+   },
+   "hem": "hip-0.1",
+   "shoulderDrop": 0.05,
+   "tube": 1,
+   "sleeve": 0.85,
+   "neck": {
+    "v": 0.26,
+    "width": 0.06,
+    "depth": 0.03
+   },
+   "add": [
+    {
+     "type": "collar",
+     "height": 0.012,
+     "only": true
+    },
+    {
+     "type": "lip"
+    },
+    {
+     "type": "tail",
+     "from": {
+      "on": "front",
+      "x": 0.04,
+      "h": "waist+0.02"
+     },
+     "length": 0.16,
+     "width": 0.014
+    },
+    {
+     "type": "tail",
+     "from": {
+      "on": "front",
+      "x": -0.04,
+      "h": "waist+0.02"
+     },
+     "length": 0.14,
+     "width": 0.014
+    }
+   ]
+  },
+  "under": {
+   "colour": "#e8e5dc",
+   "cut": {
+    "like": "tee",
+    "hem": "hip-0.0",
+    "overWaist": false,
+    "ease": {
+     "shoulder": 0.004,
+     "chest": 0.01,
+     "waist": 0.016,
+     "hip": 0.016,
+     "sleeve": 0.012,
+     "cuff": 0.014
+    }
+   },
+   "paint": [
+    {
+     "step": "fabric",
+     "type": "jersey"
+    }
+   ]
+  },
+  "note": "A noragi in mud-dyed indigo, tied at the front.",
+  "paint": [
+   {
+    "step": "fabric",
+    "type": "canvas"
+   },
+   {
+    "step": "pattern",
+    "type": "speckle",
+    "colours": [
+     "#40557a",
+     "#6f8cae"
+    ],
+    "freq": 600,
+    "density": 0.12
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0.03,
+      "hem"
+     ],
+     [
+      0.04,
+      "neck-0.24"
+     ]
+    ],
+    "style": "ridge",
+    "width": 0.035,
+    "colour": "#17203a",
+    "mirror": true
+   },
+   {
+    "step": "panel",
+    "colour": "#17203a",
+    "where": {
+     "zone": "strap"
+    }
+   },
+   {
+    "step": "rect",
+    "frame": "front",
+    "at": [
+     0.14,
+     "hip-0.0"
+    ],
+    "size": [
+     0.14,
+     0.15
+    ],
+    "style": "pocket",
+    "mirror": true,
+    "stitch": "#40557a"
+   },
+   {
+    "step": "distress",
+    "type": "wash",
+    "amount": 0.25
+   },
+   {
+    "step": "distress",
+    "type": "folds",
+    "freq": 9,
+    "depth": 0.004
+   }
+  ]
+ },
+ {
+  "n": 400,
+  "id": "visvim-ict-reconstructed-denim",
+  "designer": "Visvim",
+  "name": "ICT Reconstructed Denim",
+  "season": "2010s",
+  "price": 2500,
+  "slot": "bottom",
+  "colour": "#40557a",
+  "finish": {
+   "roughness": 0.85
+  },
+  "cut": {
+   "like": "straight",
+   "ease": {
+    "waist": 0.002,
+    "seat": 0.0154,
+    "thigh": 0.022,
+    "knee": 0.0242,
+    "hem": 0.033
+   }
+  },
+  "note": "From Indigo Camping Trailer: old jeans crazy-patched and darned by hand.",
+  "paint": [
+   {
+    "step": "fabric",
+    "type": "denim",
+    "colour2": "#8fa3bd"
+   },
+   {
+    "step": "pattern",
+    "type": "boro",
+    "colours": [
+     "#40557a",
+     "#6f8cae",
+     "#2a3a5c",
+     "#8fa3bd",
+     "#d9d6c8"
+    ],
+    "size": 0.09,
+    "stitch": "#c9a35c"
+   },
+   {
+    "step": "pattern",
+    "type": "stripes",
+    "colours": [
+     "#d9d6c8"
+    ],
+    "period": 0.008,
+    "width": 0.0016,
+    "dir": "h",
+    "amount": 0.75,
+    "where": {
+     "zone": "legs",
+     "s": [
+      0.3,
+      0.6
+     ],
+     "front": true
+    }
+   },
+   {
+    "step": "line",
+    "frame": "legs",
+    "pts": [
+     [
+      0,
+      -0.3
+     ],
+     [
+      0,
+      1.05
+     ]
+    ],
+    "style": "twin",
+    "colour": "#c9a35c",
+    "width": 0.0011,
+    "gap": 0.006
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      -0.4,
+      "top-0.04"
+     ],
+     [
+      0.4,
+      "top-0.04"
+     ]
+    ],
+    "style": "twin",
+    "colour": "#c9a35c",
+    "width": 0.0011,
+    "gap": 0.034
+   },
+   {
+    "step": "line",
+    "frame": "back",
+    "pts": [
+     [
+      -0.4,
+      "top-0.04"
+     ],
+     [
+      0.4,
+      "top-0.04"
+     ]
+    ],
+    "style": "twin",
+    "colour": "#c9a35c",
+    "width": 0.0011,
+    "gap": 0.034
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0.0,
+      "top-0.04"
+     ],
+     [
+      0.004,
+      "top-0.1"
+     ],
+     [
+      0.03,
+      "top-0.17"
+     ],
+     [
+      0.0,
+      "top-0.19"
+     ]
+    ],
+    "style": "twin",
+    "colour": "#c9a35c",
+    "width": 0.0011
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0.06,
+      "top-0.045"
+     ],
+     [
+      0.09,
+      "top-0.11"
+     ],
+     [
+      0.17,
+      "top-0.12"
+     ]
+    ],
+    "style": "twin",
+    "colour": "#c9a35c",
+    "width": 0.0011,
+    "mirror": true
+   },
+   {
+    "step": "dots",
+    "frame": "front",
+    "pts": [
+     [
+      0,
+      "top-0.02"
+     ]
+    ],
+    "r": 0.008,
+    "style": "stud",
+    "colour": "#77736a"
+   },
+   {
+    "step": "dots",
+    "frame": "front",
+    "pts": [
+     [
+      0.062,
+      "top-0.05"
+     ],
+     [
+      0.168,
+      "top-0.118"
+     ]
+    ],
+    "r": 0.0035,
+    "style": "stud",
+    "colour": "#8a7a5a",
+    "mirror": true
+   },
+   {
+    "step": "line",
+    "frame": "back",
+    "pts": [
+     [
+      -0.3,
+      "top-0.075"
+     ],
+     [
+      0,
+      "top-0.115"
+     ],
+     [
+      0.3,
+      "top-0.075"
+     ]
+    ],
+    "style": "twin",
+    "colour": "#c9a35c",
+    "width": 0.0011
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      -0.4,
+      "hem+0.014"
+     ],
+     [
+      0.4,
+      "hem+0.014"
+     ]
+    ],
+    "style": "stitch",
+    "colour": "#c9a35c",
+    "width": 0.0011
+   },
+   {
+    "step": "line",
+    "frame": "back",
+    "pts": [
+     [
+      -0.4,
+      "hem+0.014"
+     ],
+     [
+      0.4,
+      "hem+0.014"
+     ]
+    ],
+    "style": "stitch",
+    "colour": "#c9a35c",
+    "width": 0.0011
+   },
+   {
+    "step": "rect",
+    "frame": "back",
+    "at": [
+     0.088,
+     "top-0.2"
+    ],
+    "size": [
+     0.125,
+     0.135
+    ],
+    "style": "pocket",
+    "stitch": "#c9a35c",
+    "mirror": true,
+    "round": 0.012
+   },
+   {
+    "step": "rect",
+    "frame": "front",
+    "at": [
+     0.09,
+     "knee+0.02"
+    ],
+    "size": [
+     0.08,
+     0.04
+    ],
+    "style": "hole",
+    "colour": "#d9d5c8"
+   },
+   {
+    "step": "rect",
+    "frame": "front",
+    "at": [
+     -0.085,
+     "thigh+0.0"
+    ],
+    "size": [
+     0.06,
+     0.025
+    ],
+    "style": "hole",
+    "colour": "#d9d5c8"
+   },
+   {
+    "step": "distress",
+    "type": "wash",
+    "amount": 0.35
+   },
+   {
+    "step": "distress",
+    "type": "fade",
+    "amount": 0.5,
+    "frame": "front",
+    "at": [
+     0.09,
+     "thigh+0.02"
+    ],
+    "size": [
+     0.12,
+     0.3
+    ],
+    "mirror": true
+   },
+   {
+    "step": "distress",
+    "type": "fade",
+    "amount": 0.5,
+    "frame": "front",
+    "at": [
+     0.085,
+     "knee+0.02"
+    ],
+    "size": [
+     0.1,
+     0.12
+    ],
+    "mirror": true
+   },
+   {
+    "step": "distress",
+    "type": "edges",
+    "amount": 0.45,
+    "colour": "#c9d3dc"
+   }
+  ]
+ }
+]

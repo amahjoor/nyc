@@ -1,0 +1,3130 @@
+[
+ {
+  "n": 301,
+  "id": "jpg-cyberbaba-dot-print-mesh-top",
+  "designer": "Jean Paul Gaultier",
+  "name": "Cyberbaba Dot-Print Mesh Top",
+  "season": "SS1996",
+  "price": 800,
+  "slot": "top",
+  "colour": "#ece6d6",
+  "finish": {
+   "roughness": 0.8
+  },
+  "cut": {
+   "like": "tight",
+   "hem": "hip-0.02"
+  },
+  "note": "The red, blue and green colourway; the navy optical one is earlier in the list.",
+  "paint": [
+   {
+    "step": "fabric",
+    "type": "jersey"
+   },
+   {
+    "step": "print",
+    "frame": "front",
+    "art": "jpg-cyberbaba-dot-print",
+    "at": [
+     0,
+     "hip+0.26"
+    ],
+    "width": 0.44
+   },
+   {
+    "step": "print",
+    "frame": "back",
+    "art": "jpg-cyberbaba-dot-print",
+    "at": [
+     0,
+     "hip+0.26"
+    ],
+    "width": 0.44
+   },
+   {
+    "step": "pattern",
+    "type": "dots",
+    "colours": [
+     "#1f5fbf"
+    ],
+    "size": 0.012,
+    "where": {
+     "zone": "sleeves"
+    }
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      -0.4,
+      "hem+0.006"
+     ],
+     [
+      0.4,
+      "hem+0.006"
+     ]
+    ],
+    "style": "stitch",
+    "colour": "#1f5fbf"
+   },
+   {
+    "step": "line",
+    "frame": "back",
+    "pts": [
+     [
+      -0.4,
+      "hem+0.006"
+     ],
+     [
+      0.4,
+      "hem+0.006"
+     ]
+    ],
+    "style": "stitch",
+    "colour": "#1f5fbf"
+   },
+   {
+    "step": "line",
+    "frame": "sleeves",
+    "pts": [
+     [
+      -0.3,
+      0.985
+     ],
+     [
+      0.3,
+      0.985
+     ]
+    ],
+    "style": "stitch",
+    "colour": "#1f5fbf"
+   },
+   {
+    "step": "line",
+    "frame": "back",
+    "pts": [
+     [
+      0,
+      "hem"
+     ],
+     [
+      0,
+      "top"
+     ]
+    ],
+    "style": "seam",
+    "width": 0.0014
+   }
+  ]
+ },
+ {
+  "n": 302,
+  "id": "jpg-cyberbaba-optical-print-mesh-top",
+  "designer": "Jean Paul Gaultier",
+  "name": "Cyberbaba Optical-Print Mesh Top",
+  "season": "FW1995",
+  "price": 850,
+  "slot": "top",
+  "colour": "#e8e5dc",
+  "finish": {
+   "roughness": 0.8
+  },
+  "cut": {
+   "like": "tight",
+   "hem": "hip-0.02"
+  },
+  "paint": [
+   {
+    "step": "fabric",
+    "type": "jersey"
+   },
+   {
+    "step": "print",
+    "frame": "front",
+    "art": "jpg-cyberbaba-optical-print",
+    "at": [
+     0,
+     "hip+0.2"
+    ],
+    "width": 0.44
+   },
+   {
+    "step": "print",
+    "frame": "back",
+    "art": "jpg-cyberbaba-optical-print",
+    "at": [
+     0,
+     "hip+0.2"
+    ],
+    "width": 0.44
+   },
+   {
+    "step": "pattern",
+    "type": "opart",
+    "colours": [
+     "#111113"
+    ],
+    "size": 0.02,
+    "freq": 20,
+    "where": {
+     "zone": "sleeves"
+    }
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      -0.4,
+      "hem+0.006"
+     ],
+     [
+      0.4,
+      "hem+0.006"
+     ]
+    ],
+    "style": "stitch",
+    "colour": "#111113"
+   },
+   {
+    "step": "line",
+    "frame": "back",
+    "pts": [
+     [
+      -0.4,
+      "hem+0.006"
+     ],
+     [
+      0.4,
+      "hem+0.006"
+     ]
+    ],
+    "style": "stitch",
+    "colour": "#111113"
+   },
+   {
+    "step": "line",
+    "frame": "sleeves",
+    "pts": [
+     [
+      -0.3,
+      0.985
+     ],
+     [
+      0.3,
+      0.985
+     ]
+    ],
+    "style": "stitch",
+    "colour": "#111113"
+   }
+  ]
+ },
+ {
+  "n": 303,
+  "id": "jpg-cyberbaba-long-sleeve-mesh-shirt",
+  "designer": "Jean Paul Gaultier",
+  "name": "Cyberbaba Long-Sleeve Mesh Shirt",
+  "season": "SS1996",
+  "price": 700,
+  "slot": "top",
+  "colour": "#e8dcc0",
+  "finish": {
+   "roughness": 0.8
+  },
+  "cut": {
+   "like": "shirt",
+   "ease": {
+    "shoulder": 0.0036,
+    "chest": 0.012,
+    "waist": 0.021,
+    "hip": 0.021,
+    "sleeve": 0.0107,
+    "cuff": 0.0074
+   },
+   "hem": "hip-0.05",
+   "hug": 0.6
+  },
+  "paint": [
+   {
+    "step": "fabric",
+    "type": "jersey"
+   },
+   {
+    "step": "pattern",
+    "type": "swirl",
+    "colours": [
+     "#c2452a",
+     "#1f5fbf"
+    ],
+    "scale": 1.4
+   },
+   {
+    "step": "pattern",
+    "type": "opart",
+    "colours": [
+     "#19191b"
+    ],
+    "size": 0.016,
+    "freq": 24,
+    "amount": 0.5,
+    "where": {
+     "zone": "sleeves"
+    }
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0.016,
+      "hem"
+     ],
+     [
+      0.016,
+      "top"
+     ]
+    ],
+    "style": "seam",
+    "width": 0.0014
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      -0.016,
+      "hem"
+     ],
+     [
+      -0.016,
+      "top"
+     ]
+    ],
+    "style": "stitch",
+    "width": 0.001,
+    "colour": "#8a8676"
+   },
+   {
+    "step": "dots",
+    "frame": "front",
+    "from": [
+     0,
+     "hem+0.05"
+    ],
+    "to": [
+     0,
+     "neck-0.045"
+    ],
+    "count": 7,
+    "r": 0.0048,
+    "style": "button",
+    "colour": "#19191b"
+   },
+   {
+    "step": "line",
+    "frame": "back",
+    "pts": [
+     [
+      -0.3,
+      "shoulder-0.03"
+     ],
+     [
+      0.3,
+      "shoulder-0.03"
+     ]
+    ],
+    "style": "seam",
+    "width": 0.0014
+   },
+   {
+    "step": "line",
+    "frame": "sleeves",
+    "pts": [
+     [
+      -0.3,
+      0.92
+     ],
+     [
+      0.3,
+      0.92
+     ]
+    ],
+    "style": "seam",
+    "width": 0.0014
+   },
+   {
+    "step": "dots",
+    "frame": "sleeves",
+    "pts": [
+     [
+      -0.03,
+      0.96
+     ]
+    ],
+    "r": 0.0045,
+    "style": "button",
+    "colour": "#19191b"
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      -0.4,
+      "hem+0.012"
+     ],
+     [
+      0.4,
+      "hem+0.012"
+     ]
+    ],
+    "style": "stitch",
+    "colour": "#8a8676",
+    "width": 0.001
+   },
+   {
+    "step": "line",
+    "frame": "back",
+    "pts": [
+     [
+      -0.4,
+      "hem+0.012"
+     ],
+     [
+      0.4,
+      "hem+0.012"
+     ]
+    ],
+    "style": "stitch",
+    "colour": "#8a8676",
+    "width": 0.001
+   }
+  ]
+ },
+ {
+  "n": 304,
+  "id": "jpg-tattoo-print-mesh-dress",
+  "designer": "Jean Paul Gaultier",
+  "name": "Tattoo-Print Mesh Dress",
+  "season": "SS1994",
+  "price": 2200,
+  "slot": "top",
+  "colour": "#d9b99b",
+  "finish": {
+   "roughness": 0.8
+  },
+  "cut": {
+   "like": "dress",
+   "ease": {
+    "shoulder": 0.003,
+    "chest": 0.006,
+    "waist": 0.01,
+    "hip": 0.0125,
+    "sleeve": 0.004,
+    "cuff": 0.004,
+    "hem": 0.012
+   },
+   "hem": "calf+0.1",
+   "sleeve": 1,
+   "hug": 1,
+   "hang": 0,
+   "neck": {
+    "y": 0.012,
+    "depth": 0.02,
+    "round": 0.075
+   }
+  },
+  "paint": [
+   {
+    "step": "fabric",
+    "type": "jersey"
+   },
+   {
+    "step": "print",
+    "frame": "front",
+    "art": "jpg-tattoo-mesh-top-chest",
+    "at": [
+     0,
+     "chest-0.1"
+    ],
+    "width": 0.4
+   },
+   {
+    "step": "print",
+    "frame": "front",
+    "art": "jpg-tattoo-mesh-top-chest",
+    "at": [
+     0,
+     "hip-0.12"
+    ],
+    "width": 0.4,
+    "rot": 180
+   },
+   {
+    "step": "print",
+    "frame": "back",
+    "art": "jpg-tattoo-mesh-top-chest",
+    "at": [
+     0,
+     "chest-0.08"
+    ],
+    "width": 0.4,
+    "rot": 180
+   },
+   {
+    "step": "print",
+    "frame": "back",
+    "art": "jpg-tattoo-mesh-top-chest",
+    "at": [
+     0,
+     "hip-0.1"
+    ],
+    "width": 0.4
+   },
+   {
+    "step": "print",
+    "frame": "sleeves",
+    "art": "jpg-tattoo-mesh-top-arm",
+    "at": [
+     0,
+     0.55
+    ],
+    "width": 0.13
+   },
+   {
+    "step": "print",
+    "frame": "sleeves",
+    "art": "jpg-tattoo-mesh-top-arm",
+    "at": [
+     0.13,
+     0.5
+    ],
+    "width": 0.11,
+    "rot": 180
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      -0.4,
+      "hem+0.006"
+     ],
+     [
+      0.4,
+      "hem+0.006"
+     ]
+    ],
+    "style": "stitch",
+    "colour": "#1f2a3a"
+   },
+   {
+    "step": "line",
+    "frame": "back",
+    "pts": [
+     [
+      -0.4,
+      "hem+0.006"
+     ],
+     [
+      0.4,
+      "hem+0.006"
+     ]
+    ],
+    "style": "stitch",
+    "colour": "#1f2a3a"
+   },
+   {
+    "step": "line",
+    "frame": "sleeves",
+    "pts": [
+     [
+      -0.3,
+      0.985
+     ],
+     [
+      0.3,
+      0.985
+     ]
+    ],
+    "style": "stitch",
+    "colour": "#1f2a3a"
+   }
+  ]
+ },
+ {
+  "n": 305,
+  "id": "jpg-tattoo-print-long-sleeve-ink",
+  "designer": "Jean Paul Gaultier",
+  "name": "Tattoo-Print Mesh Long Sleeve (Black Ground)",
+  "season": "SS1994",
+  "price": 1300,
+  "slot": "top",
+  "colour": "#26262a",
+  "finish": {
+   "roughness": 0.8
+  },
+  "cut": {
+   "like": "tight",
+   "hem": "hip-0.02",
+   "neck": {
+    "y": 0.012,
+    "depth": 0.02,
+    "round": 0.075
+   },
+   "add": [
+    {
+     "type": "collar",
+     "height": 0.022,
+     "flare": 0.001
+    }
+   ]
+  },
+  "note": "The dark ground version, with sun tattoos in gold and red.",
+  "paint": [
+   {
+    "step": "fabric",
+    "type": "jersey"
+   },
+   {
+    "step": "print",
+    "frame": "front",
+    "art": "jpg-tattoo-mesh-top-chest",
+    "at": [
+     0,
+     "chest-0.1"
+    ],
+    "width": 0.4,
+    "opacity": 0.0
+   },
+   {
+    "step": "pattern",
+    "type": "dots",
+    "colours": [
+     "#3a3a40"
+    ],
+    "size": 0.004,
+    "r": 0.28,
+    "jitter": 0
+   },
+   {
+    "step": "print",
+    "frame": "front",
+    "art": "jpg-soleil-sun",
+    "at": [
+     0,
+     "chest-0.02"
+    ],
+    "width": 0.22
+   },
+   {
+    "step": "print",
+    "frame": "back",
+    "art": "jpg-soleil-sun",
+    "at": [
+     0,
+     "chest-0.02"
+    ],
+    "width": 0.26
+   },
+   {
+    "step": "print",
+    "frame": "sleeves",
+    "art": "jpg-soleil-sun",
+    "at": [
+     0,
+     0.4
+    ],
+    "width": 0.11
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      -0.4,
+      "hem+0.006"
+     ],
+     [
+      0.4,
+      "hem+0.006"
+     ]
+    ],
+    "style": "stitch",
+    "colour": "#e8a03a"
+   },
+   {
+    "step": "line",
+    "frame": "back",
+    "pts": [
+     [
+      -0.4,
+      "hem+0.006"
+     ],
+     [
+      0.4,
+      "hem+0.006"
+     ]
+    ],
+    "style": "stitch",
+    "colour": "#e8a03a"
+   },
+   {
+    "step": "line",
+    "frame": "sleeves",
+    "pts": [
+     [
+      -0.3,
+      0.985
+     ],
+     [
+      0.3,
+      0.985
+     ]
+    ],
+    "style": "stitch",
+    "colour": "#e8a03a"
+   }
+  ]
+ },
+ {
+  "n": 306,
+  "id": "jpg-trompe-loeil-nude-body-top",
+  "designer": "Jean Paul Gaultier",
+  "name": "Trompe-l'œil Nude Body Top",
+  "season": "SS1996",
+  "price": 1600,
+  "slot": "top",
+  "colour": "#d8c3a5",
+  "finish": {
+   "roughness": 0.8
+  },
+  "cut": {
+   "like": "tight",
+   "hem": "hip-0.04",
+   "neck": {
+    "depth": 0.03,
+    "round": 0.085
+   }
+  },
+  "note": "Long-sleeved, the body drawn in blue halftone dots at the arms.",
+  "paint": [
+   {
+    "step": "fabric",
+    "type": "jersey"
+   },
+   {
+    "step": "print",
+    "frame": "front",
+    "art": "jpg-body-print-top-torso",
+    "at": [
+     0,
+     "waist+0.115"
+    ],
+    "width": 0.4
+   },
+   {
+    "step": "print",
+    "frame": "back",
+    "art": "jpg-body-print-top-back",
+    "at": [
+     0,
+     "waist+0.115"
+    ],
+    "width": 0.4
+   },
+   {
+    "step": "pattern",
+    "type": "dots",
+    "colours": [
+     "#3a5a8c"
+    ],
+    "size": 0.004,
+    "r": 0.28,
+    "jitter": 0,
+    "amount": 0.3,
+    "where": {
+     "zone": "sleeves"
+    }
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      -0.4,
+      "hem+0.006"
+     ],
+     [
+      0.4,
+      "hem+0.006"
+     ]
+    ],
+    "style": "stitch",
+    "colour": "#3a5a8c"
+   },
+   {
+    "step": "line",
+    "frame": "back",
+    "pts": [
+     [
+      -0.4,
+      "hem+0.006"
+     ],
+     [
+      0.4,
+      "hem+0.006"
+     ]
+    ],
+    "style": "stitch",
+    "colour": "#3a5a8c"
+   },
+   {
+    "step": "line",
+    "frame": "sleeves",
+    "pts": [
+     [
+      -0.3,
+      0.985
+     ],
+     [
+      0.3,
+      0.985
+     ]
+    ],
+    "style": "stitch",
+    "colour": "#3a5a8c"
+   }
+  ]
+ },
+ {
+  "n": 307,
+  "id": "jpg-trompe-loeil-corset-top",
+  "designer": "Jean Paul Gaultier",
+  "name": "Trompe-l'œil Corset Top",
+  "season": "SS1992",
+  "price": 1200,
+  "slot": "top",
+  "colour": "#19191b",
+  "finish": {
+   "roughness": 0.8
+  },
+  "cut": {
+   "like": "tight",
+   "hem": "hip-0.03",
+   "sleeve": 0.3,
+   "neck": {
+    "depth": 0.05,
+    "round": 0.09
+   }
+  },
+  "paint": [
+   {
+    "step": "fabric",
+    "type": "jersey"
+   },
+   {
+    "step": "print",
+    "frame": "front",
+    "art": "jpg-corset-print",
+    "at": [
+     0,
+     "waist+0.1"
+    ],
+    "width": 0.3
+   },
+   {
+    "step": "print",
+    "frame": "back",
+    "art": "jpg-corset-print",
+    "at": [
+     0,
+     "waist+0.1"
+    ],
+    "width": 0.3
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      -0.4,
+      "hem+0.006"
+     ],
+     [
+      0.4,
+      "hem+0.006"
+     ]
+    ],
+    "style": "stitch",
+    "colour": "#3a3a3e"
+   },
+   {
+    "step": "line",
+    "frame": "back",
+    "pts": [
+     [
+      -0.4,
+      "hem+0.006"
+     ],
+     [
+      0.4,
+      "hem+0.006"
+     ]
+    ],
+    "style": "stitch",
+    "colour": "#3a3a3e"
+   }
+  ]
+ },
+ {
+  "n": 308,
+  "id": "jpg-trompe-loeil-body-print-dress",
+  "designer": "Jean Paul Gaultier",
+  "name": "Trompe-l'œil Body-Print Dress",
+  "season": "SS1996",
+  "price": 3200,
+  "slot": "top",
+  "colour": "#d8c3a5",
+  "finish": {
+   "roughness": 0.8
+  },
+  "cut": {
+   "like": "dress",
+   "ease": {
+    "shoulder": 0.003,
+    "chest": 0.006,
+    "waist": 0.01,
+    "hip": 0.0125,
+    "hem": 0.012
+   },
+   "hem": "calf+0.12",
+   "hug": 1,
+   "hang": 0,
+   "armhole": 0.22,
+   "neck": {
+    "depth": 0.06,
+    "round": 0.09
+   }
+  },
+  "paint": [
+   {
+    "step": "fabric",
+    "type": "jersey"
+   },
+   {
+    "step": "print",
+    "frame": "front",
+    "art": "jpg-body-print-top-torso",
+    "at": [
+     0,
+     "waist+0.115"
+    ],
+    "width": 0.4
+   },
+   {
+    "step": "print",
+    "frame": "back",
+    "art": "jpg-body-print-top-back",
+    "at": [
+     0,
+     "waist+0.115"
+    ],
+    "width": 0.4
+   },
+   {
+    "step": "pattern",
+    "type": "dots",
+    "colours": [
+     "#8b2a25"
+    ],
+    "size": 0.004,
+    "r": 0.28,
+    "jitter": 0,
+    "amount": 0.3,
+    "where": {
+     "zone": "body",
+     "h": [
+      "hem",
+      "hip"
+     ]
+    }
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      -0.4,
+      "hem+0.006"
+     ],
+     [
+      0.4,
+      "hem+0.006"
+     ]
+    ],
+    "style": "stitch",
+    "colour": "#8b2a25"
+   },
+   {
+    "step": "line",
+    "frame": "back",
+    "pts": [
+     [
+      -0.4,
+      "hem+0.006"
+     ],
+     [
+      0.4,
+      "hem+0.006"
+     ]
+    ],
+    "style": "stitch",
+    "colour": "#8b2a25"
+   }
+  ]
+ },
+ {
+  "n": 309,
+  "id": "jpg-madonna-cone-bra-corset",
+  "designer": "Jean Paul Gaultier",
+  "name": "Madonna Cone-Bra Corset",
+  "season": "1990",
+  "price": 52000,
+  "slot": "top",
+  "colour": "#e8b8a8",
+  "finish": {
+   "roughness": 0.4
+  },
+  "cut": {
+   "like": "tank",
+   "ease": {
+    "shoulder": 0.002,
+    "chest": 0.006,
+    "waist": 0.01,
+    "hip": 0.01
+   },
+   "hem": "hip+0.02",
+   "armhole": 0.16,
+   "hug": 1,
+   "chest": 0,
+   "subdivide": 1,
+   "neck": {
+    "depth": 0.13,
+    "round": 0.1
+   },
+   "bumps": [
+    [
+     0.085,
+     "chest-0.0",
+     1,
+     0.05,
+     0.085
+    ],
+    [
+     -0.085,
+     "chest-0.0",
+     1,
+     0.05,
+     0.085
+    ]
+   ]
+  },
+  "note": "The stage corset in peach satin: spiral-stitched cones, as far as the tailor can raise them.",
+  "paint": [
+   {
+    "step": "fabric",
+    "type": "satin"
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0.03,
+      "hem"
+     ],
+     [
+      0.027,
+      "chest-0.07"
+     ]
+    ],
+    "style": "twin",
+    "colour": "#c9907e",
+    "gap": 0.004,
+    "mirror": true
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0.075,
+      "hem"
+     ],
+     [
+      0.0675,
+      "chest-0.07"
+     ]
+    ],
+    "style": "twin",
+    "colour": "#c9907e",
+    "gap": 0.004,
+    "mirror": true
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0.12,
+      "hem"
+     ],
+     [
+      0.108,
+      "chest-0.07"
+     ]
+    ],
+    "style": "twin",
+    "colour": "#c9907e",
+    "gap": 0.004,
+    "mirror": true
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0.097,
+      "chest+0.0000"
+     ],
+     [
+      0.09608655439013544,
+      "chest+0.0046"
+     ],
+     [
+      0.09348528137423857,
+      "chest+0.0085"
+     ],
+     [
+      0.08959220118838108,
+      "chest+0.0111"
+     ],
+     [
+      0.085,
+      "chest+0.0120"
+     ],
+     [
+      0.08040779881161893,
+      "chest+0.0111"
+     ],
+     [
+      0.07651471862576144,
+      "chest+0.0085"
+     ],
+     [
+      0.07391344560986457,
+      "chest+0.0046"
+     ],
+     [
+      0.07300000000000001,
+      "chest+0.0000"
+     ],
+     [
+      0.07391344560986457,
+      "chest-0.0046"
+     ],
+     [
+      0.07651471862576144,
+      "chest-0.0085"
+     ],
+     [
+      0.08040779881161893,
+      "chest-0.0111"
+     ],
+     [
+      0.085,
+      "chest-0.0120"
+     ],
+     [
+      0.08959220118838108,
+      "chest-0.0111"
+     ],
+     [
+      0.09348528137423857,
+      "chest-0.0085"
+     ],
+     [
+      0.09608655439013544,
+      "chest-0.0046"
+     ],
+     [
+      0.097,
+      "chest-0.0000"
+     ]
+    ],
+    "style": "stitch",
+    "colour": "#c9907e",
+    "width": 0.0012,
+    "mirror": true
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0.10900000000000001,
+      "chest+0.0000"
+     ],
+     [
+      0.10717310878027089,
+      "chest+0.0092"
+     ],
+     [
+      0.10197056274847716,
+      "chest+0.0170"
+     ],
+     [
+      0.09418440237676216,
+      "chest+0.0222"
+     ],
+     [
+      0.085,
+      "chest+0.0240"
+     ],
+     [
+      0.07581559762323785,
+      "chest+0.0222"
+     ],
+     [
+      0.06802943725152287,
+      "chest+0.0170"
+     ],
+     [
+      0.06282689121972912,
+      "chest+0.0092"
+     ],
+     [
+      0.061000000000000006,
+      "chest+0.0000"
+     ],
+     [
+      0.06282689121972912,
+      "chest-0.0092"
+     ],
+     [
+      0.06802943725152286,
+      "chest-0.0170"
+     ],
+     [
+      0.07581559762323783,
+      "chest-0.0222"
+     ],
+     [
+      0.085,
+      "chest-0.0240"
+     ],
+     [
+      0.09418440237676216,
+      "chest-0.0222"
+     ],
+     [
+      0.10197056274847714,
+      "chest-0.0170"
+     ],
+     [
+      0.10717310878027088,
+      "chest-0.0092"
+     ],
+     [
+      0.10900000000000001,
+      "chest-0.0000"
+     ]
+    ],
+    "style": "stitch",
+    "colour": "#c9907e",
+    "width": 0.0012,
+    "mirror": true
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0.12100000000000001,
+      "chest+0.0000"
+     ],
+     [
+      0.11825966317040634,
+      "chest+0.0138"
+     ],
+     [
+      0.11045584412271572,
+      "chest+0.0255"
+     ],
+     [
+      0.09877660356514324,
+      "chest+0.0333"
+     ],
+     [
+      0.085,
+      "chest+0.0360"
+     ],
+     [
+      0.07122339643485677,
+      "chest+0.0333"
+     ],
+     [
+      0.059544155877284295,
+      "chest+0.0255"
+     ],
+     [
+      0.051740336829593676,
+      "chest+0.0138"
+     ],
+     [
+      0.049,
+      "chest+0.0000"
+     ],
+     [
+      0.051740336829593676,
+      "chest-0.0138"
+     ],
+     [
+      0.05954415587728429,
+      "chest-0.0255"
+     ],
+     [
+      0.07122339643485676,
+      "chest-0.0333"
+     ],
+     [
+      0.085,
+      "chest-0.0360"
+     ],
+     [
+      0.09877660356514324,
+      "chest-0.0333"
+     ],
+     [
+      0.11045584412271571,
+      "chest-0.0255"
+     ],
+     [
+      0.11825966317040632,
+      "chest-0.0138"
+     ],
+     [
+      0.12100000000000001,
+      "chest-0.0000"
+     ]
+    ],
+    "style": "stitch",
+    "colour": "#c9907e",
+    "width": 0.0012,
+    "mirror": true
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0.133,
+      "chest+0.0000"
+     ],
+     [
+      0.12934621756054177,
+      "chest+0.0184"
+     ],
+     [
+      0.11894112549695429,
+      "chest+0.0339"
+     ],
+     [
+      0.10336880475352432,
+      "chest+0.0443"
+     ],
+     [
+      0.085,
+      "chest+0.0480"
+     ],
+     [
+      0.0666311952464757,
+      "chest+0.0443"
+     ],
+     [
+      0.05105887450304573,
+      "chest+0.0339"
+     ],
+     [
+      0.04065378243945824,
+      "chest+0.0184"
+     ],
+     [
+      0.037000000000000005,
+      "chest+0.0000"
+     ],
+     [
+      0.04065378243945823,
+      "chest-0.0184"
+     ],
+     [
+      0.05105887450304571,
+      "chest-0.0339"
+     ],
+     [
+      0.06663119524647568,
+      "chest-0.0443"
+     ],
+     [
+      0.08499999999999999,
+      "chest-0.0480"
+     ],
+     [
+      0.10336880475352433,
+      "chest-0.0443"
+     ],
+     [
+      0.11894112549695428,
+      "chest-0.0339"
+     ],
+     [
+      0.12934621756054177,
+      "chest-0.0184"
+     ],
+     [
+      0.133,
+      "chest-0.0000"
+     ]
+    ],
+    "style": "stitch",
+    "colour": "#c9907e",
+    "width": 0.0012,
+    "mirror": true
+   },
+   {
+    "step": "laces",
+    "frame": "front",
+    "from": [
+     0,
+     "hem+0.02"
+    ],
+    "to": [
+     0,
+     "chest-0.08"
+    ],
+    "rows": 8,
+    "width": 0.03,
+    "colour": "#c9907e"
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      -0.4,
+      "hem+0.01"
+     ],
+     [
+      0.4,
+      "hem+0.01"
+     ]
+    ],
+    "style": "ridge",
+    "colour": "#c9907e",
+    "width": 0.004
+   },
+   {
+    "step": "line",
+    "frame": "back",
+    "pts": [
+     [
+      -0.4,
+      "hem+0.01"
+     ],
+     [
+      0.4,
+      "hem+0.01"
+     ]
+    ],
+    "style": "ridge",
+    "colour": "#c9907e",
+    "width": 0.004
+   }
+  ]
+ },
+ {
+  "n": 310,
+  "id": "jpg-sailor-stripe-mesh-top",
+  "designer": "Jean Paul Gaultier",
+  "name": "Sailor Stripe Mesh Top",
+  "season": "SS1995",
+  "price": 450,
+  "slot": "top",
+  "colour": "#e8e5dc",
+  "finish": {
+   "roughness": 0.8
+  },
+  "cut": {
+   "like": "tight",
+   "hem": "hip-0.02",
+   "neck": {
+    "depth": 0.025,
+    "round": 0.11
+   }
+  },
+  "paint": [
+   {
+    "step": "fabric",
+    "type": "jersey"
+   },
+   {
+    "step": "pattern",
+    "type": "stripes",
+    "colours": [
+     "#1f2a5c"
+    ],
+    "period": 0.024,
+    "width": 0.011,
+    "dir": "h"
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      -0.4,
+      "hem+0.006"
+     ],
+     [
+      0.4,
+      "hem+0.006"
+     ]
+    ],
+    "style": "stitch",
+    "colour": "#1f2a5c"
+   },
+   {
+    "step": "line",
+    "frame": "back",
+    "pts": [
+     [
+      -0.4,
+      "hem+0.006"
+     ],
+     [
+      0.4,
+      "hem+0.006"
+     ]
+    ],
+    "style": "stitch",
+    "colour": "#1f2a5c"
+   },
+   {
+    "step": "line",
+    "frame": "sleeves",
+    "pts": [
+     [
+      -0.3,
+      0.985
+     ],
+     [
+      0.3,
+      0.985
+     ]
+    ],
+    "style": "stitch",
+    "colour": "#1f2a5c"
+   }
+  ]
+ },
+ {
+  "n": 311,
+  "id": "jpg-sailor-stripe-fitted-knit",
+  "designer": "Jean Paul Gaultier",
+  "name": "Sailor Stripe Fitted Knit",
+  "season": "1983",
+  "price": 500,
+  "slot": "top",
+  "colour": "#e8e5dc",
+  "finish": {
+   "roughness": 0.95
+  },
+  "cut": {
+   "like": "knit",
+   "ease": {
+    "shoulder": 0.0056,
+    "chest": 0.0175,
+    "waist": 0.028,
+    "hip": 0.028,
+    "sleeve": 0.013,
+    "cuff": 0.0095
+   },
+   "hem": "hip-0.0",
+   "neck": {
+    "depth": 0.025,
+    "round": 0.11
+   }
+  },
+  "note": "The marinière: striped from the chest down, plain across the shoulders.",
+  "paint": [
+   {
+    "step": "fabric",
+    "type": "knit",
+    "gauge": 0.0028
+   },
+   {
+    "step": "pattern",
+    "type": "stripes",
+    "colours": [
+     "#1f2a5c"
+    ],
+    "period": 0.03,
+    "width": 0.014,
+    "dir": "h",
+    "where": {
+     "zone": [
+      "body",
+      "sleeves"
+     ],
+     "h": [
+      "hem+0.05",
+      "chest+0.08"
+     ]
+    }
+   },
+   {
+    "step": "pattern",
+    "type": "stripes",
+    "colours": [
+     "#1f2a5c"
+    ],
+    "period": 0.03,
+    "width": 0.014,
+    "dir": "h",
+    "where": {
+     "zone": "sleeves",
+     "s": [
+      0.2,
+      0.9
+     ]
+    }
+   },
+   {
+    "step": "rib",
+    "where": {
+     "zone": "body",
+     "h": [
+      "hem",
+      "hem+0.045"
+     ]
+    },
+    "gauge": 0.003,
+    "depth": 0.0005
+   },
+   {
+    "step": "rib",
+    "where": {
+     "zone": "sleeves",
+     "s": [
+      0.92,
+      1.3
+     ]
+    },
+    "gauge": 0.003,
+    "depth": 0.0005
+   },
+   {
+    "step": "rib",
+    "where": {
+     "zone": "collar"
+    },
+    "gauge": 0.003,
+    "depth": 0.0004
+   }
+  ]
+ },
+ {
+  "n": 312,
+  "id": "jpg-soleil-printed-mesh-shirt",
+  "designer": "Jean Paul Gaultier",
+  "name": "JPG Soleil Printed Mesh Shirt",
+  "season": "2000s",
+  "price": 300,
+  "slot": "top",
+  "colour": "#e8c98a",
+  "finish": {
+   "roughness": 0.8
+  },
+  "cut": {
+   "like": "shirt",
+   "ease": {
+    "shoulder": 0.0036,
+    "chest": 0.012,
+    "waist": 0.021,
+    "hip": 0.021,
+    "sleeve": 0.0107,
+    "cuff": 0.0074
+   },
+   "hem": "hip-0.05",
+   "hug": 0.6
+  },
+  "paint": [
+   {
+    "step": "fabric",
+    "type": "jersey"
+   },
+   {
+    "step": "pattern",
+    "type": "swirl",
+    "colours": [
+     "#c2452a",
+     "#7a2a5c"
+    ],
+    "scale": 1.8
+   },
+   {
+    "step": "print",
+    "frame": "back",
+    "art": "jpg-soleil-sun",
+    "at": [
+     0,
+     "chest-0.04"
+    ],
+    "width": 0.3
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0.016,
+      "hem"
+     ],
+     [
+      0.016,
+      "top"
+     ]
+    ],
+    "style": "seam",
+    "width": 0.0014
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      -0.016,
+      "hem"
+     ],
+     [
+      -0.016,
+      "top"
+     ]
+    ],
+    "style": "stitch",
+    "width": 0.001,
+    "colour": "#7a2a1a"
+   },
+   {
+    "step": "dots",
+    "frame": "front",
+    "from": [
+     0,
+     "hem+0.05"
+    ],
+    "to": [
+     0,
+     "neck-0.045"
+    ],
+    "count": 7,
+    "r": 0.0048,
+    "style": "button",
+    "colour": "#7a2a1a"
+   },
+   {
+    "step": "line",
+    "frame": "back",
+    "pts": [
+     [
+      -0.3,
+      "shoulder-0.03"
+     ],
+     [
+      0.3,
+      "shoulder-0.03"
+     ]
+    ],
+    "style": "seam",
+    "width": 0.0014
+   },
+   {
+    "step": "line",
+    "frame": "sleeves",
+    "pts": [
+     [
+      -0.3,
+      0.92
+     ],
+     [
+      0.3,
+      0.92
+     ]
+    ],
+    "style": "seam",
+    "width": 0.0014
+   },
+   {
+    "step": "dots",
+    "frame": "sleeves",
+    "pts": [
+     [
+      -0.03,
+      0.96
+     ]
+    ],
+    "r": 0.0045,
+    "style": "button",
+    "colour": "#7a2a1a"
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      -0.4,
+      "hem+0.012"
+     ],
+     [
+      0.4,
+      "hem+0.012"
+     ]
+    ],
+    "style": "stitch",
+    "colour": "#7a2a1a",
+    "width": 0.001
+   },
+   {
+    "step": "line",
+    "frame": "back",
+    "pts": [
+     [
+      -0.4,
+      "hem+0.012"
+     ],
+     [
+      0.4,
+      "hem+0.012"
+     ]
+    ],
+    "style": "stitch",
+    "colour": "#7a2a1a",
+    "width": 0.001
+   }
+  ]
+ },
+ {
+  "n": 313,
+  "id": "jpg-soleil-tattoo-print-top",
+  "designer": "Jean Paul Gaultier",
+  "name": "JPG Soleil Tattoo-Print Top",
+  "season": "2000s",
+  "price": 320,
+  "slot": "top",
+  "colour": "#3a2a4a",
+  "finish": {
+   "roughness": 0.8
+  },
+  "cut": {
+   "like": "tight",
+   "hem": "hip-0.02"
+  },
+  "paint": [
+   {
+    "step": "fabric",
+    "type": "jersey"
+   },
+   {
+    "step": "print",
+    "frame": "front",
+    "art": "jpg-tattoo-mesh-top-chest",
+    "at": [
+     0,
+     "chest-0.1"
+    ],
+    "width": 0.4,
+    "opacity": 0.85
+   },
+   {
+    "step": "print",
+    "frame": "back",
+    "art": "jpg-soleil-sun",
+    "at": [
+     0,
+     "chest-0.05"
+    ],
+    "width": 0.3
+   },
+   {
+    "step": "print",
+    "frame": "sleeves",
+    "art": "jpg-tattoo-mesh-top-arm",
+    "at": [
+     0,
+     0.55
+    ],
+    "width": 0.13
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      -0.4,
+      "hem+0.006"
+     ],
+     [
+      0.4,
+      "hem+0.006"
+     ]
+    ],
+    "style": "stitch",
+    "colour": "#e8a03a"
+   },
+   {
+    "step": "line",
+    "frame": "back",
+    "pts": [
+     [
+      -0.4,
+      "hem+0.006"
+     ],
+     [
+      0.4,
+      "hem+0.006"
+     ]
+    ],
+    "style": "stitch",
+    "colour": "#e8a03a"
+   },
+   {
+    "step": "line",
+    "frame": "sleeves",
+    "pts": [
+     [
+      -0.3,
+      0.985
+     ],
+     [
+      0.3,
+      0.985
+     ]
+    ],
+    "style": "stitch",
+    "colour": "#e8a03a"
+   }
+  ]
+ },
+ {
+  "n": 314,
+  "id": "jpg-jeans-printed-denim-jacket",
+  "designer": "Jean Paul Gaultier",
+  "name": "JPG Jeans Printed Denim Jacket",
+  "season": "1990s",
+  "price": 450,
+  "slot": "top",
+  "colour": "#40557a",
+  "finish": {
+   "roughness": 0.85
+  },
+  "cut": {
+   "like": "trucker",
+   "hem": "hip+0.05"
+  },
+  "paint": [
+   {
+    "step": "fabric",
+    "type": "denim",
+    "colour2": "#7f95b5"
+   },
+   {
+    "step": "print",
+    "frame": "back",
+    "art": "jpg-homme-face-graphic",
+    "at": [
+     0,
+     "chest-0.02"
+    ],
+    "width": 0.26,
+    "crack": 0.2
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      -0.4,
+      "hem+0.042"
+     ],
+     [
+      0.4,
+      "hem+0.042"
+     ]
+    ],
+    "style": "twin",
+    "colour": "#c9a35c",
+    "gap": 0.005,
+    "width": 0.0017
+   },
+   {
+    "step": "line",
+    "frame": "back",
+    "pts": [
+     [
+      -0.4,
+      "hem+0.042"
+     ],
+     [
+      0.4,
+      "hem+0.042"
+     ]
+    ],
+    "style": "twin",
+    "colour": "#c9a35c",
+    "gap": 0.005,
+    "width": 0.0017
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0.02,
+      "chest+0.065"
+     ],
+     [
+      0.2,
+      "chest+0.065"
+     ]
+    ],
+    "style": "twin",
+    "mirror": true,
+    "gap": 0.005,
+    "width": 0.0017,
+    "colour": "#c9a35c"
+   },
+   {
+    "step": "line",
+    "frame": "back",
+    "pts": [
+     [
+      -0.25,
+      "chest+0.075"
+     ],
+     [
+      0.25,
+      "chest+0.075"
+     ]
+    ],
+    "style": "twin",
+    "gap": 0.005,
+    "width": 0.0017,
+    "colour": "#c9a35c"
+   },
+   {
+    "step": "line",
+    "frame": "back",
+    "pts": [
+     [
+      0.105,
+      "chest+0.075"
+     ],
+     [
+      0.08,
+      "hem+0.042"
+     ]
+    ],
+    "style": "twin",
+    "mirror": true,
+    "gap": 0.005,
+    "width": 0.0017,
+    "colour": "#c9a35c"
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0.02,
+      "hem"
+     ],
+     [
+      0.02,
+      "top"
+     ]
+    ],
+    "style": "twin",
+    "mirror": true,
+    "gap": 0.005,
+    "width": 0.0017,
+    "colour": "#c9a35c"
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0.05,
+      "chest-0.005"
+     ],
+     [
+      0.068,
+      "hem+0.042"
+     ]
+    ],
+    "style": "twin",
+    "mirror": true,
+    "gap": 0.005,
+    "width": 0.0017,
+    "colour": "#c9a35c"
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0.14,
+      "chest-0.005"
+     ],
+     [
+      0.11,
+      "hem+0.042"
+     ]
+    ],
+    "style": "twin",
+    "mirror": true,
+    "gap": 0.005,
+    "width": 0.0017,
+    "colour": "#c9a35c"
+   },
+   {
+    "step": "line",
+    "frame": "sleeves",
+    "pts": [
+     [
+      -0.3,
+      0.93
+     ],
+     [
+      0.3,
+      0.93
+     ]
+    ],
+    "style": "twin",
+    "gap": 0.005,
+    "width": 0.0017,
+    "colour": "#c9a35c"
+   },
+   {
+    "step": "rect",
+    "frame": "front",
+    "at": [
+     0.095,
+     "chest+0.035"
+    ],
+    "size": [
+     0.1,
+     0.055
+    ],
+    "style": "flap",
+    "flap": 1,
+    "stitch": "#c9a35c",
+    "mirror": true
+   },
+   {
+    "step": "dots",
+    "frame": "front",
+    "pts": [
+     [
+      0.095,
+      "chest+0.022"
+     ]
+    ],
+    "r": 0.007,
+    "style": "button",
+    "colour": "#c9c9c9",
+    "mirror": true
+   },
+   {
+    "step": "dots",
+    "frame": "front",
+    "from": [
+     0,
+     "hem+0.02"
+    ],
+    "to": [
+     0,
+     "neck-0.04"
+    ],
+    "count": 6,
+    "r": 0.0075,
+    "style": "button",
+    "colour": "#c9c9c9"
+   },
+   {
+    "step": "pattern",
+    "type": "opart",
+    "colours": [
+     "#1f2b45"
+    ],
+    "size": 0.02,
+    "freq": 18,
+    "amount": 0.6,
+    "where": {
+     "zone": "sleeves"
+    }
+   },
+   {
+    "step": "distress",
+    "type": "wash",
+    "amount": 0.2
+   }
+  ]
+ },
+ {
+  "n": 315,
+  "id": "jpg-jeans-optical-print-shirt",
+  "designer": "Jean Paul Gaultier",
+  "name": "JPG Jeans Optical-Print Shirt",
+  "season": "1990s",
+  "price": 380,
+  "slot": "top",
+  "colour": "#e8e5dc",
+  "finish": {
+   "roughness": 0.8
+  },
+  "cut": {
+   "like": "shirt",
+   "hem": "hip-0.08"
+  },
+  "paint": [
+   {
+    "step": "fabric",
+    "type": "plain"
+   },
+   {
+    "step": "pattern",
+    "type": "opart",
+    "colours": [
+     "#19191b"
+    ],
+    "size": 0.03,
+    "freq": 14
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0.016,
+      "hem"
+     ],
+     [
+      0.016,
+      "top"
+     ]
+    ],
+    "style": "seam",
+    "width": 0.0014
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      -0.016,
+      "hem"
+     ],
+     [
+      -0.016,
+      "top"
+     ]
+    ],
+    "style": "stitch",
+    "width": 0.001,
+    "colour": "#8a8676"
+   },
+   {
+    "step": "dots",
+    "frame": "front",
+    "from": [
+     0,
+     "hem+0.05"
+    ],
+    "to": [
+     0,
+     "neck-0.045"
+    ],
+    "count": 7,
+    "r": 0.0048,
+    "style": "button",
+    "colour": "#19191b"
+   },
+   {
+    "step": "line",
+    "frame": "back",
+    "pts": [
+     [
+      -0.3,
+      "shoulder-0.03"
+     ],
+     [
+      0.3,
+      "shoulder-0.03"
+     ]
+    ],
+    "style": "seam",
+    "width": 0.0014
+   },
+   {
+    "step": "line",
+    "frame": "sleeves",
+    "pts": [
+     [
+      -0.3,
+      0.92
+     ],
+     [
+      0.3,
+      0.92
+     ]
+    ],
+    "style": "seam",
+    "width": 0.0014
+   },
+   {
+    "step": "dots",
+    "frame": "sleeves",
+    "pts": [
+     [
+      -0.03,
+      0.96
+     ]
+    ],
+    "r": 0.0045,
+    "style": "button",
+    "colour": "#19191b"
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      -0.4,
+      "hem+0.012"
+     ],
+     [
+      0.4,
+      "hem+0.012"
+     ]
+    ],
+    "style": "stitch",
+    "colour": "#8a8676",
+    "width": 0.001
+   },
+   {
+    "step": "line",
+    "frame": "back",
+    "pts": [
+     [
+      -0.4,
+      "hem+0.012"
+     ],
+     [
+      0.4,
+      "hem+0.012"
+     ]
+    ],
+    "style": "stitch",
+    "colour": "#8a8676",
+    "width": 0.001
+   }
+  ]
+ },
+ {
+  "n": 316,
+  "id": "jpg-jeans-graphic-denim",
+  "designer": "Jean Paul Gaultier",
+  "name": "JPG Jeans Graphic Denim",
+  "season": "1990s",
+  "price": 350,
+  "slot": "bottom",
+  "colour": "#40557a",
+  "finish": {
+   "roughness": 0.85
+  },
+  "cut": {
+   "like": "straight"
+  },
+  "paint": [
+   {
+    "step": "fabric",
+    "type": "denim",
+    "colour2": "#7f95b5"
+   },
+   {
+    "step": "line",
+    "frame": "legs",
+    "pts": [
+     [
+      0,
+      -0.3
+     ],
+     [
+      0,
+      1.05
+     ]
+    ],
+    "style": "twin",
+    "colour": "#c9a35c",
+    "width": 0.0011,
+    "gap": 0.006
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      -0.4,
+      "top-0.04"
+     ],
+     [
+      0.4,
+      "top-0.04"
+     ]
+    ],
+    "style": "twin",
+    "colour": "#c9a35c",
+    "width": 0.0011,
+    "gap": 0.034
+   },
+   {
+    "step": "line",
+    "frame": "back",
+    "pts": [
+     [
+      -0.4,
+      "top-0.04"
+     ],
+     [
+      0.4,
+      "top-0.04"
+     ]
+    ],
+    "style": "twin",
+    "colour": "#c9a35c",
+    "width": 0.0011,
+    "gap": 0.034
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0.0,
+      "top-0.04"
+     ],
+     [
+      0.004,
+      "top-0.1"
+     ],
+     [
+      0.03,
+      "top-0.17"
+     ],
+     [
+      0.0,
+      "top-0.19"
+     ]
+    ],
+    "style": "twin",
+    "colour": "#c9a35c",
+    "width": 0.0011
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0.06,
+      "top-0.045"
+     ],
+     [
+      0.09,
+      "top-0.11"
+     ],
+     [
+      0.17,
+      "top-0.12"
+     ]
+    ],
+    "style": "twin",
+    "colour": "#c9a35c",
+    "width": 0.0011,
+    "mirror": true
+   },
+   {
+    "step": "dots",
+    "frame": "front",
+    "pts": [
+     [
+      0,
+      "top-0.02"
+     ]
+    ],
+    "r": 0.008,
+    "style": "stud",
+    "colour": "#77736a"
+   },
+   {
+    "step": "dots",
+    "frame": "front",
+    "pts": [
+     [
+      0.062,
+      "top-0.05"
+     ],
+     [
+      0.168,
+      "top-0.118"
+     ]
+    ],
+    "r": 0.0035,
+    "style": "stud",
+    "colour": "#8a7a5a",
+    "mirror": true
+   },
+   {
+    "step": "line",
+    "frame": "back",
+    "pts": [
+     [
+      -0.3,
+      "top-0.075"
+     ],
+     [
+      0,
+      "top-0.115"
+     ],
+     [
+      0.3,
+      "top-0.075"
+     ]
+    ],
+    "style": "twin",
+    "colour": "#c9a35c",
+    "width": 0.0011
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      -0.4,
+      "hem+0.014"
+     ],
+     [
+      0.4,
+      "hem+0.014"
+     ]
+    ],
+    "style": "stitch",
+    "colour": "#c9a35c",
+    "width": 0.0011
+   },
+   {
+    "step": "line",
+    "frame": "back",
+    "pts": [
+     [
+      -0.4,
+      "hem+0.014"
+     ],
+     [
+      0.4,
+      "hem+0.014"
+     ]
+    ],
+    "style": "stitch",
+    "colour": "#c9a35c",
+    "width": 0.0011
+   },
+   {
+    "step": "rect",
+    "frame": "back",
+    "at": [
+     0.088,
+     "top-0.2"
+    ],
+    "size": [
+     0.125,
+     0.135
+    ],
+    "style": "pocket",
+    "stitch": "#c9a35c",
+    "mirror": true,
+    "round": 0.012
+   },
+   {
+    "step": "print",
+    "frame": "front",
+    "art": "jpg-soleil-sun",
+    "at": [
+     0.09,
+     "thigh+0.02"
+    ],
+    "width": 0.13,
+    "crack": 0.3
+   },
+   {
+    "step": "print",
+    "frame": "back",
+    "art": "jpg-homme-face-graphic",
+    "at": [
+     -0.088,
+     "top-0.2"
+    ],
+    "width": 0.1,
+    "crack": 0.3
+   },
+   {
+    "step": "print",
+    "frame": "legL",
+    "art": "jpg-tattoo-mesh-top-arm",
+    "at": [
+     0,
+     0.7
+    ],
+    "width": 0.1
+   },
+   {
+    "step": "distress",
+    "type": "wash",
+    "amount": 0.2
+   },
+   {
+    "step": "distress",
+    "type": "fade",
+    "amount": 0.4,
+    "frame": "front",
+    "at": [
+     0.09,
+     "thigh+0.02"
+    ],
+    "size": [
+     0.12,
+     0.3
+    ],
+    "mirror": true
+   },
+   {
+    "step": "distress",
+    "type": "fade",
+    "amount": 0.5,
+    "frame": "front",
+    "at": [
+     0.085,
+     "knee+0.02"
+    ],
+    "size": [
+     0.1,
+     0.12
+    ],
+    "mirror": true
+   }
+  ]
+ },
+ {
+  "n": 317,
+  "id": "jpg-homme-printed-mesh-top",
+  "designer": "Jean Paul Gaultier",
+  "name": "JPG Homme Printed Mesh Top",
+  "season": "SS1997",
+  "price": 500,
+  "slot": "top",
+  "colour": "#26262a",
+  "finish": {
+   "roughness": 0.8
+  },
+  "cut": {
+   "like": "tight",
+   "hem": "hip-0.02",
+   "sleeve": 0.3
+  },
+  "paint": [
+   {
+    "step": "fabric",
+    "type": "jersey"
+   },
+   {
+    "step": "print",
+    "frame": "front",
+    "art": "jpg-homme-face-graphic",
+    "at": [
+     0,
+     "chest-0.03"
+    ],
+    "width": 0.24
+   },
+   {
+    "step": "pattern",
+    "type": "dots",
+    "colours": [
+     "#3a3a40"
+    ],
+    "size": 0.004,
+    "r": 0.28,
+    "jitter": 0
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      -0.4,
+      "hem+0.006"
+     ],
+     [
+      0.4,
+      "hem+0.006"
+     ]
+    ],
+    "style": "stitch",
+    "colour": "#b3261e"
+   },
+   {
+    "step": "line",
+    "frame": "back",
+    "pts": [
+     [
+      -0.4,
+      "hem+0.006"
+     ],
+     [
+      0.4,
+      "hem+0.006"
+     ]
+    ],
+    "style": "stitch",
+    "colour": "#b3261e"
+   }
+  ]
+ },
+ {
+  "n": 318,
+  "id": "jpg-homme-asymmetric-tailored-jacket",
+  "designer": "Jean Paul Gaultier",
+  "name": "JPG Homme Asymmetric Tailored Jacket",
+  "season": "FW1998",
+  "price": 700,
+  "slot": "top",
+  "colour": "#1b1b1d",
+  "finish": {
+   "roughness": 0.95
+  },
+  "cut": {
+   "like": "blazer",
+   "ease": {
+    "shoulder": 0.009,
+    "chest": 0.0198,
+    "waist": 0.027,
+    "hip": 0.0315,
+    "sleeve": 0.0115,
+    "cuff": 0.0105
+   },
+   "hem": "hip-0.1",
+   "hemSlant": 0.07,
+   "waist": 0.06
+  },
+  "under": {
+   "colour": "#e8e5dc",
+   "cut": {
+    "like": "shirt",
+    "sleeve": 0,
+    "armhole": 0.4,
+    "hem": "hip+0.03",
+    "hemCurve": 0,
+    "overWaist": false,
+    "ease": {
+     "shoulder": 0.004,
+     "chest": 0.008,
+     "waist": 0.012,
+     "hip": 0.012,
+     "sleeve": 0.006,
+     "cuff": 0.006
+    }
+   },
+   "paint": [
+    {
+     "step": "fabric",
+     "type": "plain"
+    },
+    {
+     "step": "line",
+     "frame": "front",
+     "pts": [
+      [
+       0.012,
+       "hem"
+      ],
+      [
+       0.012,
+       "top"
+      ]
+     ],
+     "style": "seam",
+     "width": 0.0012
+    },
+    {
+     "step": "dots",
+     "frame": "front",
+     "from": [
+      0,
+      "hem+0.06"
+     ],
+     "to": [
+      0,
+      "neck-0.05"
+     ],
+     "count": 6,
+     "r": 0.0045,
+     "style": "button",
+     "colour": "#d8d5cc"
+    }
+   ]
+  },
+  "paint": [
+   {
+    "step": "fabric",
+    "type": "wool"
+   },
+   {
+    "step": "pattern",
+    "type": "pinstripe",
+    "colours": [
+     "#77777d"
+    ]
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0.012,
+      "neck-0.255"
+     ],
+     [
+      0.085,
+      "chest+0.085"
+     ],
+     [
+      0.07,
+      "shoulder+0.005"
+     ]
+    ],
+    "style": "groove",
+    "width": 0.002,
+    "mirror": true
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0.085,
+      "chest+0.085"
+     ],
+     [
+      0.062,
+      "chest+0.105"
+     ]
+    ],
+    "style": "groove",
+    "width": 0.002,
+    "mirror": true
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0.05,
+      "neck-0.255"
+     ],
+     [
+      -0.03,
+      "hem"
+     ]
+    ],
+    "style": "seam"
+   },
+   {
+    "step": "dots",
+    "frame": "front",
+    "pts": [
+     [
+      0.04,
+      "waist+0.07"
+     ],
+     [
+      0.02,
+      "waist-0.0"
+     ],
+     [
+      0.0,
+      "waist-0.07"
+     ]
+    ],
+    "r": 0.009,
+    "style": "button",
+    "colour": "#111113"
+   },
+   {
+    "step": "rect",
+    "frame": "front",
+    "at": [
+     0.13,
+     "hip+0.02"
+    ],
+    "size": [
+     0.13,
+     0.04
+    ],
+    "style": "flap",
+    "flap": 1,
+    "snap": false,
+    "stitch": "#2c2c30",
+    "mirror": true
+   }
+  ]
+ },
+ {
+  "n": 319,
+  "id": "jpg-homme-graphic-knitwear",
+  "designer": "Jean Paul Gaultier",
+  "name": "JPG Homme Graphic Knitwear",
+  "season": "FW1996",
+  "price": 450,
+  "slot": "top",
+  "colour": "#1f2a5c",
+  "finish": {
+   "roughness": 0.95
+  },
+  "cut": {
+   "like": "knit",
+   "ease": {
+    "shoulder": 0.0072,
+    "chest": 0.0225,
+    "waist": 0.036,
+    "hip": 0.036,
+    "sleeve": 0.0143,
+    "cuff": 0.0105
+   }
+  },
+  "paint": [
+   {
+    "step": "fabric",
+    "type": "knit",
+    "gauge": 0.0035
+   },
+   {
+    "step": "print",
+    "frame": "front",
+    "art": "jpg-homme-face-graphic",
+    "at": [
+     0,
+     "chest-0.02"
+    ],
+    "width": 0.22,
+    "opacity": 0.92
+   },
+   {
+    "step": "pattern",
+    "type": "stripes",
+    "colours": [
+     "#b3261e"
+    ],
+    "period": 0.05,
+    "width": 0.012,
+    "dir": "h",
+    "where": {
+     "zone": "sleeves"
+    }
+   },
+   {
+    "step": "rib",
+    "where": {
+     "zone": "body",
+     "h": [
+      "hem",
+      "hem+0.05"
+     ]
+    },
+    "gauge": 0.004,
+    "depth": 0.0005,
+    "colour": "#b3261e"
+   },
+   {
+    "step": "rib",
+    "where": {
+     "zone": "sleeves",
+     "s": [
+      0.9,
+      1.3
+     ]
+    },
+    "gauge": 0.004,
+    "depth": 0.0005,
+    "colour": "#b3261e"
+   },
+   {
+    "step": "rib",
+    "where": {
+     "zone": "collar"
+    },
+    "gauge": 0.003,
+    "depth": 0.0004,
+    "colour": "#b3261e"
+   }
+  ]
+ },
+ {
+  "n": 320,
+  "id": "jpg-homme-trompe-loeil-shirt",
+  "designer": "Jean Paul Gaultier",
+  "name": "JPG Homme Trompe-l'œil Shirt",
+  "season": "SS1995",
+  "price": 480,
+  "slot": "top",
+  "colour": "#a9c0dc",
+  "finish": {
+   "roughness": 0.8
+  },
+  "cut": {
+   "like": "tight",
+   "hem": "hip-0.04",
+   "hug": 0.5,
+   "neck": {
+    "y": 0.012,
+    "depth": 0.02,
+    "round": 0.075
+   },
+   "add": [
+    {
+     "type": "collar",
+     "height": 0.022,
+     "flare": 0.001
+    }
+   ]
+  },
+  "note": "A stretch top printed with the collar, tie and pocket of a shirt.",
+  "paint": [
+   {
+    "step": "fabric",
+    "type": "jersey"
+   },
+   {
+    "step": "print",
+    "frame": "front",
+    "art": "jpg-trompe-tie",
+    "at": [
+     0,
+     "chest-0.085"
+    ],
+    "width": 0.16
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0.1,
+      "hem"
+     ],
+     [
+      0.085,
+      "chest+0.1"
+     ]
+    ],
+    "style": "paint",
+    "width": 0.003,
+    "colour": "#55698c",
+    "mirror": true
+   },
+   {
+    "step": "rect",
+    "frame": "front",
+    "at": [
+     0.1,
+     "chest+0.0"
+    ],
+    "size": [
+     0.08,
+     0.085
+    ],
+    "style": "fill",
+    "colour": "#93aac8"
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      -0.4,
+      "hem+0.006"
+     ],
+     [
+      0.4,
+      "hem+0.006"
+     ]
+    ],
+    "style": "stitch",
+    "colour": "#55698c"
+   },
+   {
+    "step": "line",
+    "frame": "back",
+    "pts": [
+     [
+      -0.4,
+      "hem+0.006"
+     ],
+     [
+      0.4,
+      "hem+0.006"
+     ]
+    ],
+    "style": "stitch",
+    "colour": "#55698c"
+   },
+   {
+    "step": "line",
+    "frame": "sleeves",
+    "pts": [
+     [
+      -0.3,
+      0.985
+     ],
+     [
+      0.3,
+      0.985
+     ]
+    ],
+    "style": "stitch",
+    "colour": "#55698c"
+   }
+  ]
+ }
+]

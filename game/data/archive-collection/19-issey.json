@@ -1,0 +1,2460 @@
+[
+ {
+  "n": 361,
+  "id": "issey-plantation-cotton-jacket",
+  "designer": "Issey Miyake",
+  "name": "Plantation Cotton Jacket",
+  "season": "1982",
+  "price": 450,
+  "slot": "top",
+  "colour": "#2a3350",
+  "finish": {
+   "roughness": 0.85
+  },
+  "cut": {
+   "like": "trucker",
+   "ease": {
+    "shoulder": 0.0128,
+    "chest": 0.0352,
+    "waist": 0.048,
+    "hip": 0.048,
+    "sleeve": 0.0152,
+    "cuff": 0.0127
+   },
+   "hem": "hip-0.08",
+   "shoulderDrop": 0.04,
+   "add": [
+    {
+     "type": "collar",
+     "height": 0.03,
+     "gap": 0.03,
+     "only": true
+    },
+    {
+     "type": "lip"
+    }
+   ]
+  },
+  "note": "From the Plantation line: loose indigo cotton, cut flat like workwear.",
+  "paint": [
+   {
+    "step": "fabric",
+    "type": "canvas"
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0.02,
+      "hem"
+     ],
+     [
+      0.02,
+      "top"
+     ]
+    ],
+    "style": "seam"
+   },
+   {
+    "step": "dots",
+    "frame": "front",
+    "from": [
+     0,
+     "hem+0.06"
+    ],
+    "to": [
+     0,
+     "neck-0.05"
+    ],
+    "count": 4,
+    "r": 0.009,
+    "style": "button",
+    "colour": "#19191b"
+   },
+   {
+    "step": "rect",
+    "frame": "front",
+    "at": [
+     0.13,
+     "hip-0.0"
+    ],
+    "size": [
+     0.15,
+     0.16
+    ],
+    "style": "pocket",
+    "mirror": true,
+    "stitch": "#55607f"
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      -0.4,
+      "hem+0.02"
+     ],
+     [
+      0.4,
+      "hem+0.02"
+     ]
+    ],
+    "style": "stitch",
+    "colour": "#55607f",
+    "width": 0.0012
+   },
+   {
+    "step": "line",
+    "frame": "back",
+    "pts": [
+     [
+      -0.4,
+      "hem+0.02"
+     ],
+     [
+      0.4,
+      "hem+0.02"
+     ]
+    ],
+    "style": "stitch",
+    "colour": "#55607f",
+    "width": 0.0012
+   },
+   {
+    "step": "distress",
+    "type": "wash",
+    "amount": 0.2
+   },
+   {
+    "step": "distress",
+    "type": "folds",
+    "freq": 10,
+    "depth": 0.003
+   }
+  ]
+ },
+ {
+  "n": 362,
+  "id": "issey-plantation-wide-leg-trousers",
+  "designer": "Issey Miyake",
+  "name": "Plantation Wide-Leg Trousers",
+  "season": "1982",
+  "price": 300,
+  "slot": "bottom",
+  "colour": "#d9d3c0",
+  "finish": {
+   "roughness": 0.85
+  },
+  "cut": {
+   "like": "wide",
+   "rise": "waist-0.02",
+   "hem": "ankle+0.04",
+   "overBoot": false,
+   "add": [
+    {
+     "type": "tail",
+     "from": {
+      "on": "front",
+      "x": 0.03,
+      "h": "top-0.03"
+     },
+     "length": 0.22,
+     "width": 0.016
+    },
+    {
+     "type": "tail",
+     "from": {
+      "on": "front",
+      "x": -0.02,
+      "h": "top-0.03"
+     },
+     "length": 0.18,
+     "width": 0.016
+    }
+   ]
+  },
+  "paint": [
+   {
+    "step": "fabric",
+    "type": "canvas"
+   },
+   {
+    "step": "rib",
+    "where": {
+     "zone": "legs",
+     "h": [
+      "top-0.05",
+      "top"
+     ]
+    },
+    "gauge": 0.006,
+    "depth": 0.0008
+   },
+   {
+    "step": "line",
+    "frame": "legs",
+    "pts": [
+     [
+      0,
+      -0.3
+     ],
+     [
+      0,
+      1.05
+     ]
+    ],
+    "style": "seam"
+   },
+   {
+    "step": "panel",
+    "colour": "#c9c2a8",
+    "where": {
+     "zone": "strap"
+    }
+   },
+   {
+    "step": "distress",
+    "type": "folds",
+    "freq": 8,
+    "depth": 0.005
+   },
+   {
+    "step": "distress",
+    "type": "wash",
+    "amount": 0.1
+   }
+  ]
+ },
+ {
+  "n": 363,
+  "id": "issey-pleated-long-coat",
+  "designer": "Issey Miyake",
+  "name": "Pleated Long Coat",
+  "season": "1990s",
+  "price": 700,
+  "slot": "top",
+  "colour": "#1b1b1d",
+  "finish": {
+   "roughness": 0.7
+  },
+  "cut": {
+   "like": "coat",
+   "hem": "calf+0.1",
+   "hang": 0.9,
+   "flare": 0.08,
+   "neck": {
+    "v": 0.22,
+    "width": 0.06,
+    "depth": 0.03
+   },
+   "add": [
+    {
+     "type": "collar",
+     "height": 0.012,
+     "only": true
+    },
+    {
+     "type": "lip"
+    }
+   ]
+  },
+  "under": {
+   "colour": "#1b1b1d",
+   "cut": {
+    "like": "tank",
+    "overWaist": false,
+    "hem": "hip+0.02",
+    "armhole": 0.22,
+    "neck": {
+     "depth": 0.035,
+     "round": 0.075
+    },
+    "ease": {
+     "shoulder": 0.002,
+     "chest": 0.004,
+     "waist": 0.004,
+     "hip": 0.004
+    }
+   },
+   "paint": [
+    {
+     "step": "fabric",
+     "type": "jersey"
+    }
+   ]
+  },
+  "paint": [
+   {
+    "step": "fabric",
+    "type": "plain"
+   },
+   {
+    "step": "rib",
+    "gauge": 0.0055,
+    "depth": 0.0011
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0.02,
+      "hem"
+     ],
+     [
+      0.03,
+      "neck-0.2"
+     ]
+    ],
+    "style": "groove",
+    "width": 0.003,
+    "mirror": true
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      -0.4,
+      "hem+0.004"
+     ],
+     [
+      0.4,
+      "hem+0.004"
+     ]
+    ],
+    "style": "groove",
+    "colour": "#3a3a3e",
+    "width": 0.002
+   },
+   {
+    "step": "line",
+    "frame": "back",
+    "pts": [
+     [
+      -0.4,
+      "hem+0.004"
+     ],
+     [
+      0.4,
+      "hem+0.004"
+     ]
+    ],
+    "style": "groove",
+    "colour": "#3a3a3e",
+    "width": 0.002
+   }
+  ]
+ },
+ {
+  "n": 364,
+  "id": "issey-pleated-mock-neck-top",
+  "designer": "Issey Miyake",
+  "name": "Pleated Mock-Neck Top",
+  "season": "1990s",
+  "price": 250,
+  "slot": "top",
+  "colour": "#2f4ab8",
+  "finish": {
+   "roughness": 0.7
+  },
+  "cut": {
+   "like": "longsleeve",
+   "ease": {
+    "shoulder": 0.0042,
+    "chest": 0.0126,
+    "waist": 0.021,
+    "hip": 0.021,
+    "sleeve": 0.0104,
+    "cuff": 0.0069
+   },
+   "hem": "hip-0.03",
+   "neck": {
+    "y": 0.03,
+    "depth": 0.01,
+    "round": 0.07
+   },
+   "add": [
+    {
+     "type": "collar",
+     "height": 0.04,
+     "only": true
+    }
+   ]
+  },
+  "paint": [
+   {
+    "step": "fabric",
+    "type": "plain"
+   },
+   {
+    "step": "rib",
+    "gauge": 0.0055,
+    "depth": 0.0011
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      -0.4,
+      "hem+0.004"
+     ],
+     [
+      0.4,
+      "hem+0.004"
+     ]
+    ],
+    "style": "groove",
+    "colour": "#3a3a3e",
+    "width": 0.002
+   },
+   {
+    "step": "line",
+    "frame": "back",
+    "pts": [
+     [
+      -0.4,
+      "hem+0.004"
+     ],
+     [
+      0.4,
+      "hem+0.004"
+     ]
+    ],
+    "style": "groove",
+    "colour": "#3a3a3e",
+    "width": 0.002
+   }
+  ]
+ },
+ {
+  "n": 365,
+  "id": "issey-pleated-wide-leg-trousers",
+  "designer": "Issey Miyake",
+  "name": "Pleated Wide-Leg Trousers",
+  "season": "1990s",
+  "price": 300,
+  "slot": "bottom",
+  "colour": "#1b1b1d",
+  "finish": {
+   "roughness": 0.7
+  },
+  "cut": {
+   "like": "wide",
+   "ease": {
+    "waist": 0.002,
+    "seat": 0.024,
+    "thigh": 0.04,
+    "knee": 0.048,
+    "hem": 0.056
+   },
+   "rise": "waist-0.02",
+   "hem": "ankle+0.03",
+   "overBoot": false
+  },
+  "paint": [
+   {
+    "step": "fabric",
+    "type": "plain"
+   },
+   {
+    "step": "rib",
+    "gauge": 0.0055,
+    "depth": 0.0011
+   },
+   {
+    "step": "rib",
+    "where": {
+     "zone": "legs",
+     "h": [
+      "top-0.04",
+      "top"
+     ]
+    },
+    "gauge": 0.003,
+    "depth": 0.0005,
+    "dir": "h"
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      -0.4,
+      "hem+0.004"
+     ],
+     [
+      0.4,
+      "hem+0.004"
+     ]
+    ],
+    "style": "groove",
+    "colour": "#3a3a3e",
+    "width": 0.002
+   },
+   {
+    "step": "line",
+    "frame": "back",
+    "pts": [
+     [
+      -0.4,
+      "hem+0.004"
+     ],
+     [
+      0.4,
+      "hem+0.004"
+     ]
+    ],
+    "style": "groove",
+    "colour": "#3a3a3e",
+    "width": 0.002
+   }
+  ]
+ },
+ {
+  "n": 366,
+  "id": "issey-pleated-zip-jacket",
+  "designer": "Issey Miyake",
+  "name": "Pleated Zip Jacket",
+  "season": "1990s",
+  "price": 450,
+  "slot": "top",
+  "colour": "#7a1f5c",
+  "finish": {
+   "roughness": 0.7
+  },
+  "cut": {
+   "like": "trucker",
+   "ease": {
+    "shoulder": 0.0072,
+    "chest": 0.0198,
+    "waist": 0.027,
+    "hip": 0.027,
+    "sleeve": 0.0115,
+    "cuff": 0.0095
+   },
+   "hem": "hip-0.02",
+   "add": [
+    {
+     "type": "collar",
+     "height": 0.045,
+     "flare": 0.004,
+     "only": true
+    }
+   ]
+  },
+  "paint": [
+   {
+    "step": "fabric",
+    "type": "plain"
+   },
+   {
+    "step": "rib",
+    "gauge": 0.0055,
+    "depth": 0.0011
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0,
+      "hem"
+     ],
+     [
+      0,
+      "top"
+     ]
+    ],
+    "style": "zip",
+    "width": 0.004,
+    "colour": "#c9c9cc",
+    "colour2": "#5c1744"
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      -0.4,
+      "hem+0.004"
+     ],
+     [
+      0.4,
+      "hem+0.004"
+     ]
+    ],
+    "style": "groove",
+    "colour": "#3a3a3e",
+    "width": 0.002
+   },
+   {
+    "step": "line",
+    "frame": "back",
+    "pts": [
+     [
+      -0.4,
+      "hem+0.004"
+     ],
+     [
+      0.4,
+      "hem+0.004"
+     ]
+    ],
+    "style": "groove",
+    "colour": "#3a3a3e",
+    "width": 0.002
+   }
+  ]
+ },
+ {
+  "n": 367,
+  "id": "issey-pleated-hooded-jacket",
+  "designer": "Issey Miyake",
+  "name": "Pleated Hooded Jacket",
+  "season": "2000s",
+  "price": 500,
+  "slot": "top",
+  "colour": "#4b4c3a",
+  "finish": {
+   "roughness": 0.7
+  },
+  "cut": {
+   "like": "parka",
+   "ease": {
+    "shoulder": 0.0096,
+    "chest": 0.032,
+    "waist": 0.048,
+    "hip": 0.048,
+    "sleeve": 0.02,
+    "cuff": 0.02
+   },
+   "hem": "hip-0.08",
+   "hemBack": 0,
+   "add": [
+    {
+     "type": "hood",
+     "size": 1.1,
+     "drop": 0.2
+    }
+   ]
+  },
+  "paint": [
+   {
+    "step": "fabric",
+    "type": "plain"
+   },
+   {
+    "step": "rib",
+    "gauge": 0.0055,
+    "depth": 0.0011
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0,
+      "hem"
+     ],
+     [
+      0,
+      "top"
+     ]
+    ],
+    "style": "zip",
+    "width": 0.004,
+    "colour": "#2a2b22",
+    "colour2": "#111113"
+   },
+   {
+    "step": "rect",
+    "frame": "front",
+    "at": [
+     0.12,
+     "hip+0.04"
+    ],
+    "size": [
+     0.1,
+     0.01
+    ],
+    "style": "welt",
+    "rot": 70,
+    "mirror": true
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      -0.4,
+      "hem+0.004"
+     ],
+     [
+      0.4,
+      "hem+0.004"
+     ]
+    ],
+    "style": "groove",
+    "colour": "#3a3a3e",
+    "width": 0.002
+   },
+   {
+    "step": "line",
+    "frame": "back",
+    "pts": [
+     [
+      -0.4,
+      "hem+0.004"
+     ],
+     [
+      0.4,
+      "hem+0.004"
+     ]
+    ],
+    "style": "groove",
+    "colour": "#3a3a3e",
+    "width": 0.002
+   }
+  ]
+ },
+ {
+  "n": 368,
+  "id": "issey-flying-saucer-pleated-dress",
+  "designer": "Issey Miyake",
+  "name": "Sculptural Pleated Dress",
+  "season": "SS1994",
+  "price": 5000,
+  "slot": "top",
+  "colour": "#e2472b",
+  "finish": {
+   "roughness": 0.7
+  },
+  "cut": {
+   "like": "dress",
+   "ease": {
+    "shoulder": 0.0072,
+    "chest": 0.0144,
+    "waist": 0.05,
+    "hip": 0.07,
+    "hem": 0.08
+   },
+   "hem": "calf+0.06",
+   "armhole": 0.3,
+   "hang": 1,
+   "chest": 1,
+   "neck": {
+    "depth": 0.04,
+    "round": 0.09
+   },
+   "bumps": [
+    [
+     0.2,
+     "chest",
+     0,
+     0.1,
+     0.06
+    ],
+    [
+     -0.2,
+     "chest",
+     0,
+     0.1,
+     0.06
+    ],
+    [
+     0.2,
+     "hip",
+     0,
+     0.1,
+     0.08
+    ],
+    [
+     -0.2,
+     "hip",
+     0,
+     0.1,
+     0.08
+    ],
+    [
+     0.2,
+     "knee+0.1",
+     0,
+     0.1,
+     0.08
+    ],
+    [
+     -0.2,
+     "knee+0.1",
+     0,
+     0.1,
+     0.08
+    ]
+   ]
+  },
+  "note": "The paper-lantern dress: pleated rings in changing colours that stack and spring.",
+  "paint": [
+   {
+    "step": "fabric",
+    "type": "plain"
+   },
+   {
+    "step": "gradient",
+    "from": [
+     "hem",
+     "#2f4ab8"
+    ],
+    "to": [
+     "hip-0.1",
+     "#e3b21c"
+    ],
+    "where": {
+     "zone": "body",
+     "h": [
+      "hem",
+      "hip-0.1"
+     ]
+    }
+   },
+   {
+    "step": "gradient",
+    "from": [
+     "hip-0.1",
+     "#e3b21c"
+    ],
+    "to": [
+     "chest",
+     "#e2472b"
+    ],
+    "where": {
+     "zone": "body",
+     "h": [
+      "hip-0.1",
+      "chest"
+     ]
+    }
+   },
+   {
+    "step": "rib",
+    "gauge": 0.007,
+    "depth": 0.0016,
+    "where": {
+     "zone": "body"
+    }
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      -0.4,
+      "waist"
+     ],
+     [
+      0.4,
+      "waist"
+     ]
+    ],
+    "style": "groove",
+    "colour": "#3a3a3e",
+    "width": 0.008,
+    "depth": 0.004
+   },
+   {
+    "step": "line",
+    "frame": "back",
+    "pts": [
+     [
+      -0.4,
+      "waist"
+     ],
+     [
+      0.4,
+      "waist"
+     ]
+    ],
+    "style": "groove",
+    "colour": "#3a3a3e",
+    "width": 0.008,
+    "depth": 0.004
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      -0.4,
+      "thigh+0.05"
+     ],
+     [
+      0.4,
+      "thigh+0.05"
+     ]
+    ],
+    "style": "groove",
+    "colour": "#3a3a3e",
+    "width": 0.008,
+    "depth": 0.004
+   },
+   {
+    "step": "line",
+    "frame": "back",
+    "pts": [
+     [
+      -0.4,
+      "thigh+0.05"
+     ],
+     [
+      0.4,
+      "thigh+0.05"
+     ]
+    ],
+    "style": "groove",
+    "colour": "#3a3a3e",
+    "width": 0.008,
+    "depth": 0.004
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      -0.4,
+      "knee-0.02"
+     ],
+     [
+      0.4,
+      "knee-0.02"
+     ]
+    ],
+    "style": "groove",
+    "colour": "#3a3a3e",
+    "width": 0.008,
+    "depth": 0.004
+   },
+   {
+    "step": "line",
+    "frame": "back",
+    "pts": [
+     [
+      -0.4,
+      "knee-0.02"
+     ],
+     [
+      0.4,
+      "knee-0.02"
+     ]
+    ],
+    "style": "groove",
+    "colour": "#3a3a3e",
+    "width": 0.008,
+    "depth": 0.004
+   },
+   {
+    "step": "panel",
+    "colour": "#7a1f5c",
+    "where": {
+     "zone": "body",
+     "h": [
+      "waist-0.012",
+      "waist+0.012"
+     ]
+    }
+   },
+   {
+    "step": "panel",
+    "colour": "#16a05a",
+    "where": {
+     "zone": "body",
+     "h": [
+      "thigh+0.038",
+      "thigh+0.062"
+     ]
+    }
+   }
+  ]
+ },
+ {
+  "n": 369,
+  "id": "issey-bodyworks-bustier",
+  "designer": "Issey Miyake",
+  "name": "Bodyworks Bustier",
+  "season": "FW1980",
+  "price": 80000,
+  "slot": "top",
+  "colour": "#b3151a",
+  "finish": {
+   "roughness": 0.16,
+   "metalness": 0.1
+  },
+  "cut": {
+   "like": "tank",
+   "ease": {
+    "shoulder": 0.002,
+    "chest": 0.006,
+    "waist": 0.01,
+    "hip": 0.03
+   },
+   "hem": "hip+0.04",
+   "armhole": 0.2,
+   "hug": 1,
+   "chest": 0,
+   "flare": 0.12,
+   "neck": {
+    "depth": 0.03,
+    "round": 0.08
+   }
+  },
+  "note": "Moulded from a body in red fibre-reinforced plastic: it stands off the hips in a rigid peplum.",
+  "paint": [
+   {
+    "step": "fabric",
+    "type": "rubber"
+   },
+   {
+    "step": "line",
+    "frame": "back",
+    "pts": [
+     [
+      0,
+      "hem"
+     ],
+     [
+      0,
+      "top"
+     ]
+    ],
+    "style": "groove",
+    "width": 0.003
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      -0.4,
+      "hem+0.006"
+     ],
+     [
+      0.4,
+      "hem+0.006"
+     ]
+    ],
+    "style": "ridge",
+    "colour": "#8a0f14",
+    "width": 0.004
+   },
+   {
+    "step": "line",
+    "frame": "back",
+    "pts": [
+     [
+      -0.4,
+      "hem+0.006"
+     ],
+     [
+      0.4,
+      "hem+0.006"
+     ]
+    ],
+    "style": "ridge",
+    "colour": "#8a0f14",
+    "width": 0.004
+   }
+  ]
+ },
+ {
+  "n": 370,
+  "id": "issey-apoc-tubular-knit-dress",
+  "designer": "Issey Miyake",
+  "name": "A-POC Tubular Knit Garments",
+  "season": "SS1999",
+  "price": 3000,
+  "slot": "top",
+  "colour": "#b3151a",
+  "finish": {
+   "roughness": 0.8
+  },
+  "cut": {
+   "like": "dress",
+   "ease": {
+    "shoulder": 0.0036,
+    "chest": 0.0072,
+    "waist": 0.012,
+    "hip": 0.015,
+    "hem": 0.02,
+    "sleeve": 0.006,
+    "cuff": 0.006
+   },
+   "hem": "ankle+0.04",
+   "sleeve": 1,
+   "hug": 0.6,
+   "hang": 0.3,
+   "neck": {
+    "depth": 0.03,
+    "round": 0.09
+   },
+   "add": [
+    {
+     "type": "cuff",
+     "length": 0.06,
+     "flare": 0
+    }
+   ]
+  },
+  "note": "A Piece of Cloth: one knitted tube with dotted lines to cut along for a shorter dress or sleeves.",
+  "paint": [
+   {
+    "step": "fabric",
+    "type": "knit",
+    "gauge": 0.0022
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0.16,
+      "hem"
+     ],
+     [
+      0.16,
+      "knee"
+     ],
+     [
+      0.19,
+      "hip"
+     ]
+    ],
+    "style": "stitch",
+    "colour": "#f1b0a8",
+    "width": 0.0016
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      -0.16,
+      "hem"
+     ],
+     [
+      -0.16,
+      "knee"
+     ],
+     [
+      -0.19,
+      "hip"
+     ]
+    ],
+    "style": "stitch",
+    "colour": "#f1b0a8",
+    "width": 0.0016
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      -0.3,
+      "knee+0.02"
+     ],
+     [
+      0.3,
+      "knee+0.02"
+     ]
+    ],
+    "style": "stitch",
+    "colour": "#f1b0a8",
+    "width": 0.0016
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      -0.3,
+      "thigh+0.04"
+     ],
+     [
+      0.3,
+      "thigh+0.04"
+     ]
+    ],
+    "style": "stitch",
+    "colour": "#f1b0a8",
+    "width": 0.0016
+   },
+   {
+    "step": "line",
+    "frame": "back",
+    "pts": [
+     [
+      0.16,
+      "hem"
+     ],
+     [
+      0.16,
+      "knee"
+     ],
+     [
+      0.19,
+      "hip"
+     ]
+    ],
+    "style": "stitch",
+    "colour": "#f1b0a8",
+    "width": 0.0016
+   },
+   {
+    "step": "line",
+    "frame": "back",
+    "pts": [
+     [
+      -0.16,
+      "hem"
+     ],
+     [
+      -0.16,
+      "knee"
+     ],
+     [
+      -0.19,
+      "hip"
+     ]
+    ],
+    "style": "stitch",
+    "colour": "#f1b0a8",
+    "width": 0.0016
+   },
+   {
+    "step": "line",
+    "frame": "back",
+    "pts": [
+     [
+      -0.3,
+      "knee+0.02"
+     ],
+     [
+      0.3,
+      "knee+0.02"
+     ]
+    ],
+    "style": "stitch",
+    "colour": "#f1b0a8",
+    "width": 0.0016
+   },
+   {
+    "step": "line",
+    "frame": "back",
+    "pts": [
+     [
+      -0.3,
+      "thigh+0.04"
+     ],
+     [
+      0.3,
+      "thigh+0.04"
+     ]
+    ],
+    "style": "stitch",
+    "colour": "#f1b0a8",
+    "width": 0.0016
+   },
+   {
+    "step": "line",
+    "frame": "sleeves",
+    "pts": [
+     [
+      -0.3,
+      0.55
+     ],
+     [
+      0.3,
+      0.55
+     ]
+    ],
+    "style": "stitch",
+    "colour": "#f1b0a8",
+    "width": 0.0016
+   },
+   {
+    "step": "line",
+    "frame": "sleeves",
+    "pts": [
+     [
+      -0.3,
+      0.8
+     ],
+     [
+      0.3,
+      0.8
+     ]
+    ],
+    "style": "stitch",
+    "colour": "#f1b0a8",
+    "width": 0.0016
+   }
+  ]
+ },
+ {
+  "n": 371,
+  "id": "issey-apoc-one-piece",
+  "designer": "Issey Miyake",
+  "name": "A-POC One-Piece Garments",
+  "season": "FW2000",
+  "price": 4000,
+  "slot": "top",
+  "colour": "#1f2a5c",
+  "finish": {
+   "roughness": 0.8
+  },
+  "cut": {
+   "like": "dress",
+   "ease": {
+    "shoulder": 0.0054,
+    "chest": 0.0108,
+    "waist": 0.018,
+    "hip": 0.0225,
+    "hem": 0.04,
+    "sleeve": 0.012,
+    "cuff": 0.012
+   },
+   "hem": "calf+0.02",
+   "sleeve": 1,
+   "hang": 0.6,
+   "neck": {
+    "depth": 0.05
+   },
+   "add": [
+    {
+     "type": "hood",
+     "size": 1.1,
+     "drop": 0.2
+    }
+   ]
+  },
+  "paint": [
+   {
+    "step": "fabric",
+    "type": "knit",
+    "gauge": 0.0026
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      -0.3,
+      "hip"
+     ],
+     [
+      0.3,
+      "hip"
+     ]
+    ],
+    "style": "stitch",
+    "colour": "#8fa3dc",
+    "width": 0.0016
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      -0.3,
+      "knee+0.05"
+     ],
+     [
+      0.3,
+      "knee+0.05"
+     ]
+    ],
+    "style": "stitch",
+    "colour": "#8fa3dc",
+    "width": 0.0016
+   },
+   {
+    "step": "line",
+    "frame": "back",
+    "pts": [
+     [
+      -0.3,
+      "hip"
+     ],
+     [
+      0.3,
+      "hip"
+     ]
+    ],
+    "style": "stitch",
+    "colour": "#8fa3dc",
+    "width": 0.0016
+   },
+   {
+    "step": "line",
+    "frame": "back",
+    "pts": [
+     [
+      -0.3,
+      "knee+0.05"
+     ],
+     [
+      0.3,
+      "knee+0.05"
+     ]
+    ],
+    "style": "stitch",
+    "colour": "#8fa3dc",
+    "width": 0.0016
+   },
+   {
+    "step": "line",
+    "frame": "sleeves",
+    "pts": [
+     [
+      -0.3,
+      0.5
+     ],
+     [
+      0.3,
+      0.5
+     ]
+    ],
+    "style": "stitch",
+    "colour": "#8fa3dc",
+    "width": 0.0016
+   },
+   {
+    "step": "distress",
+    "type": "folds",
+    "freq": 10,
+    "depth": 0.004
+   }
+  ]
+ },
+ {
+  "n": 372,
+  "id": "issey-homme-plisse-pleated-blazer",
+  "designer": "Homme Plissé Issey Miyake",
+  "name": "Pleated Blazer",
+  "season": "2013 onward",
+  "price": 500,
+  "slot": "top",
+  "colour": "#1f2433",
+  "finish": {
+   "roughness": 0.7
+  },
+  "cut": {
+   "like": "blazer",
+   "hem": "hip-0.08",
+   "waist": 0,
+   "add": [
+    {
+     "type": "collar",
+     "height": 0.01,
+     "only": true
+    },
+    {
+     "type": "lip"
+    }
+   ]
+  },
+  "under": {
+   "colour": "#e8e5dc",
+   "cut": {
+    "like": "tee",
+    "hem": "hip+0.03",
+    "overWaist": false,
+    "ease": {
+     "shoulder": 0.004,
+     "chest": 0.01,
+     "waist": 0.016,
+     "hip": 0.016,
+     "sleeve": 0.012,
+     "cuff": 0.014
+    }
+   },
+   "paint": [
+    {
+     "step": "fabric",
+     "type": "jersey"
+    }
+   ]
+  },
+  "paint": [
+   {
+    "step": "fabric",
+    "type": "plain"
+   },
+   {
+    "step": "rib",
+    "gauge": 0.0055,
+    "depth": 0.0011
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0.012,
+      "neck-0.255"
+     ],
+     [
+      0.085,
+      "chest+0.085"
+     ],
+     [
+      0.07,
+      "shoulder+0.005"
+     ]
+    ],
+    "style": "groove",
+    "width": 0.002,
+    "mirror": true
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0.085,
+      "chest+0.085"
+     ],
+     [
+      0.062,
+      "chest+0.105"
+     ]
+    ],
+    "style": "groove",
+    "width": 0.002,
+    "mirror": true
+   },
+   {
+    "step": "dots",
+    "frame": "front",
+    "pts": [
+     [
+      0.012,
+      "waist+0.03"
+     ],
+     [
+      0.012,
+      "waist-0.05"
+     ]
+    ],
+    "r": 0.008,
+    "style": "button",
+    "colour": "#151a26"
+   },
+   {
+    "step": "rect",
+    "frame": "front",
+    "at": [
+     0.125,
+     "hip+0.03"
+    ],
+    "size": [
+     0.12,
+     0.01
+    ],
+    "style": "welt",
+    "mirror": true
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      -0.4,
+      "hem+0.004"
+     ],
+     [
+      0.4,
+      "hem+0.004"
+     ]
+    ],
+    "style": "groove",
+    "colour": "#3a3a3e",
+    "width": 0.002
+   },
+   {
+    "step": "line",
+    "frame": "back",
+    "pts": [
+     [
+      -0.4,
+      "hem+0.004"
+     ],
+     [
+      0.4,
+      "hem+0.004"
+     ]
+    ],
+    "style": "groove",
+    "colour": "#3a3a3e",
+    "width": 0.002
+   }
+  ]
+ },
+ {
+  "n": 373,
+  "id": "issey-homme-plisse-pleated-trousers",
+  "designer": "Homme Plissé Issey Miyake",
+  "name": "Pleated Trousers",
+  "season": "2013 onward",
+  "price": 300,
+  "slot": "bottom",
+  "colour": "#4b4c3a",
+  "finish": {
+   "roughness": 0.7
+  },
+  "cut": {
+   "like": "straight",
+   "ease": {
+    "waist": 0.002,
+    "seat": 0.0168,
+    "thigh": 0.024,
+    "knee": 0.0264,
+    "hem": 0.036
+   },
+   "hem": "ankle+0.04",
+   "taper": 0.15,
+   "overBoot": false
+  },
+  "paint": [
+   {
+    "step": "fabric",
+    "type": "plain"
+   },
+   {
+    "step": "rib",
+    "gauge": 0.0055,
+    "depth": 0.0011
+   },
+   {
+    "step": "rib",
+    "where": {
+     "zone": "legs",
+     "h": [
+      "top-0.04",
+      "top"
+     ]
+    },
+    "gauge": 0.003,
+    "depth": 0.0005,
+    "dir": "h"
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      -0.4,
+      "hem+0.004"
+     ],
+     [
+      0.4,
+      "hem+0.004"
+     ]
+    ],
+    "style": "groove",
+    "colour": "#3a3a3e",
+    "width": 0.002
+   },
+   {
+    "step": "line",
+    "frame": "back",
+    "pts": [
+     [
+      -0.4,
+      "hem+0.004"
+     ],
+     [
+      0.4,
+      "hem+0.004"
+     ]
+    ],
+    "style": "groove",
+    "colour": "#3a3a3e",
+    "width": 0.002
+   }
+  ]
+ },
+ {
+  "n": 374,
+  "id": "issey-homme-plisse-pleated-coat",
+  "designer": "Homme Plissé Issey Miyake",
+  "name": "Pleated Coat",
+  "season": "2013 onward",
+  "price": 700,
+  "slot": "top",
+  "colour": "#19191b",
+  "finish": {
+   "roughness": 0.7
+  },
+  "cut": {
+   "like": "coat",
+   "ease": {
+    "shoulder": 0.0088,
+    "chest": 0.0275,
+    "waist": 0.0385,
+    "hip": 0.0385,
+    "sleeve": 0.0146,
+    "cuff": 0.0146
+   },
+   "hem": "knee-0.0",
+   "flare": 0.03,
+   "neck": {
+    "v": 0.2,
+    "width": 0.07,
+    "depth": 0.03
+   },
+   "add": [
+    {
+     "type": "collar",
+     "style": "fold",
+     "height": 0.05,
+     "gap": 0.03,
+     "points": 0.5
+    }
+   ]
+  },
+  "under": {
+   "colour": "#e8e5dc",
+   "cut": {
+    "like": "tee",
+    "hem": "hip+0.03",
+    "overWaist": false,
+    "ease": {
+     "shoulder": 0.004,
+     "chest": 0.01,
+     "waist": 0.016,
+     "hip": 0.016,
+     "sleeve": 0.012,
+     "cuff": 0.014
+    }
+   },
+   "paint": [
+    {
+     "step": "fabric",
+     "type": "jersey"
+    }
+   ]
+  },
+  "paint": [
+   {
+    "step": "fabric",
+    "type": "plain"
+   },
+   {
+    "step": "rib",
+    "gauge": 0.0055,
+    "depth": 0.0011
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0.012,
+      "neck-0.235"
+     ],
+     [
+      0.085,
+      "chest+0.085"
+     ],
+     [
+      0.07,
+      "shoulder+0.005"
+     ]
+    ],
+    "style": "groove",
+    "width": 0.002,
+    "mirror": true
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0.085,
+      "chest+0.085"
+     ],
+     [
+      0.062,
+      "chest+0.105"
+     ]
+    ],
+    "style": "groove",
+    "width": 0.002,
+    "mirror": true
+   },
+   {
+    "step": "dots",
+    "frame": "front",
+    "from": [
+     0.012,
+     "waist-0.08"
+    ],
+    "to": [
+     0.012,
+     "waist+0.08"
+    ],
+    "count": 3,
+    "r": 0.009,
+    "style": "button",
+    "colour": "#111113"
+   },
+   {
+    "step": "rect",
+    "frame": "front",
+    "at": [
+     0.13,
+     "hip-0.0"
+    ],
+    "size": [
+     0.13,
+     0.01
+    ],
+    "style": "welt",
+    "rot": 70,
+    "mirror": true
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      -0.4,
+      "hem+0.004"
+     ],
+     [
+      0.4,
+      "hem+0.004"
+     ]
+    ],
+    "style": "groove",
+    "colour": "#3a3a3e",
+    "width": 0.002
+   },
+   {
+    "step": "line",
+    "frame": "back",
+    "pts": [
+     [
+      -0.4,
+      "hem+0.004"
+     ],
+     [
+      0.4,
+      "hem+0.004"
+     ]
+    ],
+    "style": "groove",
+    "colour": "#3a3a3e",
+    "width": 0.002
+   }
+  ]
+ },
+ {
+  "n": 375,
+  "id": "issey-one-three-two-five-origami-top",
+  "designer": "Issey Miyake",
+  "name": "132 5. Origami-Inspired Garments",
+  "season": "2010",
+  "price": 1800,
+  "slot": "top",
+  "colour": "#17171a",
+  "finish": {
+   "roughness": 0.5,
+   "metalness": 0.15
+  },
+  "cut": {
+   "like": "tee",
+   "ease": {
+    "shoulder": 0.0084,
+    "chest": 0.0252,
+    "waist": 0.042,
+    "hip": 0.042,
+    "sleeve": 0.0165,
+    "cuff": 0.0189
+   },
+   "shoulderDrop": 0.016,
+   "hem": "hip-0.08",
+   "hemSlant": 0.07,
+   "sleeve": 0.4,
+   "hang": 1,
+   "chest": 1,
+   "neck": {
+    "depth": 0.03,
+    "round": 0.1
+   }
+  },
+  "note": "Folds flat into a star and opens into a top: the fold lines are printed in foil.",
+  "paint": [
+   {
+    "step": "fabric",
+    "type": "plain"
+   },
+   {
+    "step": "print",
+    "frame": "front",
+    "art": "issey-origami-folds",
+    "at": [
+     0,
+     "waist+0.1"
+    ],
+    "width": 0.56
+   },
+   {
+    "step": "print",
+    "frame": "back",
+    "art": "issey-origami-folds",
+    "at": [
+     0,
+     "waist+0.1"
+    ],
+    "width": 0.56
+   },
+   {
+    "step": "print",
+    "frame": "sleeves",
+    "art": "issey-origami-folds",
+    "at": [
+     0,
+     0.2
+    ],
+    "width": 0.3
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      -0.2,
+      "hem"
+     ],
+     [
+      0,
+      "chest"
+     ],
+     [
+      0.2,
+      "hem"
+     ]
+    ],
+    "style": "groove",
+    "width": 0.004,
+    "depth": 0.002
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      -0.2,
+      "chest+0.05"
+     ],
+     [
+      0,
+      "waist"
+     ],
+     [
+      0.2,
+      "chest+0.05"
+     ]
+    ],
+    "style": "groove",
+    "width": 0.004,
+    "depth": 0.002
+   }
+  ]
+ },
+ {
+  "n": 377,
+  "id": "issey-haat-textured-jacket",
+  "designer": "HaaT Issey Miyake",
+  "name": "Textured Jacket",
+  "season": "2000s",
+  "price": 700,
+  "slot": "top",
+  "colour": "#7a2a26",
+  "finish": {
+   "roughness": 0.85
+  },
+  "cut": {
+   "like": "trucker",
+   "ease": {
+    "shoulder": 0.0096,
+    "chest": 0.0264,
+    "waist": 0.036,
+    "hip": 0.036,
+    "sleeve": 0.0131,
+    "cuff": 0.0109
+   },
+   "hem": "hip-0.06",
+   "add": [
+    {
+     "type": "collar",
+     "height": 0.03,
+     "gap": 0.03,
+     "only": true
+    },
+    {
+     "type": "lip"
+    }
+   ]
+  },
+  "note": "Hand-stitched kantha quilting from the line Makiko Minagawa makes in India.",
+  "paint": [
+   {
+    "step": "fabric",
+    "type": "canvas"
+   },
+   {
+    "step": "pattern",
+    "type": "boro",
+    "colours": [
+     "#7a2a26",
+     "#8a3a2a",
+     "#5c1f1c"
+    ],
+    "size": 0.05,
+    "stitch": "#e3b21c"
+   },
+   {
+    "step": "quilt",
+    "type": "box",
+    "size": 0.02,
+    "size2": 0.02,
+    "puff": 0.0015
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0.02,
+      "hem"
+     ],
+     [
+      0.02,
+      "top"
+     ]
+    ],
+    "style": "seam"
+   },
+   {
+    "step": "dots",
+    "frame": "front",
+    "from": [
+     0,
+     "hem+0.06"
+    ],
+    "to": [
+     0,
+     "neck-0.05"
+    ],
+    "count": 5,
+    "r": 0.008,
+    "style": "button",
+    "colour": "#3a1412"
+   },
+   {
+    "step": "rect",
+    "frame": "front",
+    "at": [
+     0.12,
+     "hip"
+    ],
+    "size": [
+     0.13,
+     0.13
+    ],
+    "style": "pocket",
+    "mirror": true,
+    "stitch": "#e3b21c"
+   }
+  ]
+ },
+ {
+  "n": 378,
+  "id": "issey-haat-textured-trousers",
+  "designer": "HaaT Issey Miyake",
+  "name": "Textured Trousers",
+  "season": "2000s",
+  "price": 450,
+  "slot": "bottom",
+  "colour": "#1f2a5c",
+  "finish": {
+   "roughness": 0.85
+  },
+  "cut": {
+   "like": "wide",
+   "ease": {
+    "waist": 0.002,
+    "seat": 0.024,
+    "thigh": 0.04,
+    "knee": 0.048,
+    "hem": 0.056
+   },
+   "rise": "waist-0.03",
+   "hem": "ankle+0.05",
+   "overBoot": false
+  },
+  "paint": [
+   {
+    "step": "fabric",
+    "type": "canvas"
+   },
+   {
+    "step": "pattern",
+    "type": "stripes",
+    "colours": [
+     "#e8e5dc"
+    ],
+    "period": 0.012,
+    "width": 0.002,
+    "dir": "v",
+    "amount": 0.7
+   },
+   {
+    "step": "quilt",
+    "type": "box",
+    "size": 0.02,
+    "size2": 0.02,
+    "puff": 0.0012
+   },
+   {
+    "step": "rib",
+    "where": {
+     "zone": "legs",
+     "h": [
+      "top-0.04",
+      "top"
+     ]
+    },
+    "gauge": 0.004,
+    "depth": 0.0006
+   },
+   {
+    "step": "line",
+    "frame": "legs",
+    "pts": [
+     [
+      0,
+      -0.3
+     ],
+     [
+      0,
+      1.05
+     ]
+    ],
+    "style": "seam"
+   }
+  ]
+ },
+ {
+  "n": 379,
+  "id": "issey-im-men-transformable-jacket",
+  "designer": "IM MEN",
+  "name": "Transformable Jacket",
+  "season": "2021",
+  "price": 900,
+  "slot": "top",
+  "colour": "#8a8b8e",
+  "finish": {
+   "roughness": 0.6
+  },
+  "cut": {
+   "like": "bomber",
+   "ease": {
+    "shoulder": 0.0156,
+    "chest": 0.0455,
+    "waist": 0.082,
+    "hip": 0.082,
+    "sleeve": 0.025,
+    "cuff": 0.0204
+   },
+   "hem": "hip-0.0",
+   "cinch": 0.1,
+   "cuffCinch": 0.1,
+   "add": [
+    {
+     "type": "collar",
+     "height": 0.06,
+     "flare": 0.01,
+     "only": true
+    },
+    {
+     "type": "lip"
+    }
+   ]
+  },
+  "note": "Zips round the waist and elbows take it apart into a vest, a cropped jacket or a bag.",
+  "paint": [
+   {
+    "step": "fabric",
+    "type": "nylon"
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0,
+      "hem"
+     ],
+     [
+      0,
+      "top"
+     ]
+    ],
+    "style": "zip",
+    "width": 0.004,
+    "colour": "#55565a",
+    "colour2": "#111113"
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      -0.3,
+      "waist+0.02"
+     ],
+     [
+      0.3,
+      "waist+0.02"
+     ]
+    ],
+    "style": "zip",
+    "width": 0.003,
+    "colour": "#55565a",
+    "colour2": "#77787b"
+   },
+   {
+    "step": "line",
+    "frame": "back",
+    "pts": [
+     [
+      -0.3,
+      "waist+0.02"
+     ],
+     [
+      0.3,
+      "waist+0.02"
+     ]
+    ],
+    "style": "zip",
+    "width": 0.003,
+    "colour": "#55565a",
+    "colour2": "#77787b"
+   },
+   {
+    "step": "line",
+    "frame": "sleeves",
+    "pts": [
+     [
+      -0.3,
+      0.5
+     ],
+     [
+      0.3,
+      0.5
+     ]
+    ],
+    "style": "zip",
+    "width": 0.003,
+    "colour": "#55565a",
+    "colour2": "#77787b"
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0.1,
+      "hem"
+     ],
+     [
+      0.1,
+      "top"
+     ]
+    ],
+    "style": "groove",
+    "width": 0.003,
+    "mirror": true
+   },
+   {
+    "step": "distress",
+    "type": "crumple",
+    "amount": 0.12
+   }
+  ]
+ },
+ {
+  "n": 380,
+  "id": "issey-im-men-transformable-coat",
+  "designer": "IM MEN",
+  "name": "Transformable Coat",
+  "season": "2021",
+  "price": 1200,
+  "slot": "top",
+  "colour": "#2a3350",
+  "finish": {
+   "roughness": 0.6
+  },
+  "cut": {
+   "like": "coat",
+   "ease": {
+    "shoulder": 0.0112,
+    "chest": 0.035,
+    "waist": 0.049,
+    "hip": 0.049,
+    "sleeve": 0.0165,
+    "cuff": 0.0165
+   },
+   "hem": "calf+0.1",
+   "hang": 1,
+   "flare": 0.05,
+   "shoulderDrop": 0.04,
+   "neck": {
+    "depth": 0.04
+   },
+   "add": [
+    {
+     "type": "hood",
+     "size": 1.2,
+     "drop": 0.22
+    }
+   ]
+  },
+  "note": "Cut from one rectangle of cloth; zipped panels shorten it to a jacket.",
+  "paint": [
+   {
+    "step": "fabric",
+    "type": "nylon"
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0,
+      "hem"
+     ],
+     [
+      0,
+      "top"
+     ]
+    ],
+    "style": "zip",
+    "width": 0.004,
+    "colour": "#55565a",
+    "colour2": "#111113"
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      -0.4,
+      "hip"
+     ],
+     [
+      0.4,
+      "hip"
+     ]
+    ],
+    "style": "zip",
+    "width": 0.003,
+    "colour": "#55565a",
+    "colour2": "#1f2740"
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      -0.4,
+      "knee+0.08"
+     ],
+     [
+      0.4,
+      "knee+0.08"
+     ]
+    ],
+    "style": "zip",
+    "width": 0.003,
+    "colour": "#55565a",
+    "colour2": "#1f2740"
+   },
+   {
+    "step": "line",
+    "frame": "back",
+    "pts": [
+     [
+      -0.4,
+      "hip"
+     ],
+     [
+      0.4,
+      "hip"
+     ]
+    ],
+    "style": "zip",
+    "width": 0.003,
+    "colour": "#55565a",
+    "colour2": "#1f2740"
+   },
+   {
+    "step": "line",
+    "frame": "back",
+    "pts": [
+     [
+      -0.4,
+      "knee+0.08"
+     ],
+     [
+      0.4,
+      "knee+0.08"
+     ]
+    ],
+    "style": "zip",
+    "width": 0.003,
+    "colour": "#55565a",
+    "colour2": "#1f2740"
+   },
+   {
+    "step": "rect",
+    "frame": "front",
+    "at": [
+     0.13,
+     "waist-0.05"
+    ],
+    "size": [
+     0.14,
+     0.15
+    ],
+    "style": "pocket",
+    "mirror": true,
+    "stitch": "#1f2740"
+   },
+   {
+    "step": "distress",
+    "type": "folds",
+    "freq": 8,
+    "depth": 0.005
+   },
+   {
+    "step": "distress",
+    "type": "crumple",
+    "amount": 0.1
+   }
+  ]
+ }
+]

@@ -1,0 +1,4202 @@
+[
+ {
+  "n": 281,
+  "id": "junya-patchwork-denim-jacket",
+  "designer": "Junya Watanabe",
+  "name": "Patchwork Denim Jacket",
+  "season": "SS2002",
+  "price": 1100,
+  "slot": "top",
+  "colour": "#40557a",
+  "finish": {
+   "roughness": 0.85
+  },
+  "cut": {
+   "like": "trucker",
+   "hem": "hip+0.05"
+  },
+  "paint": [
+   {
+    "step": "fabric",
+    "type": "denim",
+    "colour2": "#7f95b5"
+   },
+   {
+    "step": "pattern",
+    "type": "patchwork",
+    "colours": [
+     "#40557a",
+     "#6f8cae",
+     "#2a3a5c",
+     "#8fa3bd",
+     "#1f2b45"
+    ],
+    "size": 0.085,
+    "stitch": "#c9a35c"
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      -0.4,
+      "hem+0.042"
+     ],
+     [
+      0.4,
+      "hem+0.042"
+     ]
+    ],
+    "style": "twin",
+    "colour": "#c9a35c",
+    "gap": 0.005,
+    "width": 0.0017
+   },
+   {
+    "step": "line",
+    "frame": "back",
+    "pts": [
+     [
+      -0.4,
+      "hem+0.042"
+     ],
+     [
+      0.4,
+      "hem+0.042"
+     ]
+    ],
+    "style": "twin",
+    "colour": "#c9a35c",
+    "gap": 0.005,
+    "width": 0.0017
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0.02,
+      "chest+0.065"
+     ],
+     [
+      0.2,
+      "chest+0.065"
+     ]
+    ],
+    "style": "twin",
+    "mirror": true,
+    "gap": 0.005,
+    "width": 0.0017,
+    "colour": "#c9a35c"
+   },
+   {
+    "step": "line",
+    "frame": "back",
+    "pts": [
+     [
+      -0.25,
+      "chest+0.075"
+     ],
+     [
+      0.25,
+      "chest+0.075"
+     ]
+    ],
+    "style": "twin",
+    "gap": 0.005,
+    "width": 0.0017,
+    "colour": "#c9a35c"
+   },
+   {
+    "step": "line",
+    "frame": "back",
+    "pts": [
+     [
+      0.105,
+      "chest+0.075"
+     ],
+     [
+      0.08,
+      "hem+0.042"
+     ]
+    ],
+    "style": "twin",
+    "mirror": true,
+    "gap": 0.005,
+    "width": 0.0017,
+    "colour": "#c9a35c"
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0.02,
+      "hem"
+     ],
+     [
+      0.02,
+      "top"
+     ]
+    ],
+    "style": "twin",
+    "mirror": true,
+    "gap": 0.005,
+    "width": 0.0017,
+    "colour": "#c9a35c"
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0.05,
+      "chest-0.005"
+     ],
+     [
+      0.068,
+      "hem+0.042"
+     ]
+    ],
+    "style": "twin",
+    "mirror": true,
+    "gap": 0.005,
+    "width": 0.0017,
+    "colour": "#c9a35c"
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0.14,
+      "chest-0.005"
+     ],
+     [
+      0.11,
+      "hem+0.042"
+     ]
+    ],
+    "style": "twin",
+    "mirror": true,
+    "gap": 0.005,
+    "width": 0.0017,
+    "colour": "#c9a35c"
+   },
+   {
+    "step": "line",
+    "frame": "sleeves",
+    "pts": [
+     [
+      -0.3,
+      0.93
+     ],
+     [
+      0.3,
+      0.93
+     ]
+    ],
+    "style": "twin",
+    "gap": 0.005,
+    "width": 0.0017,
+    "colour": "#c9a35c"
+   },
+   {
+    "step": "rect",
+    "frame": "front",
+    "at": [
+     0.095,
+     "chest+0.035"
+    ],
+    "size": [
+     0.1,
+     0.055
+    ],
+    "style": "flap",
+    "flap": 1,
+    "stitch": "#c9a35c",
+    "mirror": true
+   },
+   {
+    "step": "dots",
+    "frame": "front",
+    "pts": [
+     [
+      0.095,
+      "chest+0.022"
+     ]
+    ],
+    "r": 0.007,
+    "style": "button",
+    "colour": "#c9c9c9",
+    "mirror": true
+   },
+   {
+    "step": "dots",
+    "frame": "front",
+    "from": [
+     0,
+     "hem+0.02"
+    ],
+    "to": [
+     0,
+     "neck-0.04"
+    ],
+    "count": 6,
+    "r": 0.0075,
+    "style": "button",
+    "colour": "#c9c9c9"
+   },
+   {
+    "step": "distress",
+    "type": "wash",
+    "amount": 0.2
+   },
+   {
+    "step": "distress",
+    "type": "edges",
+    "amount": 0.3,
+    "colour": "#c9d3dc"
+   }
+  ]
+ },
+ {
+  "n": 282,
+  "id": "junya-patchwork-levis-jeans",
+  "designer": "Junya Watanabe Man",
+  "name": "Patchwork Levi's Jeans",
+  "season": "SS2015",
+  "price": 500,
+  "slot": "bottom",
+  "colour": "#40557a",
+  "finish": {
+   "roughness": 0.85
+  },
+  "cut": {
+   "like": "straight",
+   "ease": {
+    "waist": 0.002,
+    "seat": 0.0126,
+    "thigh": 0.018,
+    "knee": 0.0198,
+    "hem": 0.027
+   }
+  },
+  "paint": [
+   {
+    "step": "fabric",
+    "type": "denim",
+    "colour2": "#7f95b5"
+   },
+   {
+    "step": "pattern",
+    "type": "patchwork",
+    "colours": [
+     "#40557a",
+     "#6f8cae",
+     "#2a3a5c",
+     "#8fa3bd",
+     "#1f2b45"
+    ],
+    "size": 0.075,
+    "stitch": "#c9a35c",
+    "where": {
+     "zone": "legs",
+     "s": [
+      0.12,
+      1.3
+     ]
+    }
+   },
+   {
+    "step": "pattern",
+    "type": "gingham",
+    "colours": [
+     "#b3261e"
+    ],
+    "period": 0.01,
+    "where": {
+     "zone": "legL",
+     "s": [
+      0.3,
+      0.48
+     ],
+     "front": true
+    }
+   },
+   {
+    "step": "pattern",
+    "type": "stripes",
+    "colours": [
+     "#e9e5da"
+    ],
+    "period": 0.012,
+    "width": 0.004,
+    "dir": "v",
+    "where": {
+     "zone": "legR",
+     "s": [
+      0.55,
+      0.75
+     ],
+     "front": true
+    }
+   },
+   {
+    "step": "line",
+    "frame": "legs",
+    "pts": [
+     [
+      0,
+      -0.3
+     ],
+     [
+      0,
+      1.05
+     ]
+    ],
+    "style": "twin",
+    "colour": "#c9a35c",
+    "width": 0.0011,
+    "gap": 0.006
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      -0.4,
+      "top-0.04"
+     ],
+     [
+      0.4,
+      "top-0.04"
+     ]
+    ],
+    "style": "twin",
+    "colour": "#c9a35c",
+    "width": 0.0011,
+    "gap": 0.034
+   },
+   {
+    "step": "line",
+    "frame": "back",
+    "pts": [
+     [
+      -0.4,
+      "top-0.04"
+     ],
+     [
+      0.4,
+      "top-0.04"
+     ]
+    ],
+    "style": "twin",
+    "colour": "#c9a35c",
+    "width": 0.0011,
+    "gap": 0.034
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0.0,
+      "top-0.04"
+     ],
+     [
+      0.004,
+      "top-0.1"
+     ],
+     [
+      0.03,
+      "top-0.17"
+     ],
+     [
+      0.0,
+      "top-0.19"
+     ]
+    ],
+    "style": "twin",
+    "colour": "#c9a35c",
+    "width": 0.0011
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0.06,
+      "top-0.045"
+     ],
+     [
+      0.09,
+      "top-0.11"
+     ],
+     [
+      0.17,
+      "top-0.12"
+     ]
+    ],
+    "style": "twin",
+    "colour": "#c9a35c",
+    "width": 0.0011,
+    "mirror": true
+   },
+   {
+    "step": "dots",
+    "frame": "front",
+    "pts": [
+     [
+      0,
+      "top-0.02"
+     ]
+    ],
+    "r": 0.008,
+    "style": "stud",
+    "colour": "#77736a"
+   },
+   {
+    "step": "dots",
+    "frame": "front",
+    "pts": [
+     [
+      0.062,
+      "top-0.05"
+     ],
+     [
+      0.168,
+      "top-0.118"
+     ]
+    ],
+    "r": 0.0035,
+    "style": "stud",
+    "colour": "#8a7a5a",
+    "mirror": true
+   },
+   {
+    "step": "line",
+    "frame": "back",
+    "pts": [
+     [
+      -0.3,
+      "top-0.075"
+     ],
+     [
+      0,
+      "top-0.115"
+     ],
+     [
+      0.3,
+      "top-0.075"
+     ]
+    ],
+    "style": "twin",
+    "colour": "#c9a35c",
+    "width": 0.0011
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      -0.4,
+      "hem+0.014"
+     ],
+     [
+      0.4,
+      "hem+0.014"
+     ]
+    ],
+    "style": "stitch",
+    "colour": "#c9a35c",
+    "width": 0.0011
+   },
+   {
+    "step": "line",
+    "frame": "back",
+    "pts": [
+     [
+      -0.4,
+      "hem+0.014"
+     ],
+     [
+      0.4,
+      "hem+0.014"
+     ]
+    ],
+    "style": "stitch",
+    "colour": "#c9a35c",
+    "width": 0.0011
+   },
+   {
+    "step": "rect",
+    "frame": "back",
+    "at": [
+     0.088,
+     "top-0.2"
+    ],
+    "size": [
+     0.125,
+     0.135
+    ],
+    "style": "pocket",
+    "stitch": "#c9a35c",
+    "mirror": true,
+    "round": 0.012
+   },
+   {
+    "step": "rect",
+    "frame": "back",
+    "at": [
+     0.13,
+     "top-0.2"
+    ],
+    "size": [
+     0.012,
+     0.022
+    ],
+    "style": "label",
+    "colour": "#b3261e"
+   },
+   {
+    "step": "distress",
+    "type": "wash",
+    "amount": 0.2
+   },
+   {
+    "step": "distress",
+    "type": "fade",
+    "amount": 0.4,
+    "frame": "front",
+    "at": [
+     0.09,
+     "thigh+0.02"
+    ],
+    "size": [
+     0.12,
+     0.3
+    ],
+    "mirror": true
+   }
+  ]
+ },
+ {
+  "n": 283,
+  "id": "junya-reconstructed-levis-trucker",
+  "designer": "Junya Watanabe Man",
+  "name": "Reconstructed Levi's Trucker",
+  "season": "FW2013",
+  "price": 700,
+  "slot": "top",
+  "colour": "#40557a",
+  "finish": {
+   "roughness": 0.85
+  },
+  "cut": {
+   "like": "trucker",
+   "ease": {
+    "shoulder": 0.0084,
+    "chest": 0.0231,
+    "waist": 0.0315,
+    "hip": 0.0315,
+    "sleeve": 0.0123,
+    "cuff": 0.0102
+   },
+   "hem": "hip+0.04"
+  },
+  "paint": [
+   {
+    "step": "fabric",
+    "type": "denim",
+    "colour2": "#7f95b5"
+   },
+   {
+    "step": "fabric",
+    "type": "tweed",
+    "colour": "#6b5a48",
+    "where": {
+     "zone": "sleeves"
+    }
+   },
+   {
+    "step": "pattern",
+    "type": "herringbone",
+    "colours": [
+     "#4a3c30"
+    ],
+    "where": {
+     "zone": "sleeves"
+    }
+   },
+   {
+    "step": "fabric",
+    "type": "wool",
+    "colour": "#3a3b40",
+    "where": {
+     "zone": "back",
+     "h": [
+      "hem",
+      "chest+0.07"
+     ]
+    }
+   },
+   {
+    "step": "pattern",
+    "type": "tartan",
+    "colours": [
+     "#3a3b40",
+     "#19191b",
+     "#b9babd"
+    ],
+    "period": 0.1,
+    "sett": [
+     [
+      0,
+      0.035,
+      0
+     ],
+     [
+      0.05,
+      0.02,
+      1
+     ],
+     [
+      0.075,
+      0.003,
+      2
+     ]
+    ],
+    "where": {
+     "zone": "back",
+     "h": [
+      "hem",
+      "chest+0.07"
+     ]
+    }
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      -0.4,
+      "hem+0.042"
+     ],
+     [
+      0.4,
+      "hem+0.042"
+     ]
+    ],
+    "style": "twin",
+    "colour": "#c9a35c",
+    "gap": 0.005,
+    "width": 0.0017
+   },
+   {
+    "step": "line",
+    "frame": "back",
+    "pts": [
+     [
+      -0.4,
+      "hem+0.042"
+     ],
+     [
+      0.4,
+      "hem+0.042"
+     ]
+    ],
+    "style": "twin",
+    "colour": "#c9a35c",
+    "gap": 0.005,
+    "width": 0.0017
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0.02,
+      "chest+0.065"
+     ],
+     [
+      0.2,
+      "chest+0.065"
+     ]
+    ],
+    "style": "twin",
+    "mirror": true,
+    "gap": 0.005,
+    "width": 0.0017,
+    "colour": "#c9a35c"
+   },
+   {
+    "step": "line",
+    "frame": "back",
+    "pts": [
+     [
+      -0.25,
+      "chest+0.075"
+     ],
+     [
+      0.25,
+      "chest+0.075"
+     ]
+    ],
+    "style": "twin",
+    "gap": 0.005,
+    "width": 0.0017,
+    "colour": "#c9a35c"
+   },
+   {
+    "step": "line",
+    "frame": "back",
+    "pts": [
+     [
+      0.105,
+      "chest+0.075"
+     ],
+     [
+      0.08,
+      "hem+0.042"
+     ]
+    ],
+    "style": "twin",
+    "mirror": true,
+    "gap": 0.005,
+    "width": 0.0017,
+    "colour": "#c9a35c"
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0.02,
+      "hem"
+     ],
+     [
+      0.02,
+      "top"
+     ]
+    ],
+    "style": "twin",
+    "mirror": true,
+    "gap": 0.005,
+    "width": 0.0017,
+    "colour": "#c9a35c"
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0.05,
+      "chest-0.005"
+     ],
+     [
+      0.068,
+      "hem+0.042"
+     ]
+    ],
+    "style": "twin",
+    "mirror": true,
+    "gap": 0.005,
+    "width": 0.0017,
+    "colour": "#c9a35c"
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0.14,
+      "chest-0.005"
+     ],
+     [
+      0.11,
+      "hem+0.042"
+     ]
+    ],
+    "style": "twin",
+    "mirror": true,
+    "gap": 0.005,
+    "width": 0.0017,
+    "colour": "#c9a35c"
+   },
+   {
+    "step": "line",
+    "frame": "sleeves",
+    "pts": [
+     [
+      -0.3,
+      0.93
+     ],
+     [
+      0.3,
+      0.93
+     ]
+    ],
+    "style": "twin",
+    "gap": 0.005,
+    "width": 0.0017,
+    "colour": "#c9a35c"
+   },
+   {
+    "step": "rect",
+    "frame": "front",
+    "at": [
+     0.095,
+     "chest+0.035"
+    ],
+    "size": [
+     0.1,
+     0.055
+    ],
+    "style": "flap",
+    "flap": 1,
+    "stitch": "#c9a35c",
+    "mirror": true
+   },
+   {
+    "step": "dots",
+    "frame": "front",
+    "pts": [
+     [
+      0.095,
+      "chest+0.022"
+     ]
+    ],
+    "r": 0.007,
+    "style": "button",
+    "colour": "#c9c9c9",
+    "mirror": true
+   },
+   {
+    "step": "dots",
+    "frame": "front",
+    "from": [
+     0,
+     "hem+0.02"
+    ],
+    "to": [
+     0,
+     "neck-0.04"
+    ],
+    "count": 6,
+    "r": 0.0075,
+    "style": "button",
+    "colour": "#c9c9c9"
+   },
+   {
+    "step": "fabric",
+    "type": "velvet",
+    "colour": "#3a2a20",
+    "where": {
+     "zone": "collar"
+    }
+   },
+   {
+    "step": "rect",
+    "frame": "front",
+    "at": [
+     0.13,
+     "chest+0.012"
+    ],
+    "size": [
+     0.012,
+     0.02
+    ],
+    "style": "label",
+    "colour": "#b3261e"
+   }
+  ]
+ },
+ {
+  "n": 284,
+  "id": "junya-patchwork-military-cargo-trousers",
+  "designer": "Junya Watanabe Man",
+  "name": "Patchwork Military Cargo Trousers",
+  "season": "SS2006",
+  "price": 600,
+  "slot": "bottom",
+  "colour": "#4b4c3a",
+  "finish": {
+   "roughness": 0.85
+  },
+  "cut": {
+   "like": "cargo"
+  },
+  "paint": [
+   {
+    "step": "fabric",
+    "type": "canvas"
+   },
+   {
+    "step": "pattern",
+    "type": "patchwork",
+    "colours": [
+     "#4b4c3a",
+     "#5c5a40",
+     "#3a3c30",
+     "#6b6a4c"
+    ],
+    "size": 0.1,
+    "stitch": "#2a2b22"
+   },
+   {
+    "step": "pattern",
+    "type": "woodland",
+    "colours": [
+     "#5a4630",
+     "#b3a877",
+     "#1c1e19"
+    ],
+    "where": {
+     "zone": "legR",
+     "s": [
+      0.35,
+      0.7
+     ]
+    }
+   },
+   {
+    "step": "pattern",
+    "type": "woodland",
+    "colours": [
+     "#5a4630",
+     "#b3a877",
+     "#1c1e19"
+    ],
+    "where": {
+     "zone": "legL",
+     "s": [
+      0.0,
+      0.3
+     ]
+    }
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      -0.4,
+      "top-0.045"
+     ],
+     [
+      0.4,
+      "top-0.045"
+     ]
+    ],
+    "style": "twin",
+    "colour": "#2a2b22",
+    "gap": 0.004,
+    "width": 0.0014
+   },
+   {
+    "step": "line",
+    "frame": "back",
+    "pts": [
+     [
+      -0.4,
+      "top-0.045"
+     ],
+     [
+      0.4,
+      "top-0.045"
+     ]
+    ],
+    "style": "twin",
+    "colour": "#2a2b22",
+    "gap": 0.004,
+    "width": 0.0014
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0,
+      "top-0.045"
+     ],
+     [
+      0.012,
+      "top-0.14"
+     ],
+     [
+      0,
+      "top-0.19"
+     ]
+    ],
+    "style": "twin",
+    "colour": "#2a2b22",
+    "gap": 0.004,
+    "width": 0.0014
+   },
+   {
+    "step": "line",
+    "frame": "legs",
+    "pts": [
+     [
+      0,
+      -0.3
+     ],
+     [
+      0,
+      1.05
+     ]
+    ],
+    "style": "seam"
+   },
+   {
+    "step": "rect",
+    "frame": "legs",
+    "at": [
+     -0.005,
+     0.42
+    ],
+    "size": [
+     0.15,
+     0.17
+    ],
+    "style": "flap",
+    "flap": 0.3,
+    "pleat": true,
+    "snap": true,
+    "stitch": "#2a2b22",
+    "raise": 0.003
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0.165,
+      "top-0.045"
+     ],
+     [
+      0.115,
+      "top-0.2"
+     ]
+    ],
+    "style": "groove",
+    "width": 0.002,
+    "mirror": true
+   },
+   {
+    "step": "rect",
+    "frame": "back",
+    "at": [
+     0.088,
+     "top-0.17"
+    ],
+    "size": [
+     0.12,
+     0.05
+    ],
+    "style": "flap",
+    "flap": 1,
+    "stitch": "#2a2b22",
+    "mirror": true
+   },
+   {
+    "step": "line",
+    "frame": "legs",
+    "pts": [
+     [
+      -0.3,
+      0.5
+     ],
+     [
+      0.3,
+      0.5
+     ]
+    ],
+    "style": "seam"
+   },
+   {
+    "step": "line",
+    "frame": "legs",
+    "pts": [
+     [
+      -0.3,
+      0.62
+     ],
+     [
+      0.3,
+      0.62
+     ]
+    ],
+    "style": "seam"
+   },
+   {
+    "step": "distress",
+    "type": "wash",
+    "amount": 0.15
+   }
+  ]
+ },
+ {
+  "n": 285,
+  "id": "junya-hybrid-wool-blazer",
+  "designer": "Junya Watanabe",
+  "name": "Hybrid Wool Blazer",
+  "season": "FW2006",
+  "price": 800,
+  "slot": "top",
+  "colour": "#3a3b40",
+  "finish": {
+   "roughness": 0.95
+  },
+  "cut": {
+   "like": "blazer",
+   "hem": "hip-0.09"
+  },
+  "under": {
+   "colour": "#e8e5dc",
+   "cut": {
+    "like": "shirt",
+    "sleeve": 0,
+    "armhole": 0.4,
+    "hem": "hip+0.03",
+    "hemCurve": 0,
+    "overWaist": false,
+    "ease": {
+     "shoulder": 0.004,
+     "chest": 0.008,
+     "waist": 0.012,
+     "hip": 0.012,
+     "sleeve": 0.006,
+     "cuff": 0.006
+    }
+   },
+   "paint": [
+    {
+     "step": "fabric",
+     "type": "plain"
+    },
+    {
+     "step": "line",
+     "frame": "front",
+     "pts": [
+      [
+       0.012,
+       "hem"
+      ],
+      [
+       0.012,
+       "top"
+      ]
+     ],
+     "style": "seam",
+     "width": 0.0012
+    },
+    {
+     "step": "dots",
+     "frame": "front",
+     "from": [
+      0,
+      "hem+0.06"
+     ],
+     "to": [
+      0,
+      "neck-0.05"
+     ],
+     "count": 6,
+     "r": 0.0045,
+     "style": "button",
+     "colour": "#d8d5cc"
+    }
+   ]
+  },
+  "note": "A tailored front on a down jacket's sleeves and yoke.",
+  "paint": [
+   {
+    "step": "fabric",
+    "type": "wool"
+   },
+   {
+    "step": "fabric",
+    "type": "nylon",
+    "colour": "#19191b",
+    "where": {
+     "zone": "sleeves"
+    }
+   },
+   {
+    "step": "quilt",
+    "type": "h",
+    "size": 0.04,
+    "puff": 0.005,
+    "where": {
+     "zone": "sleeves"
+    }
+   },
+   {
+    "step": "fabric",
+    "type": "nylon",
+    "colour": "#19191b",
+    "where": {
+     "zone": "back",
+     "h": [
+      "chest-0.02",
+      "top"
+     ]
+    }
+   },
+   {
+    "step": "quilt",
+    "type": "h",
+    "size": 0.04,
+    "puff": 0.005,
+    "where": {
+     "zone": "back",
+     "h": [
+      "chest-0.02",
+      "top"
+     ]
+    }
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0.012,
+      "neck-0.255"
+     ],
+     [
+      0.085,
+      "chest+0.085"
+     ],
+     [
+      0.07,
+      "shoulder+0.005"
+     ]
+    ],
+    "style": "groove",
+    "width": 0.002,
+    "mirror": true
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0.085,
+      "chest+0.085"
+     ],
+     [
+      0.062,
+      "chest+0.105"
+     ]
+    ],
+    "style": "groove",
+    "width": 0.002,
+    "mirror": true
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0.012,
+      "neck-0.255"
+     ],
+     [
+      0.03,
+      "hem+0.04"
+     ],
+     [
+      0.07,
+      "hem"
+     ]
+    ],
+    "style": "seam"
+   },
+   {
+    "step": "dots",
+    "frame": "front",
+    "pts": [
+     [
+      0.012,
+      "waist-0.02+0"
+     ],
+     [
+      0.012,
+      "waist-0.02+0.075"
+     ]
+    ],
+    "r": 0.009,
+    "style": "button",
+    "colour": "#111113"
+   },
+   {
+    "step": "rect",
+    "frame": "front",
+    "at": [
+     0.125,
+     "hip+0.02"
+    ],
+    "size": [
+     0.13,
+     0.04
+    ],
+    "style": "flap",
+    "flap": 1,
+    "snap": false,
+    "mirror": true,
+    "stitch": "#2c2c30"
+   },
+   {
+    "step": "rect",
+    "frame": "front",
+    "at": [
+     0.1,
+     "chest+0.03"
+    ],
+    "size": [
+     0.085,
+     0.012
+    ],
+    "style": "welt"
+   },
+   {
+    "step": "line",
+    "frame": "back",
+    "pts": [
+     [
+      0,
+      "hem"
+     ],
+     [
+      0,
+      "hip+0.02"
+     ]
+    ],
+    "style": "groove",
+    "width": 0.002
+   }
+  ]
+ },
+ {
+  "n": 286,
+  "id": "junya-patchwork-tweed-coat",
+  "designer": "Junya Watanabe",
+  "name": "Patchwork Tweed Coat",
+  "season": "FW2014",
+  "price": 1500,
+  "slot": "top",
+  "colour": "#6b5a48",
+  "finish": {
+   "roughness": 0.95
+  },
+  "cut": {
+   "like": "coat",
+   "ease": {
+    "shoulder": 0.0096,
+    "chest": 0.03,
+    "waist": 0.042,
+    "hip": 0.042,
+    "sleeve": 0.0153,
+    "cuff": 0.0153
+   },
+   "hem": "knee-0.0",
+   "neck": {
+    "v": 0.18,
+    "width": 0.07,
+    "depth": 0.03
+   },
+   "add": [
+    {
+     "type": "collar",
+     "style": "fold",
+     "height": 0.065,
+     "gap": 0.03,
+     "points": 0.6
+    }
+   ]
+  },
+  "under": {
+   "colour": "#222225",
+   "cut": {
+    "like": "longsleeve",
+    "hem": "hip+0.02",
+    "overWaist": false,
+    "neck": {
+     "y": 0.012,
+     "depth": 0.02,
+     "round": 0.075
+    }
+   },
+   "paint": [
+    {
+     "step": "fabric",
+     "type": "knit"
+    }
+   ]
+  },
+  "paint": [
+   {
+    "step": "fabric",
+    "type": "tweed"
+   },
+   {
+    "step": "pattern",
+    "type": "patchwork",
+    "colours": [
+     "#6b5a48",
+     "#3a4a3a",
+     "#7a2a26",
+     "#2f3a4a",
+     "#8a7a5c",
+     "#55524c"
+    ],
+    "size": 0.09,
+    "stitch": "#2a2018"
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0.014,
+      "neck-0.215"
+     ],
+     [
+      0.085,
+      "chest+0.085"
+     ],
+     [
+      0.07,
+      "shoulder+0.005"
+     ]
+    ],
+    "style": "groove",
+    "width": 0.002,
+    "mirror": true
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0.085,
+      "chest+0.085"
+     ],
+     [
+      0.062,
+      "chest+0.105"
+     ]
+    ],
+    "style": "groove",
+    "width": 0.002,
+    "mirror": true
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0.014,
+      "neck-0.18"
+     ],
+     [
+      0.014,
+      "hem"
+     ]
+    ],
+    "style": "seam"
+   },
+   {
+    "step": "dots",
+    "frame": "front",
+    "pts": [
+     [
+      0,
+      "waist-0.1+0"
+     ],
+     [
+      0,
+      "waist-0.1+0.1"
+     ],
+     [
+      0,
+      "waist-0.1+0.2"
+     ]
+    ],
+    "r": 0.011,
+    "style": "button",
+    "colour": "#2a2018"
+   },
+   {
+    "step": "rect",
+    "frame": "front",
+    "at": [
+     0.125,
+     "hip-0.04"
+    ],
+    "size": [
+     0.15,
+     0.17
+    ],
+    "style": "pocket",
+    "mirror": true,
+    "stitch": "#3a3a40"
+   },
+   {
+    "step": "line",
+    "frame": "back",
+    "pts": [
+     [
+      0,
+      "hem"
+     ],
+     [
+      0,
+      "hip-0.05"
+     ]
+    ],
+    "style": "groove",
+    "width": 0.002
+   },
+   {
+    "step": "line",
+    "frame": "back",
+    "pts": [
+     [
+      -0.25,
+      "shoulder-0.05"
+     ],
+     [
+      0.25,
+      "shoulder-0.05"
+     ]
+    ],
+    "style": "seam",
+    "width": 0.0015
+   }
+  ]
+ },
+ {
+  "n": 287,
+  "id": "junya-hybrid-trench-coat",
+  "designer": "Junya Watanabe",
+  "name": "Hybrid Trench Coat",
+  "season": "FW2016",
+  "price": 1600,
+  "slot": "top",
+  "colour": "#b3a17c",
+  "finish": {
+   "roughness": 0.85
+  },
+  "cut": {
+   "like": "coat",
+   "ease": {
+    "shoulder": 0.0092,
+    "chest": 0.0287,
+    "waist": 0.0403,
+    "hip": 0.0403,
+    "sleeve": 0.0149,
+    "cuff": 0.0149
+   },
+   "hem": "knee-0.02",
+   "neck": {
+    "v": 0.16,
+    "width": 0.07,
+    "depth": 0.03
+   },
+   "add": [
+    {
+     "type": "collar",
+     "style": "fold",
+     "height": 0.07,
+     "gap": 0.03,
+     "points": 0.6
+    }
+   ]
+  },
+  "under": {
+   "colour": "#222225",
+   "cut": {
+    "like": "longsleeve",
+    "hem": "hip+0.02",
+    "overWaist": false,
+    "neck": {
+     "y": 0.012,
+     "depth": 0.02,
+     "round": 0.075
+    }
+   },
+   "paint": [
+    {
+     "step": "fabric",
+     "type": "knit"
+    }
+   ]
+  },
+  "note": "A trench coat with the sleeves and yoke of a leather biker jacket.",
+  "paint": [
+   {
+    "step": "fabric",
+    "type": "canvas"
+   },
+   {
+    "step": "fabric",
+    "type": "leather",
+    "colour": "#1c1c1e",
+    "where": {
+     "zone": "sleeves"
+    }
+   },
+   {
+    "step": "fabric",
+    "type": "leather",
+    "colour": "#1c1c1e",
+    "where": {
+     "zone": "body",
+     "h": [
+      "chest+0.03",
+      "top"
+     ]
+    }
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0.014,
+      "neck-0.195"
+     ],
+     [
+      0.085,
+      "chest+0.085"
+     ],
+     [
+      0.07,
+      "shoulder+0.005"
+     ]
+    ],
+    "style": "groove",
+    "width": 0.002,
+    "mirror": true
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0.085,
+      "chest+0.085"
+     ],
+     [
+      0.062,
+      "chest+0.105"
+     ]
+    ],
+    "style": "groove",
+    "width": 0.002,
+    "mirror": true
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0.014,
+      "neck-0.16"
+     ],
+     [
+      0.014,
+      "hem"
+     ]
+    ],
+    "style": "seam"
+   },
+   {
+    "step": "dots",
+    "frame": "front",
+    "pts": [
+     [
+      -0.06,
+      "waist+0.04+0"
+     ],
+     [
+      -0.06,
+      "waist+0.04+0.085"
+     ],
+     [
+      -0.06,
+      "waist+0.04+0.17"
+     ],
+     [
+      -0.06,
+      "waist+0.04+0.255"
+     ]
+    ],
+    "r": 0.011,
+    "style": "button",
+    "colour": "#3a2f24"
+   },
+   {
+    "step": "dots",
+    "frame": "front",
+    "pts": [
+     [
+      0.08,
+      "waist+0.04+0"
+     ],
+     [
+      0.08,
+      "waist+0.04+0.085"
+     ],
+     [
+      0.08,
+      "waist+0.04+0.17"
+     ],
+     [
+      0.08,
+      "waist+0.04+0.255"
+     ]
+    ],
+    "r": 0.011,
+    "style": "button",
+    "colour": "#3a2f24"
+   },
+   {
+    "step": "rect",
+    "frame": "front",
+    "at": [
+     0.13,
+     "hip-0.02"
+    ],
+    "size": [
+     0.15,
+     0.014
+    ],
+    "style": "welt",
+    "rot": 70,
+    "mirror": true
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      -0.4,
+      "waist-0.02"
+     ],
+     [
+      0.4,
+      "waist-0.02"
+     ]
+    ],
+    "style": "strap",
+    "width": 0.04,
+    "colour": "#8a7a5c"
+   },
+   {
+    "step": "line",
+    "frame": "back",
+    "pts": [
+     [
+      -0.4,
+      "waist-0.02"
+     ],
+     [
+      0.4,
+      "waist-0.02"
+     ]
+    ],
+    "style": "strap",
+    "width": 0.04,
+    "colour": "#8a7a5c"
+   },
+   {
+    "step": "rect",
+    "frame": "front",
+    "at": [
+     0.03,
+     "waist-0.02"
+    ],
+    "size": [
+     0.05,
+     0.05
+    ],
+    "style": "buckle",
+    "colour": "#2a2a2c"
+   },
+   {
+    "step": "line",
+    "frame": "back",
+    "pts": [
+     [
+      0,
+      "hem"
+     ],
+     [
+      0,
+      "hip-0.05"
+     ]
+    ],
+    "style": "groove",
+    "width": 0.002
+   },
+   {
+    "step": "line",
+    "frame": "back",
+    "pts": [
+     [
+      -0.25,
+      "shoulder-0.05"
+     ],
+     [
+      0.25,
+      "shoulder-0.05"
+     ]
+    ],
+    "style": "seam",
+    "width": 0.0015
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0.1,
+      "shoulder-0.012"
+     ],
+     [
+      0.165,
+      "shoulder-0.03"
+     ]
+    ],
+    "style": "twin",
+    "gap": 0.02,
+    "width": 0.002,
+    "colour": "#3a3a3f",
+    "mirror": true
+   },
+   {
+    "step": "line",
+    "frame": "sleeves",
+    "pts": [
+     [
+      -0.035,
+      0.8
+     ],
+     [
+      -0.035,
+      1.12
+     ]
+    ],
+    "style": "zip",
+    "width": 0.0045,
+    "colour": "#9d9ea3",
+    "colour2": "#1a1a1c"
+   }
+  ]
+ },
+ {
+  "n": 288,
+  "id": "junya-man-north-face-jacket",
+  "designer": "Junya Watanabe Man × The North Face",
+  "name": "The North Face Jacket",
+  "season": "FW2018",
+  "price": 1300,
+  "slot": "top",
+  "colour": "#1b1b1d",
+  "finish": {
+   "roughness": 0.7
+  },
+  "cut": {
+   "like": "parka",
+   "ease": {
+    "shoulder": 0.0114,
+    "chest": 0.038,
+    "waist": 0.057,
+    "hip": 0.057,
+    "sleeve": 0.0215,
+    "cuff": 0.0215
+   },
+   "hem": "hip-0.06",
+   "hemBack": 0,
+   "add": [
+    {
+     "type": "hood",
+     "size": 1.05,
+     "drop": 0.2
+    }
+   ]
+  },
+  "note": "A mountain shell remade in duck canvas below a black nylon yoke.",
+  "paint": [
+   {
+    "step": "fabric",
+    "type": "nylon"
+   },
+   {
+    "step": "fabric",
+    "type": "canvas",
+    "colour": "#b98a3c",
+    "where": {
+     "zone": "body",
+     "h": [
+      "hem",
+      "chest-0.02"
+     ]
+    }
+   },
+   {
+    "step": "fabric",
+    "type": "canvas",
+    "colour": "#b98a3c",
+    "where": {
+     "zone": "sleeves",
+     "s": [
+      0.35,
+      1.3
+     ]
+    }
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0,
+      "hem"
+     ],
+     [
+      0,
+      "top"
+     ]
+    ],
+    "style": "zip",
+    "width": 0.0045,
+    "colour": "#77736a",
+    "colour2": "#111113"
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0.03,
+      "hem"
+     ],
+     [
+      0.03,
+      "top"
+     ]
+    ],
+    "style": "seam",
+    "width": 0.002
+   },
+   {
+    "step": "dots",
+    "frame": "front",
+    "from": [
+     0.016,
+     "hem+0.06"
+    ],
+    "to": [
+     0.016,
+     "neck-0.03"
+    ],
+    "count": 6,
+    "r": 0.0055,
+    "style": "snap",
+    "colour": "#77736a"
+   },
+   {
+    "step": "rect",
+    "frame": "front",
+    "at": [
+     0.115,
+     "hip+0.01"
+    ],
+    "size": [
+     0.14,
+     0.14
+    ],
+    "style": "flap",
+    "flap": 0.3,
+    "mirror": true,
+    "stitch": "#2a2a2d",
+    "pleat": true,
+    "raise": 0.002
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      -0.4,
+      "hem+0.025"
+     ],
+     [
+      0.4,
+      "hem+0.025"
+     ]
+    ],
+    "style": "twin",
+    "colour": "#2a2a2d",
+    "gap": 0.014
+   },
+   {
+    "step": "line",
+    "frame": "back",
+    "pts": [
+     [
+      -0.4,
+      "hem+0.025"
+     ],
+     [
+      0.4,
+      "hem+0.025"
+     ]
+    ],
+    "style": "twin",
+    "colour": "#2a2a2d",
+    "gap": 0.014
+   },
+   {
+    "step": "line",
+    "frame": "sleeves",
+    "pts": [
+     [
+      -0.3,
+      0.93
+     ],
+     [
+      0.3,
+      0.93
+     ]
+    ],
+    "style": "twin",
+    "colour": "#2a2a2d"
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      -0.4,
+      "chest-0.02"
+     ],
+     [
+      0.4,
+      "chest-0.02"
+     ]
+    ],
+    "style": "seam",
+    "colour": "#3a3a3e",
+    "width": 0.003
+   },
+   {
+    "step": "line",
+    "frame": "back",
+    "pts": [
+     [
+      -0.4,
+      "chest-0.02"
+     ],
+     [
+      0.4,
+      "chest-0.02"
+     ]
+    ],
+    "style": "seam",
+    "colour": "#3a3a3e",
+    "width": 0.003
+   },
+   {
+    "step": "print",
+    "frame": "front",
+    "art": "junya-tnf-mark",
+    "at": [
+     -0.09,
+     "chest+0.05"
+    ],
+    "width": 0.05
+   },
+   {
+    "step": "print",
+    "frame": "back",
+    "art": "junya-tnf-mark",
+    "at": [
+     0.1,
+     "chest+0.09"
+    ],
+    "width": 0.05
+   },
+   {
+    "step": "distress",
+    "type": "crumple",
+    "amount": 0.1
+   }
+  ]
+ },
+ {
+  "n": 289,
+  "id": "junya-man-carhartt-chore-coat",
+  "designer": "Junya Watanabe Man × Carhartt",
+  "name": "Carhartt Chore Coat",
+  "season": "SS2018",
+  "price": 900,
+  "slot": "top",
+  "colour": "#b98a3c",
+  "finish": {
+   "roughness": 0.85
+  },
+  "cut": {
+   "like": "trucker",
+   "ease": {
+    "shoulder": 0.01,
+    "chest": 0.0275,
+    "waist": 0.0375,
+    "hip": 0.0375,
+    "sleeve": 0.0134,
+    "cuff": 0.0111
+   },
+   "hem": "hip-0.07",
+   "add": [
+    {
+     "type": "collar",
+     "style": "fold",
+     "height": 0.055,
+     "gap": 0.02,
+     "points": 0.5
+    }
+   ]
+  },
+  "paint": [
+   {
+    "step": "fabric",
+    "type": "canvas"
+   },
+   {
+    "step": "fabric",
+    "type": "velvet",
+    "colour": "#3a2a20",
+    "where": {
+     "zone": "collar"
+    }
+   },
+   {
+    "step": "rib",
+    "where": {
+     "zone": "collar"
+    },
+    "gauge": 0.0025,
+    "depth": 0.0004
+   },
+   {
+    "step": "pattern",
+    "type": "patchwork",
+    "colours": [
+     "#40557a",
+     "#6f8cae",
+     "#2a3a5c",
+     "#8fa3bd",
+     "#1f2b45"
+    ],
+    "size": 0.085,
+    "stitch": "#c9a35c",
+    "where": {
+     "zone": "sleeveL"
+    }
+   },
+   {
+    "step": "pattern",
+    "type": "gingham",
+    "colours": [
+     "#b3261e"
+    ],
+    "period": 0.012,
+    "where": {
+     "zone": "front",
+     "x": [
+      -0.4,
+      0
+     ],
+     "h": [
+      "hem",
+      "waist"
+     ]
+    }
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0.016,
+      "hem"
+     ],
+     [
+      0.016,
+      "top"
+     ]
+    ],
+    "style": "seam"
+   },
+   {
+    "step": "dots",
+    "frame": "front",
+    "from": [
+     0,
+     "hem+0.05"
+    ],
+    "to": [
+     0,
+     "neck-0.05"
+    ],
+    "count": 5,
+    "r": 0.009,
+    "style": "button",
+    "colour": "#8a7a5a"
+   },
+   {
+    "step": "rect",
+    "frame": "front",
+    "at": [
+     0.1,
+     "chest+0.01"
+    ],
+    "size": [
+     0.11,
+     0.12
+    ],
+    "style": "pocket",
+    "mirror": true,
+    "stitch": "#8a6a2c"
+   },
+   {
+    "step": "rect",
+    "frame": "front",
+    "at": [
+     0.12,
+     "hip-0.0"
+    ],
+    "size": [
+     0.14,
+     0.15
+    ],
+    "style": "pocket",
+    "mirror": true,
+    "stitch": "#8a6a2c"
+   },
+   {
+    "step": "print",
+    "frame": "front",
+    "art": "junya-carhartt-label",
+    "at": [
+     0.1,
+     "chest+0.05"
+    ],
+    "width": 0.05,
+    "raise": 0.0006
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      -0.4,
+      "hem+0.02"
+     ],
+     [
+      0.4,
+      "hem+0.02"
+     ]
+    ],
+    "style": "twin",
+    "colour": "#8a6a2c",
+    "gap": 0.006
+   },
+   {
+    "step": "line",
+    "frame": "back",
+    "pts": [
+     [
+      -0.4,
+      "hem+0.02"
+     ],
+     [
+      0.4,
+      "hem+0.02"
+     ]
+    ],
+    "style": "twin",
+    "colour": "#8a6a2c",
+    "gap": 0.006
+   },
+   {
+    "step": "distress",
+    "type": "wash",
+    "amount": 0.15
+   }
+  ]
+ },
+ {
+  "n": 290,
+  "id": "junya-man-levis-denim-jacket",
+  "designer": "Junya Watanabe Man × Levi's",
+  "name": "Levi's Denim Jacket",
+  "season": "SS2010",
+  "price": 600,
+  "slot": "top",
+  "colour": "#2a3a5c",
+  "finish": {
+   "roughness": 0.85
+  },
+  "cut": {
+   "like": "trucker",
+   "hem": "hip+0.05"
+  },
+  "note": "Hickory-stripe sleeves on a dark trucker body.",
+  "paint": [
+   {
+    "step": "fabric",
+    "type": "denim",
+    "colour2": "#55698c"
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      -0.4,
+      "hem+0.042"
+     ],
+     [
+      0.4,
+      "hem+0.042"
+     ]
+    ],
+    "style": "twin",
+    "colour": "#c9a35c",
+    "gap": 0.005,
+    "width": 0.0017
+   },
+   {
+    "step": "line",
+    "frame": "back",
+    "pts": [
+     [
+      -0.4,
+      "hem+0.042"
+     ],
+     [
+      0.4,
+      "hem+0.042"
+     ]
+    ],
+    "style": "twin",
+    "colour": "#c9a35c",
+    "gap": 0.005,
+    "width": 0.0017
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0.02,
+      "chest+0.065"
+     ],
+     [
+      0.2,
+      "chest+0.065"
+     ]
+    ],
+    "style": "twin",
+    "mirror": true,
+    "gap": 0.005,
+    "width": 0.0017,
+    "colour": "#c9a35c"
+   },
+   {
+    "step": "line",
+    "frame": "back",
+    "pts": [
+     [
+      -0.25,
+      "chest+0.075"
+     ],
+     [
+      0.25,
+      "chest+0.075"
+     ]
+    ],
+    "style": "twin",
+    "gap": 0.005,
+    "width": 0.0017,
+    "colour": "#c9a35c"
+   },
+   {
+    "step": "line",
+    "frame": "back",
+    "pts": [
+     [
+      0.105,
+      "chest+0.075"
+     ],
+     [
+      0.08,
+      "hem+0.042"
+     ]
+    ],
+    "style": "twin",
+    "mirror": true,
+    "gap": 0.005,
+    "width": 0.0017,
+    "colour": "#c9a35c"
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0.02,
+      "hem"
+     ],
+     [
+      0.02,
+      "top"
+     ]
+    ],
+    "style": "twin",
+    "mirror": true,
+    "gap": 0.005,
+    "width": 0.0017,
+    "colour": "#c9a35c"
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0.05,
+      "chest-0.005"
+     ],
+     [
+      0.068,
+      "hem+0.042"
+     ]
+    ],
+    "style": "twin",
+    "mirror": true,
+    "gap": 0.005,
+    "width": 0.0017,
+    "colour": "#c9a35c"
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0.14,
+      "chest-0.005"
+     ],
+     [
+      0.11,
+      "hem+0.042"
+     ]
+    ],
+    "style": "twin",
+    "mirror": true,
+    "gap": 0.005,
+    "width": 0.0017,
+    "colour": "#c9a35c"
+   },
+   {
+    "step": "line",
+    "frame": "sleeves",
+    "pts": [
+     [
+      -0.3,
+      0.93
+     ],
+     [
+      0.3,
+      0.93
+     ]
+    ],
+    "style": "twin",
+    "gap": 0.005,
+    "width": 0.0017,
+    "colour": "#c9a35c"
+   },
+   {
+    "step": "rect",
+    "frame": "front",
+    "at": [
+     0.095,
+     "chest+0.035"
+    ],
+    "size": [
+     0.1,
+     0.055
+    ],
+    "style": "flap",
+    "flap": 1,
+    "stitch": "#c9a35c",
+    "mirror": true
+   },
+   {
+    "step": "dots",
+    "frame": "front",
+    "pts": [
+     [
+      0.095,
+      "chest+0.022"
+     ]
+    ],
+    "r": 0.007,
+    "style": "button",
+    "colour": "#c9c9c9",
+    "mirror": true
+   },
+   {
+    "step": "dots",
+    "frame": "front",
+    "from": [
+     0,
+     "hem+0.02"
+    ],
+    "to": [
+     0,
+     "neck-0.04"
+    ],
+    "count": 6,
+    "r": 0.0075,
+    "style": "button",
+    "colour": "#c9c9c9"
+   },
+   {
+    "step": "pattern",
+    "type": "stripes",
+    "colours": [
+     "#e9e5da"
+    ],
+    "period": 0.014,
+    "width": 0.005,
+    "dir": "v",
+    "where": {
+     "zone": "sleeves"
+    }
+   },
+   {
+    "step": "panel",
+    "colour": "#2a3a5c",
+    "where": {
+     "zone": "sleeves"
+    },
+    "amount": 0.0
+   },
+   {
+    "step": "rect",
+    "frame": "front",
+    "at": [
+     0.13,
+     "chest+0.012"
+    ],
+    "size": [
+     0.012,
+     0.02
+    ],
+    "style": "label",
+    "colour": "#b3261e"
+   },
+   {
+    "step": "distress",
+    "type": "wash",
+    "amount": 0.15
+   }
+  ]
+ },
+ {
+  "n": 291,
+  "id": "junya-man-brooks-brothers-blazer",
+  "designer": "Junya Watanabe Man × Brooks Brothers",
+  "name": "Brooks Brothers Blazer",
+  "season": "SS2009",
+  "price": 650,
+  "slot": "top",
+  "colour": "#1f2433",
+  "finish": {
+   "roughness": 0.95
+  },
+  "cut": {
+   "like": "blazer",
+   "ease": {
+    "shoulder": 0.0095,
+    "chest": 0.0209,
+    "waist": 0.0285,
+    "hip": 0.0333,
+    "sleeve": 0.0117,
+    "cuff": 0.0108
+   },
+   "hem": "hip-0.08"
+  },
+  "under": {
+   "colour": "#a9c0dc",
+   "cut": {
+    "like": "shirt",
+    "sleeve": 0,
+    "armhole": 0.4,
+    "hem": "hip+0.03",
+    "hemCurve": 0,
+    "overWaist": false,
+    "ease": {
+     "shoulder": 0.004,
+     "chest": 0.008,
+     "waist": 0.012,
+     "hip": 0.012,
+     "sleeve": 0.006,
+     "cuff": 0.006
+    }
+   },
+   "paint": [
+    {
+     "step": "fabric",
+     "type": "plain"
+    },
+    {
+     "step": "line",
+     "frame": "front",
+     "pts": [
+      [
+       0.012,
+       "hem"
+      ],
+      [
+       0.012,
+       "top"
+      ]
+     ],
+     "style": "seam",
+     "width": 0.0012
+    },
+    {
+     "step": "dots",
+     "frame": "front",
+     "from": [
+      0,
+      "hem+0.06"
+     ],
+     "to": [
+      0,
+      "neck-0.05"
+     ],
+     "count": 6,
+     "r": 0.0045,
+     "style": "button",
+     "colour": "#d8d5cc"
+    },
+    {
+     "step": "line",
+     "frame": "front",
+     "pts": [
+      [
+       0,
+       "hem"
+      ],
+      [
+       0,
+       "top"
+      ]
+     ],
+     "style": "tape",
+     "width": 0.03,
+     "colour": "#7a1f1c",
+     "raise": 0.0008
+    },
+    {
+     "step": "rect",
+     "frame": "front",
+     "at": [
+      0,
+      "neck-0.035"
+     ],
+     "size": [
+      0.034,
+      0.03
+     ],
+     "style": "patch",
+     "colour": "#7a1f1c",
+     "stitch": false,
+     "round": 0.008
+    }
+   ]
+  },
+  "note": "The navy club blazer, patched with shirting and madras.",
+  "paint": [
+   {
+    "step": "fabric",
+    "type": "wool"
+   },
+   {
+    "step": "pattern",
+    "type": "gingham",
+    "colours": [
+     "#7f95b5"
+    ],
+    "period": 0.012,
+    "where": {
+     "zone": "sleeves"
+    }
+   },
+   {
+    "step": "panel",
+    "colour": "#e8e5dc",
+    "where": {
+     "zone": "sleeves"
+    },
+    "amount": 0.0
+   },
+   {
+    "step": "pattern",
+    "type": "tartan",
+    "colours": [
+     "#141414",
+     "#e9e5da",
+     "#b3261e"
+    ],
+    "period": 0.12,
+    "sett": [
+     [
+      0,
+      0.012,
+      0
+     ],
+     [
+      0.02,
+      0.004,
+      1
+     ],
+     [
+      0.06,
+      0.03,
+      1
+     ],
+     [
+      0.09,
+      0.004,
+      2
+     ]
+    ],
+    "where": {
+     "zone": "back",
+     "h": [
+      "hem",
+      "waist"
+     ]
+    }
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0.012,
+      "neck-0.255"
+     ],
+     [
+      0.085,
+      "chest+0.085"
+     ],
+     [
+      0.07,
+      "shoulder+0.005"
+     ]
+    ],
+    "style": "groove",
+    "width": 0.002,
+    "mirror": true
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0.085,
+      "chest+0.085"
+     ],
+     [
+      0.062,
+      "chest+0.105"
+     ]
+    ],
+    "style": "groove",
+    "width": 0.002,
+    "mirror": true
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0.012,
+      "neck-0.255"
+     ],
+     [
+      0.03,
+      "hem+0.04"
+     ],
+     [
+      0.07,
+      "hem"
+     ]
+    ],
+    "style": "seam"
+   },
+   {
+    "step": "dots",
+    "frame": "front",
+    "pts": [
+     [
+      0.012,
+      "waist-0.02+0"
+     ],
+     [
+      0.012,
+      "waist-0.02+0.07"
+     ],
+     [
+      0.012,
+      "waist-0.02+0.14"
+     ]
+    ],
+    "r": 0.009,
+    "style": "button",
+    "colour": "#b9a05a"
+   },
+   {
+    "step": "rect",
+    "frame": "front",
+    "at": [
+     0.125,
+     "hip"
+    ],
+    "size": [
+     0.14,
+     0.15
+    ],
+    "style": "pocket",
+    "mirror": true,
+    "stitch": "#2c2c30"
+   },
+   {
+    "step": "rect",
+    "frame": "front",
+    "at": [
+     0.1,
+     "chest+0.03"
+    ],
+    "size": [
+     0.085,
+     0.012
+    ],
+    "style": "welt"
+   },
+   {
+    "step": "dots",
+    "frame": "sleeves",
+    "from": [
+     -0.03,
+     0.9
+    ],
+    "to": [
+     -0.03,
+     0.98
+    ],
+    "count": 4,
+    "r": 0.0045,
+    "style": "button",
+    "colour": "#b9a05a"
+   },
+   {
+    "step": "line",
+    "frame": "back",
+    "pts": [
+     [
+      0,
+      "hem"
+     ],
+     [
+      0,
+      "hip+0.02"
+     ]
+    ],
+    "style": "groove",
+    "width": 0.002
+   }
+  ]
+ },
+ {
+  "n": 292,
+  "id": "junya-man-canada-goose-parka",
+  "designer": "Junya Watanabe Man × Canada Goose",
+  "name": "Canada Goose Parka",
+  "season": "FW2019",
+  "price": 1900,
+  "slot": "top",
+  "colour": "#1f2433",
+  "finish": {
+   "roughness": 0.6
+  },
+  "cut": {
+   "like": "parka",
+   "ease": {
+    "shoulder": 0.015,
+    "chest": 0.05,
+    "waist": 0.075,
+    "hip": 0.075,
+    "sleeve": 0.0245,
+    "cuff": 0.0245
+   },
+   "hem": "thigh+0.02",
+   "hemBack": 0.05,
+   "add": [
+    {
+     "type": "hood",
+     "size": 1.2,
+     "drop": 0.24
+    }
+   ]
+  },
+  "paint": [
+   {
+    "step": "fabric",
+    "type": "nylon"
+   },
+   {
+    "step": "quilt",
+    "type": "h",
+    "size": 0.075,
+    "puff": 0.007,
+    "where": {
+     "zone": "body",
+     "h": [
+      "hem",
+      "chest+0.02"
+     ]
+    }
+   },
+   {
+    "step": "quilt",
+    "type": "h",
+    "size": 0.075,
+    "puff": 0.007,
+    "where": {
+     "zone": "sleeves"
+    }
+   },
+   {
+    "step": "fabric",
+    "type": "fur",
+    "colour": "#8a7a5c",
+    "where": {
+     "zone": "hood",
+     "h": [
+      "top-0.05",
+      "top"
+     ]
+    }
+   },
+   {
+    "step": "pattern",
+    "type": "tartan",
+    "colours": [
+     "#3a3b40",
+     "#19191b",
+     "#b9babd"
+    ],
+    "period": 0.1,
+    "sett": [
+     [
+      0,
+      0.035,
+      0
+     ],
+     [
+      0.05,
+      0.02,
+      1
+     ],
+     [
+      0.075,
+      0.003,
+      2
+     ]
+    ],
+    "where": {
+     "zone": "body",
+     "h": [
+      "chest+0.02",
+      "top"
+     ]
+    }
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0,
+      "hem"
+     ],
+     [
+      0,
+      "top"
+     ]
+    ],
+    "style": "zip",
+    "width": 0.0045,
+    "colour": "#77736a",
+    "colour2": "#111113"
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0.03,
+      "hem"
+     ],
+     [
+      0.03,
+      "top"
+     ]
+    ],
+    "style": "seam",
+    "width": 0.002
+   },
+   {
+    "step": "dots",
+    "frame": "front",
+    "from": [
+     0.016,
+     "hem+0.06"
+    ],
+    "to": [
+     0.016,
+     "neck-0.03"
+    ],
+    "count": 6,
+    "r": 0.0055,
+    "style": "snap",
+    "colour": "#77736a"
+   },
+   {
+    "step": "rect",
+    "frame": "front",
+    "at": [
+     0.115,
+     "hip+0.01"
+    ],
+    "size": [
+     0.14,
+     0.14
+    ],
+    "style": "flap",
+    "flap": 0.3,
+    "mirror": true,
+    "stitch": "#151a26",
+    "pleat": true,
+    "raise": 0.002
+   },
+   {
+    "step": "rect",
+    "frame": "front",
+    "at": [
+     0.1,
+     "chest+0.02"
+    ],
+    "size": [
+     0.1,
+     0.1
+    ],
+    "style": "flap",
+    "flap": 0.3,
+    "mirror": true,
+    "stitch": "#151a26",
+    "pleat": true,
+    "raise": 0.002
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      -0.4,
+      "hem+0.025"
+     ],
+     [
+      0.4,
+      "hem+0.025"
+     ]
+    ],
+    "style": "twin",
+    "colour": "#151a26",
+    "gap": 0.014
+   },
+   {
+    "step": "line",
+    "frame": "back",
+    "pts": [
+     [
+      -0.4,
+      "hem+0.025"
+     ],
+     [
+      0.4,
+      "hem+0.025"
+     ]
+    ],
+    "style": "twin",
+    "colour": "#151a26",
+    "gap": 0.014
+   },
+   {
+    "step": "line",
+    "frame": "sleeves",
+    "pts": [
+     [
+      -0.3,
+      0.93
+     ],
+     [
+      0.3,
+      0.93
+     ]
+    ],
+    "style": "twin",
+    "colour": "#151a26"
+   },
+   {
+    "step": "dots",
+    "frame": "sleeveL",
+    "pts": [
+     [
+      0,
+      0.28
+     ]
+    ],
+    "r": 0.022,
+    "style": "button",
+    "colour": "#b3261e"
+   }
+  ]
+ },
+ {
+  "n": 296,
+  "id": "junya-man-pendleton-wool-shirt",
+  "designer": "Junya Watanabe Man × Pendleton",
+  "name": "Pendleton Wool Shirt",
+  "season": "FW2016",
+  "price": 500,
+  "slot": "top",
+  "colour": "#7a2a26",
+  "finish": {
+   "roughness": 0.95
+  },
+  "cut": {
+   "like": "shirt",
+   "ease": {
+    "shoulder": 0.0072,
+    "chest": 0.024,
+    "waist": 0.042,
+    "hip": 0.042,
+    "sleeve": 0.0142,
+    "cuff": 0.0098
+   },
+   "hem": "hip-0.08"
+  },
+  "paint": [
+   {
+    "step": "fabric",
+    "type": "wool"
+   },
+   {
+    "step": "pattern",
+    "type": "tartan",
+    "colours": [
+     "#141414",
+     "#e3b21c",
+     "#e9e5da",
+     "#1f3a7a"
+    ],
+    "period": 0.12,
+    "sett": [
+     [
+      0.0,
+      0.04000000000000001,
+      0
+     ],
+     [
+      0.068,
+      0.011200000000000002,
+      0
+     ],
+     [
+      0.036,
+      0.0032,
+      1
+     ],
+     [
+      0.09200000000000001,
+      0.0032,
+      2
+     ],
+     [
+      0.08000000000000002,
+      0.0064,
+      3
+     ]
+    ]
+   },
+   {
+    "step": "pattern",
+    "type": "patchwork",
+    "colours": [
+     "#40557a",
+     "#6f8cae",
+     "#2a3a5c",
+     "#8fa3bd",
+     "#1f2b45"
+    ],
+    "size": 0.085,
+    "stitch": "#c9a35c",
+    "where": {
+     "zone": "front",
+     "x": [
+      -0.4,
+      0
+     ],
+     "h": [
+      "hem",
+      "waist"
+     ]
+    }
+   },
+   {
+    "step": "pattern",
+    "type": "tartan",
+    "colours": [
+     "#16361f",
+     "#101014"
+    ],
+    "period": 0.1,
+    "sett": [
+     [
+      0,
+      0.04,
+      0
+     ],
+     [
+      0.05,
+      0.03,
+      1
+     ],
+     [
+      0.075,
+      0.006,
+      1
+     ]
+    ],
+    "where": {
+     "zone": "sleeveR"
+    }
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0.016,
+      "hem"
+     ],
+     [
+      0.016,
+      "top"
+     ]
+    ],
+    "style": "seam",
+    "width": 0.0014
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      -0.016,
+      "hem"
+     ],
+     [
+      -0.016,
+      "top"
+     ]
+    ],
+    "style": "stitch",
+    "width": 0.001,
+    "colour": "#2a2018"
+   },
+   {
+    "step": "dots",
+    "frame": "front",
+    "from": [
+     0,
+     "hem+0.05"
+    ],
+    "to": [
+     0,
+     "neck-0.045"
+    ],
+    "count": 7,
+    "r": 0.0048,
+    "style": "button",
+    "colour": "#2a2018"
+   },
+   {
+    "step": "line",
+    "frame": "back",
+    "pts": [
+     [
+      -0.3,
+      "shoulder-0.03"
+     ],
+     [
+      0.3,
+      "shoulder-0.03"
+     ]
+    ],
+    "style": "seam",
+    "width": 0.0014
+   },
+   {
+    "step": "line",
+    "frame": "sleeves",
+    "pts": [
+     [
+      -0.3,
+      0.92
+     ],
+     [
+      0.3,
+      0.92
+     ]
+    ],
+    "style": "seam",
+    "width": 0.0014
+   },
+   {
+    "step": "dots",
+    "frame": "sleeves",
+    "pts": [
+     [
+      -0.03,
+      0.96
+     ]
+    ],
+    "r": 0.0045,
+    "style": "button",
+    "colour": "#2a2018"
+   },
+   {
+    "step": "rect",
+    "frame": "front",
+    "at": [
+     0.09,
+     "chest-0.02"
+    ],
+    "size": [
+     0.1,
+     0.11
+    ],
+    "style": "pocket",
+    "stitch": "#2a2018"
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      -0.4,
+      "hem+0.012"
+     ],
+     [
+      0.4,
+      "hem+0.012"
+     ]
+    ],
+    "style": "stitch",
+    "colour": "#2a2018",
+    "width": 0.001
+   },
+   {
+    "step": "line",
+    "frame": "back",
+    "pts": [
+     [
+      -0.4,
+      "hem+0.012"
+     ],
+     [
+      0.4,
+      "hem+0.012"
+     ]
+    ],
+    "style": "stitch",
+    "colour": "#2a2018",
+    "width": 0.001
+   }
+  ]
+ },
+ {
+  "n": 297,
+  "id": "junya-man-schott-leather-jacket",
+  "designer": "Junya Watanabe Man × Schott",
+  "name": "Schott Leather Jacket",
+  "season": "FW2015",
+  "price": 1700,
+  "slot": "top",
+  "colour": "#1c1c1e",
+  "finish": {
+   "roughness": 0.42
+  },
+  "cut": {
+   "like": "biker",
+   "hem": "hip+0.05",
+   "neck": {
+    "v": 0.1,
+    "width": 0.07
+   },
+   "add": [
+    {
+     "type": "collar",
+     "style": "fold",
+     "height": 0.065,
+     "flare": 0.035,
+     "points": 1
+    }
+   ]
+  },
+  "under": {
+   "colour": "#1b1b1d",
+   "cut": {
+    "like": "tank",
+    "overWaist": false,
+    "hem": "hip+0.06",
+    "armhole": 0.22,
+    "neck": {
+     "depth": 0.035,
+     "round": 0.075
+    },
+    "ease": {
+     "shoulder": 0.002,
+     "chest": 0.004,
+     "waist": 0.004,
+     "hip": 0.004
+    }
+   },
+   "paint": [
+    {
+     "step": "fabric",
+     "type": "jersey"
+    }
+   ]
+  },
+  "note": "A Perfecto with tweed sleeves.",
+  "paint": [
+   {
+    "step": "fabric",
+    "type": "leather"
+   },
+   {
+    "step": "fabric",
+    "type": "tweed",
+    "colour": "#6b5a48",
+    "where": {
+     "zone": "sleeves",
+     "s": [
+      0.1,
+      0.85
+     ]
+    }
+   },
+   {
+    "step": "pattern",
+    "type": "herringbone",
+    "colours": [
+     "#4a3c30"
+    ],
+    "where": {
+     "zone": "sleeves",
+     "s": [
+      0.1,
+      0.85
+     ]
+    }
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0.11,
+      "hem"
+     ],
+     [
+      0.105,
+      "waist+0.08"
+     ],
+     [
+      0.09,
+      "chest+0.05"
+     ]
+    ],
+    "style": "seam",
+    "width": 0.0025,
+    "mirror": true
+   },
+   {
+    "step": "line",
+    "frame": "back",
+    "pts": [
+     [
+      -0.2,
+      "chest+0.06"
+     ],
+     [
+      0.2,
+      "chest+0.06"
+     ]
+    ],
+    "style": "seam",
+    "width": 0.0025
+   },
+   {
+    "step": "line",
+    "frame": "back",
+    "pts": [
+     [
+      0.09,
+      "hem"
+     ],
+     [
+      0.085,
+      "chest+0.06"
+     ]
+    ],
+    "style": "seam",
+    "width": 0.0025,
+    "mirror": true
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0.04,
+      "chest+0.13"
+     ],
+     [
+      0.105,
+      "chest+0.075"
+     ],
+     [
+      0.05,
+      "chest+0.02"
+     ]
+    ],
+    "style": "seam",
+    "width": 0.0028
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      -0.04,
+      "chest+0.13"
+     ],
+     [
+      -0.095,
+      "chest+0.075"
+     ],
+     [
+      0,
+      "waist+0.1"
+     ]
+    ],
+    "style": "seam",
+    "width": 0.0028
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      -0.022,
+      "hem"
+     ],
+     [
+      -0.005,
+      "waist+0.06"
+     ],
+     [
+      0.05,
+      "chest+0.02"
+     ]
+    ],
+    "style": "zip",
+    "width": 0.006,
+    "colour": "#9d9ea3",
+    "colour2": "#1a1a1c"
+   },
+   {
+    "step": "rect",
+    "frame": "front",
+    "at": [
+     0.135,
+     "waist+0.045"
+    ],
+    "size": [
+     0.1,
+     0.01
+    ],
+    "style": "zip",
+    "rot": 78,
+    "colour": "#9d9ea3",
+    "mirror": true
+   },
+   {
+    "step": "rect",
+    "frame": "front",
+    "at": [
+     -0.09,
+     "chest-0.035"
+    ],
+    "size": [
+     0.095,
+     0.01
+    ],
+    "style": "zip",
+    "rot": -24,
+    "colour": "#9d9ea3"
+   },
+   {
+    "step": "rect",
+    "frame": "front",
+    "at": [
+     0.065,
+     "hem+0.06"
+    ],
+    "size": [
+     0.055,
+     0.045
+    ],
+    "style": "flap",
+    "flap": 1,
+    "snap": true,
+    "stitch": "#2c2c2f"
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0.1,
+      "shoulder-0.012"
+     ],
+     [
+      0.165,
+      "shoulder-0.03"
+     ]
+    ],
+    "style": "twin",
+    "gap": 0.02,
+    "width": 0.002,
+    "colour": "#3a3a3f",
+    "mirror": true
+   },
+   {
+    "step": "dots",
+    "frame": "front",
+    "pts": [
+     [
+      0.108,
+      "shoulder-0.013"
+     ]
+    ],
+    "r": 0.0055,
+    "style": "snap",
+    "colour": "#9d9ea3",
+    "mirror": true
+   },
+   {
+    "step": "dots",
+    "frame": "front",
+    "pts": [
+     [
+      0.092,
+      "chest+0.078"
+     ],
+     [
+      -0.082,
+      "chest+0.078"
+     ]
+    ],
+    "r": 0.0055,
+    "style": "snap",
+    "colour": "#9d9ea3"
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      -0.4,
+      "hem+0.03"
+     ],
+     [
+      0.4,
+      "hem+0.03"
+     ]
+    ],
+    "style": "strap",
+    "width": 0.03,
+    "colour": "#141416"
+   },
+   {
+    "step": "line",
+    "frame": "back",
+    "pts": [
+     [
+      -0.4,
+      "hem+0.03"
+     ],
+     [
+      0.4,
+      "hem+0.03"
+     ]
+    ],
+    "style": "strap",
+    "width": 0.03,
+    "colour": "#141416"
+   },
+   {
+    "step": "rect",
+    "frame": "front",
+    "at": [
+     0.07,
+     "hem+0.03"
+    ],
+    "size": [
+     0.045,
+     0.042
+    ],
+    "style": "buckle",
+    "colour": "#9d9ea3"
+   },
+   {
+    "step": "line",
+    "frame": "sleeves",
+    "pts": [
+     [
+      -0.035,
+      0.8
+     ],
+     [
+      -0.035,
+      1.12
+     ]
+    ],
+    "style": "zip",
+    "width": 0.0045,
+    "colour": "#9d9ea3",
+    "colour2": "#1a1a1c"
+   },
+   {
+    "step": "distress",
+    "type": "crumple",
+    "amount": 0.12
+   }
+  ]
+ },
+ {
+  "n": 298,
+  "id": "junya-man-barbour-waxed-jacket",
+  "designer": "Junya Watanabe Man × Barbour",
+  "name": "Barbour Waxed Jacket",
+  "season": "SS2014",
+  "price": 800,
+  "slot": "top",
+  "colour": "#3a4032",
+  "finish": {
+   "roughness": 0.45
+  },
+  "cut": {
+   "like": "trucker",
+   "ease": {
+    "shoulder": 0.0096,
+    "chest": 0.0264,
+    "waist": 0.036,
+    "hip": 0.036,
+    "sleeve": 0.0131,
+    "cuff": 0.0109
+   },
+   "hem": "hip-0.08",
+   "add": [
+    {
+     "type": "collar",
+     "style": "fold",
+     "height": 0.06,
+     "gap": 0.02,
+     "points": 0.5
+    }
+   ]
+  },
+  "note": "Waxed cotton with camouflage sleeves and yoke.",
+  "paint": [
+   {
+    "step": "fabric",
+    "type": "waxed"
+   },
+   {
+    "step": "fabric",
+    "type": "velvet",
+    "colour": "#4a3020",
+    "where": {
+     "zone": "collar"
+    }
+   },
+   {
+    "step": "rib",
+    "where": {
+     "zone": "collar"
+    },
+    "gauge": 0.0025,
+    "depth": 0.0004
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0,
+      "hem"
+     ],
+     [
+      0,
+      "top"
+     ]
+    ],
+    "style": "zip",
+    "width": 0.0045,
+    "colour": "#a8915a",
+    "colour2": "#111113"
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0.03,
+      "hem"
+     ],
+     [
+      0.03,
+      "top"
+     ]
+    ],
+    "style": "seam",
+    "width": 0.002
+   },
+   {
+    "step": "dots",
+    "frame": "front",
+    "from": [
+     0.016,
+     "hem+0.06"
+    ],
+    "to": [
+     0.016,
+     "neck-0.03"
+    ],
+    "count": 6,
+    "r": 0.0055,
+    "style": "snap",
+    "colour": "#a8915a"
+   },
+   {
+    "step": "rect",
+    "frame": "front",
+    "at": [
+     0.115,
+     "hip+0.01"
+    ],
+    "size": [
+     0.14,
+     0.14
+    ],
+    "style": "flap",
+    "flap": 0.3,
+    "mirror": true,
+    "stitch": "#2a2d22",
+    "pleat": true,
+    "raise": 0.002
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      -0.4,
+      "hem+0.025"
+     ],
+     [
+      0.4,
+      "hem+0.025"
+     ]
+    ],
+    "style": "twin",
+    "colour": "#2a2d22",
+    "gap": 0.014
+   },
+   {
+    "step": "line",
+    "frame": "back",
+    "pts": [
+     [
+      -0.4,
+      "hem+0.025"
+     ],
+     [
+      0.4,
+      "hem+0.025"
+     ]
+    ],
+    "style": "twin",
+    "colour": "#2a2d22",
+    "gap": 0.014
+   },
+   {
+    "step": "line",
+    "frame": "sleeves",
+    "pts": [
+     [
+      -0.3,
+      0.93
+     ],
+     [
+      0.3,
+      0.93
+     ]
+    ],
+    "style": "twin",
+    "colour": "#2a2d22"
+   },
+   {
+    "step": "pattern",
+    "type": "woodland",
+    "colours": [
+     "#5a4630",
+     "#b3a877",
+     "#1c1e19"
+    ],
+    "where": {
+     "zone": "sleeves"
+    }
+   },
+   {
+    "step": "pattern",
+    "type": "woodland",
+    "colours": [
+     "#5a4630",
+     "#b3a877",
+     "#1c1e19"
+    ],
+    "where": {
+     "zone": "back",
+     "h": [
+      "chest",
+      "top"
+     ]
+    }
+   },
+   {
+    "step": "distress",
+    "type": "crumple",
+    "amount": 0.15
+   }
+  ]
+ },
+ {
+  "n": 300,
+  "id": "junya-man-hervier-work-jacket",
+  "designer": "Junya Watanabe Man × Hervier Productions",
+  "name": "Hervier Work Jacket",
+  "season": "SS2012",
+  "price": 550,
+  "slot": "top",
+  "colour": "#2f4a8c",
+  "finish": {
+   "roughness": 0.85
+  },
+  "cut": {
+   "like": "trucker",
+   "ease": {
+    "shoulder": 0.0092,
+    "chest": 0.0253,
+    "waist": 0.0345,
+    "hip": 0.0345,
+    "sleeve": 0.0128,
+    "cuff": 0.0107
+   },
+   "hem": "hip-0.05",
+   "add": [
+    {
+     "type": "collar",
+     "style": "fold",
+     "height": 0.05,
+     "gap": 0.02,
+     "points": 0.5
+    }
+   ]
+  },
+  "note": "The French bleu de travail.",
+  "paint": [
+   {
+    "step": "fabric",
+    "type": "canvas"
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0.016,
+      "hem"
+     ],
+     [
+      0.016,
+      "top"
+     ]
+    ],
+    "style": "seam"
+   },
+   {
+    "step": "dots",
+    "frame": "front",
+    "from": [
+     0,
+     "hem+0.05"
+    ],
+    "to": [
+     0,
+     "neck-0.05"
+    ],
+    "count": 5,
+    "r": 0.008,
+    "style": "button",
+    "colour": "#1f3366"
+   },
+   {
+    "step": "rect",
+    "frame": "front",
+    "at": [
+     0.1,
+     "chest+0.01"
+    ],
+    "size": [
+     0.1,
+     0.11
+    ],
+    "style": "pocket",
+    "stitch": "#1f3366"
+   },
+   {
+    "step": "rect",
+    "frame": "front",
+    "at": [
+     0.12,
+     "hip-0.0"
+    ],
+    "size": [
+     0.13,
+     0.14
+    ],
+    "style": "pocket",
+    "mirror": true,
+    "stitch": "#1f3366"
+   },
+   {
+    "step": "pattern",
+    "type": "patchwork",
+    "colours": [
+     "#2f4a8c",
+     "#40557a",
+     "#55698c"
+    ],
+    "size": 0.1,
+    "stitch": "#e9e5da",
+    "where": {
+     "zone": "back"
+    }
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      -0.4,
+      "hem+0.02"
+     ],
+     [
+      0.4,
+      "hem+0.02"
+     ]
+    ],
+    "style": "twin",
+    "colour": "#1f3366",
+    "gap": 0.006
+   },
+   {
+    "step": "line",
+    "frame": "back",
+    "pts": [
+     [
+      -0.4,
+      "hem+0.02"
+     ],
+     [
+      0.4,
+      "hem+0.02"
+     ]
+    ],
+    "style": "twin",
+    "colour": "#1f3366",
+    "gap": 0.006
+   },
+   {
+    "step": "distress",
+    "type": "wash",
+    "amount": 0.25
+   },
+   {
+    "step": "distress",
+    "type": "edges",
+    "amount": 0.3,
+    "colour": "#8fa3bd"
+   }
+  ]
+ }
+]

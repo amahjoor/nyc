@@ -1,0 +1,4479 @@
+[
+ {
+  "n": 181,
+  "id": "hl-astro-biker-pewter",
+  "designer": "Helmut Lang",
+  "name": "Astro Biker Jacket (Metallic)",
+  "season": "FW1999",
+  "price": 3200,
+  "slot": "top",
+  "colour": "#74767c",
+  "finish": {
+   "roughness": 0.34,
+   "metalness": 0.75
+  },
+  "cut": {
+   "like": "biker",
+   "ease": {
+    "shoulder": 0.0088,
+    "chest": 0.0198,
+    "waist": 0.0242,
+    "hip": 0.0242,
+    "sleeve": 0.0094,
+    "cuff": 0.0073
+   },
+   "hem": "hip+0.04",
+   "add": [
+    {
+     "type": "collar",
+     "height": 0.05,
+     "flare": 0.004,
+     "gap": 0.012,
+     "only": true
+    },
+    {
+     "type": "lip"
+    }
+   ]
+  },
+  "note": "The darker pewter of the two metallic versions; the silver one is earlier in the list.",
+  "paint": [
+   {
+    "step": "fabric",
+    "type": "nylon"
+   },
+   {
+    "step": "quilt",
+    "type": "h",
+    "size": 0.03,
+    "puff": 0.004,
+    "where": {
+     "zone": "sleeves",
+     "s": [
+      0.05,
+      0.55
+     ]
+    }
+   },
+   {
+    "step": "quilt",
+    "type": "h",
+    "size": 0.03,
+    "puff": 0.004,
+    "where": {
+     "zone": "body",
+     "h": [
+      "chest+0.02",
+      "shoulder"
+     ]
+    }
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0.03,
+      "hem"
+     ],
+     [
+      0.03,
+      "top"
+     ]
+    ],
+    "style": "zip",
+    "width": 0.005,
+    "colour": "#c9cacd",
+    "colour2": "#111113"
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0.03,
+      "hem"
+     ],
+     [
+      0.03,
+      "top"
+     ]
+    ],
+    "style": "seam",
+    "width": 0.002
+   },
+   {
+    "step": "rect",
+    "frame": "front",
+    "at": [
+     -0.09,
+     "waist+0.02"
+    ],
+    "size": [
+     0.1,
+     0.009
+    ],
+    "style": "zip",
+    "rot": -12,
+    "colour": "#c9cacd"
+   },
+   {
+    "step": "rect",
+    "frame": "front",
+    "at": [
+     0.11,
+     "waist+0.02"
+    ],
+    "size": [
+     0.1,
+     0.009
+    ],
+    "style": "zip",
+    "rot": 12,
+    "colour": "#c9cacd"
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      -0.4,
+      "hem+0.035"
+     ],
+     [
+      0.4,
+      "hem+0.035"
+     ]
+    ],
+    "style": "seam",
+    "colour": "#3a3a3e",
+    "width": 0.002
+   },
+   {
+    "step": "line",
+    "frame": "back",
+    "pts": [
+     [
+      -0.4,
+      "hem+0.035"
+     ],
+     [
+      0.4,
+      "hem+0.035"
+     ]
+    ],
+    "style": "seam",
+    "colour": "#3a3a3e",
+    "width": 0.002
+   },
+   {
+    "step": "line",
+    "frame": "sleeves",
+    "pts": [
+     [
+      -0.035,
+      0.8
+     ],
+     [
+      -0.035,
+      1.12
+     ]
+    ],
+    "style": "zip",
+    "width": 0.004,
+    "colour": "#c9cacd",
+    "colour2": "#111113"
+   },
+   {
+    "step": "distress",
+    "type": "crumple",
+    "amount": 0.15
+   }
+  ]
+ },
+ {
+  "n": 182,
+  "id": "hl-astro-biker-fur-trim",
+  "designer": "Helmut Lang",
+  "name": "Astro Biker Jacket (Fur-Trimmed)",
+  "season": "FW1999",
+  "price": 3800,
+  "slot": "top",
+  "colour": "#1a1a1c",
+  "finish": {
+   "roughness": 0.5
+  },
+  "cut": {
+   "like": "biker",
+   "ease": {
+    "shoulder": 0.0088,
+    "chest": 0.0198,
+    "waist": 0.0242,
+    "hip": 0.0242,
+    "sleeve": 0.0094,
+    "cuff": 0.0073
+   },
+   "hem": "hip+0.04",
+   "add": [
+    {
+     "type": "collar",
+     "style": "fold",
+     "height": 0.085,
+     "flare": 0.05,
+     "gap": 0.02,
+     "points": 0.4
+    },
+    {
+     "type": "lip"
+    }
+   ]
+  },
+  "paint": [
+   {
+    "step": "fabric",
+    "type": "nylon"
+   },
+   {
+    "step": "fabric",
+    "type": "fur",
+    "colour": "#3a2c22",
+    "where": {
+     "zone": "collar"
+    }
+   },
+   {
+    "step": "quilt",
+    "type": "h",
+    "size": 0.03,
+    "puff": 0.004,
+    "where": {
+     "zone": "sleeves",
+     "s": [
+      0.05,
+      0.55
+     ]
+    }
+   },
+   {
+    "step": "quilt",
+    "type": "h",
+    "size": 0.03,
+    "puff": 0.004,
+    "where": {
+     "zone": "body",
+     "h": [
+      "chest+0.02",
+      "shoulder"
+     ]
+    }
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0.03,
+      "hem"
+     ],
+     [
+      0.03,
+      "top"
+     ]
+    ],
+    "style": "zip",
+    "width": 0.005,
+    "colour": "#9d9ea3",
+    "colour2": "#111113"
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0.03,
+      "hem"
+     ],
+     [
+      0.03,
+      "top"
+     ]
+    ],
+    "style": "seam",
+    "width": 0.002
+   },
+   {
+    "step": "rect",
+    "frame": "front",
+    "at": [
+     -0.09,
+     "waist+0.02"
+    ],
+    "size": [
+     0.1,
+     0.009
+    ],
+    "style": "zip",
+    "rot": -12,
+    "colour": "#9d9ea3"
+   },
+   {
+    "step": "rect",
+    "frame": "front",
+    "at": [
+     0.11,
+     "waist+0.02"
+    ],
+    "size": [
+     0.1,
+     0.009
+    ],
+    "style": "zip",
+    "rot": 12,
+    "colour": "#9d9ea3"
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      -0.4,
+      "hem+0.035"
+     ],
+     [
+      0.4,
+      "hem+0.035"
+     ]
+    ],
+    "style": "seam",
+    "colour": "#3a3a3e",
+    "width": 0.002
+   },
+   {
+    "step": "line",
+    "frame": "back",
+    "pts": [
+     [
+      -0.4,
+      "hem+0.035"
+     ],
+     [
+      0.4,
+      "hem+0.035"
+     ]
+    ],
+    "style": "seam",
+    "colour": "#3a3a3e",
+    "width": 0.002
+   },
+   {
+    "step": "distress",
+    "type": "crumple",
+    "amount": 0.15
+   }
+  ]
+ },
+ {
+  "n": 183,
+  "id": "hl-m-sixty-nine-flak-vest",
+  "designer": "Helmut Lang",
+  "name": "M69 Flak Vest",
+  "season": "FW1998",
+  "price": 1600,
+  "slot": "top",
+  "colour": "#4b4c3a",
+  "finish": {
+   "roughness": 0.85
+  },
+  "cut": {
+   "like": "vest",
+   "hem": "hip+0.06",
+   "armhole": 0.38,
+   "chest": 1,
+   "neck": {
+    "y": 0.02,
+    "depth": 0.02,
+    "round": 0.08
+   },
+   "add": [
+    {
+     "type": "collar",
+     "height": 0.05,
+     "flare": 0.01,
+     "gap": 0.03
+    }
+   ]
+  },
+  "under": {
+   "colour": "#c8c8c4",
+   "cut": {
+    "like": "tee",
+    "hem": "hip+0.03",
+    "overWaist": false,
+    "ease": {
+     "shoulder": 0.004,
+     "chest": 0.01,
+     "waist": 0.016,
+     "hip": 0.016,
+     "sleeve": 0.012,
+     "cuff": 0.014
+    }
+   },
+   "paint": [
+    {
+     "step": "fabric",
+     "type": "jersey"
+    }
+   ]
+  },
+  "paint": [
+   {
+    "step": "fabric",
+    "type": "canvas"
+   },
+   {
+    "step": "quilt",
+    "type": "box",
+    "size": 0.07,
+    "size2": 0.09,
+    "puff": 0.004,
+    "where": {
+     "zone": "body",
+     "h": [
+      "hem+0.02",
+      "shoulder-0.05"
+     ]
+    }
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0,
+      "hem"
+     ],
+     [
+      0,
+      "top"
+     ]
+    ],
+    "style": "zip",
+    "width": 0.005,
+    "colour": "#3a3d2c",
+    "colour2": "#111113"
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0.03,
+      "hem"
+     ],
+     [
+      0.03,
+      "top"
+     ]
+    ],
+    "style": "seam",
+    "width": 0.002
+   },
+   {
+    "step": "dots",
+    "frame": "front",
+    "from": [
+     0.016,
+     "hem+0.05"
+    ],
+    "to": [
+     0.016,
+     "chest+0.05"
+    ],
+    "count": 5,
+    "r": 0.006,
+    "style": "snap",
+    "colour": "#2c2e24"
+   },
+   {
+    "step": "rect",
+    "frame": "front",
+    "at": [
+     0.115,
+     "hip+0.1"
+    ],
+    "size": [
+     0.12,
+     0.11
+    ],
+    "style": "flap",
+    "flap": 0.35,
+    "stitch": "#33392a",
+    "mirror": true,
+    "pleat": true,
+    "raise": 0.002
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      -0.4,
+      "hem+0.02"
+     ],
+     [
+      0.4,
+      "hem+0.02"
+     ]
+    ],
+    "style": "twin",
+    "colour": "#33392a",
+    "gap": 0.006
+   },
+   {
+    "step": "line",
+    "frame": "back",
+    "pts": [
+     [
+      -0.4,
+      "hem+0.02"
+     ],
+     [
+      0.4,
+      "hem+0.02"
+     ]
+    ],
+    "style": "twin",
+    "colour": "#33392a",
+    "gap": 0.006
+   },
+   {
+    "step": "rect",
+    "frame": "front",
+    "at": [
+     0.09,
+     "shoulder-0.03"
+    ],
+    "size": [
+     0.05,
+     0.035
+    ],
+    "style": "patch",
+    "colour": "#434c33",
+    "stitch": "#2c2e24",
+    "mirror": true
+   }
+  ]
+ },
+ {
+  "n": 184,
+  "id": "hl-m-sixty-nine-military-parka",
+  "designer": "Helmut Lang",
+  "name": "M69 Military Parka",
+  "season": "FW1998",
+  "price": 1900,
+  "slot": "top",
+  "colour": "#57583f",
+  "finish": {
+   "roughness": 0.85
+  },
+  "cut": {
+   "like": "parka",
+   "ease": {
+    "shoulder": 0.0138,
+    "chest": 0.046,
+    "waist": 0.069,
+    "hip": 0.069,
+    "sleeve": 0.0235,
+    "cuff": 0.0235
+   },
+   "hem": "thigh+0.0",
+   "hemBack": 0.12,
+   "add": [
+    {
+     "type": "hood",
+     "size": 1.1,
+     "drop": 0.22
+    }
+   ]
+  },
+  "paint": [
+   {
+    "step": "fabric",
+    "type": "canvas"
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0,
+      "hem"
+     ],
+     [
+      0,
+      "top"
+     ]
+    ],
+    "style": "zip",
+    "width": 0.0045,
+    "colour": "#3a3d2c",
+    "colour2": "#111113"
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0.03,
+      "hem"
+     ],
+     [
+      0.03,
+      "top"
+     ]
+    ],
+    "style": "seam",
+    "width": 0.002
+   },
+   {
+    "step": "dots",
+    "frame": "front",
+    "from": [
+     0.016,
+     "hem+0.06"
+    ],
+    "to": [
+     0.016,
+     "neck-0.03"
+    ],
+    "count": 6,
+    "r": 0.0055,
+    "style": "snap",
+    "colour": "#3a3d2c"
+   },
+   {
+    "step": "rect",
+    "frame": "front",
+    "at": [
+     0.115,
+     "hip+0.01"
+    ],
+    "size": [
+     0.14,
+     0.14
+    ],
+    "style": "flap",
+    "flap": 0.3,
+    "mirror": true,
+    "stitch": "#33392a",
+    "pleat": true,
+    "raise": 0.002
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      -0.4,
+      "waist-0.03"
+     ],
+     [
+      0.4,
+      "waist-0.03"
+     ]
+    ],
+    "style": "groove",
+    "colour": "#3a3a3e",
+    "width": 0.004
+   },
+   {
+    "step": "line",
+    "frame": "back",
+    "pts": [
+     [
+      -0.4,
+      "waist-0.03"
+     ],
+     [
+      0.4,
+      "waist-0.03"
+     ]
+    ],
+    "style": "groove",
+    "colour": "#3a3a3e",
+    "width": 0.004
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0.03,
+      "waist-0.03"
+     ],
+     [
+      0.045,
+      "waist-0.16"
+     ]
+    ],
+    "style": "tape",
+    "width": 0.005,
+    "colour": "#3a3d2c",
+    "mirror": true
+   },
+   {
+    "step": "panel",
+    "colour": "#b9b08a",
+    "where": {
+     "zone": "lining"
+    }
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      -0.4,
+      "hem+0.025"
+     ],
+     [
+      0.4,
+      "hem+0.025"
+     ]
+    ],
+    "style": "twin",
+    "colour": "#33392a",
+    "gap": 0.014
+   },
+   {
+    "step": "line",
+    "frame": "back",
+    "pts": [
+     [
+      -0.4,
+      "hem+0.025"
+     ],
+     [
+      0.4,
+      "hem+0.025"
+     ]
+    ],
+    "style": "twin",
+    "colour": "#33392a",
+    "gap": 0.014
+   },
+   {
+    "step": "line",
+    "frame": "sleeves",
+    "pts": [
+     [
+      -0.3,
+      0.93
+     ],
+     [
+      0.3,
+      0.93
+     ]
+    ],
+    "style": "twin",
+    "colour": "#33392a"
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0.1,
+      "shoulder-0.012"
+     ],
+     [
+      0.165,
+      "shoulder-0.03"
+     ]
+    ],
+    "style": "twin",
+    "gap": 0.02,
+    "width": 0.002,
+    "colour": "#33392a",
+    "mirror": true
+   },
+   {
+    "step": "distress",
+    "type": "wash",
+    "amount": 0.15
+   },
+   {
+    "step": "distress",
+    "type": "folds",
+    "freq": 9,
+    "depth": 0.004
+   },
+   {
+    "step": "distress",
+    "type": "shade",
+    "amount": 0.4
+   }
+  ]
+ },
+ {
+  "n": 185,
+  "id": "hl-bondage-cargo-trousers",
+  "designer": "Helmut Lang",
+  "name": "Bondage Cargo Trousers",
+  "season": "FW2003",
+  "price": 1400,
+  "slot": "bottom",
+  "colour": "#1b1b1d",
+  "finish": {
+   "roughness": 0.85
+  },
+  "cut": {
+   "like": "cargo",
+   "rise": "waist-0.1",
+   "add": [
+    {
+     "type": "strap",
+     "from": {
+      "on": "back",
+      "x": 0.08,
+      "h": "knee+0.05"
+     },
+     "to": {
+      "on": "back",
+      "x": -0.08,
+      "h": "knee+0.05"
+     },
+     "width": 0.028,
+     "sag": 0.05
+    },
+    {
+     "type": "tail",
+     "from": {
+      "on": "front",
+      "x": 0.15,
+      "h": "thigh+0.02"
+     },
+     "length": 0.22,
+     "width": 0.024
+    },
+    {
+     "type": "tail",
+     "from": {
+      "on": "front",
+      "x": -0.15,
+      "h": "thigh+0.02"
+     },
+     "length": 0.22,
+     "width": 0.024
+    }
+   ]
+  },
+  "paint": [
+   {
+    "step": "fabric",
+    "type": "canvas"
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      -0.4,
+      "top-0.045"
+     ],
+     [
+      0.4,
+      "top-0.045"
+     ]
+    ],
+    "style": "twin",
+    "colour": "#3c3c40",
+    "gap": 0.004,
+    "width": 0.0014
+   },
+   {
+    "step": "line",
+    "frame": "back",
+    "pts": [
+     [
+      -0.4,
+      "top-0.045"
+     ],
+     [
+      0.4,
+      "top-0.045"
+     ]
+    ],
+    "style": "twin",
+    "colour": "#3c3c40",
+    "gap": 0.004,
+    "width": 0.0014
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0,
+      "top-0.045"
+     ],
+     [
+      0.012,
+      "top-0.14"
+     ],
+     [
+      0,
+      "top-0.19"
+     ]
+    ],
+    "style": "twin",
+    "colour": "#3c3c40",
+    "gap": 0.004,
+    "width": 0.0014
+   },
+   {
+    "step": "line",
+    "frame": "legs",
+    "pts": [
+     [
+      0,
+      -0.3
+     ],
+     [
+      0,
+      1.05
+     ]
+    ],
+    "style": "seam"
+   },
+   {
+    "step": "rect",
+    "frame": "legs",
+    "at": [
+     -0.005,
+     0.42
+    ],
+    "size": [
+     0.15,
+     0.17
+    ],
+    "style": "flap",
+    "flap": 0.3,
+    "pleat": true,
+    "snap": true,
+    "stitch": "#3c3c40",
+    "raise": 0.003
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0.165,
+      "top-0.045"
+     ],
+     [
+      0.115,
+      "top-0.2"
+     ]
+    ],
+    "style": "groove",
+    "width": 0.002,
+    "mirror": true
+   },
+   {
+    "step": "rect",
+    "frame": "back",
+    "at": [
+     0.088,
+     "top-0.17"
+    ],
+    "size": [
+     0.12,
+     0.05
+    ],
+    "style": "flap",
+    "flap": 1,
+    "stitch": "#3c3c40",
+    "mirror": true
+   },
+   {
+    "step": "line",
+    "frame": "legs",
+    "pts": [
+     [
+      -0.3,
+      0.5
+     ],
+     [
+      0.3,
+      0.5
+     ]
+    ],
+    "style": "seam"
+   },
+   {
+    "step": "line",
+    "frame": "legs",
+    "pts": [
+     [
+      -0.3,
+      0.62
+     ],
+     [
+      0.3,
+      0.62
+     ]
+    ],
+    "style": "seam"
+   },
+   {
+    "step": "panel",
+    "colour": "#141416",
+    "where": {
+     "zone": "strap"
+    }
+   },
+   {
+    "step": "line",
+    "frame": "legs",
+    "pts": [
+     [
+      -0.3,
+      0.3
+     ],
+     [
+      0.3,
+      0.3
+     ]
+    ],
+    "style": "strap",
+    "width": 0.028,
+    "colour": "#141416"
+   },
+   {
+    "step": "line",
+    "frame": "legs",
+    "pts": [
+     [
+      -0.3,
+      0.52
+     ],
+     [
+      0.3,
+      0.52
+     ]
+    ],
+    "style": "strap",
+    "width": 0.028,
+    "colour": "#141416"
+   },
+   {
+    "step": "line",
+    "frame": "legs",
+    "pts": [
+     [
+      -0.3,
+      0.74
+     ],
+     [
+      0.3,
+      0.74
+     ]
+    ],
+    "style": "strap",
+    "width": 0.028,
+    "colour": "#141416"
+   },
+   {
+    "step": "rect",
+    "frame": "legs",
+    "at": [
+     0.05,
+     0.3
+    ],
+    "size": [
+     0.03,
+     0.034
+    ],
+    "style": "buckle",
+    "colour": "#9d9ea3"
+   },
+   {
+    "step": "rect",
+    "frame": "legs",
+    "at": [
+     0.05,
+     0.52
+    ],
+    "size": [
+     0.03,
+     0.034
+    ],
+    "style": "buckle",
+    "colour": "#9d9ea3"
+   },
+   {
+    "step": "distress",
+    "type": "shade",
+    "amount": 0.3
+   }
+  ]
+ },
+ {
+  "n": 186,
+  "id": "hl-bondage-strap-denim",
+  "designer": "Helmut Lang",
+  "name": "Bondage-Strap Denim",
+  "season": "FW2004",
+  "price": 900,
+  "slot": "bottom",
+  "colour": "#1f2b45",
+  "finish": {
+   "roughness": 0.85
+  },
+  "cut": {
+   "like": "straight",
+   "rise": "waist-0.1",
+   "add": [
+    {
+     "type": "strap",
+     "from": {
+      "on": "back",
+      "x": 0.08,
+      "h": "knee+0.06"
+     },
+     "to": {
+      "on": "back",
+      "x": -0.08,
+      "h": "knee+0.06"
+     },
+     "width": 0.03,
+     "sag": 0.06
+    },
+    {
+     "type": "strap",
+     "from": {
+      "on": "front",
+      "x": 0.08,
+      "h": "thigh+0.0"
+     },
+     "to": {
+      "on": "back",
+      "x": 0.08,
+      "h": "thigh+0.0"
+     },
+     "width": 0.03,
+     "sag": 0.05,
+     "out": 0.02
+    }
+   ]
+  },
+  "paint": [
+   {
+    "step": "fabric",
+    "type": "denim",
+    "colour2": "#3b4a68"
+   },
+   {
+    "step": "line",
+    "frame": "legs",
+    "pts": [
+     [
+      0,
+      -0.3
+     ],
+     [
+      0,
+      1.05
+     ]
+    ],
+    "style": "twin",
+    "colour": "#b9772f",
+    "width": 0.0011,
+    "gap": 0.006
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      -0.4,
+      "top-0.04"
+     ],
+     [
+      0.4,
+      "top-0.04"
+     ]
+    ],
+    "style": "twin",
+    "colour": "#b9772f",
+    "width": 0.0011,
+    "gap": 0.034
+   },
+   {
+    "step": "line",
+    "frame": "back",
+    "pts": [
+     [
+      -0.4,
+      "top-0.04"
+     ],
+     [
+      0.4,
+      "top-0.04"
+     ]
+    ],
+    "style": "twin",
+    "colour": "#b9772f",
+    "width": 0.0011,
+    "gap": 0.034
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0.0,
+      "top-0.04"
+     ],
+     [
+      0.004,
+      "top-0.1"
+     ],
+     [
+      0.03,
+      "top-0.17"
+     ],
+     [
+      0.0,
+      "top-0.19"
+     ]
+    ],
+    "style": "twin",
+    "colour": "#b9772f",
+    "width": 0.0011
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0.06,
+      "top-0.045"
+     ],
+     [
+      0.09,
+      "top-0.11"
+     ],
+     [
+      0.17,
+      "top-0.12"
+     ]
+    ],
+    "style": "twin",
+    "colour": "#b9772f",
+    "width": 0.0011,
+    "mirror": true
+   },
+   {
+    "step": "dots",
+    "frame": "front",
+    "pts": [
+     [
+      0,
+      "top-0.02"
+     ]
+    ],
+    "r": 0.008,
+    "style": "stud",
+    "colour": "#77736a"
+   },
+   {
+    "step": "dots",
+    "frame": "front",
+    "pts": [
+     [
+      0.062,
+      "top-0.05"
+     ],
+     [
+      0.168,
+      "top-0.118"
+     ]
+    ],
+    "r": 0.0035,
+    "style": "stud",
+    "colour": "#8a7a5a",
+    "mirror": true
+   },
+   {
+    "step": "line",
+    "frame": "back",
+    "pts": [
+     [
+      -0.3,
+      "top-0.075"
+     ],
+     [
+      0,
+      "top-0.115"
+     ],
+     [
+      0.3,
+      "top-0.075"
+     ]
+    ],
+    "style": "twin",
+    "colour": "#b9772f",
+    "width": 0.0011
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      -0.4,
+      "hem+0.014"
+     ],
+     [
+      0.4,
+      "hem+0.014"
+     ]
+    ],
+    "style": "stitch",
+    "colour": "#b9772f",
+    "width": 0.0011
+   },
+   {
+    "step": "line",
+    "frame": "back",
+    "pts": [
+     [
+      -0.4,
+      "hem+0.014"
+     ],
+     [
+      0.4,
+      "hem+0.014"
+     ]
+    ],
+    "style": "stitch",
+    "colour": "#b9772f",
+    "width": 0.0011
+   },
+   {
+    "step": "rect",
+    "frame": "back",
+    "at": [
+     0.088,
+     "top-0.2"
+    ],
+    "size": [
+     0.125,
+     0.135
+    ],
+    "style": "pocket",
+    "stitch": "#b9772f",
+    "mirror": true,
+    "round": 0.012
+   },
+   {
+    "step": "panel",
+    "colour": "#1f2b45",
+    "where": {
+     "zone": "strap"
+    },
+    "keepShade": 1
+   },
+   {
+    "step": "line",
+    "frame": "legs",
+    "pts": [
+     [
+      -0.3,
+      0.34
+     ],
+     [
+      0.3,
+      0.34
+     ]
+    ],
+    "style": "strap",
+    "width": 0.03,
+    "colour": "#1a2338"
+   },
+   {
+    "step": "line",
+    "frame": "legs",
+    "pts": [
+     [
+      -0.3,
+      0.56
+     ],
+     [
+      0.3,
+      0.56
+     ]
+    ],
+    "style": "strap",
+    "width": 0.03,
+    "colour": "#1a2338"
+   },
+   {
+    "step": "rect",
+    "frame": "legs",
+    "at": [
+     0.05,
+     0.34
+    ],
+    "size": [
+     0.032,
+     0.036
+    ],
+    "style": "buckle",
+    "colour": "#9d9ea3"
+   },
+   {
+    "step": "distress",
+    "type": "wash",
+    "amount": 0.1
+   }
+  ]
+ },
+ {
+  "n": 187,
+  "id": "hl-bondage-strap-military-jacket",
+  "designer": "Helmut Lang",
+  "name": "Bondage-Strap Military Jacket",
+  "season": "FW2003",
+  "price": 2200,
+  "slot": "top",
+  "colour": "#4b4c3a",
+  "finish": {
+   "roughness": 0.85
+  },
+  "cut": {
+   "like": "trucker",
+   "ease": {
+    "shoulder": 0.0088,
+    "chest": 0.0242,
+    "waist": 0.033,
+    "hip": 0.033,
+    "sleeve": 0.0125,
+    "cuff": 0.0104
+   },
+   "hem": "hip-0.0",
+   "add": [
+    {
+     "type": "collar",
+     "style": "fold",
+     "height": 0.05,
+     "gap": 0.02,
+     "points": 0.5
+    },
+    {
+     "type": "strap",
+     "from": {
+      "on": "back",
+      "x": 0.07,
+      "h": "shoulder-0.02"
+     },
+     "to": {
+      "on": "back",
+      "x": 0.07,
+      "h": "hip+0.0"
+     },
+     "width": 0.03,
+     "sag": 0.03,
+     "out": 0.012
+    },
+    {
+     "type": "strap",
+     "from": {
+      "on": "back",
+      "x": -0.07,
+      "h": "shoulder-0.02"
+     },
+     "to": {
+      "on": "back",
+      "x": -0.07,
+      "h": "hip+0.0"
+     },
+     "width": 0.03,
+     "sag": 0.03,
+     "out": 0.012
+    }
+   ]
+  },
+  "paint": [
+   {
+    "step": "fabric",
+    "type": "canvas"
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0,
+      "hem"
+     ],
+     [
+      0,
+      "top"
+     ]
+    ],
+    "style": "zip",
+    "width": 0.0045,
+    "colour": "#3a3d2c",
+    "colour2": "#111113"
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0.03,
+      "hem"
+     ],
+     [
+      0.03,
+      "top"
+     ]
+    ],
+    "style": "seam",
+    "width": 0.002
+   },
+   {
+    "step": "dots",
+    "frame": "front",
+    "from": [
+     0.016,
+     "hem+0.06"
+    ],
+    "to": [
+     0.016,
+     "neck-0.03"
+    ],
+    "count": 6,
+    "r": 0.0055,
+    "style": "snap",
+    "colour": "#3a3d2c"
+   },
+   {
+    "step": "rect",
+    "frame": "front",
+    "at": [
+     0.115,
+     "hip+0.01"
+    ],
+    "size": [
+     0.14,
+     0.14
+    ],
+    "style": "flap",
+    "flap": 0.3,
+    "mirror": true,
+    "stitch": "#33392a",
+    "pleat": true,
+    "raise": 0.002
+   },
+   {
+    "step": "rect",
+    "frame": "front",
+    "at": [
+     0.1,
+     "chest+0.02"
+    ],
+    "size": [
+     0.1,
+     0.1
+    ],
+    "style": "flap",
+    "flap": 0.3,
+    "mirror": true,
+    "stitch": "#33392a",
+    "pleat": true,
+    "raise": 0.002
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      -0.4,
+      "hem+0.025"
+     ],
+     [
+      0.4,
+      "hem+0.025"
+     ]
+    ],
+    "style": "twin",
+    "colour": "#33392a",
+    "gap": 0.014
+   },
+   {
+    "step": "line",
+    "frame": "back",
+    "pts": [
+     [
+      -0.4,
+      "hem+0.025"
+     ],
+     [
+      0.4,
+      "hem+0.025"
+     ]
+    ],
+    "style": "twin",
+    "colour": "#33392a",
+    "gap": 0.014
+   },
+   {
+    "step": "line",
+    "frame": "sleeves",
+    "pts": [
+     [
+      -0.3,
+      0.93
+     ],
+     [
+      0.3,
+      0.93
+     ]
+    ],
+    "style": "twin",
+    "colour": "#33392a"
+   },
+   {
+    "step": "panel",
+    "colour": "#141416",
+    "where": {
+     "zone": "strap"
+    }
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0.07,
+      "shoulder"
+     ],
+     [
+      0.07,
+      "hem"
+     ]
+    ],
+    "style": "strap",
+    "width": 0.03,
+    "colour": "#141416",
+    "mirror": true
+   },
+   {
+    "step": "rect",
+    "frame": "front",
+    "at": [
+     0.07,
+     "chest-0.02"
+    ],
+    "size": [
+     0.036,
+     0.04
+    ],
+    "style": "buckle",
+    "colour": "#9d9ea3",
+    "mirror": true
+   },
+   {
+    "step": "distress",
+    "type": "wash",
+    "amount": 0.15
+   },
+   {
+    "step": "distress",
+    "type": "shade",
+    "amount": 0.3
+   }
+  ]
+ },
+ {
+  "n": 188,
+  "id": "hl-painter-denim-jacket",
+  "designer": "Helmut Lang",
+  "name": "Painter Denim Jacket",
+  "season": "SS1998",
+  "price": 1200,
+  "slot": "top",
+  "colour": "#1f2b45",
+  "finish": {
+   "roughness": 0.85
+  },
+  "cut": {
+   "like": "trucker",
+   "hem": "hip+0.055"
+  },
+  "paint": [
+   {
+    "step": "fabric",
+    "type": "denim",
+    "colour2": "#3b4a68"
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      -0.4,
+      "hem+0.042"
+     ],
+     [
+      0.4,
+      "hem+0.042"
+     ]
+    ],
+    "style": "twin",
+    "colour": "#b9772f",
+    "gap": 0.005,
+    "width": 0.0017
+   },
+   {
+    "step": "line",
+    "frame": "back",
+    "pts": [
+     [
+      -0.4,
+      "hem+0.042"
+     ],
+     [
+      0.4,
+      "hem+0.042"
+     ]
+    ],
+    "style": "twin",
+    "colour": "#b9772f",
+    "gap": 0.005,
+    "width": 0.0017
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0.02,
+      "chest+0.065"
+     ],
+     [
+      0.2,
+      "chest+0.065"
+     ]
+    ],
+    "style": "twin",
+    "mirror": true,
+    "gap": 0.005,
+    "width": 0.0017,
+    "colour": "#b9772f"
+   },
+   {
+    "step": "line",
+    "frame": "back",
+    "pts": [
+     [
+      -0.25,
+      "chest+0.075"
+     ],
+     [
+      0.25,
+      "chest+0.075"
+     ]
+    ],
+    "style": "twin",
+    "gap": 0.005,
+    "width": 0.0017,
+    "colour": "#b9772f"
+   },
+   {
+    "step": "line",
+    "frame": "back",
+    "pts": [
+     [
+      0.105,
+      "chest+0.075"
+     ],
+     [
+      0.08,
+      "hem+0.042"
+     ]
+    ],
+    "style": "twin",
+    "mirror": true,
+    "gap": 0.005,
+    "width": 0.0017,
+    "colour": "#b9772f"
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0.02,
+      "hem"
+     ],
+     [
+      0.02,
+      "top"
+     ]
+    ],
+    "style": "twin",
+    "mirror": true,
+    "gap": 0.005,
+    "width": 0.0017,
+    "colour": "#b9772f"
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0.05,
+      "chest-0.005"
+     ],
+     [
+      0.068,
+      "hem+0.042"
+     ]
+    ],
+    "style": "twin",
+    "mirror": true,
+    "gap": 0.005,
+    "width": 0.0017,
+    "colour": "#b9772f"
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0.14,
+      "chest-0.005"
+     ],
+     [
+      0.11,
+      "hem+0.042"
+     ]
+    ],
+    "style": "twin",
+    "mirror": true,
+    "gap": 0.005,
+    "width": 0.0017,
+    "colour": "#b9772f"
+   },
+   {
+    "step": "line",
+    "frame": "sleeves",
+    "pts": [
+     [
+      -0.3,
+      0.93
+     ],
+     [
+      0.3,
+      0.93
+     ]
+    ],
+    "style": "twin",
+    "gap": 0.005,
+    "width": 0.0017,
+    "colour": "#b9772f"
+   },
+   {
+    "step": "rect",
+    "frame": "front",
+    "at": [
+     0.095,
+     "chest+0.035"
+    ],
+    "size": [
+     0.1,
+     0.055
+    ],
+    "style": "flap",
+    "flap": 1,
+    "stitch": "#b9772f",
+    "mirror": true
+   },
+   {
+    "step": "dots",
+    "frame": "front",
+    "pts": [
+     [
+      0.095,
+      "chest+0.022"
+     ]
+    ],
+    "r": 0.007,
+    "style": "button",
+    "colour": "#c9c9c9",
+    "mirror": true
+   },
+   {
+    "step": "dots",
+    "frame": "front",
+    "from": [
+     0,
+     "hem+0.02"
+    ],
+    "to": [
+     0,
+     "neck-0.04"
+    ],
+    "count": 6,
+    "r": 0.0075,
+    "style": "button",
+    "colour": "#c9c9c9"
+   },
+   {
+    "step": "pattern",
+    "type": "splatter",
+    "colours": [
+     "#e8e5dc",
+     "#d9d5c8"
+    ],
+    "size": 0.018,
+    "density": 0.07
+   },
+   {
+    "step": "pattern",
+    "type": "splatter",
+    "colours": [
+     "#e8e5dc"
+    ],
+    "size": 0.007,
+    "density": 0.1
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      -0.1,
+      "waist+0.03"
+     ],
+     [
+      0.02,
+      "waist-0.02"
+     ],
+     [
+      0.12,
+      "waist+0.05"
+     ]
+    ],
+    "style": "paint",
+    "width": 0.02,
+    "colour": "#e8e5dc",
+    "opacity": 0.8,
+    "dry": true
+   }
+  ]
+ },
+ {
+  "n": 189,
+  "id": "hl-white-painter-jeans",
+  "designer": "Helmut Lang",
+  "name": "White Painter Jeans",
+  "season": "SS1998",
+  "price": 650,
+  "slot": "bottom",
+  "colour": "#e6e3da",
+  "finish": {
+   "roughness": 0.85
+  },
+  "cut": {
+   "like": "straight"
+  },
+  "paint": [
+   {
+    "step": "fabric",
+    "type": "denim",
+    "colour2": "#f1efe9"
+   },
+   {
+    "step": "line",
+    "frame": "legs",
+    "pts": [
+     [
+      0,
+      -0.3
+     ],
+     [
+      0,
+      1.05
+     ]
+    ],
+    "style": "twin",
+    "colour": "#cfcabd",
+    "width": 0.0011,
+    "gap": 0.006
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      -0.4,
+      "top-0.04"
+     ],
+     [
+      0.4,
+      "top-0.04"
+     ]
+    ],
+    "style": "twin",
+    "colour": "#cfcabd",
+    "width": 0.0011,
+    "gap": 0.034
+   },
+   {
+    "step": "line",
+    "frame": "back",
+    "pts": [
+     [
+      -0.4,
+      "top-0.04"
+     ],
+     [
+      0.4,
+      "top-0.04"
+     ]
+    ],
+    "style": "twin",
+    "colour": "#cfcabd",
+    "width": 0.0011,
+    "gap": 0.034
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0.0,
+      "top-0.04"
+     ],
+     [
+      0.004,
+      "top-0.1"
+     ],
+     [
+      0.03,
+      "top-0.17"
+     ],
+     [
+      0.0,
+      "top-0.19"
+     ]
+    ],
+    "style": "twin",
+    "colour": "#cfcabd",
+    "width": 0.0011
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0.06,
+      "top-0.045"
+     ],
+     [
+      0.09,
+      "top-0.11"
+     ],
+     [
+      0.17,
+      "top-0.12"
+     ]
+    ],
+    "style": "twin",
+    "colour": "#cfcabd",
+    "width": 0.0011,
+    "mirror": true
+   },
+   {
+    "step": "dots",
+    "frame": "front",
+    "pts": [
+     [
+      0,
+      "top-0.02"
+     ]
+    ],
+    "r": 0.008,
+    "style": "stud",
+    "colour": "#77736a"
+   },
+   {
+    "step": "dots",
+    "frame": "front",
+    "pts": [
+     [
+      0.062,
+      "top-0.05"
+     ],
+     [
+      0.168,
+      "top-0.118"
+     ]
+    ],
+    "r": 0.0035,
+    "style": "stud",
+    "colour": "#8a7a5a",
+    "mirror": true
+   },
+   {
+    "step": "line",
+    "frame": "back",
+    "pts": [
+     [
+      -0.3,
+      "top-0.075"
+     ],
+     [
+      0,
+      "top-0.115"
+     ],
+     [
+      0.3,
+      "top-0.075"
+     ]
+    ],
+    "style": "twin",
+    "colour": "#cfcabd",
+    "width": 0.0011
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      -0.4,
+      "hem+0.014"
+     ],
+     [
+      0.4,
+      "hem+0.014"
+     ]
+    ],
+    "style": "stitch",
+    "colour": "#cfcabd",
+    "width": 0.0011
+   },
+   {
+    "step": "line",
+    "frame": "back",
+    "pts": [
+     [
+      -0.4,
+      "hem+0.014"
+     ],
+     [
+      0.4,
+      "hem+0.014"
+     ]
+    ],
+    "style": "stitch",
+    "colour": "#cfcabd",
+    "width": 0.0011
+   },
+   {
+    "step": "rect",
+    "frame": "back",
+    "at": [
+     0.088,
+     "top-0.2"
+    ],
+    "size": [
+     0.125,
+     0.135
+    ],
+    "style": "pocket",
+    "stitch": "#cfcabd",
+    "mirror": true,
+    "round": 0.012
+   },
+   {
+    "step": "pattern",
+    "type": "splatter",
+    "colours": [
+     "#1b1b1d",
+     "#55565a"
+    ],
+    "size": 0.018,
+    "density": 0.07
+   },
+   {
+    "step": "pattern",
+    "type": "splatter",
+    "colours": [
+     "#b9babd"
+    ],
+    "size": 0.007,
+    "density": 0.1
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0.05,
+      "thigh+0.08"
+     ],
+     [
+      0.11,
+      "thigh-0.03"
+     ]
+    ],
+    "style": "paint",
+    "width": 0.018,
+    "colour": "#2a2a2d",
+    "opacity": 0.7,
+    "dry": true
+   },
+   {
+    "step": "distress",
+    "type": "wash",
+    "amount": 0.05
+   }
+  ]
+ },
+ {
+  "n": 190,
+  "id": "hl-black-painter-jeans",
+  "designer": "Helmut Lang",
+  "name": "Black Painter Jeans",
+  "season": "SS1998",
+  "price": 650,
+  "slot": "bottom",
+  "colour": "#1d1d20",
+  "finish": {
+   "roughness": 0.85
+  },
+  "cut": {
+   "like": "straight"
+  },
+  "paint": [
+   {
+    "step": "fabric",
+    "type": "denim",
+    "colour2": "#3a3a40"
+   },
+   {
+    "step": "line",
+    "frame": "legs",
+    "pts": [
+     [
+      0,
+      -0.3
+     ],
+     [
+      0,
+      1.05
+     ]
+    ],
+    "style": "twin",
+    "colour": "#3a3a40",
+    "width": 0.0011,
+    "gap": 0.006
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      -0.4,
+      "top-0.04"
+     ],
+     [
+      0.4,
+      "top-0.04"
+     ]
+    ],
+    "style": "twin",
+    "colour": "#3a3a40",
+    "width": 0.0011,
+    "gap": 0.034
+   },
+   {
+    "step": "line",
+    "frame": "back",
+    "pts": [
+     [
+      -0.4,
+      "top-0.04"
+     ],
+     [
+      0.4,
+      "top-0.04"
+     ]
+    ],
+    "style": "twin",
+    "colour": "#3a3a40",
+    "width": 0.0011,
+    "gap": 0.034
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0.0,
+      "top-0.04"
+     ],
+     [
+      0.004,
+      "top-0.1"
+     ],
+     [
+      0.03,
+      "top-0.17"
+     ],
+     [
+      0.0,
+      "top-0.19"
+     ]
+    ],
+    "style": "twin",
+    "colour": "#3a3a40",
+    "width": 0.0011
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0.06,
+      "top-0.045"
+     ],
+     [
+      0.09,
+      "top-0.11"
+     ],
+     [
+      0.17,
+      "top-0.12"
+     ]
+    ],
+    "style": "twin",
+    "colour": "#3a3a40",
+    "width": 0.0011,
+    "mirror": true
+   },
+   {
+    "step": "dots",
+    "frame": "front",
+    "pts": [
+     [
+      0,
+      "top-0.02"
+     ]
+    ],
+    "r": 0.008,
+    "style": "stud",
+    "colour": "#77736a"
+   },
+   {
+    "step": "dots",
+    "frame": "front",
+    "pts": [
+     [
+      0.062,
+      "top-0.05"
+     ],
+     [
+      0.168,
+      "top-0.118"
+     ]
+    ],
+    "r": 0.0035,
+    "style": "stud",
+    "colour": "#8a7a5a",
+    "mirror": true
+   },
+   {
+    "step": "line",
+    "frame": "back",
+    "pts": [
+     [
+      -0.3,
+      "top-0.075"
+     ],
+     [
+      0,
+      "top-0.115"
+     ],
+     [
+      0.3,
+      "top-0.075"
+     ]
+    ],
+    "style": "twin",
+    "colour": "#3a3a40",
+    "width": 0.0011
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      -0.4,
+      "hem+0.014"
+     ],
+     [
+      0.4,
+      "hem+0.014"
+     ]
+    ],
+    "style": "stitch",
+    "colour": "#3a3a40",
+    "width": 0.0011
+   },
+   {
+    "step": "line",
+    "frame": "back",
+    "pts": [
+     [
+      -0.4,
+      "hem+0.014"
+     ],
+     [
+      0.4,
+      "hem+0.014"
+     ]
+    ],
+    "style": "stitch",
+    "colour": "#3a3a40",
+    "width": 0.0011
+   },
+   {
+    "step": "rect",
+    "frame": "back",
+    "at": [
+     0.088,
+     "top-0.2"
+    ],
+    "size": [
+     0.125,
+     0.135
+    ],
+    "style": "pocket",
+    "stitch": "#3a3a40",
+    "mirror": true,
+    "round": 0.012
+   },
+   {
+    "step": "pattern",
+    "type": "splatter",
+    "colours": [
+     "#e8e5dc",
+     "#c9c5ba"
+    ],
+    "size": 0.018,
+    "density": 0.07
+   },
+   {
+    "step": "pattern",
+    "type": "splatter",
+    "colours": [
+     "#e8e5dc"
+    ],
+    "size": 0.007,
+    "density": 0.1
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      -0.06,
+      "knee+0.1"
+     ],
+     [
+      -0.11,
+      "knee-0.02"
+     ]
+    ],
+    "style": "paint",
+    "width": 0.02,
+    "colour": "#e8e5dc",
+    "opacity": 0.8,
+    "dry": true
+   }
+  ]
+ },
+ {
+  "n": 191,
+  "id": "hl-orange-stripe-denim",
+  "designer": "Helmut Lang",
+  "name": "Orange-Stripe Denim",
+  "season": "FW1999",
+  "price": 500,
+  "slot": "bottom",
+  "colour": "#1f2b45",
+  "finish": {
+   "roughness": 0.85
+  },
+  "cut": {
+   "like": "straight",
+   "ease": {
+    "waist": 0.002,
+    "seat": 0.0126,
+    "thigh": 0.018,
+    "knee": 0.0198,
+    "hem": 0.027
+   }
+  },
+  "note": "Raw denim with a reflective orange band down each outseam.",
+  "paint": [
+   {
+    "step": "fabric",
+    "type": "denim",
+    "colour2": "#3b4a68"
+   },
+   {
+    "step": "line",
+    "frame": "legs",
+    "pts": [
+     [
+      0,
+      -0.3
+     ],
+     [
+      0,
+      1.05
+     ]
+    ],
+    "style": "twin",
+    "colour": "#b9772f",
+    "width": 0.0011,
+    "gap": 0.006
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      -0.4,
+      "top-0.04"
+     ],
+     [
+      0.4,
+      "top-0.04"
+     ]
+    ],
+    "style": "twin",
+    "colour": "#b9772f",
+    "width": 0.0011,
+    "gap": 0.034
+   },
+   {
+    "step": "line",
+    "frame": "back",
+    "pts": [
+     [
+      -0.4,
+      "top-0.04"
+     ],
+     [
+      0.4,
+      "top-0.04"
+     ]
+    ],
+    "style": "twin",
+    "colour": "#b9772f",
+    "width": 0.0011,
+    "gap": 0.034
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0.0,
+      "top-0.04"
+     ],
+     [
+      0.004,
+      "top-0.1"
+     ],
+     [
+      0.03,
+      "top-0.17"
+     ],
+     [
+      0.0,
+      "top-0.19"
+     ]
+    ],
+    "style": "twin",
+    "colour": "#b9772f",
+    "width": 0.0011
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0.06,
+      "top-0.045"
+     ],
+     [
+      0.09,
+      "top-0.11"
+     ],
+     [
+      0.17,
+      "top-0.12"
+     ]
+    ],
+    "style": "twin",
+    "colour": "#b9772f",
+    "width": 0.0011,
+    "mirror": true
+   },
+   {
+    "step": "dots",
+    "frame": "front",
+    "pts": [
+     [
+      0,
+      "top-0.02"
+     ]
+    ],
+    "r": 0.008,
+    "style": "stud",
+    "colour": "#77736a"
+   },
+   {
+    "step": "dots",
+    "frame": "front",
+    "pts": [
+     [
+      0.062,
+      "top-0.05"
+     ],
+     [
+      0.168,
+      "top-0.118"
+     ]
+    ],
+    "r": 0.0035,
+    "style": "stud",
+    "colour": "#8a7a5a",
+    "mirror": true
+   },
+   {
+    "step": "line",
+    "frame": "back",
+    "pts": [
+     [
+      -0.3,
+      "top-0.075"
+     ],
+     [
+      0,
+      "top-0.115"
+     ],
+     [
+      0.3,
+      "top-0.075"
+     ]
+    ],
+    "style": "twin",
+    "colour": "#b9772f",
+    "width": 0.0011
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      -0.4,
+      "hem+0.014"
+     ],
+     [
+      0.4,
+      "hem+0.014"
+     ]
+    ],
+    "style": "stitch",
+    "colour": "#b9772f",
+    "width": 0.0011
+   },
+   {
+    "step": "line",
+    "frame": "back",
+    "pts": [
+     [
+      -0.4,
+      "hem+0.014"
+     ],
+     [
+      0.4,
+      "hem+0.014"
+     ]
+    ],
+    "style": "stitch",
+    "colour": "#b9772f",
+    "width": 0.0011
+   },
+   {
+    "step": "rect",
+    "frame": "back",
+    "at": [
+     0.088,
+     "top-0.2"
+    ],
+    "size": [
+     0.125,
+     0.135
+    ],
+    "style": "pocket",
+    "stitch": "#b9772f",
+    "mirror": true,
+    "round": 0.012
+   },
+   {
+    "step": "line",
+    "frame": "legs",
+    "pts": [
+     [
+      0,
+      -0.02
+     ],
+     [
+      0,
+      1.05
+     ]
+    ],
+    "style": "tape",
+    "width": 0.022,
+    "colour": "#e2601c"
+   },
+   {
+    "step": "distress",
+    "type": "wash",
+    "amount": 0.1
+   }
+  ]
+ },
+ {
+  "n": 192,
+  "id": "hl-coated-denim-jacket",
+  "designer": "Helmut Lang",
+  "name": "Coated Denim Jacket",
+  "season": "FW1999",
+  "price": 900,
+  "slot": "top",
+  "colour": "#1a1a1d",
+  "finish": {
+   "roughness": 0.38
+  },
+  "cut": {
+   "like": "trucker",
+   "hem": "hip+0.055"
+  },
+  "note": "Black resin over indigo: the blue shows where the coating has worn.",
+  "paint": [
+   {
+    "step": "fabric",
+    "type": "waxed"
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      -0.4,
+      "hem+0.042"
+     ],
+     [
+      0.4,
+      "hem+0.042"
+     ]
+    ],
+    "style": "twin",
+    "colour": "#3a3a40",
+    "gap": 0.005,
+    "width": 0.0017
+   },
+   {
+    "step": "line",
+    "frame": "back",
+    "pts": [
+     [
+      -0.4,
+      "hem+0.042"
+     ],
+     [
+      0.4,
+      "hem+0.042"
+     ]
+    ],
+    "style": "twin",
+    "colour": "#3a3a40",
+    "gap": 0.005,
+    "width": 0.0017
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0.02,
+      "chest+0.065"
+     ],
+     [
+      0.2,
+      "chest+0.065"
+     ]
+    ],
+    "style": "twin",
+    "mirror": true,
+    "gap": 0.005,
+    "width": 0.0017,
+    "colour": "#3a3a40"
+   },
+   {
+    "step": "line",
+    "frame": "back",
+    "pts": [
+     [
+      -0.25,
+      "chest+0.075"
+     ],
+     [
+      0.25,
+      "chest+0.075"
+     ]
+    ],
+    "style": "twin",
+    "gap": 0.005,
+    "width": 0.0017,
+    "colour": "#3a3a40"
+   },
+   {
+    "step": "line",
+    "frame": "back",
+    "pts": [
+     [
+      0.105,
+      "chest+0.075"
+     ],
+     [
+      0.08,
+      "hem+0.042"
+     ]
+    ],
+    "style": "twin",
+    "mirror": true,
+    "gap": 0.005,
+    "width": 0.0017,
+    "colour": "#3a3a40"
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0.02,
+      "hem"
+     ],
+     [
+      0.02,
+      "top"
+     ]
+    ],
+    "style": "twin",
+    "mirror": true,
+    "gap": 0.005,
+    "width": 0.0017,
+    "colour": "#3a3a40"
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0.05,
+      "chest-0.005"
+     ],
+     [
+      0.068,
+      "hem+0.042"
+     ]
+    ],
+    "style": "twin",
+    "mirror": true,
+    "gap": 0.005,
+    "width": 0.0017,
+    "colour": "#3a3a40"
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0.14,
+      "chest-0.005"
+     ],
+     [
+      0.11,
+      "hem+0.042"
+     ]
+    ],
+    "style": "twin",
+    "mirror": true,
+    "gap": 0.005,
+    "width": 0.0017,
+    "colour": "#3a3a40"
+   },
+   {
+    "step": "line",
+    "frame": "sleeves",
+    "pts": [
+     [
+      -0.3,
+      0.93
+     ],
+     [
+      0.3,
+      0.93
+     ]
+    ],
+    "style": "twin",
+    "gap": 0.005,
+    "width": 0.0017,
+    "colour": "#3a3a40"
+   },
+   {
+    "step": "rect",
+    "frame": "front",
+    "at": [
+     0.095,
+     "chest+0.035"
+    ],
+    "size": [
+     0.1,
+     0.055
+    ],
+    "style": "flap",
+    "flap": 1,
+    "stitch": "#3a3a40",
+    "mirror": true
+   },
+   {
+    "step": "dots",
+    "frame": "front",
+    "pts": [
+     [
+      0.095,
+      "chest+0.022"
+     ]
+    ],
+    "r": 0.007,
+    "style": "button",
+    "colour": "#55565a",
+    "mirror": true
+   },
+   {
+    "step": "dots",
+    "frame": "front",
+    "from": [
+     0,
+     "hem+0.02"
+    ],
+    "to": [
+     0,
+     "neck-0.04"
+    ],
+    "count": 6,
+    "r": 0.0075,
+    "style": "button",
+    "colour": "#55565a"
+   },
+   {
+    "step": "distress",
+    "type": "crackle",
+    "amount": 0.35
+   },
+   {
+    "step": "distress",
+    "type": "edges",
+    "amount": 0.3,
+    "colour": "#3b4a68"
+   },
+   {
+    "step": "distress",
+    "type": "crumple",
+    "amount": 0.1
+   }
+  ]
+ },
+ {
+  "n": 193,
+  "id": "hl-coated-skinny-jeans",
+  "designer": "Helmut Lang",
+  "name": "Coated Skinny Jeans (Silver)",
+  "season": "FW1998",
+  "price": 1100,
+  "slot": "bottom",
+  "colour": "#a9abb0",
+  "finish": {
+   "roughness": 0.34,
+   "metalness": 0.7
+  },
+  "cut": {
+   "like": "slim"
+  },
+  "paint": [
+   {
+    "step": "fabric",
+    "type": "waxed"
+   },
+   {
+    "step": "line",
+    "frame": "legs",
+    "pts": [
+     [
+      0,
+      -0.3
+     ],
+     [
+      0,
+      1.05
+     ]
+    ],
+    "style": "twin",
+    "colour": "#77797f",
+    "width": 0.0011,
+    "gap": 0.006
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      -0.4,
+      "top-0.04"
+     ],
+     [
+      0.4,
+      "top-0.04"
+     ]
+    ],
+    "style": "twin",
+    "colour": "#77797f",
+    "width": 0.0011,
+    "gap": 0.034
+   },
+   {
+    "step": "line",
+    "frame": "back",
+    "pts": [
+     [
+      -0.4,
+      "top-0.04"
+     ],
+     [
+      0.4,
+      "top-0.04"
+     ]
+    ],
+    "style": "twin",
+    "colour": "#77797f",
+    "width": 0.0011,
+    "gap": 0.034
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0.0,
+      "top-0.04"
+     ],
+     [
+      0.004,
+      "top-0.1"
+     ],
+     [
+      0.03,
+      "top-0.17"
+     ],
+     [
+      0.0,
+      "top-0.19"
+     ]
+    ],
+    "style": "twin",
+    "colour": "#77797f",
+    "width": 0.0011
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0.06,
+      "top-0.045"
+     ],
+     [
+      0.09,
+      "top-0.11"
+     ],
+     [
+      0.17,
+      "top-0.12"
+     ]
+    ],
+    "style": "twin",
+    "colour": "#77797f",
+    "width": 0.0011,
+    "mirror": true
+   },
+   {
+    "step": "dots",
+    "frame": "front",
+    "pts": [
+     [
+      0,
+      "top-0.02"
+     ]
+    ],
+    "r": 0.008,
+    "style": "stud",
+    "colour": "#77736a"
+   },
+   {
+    "step": "dots",
+    "frame": "front",
+    "pts": [
+     [
+      0.062,
+      "top-0.05"
+     ],
+     [
+      0.168,
+      "top-0.118"
+     ]
+    ],
+    "r": 0.0035,
+    "style": "stud",
+    "colour": "#8a7a5a",
+    "mirror": true
+   },
+   {
+    "step": "line",
+    "frame": "back",
+    "pts": [
+     [
+      -0.3,
+      "top-0.075"
+     ],
+     [
+      0,
+      "top-0.115"
+     ],
+     [
+      0.3,
+      "top-0.075"
+     ]
+    ],
+    "style": "twin",
+    "colour": "#77797f",
+    "width": 0.0011
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      -0.4,
+      "hem+0.014"
+     ],
+     [
+      0.4,
+      "hem+0.014"
+     ]
+    ],
+    "style": "stitch",
+    "colour": "#77797f",
+    "width": 0.0011
+   },
+   {
+    "step": "line",
+    "frame": "back",
+    "pts": [
+     [
+      -0.4,
+      "hem+0.014"
+     ],
+     [
+      0.4,
+      "hem+0.014"
+     ]
+    ],
+    "style": "stitch",
+    "colour": "#77797f",
+    "width": 0.0011
+   },
+   {
+    "step": "rect",
+    "frame": "back",
+    "at": [
+     0.088,
+     "top-0.2"
+    ],
+    "size": [
+     0.125,
+     0.135
+    ],
+    "style": "pocket",
+    "stitch": "#77797f",
+    "mirror": true,
+    "round": 0.012
+   },
+   {
+    "step": "distress",
+    "type": "crackle",
+    "amount": 0.4,
+    "colour": "#3b4a68"
+   },
+   {
+    "step": "distress",
+    "type": "edges",
+    "amount": 0.35,
+    "colour": "#3b4a68"
+   },
+   {
+    "step": "distress",
+    "type": "folds",
+    "freq": 30,
+    "depth": 0.002,
+    "where": {
+     "zone": "legs",
+     "s": [
+      0.5,
+      1.1
+     ]
+    }
+   }
+  ]
+ },
+ {
+  "n": 194,
+  "id": "hl-parachute-strap-trousers",
+  "designer": "Helmut Lang",
+  "name": "Parachute-Strap Trousers",
+  "season": "SS2003",
+  "price": 1300,
+  "slot": "bottom",
+  "colour": "#d9d5c8",
+  "finish": {
+   "roughness": 0.6
+  },
+  "cut": {
+   "like": "cargo",
+   "ease": {
+    "waist": 0.002,
+    "seat": 0.0275,
+    "thigh": 0.0385,
+    "knee": 0.0385,
+    "hem": 0.033
+   },
+   "rise": "waist-0.1",
+   "add": [
+    {
+     "type": "tail",
+     "from": {
+      "on": "front",
+      "x": 0.15,
+      "h": "thigh+0.06"
+     },
+     "length": 0.34,
+     "width": 0.026
+    },
+    {
+     "type": "tail",
+     "from": {
+      "on": "front",
+      "x": -0.15,
+      "h": "thigh+0.06"
+     },
+     "length": 0.34,
+     "width": 0.026
+    },
+    {
+     "type": "tail",
+     "from": {
+      "on": "back",
+      "x": 0.1,
+      "h": "top-0.03"
+     },
+     "length": 0.42,
+     "width": 0.026
+    },
+    {
+     "type": "tail",
+     "from": {
+      "on": "back",
+      "x": -0.1,
+      "h": "top-0.03"
+     },
+     "length": 0.42,
+     "width": 0.026
+    }
+   ]
+  },
+  "paint": [
+   {
+    "step": "fabric",
+    "type": "nylon"
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      -0.4,
+      "top-0.04"
+     ],
+     [
+      0.4,
+      "top-0.04"
+     ]
+    ],
+    "style": "seam",
+    "colour": "#3a3a3e",
+    "width": 0.002
+   },
+   {
+    "step": "line",
+    "frame": "back",
+    "pts": [
+     [
+      -0.4,
+      "top-0.04"
+     ],
+     [
+      0.4,
+      "top-0.04"
+     ]
+    ],
+    "style": "seam",
+    "colour": "#3a3a3e",
+    "width": 0.002
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0,
+      "top-0.04"
+     ],
+     [
+      0.01,
+      "top-0.12"
+     ],
+     [
+      0,
+      "top-0.19"
+     ]
+    ],
+    "style": "stitch",
+    "colour": "#b9b5a8",
+    "width": 0.0011
+   },
+   {
+    "step": "dots",
+    "frame": "front",
+    "pts": [
+     [
+      0,
+      "top-0.02"
+     ]
+    ],
+    "r": 0.007,
+    "style": "button",
+    "colour": "#2a2a2c"
+   },
+   {
+    "step": "line",
+    "frame": "legs",
+    "pts": [
+     [
+      0,
+      -0.3
+     ],
+     [
+      0,
+      1.05
+     ]
+    ],
+    "style": "seam"
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0.165,
+      "top-0.04"
+     ],
+     [
+      0.115,
+      "top-0.2"
+     ]
+    ],
+    "style": "groove",
+    "width": 0.002,
+    "mirror": true
+   },
+   {
+    "step": "rect",
+    "frame": "back",
+    "at": [
+     0.085,
+     "top-0.13"
+    ],
+    "size": [
+     0.11,
+     0.01
+    ],
+    "style": "welt",
+    "mirror": true
+   },
+   {
+    "step": "rect",
+    "frame": "front",
+    "at": [
+     0.1,
+     "top-0.02"
+    ],
+    "size": [
+     0.01,
+     0.045
+    ],
+    "style": "patch",
+    "stitch": false,
+    "mirror": true,
+    "raise": 0.001
+   },
+   {
+    "step": "rect",
+    "frame": "back",
+    "at": [
+     0.1,
+     "top-0.02"
+    ],
+    "size": [
+     0.01,
+     0.045
+    ],
+    "style": "patch",
+    "stitch": false,
+    "mirror": true,
+    "raise": 0.001
+   },
+   {
+    "step": "panel",
+    "colour": "#c9c5b8",
+    "where": {
+     "zone": "strap"
+    }
+   },
+   {
+    "step": "line",
+    "frame": "legs",
+    "pts": [
+     [
+      -0.3,
+      0.28
+     ],
+     [
+      0.3,
+      0.28
+     ]
+    ],
+    "style": "seam"
+   },
+   {
+    "step": "line",
+    "frame": "legs",
+    "pts": [
+     [
+      -0.3,
+      0.62
+     ],
+     [
+      0.3,
+      0.62
+     ]
+    ],
+    "style": "seam"
+   },
+   {
+    "step": "rect",
+    "frame": "front",
+    "at": [
+     0.15,
+     "thigh+0.07"
+    ],
+    "size": [
+     0.03,
+     0.03
+    ],
+    "style": "buckle",
+    "colour": "#9d9ea3",
+    "mirror": true
+   },
+   {
+    "step": "distress",
+    "type": "crumple",
+    "amount": 0.12
+   }
+  ]
+ },
+ {
+  "n": 195,
+  "id": "hl-military-flight-jacket",
+  "designer": "Helmut Lang",
+  "name": "Military Flight Jacket",
+  "season": "FW1997",
+  "price": 1500,
+  "slot": "top",
+  "colour": "#3c3e31",
+  "finish": {
+   "roughness": 0.6
+  },
+  "cut": {
+   "like": "bomber",
+   "hem": "hip+0.03",
+   "cinch": 0.22,
+   "rib": 0.065,
+   "cuffCinch": 0.28,
+   "add": [
+    {
+     "type": "collar",
+     "height": 0.04,
+     "flare": 0.008
+    }
+   ]
+  },
+  "paint": [
+   {
+    "step": "fabric",
+    "type": "nylon"
+   },
+   {
+    "step": "rib",
+    "where": {
+     "zone": "body",
+     "h": [
+      "hem",
+      "hem+0.065"
+     ]
+    },
+    "gauge": 0.006,
+    "colour": "#2a301f"
+   },
+   {
+    "step": "rib",
+    "where": {
+     "zone": "sleeves",
+     "s": [
+      0.875,
+      1.3
+     ]
+    },
+    "gauge": 0.006,
+    "colour": "#2a301f"
+   },
+   {
+    "step": "rib",
+    "where": {
+     "zone": "collar"
+    },
+    "gauge": 0.006,
+    "colour": "#2a301f"
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0.022,
+      "hem+0.065"
+     ],
+     [
+      0.022,
+      "top"
+     ]
+    ],
+    "style": "seam",
+    "width": 0.0016
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0,
+      "hem"
+     ],
+     [
+      0,
+      "top"
+     ]
+    ],
+    "style": "zip",
+    "width": 0.0045,
+    "colour": "#77736a",
+    "colour2": "#111113"
+   },
+   {
+    "step": "panel",
+    "colour": "#d9661f",
+    "where": {
+     "zone": "lining"
+    }
+   },
+   {
+    "step": "rect",
+    "frame": "front",
+    "at": [
+     0.115,
+     "waist-0.02"
+    ],
+    "size": [
+     0.15,
+     0.062
+    ],
+    "style": "flap",
+    "flap": 1,
+    "rot": 24,
+    "mirror": true,
+    "snap": true,
+    "stitch": "#2a2d22"
+   },
+   {
+    "step": "rect",
+    "frame": "sleeveL",
+    "at": [
+     0,
+     0.3
+    ],
+    "size": [
+     0.085,
+     0.14
+    ],
+    "style": "pocket",
+    "flap": 0,
+    "stitch": "#2a2d22"
+   },
+   {
+    "step": "rect",
+    "frame": "sleeveL",
+    "at": [
+     -0.018,
+     0.3
+    ],
+    "size": [
+     0.008,
+     0.12
+    ],
+    "style": "zip",
+    "rot": 90,
+    "colour": "#77736a"
+   },
+   {
+    "step": "distress",
+    "type": "crumple",
+    "amount": 0.12
+   }
+  ]
+ },
+ {
+  "n": 196,
+  "id": "hl-distressed-sleeveless-top",
+  "designer": "Helmut Lang",
+  "name": "Distressed Sleeveless Top",
+  "season": "SS1999",
+  "price": 350,
+  "slot": "top",
+  "colour": "#e6e3da",
+  "finish": {
+   "roughness": 0.88
+  },
+  "cut": {
+   "like": "tank",
+   "ease": {
+    "shoulder": 0.0048,
+    "chest": 0.0144,
+    "waist": 0.024,
+    "hip": 0.024
+   },
+   "hem": "hip-0.02",
+   "armhole": 0.26,
+   "neck": {
+    "depth": 0.06,
+    "round": 0.09
+   }
+  },
+  "clear": true,
+  "paint": [
+   {
+    "step": "fabric",
+    "type": "jersey"
+   },
+   {
+    "step": "rib",
+    "where": {
+     "zone": "body"
+    },
+    "gauge": 0.0025,
+    "depth": 0.0003
+   },
+   {
+    "step": "distress",
+    "type": "holes",
+    "size": 0.01,
+    "density": 0.12
+   },
+   {
+    "step": "distress",
+    "type": "edges",
+    "amount": 0.5,
+    "colour": "#b9b5a8"
+   },
+   {
+    "step": "distress",
+    "type": "wash",
+    "amount": 0.15,
+    "colour": "#c9c5b8"
+   }
+  ]
+ },
+ {
+  "n": 197,
+  "id": "hl-latex-coated-trousers",
+  "designer": "Helmut Lang",
+  "name": "Latex-Coated Trousers",
+  "season": "FW1999",
+  "price": 900,
+  "slot": "bottom",
+  "colour": "#141416",
+  "finish": {
+   "roughness": 0.22
+  },
+  "cut": {
+   "like": "slim",
+   "ease": {
+    "waist": 0.002,
+    "seat": 0.0096,
+    "thigh": 0.0096,
+    "knee": 0.0096,
+    "hem": 0.0144
+   }
+  },
+  "paint": [
+   {
+    "step": "fabric",
+    "type": "rubber"
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      -0.4,
+      "top-0.04"
+     ],
+     [
+      0.4,
+      "top-0.04"
+     ]
+    ],
+    "style": "seam",
+    "colour": "#3a3a3e",
+    "width": 0.002
+   },
+   {
+    "step": "line",
+    "frame": "back",
+    "pts": [
+     [
+      -0.4,
+      "top-0.04"
+     ],
+     [
+      0.4,
+      "top-0.04"
+     ]
+    ],
+    "style": "seam",
+    "colour": "#3a3a3e",
+    "width": 0.002
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0,
+      "top-0.04"
+     ],
+     [
+      0.01,
+      "top-0.12"
+     ],
+     [
+      0,
+      "top-0.19"
+     ]
+    ],
+    "style": "stitch",
+    "colour": "#2a2a2d",
+    "width": 0.0011
+   },
+   {
+    "step": "dots",
+    "frame": "front",
+    "pts": [
+     [
+      0,
+      "top-0.02"
+     ]
+    ],
+    "r": 0.007,
+    "style": "button",
+    "colour": "#2a2a2c"
+   },
+   {
+    "step": "line",
+    "frame": "legs",
+    "pts": [
+     [
+      0,
+      -0.3
+     ],
+     [
+      0,
+      1.05
+     ]
+    ],
+    "style": "seam"
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0.165,
+      "top-0.04"
+     ],
+     [
+      0.115,
+      "top-0.2"
+     ]
+    ],
+    "style": "groove",
+    "width": 0.002,
+    "mirror": true
+   },
+   {
+    "step": "rect",
+    "frame": "back",
+    "at": [
+     0.085,
+     "top-0.13"
+    ],
+    "size": [
+     0.11,
+     0.01
+    ],
+    "style": "welt",
+    "mirror": true
+   },
+   {
+    "step": "distress",
+    "type": "folds",
+    "freq": 28,
+    "depth": 0.0025,
+    "where": {
+     "zone": "legs",
+     "s": [
+      0.4,
+      1.1
+     ]
+    }
+   }
+  ]
+ },
+ {
+  "n": 198,
+  "id": "hl-transparent-layered-top",
+  "designer": "Helmut Lang",
+  "name": "Transparent Layered Top",
+  "season": "SS1996",
+  "price": 500,
+  "slot": "top",
+  "colour": "#d9dcdc",
+  "finish": {
+   "roughness": 0.5
+  },
+  "cut": {
+   "like": "longsleeve",
+   "ease": {
+    "shoulder": 0.0054,
+    "chest": 0.0162,
+    "waist": 0.027,
+    "hip": 0.027,
+    "sleeve": 0.0115,
+    "cuff": 0.0076
+   },
+   "hem": "hip-0.04"
+  },
+  "under": {
+   "colour": "#e8e5dc",
+   "cut": {
+    "like": "tank",
+    "overWaist": false,
+    "hem": "hip+0.03",
+    "armhole": 0.22,
+    "neck": {
+     "depth": 0.035,
+     "round": 0.075
+    },
+    "ease": {
+     "shoulder": 0.002,
+     "chest": 0.004,
+     "waist": 0.004,
+     "hip": 0.004
+    }
+   },
+   "paint": [
+    {
+     "step": "fabric",
+     "type": "jersey"
+    }
+   ]
+  },
+  "sheer": true,
+  "paint": [
+   {
+    "step": "fabric",
+    "type": "mesh"
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0.09,
+      "hem"
+     ],
+     [
+      0.08,
+      "chest+0.08"
+     ]
+    ],
+    "style": "seam",
+    "mirror": true
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      -0.4,
+      "hem+0.015"
+     ],
+     [
+      0.4,
+      "hem+0.015"
+     ]
+    ],
+    "style": "stitch",
+    "colour": "#b9bcbc",
+    "width": 0.001
+   },
+   {
+    "step": "line",
+    "frame": "back",
+    "pts": [
+     [
+      -0.4,
+      "hem+0.015"
+     ],
+     [
+      0.4,
+      "hem+0.015"
+     ]
+    ],
+    "style": "stitch",
+    "colour": "#b9bcbc",
+    "width": 0.001
+   }
+  ]
+ },
+ {
+  "n": 199,
+  "id": "hl-deconstructed-tailored-blazer",
+  "designer": "Helmut Lang",
+  "name": "Deconstructed Tailored Blazer",
+  "season": "SS1998",
+  "price": 800,
+  "slot": "top",
+  "colour": "#1b1b1d",
+  "finish": {
+   "roughness": 0.95
+  },
+  "cut": {
+   "like": "blazer",
+   "ease": {
+    "shoulder": 0.009,
+    "chest": 0.0198,
+    "waist": 0.027,
+    "hip": 0.0315,
+    "sleeve": 0.0115,
+    "cuff": 0.0105
+   },
+   "hem": "hip-0.08",
+   "add": [
+    {
+     "type": "hem",
+     "length": 0.03,
+     "flare": 0,
+     "zone": "lining"
+    }
+   ]
+  },
+  "under": {
+   "colour": "#e6e3da",
+   "cut": {
+    "like": "tee",
+    "hem": "hip+0.03",
+    "overWaist": false,
+    "ease": {
+     "shoulder": 0.004,
+     "chest": 0.01,
+     "waist": 0.016,
+     "hip": 0.016,
+     "sleeve": 0.012,
+     "cuff": 0.014
+    }
+   },
+   "paint": [
+    {
+     "step": "fabric",
+     "type": "jersey"
+    }
+   ]
+  },
+  "note": "Its seams are tacked in white basting thread and its lining hangs below the hem.",
+  "paint": [
+   {
+    "step": "fabric",
+    "type": "wool"
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0.012,
+      "neck-0.255"
+     ],
+     [
+      0.085,
+      "chest+0.085"
+     ],
+     [
+      0.07,
+      "shoulder+0.005"
+     ]
+    ],
+    "style": "groove",
+    "width": 0.002,
+    "mirror": true
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0.085,
+      "chest+0.085"
+     ],
+     [
+      0.062,
+      "chest+0.105"
+     ]
+    ],
+    "style": "groove",
+    "width": 0.002,
+    "mirror": true
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0.012,
+      "neck-0.255"
+     ],
+     [
+      0.03,
+      "hem+0.04"
+     ],
+     [
+      0.07,
+      "hem"
+     ]
+    ],
+    "style": "seam"
+   },
+   {
+    "step": "dots",
+    "frame": "front",
+    "pts": [
+     [
+      0.012,
+      "waist-0.02+0"
+     ],
+     [
+      0.012,
+      "waist-0.02+0.075"
+     ]
+    ],
+    "r": 0.009,
+    "style": "button",
+    "colour": "#111113"
+   },
+   {
+    "step": "rect",
+    "frame": "front",
+    "at": [
+     0.125,
+     "hip+0.03"
+    ],
+    "size": [
+     0.13,
+     0.012
+    ],
+    "style": "welt",
+    "mirror": true
+   },
+   {
+    "step": "rect",
+    "frame": "front",
+    "at": [
+     0.1,
+     "chest+0.03"
+    ],
+    "size": [
+     0.085,
+     0.012
+    ],
+    "style": "welt"
+   },
+   {
+    "step": "dots",
+    "frame": "sleeves",
+    "from": [
+     -0.03,
+     0.9
+    ],
+    "to": [
+     -0.03,
+     0.98
+    ],
+    "count": 4,
+    "r": 0.0045,
+    "style": "button",
+    "colour": "#111113"
+   },
+   {
+    "step": "line",
+    "frame": "back",
+    "pts": [
+     [
+      0,
+      "hem"
+     ],
+     [
+      0,
+      "hip+0.02"
+     ]
+    ],
+    "style": "groove",
+    "width": 0.002
+   },
+   {
+    "step": "panel",
+    "colour": "#e6e3da",
+    "where": {
+     "zone": "lining"
+    }
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0.11,
+      "hem"
+     ],
+     [
+      0.1,
+      "chest+0.06"
+     ]
+    ],
+    "style": "stitch",
+    "colour": "#e6e3da",
+    "width": 0.0014,
+    "mirror": true
+   },
+   {
+    "step": "line",
+    "frame": "back",
+    "pts": [
+     [
+      0,
+      "hem"
+     ],
+     [
+      0,
+      "top"
+     ]
+    ],
+    "style": "stitch",
+    "colour": "#e6e3da",
+    "width": 0.0014
+   },
+   {
+    "step": "line",
+    "frame": "sleeves",
+    "pts": [
+     [
+      0,
+      0.05
+     ],
+     [
+      0,
+      1.0
+     ]
+    ],
+    "style": "stitch",
+    "colour": "#e6e3da",
+    "width": 0.0014
+   },
+   {
+    "step": "distress",
+    "type": "edges",
+    "amount": 0.3,
+    "colour": "#77777a"
+   }
+  ]
+ },
+ {
+  "n": 200,
+  "id": "hl-military-utility-vest",
+  "designer": "Helmut Lang",
+  "name": "Military Utility Vest",
+  "season": "SS1999",
+  "price": 900,
+  "slot": "top",
+  "colour": "#1b1b1d",
+  "finish": {
+   "roughness": 0.6
+  },
+  "cut": {
+   "like": "vest",
+   "hem": "hip+0.04",
+   "armhole": 0.34,
+   "neck": {
+    "v": 0.14,
+    "width": 0.06,
+    "depth": 0.03
+   }
+  },
+  "under": {
+   "colour": "#e6e3da",
+   "cut": {
+    "like": "tee",
+    "hem": "hip+0.03",
+    "overWaist": false,
+    "ease": {
+     "shoulder": 0.004,
+     "chest": 0.01,
+     "waist": 0.016,
+     "hip": 0.016,
+     "sleeve": 0.012,
+     "cuff": 0.014
+    }
+   },
+   "paint": [
+    {
+     "step": "fabric",
+     "type": "jersey"
+    }
+   ]
+  },
+  "paint": [
+   {
+    "step": "fabric",
+    "type": "nylon"
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0,
+      "hem"
+     ],
+     [
+      0,
+      "top"
+     ]
+    ],
+    "style": "zip",
+    "width": 0.0045,
+    "colour": "#9d9ea3",
+    "colour2": "#111113"
+   },
+   {
+    "step": "rect",
+    "frame": "front",
+    "at": [
+     0.115,
+     "hip+0.09"
+    ],
+    "size": [
+     0.12,
+     0.12
+    ],
+    "style": "flap",
+    "flap": 0.3,
+    "stitch": "#3a3a3c",
+    "mirror": true,
+    "pleat": true,
+    "raise": 0.002
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      -0.4,
+      "hem+0.015"
+     ],
+     [
+      0.4,
+      "hem+0.015"
+     ]
+    ],
+    "style": "stitch",
+    "colour": "#3a3a3c",
+    "width": 0.001
+   },
+   {
+    "step": "line",
+    "frame": "back",
+    "pts": [
+     [
+      -0.4,
+      "hem+0.015"
+     ],
+     [
+      0.4,
+      "hem+0.015"
+     ]
+    ],
+    "style": "stitch",
+    "colour": "#3a3a3c",
+    "width": 0.001
+   },
+   {
+    "step": "rect",
+    "frame": "front",
+    "at": [
+     0.1,
+     "chest+0.01"
+    ],
+    "size": [
+     0.09,
+     0.09
+    ],
+    "style": "flap",
+    "flap": 0.35,
+    "stitch": "#3a3a3c",
+    "mirror": true,
+    "pleat": true,
+    "raise": 0.002
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      -0.4,
+      "waist-0.02"
+     ],
+     [
+      0.4,
+      "waist-0.02"
+     ]
+    ],
+    "style": "strap",
+    "colour": "#141416",
+    "width": 0.03
+   },
+   {
+    "step": "line",
+    "frame": "back",
+    "pts": [
+     [
+      -0.4,
+      "waist-0.02"
+     ],
+     [
+      0.4,
+      "waist-0.02"
+     ]
+    ],
+    "style": "strap",
+    "colour": "#141416",
+    "width": 0.03
+   },
+   {
+    "step": "rect",
+    "frame": "front",
+    "at": [
+     0.04,
+     "waist-0.02"
+    ],
+    "size": [
+     0.04,
+     0.04
+    ],
+    "style": "buckle",
+    "colour": "#9d9ea3"
+   }
+  ]
+ }
+]

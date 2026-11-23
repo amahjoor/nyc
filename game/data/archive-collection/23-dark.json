@@ -1,0 +1,2726 @@
+[
+ {
+  "n": 444,
+  "id": "ad-leather-waistcoat",
+  "designer": "Ann Demeulemeester",
+  "name": "Leather Waistcoat",
+  "season": "FW2008",
+  "price": 600,
+  "slot": "top",
+  "colour": "#1c1c1e",
+  "finish": {
+   "roughness": 0.42
+  },
+  "cut": {
+   "like": "vest",
+   "ease": {
+    "shoulder": 0.012,
+    "chest": 0.021,
+    "waist": 0.027,
+    "hip": 0.027
+   },
+   "hem": "hip+0.0",
+   "armhole": 0.3,
+   "hemCurve": -0.0,
+   "neck": {
+    "v": 0.22,
+    "width": 0.06,
+    "depth": 0.03
+   }
+  },
+  "under": {
+   "colour": "#e8e5dc",
+   "cut": {
+    "like": "shirt",
+    "hem": "hip+0.03",
+    "hemCurve": 0,
+    "overWaist": false,
+    "ease": {
+     "sleeve": 0.016,
+     "cuff": 0.012
+    }
+   },
+   "paint": [
+    {
+     "step": "fabric",
+     "type": "plain"
+    },
+    {
+     "step": "line",
+     "frame": "front",
+     "pts": [
+      [
+       0.012,
+       "hem"
+      ],
+      [
+       0.012,
+       "top"
+      ]
+     ],
+     "style": "seam",
+     "width": 0.0012
+    },
+    {
+     "step": "dots",
+     "frame": "front",
+     "from": [
+      0,
+      "hem+0.06"
+     ],
+     "to": [
+      0,
+      "neck-0.05"
+     ],
+     "count": 6,
+     "r": 0.0045,
+     "style": "button",
+     "colour": "#d8d5cc"
+    }
+   ]
+  },
+  "note": "Worn over a loose white shirt.",
+  "paint": [
+   {
+    "step": "fabric",
+    "type": "leather"
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0.014,
+      "hem"
+     ],
+     [
+      0.014,
+      "top"
+     ]
+    ],
+    "style": "seam"
+   },
+   {
+    "step": "dots",
+    "frame": "front",
+    "from": [
+     0,
+     "hem+0.05"
+    ],
+    "to": [
+     0,
+     "chest"
+    ],
+    "count": 4,
+    "r": 0.007,
+    "style": "button",
+    "colour": "#0f0f10"
+   },
+   {
+    "step": "rect",
+    "frame": "front",
+    "at": [
+     0.11,
+     "hip+0.07"
+    ],
+    "size": [
+     0.1,
+     0.012
+    ],
+    "style": "welt",
+    "mirror": true
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      -0.4,
+      "hem+0.015"
+     ],
+     [
+      0.4,
+      "hem+0.015"
+     ]
+    ],
+    "style": "stitch",
+    "colour": "#2c2c2f",
+    "width": 0.001
+   },
+   {
+    "step": "line",
+    "frame": "back",
+    "pts": [
+     [
+      -0.4,
+      "hem+0.015"
+     ],
+     [
+      0.4,
+      "hem+0.015"
+     ]
+    ],
+    "style": "stitch",
+    "colour": "#2c2c2f",
+    "width": 0.001
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0.085,
+      "hem"
+     ],
+     [
+      0.07650000000000001,
+      "chest"
+     ]
+    ],
+    "style": "seam",
+    "mirror": true
+   },
+   {
+    "step": "line",
+    "frame": "back",
+    "pts": [
+     [
+      -0.4,
+      "waist-0.03"
+     ],
+     [
+      0.4,
+      "waist-0.03"
+     ]
+    ],
+    "style": "strap",
+    "colour": "#141416",
+    "width": 0.02
+   },
+   {
+    "step": "rect",
+    "frame": "back",
+    "at": [
+     0,
+     "waist-0.03"
+    ],
+    "size": [
+     0.03,
+     0.03
+    ],
+    "style": "buckle",
+    "colour": "#8a8b8e"
+   },
+   {
+    "step": "distress",
+    "type": "crumple",
+    "amount": 0.14
+   }
+  ]
+ },
+ {
+  "n": 445,
+  "id": "ad-longline-wool-coat",
+  "designer": "Ann Demeulemeester",
+  "name": "Longline Wool Coat",
+  "season": "FW2011",
+  "price": 900,
+  "slot": "top",
+  "colour": "#19191b",
+  "finish": {
+   "roughness": 0.95
+  },
+  "cut": {
+   "like": "coat",
+   "ease": {
+    "shoulder": 0.0072,
+    "chest": 0.0225,
+    "waist": 0.0315,
+    "hip": 0.0315,
+    "sleeve": 0.0134,
+    "cuff": 0.0134
+   },
+   "hem": "calf+0.06",
+   "waist": 0.05,
+   "flare": 0.04,
+   "neck": {
+    "v": 0.26,
+    "width": 0.07,
+    "depth": 0.03
+   },
+   "add": [
+    {
+     "type": "collar",
+     "style": "fold",
+     "height": 0.06,
+     "gap": 0.03,
+     "points": 0.9
+    }
+   ]
+  },
+  "under": {
+   "colour": "#e8e5dc",
+   "cut": {
+    "like": "tank",
+    "overWaist": false,
+    "hem": "hip+0.03",
+    "armhole": 0.22,
+    "neck": {
+     "depth": 0.035,
+     "round": 0.075
+    },
+    "ease": {
+     "shoulder": 0.002,
+     "chest": 0.004,
+     "waist": 0.004,
+     "hip": 0.004
+    }
+   },
+   "paint": [
+    {
+     "step": "fabric",
+     "type": "jersey"
+    }
+   ]
+  },
+  "paint": [
+   {
+    "step": "fabric",
+    "type": "wool"
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0.014,
+      "neck-0.295"
+     ],
+     [
+      0.085,
+      "chest+0.085"
+     ],
+     [
+      0.07,
+      "shoulder+0.005"
+     ]
+    ],
+    "style": "groove",
+    "width": 0.002,
+    "mirror": true
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0.085,
+      "chest+0.085"
+     ],
+     [
+      0.062,
+      "chest+0.105"
+     ]
+    ],
+    "style": "groove",
+    "width": 0.002,
+    "mirror": true
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0.014,
+      "neck-0.26"
+     ],
+     [
+      0.014,
+      "hem"
+     ]
+    ],
+    "style": "seam"
+   },
+   {
+    "step": "dots",
+    "frame": "front",
+    "pts": [
+     [
+      0,
+      "waist-0.0+0"
+     ],
+     [
+      0,
+      "waist-0.0+0.1"
+     ]
+    ],
+    "r": 0.011,
+    "style": "button",
+    "colour": "#101012"
+   },
+   {
+    "step": "rect",
+    "frame": "front",
+    "at": [
+     0.13,
+     "hip-0.02"
+    ],
+    "size": [
+     0.15,
+     0.014
+    ],
+    "style": "welt",
+    "rot": 70,
+    "mirror": true
+   },
+   {
+    "step": "line",
+    "frame": "back",
+    "pts": [
+     [
+      0,
+      "hem"
+     ],
+     [
+      0,
+      "hip-0.05"
+     ]
+    ],
+    "style": "groove",
+    "width": 0.002
+   },
+   {
+    "step": "line",
+    "frame": "back",
+    "pts": [
+     [
+      -0.25,
+      "shoulder-0.05"
+     ],
+     [
+      0.25,
+      "shoulder-0.05"
+     ]
+    ],
+    "style": "seam",
+    "width": 0.0015
+   },
+   {
+    "step": "line",
+    "frame": "back",
+    "pts": [
+     [
+      0,
+      "hem"
+     ],
+     [
+      0,
+      "waist"
+     ]
+    ],
+    "style": "groove",
+    "width": 0.003
+   },
+   {
+    "step": "distress",
+    "type": "folds",
+    "freq": 10,
+    "depth": 0.005,
+    "where": {
+     "zone": "body",
+     "h": [
+      "hem",
+      "hip"
+     ]
+    }
+   }
+  ]
+ },
+ {
+  "n": 446,
+  "id": "ad-asymmetric-cotton-shirt",
+  "designer": "Ann Demeulemeester",
+  "name": "Asymmetric Cotton Shirt",
+  "season": "SS2006",
+  "price": 300,
+  "slot": "top",
+  "colour": "#e8e5dc",
+  "finish": {
+   "roughness": 0.8
+  },
+  "cut": {
+   "like": "shirt",
+   "ease": {
+    "shoulder": 0.0078,
+    "chest": 0.026,
+    "waist": 0.0455,
+    "hip": 0.0455,
+    "sleeve": 0.0148,
+    "cuff": 0.0102
+   },
+   "hem": "crotch-0.07",
+   "hemSlant": 0.08,
+   "hemCurve": 0.02,
+   "neck": {
+    "y": 0,
+    "depth": 0.03,
+    "v": 0.14,
+    "width": 0.05
+   },
+   "add": [
+    {
+     "type": "collar",
+     "style": "fold",
+     "height": 0.04,
+     "gap": 0.05,
+     "points": 0.5,
+     "only": true
+    },
+    {
+     "type": "tail",
+     "from": {
+      "on": "front",
+      "x": 0.03,
+      "h": "chest-0.02"
+     },
+     "length": 0.3,
+     "width": 0.008
+    },
+    {
+     "type": "tail",
+     "from": {
+      "on": "front",
+      "x": -0.03,
+      "h": "chest-0.02"
+     },
+     "length": 0.26,
+     "width": 0.008
+    }
+   ]
+  },
+  "note": "Open at the throat, with two black ribbons hanging from the collar.",
+  "paint": [
+   {
+    "step": "fabric",
+    "type": "plain"
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0.016,
+      "hem"
+     ],
+     [
+      0.016,
+      "top"
+     ]
+    ],
+    "style": "seam",
+    "width": 0.0014
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      -0.016,
+      "hem"
+     ],
+     [
+      -0.016,
+      "top"
+     ]
+    ],
+    "style": "stitch",
+    "width": 0.001,
+    "colour": "#cfcabd"
+   },
+   {
+    "step": "dots",
+    "frame": "front",
+    "from": [
+     0,
+     "hem+0.06"
+    ],
+    "to": [
+     0,
+     "chest-0.06"
+    ],
+    "count": 5,
+    "r": 0.0048,
+    "style": "button",
+    "colour": "#d9d6cc"
+   },
+   {
+    "step": "line",
+    "frame": "back",
+    "pts": [
+     [
+      -0.3,
+      "shoulder-0.03"
+     ],
+     [
+      0.3,
+      "shoulder-0.03"
+     ]
+    ],
+    "style": "seam",
+    "width": 0.0014
+   },
+   {
+    "step": "line",
+    "frame": "sleeves",
+    "pts": [
+     [
+      -0.3,
+      0.92
+     ],
+     [
+      0.3,
+      0.92
+     ]
+    ],
+    "style": "seam",
+    "width": 0.0014
+   },
+   {
+    "step": "dots",
+    "frame": "sleeves",
+    "pts": [
+     [
+      -0.03,
+      0.96
+     ]
+    ],
+    "r": 0.0045,
+    "style": "button",
+    "colour": "#d9d6cc"
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      -0.4,
+      "hem+0.012"
+     ],
+     [
+      0.4,
+      "hem+0.012"
+     ]
+    ],
+    "style": "stitch",
+    "colour": "#cfcabd",
+    "width": 0.001
+   },
+   {
+    "step": "line",
+    "frame": "back",
+    "pts": [
+     [
+      -0.4,
+      "hem+0.012"
+     ],
+     [
+      0.4,
+      "hem+0.012"
+     ]
+    ],
+    "style": "stitch",
+    "colour": "#cfcabd",
+    "width": 0.001
+   },
+   {
+    "step": "panel",
+    "colour": "#19191b",
+    "where": {
+     "zone": "strap"
+    }
+   },
+   {
+    "step": "distress",
+    "type": "folds",
+    "amount": 0.4
+   },
+   {
+    "step": "distress",
+    "type": "shade",
+    "amount": 0.3
+   }
+  ]
+ },
+ {
+  "n": 447,
+  "id": "ad-lace-up-leather-trousers",
+  "designer": "Ann Demeulemeester",
+  "name": "Lace-Up Leather Trousers",
+  "season": "FW2009",
+  "price": 900,
+  "slot": "bottom",
+  "colour": "#1c1c1e",
+  "finish": {
+   "roughness": 0.42
+  },
+  "cut": {
+   "like": "slim",
+   "ease": {
+    "waist": 0.002,
+    "seat": 0.0096,
+    "thigh": 0.0096,
+    "knee": 0.0096,
+    "hem": 0.0144
+   }
+  },
+  "paint": [
+   {
+    "step": "fabric",
+    "type": "leather"
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      -0.4,
+      "top-0.04"
+     ],
+     [
+      0.4,
+      "top-0.04"
+     ]
+    ],
+    "style": "seam",
+    "colour": "#3a3a3e",
+    "width": 0.002
+   },
+   {
+    "step": "line",
+    "frame": "back",
+    "pts": [
+     [
+      -0.4,
+      "top-0.04"
+     ],
+     [
+      0.4,
+      "top-0.04"
+     ]
+    ],
+    "style": "seam",
+    "colour": "#3a3a3e",
+    "width": 0.002
+   },
+   {
+    "step": "laces",
+    "frame": "front",
+    "from": [
+     0,
+     "top-0.02"
+    ],
+    "to": [
+     0,
+     "top-0.18"
+    ],
+    "rows": 6,
+    "width": 0.03,
+    "colour": "#2a2a2d",
+    "eyelets": "#8a8b8e"
+   },
+   {
+    "step": "laces",
+    "frame": "legs",
+    "from": [
+     0,
+     0.55
+    ],
+    "to": [
+     0,
+     1.0
+    ],
+    "rows": 12,
+    "width": 0.03,
+    "colour": "#2a2a2d",
+    "eyelets": "#8a8b8e"
+   },
+   {
+    "step": "line",
+    "frame": "legs",
+    "pts": [
+     [
+      0,
+      -0.3
+     ],
+     [
+      0,
+      0.55
+     ]
+    ],
+    "style": "seam"
+   },
+   {
+    "step": "distress",
+    "type": "crumple",
+    "amount": 0.16
+   },
+   {
+    "step": "distress",
+    "type": "folds",
+    "freq": 28,
+    "depth": 0.002,
+    "where": {
+     "zone": "legs",
+     "s": [
+      0.5,
+      1.1
+     ]
+    }
+   }
+  ]
+ },
+ {
+  "n": 448,
+  "id": "ad-draped-silk-vest",
+  "designer": "Ann Demeulemeester",
+  "name": "Draped Silk Vest",
+  "season": "SS2010",
+  "price": 350,
+  "slot": "top",
+  "colour": "#1b1b1d",
+  "finish": {
+   "roughness": 0.45
+  },
+  "cut": {
+   "like": "vest",
+   "hem": "crotch-0.06",
+   "hemSlant": 0.1,
+   "armhole": 0.3,
+   "hang": 0.8,
+   "neck": {
+    "v": 0.3,
+    "width": 0.06,
+    "depth": 0.03
+   },
+   "add": [
+    {
+     "type": "lip"
+    }
+   ]
+  },
+  "under": {
+   "colour": "#e8e5dc",
+   "cut": {
+    "like": "tank",
+    "overWaist": false,
+    "hem": "hip+0.03",
+    "armhole": 0.22,
+    "neck": {
+     "depth": 0.035,
+     "round": 0.075
+    },
+    "ease": {
+     "shoulder": 0.002,
+     "chest": 0.004,
+     "waist": 0.004,
+     "hip": 0.004
+    }
+   },
+   "paint": [
+    {
+     "step": "fabric",
+     "type": "jersey"
+    }
+   ]
+  },
+  "paint": [
+   {
+    "step": "fabric",
+    "type": "satin"
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0.02,
+      "hem"
+     ],
+     [
+      0.03,
+      "neck-0.3"
+     ]
+    ],
+    "style": "groove",
+    "width": 0.003,
+    "mirror": true
+   },
+   {
+    "step": "distress",
+    "type": "folds",
+    "freq": 12,
+    "depth": 0.006
+   }
+  ]
+ },
+ {
+  "n": 450,
+  "id": "ccp-scarstitch-trousers",
+  "designer": "Carol Christian Poell",
+  "name": "Scarstitch Trousers",
+  "season": "FW2004",
+  "price": 1500,
+  "slot": "bottom",
+  "colour": "#1e1d1c",
+  "finish": {
+   "roughness": 0.5
+  },
+  "cut": {
+   "like": "slim",
+   "ease": {
+    "waist": 0.002,
+    "seat": 0.0104,
+    "thigh": 0.0104,
+    "knee": 0.0104,
+    "hem": 0.0156
+   }
+  },
+  "note": "Seams closed with a raised surgical stitch, like scar tissue.",
+  "paint": [
+   {
+    "step": "fabric",
+    "type": "leather"
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      -0.4,
+      "top-0.04"
+     ],
+     [
+      0.4,
+      "top-0.04"
+     ]
+    ],
+    "style": "seam",
+    "colour": "#3a3a3e",
+    "width": 0.002
+   },
+   {
+    "step": "line",
+    "frame": "back",
+    "pts": [
+     [
+      -0.4,
+      "top-0.04"
+     ],
+     [
+      0.4,
+      "top-0.04"
+     ]
+    ],
+    "style": "seam",
+    "colour": "#3a3a3e",
+    "width": 0.002
+   },
+   {
+    "step": "line",
+    "frame": "legs",
+    "pts": [
+     [
+      0,
+      -0.05
+     ],
+     [
+      0.01,
+      0.5
+     ],
+     [
+      0,
+      1.05
+     ]
+    ],
+    "style": "ridge",
+    "width": 0.004,
+    "depth": 0.002,
+    "colour": "#2a2826"
+   },
+   {
+    "step": "line",
+    "frame": "legs",
+    "pts": [
+     [
+      0,
+      -0.05
+     ],
+     [
+      0.01,
+      0.5
+     ],
+     [
+      0,
+      1.05
+     ]
+    ],
+    "style": "stitch",
+    "width": 0.0018,
+    "colour": "#55504a"
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0.07,
+      "top-0.05"
+     ],
+     [
+      0.1,
+      "knee+0.05"
+     ],
+     [
+      0.07,
+      "hem"
+     ]
+    ],
+    "style": "ridge",
+    "width": 0.004,
+    "depth": 0.002,
+    "colour": "#2a2826",
+    "mirror": true
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0.07,
+      "top-0.05"
+     ],
+     [
+      0.1,
+      "knee+0.05"
+     ],
+     [
+      0.07,
+      "hem"
+     ]
+    ],
+    "style": "stitch",
+    "width": 0.0018,
+    "colour": "#55504a",
+    "mirror": true
+   },
+   {
+    "step": "line",
+    "frame": "back",
+    "pts": [
+     [
+      0.08,
+      "top-0.06"
+     ],
+     [
+      0.06,
+      "knee"
+     ],
+     [
+      0.09,
+      "hem"
+     ]
+    ],
+    "style": "ridge",
+    "width": 0.004,
+    "depth": 0.002,
+    "colour": "#2a2826",
+    "mirror": true
+   },
+   {
+    "step": "line",
+    "frame": "back",
+    "pts": [
+     [
+      0.08,
+      "top-0.06"
+     ],
+     [
+      0.06,
+      "knee"
+     ],
+     [
+      0.09,
+      "hem"
+     ]
+    ],
+    "style": "stitch",
+    "width": 0.0018,
+    "colour": "#55504a",
+    "mirror": true
+   },
+   {
+    "step": "distress",
+    "type": "crumple",
+    "amount": 0.2
+   },
+   {
+    "step": "distress",
+    "type": "edges",
+    "amount": 0.3,
+    "colour": "#4a4642"
+   }
+  ]
+ },
+ {
+  "n": 451,
+  "id": "ccp-dead-end-leather-jacket",
+  "designer": "Carol Christian Poell",
+  "name": "Dead-End Leather Jacket",
+  "season": "FW2003",
+  "price": 3600,
+  "slot": "top",
+  "colour": "#1e1d1c",
+  "finish": {
+   "roughness": 0.5
+  },
+  "cut": {
+   "like": "biker",
+   "ease": {
+    "shoulder": 0.0068,
+    "chest": 0.0153,
+    "waist": 0.0187,
+    "hip": 0.0187,
+    "sleeve": 0.0084,
+    "cuff": 0.0065
+   },
+   "hem": "hip+0.06",
+   "add": [
+    {
+     "type": "collar",
+     "height": 0.04,
+     "flare": 0.004,
+     "gap": 0.012,
+     "only": true
+    },
+    {
+     "type": "lip"
+    },
+    {
+     "type": "cuff",
+     "length": 0.05,
+     "flare": 0
+    }
+   ]
+  },
+  "note": "The pockets and the cuffs are sewn shut: dead ends.",
+  "paint": [
+   {
+    "step": "fabric",
+    "type": "leather"
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      -0.02,
+      "hem"
+     ],
+     [
+      0.0,
+      "waist"
+     ],
+     [
+      0.03,
+      "top"
+     ]
+    ],
+    "style": "zip",
+    "width": 0.005,
+    "colour": "#55565a",
+    "colour2": "#141414"
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0.1,
+      "hem"
+     ],
+     [
+      0.09,
+      "chest+0.08"
+     ]
+    ],
+    "style": "ridge",
+    "width": 0.004,
+    "depth": 0.002,
+    "colour": "#2a2826",
+    "mirror": true
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0.1,
+      "hem"
+     ],
+     [
+      0.09,
+      "chest+0.08"
+     ]
+    ],
+    "style": "stitch",
+    "width": 0.0018,
+    "colour": "#55504a",
+    "mirror": true
+   },
+   {
+    "step": "line",
+    "frame": "back",
+    "pts": [
+     [
+      0.09,
+      "hem"
+     ],
+     [
+      0.07,
+      "chest+0.06"
+     ]
+    ],
+    "style": "ridge",
+    "width": 0.004,
+    "depth": 0.002,
+    "colour": "#2a2826",
+    "mirror": true
+   },
+   {
+    "step": "line",
+    "frame": "back",
+    "pts": [
+     [
+      0.09,
+      "hem"
+     ],
+     [
+      0.07,
+      "chest+0.06"
+     ]
+    ],
+    "style": "stitch",
+    "width": 0.0018,
+    "colour": "#55504a",
+    "mirror": true
+   },
+   {
+    "step": "line",
+    "frame": "sleeves",
+    "pts": [
+     [
+      0,
+      0.0
+     ],
+     [
+      0.02,
+      1.1
+     ]
+    ],
+    "style": "ridge",
+    "width": 0.004,
+    "depth": 0.002,
+    "colour": "#2a2826"
+   },
+   {
+    "step": "line",
+    "frame": "sleeves",
+    "pts": [
+     [
+      0,
+      0.0
+     ],
+     [
+      0.02,
+      1.1
+     ]
+    ],
+    "style": "stitch",
+    "width": 0.0018,
+    "colour": "#55504a"
+   },
+   {
+    "step": "rect",
+    "frame": "front",
+    "at": [
+     0.12,
+     "waist+0.0"
+    ],
+    "size": [
+     0.1,
+     0.012
+    ],
+    "style": "welt",
+    "rot": 80,
+    "mirror": true
+   },
+   {
+    "step": "distress",
+    "type": "crumple",
+    "amount": 0.22
+   },
+   {
+    "step": "distress",
+    "type": "edges",
+    "amount": 0.3,
+    "colour": "#4a4642"
+   }
+  ]
+ },
+ {
+  "n": 453,
+  "id": "ccp-object-dyed-leather-trousers",
+  "designer": "Carol Christian Poell",
+  "name": "Object-Dyed Leather Trousers",
+  "season": "SS2005",
+  "price": 2500,
+  "slot": "bottom",
+  "colour": "#3a3430",
+  "finish": {
+   "roughness": 0.55
+  },
+  "cut": {
+   "like": "slim",
+   "ease": {
+    "waist": 0.002,
+    "seat": 0.0112,
+    "thigh": 0.0112,
+    "knee": 0.0112,
+    "hem": 0.0168
+   }
+  },
+  "note": "Sewn first and dyed afterwards, so the hide shrinks and mottles round every seam.",
+  "paint": [
+   {
+    "step": "fabric",
+    "type": "leather"
+   },
+   {
+    "step": "pattern",
+    "type": "clouds",
+    "colours": [
+     "#1e1b19",
+     "#5c534a"
+    ],
+    "freq": 12,
+    "amount": 0.7
+   },
+   {
+    "step": "line",
+    "frame": "legs",
+    "pts": [
+     [
+      0,
+      -0.3
+     ],
+     [
+      0,
+      1.05
+     ]
+    ],
+    "style": "twin",
+    "colour": "#1e1b19",
+    "width": 0.0011,
+    "gap": 0.006
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      -0.4,
+      "top-0.04"
+     ],
+     [
+      0.4,
+      "top-0.04"
+     ]
+    ],
+    "style": "twin",
+    "colour": "#1e1b19",
+    "width": 0.0011,
+    "gap": 0.034
+   },
+   {
+    "step": "line",
+    "frame": "back",
+    "pts": [
+     [
+      -0.4,
+      "top-0.04"
+     ],
+     [
+      0.4,
+      "top-0.04"
+     ]
+    ],
+    "style": "twin",
+    "colour": "#1e1b19",
+    "width": 0.0011,
+    "gap": 0.034
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0.0,
+      "top-0.04"
+     ],
+     [
+      0.004,
+      "top-0.1"
+     ],
+     [
+      0.03,
+      "top-0.17"
+     ],
+     [
+      0.0,
+      "top-0.19"
+     ]
+    ],
+    "style": "twin",
+    "colour": "#1e1b19",
+    "width": 0.0011
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0.06,
+      "top-0.045"
+     ],
+     [
+      0.09,
+      "top-0.11"
+     ],
+     [
+      0.17,
+      "top-0.12"
+     ]
+    ],
+    "style": "twin",
+    "colour": "#1e1b19",
+    "width": 0.0011,
+    "mirror": true
+   },
+   {
+    "step": "dots",
+    "frame": "front",
+    "pts": [
+     [
+      0,
+      "top-0.02"
+     ]
+    ],
+    "r": 0.008,
+    "style": "stud",
+    "colour": "#77736a"
+   },
+   {
+    "step": "dots",
+    "frame": "front",
+    "pts": [
+     [
+      0.062,
+      "top-0.05"
+     ],
+     [
+      0.168,
+      "top-0.118"
+     ]
+    ],
+    "r": 0.0035,
+    "style": "stud",
+    "colour": "#8a7a5a",
+    "mirror": true
+   },
+   {
+    "step": "line",
+    "frame": "back",
+    "pts": [
+     [
+      -0.3,
+      "top-0.075"
+     ],
+     [
+      0,
+      "top-0.115"
+     ],
+     [
+      0.3,
+      "top-0.075"
+     ]
+    ],
+    "style": "twin",
+    "colour": "#1e1b19",
+    "width": 0.0011
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      -0.4,
+      "hem+0.014"
+     ],
+     [
+      0.4,
+      "hem+0.014"
+     ]
+    ],
+    "style": "stitch",
+    "colour": "#1e1b19",
+    "width": 0.0011
+   },
+   {
+    "step": "line",
+    "frame": "back",
+    "pts": [
+     [
+      -0.4,
+      "hem+0.014"
+     ],
+     [
+      0.4,
+      "hem+0.014"
+     ]
+    ],
+    "style": "stitch",
+    "colour": "#1e1b19",
+    "width": 0.0011
+   },
+   {
+    "step": "rect",
+    "frame": "back",
+    "at": [
+     0.088,
+     "top-0.2"
+    ],
+    "size": [
+     0.125,
+     0.135
+    ],
+    "style": "pocket",
+    "stitch": "#1e1b19",
+    "mirror": true,
+    "round": 0.012
+   },
+   {
+    "step": "distress",
+    "type": "crackle",
+    "amount": 0.4,
+    "colour": "#6b6258"
+   },
+   {
+    "step": "distress",
+    "type": "crumple",
+    "amount": 0.25
+   },
+   {
+    "step": "distress",
+    "type": "edges",
+    "amount": 0.45,
+    "colour": "#7a7066"
+   }
+  ]
+ },
+ {
+  "n": 454,
+  "id": "ccp-one-piece-leather-jacket",
+  "designer": "Carol Christian Poell",
+  "name": "One-Piece Leather Jacket",
+  "season": "FW2005",
+  "price": 4000,
+  "slot": "top",
+  "colour": "#2a2622",
+  "finish": {
+   "roughness": 0.5
+  },
+  "cut": {
+   "like": "biker",
+   "ease": {
+    "shoulder": 0.0072,
+    "chest": 0.0162,
+    "waist": 0.0198,
+    "hip": 0.0198,
+    "sleeve": 0.0086,
+    "cuff": 0.0067
+   },
+   "hem": "hip+0.05",
+   "neck": {
+    "v": 0.1,
+    "width": 0.06
+   },
+   "add": [
+    {
+     "type": "collar",
+     "height": 0.03,
+     "flare": 0.004,
+     "gap": 0.02,
+     "only": true
+    },
+    {
+     "type": "lip"
+    }
+   ]
+  },
+  "under": {
+   "colour": "#1b1b1d",
+   "cut": {
+    "like": "tank",
+    "overWaist": false,
+    "hem": "hip+0.06",
+    "armhole": 0.22,
+    "neck": {
+     "depth": 0.035,
+     "round": 0.075
+    },
+    "ease": {
+     "shoulder": 0.002,
+     "chest": 0.004,
+     "waist": 0.004,
+     "hip": 0.004
+    }
+   },
+   "paint": [
+    {
+     "step": "fabric",
+     "type": "jersey"
+    }
+   ]
+  },
+  "note": "Cut from a single hide with one seam, down the back.",
+  "paint": [
+   {
+    "step": "fabric",
+    "type": "leather"
+   },
+   {
+    "step": "pattern",
+    "type": "clouds",
+    "colours": [
+     "#1a1715",
+     "#3f3832"
+    ],
+    "freq": 8,
+    "amount": 0.5
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0.012,
+      "hem"
+     ],
+     [
+      0.012,
+      "top"
+     ]
+    ],
+    "style": "seam"
+   },
+   {
+    "step": "dots",
+    "frame": "front",
+    "from": [
+     0,
+     "hem+0.05"
+    ],
+    "to": [
+     0,
+     "chest"
+    ],
+    "count": 4,
+    "r": 0.007,
+    "style": "button",
+    "colour": "#141210"
+   },
+   {
+    "step": "line",
+    "frame": "back",
+    "pts": [
+     [
+      0,
+      "hem"
+     ],
+     [
+      0,
+      "top"
+     ]
+    ],
+    "style": "ridge",
+    "width": 0.004,
+    "depth": 0.002,
+    "colour": "#2a2826"
+   },
+   {
+    "step": "line",
+    "frame": "back",
+    "pts": [
+     [
+      0,
+      "hem"
+     ],
+     [
+      0,
+      "top"
+     ]
+    ],
+    "style": "stitch",
+    "width": 0.0018,
+    "colour": "#55504a"
+   },
+   {
+    "step": "distress",
+    "type": "crumple",
+    "amount": 0.25
+   },
+   {
+    "step": "distress",
+    "type": "edges",
+    "amount": 0.4,
+    "colour": "#5c534a"
+   }
+  ]
+ },
+ {
+  "n": 455,
+  "id": "bbs-object-dyed-hoodie",
+  "designer": "Boris Bidjan Saberi",
+  "name": "Object-Dyed Hoodie",
+  "season": "FW2012",
+  "price": 700,
+  "slot": "top",
+  "colour": "#2a2826",
+  "finish": {
+   "roughness": 0.88
+  },
+  "cut": {
+   "like": "hoodie",
+   "hem": "hip-0.04",
+   "cinch": 0.04,
+   "add": [
+    {
+     "type": "hood",
+     "size": 1.2,
+     "drop": 0.24
+    }
+   ]
+  },
+  "note": "Dyed after sewing with the house's own vinyl and resin recipe; the seams are taped in grey.",
+  "paint": [
+   {
+    "step": "fabric",
+    "type": "jersey"
+   },
+   {
+    "step": "pattern",
+    "type": "clouds",
+    "colours": [
+     "#1a1918",
+     "#45413c"
+    ],
+    "freq": 10,
+    "amount": 0.6
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      -0.04,
+      "hem"
+     ],
+     [
+      0.0,
+      "waist"
+     ],
+     [
+      0.05,
+      "top"
+     ]
+    ],
+    "style": "zip",
+    "width": 0.005,
+    "colour": "#8a8b8e",
+    "colour2": "#141414"
+   },
+   {
+    "step": "rib",
+    "where": {
+     "zone": "sleeves",
+     "s": [
+      0.86,
+      1.3
+     ]
+    },
+    "gauge": 0.005
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      -0.4,
+      "hem+0.02"
+     ],
+     [
+      0.4,
+      "hem+0.02"
+     ]
+    ],
+    "style": "twin",
+    "colour": "#55504a",
+    "width": 0.001
+   },
+   {
+    "step": "line",
+    "frame": "back",
+    "pts": [
+     [
+      -0.4,
+      "hem+0.02"
+     ],
+     [
+      0.4,
+      "hem+0.02"
+     ]
+    ],
+    "style": "twin",
+    "colour": "#55504a",
+    "width": 0.001
+   },
+   {
+    "step": "line",
+    "frame": "sleeves",
+    "pts": [
+     [
+      0,
+      0.0
+     ],
+     [
+      0,
+      1.0
+     ]
+    ],
+    "style": "twin",
+    "colour": "#6b6660",
+    "gap": 0.006
+   },
+   {
+    "step": "distress",
+    "type": "wash",
+    "amount": 0.3,
+    "colour": "#55504a"
+   },
+   {
+    "step": "distress",
+    "type": "edges",
+    "amount": 0.4,
+    "colour": "#6b6660"
+   },
+   {
+    "step": "distress",
+    "type": "shade",
+    "amount": 0.5
+   }
+  ]
+ },
+ {
+  "n": 456,
+  "id": "bbs-high-neck-leather-jacket",
+  "designer": "Boris Bidjan Saberi",
+  "name": "High-Neck Leather Jacket",
+  "season": "FW2013",
+  "price": 2500,
+  "slot": "top",
+  "colour": "#201e1c",
+  "finish": {
+   "roughness": 0.5
+  },
+  "cut": {
+   "like": "biker",
+   "ease": {
+    "shoulder": 0.0072,
+    "chest": 0.0162,
+    "waist": 0.0198,
+    "hip": 0.0198,
+    "sleeve": 0.0086,
+    "cuff": 0.0067
+   },
+   "hem": "hip+0.07",
+   "add": [
+    {
+     "type": "collar",
+     "style": "funnel",
+     "height": 0.1,
+     "flare": 0.01,
+     "gap": 0.02,
+     "only": true
+    },
+    {
+     "type": "lip"
+    },
+    {
+     "type": "cuff",
+     "length": 0.04,
+     "flare": 0
+    }
+   ]
+  },
+  "paint": [
+   {
+    "step": "fabric",
+    "type": "leather"
+   },
+   {
+    "step": "pattern",
+    "type": "clouds",
+    "colours": [
+     "#14120f",
+     "#3a3531"
+    ],
+    "freq": 10,
+    "amount": 0.5
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      -0.03,
+      "hem"
+     ],
+     [
+      0.0,
+      "waist"
+     ],
+     [
+      0.04,
+      "top"
+     ]
+    ],
+    "style": "zip",
+    "width": 0.006,
+    "colour": "#8a8b8e",
+    "colour2": "#141414"
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0.1,
+      "hem"
+     ],
+     [
+      0.085,
+      "chest+0.08"
+     ]
+    ],
+    "style": "twin",
+    "colour": "#6b6660",
+    "gap": 0.005,
+    "mirror": true
+   },
+   {
+    "step": "line",
+    "frame": "back",
+    "pts": [
+     [
+      0.085,
+      "hem"
+     ],
+     [
+      0.07,
+      "chest+0.06"
+     ]
+    ],
+    "style": "twin",
+    "colour": "#6b6660",
+    "gap": 0.005,
+    "mirror": true
+   },
+   {
+    "step": "line",
+    "frame": "sleeves",
+    "pts": [
+     [
+      0,
+      0.0
+     ],
+     [
+      0.02,
+      1.1
+     ]
+    ],
+    "style": "twin",
+    "colour": "#6b6660",
+    "gap": 0.005
+   },
+   {
+    "step": "distress",
+    "type": "crumple",
+    "amount": 0.25
+   },
+   {
+    "step": "distress",
+    "type": "edges",
+    "amount": 0.35,
+    "colour": "#5c5650"
+   }
+  ]
+ },
+ {
+  "n": 457,
+  "id": "bbs-p-thirteen-trousers",
+  "designer": "Boris Bidjan Saberi",
+  "name": "P13 Trousers",
+  "season": "SS2013",
+  "price": 600,
+  "slot": "bottom",
+  "colour": "#2a2826",
+  "finish": {
+   "roughness": 0.85
+  },
+  "cut": {
+   "like": "dropcrotch",
+   "ease": {
+    "waist": 0.002,
+    "seat": 0.0315,
+    "thigh": 0.0405,
+    "knee": 0.0315,
+    "hem": 0.0162
+   },
+   "rise": "waist-0.1",
+   "hem": "ankle+0.0",
+   "dropCrotch": 0.06,
+   "taper": 0.3
+  },
+  "note": "The house's five-pocket: low crotch, curved leg, articulated knee.",
+  "paint": [
+   {
+    "step": "fabric",
+    "type": "canvas"
+   },
+   {
+    "step": "pattern",
+    "type": "clouds",
+    "colours": [
+     "#1a1918",
+     "#45413c"
+    ],
+    "freq": 10,
+    "amount": 0.5
+   },
+   {
+    "step": "line",
+    "frame": "legs",
+    "pts": [
+     [
+      0,
+      -0.3
+     ],
+     [
+      0,
+      1.05
+     ]
+    ],
+    "style": "twin",
+    "colour": "#6b6660",
+    "width": 0.0011,
+    "gap": 0.006
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      -0.4,
+      "top-0.04"
+     ],
+     [
+      0.4,
+      "top-0.04"
+     ]
+    ],
+    "style": "twin",
+    "colour": "#6b6660",
+    "width": 0.0011,
+    "gap": 0.034
+   },
+   {
+    "step": "line",
+    "frame": "back",
+    "pts": [
+     [
+      -0.4,
+      "top-0.04"
+     ],
+     [
+      0.4,
+      "top-0.04"
+     ]
+    ],
+    "style": "twin",
+    "colour": "#6b6660",
+    "width": 0.0011,
+    "gap": 0.034
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0.0,
+      "top-0.04"
+     ],
+     [
+      0.004,
+      "top-0.1"
+     ],
+     [
+      0.03,
+      "top-0.17"
+     ],
+     [
+      0.0,
+      "top-0.19"
+     ]
+    ],
+    "style": "twin",
+    "colour": "#6b6660",
+    "width": 0.0011
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0.06,
+      "top-0.045"
+     ],
+     [
+      0.09,
+      "top-0.11"
+     ],
+     [
+      0.17,
+      "top-0.12"
+     ]
+    ],
+    "style": "twin",
+    "colour": "#6b6660",
+    "width": 0.0011,
+    "mirror": true
+   },
+   {
+    "step": "dots",
+    "frame": "front",
+    "pts": [
+     [
+      0,
+      "top-0.02"
+     ]
+    ],
+    "r": 0.008,
+    "style": "stud",
+    "colour": "#77736a"
+   },
+   {
+    "step": "dots",
+    "frame": "front",
+    "pts": [
+     [
+      0.062,
+      "top-0.05"
+     ],
+     [
+      0.168,
+      "top-0.118"
+     ]
+    ],
+    "r": 0.0035,
+    "style": "stud",
+    "colour": "#8a7a5a",
+    "mirror": true
+   },
+   {
+    "step": "line",
+    "frame": "back",
+    "pts": [
+     [
+      -0.3,
+      "top-0.075"
+     ],
+     [
+      0,
+      "top-0.115"
+     ],
+     [
+      0.3,
+      "top-0.075"
+     ]
+    ],
+    "style": "twin",
+    "colour": "#6b6660",
+    "width": 0.0011
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      -0.4,
+      "hem+0.014"
+     ],
+     [
+      0.4,
+      "hem+0.014"
+     ]
+    ],
+    "style": "stitch",
+    "colour": "#6b6660",
+    "width": 0.0011
+   },
+   {
+    "step": "line",
+    "frame": "back",
+    "pts": [
+     [
+      -0.4,
+      "hem+0.014"
+     ],
+     [
+      0.4,
+      "hem+0.014"
+     ]
+    ],
+    "style": "stitch",
+    "colour": "#6b6660",
+    "width": 0.0011
+   },
+   {
+    "step": "rect",
+    "frame": "back",
+    "at": [
+     0.088,
+     "top-0.2"
+    ],
+    "size": [
+     0.125,
+     0.135
+    ],
+    "style": "pocket",
+    "stitch": "#6b6660",
+    "mirror": true,
+    "round": 0.012
+   },
+   {
+    "step": "line",
+    "frame": "legs",
+    "pts": [
+     [
+      -0.3,
+      0.48
+     ],
+     [
+      0.3,
+      0.44
+     ]
+    ],
+    "style": "twin",
+    "colour": "#6b6660",
+    "gap": 0.005
+   },
+   {
+    "step": "line",
+    "frame": "legs",
+    "pts": [
+     [
+      -0.3,
+      0.6
+     ],
+     [
+      0.3,
+      0.64
+     ]
+    ],
+    "style": "twin",
+    "colour": "#6b6660",
+    "gap": 0.005
+   },
+   {
+    "step": "distress",
+    "type": "folds",
+    "freq": 30,
+    "depth": 0.0025,
+    "where": {
+     "zone": "legs",
+     "s": [
+      0.65,
+      1.1
+     ]
+    }
+   },
+   {
+    "step": "distress",
+    "type": "wash",
+    "amount": 0.25,
+    "colour": "#55504a"
+   }
+  ]
+ },
+ {
+  "n": 458,
+  "id": "julius-gas-mask-cargo-trousers",
+  "designer": "Julius",
+  "name": "Gas Mask Cargo Trousers",
+  "season": "FW2012",
+  "price": 700,
+  "slot": "bottom",
+  "colour": "#1c1c1e",
+  "finish": {
+   "roughness": 0.85
+  },
+  "cut": {
+   "like": "cargo",
+   "ease": {
+    "waist": 0.002,
+    "seat": 0.02,
+    "thigh": 0.028,
+    "knee": 0.028,
+    "hem": 0.024
+   },
+   "rise": "waist-0.1",
+   "hem": "ankle+0.0",
+   "taper": 0.2,
+   "add": [
+    {
+     "type": "strap",
+     "from": {
+      "on": "front",
+      "x": 0.16,
+      "h": "thigh+0.08"
+     },
+     "to": {
+      "on": "back",
+      "x": 0.16,
+      "h": "thigh+0.08"
+     },
+     "width": 0.025,
+     "sag": 0.05,
+     "out": 0.03
+    }
+   ]
+  },
+  "note": "Named for the bellows pocket on the thigh, cut to carry a gas mask.",
+  "paint": [
+   {
+    "step": "fabric",
+    "type": "canvas"
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      -0.4,
+      "top-0.045"
+     ],
+     [
+      0.4,
+      "top-0.045"
+     ]
+    ],
+    "style": "twin",
+    "colour": "#3c3c40",
+    "gap": 0.004,
+    "width": 0.0014
+   },
+   {
+    "step": "line",
+    "frame": "back",
+    "pts": [
+     [
+      -0.4,
+      "top-0.045"
+     ],
+     [
+      0.4,
+      "top-0.045"
+     ]
+    ],
+    "style": "twin",
+    "colour": "#3c3c40",
+    "gap": 0.004,
+    "width": 0.0014
+   },
+   {
+    "step": "line",
+    "frame": "legs",
+    "pts": [
+     [
+      0,
+      -0.3
+     ],
+     [
+      0,
+      1.05
+     ]
+    ],
+    "style": "seam"
+   },
+   {
+    "step": "rect",
+    "frame": "legs",
+    "at": [
+     -0.03,
+     0.36
+    ],
+    "size": [
+     0.12,
+     0.22
+    ],
+    "style": "flap",
+    "flap": 0.25,
+    "pleat": true,
+    "snap": true,
+    "stitch": "#3c3c40",
+    "raise": 0.006
+   },
+   {
+    "step": "rect",
+    "frame": "legs",
+    "at": [
+     0.06,
+     0.4
+    ],
+    "size": [
+     0.06,
+     0.1
+    ],
+    "style": "pocket",
+    "stitch": "#3c3c40",
+    "raise": 0.004
+   },
+   {
+    "step": "line",
+    "frame": "legs",
+    "pts": [
+     [
+      -0.3,
+      0.56
+     ],
+     [
+      0.3,
+      0.56
+     ]
+    ],
+    "style": "strap",
+    "width": 0.022,
+    "colour": "#111113"
+   },
+   {
+    "step": "rect",
+    "frame": "legs",
+    "at": [
+     0.04,
+     0.56
+    ],
+    "size": [
+     0.028,
+     0.03
+    ],
+    "style": "buckle",
+    "colour": "#55565a"
+   },
+   {
+    "step": "panel",
+    "colour": "#111113",
+    "where": {
+     "zone": "strap"
+    }
+   },
+   {
+    "step": "distress",
+    "type": "folds",
+    "freq": 30,
+    "depth": 0.0025,
+    "where": {
+     "zone": "legs",
+     "s": [
+      0.65,
+      1.1
+     ]
+    }
+   },
+   {
+    "step": "distress",
+    "type": "wash",
+    "amount": 0.15
+   }
+  ]
+ },
+ {
+  "n": 459,
+  "id": "julius-high-neck-leather-jacket",
+  "designer": "Julius",
+  "name": "High-Neck Leather Jacket",
+  "season": "FW2010",
+  "price": 1400,
+  "slot": "top",
+  "colour": "#1c1c1e",
+  "finish": {
+   "roughness": 0.42
+  },
+  "cut": {
+   "like": "biker",
+   "ease": {
+    "shoulder": 0.0068,
+    "chest": 0.0153,
+    "waist": 0.0187,
+    "hip": 0.0187,
+    "sleeve": 0.0084,
+    "cuff": 0.0065
+   },
+   "hem": "hip+0.08",
+   "add": [
+    {
+     "type": "collar",
+     "style": "funnel",
+     "height": 0.11,
+     "flare": 0.012,
+     "gap": 0.03,
+     "only": true
+    },
+    {
+     "type": "lip"
+    },
+    {
+     "type": "cuff",
+     "length": 0.05,
+     "flare": 0
+    }
+   ]
+  },
+  "note": "The sleeves are ruched from the elbow down.",
+  "paint": [
+   {
+    "step": "fabric",
+    "type": "leather"
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      -0.05,
+      "hem"
+     ],
+     [
+      -0.01,
+      "waist"
+     ],
+     [
+      0.07,
+      "top"
+     ]
+    ],
+    "style": "zip",
+    "width": 0.006,
+    "colour": "#8a8b8e",
+    "colour2": "#141414"
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0.02,
+      "shoulder"
+     ],
+     [
+      0.12,
+      "chest"
+     ],
+     [
+      0.1,
+      "hem"
+     ]
+    ],
+    "style": "seam",
+    "width": 0.003,
+    "mirror": true
+   },
+   {
+    "step": "rib",
+    "where": {
+     "zone": "sleeves",
+     "s": [
+      0.55,
+      1.3
+     ]
+    },
+    "gauge": 0.01,
+    "depth": 0.001
+   },
+   {
+    "step": "line",
+    "frame": "back",
+    "pts": [
+     [
+      0,
+      "top"
+     ],
+     [
+      0.09,
+      "chest"
+     ],
+     [
+      0.08,
+      "hem"
+     ]
+    ],
+    "style": "seam",
+    "width": 0.003,
+    "mirror": true
+   },
+   {
+    "step": "distress",
+    "type": "crumple",
+    "amount": 0.2
+   }
+  ]
+ },
+ {
+  "n": 460,
+  "id": "julius-distressed-longline-coat",
+  "designer": "Julius",
+  "name": "Distressed Longline Coat",
+  "season": "SS2011",
+  "price": 900,
+  "slot": "top",
+  "colour": "#232325",
+  "finish": {
+   "roughness": 0.88
+  },
+  "cut": {
+   "like": "coat",
+   "ease": {
+    "shoulder": 0.0088,
+    "chest": 0.0275,
+    "waist": 0.0385,
+    "hip": 0.0385,
+    "sleeve": 0.0146,
+    "cuff": 0.0146
+   },
+   "hem": "calf+0.1",
+   "hemSlant": 0.06,
+   "hang": 1,
+   "flare": 0.04,
+   "neck": {
+    "v": 0.26,
+    "width": 0.07,
+    "depth": 0.03
+   },
+   "add": [
+    {
+     "type": "hood",
+     "size": 1.2,
+     "drop": 0.26
+    },
+    {
+     "type": "lip"
+    }
+   ]
+  },
+  "under": {
+   "colour": "#2a2a2d",
+   "cut": {
+    "like": "tank",
+    "overWaist": false,
+    "hem": "crotch+0.0",
+    "armhole": 0.22,
+    "neck": {
+     "depth": 0.035,
+     "round": 0.075
+    },
+    "ease": {
+     "shoulder": 0.002,
+     "chest": 0.004,
+     "waist": 0.004,
+     "hip": 0.004
+    }
+   },
+   "paint": [
+    {
+     "step": "fabric",
+     "type": "jersey"
+    }
+   ]
+  },
+  "clear": true,
+  "paint": [
+   {
+    "step": "fabric",
+    "type": "jersey"
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0.02,
+      "hem"
+     ],
+     [
+      0.03,
+      "neck-0.26"
+     ]
+    ],
+    "style": "groove",
+    "width": 0.003,
+    "mirror": true
+   },
+   {
+    "step": "distress",
+    "type": "holes",
+    "size": 0.012,
+    "density": 0.07
+   },
+   {
+    "step": "distress",
+    "type": "edges",
+    "amount": 0.7,
+    "colour": "#4a4a4e"
+   },
+   {
+    "step": "distress",
+    "type": "wash",
+    "amount": 0.3,
+    "colour": "#4a4a4e"
+   },
+   {
+    "step": "distress",
+    "type": "folds",
+    "freq": 12,
+    "depth": 0.005
+   }
+  ]
+ }
+]

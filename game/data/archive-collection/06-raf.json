@@ -1,0 +1,3429 @@
+[
+ {
+  "n": 101,
+  "id": "raf-riot-patchwork-hoodie",
+  "designer": "Raf Simons",
+  "name": "Riot! Riot! Riot! Patchwork Hoodie",
+  "season": "FW2001",
+  "price": 22000,
+  "slot": "top",
+  "colour": "#1a1a1c",
+  "finish": {
+   "roughness": 0.88
+  },
+  "cut": {
+   "like": "hoodie",
+   "ease": {
+    "shoulder": 0.0175,
+    "chest": 0.0613,
+    "waist": 0.082,
+    "hip": 0.082,
+    "sleeve": 0.0241,
+    "cuff": 0.0187
+   },
+   "shoulderDrop": 0.03,
+   "hem": "hip-0.07",
+   "cinch": 0.1,
+   "add": [
+    {
+     "type": "hood",
+     "size": 1.2,
+     "drop": 0.25
+    }
+   ]
+  },
+  "note": "Stands for the patched and layered hoodies of the show; the patches are anonymous figures, not the band photographs of the originals.",
+  "paint": [
+   {
+    "step": "fabric",
+    "type": "jersey"
+   },
+   {
+    "step": "panel",
+    "colour": "#2a2b2f",
+    "where": {
+     "zone": "sleeveL",
+     "s": [
+      0.45,
+      1.3
+     ]
+    }
+   },
+   {
+    "step": "panel",
+    "colour": "#33302c",
+    "where": {
+     "zone": "back",
+     "h": [
+      "hem",
+      "waist"
+     ]
+    }
+   },
+   {
+    "step": "rib",
+    "where": {
+     "zone": "body",
+     "h": [
+      "hem",
+      "hem+0.06"
+     ]
+    },
+    "gauge": 0.006
+   },
+   {
+    "step": "rib",
+    "where": {
+     "zone": "sleeves",
+     "s": [
+      0.89,
+      1.3
+     ]
+    },
+    "gauge": 0.006
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0.15,
+      "hem+0.062"
+     ],
+     [
+      0.15,
+      "hem+0.13"
+     ],
+     [
+      0.085,
+      "hem+0.235"
+     ],
+     [
+      -0.085,
+      "hem+0.235"
+     ],
+     [
+      -0.15,
+      "hem+0.13"
+     ],
+     [
+      -0.15,
+      "hem+0.062"
+     ]
+    ],
+    "style": "twin",
+    "width": 0.0012,
+    "gap": 0.006,
+    "colour": "#3f3f44"
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0.15,
+      "hem+0.13"
+     ],
+     [
+      0.085,
+      "hem+0.235"
+     ]
+    ],
+    "style": "groove",
+    "width": 0.004,
+    "mirror": true
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0.036,
+      "chest+0.115"
+     ],
+     [
+      0.04,
+      "chest+0.03"
+     ],
+     [
+      0.037,
+      "chest-0.05"
+     ]
+    ],
+    "style": "tape",
+    "width": 0.007,
+    "colour": "#2c2c2f",
+    "raise": 0.0016
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      -0.036,
+      "chest+0.115"
+     ],
+     [
+      -0.041,
+      "chest+0.04"
+     ],
+     [
+      -0.038,
+      "chest-0.03"
+     ]
+    ],
+    "style": "tape",
+    "width": 0.007,
+    "colour": "#2c2c2f",
+    "raise": 0.0016
+   },
+   {
+    "step": "dots",
+    "frame": "front",
+    "pts": [
+     [
+      0.036,
+      "chest+0.118"
+     ],
+     [
+      -0.036,
+      "chest+0.118"
+     ]
+    ],
+    "r": 0.0055,
+    "style": "eyelet",
+    "colour": "#a9a9a6"
+   },
+   {
+    "step": "print",
+    "frame": "front",
+    "art": "raf-riot-hoodie-patch-a",
+    "at": [
+     -0.085,
+     "chest+0.0"
+    ],
+    "width": 0.125,
+    "raise": 0.0008
+   },
+   {
+    "step": "print",
+    "frame": "front",
+    "art": "raf-riot-hoodie-patch-b",
+    "at": [
+     0.09,
+     "chest+0.035"
+    ],
+    "width": 0.12,
+    "rot": -4,
+    "raise": 0.0008
+   },
+   {
+    "step": "print",
+    "frame": "front",
+    "art": "raf-riot-hoodie-text",
+    "at": [
+     0.08,
+     "waist+0.05"
+    ],
+    "width": 0.13,
+    "rot": 3,
+    "raise": 0.0008
+   },
+   {
+    "step": "print",
+    "frame": "back",
+    "art": "raf-riot-photo",
+    "at": [
+     0,
+     "chest-0.02"
+    ],
+    "width": 0.24,
+    "raise": 0.0008
+   },
+   {
+    "step": "print",
+    "frame": "sleeveR",
+    "art": "raf-riot-hoodie-patch-b",
+    "at": [
+     0,
+     0.32
+    ],
+    "width": 0.09,
+    "raise": 0.0008
+   },
+   {
+    "step": "rect",
+    "frame": "sleeveL",
+    "at": [
+     0,
+     0.6
+    ],
+    "size": [
+     0.08,
+     0.05
+    ],
+    "style": "patch",
+    "colour": "#b9b4a6",
+    "stitch": "#111"
+   },
+   {
+    "step": "line",
+    "frame": "back",
+    "pts": [
+     [
+      -0.2,
+      "waist-0.02"
+     ],
+     [
+      0.2,
+      "waist-0.02"
+     ]
+    ],
+    "style": "twin",
+    "colour": "#55555a",
+    "gap": 0.005
+   },
+   {
+    "step": "distress",
+    "type": "wash",
+    "amount": 0.2
+   },
+   {
+    "step": "distress",
+    "type": "edges",
+    "amount": 0.25,
+    "colour": "#3c3c40"
+   },
+   {
+    "step": "distress",
+    "type": "shade",
+    "amount": 0.5
+   }
+  ]
+ },
+ {
+  "n": 102,
+  "id": "raf-riot-sleeveless-sweatshirt",
+  "designer": "Raf Simons",
+  "name": "Riot! Riot! Riot! Sleeveless Sweatshirt",
+  "season": "FW2001",
+  "price": 3800,
+  "slot": "top",
+  "colour": "#8f9092",
+  "finish": {
+   "roughness": 0.9
+  },
+  "cut": {
+   "like": "sweatshirt",
+   "ease": {
+    "shoulder": 0.015,
+    "chest": 0.0525,
+    "waist": 0.082,
+    "hip": 0.082,
+    "sleeve": 0.0221,
+    "cuff": 0.0172
+   },
+   "shoulderDrop": 0.02,
+   "sleeve": 0,
+   "armhole": 0.5,
+   "hem": "hip-0.05",
+   "cinch": 0.1
+  },
+  "under": {
+   "colour": "#1a1a1c",
+   "cut": {
+    "like": "longsleeve",
+    "hem": "hip+0.0",
+    "overWaist": false,
+    "neck": {
+     "y": 0.012,
+     "depth": 0.02,
+     "round": 0.075
+    }
+   },
+   "paint": [
+    {
+     "step": "fabric",
+     "type": "knit"
+    }
+   ]
+  },
+  "note": "Worn as shown, over a long black jersey.",
+  "paint": [
+   {
+    "step": "fabric",
+    "type": "marl"
+   },
+   {
+    "step": "rib",
+    "where": {
+     "zone": "body",
+     "h": [
+      "hem",
+      "hem+0.06"
+     ]
+    },
+    "gauge": 0.005
+   },
+   {
+    "step": "rib",
+    "where": {
+     "zone": "collar"
+    },
+    "gauge": 0.005
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      -0.05,
+      "collar-0.035"
+     ],
+     [
+      0,
+      "collar-0.075"
+     ],
+     [
+      0.05,
+      "collar-0.035"
+     ]
+    ],
+    "style": "stitch",
+    "width": 0.0012,
+    "colour": "#77787a"
+   },
+   {
+    "step": "print",
+    "frame": "front",
+    "art": "raf-riot-hoodie-patch-a",
+    "at": [
+     0,
+     "chest-0.01"
+    ],
+    "width": 0.16,
+    "raise": 0.0008
+   },
+   {
+    "step": "print",
+    "frame": "back",
+    "art": "raf-riot-hoodie-text",
+    "at": [
+     0,
+     "chest-0.02"
+    ],
+    "width": 0.2,
+    "raise": 0.0008
+   },
+   {
+    "step": "distress",
+    "type": "edges",
+    "amount": 0.3
+   },
+   {
+    "step": "distress",
+    "type": "wash",
+    "amount": 0.2
+   },
+   {
+    "step": "distress",
+    "type": "shade",
+    "amount": 0.5
+   }
+  ]
+ },
+ {
+  "n": 103,
+  "id": "raf-riot-graphic-tee",
+  "designer": "Raf Simons",
+  "name": "Riot! Riot! Riot! Graphic T-Shirt",
+  "season": "FW2001",
+  "price": 1500,
+  "slot": "top",
+  "colour": "#e6e3da",
+  "finish": {
+   "roughness": 0.88
+  },
+  "cut": {
+   "like": "tee",
+   "ease": {
+    "shoulder": 0.0078,
+    "chest": 0.0234,
+    "waist": 0.039,
+    "hip": 0.039,
+    "sleeve": 0.0159,
+    "cuff": 0.0182
+   },
+   "hem": "hip-0.05"
+  },
+  "paint": [
+   {
+    "step": "fabric",
+    "type": "jersey"
+   },
+   {
+    "step": "rib",
+    "where": {
+     "zone": "collar"
+    },
+    "gauge": 0.003,
+    "depth": 0.0004
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      -0.4,
+      "hem+0.02"
+     ],
+     [
+      0.4,
+      "hem+0.02"
+     ]
+    ],
+    "style": "twin",
+    "colour": "#d5d2c8",
+    "width": 0.001
+   },
+   {
+    "step": "line",
+    "frame": "back",
+    "pts": [
+     [
+      -0.4,
+      "hem+0.02"
+     ],
+     [
+      0.4,
+      "hem+0.02"
+     ]
+    ],
+    "style": "twin",
+    "colour": "#d5d2c8",
+    "width": 0.001
+   },
+   {
+    "step": "line",
+    "frame": "sleeves",
+    "pts": [
+     [
+      -0.3,
+      0.275
+     ],
+     [
+      0.3,
+      0.275
+     ]
+    ],
+    "style": "twin",
+    "colour": "#d5d2c8",
+    "width": 0.001
+   },
+   {
+    "step": "print",
+    "frame": "front",
+    "art": "raf-riot-portrait",
+    "at": [
+     0,
+     "chest-0.03"
+    ],
+    "width": 0.21,
+    "crack": 0.3
+   },
+   {
+    "step": "print",
+    "frame": "back",
+    "art": "raf-riot-hoodie-text",
+    "at": [
+     0,
+     "chest+0.02"
+    ],
+    "width": 0.17,
+    "crack": 0.3
+   },
+   {
+    "step": "distress",
+    "type": "wash",
+    "amount": 0.12,
+    "colour": "#d9d5c8"
+   }
+  ]
+ },
+ {
+  "n": 104,
+  "id": "raf-woe-fear-generation-hoodie",
+  "designer": "Raf Simons",
+  "name": "Woe Onto Those Who Spit on the Fear Generation Hoodie",
+  "season": "SS2002",
+  "price": 7500,
+  "slot": "top",
+  "colour": "#e9e6de",
+  "finish": {
+   "roughness": 0.88
+  },
+  "cut": {
+   "like": "hoodie",
+   "ease": {
+    "shoulder": 0.015,
+    "chest": 0.0525,
+    "waist": 0.082,
+    "hip": 0.082,
+    "sleeve": 0.0221,
+    "cuff": 0.0172
+   },
+   "shoulderDrop": 0.02,
+   "hem": "hip-0.05",
+   "add": [
+    {
+     "type": "hood",
+     "size": 1.15,
+     "drop": 0.24
+    }
+   ]
+  },
+  "note": "The slogan is the show's own; the figures on the back are anonymous.",
+  "paint": [
+   {
+    "step": "fabric",
+    "type": "jersey"
+   },
+   {
+    "step": "rib",
+    "where": {
+     "zone": "body",
+     "h": [
+      "hem",
+      "hem+0.06"
+     ]
+    },
+    "gauge": 0.006
+   },
+   {
+    "step": "rib",
+    "where": {
+     "zone": "sleeves",
+     "s": [
+      0.89,
+      1.3
+     ]
+    },
+    "gauge": 0.006
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0.036,
+      "chest+0.115"
+     ],
+     [
+      0.04,
+      "chest+0.03"
+     ],
+     [
+      0.037,
+      "chest-0.05"
+     ]
+    ],
+    "style": "tape",
+    "width": 0.007,
+    "colour": "#dcd9d0",
+    "raise": 0.0016
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      -0.036,
+      "chest+0.115"
+     ],
+     [
+      -0.041,
+      "chest+0.04"
+     ],
+     [
+      -0.038,
+      "chest-0.03"
+     ]
+    ],
+    "style": "tape",
+    "width": 0.007,
+    "colour": "#dcd9d0",
+    "raise": 0.0016
+   },
+   {
+    "step": "dots",
+    "frame": "front",
+    "pts": [
+     [
+      0.036,
+      "chest+0.118"
+     ],
+     [
+      -0.036,
+      "chest+0.118"
+     ]
+    ],
+    "r": 0.0055,
+    "style": "eyelet",
+    "colour": "#a9a9a6"
+   },
+   {
+    "step": "print",
+    "frame": "front",
+    "art": "raf-woe-text",
+    "at": [
+     0,
+     "chest-0.02"
+    ],
+    "width": 0.25,
+    "crack": 0.15
+   },
+   {
+    "step": "print",
+    "frame": "back",
+    "art": "raf-woe-torch",
+    "at": [
+     0,
+     "chest-0.03"
+    ],
+    "width": 0.25,
+    "crack": 0.2
+   },
+   {
+    "step": "line",
+    "frame": "sleeves",
+    "pts": [
+     [
+      0,
+      0.12
+     ],
+     [
+      0,
+      1.0
+     ]
+    ],
+    "style": "tape",
+    "width": 0.012,
+    "colour": "#c2261c"
+   },
+   {
+    "step": "distress",
+    "type": "shade",
+    "amount": 0.6
+   }
+  ]
+ },
+ {
+  "n": 105,
+  "id": "raf-woe-graphic-tee",
+  "designer": "Raf Simons",
+  "name": "Woe Onto Those Who Spit Graphic Tee",
+  "season": "SS2002",
+  "price": 1400,
+  "slot": "top",
+  "colour": "#e9e6de",
+  "finish": {
+   "roughness": 0.88
+  },
+  "cut": {
+   "like": "tee",
+   "ease": {
+    "shoulder": 0.0075,
+    "chest": 0.0225,
+    "waist": 0.0375,
+    "hip": 0.0375,
+    "sleeve": 0.0156,
+    "cuff": 0.0178
+   },
+   "hem": "hip-0.05",
+   "sleeve": 0.36
+  },
+  "paint": [
+   {
+    "step": "fabric",
+    "type": "jersey"
+   },
+   {
+    "step": "rib",
+    "where": {
+     "zone": "collar"
+    },
+    "gauge": 0.003,
+    "depth": 0.0004
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      -0.4,
+      "hem+0.02"
+     ],
+     [
+      0.4,
+      "hem+0.02"
+     ]
+    ],
+    "style": "twin",
+    "colour": "#d5d2c8",
+    "width": 0.001
+   },
+   {
+    "step": "line",
+    "frame": "back",
+    "pts": [
+     [
+      -0.4,
+      "hem+0.02"
+     ],
+     [
+      0.4,
+      "hem+0.02"
+     ]
+    ],
+    "style": "twin",
+    "colour": "#d5d2c8",
+    "width": 0.001
+   },
+   {
+    "step": "line",
+    "frame": "sleeves",
+    "pts": [
+     [
+      -0.3,
+      0.33
+     ],
+     [
+      0.3,
+      0.33
+     ]
+    ],
+    "style": "twin",
+    "colour": "#d5d2c8",
+    "width": 0.001
+   },
+   {
+    "step": "print",
+    "frame": "front",
+    "art": "raf-woe-torch",
+    "at": [
+     0,
+     "chest-0.02"
+    ],
+    "width": 0.22,
+    "crack": 0.25
+   },
+   {
+    "step": "print",
+    "frame": "back",
+    "art": "raf-woe-text",
+    "at": [
+     0,
+     "chest+0.0"
+    ],
+    "width": 0.2,
+    "crack": 0.2
+   },
+   {
+    "step": "distress",
+    "type": "wash",
+    "amount": 0.1
+   }
+  ]
+ },
+ {
+  "n": 106,
+  "id": "raf-virginia-creeper-collegiate-hoodie",
+  "designer": "Raf Simons",
+  "name": "Virginia Creeper Collegiate Hoodie",
+  "season": "FW2002",
+  "price": 5500,
+  "slot": "top",
+  "colour": "#1f3a2a",
+  "finish": {
+   "roughness": 0.88
+  },
+  "cut": {
+   "like": "hoodie",
+   "ease": {
+    "shoulder": 0.017,
+    "chest": 0.0595,
+    "waist": 0.082,
+    "hip": 0.082,
+    "sleeve": 0.0237,
+    "cuff": 0.0184
+   },
+   "shoulderDrop": 0.028,
+   "hem": "hip-0.06",
+   "add": [
+    {
+     "type": "hood",
+     "size": 1.2,
+     "drop": 0.25
+    }
+   ]
+  },
+  "paint": [
+   {
+    "step": "fabric",
+    "type": "jersey"
+   },
+   {
+    "step": "rib",
+    "where": {
+     "zone": "body",
+     "h": [
+      "hem",
+      "hem+0.06"
+     ]
+    },
+    "gauge": 0.006
+   },
+   {
+    "step": "rib",
+    "where": {
+     "zone": "sleeves",
+     "s": [
+      0.89,
+      1.3
+     ]
+    },
+    "gauge": 0.006
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0.15,
+      "hem+0.062"
+     ],
+     [
+      0.15,
+      "hem+0.13"
+     ],
+     [
+      0.085,
+      "hem+0.235"
+     ],
+     [
+      -0.085,
+      "hem+0.235"
+     ],
+     [
+      -0.15,
+      "hem+0.13"
+     ],
+     [
+      -0.15,
+      "hem+0.062"
+     ]
+    ],
+    "style": "twin",
+    "width": 0.0012,
+    "gap": 0.006,
+    "colour": "#152015"
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0.15,
+      "hem+0.13"
+     ],
+     [
+      0.085,
+      "hem+0.235"
+     ]
+    ],
+    "style": "groove",
+    "width": 0.004,
+    "mirror": true
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0.036,
+      "chest+0.115"
+     ],
+     [
+      0.04,
+      "chest+0.03"
+     ],
+     [
+      0.037,
+      "chest-0.05"
+     ]
+    ],
+    "style": "tape",
+    "width": 0.007,
+    "colour": "#e9e3cf",
+    "raise": 0.0016
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      -0.036,
+      "chest+0.115"
+     ],
+     [
+      -0.041,
+      "chest+0.04"
+     ],
+     [
+      -0.038,
+      "chest-0.03"
+     ]
+    ],
+    "style": "tape",
+    "width": 0.007,
+    "colour": "#e9e3cf",
+    "raise": 0.0016
+   },
+   {
+    "step": "dots",
+    "frame": "front",
+    "pts": [
+     [
+      0.036,
+      "chest+0.118"
+     ],
+     [
+      -0.036,
+      "chest+0.118"
+     ]
+    ],
+    "r": 0.0055,
+    "style": "eyelet",
+    "colour": "#a9a9a6"
+   },
+   {
+    "step": "print",
+    "frame": "front",
+    "art": "raf-virginia-arc",
+    "at": [
+     0,
+     "chest+0.075"
+    ],
+    "width": 0.27,
+    "raise": 0.0006
+   },
+   {
+    "step": "print",
+    "frame": "front",
+    "art": "raf-virginia-letter",
+    "at": [
+     0,
+     "chest-0.035"
+    ],
+    "width": 0.1,
+    "raise": 0.0012
+   },
+   {
+    "step": "print",
+    "frame": "sleeveL",
+    "art": "raf-virginia-letter",
+    "at": [
+     0,
+     0.3
+    ],
+    "width": 0.06,
+    "raise": 0.001
+   },
+   {
+    "step": "distress",
+    "type": "wash",
+    "amount": 0.15
+   },
+   {
+    "step": "distress",
+    "type": "shade",
+    "amount": 0.5
+   }
+  ]
+ },
+ {
+  "n": 107,
+  "id": "raf-virginia-creeper-graphic-tee",
+  "designer": "Raf Simons",
+  "name": "Virginia Creeper Graphic T-Shirt",
+  "season": "FW2002",
+  "price": 1200,
+  "slot": "top",
+  "colour": "#1b1b1d",
+  "finish": {
+   "roughness": 0.88
+  },
+  "cut": {
+   "like": "tee",
+   "ease": {
+    "shoulder": 0.0078,
+    "chest": 0.0234,
+    "waist": 0.039,
+    "hip": 0.039,
+    "sleeve": 0.0159,
+    "cuff": 0.0182
+   },
+   "hem": "hip-0.05"
+  },
+  "paint": [
+   {
+    "step": "fabric",
+    "type": "jersey"
+   },
+   {
+    "step": "rib",
+    "where": {
+     "zone": "collar"
+    },
+    "gauge": 0.003,
+    "depth": 0.0004
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      -0.4,
+      "hem+0.02"
+     ],
+     [
+      0.4,
+      "hem+0.02"
+     ]
+    ],
+    "style": "twin",
+    "colour": "#3a3a3e",
+    "width": 0.001
+   },
+   {
+    "step": "line",
+    "frame": "back",
+    "pts": [
+     [
+      -0.4,
+      "hem+0.02"
+     ],
+     [
+      0.4,
+      "hem+0.02"
+     ]
+    ],
+    "style": "twin",
+    "colour": "#3a3a3e",
+    "width": 0.001
+   },
+   {
+    "step": "line",
+    "frame": "sleeves",
+    "pts": [
+     [
+      -0.3,
+      0.275
+     ],
+     [
+      0.3,
+      0.275
+     ]
+    ],
+    "style": "twin",
+    "colour": "#3a3a3e",
+    "width": 0.001
+   },
+   {
+    "step": "print",
+    "frame": "front",
+    "art": "raf-virginia-forest",
+    "at": [
+     0,
+     "chest-0.03"
+    ],
+    "width": 0.23,
+    "crack": 0.25
+   },
+   {
+    "step": "distress",
+    "type": "wash",
+    "amount": 0.15
+   }
+  ]
+ },
+ {
+  "n": 108,
+  "id": "raf-virginia-creeper-oversized-knit",
+  "designer": "Raf Simons",
+  "name": "Virginia Creeper Oversized Knit",
+  "season": "FW2002",
+  "price": 2600,
+  "slot": "top",
+  "colour": "#4a5a3a",
+  "finish": {
+   "roughness": 0.95
+  },
+  "cut": {
+   "like": "knit",
+   "ease": {
+    "shoulder": 0.0168,
+    "chest": 0.0525,
+    "waist": 0.082,
+    "hip": 0.082,
+    "sleeve": 0.0224,
+    "cuff": 0.0164
+   },
+   "hem": "hip-0.1",
+   "shoulderDrop": 0.05,
+   "cinch": 0.05,
+   "add": [
+    {
+     "type": "collar",
+     "height": 0.05,
+     "flare": 0.012
+    },
+    {
+     "type": "cuff",
+     "length": 0.05,
+     "flare": 0
+    }
+   ]
+  },
+  "paint": [
+   {
+    "step": "fabric",
+    "type": "knit",
+    "gauge": 0.007
+   },
+   {
+    "step": "pattern",
+    "type": "clouds",
+    "colours": [
+     "#3a4a2c",
+     "#62704a"
+    ],
+    "freq": 9,
+    "amount": 0.5
+   },
+   {
+    "step": "rib",
+    "where": {
+     "zone": "body",
+     "h": [
+      "hem",
+      "hem+0.08"
+     ]
+    },
+    "gauge": 0.008,
+    "depth": 0.0005,
+    "colour": "#3a4a2c"
+   },
+   {
+    "step": "rib",
+    "where": {
+     "zone": "sleeves",
+     "s": [
+      0.86,
+      1.3
+     ]
+    },
+    "gauge": 0.008,
+    "depth": 0.0005,
+    "colour": "#3a4a2c"
+   },
+   {
+    "step": "rib",
+    "where": {
+     "zone": "collar"
+    },
+    "gauge": 0.003,
+    "depth": 0.0004,
+    "colour": "#3a4a2c"
+   },
+   {
+    "step": "distress",
+    "type": "pill",
+    "amount": 0.3
+   },
+   {
+    "step": "distress",
+    "type": "shade",
+    "amount": 0.6
+   }
+  ]
+ },
+ {
+  "n": 109,
+  "id": "raf-consumed-graphic-hoodie",
+  "designer": "Raf Simons",
+  "name": "Consumed Graphic Hoodie",
+  "season": "SS2003",
+  "price": 3500,
+  "slot": "top",
+  "colour": "#e9e6de",
+  "finish": {
+   "roughness": 0.88
+  },
+  "cut": {
+   "like": "hoodie",
+   "ease": {
+    "shoulder": 0.015,
+    "chest": 0.0525,
+    "waist": 0.082,
+    "hip": 0.082,
+    "sleeve": 0.0221,
+    "cuff": 0.0172
+   },
+   "shoulderDrop": 0.02,
+   "hem": "hip-0.05",
+   "add": [
+    {
+     "type": "hood",
+     "size": 1.15,
+     "drop": 0.24
+    }
+   ]
+  },
+  "note": "The logos are invented ones in the manner of the show's borrowed corporate marks.",
+  "paint": [
+   {
+    "step": "fabric",
+    "type": "jersey"
+   },
+   {
+    "step": "panel",
+    "colour": "#f2c318",
+    "where": {
+     "zone": "hood"
+    }
+   },
+   {
+    "step": "rib",
+    "where": {
+     "zone": "body",
+     "h": [
+      "hem",
+      "hem+0.06"
+     ]
+    },
+    "gauge": 0.006
+   },
+   {
+    "step": "rib",
+    "where": {
+     "zone": "sleeves",
+     "s": [
+      0.89,
+      1.3
+     ]
+    },
+    "gauge": 0.006
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0.15,
+      "hem+0.062"
+     ],
+     [
+      0.15,
+      "hem+0.13"
+     ],
+     [
+      0.085,
+      "hem+0.235"
+     ],
+     [
+      -0.085,
+      "hem+0.235"
+     ],
+     [
+      -0.15,
+      "hem+0.13"
+     ],
+     [
+      -0.15,
+      "hem+0.062"
+     ]
+    ],
+    "style": "twin",
+    "width": 0.0012,
+    "gap": 0.006,
+    "colour": "#c9c5ba"
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0.15,
+      "hem+0.13"
+     ],
+     [
+      0.085,
+      "hem+0.235"
+     ]
+    ],
+    "style": "groove",
+    "width": 0.004,
+    "mirror": true
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0.036,
+      "chest+0.115"
+     ],
+     [
+      0.04,
+      "chest+0.03"
+     ],
+     [
+      0.037,
+      "chest-0.05"
+     ]
+    ],
+    "style": "tape",
+    "width": 0.007,
+    "colour": "#e2231a",
+    "raise": 0.0016
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      -0.036,
+      "chest+0.115"
+     ],
+     [
+      -0.041,
+      "chest+0.04"
+     ],
+     [
+      -0.038,
+      "chest-0.03"
+     ]
+    ],
+    "style": "tape",
+    "width": 0.007,
+    "colour": "#e2231a",
+    "raise": 0.0016
+   },
+   {
+    "step": "dots",
+    "frame": "front",
+    "pts": [
+     [
+      0.036,
+      "chest+0.118"
+     ],
+     [
+      -0.036,
+      "chest+0.118"
+     ]
+    ],
+    "r": 0.0055,
+    "style": "eyelet",
+    "colour": "#a9a9a6"
+   },
+   {
+    "step": "print",
+    "frame": "front",
+    "art": "raf-consumed-logos",
+    "at": [
+     0,
+     "chest+0.0"
+    ],
+    "width": 0.22
+   },
+   {
+    "step": "print",
+    "frame": "back",
+    "art": "raf-consumed-logos",
+    "at": [
+     0,
+     "chest-0.03"
+    ],
+    "width": 0.28
+   },
+   {
+    "step": "line",
+    "frame": "sleeves",
+    "pts": [
+     [
+      0,
+      0.1
+     ],
+     [
+      0,
+      1.0
+     ]
+    ],
+    "style": "tape",
+    "width": 0.02,
+    "colour": "#1f5fbf"
+   },
+   {
+    "step": "distress",
+    "type": "shade",
+    "amount": 0.6
+   }
+  ]
+ },
+ {
+  "n": 110,
+  "id": "raf-consumed-printed-tee",
+  "designer": "Raf Simons",
+  "name": "Consumed Printed T-Shirt",
+  "season": "SS2003",
+  "price": 900,
+  "slot": "top",
+  "colour": "#e9e6de",
+  "finish": {
+   "roughness": 0.88
+  },
+  "cut": {
+   "like": "tee",
+   "ease": {
+    "shoulder": 0.0072,
+    "chest": 0.0216,
+    "waist": 0.036,
+    "hip": 0.036,
+    "sleeve": 0.0153,
+    "cuff": 0.0174
+   },
+   "hem": "hip-0.04"
+  },
+  "paint": [
+   {
+    "step": "fabric",
+    "type": "jersey"
+   },
+   {
+    "step": "rib",
+    "where": {
+     "zone": "collar"
+    },
+    "gauge": 0.003,
+    "depth": 0.0004
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      -0.4,
+      "hem+0.02"
+     ],
+     [
+      0.4,
+      "hem+0.02"
+     ]
+    ],
+    "style": "twin",
+    "colour": "#d5d2c8",
+    "width": 0.001
+   },
+   {
+    "step": "line",
+    "frame": "back",
+    "pts": [
+     [
+      -0.4,
+      "hem+0.02"
+     ],
+     [
+      0.4,
+      "hem+0.02"
+     ]
+    ],
+    "style": "twin",
+    "colour": "#d5d2c8",
+    "width": 0.001
+   },
+   {
+    "step": "line",
+    "frame": "sleeves",
+    "pts": [
+     [
+      -0.3,
+      0.275
+     ],
+     [
+      0.3,
+      0.275
+     ]
+    ],
+    "style": "twin",
+    "colour": "#d5d2c8",
+    "width": 0.001
+   },
+   {
+    "step": "print",
+    "frame": "front",
+    "art": "raf-consumed-logos",
+    "at": [
+     0,
+     "chest-0.03"
+    ],
+    "width": 0.23,
+    "crack": 0.15
+   },
+   {
+    "step": "panel",
+    "colour": "#e2231a",
+    "where": {
+     "zone": "sleeveL"
+    }
+   },
+   {
+    "step": "panel",
+    "colour": "#1f5fbf",
+    "where": {
+     "zone": "sleeveR"
+    }
+   },
+   {
+    "step": "distress",
+    "type": "wash",
+    "amount": 0.08
+   }
+  ]
+ },
+ {
+  "n": 111,
+  "id": "raf-consumed-cargo-trousers",
+  "designer": "Raf Simons",
+  "name": "Consumed Cargo Trousers",
+  "season": "SS2003",
+  "price": 1800,
+  "slot": "bottom",
+  "colour": "#b9ad8c",
+  "finish": {
+   "roughness": 0.85
+  },
+  "cut": {
+   "like": "cargo",
+   "ease": {
+    "waist": 0.002,
+    "seat": 0.0287,
+    "thigh": 0.0403,
+    "knee": 0.0403,
+    "hem": 0.0345
+   },
+   "rise": "waist-0.1",
+   "add": [
+    {
+     "type": "tail",
+     "from": {
+      "on": "front",
+      "x": 0.15,
+      "h": "thigh+0.02"
+     },
+     "length": 0.2,
+     "width": 0.022
+    },
+    {
+     "type": "tail",
+     "from": {
+      "on": "front",
+      "x": -0.09,
+      "h": "waist-0.11"
+     },
+     "length": 0.28,
+     "width": 0.012
+    }
+   ]
+  },
+  "paint": [
+   {
+    "step": "fabric",
+    "type": "canvas"
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      -0.4,
+      "top-0.045"
+     ],
+     [
+      0.4,
+      "top-0.045"
+     ]
+    ],
+    "style": "twin",
+    "colour": "#8c8166",
+    "gap": 0.004,
+    "width": 0.0014
+   },
+   {
+    "step": "line",
+    "frame": "back",
+    "pts": [
+     [
+      -0.4,
+      "top-0.045"
+     ],
+     [
+      0.4,
+      "top-0.045"
+     ]
+    ],
+    "style": "twin",
+    "colour": "#8c8166",
+    "gap": 0.004,
+    "width": 0.0014
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0,
+      "top-0.045"
+     ],
+     [
+      0.012,
+      "top-0.14"
+     ],
+     [
+      0,
+      "top-0.19"
+     ]
+    ],
+    "style": "twin",
+    "colour": "#8c8166",
+    "gap": 0.004,
+    "width": 0.0014
+   },
+   {
+    "step": "line",
+    "frame": "legs",
+    "pts": [
+     [
+      0,
+      -0.3
+     ],
+     [
+      0,
+      1.05
+     ]
+    ],
+    "style": "seam"
+   },
+   {
+    "step": "rect",
+    "frame": "legs",
+    "at": [
+     -0.005,
+     0.42
+    ],
+    "size": [
+     0.15,
+     0.17
+    ],
+    "style": "flap",
+    "flap": 0.3,
+    "pleat": true,
+    "snap": true,
+    "stitch": "#8c8166",
+    "raise": 0.003
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0.165,
+      "top-0.045"
+     ],
+     [
+      0.115,
+      "top-0.2"
+     ]
+    ],
+    "style": "groove",
+    "width": 0.002,
+    "mirror": true
+   },
+   {
+    "step": "rect",
+    "frame": "back",
+    "at": [
+     0.088,
+     "top-0.17"
+    ],
+    "size": [
+     0.12,
+     0.05
+    ],
+    "style": "flap",
+    "flap": 1,
+    "stitch": "#8c8166",
+    "mirror": true
+   },
+   {
+    "step": "line",
+    "frame": "legs",
+    "pts": [
+     [
+      -0.3,
+      0.5
+     ],
+     [
+      0.3,
+      0.5
+     ]
+    ],
+    "style": "seam"
+   },
+   {
+    "step": "line",
+    "frame": "legs",
+    "pts": [
+     [
+      -0.3,
+      0.62
+     ],
+     [
+      0.3,
+      0.62
+     ]
+    ],
+    "style": "seam"
+   },
+   {
+    "step": "panel",
+    "colour": "#e2231a",
+    "where": {
+     "zone": "strap"
+    }
+   },
+   {
+    "step": "line",
+    "frame": "legs",
+    "pts": [
+     [
+      -0.3,
+      0.78
+     ],
+     [
+      0.3,
+      0.78
+     ]
+    ],
+    "style": "strap",
+    "width": 0.024,
+    "colour": "#e2231a"
+   },
+   {
+    "step": "rect",
+    "frame": "legs",
+    "at": [
+     0.03,
+     0.78
+    ],
+    "size": [
+     0.03,
+     0.03
+    ],
+    "style": "buckle",
+    "colour": "#9d9ea3"
+   },
+   {
+    "step": "distress",
+    "type": "wash",
+    "amount": 0.12
+   },
+   {
+    "step": "distress",
+    "type": "shade",
+    "amount": 0.4
+   }
+  ]
+ },
+ {
+  "n": 112,
+  "id": "raf-closer-new-order-hoodie",
+  "designer": "Raf Simons",
+  "name": "Closer New Order Graphic Hoodie",
+  "season": "FW2003",
+  "price": 6500,
+  "slot": "top",
+  "colour": "#8c8d90",
+  "finish": {
+   "roughness": 0.9
+  },
+  "cut": {
+   "like": "hoodie",
+   "ease": {
+    "shoulder": 0.016,
+    "chest": 0.056,
+    "waist": 0.082,
+    "hip": 0.082,
+    "sleeve": 0.0229,
+    "cuff": 0.0178
+   },
+   "shoulderDrop": 0.024,
+   "hem": "hip-0.06",
+   "add": [
+    {
+     "type": "hood",
+     "size": 1.2,
+     "drop": 0.25
+    }
+   ]
+  },
+  "note": "The flower painting is a drawing after the record sleeve, as on the parka of the same show.",
+  "paint": [
+   {
+    "step": "fabric",
+    "type": "marl"
+   },
+   {
+    "step": "rib",
+    "where": {
+     "zone": "body",
+     "h": [
+      "hem",
+      "hem+0.06"
+     ]
+    },
+    "gauge": 0.006
+   },
+   {
+    "step": "rib",
+    "where": {
+     "zone": "sleeves",
+     "s": [
+      0.89,
+      1.3
+     ]
+    },
+    "gauge": 0.006
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0.15,
+      "hem+0.062"
+     ],
+     [
+      0.15,
+      "hem+0.13"
+     ],
+     [
+      0.085,
+      "hem+0.235"
+     ],
+     [
+      -0.085,
+      "hem+0.235"
+     ],
+     [
+      -0.15,
+      "hem+0.13"
+     ],
+     [
+      -0.15,
+      "hem+0.062"
+     ]
+    ],
+    "style": "twin",
+    "width": 0.0012,
+    "gap": 0.006,
+    "colour": "#77787b"
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0.15,
+      "hem+0.13"
+     ],
+     [
+      0.085,
+      "hem+0.235"
+     ]
+    ],
+    "style": "groove",
+    "width": 0.004,
+    "mirror": true
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0.036,
+      "chest+0.115"
+     ],
+     [
+      0.04,
+      "chest+0.03"
+     ],
+     [
+      0.037,
+      "chest-0.05"
+     ]
+    ],
+    "style": "tape",
+    "width": 0.007,
+    "colour": "#a9aaad",
+    "raise": 0.0016
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      -0.036,
+      "chest+0.115"
+     ],
+     [
+      -0.041,
+      "chest+0.04"
+     ],
+     [
+      -0.038,
+      "chest-0.03"
+     ]
+    ],
+    "style": "tape",
+    "width": 0.007,
+    "colour": "#a9aaad",
+    "raise": 0.0016
+   },
+   {
+    "step": "dots",
+    "frame": "front",
+    "pts": [
+     [
+      0.036,
+      "chest+0.118"
+     ],
+     [
+      -0.036,
+      "chest+0.118"
+     ]
+    ],
+    "r": 0.0055,
+    "style": "eyelet",
+    "colour": "#a9a9a6"
+   },
+   {
+    "step": "print",
+    "frame": "front",
+    "art": "raf-new-order-parka-roses",
+    "at": [
+     0,
+     "chest+0.0"
+    ],
+    "width": 0.2,
+    "raise": 0.0006
+   },
+   {
+    "step": "print",
+    "frame": "back",
+    "art": "raf-new-order-parka-text",
+    "at": [
+     0,
+     "waist+0.0"
+    ],
+    "width": 0.2
+   },
+   {
+    "step": "rect",
+    "frame": "sleeveL",
+    "at": [
+     0,
+     0.3
+    ],
+    "size": [
+     0.06,
+     0.03
+    ],
+    "style": "patch",
+    "colour": "#e9e6dc",
+    "stitch": "#555"
+   },
+   {
+    "step": "distress",
+    "type": "wash",
+    "amount": 0.15
+   },
+   {
+    "step": "distress",
+    "type": "shade",
+    "amount": 0.5
+   }
+  ]
+ },
+ {
+  "n": 113,
+  "id": "raf-closer-joy-division-tee",
+  "designer": "Raf Simons",
+  "name": "Closer Joy Division Graphic T-Shirt",
+  "season": "FW2003",
+  "price": 3200,
+  "slot": "top",
+  "colour": "#19191b",
+  "finish": {
+   "roughness": 0.88
+  },
+  "cut": {
+   "like": "tee",
+   "ease": {
+    "shoulder": 0.0078,
+    "chest": 0.0234,
+    "waist": 0.039,
+    "hip": 0.039,
+    "sleeve": 0.0159,
+    "cuff": 0.0182
+   },
+   "hem": "hip-0.05"
+  },
+  "note": "The ridged plot is drawn fresh from random pulses, in the layout of the record sleeve.",
+  "paint": [
+   {
+    "step": "fabric",
+    "type": "jersey"
+   },
+   {
+    "step": "rib",
+    "where": {
+     "zone": "collar"
+    },
+    "gauge": 0.003,
+    "depth": 0.0004
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      -0.4,
+      "hem+0.02"
+     ],
+     [
+      0.4,
+      "hem+0.02"
+     ]
+    ],
+    "style": "twin",
+    "colour": "#3a3a3e",
+    "width": 0.001
+   },
+   {
+    "step": "line",
+    "frame": "back",
+    "pts": [
+     [
+      -0.4,
+      "hem+0.02"
+     ],
+     [
+      0.4,
+      "hem+0.02"
+     ]
+    ],
+    "style": "twin",
+    "colour": "#3a3a3e",
+    "width": 0.001
+   },
+   {
+    "step": "line",
+    "frame": "sleeves",
+    "pts": [
+     [
+      -0.3,
+      0.275
+     ],
+     [
+      0.3,
+      0.275
+     ]
+    ],
+    "style": "twin",
+    "colour": "#3a3a3e",
+    "width": 0.001
+   },
+   {
+    "step": "print",
+    "frame": "front",
+    "art": "raf-closer-ridges",
+    "at": [
+     0,
+     "chest-0.03"
+    ],
+    "width": 0.21,
+    "crack": 0.3
+   },
+   {
+    "step": "distress",
+    "type": "wash",
+    "amount": 0.2
+   },
+   {
+    "step": "distress",
+    "type": "fade",
+    "amount": 0.2,
+    "frame": "front",
+    "at": [
+     0,
+     "chest"
+    ],
+    "size": [
+     0.3,
+     0.4
+    ]
+   }
+  ]
+ },
+ {
+  "n": 114,
+  "id": "raf-closer-oversized-bomber",
+  "designer": "Raf Simons",
+  "name": "Closer Oversized Bomber",
+  "season": "FW2003",
+  "price": 12000,
+  "slot": "top",
+  "colour": "#1c1d1f",
+  "finish": {
+   "roughness": 0.6
+  },
+  "cut": {
+   "like": "bomber",
+   "ease": {
+    "shoulder": 0.018,
+    "chest": 0.0525,
+    "waist": 0.082,
+    "hip": 0.082,
+    "sleeve": 0.027,
+    "cuff": 0.0221
+   },
+   "shoulderDrop": 0.02,
+   "hem": "hip-0.0",
+   "cinch": 0.24,
+   "rib": 0.07,
+   "cuffCinch": 0.3,
+   "relax": 5,
+   "add": [
+    {
+     "type": "collar",
+     "height": 0.04,
+     "flare": 0.008
+    }
+   ]
+  },
+  "note": "The back panel is a drawn stand-in for the photographic record sleeve.",
+  "paint": [
+   {
+    "step": "fabric",
+    "type": "nylon"
+   },
+   {
+    "step": "rib",
+    "where": {
+     "zone": "body",
+     "h": [
+      "hem",
+      "hem+0.065"
+     ]
+    },
+    "gauge": 0.006,
+    "colour": "#141416"
+   },
+   {
+    "step": "rib",
+    "where": {
+     "zone": "sleeves",
+     "s": [
+      0.875,
+      1.3
+     ]
+    },
+    "gauge": 0.006,
+    "colour": "#141416"
+   },
+   {
+    "step": "rib",
+    "where": {
+     "zone": "collar"
+    },
+    "gauge": 0.006,
+    "colour": "#141416"
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0.022,
+      "hem+0.065"
+     ],
+     [
+      0.022,
+      "top"
+     ]
+    ],
+    "style": "seam",
+    "width": 0.0016
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0,
+      "hem"
+     ],
+     [
+      0,
+      "top"
+     ]
+    ],
+    "style": "zip",
+    "width": 0.0045,
+    "colour": "#9d9ea3",
+    "colour2": "#111113"
+   },
+   {
+    "step": "panel",
+    "colour": "#d9661f",
+    "where": {
+     "zone": "lining"
+    }
+   },
+   {
+    "step": "rect",
+    "frame": "front",
+    "at": [
+     0.115,
+     "waist-0.02"
+    ],
+    "size": [
+     0.15,
+     0.062
+    ],
+    "style": "flap",
+    "flap": 1,
+    "rot": 24,
+    "mirror": true,
+    "snap": true,
+    "stitch": "#2a2d22"
+   },
+   {
+    "step": "rect",
+    "frame": "sleeveL",
+    "at": [
+     0,
+     0.3
+    ],
+    "size": [
+     0.085,
+     0.14
+    ],
+    "style": "pocket",
+    "flap": 0,
+    "stitch": "#2a2d22"
+   },
+   {
+    "step": "rect",
+    "frame": "sleeveL",
+    "at": [
+     -0.018,
+     0.3
+    ],
+    "size": [
+     0.008,
+     0.12
+    ],
+    "style": "zip",
+    "rot": 90,
+    "colour": "#9d9ea3"
+   },
+   {
+    "step": "print",
+    "frame": "back",
+    "art": "raf-closer-cover",
+    "at": [
+     0,
+     "chest-0.04"
+    ],
+    "width": 0.27,
+    "raise": 0.0006
+   },
+   {
+    "step": "rect",
+    "frame": "front",
+    "at": [
+     -0.08,
+     "chest+0.01"
+    ],
+    "size": [
+     0.07,
+     0.03
+    ],
+    "style": "patch",
+    "colour": "#e9e6dc",
+    "stitch": "#333"
+   },
+   {
+    "step": "distress",
+    "type": "crumple",
+    "amount": 0.12
+   },
+   {
+    "step": "distress",
+    "type": "shade",
+    "amount": 0.4
+   }
+  ]
+ },
+ {
+  "n": 115,
+  "id": "raf-circle-bondage-trousers",
+  "designer": "Raf Simons",
+  "name": "May the Circle Be Unbroken Bondage Trousers",
+  "season": "SS2004",
+  "price": 2400,
+  "slot": "bottom",
+  "colour": "#e4e0d4",
+  "finish": {
+   "roughness": 0.85
+  },
+  "cut": {
+   "like": "straight",
+   "ease": {
+    "waist": 0.002,
+    "seat": 0.0168,
+    "thigh": 0.024,
+    "knee": 0.0264,
+    "hem": 0.036
+   },
+   "rise": "waist-0.1",
+   "add": [
+    {
+     "type": "strap",
+     "from": {
+      "on": "back",
+      "x": 0.08,
+      "h": "knee+0.05"
+     },
+     "to": {
+      "on": "back",
+      "x": -0.08,
+      "h": "knee+0.05"
+     },
+     "width": 0.028,
+     "sag": 0.05
+    },
+    {
+     "type": "strap",
+     "from": {
+      "on": "front",
+      "x": 0.075,
+      "h": "thigh+0.03"
+     },
+     "to": {
+      "on": "front",
+      "x": -0.075,
+      "h": "thigh+0.03"
+     },
+     "width": 0.028,
+     "sag": 0.035
+    }
+   ]
+  },
+  "paint": [
+   {
+    "step": "fabric",
+    "type": "canvas"
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      -0.4,
+      "top-0.04"
+     ],
+     [
+      0.4,
+      "top-0.04"
+     ]
+    ],
+    "style": "seam",
+    "colour": "#3a3a3e",
+    "width": 0.002
+   },
+   {
+    "step": "line",
+    "frame": "back",
+    "pts": [
+     [
+      -0.4,
+      "top-0.04"
+     ],
+     [
+      0.4,
+      "top-0.04"
+     ]
+    ],
+    "style": "seam",
+    "colour": "#3a3a3e",
+    "width": 0.002
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0,
+      "top-0.04"
+     ],
+     [
+      0.01,
+      "top-0.12"
+     ],
+     [
+      0,
+      "top-0.19"
+     ]
+    ],
+    "style": "stitch",
+    "colour": "#bdb8aa",
+    "width": 0.0011
+   },
+   {
+    "step": "dots",
+    "frame": "front",
+    "pts": [
+     [
+      0,
+      "top-0.02"
+     ]
+    ],
+    "r": 0.007,
+    "style": "button",
+    "colour": "#2a2a2c"
+   },
+   {
+    "step": "line",
+    "frame": "legs",
+    "pts": [
+     [
+      0,
+      -0.3
+     ],
+     [
+      0,
+      1.05
+     ]
+    ],
+    "style": "seam"
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0.165,
+      "top-0.04"
+     ],
+     [
+      0.115,
+      "top-0.2"
+     ]
+    ],
+    "style": "groove",
+    "width": 0.002,
+    "mirror": true
+   },
+   {
+    "step": "rect",
+    "frame": "back",
+    "at": [
+     0.085,
+     "top-0.13"
+    ],
+    "size": [
+     0.11,
+     0.01
+    ],
+    "style": "welt",
+    "mirror": true
+   },
+   {
+    "step": "rect",
+    "frame": "front",
+    "at": [
+     0.1,
+     "top-0.02"
+    ],
+    "size": [
+     0.01,
+     0.045
+    ],
+    "style": "patch",
+    "stitch": false,
+    "mirror": true,
+    "raise": 0.001
+   },
+   {
+    "step": "rect",
+    "frame": "back",
+    "at": [
+     0.1,
+     "top-0.02"
+    ],
+    "size": [
+     0.01,
+     0.045
+    ],
+    "style": "patch",
+    "stitch": false,
+    "mirror": true,
+    "raise": 0.001
+   },
+   {
+    "step": "panel",
+    "colour": "#1a1a1c",
+    "where": {
+     "zone": "strap"
+    }
+   },
+   {
+    "step": "line",
+    "frame": "legs",
+    "pts": [
+     [
+      -0.3,
+      0.32
+     ],
+     [
+      0.3,
+      0.32
+     ]
+    ],
+    "style": "strap",
+    "width": 0.028,
+    "colour": "#1a1a1c"
+   },
+   {
+    "step": "line",
+    "frame": "legs",
+    "pts": [
+     [
+      -0.3,
+      0.52
+     ],
+     [
+      0.3,
+      0.52
+     ]
+    ],
+    "style": "strap",
+    "width": 0.028,
+    "colour": "#1a1a1c"
+   },
+   {
+    "step": "line",
+    "frame": "legs",
+    "pts": [
+     [
+      -0.3,
+      0.74
+     ],
+     [
+      0.3,
+      0.74
+     ]
+    ],
+    "style": "strap",
+    "width": 0.028,
+    "colour": "#1a1a1c"
+   },
+   {
+    "step": "rect",
+    "frame": "legs",
+    "at": [
+     0.06,
+     0.32
+    ],
+    "size": [
+     0.03,
+     0.034
+    ],
+    "style": "buckle",
+    "colour": "#9d9ea3"
+   },
+   {
+    "step": "rect",
+    "frame": "legs",
+    "at": [
+     0.06,
+     0.52
+    ],
+    "size": [
+     0.03,
+     0.034
+    ],
+    "style": "buckle",
+    "colour": "#9d9ea3"
+   },
+   {
+    "step": "distress",
+    "type": "shade",
+    "amount": 0.5
+   }
+  ]
+ },
+ {
+  "n": 116,
+  "id": "raf-circle-sleeveless-top",
+  "designer": "Raf Simons",
+  "name": "May the Circle Be Unbroken Sleeveless Top",
+  "season": "SS2004",
+  "price": 800,
+  "slot": "top",
+  "colour": "#e9e6de",
+  "finish": {
+   "roughness": 0.88
+  },
+  "cut": {
+   "like": "tank",
+   "ease": {
+    "shoulder": 0.0064,
+    "chest": 0.0192,
+    "waist": 0.032,
+    "hip": 0.032
+   },
+   "shoulderDrop": 0.024,
+   "hem": "hip-0.06",
+   "armhole": 0.34,
+   "neck": {
+    "depth": 0.05,
+    "round": 0.085
+   }
+  },
+  "paint": [
+   {
+    "step": "fabric",
+    "type": "jersey"
+   },
+   {
+    "step": "print",
+    "frame": "front",
+    "art": "raf-circle-ring",
+    "at": [
+     0,
+     "chest-0.02"
+    ],
+    "width": 0.2
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      -0.4,
+      "hem+0.02"
+     ],
+     [
+      0.4,
+      "hem+0.02"
+     ]
+    ],
+    "style": "twin",
+    "colour": "#cfcbc0",
+    "width": 0.001
+   },
+   {
+    "step": "line",
+    "frame": "back",
+    "pts": [
+     [
+      -0.4,
+      "hem+0.02"
+     ],
+     [
+      0.4,
+      "hem+0.02"
+     ]
+    ],
+    "style": "twin",
+    "colour": "#cfcbc0",
+    "width": 0.001
+   },
+   {
+    "step": "distress",
+    "type": "shade",
+    "amount": 0.5
+   }
+  ]
+ },
+ {
+  "n": 117,
+  "id": "raf-waves-oversized-coat",
+  "designer": "Raf Simons",
+  "name": "Waves Black Oversized Coat",
+  "season": "FW2004",
+  "price": 2600,
+  "slot": "top",
+  "colour": "#1a1a1c",
+  "finish": {
+   "roughness": 0.95
+  },
+  "cut": {
+   "like": "coat",
+   "ease": {
+    "shoulder": 0.0152,
+    "chest": 0.0475,
+    "waist": 0.0665,
+    "hip": 0.0665,
+    "sleeve": 0.0197,
+    "cuff": 0.0197
+   },
+   "hem": "calf+0.1",
+   "shoulderDrop": 0.045,
+   "flare": 0.04,
+   "neck": {
+    "v": 0.16,
+    "width": 0.07,
+    "depth": 0.03
+   },
+   "add": [
+    {
+     "type": "collar",
+     "style": "fold",
+     "height": 0.075,
+     "gap": 0.03,
+     "points": 0.6
+    }
+   ]
+  },
+  "under": {
+   "colour": "#222225",
+   "cut": {
+    "like": "longsleeve",
+    "hem": "hip+0.02",
+    "overWaist": false,
+    "neck": {
+     "y": 0.03,
+     "depth": 0.02,
+     "round": 0.075
+    }
+   },
+   "paint": [
+    {
+     "step": "fabric",
+     "type": "knit"
+    }
+   ]
+  },
+  "paint": [
+   {
+    "step": "fabric",
+    "type": "wool"
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0.014,
+      "neck-0.195"
+     ],
+     [
+      0.085,
+      "chest+0.085"
+     ],
+     [
+      0.07,
+      "shoulder+0.005"
+     ]
+    ],
+    "style": "groove",
+    "width": 0.002,
+    "mirror": true
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0.085,
+      "chest+0.085"
+     ],
+     [
+      0.062,
+      "chest+0.105"
+     ]
+    ],
+    "style": "groove",
+    "width": 0.002,
+    "mirror": true
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0.014,
+      "neck-0.16"
+     ],
+     [
+      0.014,
+      "hem"
+     ]
+    ],
+    "style": "seam"
+   },
+   {
+    "step": "dots",
+    "frame": "front",
+    "pts": [
+     [
+      -0.06,
+      "waist-0.12+0"
+     ],
+     [
+      -0.06,
+      "waist-0.12+0.1"
+     ],
+     [
+      -0.06,
+      "waist-0.12+0.2"
+     ],
+     [
+      -0.06,
+      "waist-0.12+0.3"
+     ]
+    ],
+    "r": 0.011,
+    "style": "button",
+    "colour": "#101012"
+   },
+   {
+    "step": "dots",
+    "frame": "front",
+    "pts": [
+     [
+      0.08,
+      "waist-0.12+0"
+     ],
+     [
+      0.08,
+      "waist-0.12+0.1"
+     ],
+     [
+      0.08,
+      "waist-0.12+0.2"
+     ],
+     [
+      0.08,
+      "waist-0.12+0.3"
+     ]
+    ],
+    "r": 0.011,
+    "style": "button",
+    "colour": "#101012"
+   },
+   {
+    "step": "rect",
+    "frame": "front",
+    "at": [
+     0.13,
+     "hip-0.02"
+    ],
+    "size": [
+     0.15,
+     0.014
+    ],
+    "style": "welt",
+    "rot": 70,
+    "mirror": true
+   },
+   {
+    "step": "line",
+    "frame": "back",
+    "pts": [
+     [
+      0,
+      "hem"
+     ],
+     [
+      0,
+      "hip-0.05"
+     ]
+    ],
+    "style": "groove",
+    "width": 0.002
+   },
+   {
+    "step": "line",
+    "frame": "back",
+    "pts": [
+     [
+      -0.25,
+      "shoulder-0.05"
+     ],
+     [
+      0.25,
+      "shoulder-0.05"
+     ]
+    ],
+    "style": "seam",
+    "width": 0.0015
+   },
+   {
+    "step": "distress",
+    "type": "folds",
+    "freq": 10,
+    "depth": 0.004,
+    "where": {
+     "zone": "body",
+     "h": [
+      "hem",
+      "waist"
+     ]
+    }
+   },
+   {
+    "step": "distress",
+    "type": "shade",
+    "amount": 0.4
+   }
+  ]
+ },
+ {
+  "n": 118,
+  "id": "raf-history-of-my-world-hoodie",
+  "designer": "Raf Simons",
+  "name": "History of My World Graphic Hoodie",
+  "season": "SS2005",
+  "price": 1600,
+  "slot": "top",
+  "colour": "#22283a",
+  "finish": {
+   "roughness": 0.88
+  },
+  "cut": {
+   "like": "hoodie",
+   "ease": {
+    "shoulder": 0.013,
+    "chest": 0.0455,
+    "waist": 0.0715,
+    "hip": 0.0715,
+    "sleeve": 0.0204,
+    "cuff": 0.0159
+   },
+   "hem": "hip-0.03"
+  },
+  "paint": [
+   {
+    "step": "fabric",
+    "type": "jersey"
+   },
+   {
+    "step": "rib",
+    "where": {
+     "zone": "body",
+     "h": [
+      "hem",
+      "hem+0.06"
+     ]
+    },
+    "gauge": 0.006
+   },
+   {
+    "step": "rib",
+    "where": {
+     "zone": "sleeves",
+     "s": [
+      0.89,
+      1.3
+     ]
+    },
+    "gauge": 0.006
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0,
+      "hem"
+     ],
+     [
+      0,
+      "top"
+     ]
+    ],
+    "style": "zip",
+    "width": 0.0045,
+    "colour": "#9d9ea3",
+    "colour2": "#111113"
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0.02,
+      "hem+0.062"
+     ],
+     [
+      0.15,
+      "hem+0.062"
+     ],
+     [
+      0.15,
+      "hem+0.13"
+     ],
+     [
+      0.1,
+      "hem+0.22"
+     ],
+     [
+      0.02,
+      "hem+0.22"
+     ]
+    ],
+    "style": "twin",
+    "width": 0.0012,
+    "gap": 0.006,
+    "colour": "#151a28",
+    "mirror": true
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0.036,
+      "chest+0.115"
+     ],
+     [
+      0.04,
+      "chest+0.03"
+     ],
+     [
+      0.037,
+      "chest-0.05"
+     ]
+    ],
+    "style": "tape",
+    "width": 0.007,
+    "colour": "#e8e5dc",
+    "raise": 0.0016
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      -0.036,
+      "chest+0.115"
+     ],
+     [
+      -0.041,
+      "chest+0.04"
+     ],
+     [
+      -0.038,
+      "chest-0.03"
+     ]
+    ],
+    "style": "tape",
+    "width": 0.007,
+    "colour": "#e8e5dc",
+    "raise": 0.0016
+   },
+   {
+    "step": "dots",
+    "frame": "front",
+    "pts": [
+     [
+      0.036,
+      "chest+0.118"
+     ],
+     [
+      -0.036,
+      "chest+0.118"
+     ]
+    ],
+    "r": 0.0055,
+    "style": "eyelet",
+    "colour": "#a9a9a6"
+   },
+   {
+    "step": "print",
+    "frame": "back",
+    "art": "raf-history-text",
+    "at": [
+     0,
+     "chest-0.03"
+    ],
+    "width": 0.22,
+    "crack": 0.15
+   },
+   {
+    "step": "rect",
+    "frame": "front",
+    "at": [
+     -0.09,
+     "chest+0.03"
+    ],
+    "size": [
+     0.05,
+     0.02
+    ],
+    "style": "patch",
+    "colour": "#e8e5dc",
+    "stitch": false
+   },
+   {
+    "step": "distress",
+    "type": "shade",
+    "amount": 0.5
+   }
+  ]
+ },
+ {
+  "n": 119,
+  "id": "raf-poltergeist-graphic-hoodie",
+  "designer": "Raf Simons",
+  "name": "Poltergeist Graphic Hoodie",
+  "season": "FW2005",
+  "price": 2800,
+  "slot": "top",
+  "colour": "#19191b",
+  "finish": {
+   "roughness": 0.88
+  },
+  "cut": {
+   "like": "hoodie",
+   "ease": {
+    "shoulder": 0.0155,
+    "chest": 0.0543,
+    "waist": 0.082,
+    "hip": 0.082,
+    "sleeve": 0.0225,
+    "cuff": 0.0175
+   },
+   "shoulderDrop": 0.022,
+   "hem": "hip-0.06",
+   "add": [
+    {
+     "type": "hood",
+     "size": 1.2,
+     "drop": 0.25
+    }
+   ]
+  },
+  "paint": [
+   {
+    "step": "fabric",
+    "type": "jersey"
+   },
+   {
+    "step": "rib",
+    "where": {
+     "zone": "body",
+     "h": [
+      "hem",
+      "hem+0.06"
+     ]
+    },
+    "gauge": 0.006
+   },
+   {
+    "step": "rib",
+    "where": {
+     "zone": "sleeves",
+     "s": [
+      0.89,
+      1.3
+     ]
+    },
+    "gauge": 0.006
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0.15,
+      "hem+0.062"
+     ],
+     [
+      0.15,
+      "hem+0.13"
+     ],
+     [
+      0.085,
+      "hem+0.235"
+     ],
+     [
+      -0.085,
+      "hem+0.235"
+     ],
+     [
+      -0.15,
+      "hem+0.13"
+     ],
+     [
+      -0.15,
+      "hem+0.062"
+     ]
+    ],
+    "style": "twin",
+    "width": 0.0012,
+    "gap": 0.006,
+    "colour": "#3a3a3e"
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0.15,
+      "hem+0.13"
+     ],
+     [
+      0.085,
+      "hem+0.235"
+     ]
+    ],
+    "style": "groove",
+    "width": 0.004,
+    "mirror": true
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0.036,
+      "chest+0.115"
+     ],
+     [
+      0.04,
+      "chest+0.03"
+     ],
+     [
+      0.037,
+      "chest-0.05"
+     ]
+    ],
+    "style": "tape",
+    "width": 0.007,
+    "colour": "#2a2a2d",
+    "raise": 0.0016
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      -0.036,
+      "chest+0.115"
+     ],
+     [
+      -0.041,
+      "chest+0.04"
+     ],
+     [
+      -0.038,
+      "chest-0.03"
+     ]
+    ],
+    "style": "tape",
+    "width": 0.007,
+    "colour": "#2a2a2d",
+    "raise": 0.0016
+   },
+   {
+    "step": "dots",
+    "frame": "front",
+    "pts": [
+     [
+      0.036,
+      "chest+0.118"
+     ],
+     [
+      -0.036,
+      "chest+0.118"
+     ]
+    ],
+    "r": 0.0055,
+    "style": "eyelet",
+    "colour": "#a9a9a6"
+   },
+   {
+    "step": "print",
+    "frame": "back",
+    "art": "raf-poltergeist-parka-still",
+    "at": [
+     0,
+     "chest-0.02"
+    ],
+    "width": 0.2
+   },
+   {
+    "step": "print",
+    "frame": "back",
+    "art": "raf-poltergeist-parka-polter",
+    "at": [
+     0,
+     "waist-0.01"
+    ],
+    "width": 0.16
+   },
+   {
+    "step": "print",
+    "frame": "front",
+    "art": "raf-poltergeist-parka-label",
+    "at": [
+     -0.08,
+     "chest+0.03"
+    ],
+    "width": 0.06
+   },
+   {
+    "step": "print",
+    "frame": "sleeveL",
+    "art": "raf-poltergeist-parka-armband",
+    "at": [
+     0,
+     0.32
+    ],
+    "width": 0.2
+   },
+   {
+    "step": "distress",
+    "type": "shade",
+    "amount": 0.5
+   }
+  ]
+ }
+]

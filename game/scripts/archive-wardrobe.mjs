@@ -10,7 +10,11 @@ import { paintGarment, streetPictures } from './garment-paint.mjs';
 const FOLDER = new URL('../data/archive-collection/', import.meta.url);
 // ARCHIVE_ONLY=footwear,01-grails builds just those chapters, to look at them without the rest.
 const WANTED = process.env.ARCHIVE_ONLY?.split(',');
-export const archivePieces = () => readdirSync(FOLDER).filter(name => name.endsWith('.json') && (!WANTED || WANTED.includes(name.slice(0, -5)))).sort().flatMap(name => JSON.parse(readFileSync(new URL(name, FOLDER), 'utf8'))).sort((a, b) => a.n - b.n);
+// The first hundred ship with the figure, in parts.bin. A later chapter has a bin of its own (dist/human/archive/<chapter>.bin),
+// which the game fetches when one of its pieces is first put on: `bin` on a piece names it.
+const SHIPPED = 100;
+export const archivePieces = () => readdirSync(FOLDER).filter(name => name.endsWith('.json') && (!WANTED || WANTED.includes(name.slice(0, -5)))).sort()
+  .flatMap(name => JSON.parse(readFileSync(new URL(name, FOLDER), 'utf8')).map(piece => piece.n > SHIPPED ? { ...piece, bin: 'archive/' + name.slice(0, -5) } : piece)).sort((a, b) => a.n - b.n);
 const linear = hex => hex.slice(1).match(/../g).map(v => { const c = parseInt(v, 16) / 255; return c <= .04045 ? c / 12.92 : ((c + .055) / 1.055) ** 2.4; });
 const index = values => { let most = 0; for (const v of values) if (v > most) most = v; return most < 65536 ? Uint16Array.from(values) : Uint32Array.from(values); };
 
@@ -54,9 +58,10 @@ export function shapeStock(design, rest, offsets) {
 /**
  * @param body { positions, faces, skinIndex, skinWeight, bones, places } as build-human.mjs has them
  * @param put  appends a typed array to parts.bin and returns [offset, count]
+ * @param binPut  the same for a named bin, (name, array): where a piece with a `bin` goes, if given
  * @returns the entries for human.json's `parts`
  */
-export function cutArchive({ positions, faces, skinIndex, skinWeight, bones, places, put, out, textures = true, only = null, pieces = archivePieces() }) {
+export function cutArchive({ positions, faces, skinIndex, skinWeight, bones, places, put: toParts, binPut = null, out, textures = true, only = null, pieces = archivePieces() }) {
   const tailor = createTailor({ positions, faces, skinIndex, skinWeight, bones, places }), made = [];
   // How far a point stands off the body grows with the body, measured across, up and through the head as MakeHuman's own clothes are.
   const span = (a, b, axis) => [a, b, Math.abs(positions[a * 3 + axis] - positions[b * 3 + axis])];
@@ -64,8 +69,8 @@ export function cutArchive({ positions, faces, skinIndex, skinWeight, bones, pla
   const write = (piece, id, slot) => {
     const shape = cutOf(piece.cut), cut = tailor.make(piece.cut), map = 'archive/' + id + '.webp', normal = 'archive/' + id + '-n.webp';
     if (textures && (!only || only.includes(id.replace(/2$/, '')))) paintGarment({ ...piece, id }, cut, join(out, 'tex', map), join(out, 'tex', normal));
-    const c = linear(piece.colour), sheer = Boolean(piece.sheer);
-    made.push({ kind: 'garment', id, slot, points: cut.points, ties: cut.ties, shade: .2126 * c[0] + .7152 * c[1] + .0722 * c[2],
+    const c = linear(piece.colour), sheer = Boolean(piece.sheer), bin = binPut && piece.bin, put = bin ? array => binPut(bin, array) : toParts;
+    made.push({ kind: 'garment', id, slot, ...(bin ? { bin } : {}), points: cut.points, ties: cut.ties, shade: .2126 * c[0] + .7152 * c[1] + .0722 * c[2],
       tie: put(cut.tie), share: put(cut.share), off: put(cut.off), skinBone: put(cut.bone), skinPull: put(cut.pull), corners: put(index(cut.corners)), uv: put(cut.uv), triangles: put(index(cut.triangles)),
       hidden: cut.hidden.length ? put(Uint16Array.from(cut.hidden)) : null, scale, depth: slot === 'top' ? 60 : 40, map, normal, clear: Boolean(piece.clear), twoSided: true, tags: ['archive'], dyeBase: piece.colour, ownColour: true,
       ...(piece.finish ? { finish: piece.finish } : {}), ...(sheer ? { sheer: true } : {}), ...(shape.overBoot ? { overBoot: true } : {}), ...(slot === 'top' ? (shape.overWaist !== false ? { overWaist: true } : { tucked: true }) : {}), ...(slot === 'bottom' ? { liftsHem: true } : {}) });
@@ -75,7 +80,7 @@ export function cutArchive({ positions, faces, skinIndex, skinWeight, bones, pla
     try {
     write(piece.under ? { ...piece, cut: { lift: .007, ...piece.cut } } : piece, piece.id, piece.slot);
     // What is worn under it and goes with it: the shirt in a jacket, the lining that shows. human-looks.js puts on `id2` with `id`.
-    if (piece.under) write({ ...piece.under, sheer: false }, piece.id + '2', piece.slot);
+    if (piece.under) write({ ...piece.under, sheer: false, bin: piece.bin }, piece.id + '2', piece.slot);
     } catch (error) { throw new Error(piece.id + ': ' + error.message, { cause: error }); }
   }
   return made;

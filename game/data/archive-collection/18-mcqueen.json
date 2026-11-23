@@ -1,0 +1,2903 @@
+[
+ {
+  "n": 341,
+  "id": "mcq-highland-rape-torn-lace-dress",
+  "designer": "Alexander McQueen",
+  "name": "Highland Rape Torn Lace Dress",
+  "season": "FW1995",
+  "price": 30000,
+  "slot": "top",
+  "colour": "#55604a",
+  "finish": {
+   "roughness": 0.6
+  },
+  "cut": {
+   "like": "dress",
+   "ease": {
+    "shoulder": 0.0036,
+    "chest": 0.0072,
+    "waist": 0.012,
+    "hip": 0.015,
+    "hem": 0.03
+   },
+   "hem": "knee+0.08",
+   "hemSlant": 0.08,
+   "armhole": 0.2,
+   "hug": 0.7,
+   "neck": {
+    "depth": 0.12,
+    "round": 0.1
+   }
+  },
+  "clear": true,
+  "note": "Bronze-green lace, torn open across the body.",
+  "paint": [
+   {
+    "step": "fabric",
+    "type": "satin"
+   },
+   {
+    "step": "pattern",
+    "type": "lace",
+    "colours": [
+     "#2a3324"
+    ]
+   },
+   {
+    "step": "pattern",
+    "type": "lace",
+    "colours": [
+     "#8a7a4a"
+    ],
+    "scale": 1.6,
+    "amount": 0.5
+   },
+   {
+    "step": "distress",
+    "type": "holes",
+    "size": 0.03,
+    "density": 0.2
+   },
+   {
+    "step": "distress",
+    "type": "holes",
+    "size": 0.012,
+    "density": 0.12
+   },
+   {
+    "step": "distress",
+    "type": "edges",
+    "amount": 0.7,
+    "colour": "#2a3324"
+   }
+  ]
+ },
+ {
+  "n": 342,
+  "id": "mcq-highland-rape-cropped-tartan-jacket",
+  "designer": "Alexander McQueen",
+  "name": "Highland Rape Tartan Jacket (Cropped)",
+  "season": "FW1995",
+  "price": 25000,
+  "slot": "top",
+  "colour": "#b3261e",
+  "finish": {
+   "roughness": 0.95
+  },
+  "cut": {
+   "like": "blazer",
+   "ease": {
+    "shoulder": 0.008,
+    "chest": 0.0176,
+    "waist": 0.024,
+    "hip": 0.028,
+    "sleeve": 0.0109,
+    "cuff": 0.01
+   },
+   "hem": "hip+0.08",
+   "waist": 0.07,
+   "neck": {
+    "v": 0.26,
+    "width": 0.08,
+    "depth": 0.03
+   }
+  },
+  "under": {
+   "colour": "#55604a",
+   "cut": {
+    "like": "tank",
+    "overWaist": false,
+    "hem": "hip+0.1",
+    "armhole": 0.2,
+    "neck": {
+     "depth": 0.09,
+     "round": 0.09
+    }
+   },
+   "paint": [
+    {
+     "step": "fabric",
+     "type": "satin"
+    },
+    {
+     "step": "pattern",
+     "type": "lace",
+     "colours": [
+      "#2a3324"
+     ]
+    }
+   ]
+  },
+  "note": "The cropped version worn over torn green lace; the longer jacket is earlier in the list.",
+  "paint": [
+   {
+    "step": "fabric",
+    "type": "wool"
+   },
+   {
+    "step": "pattern",
+    "type": "tartan",
+    "colours": [
+     "#141414",
+     "#e3b21c"
+    ],
+    "period": 0.15,
+    "sett": [
+     [
+      0,
+      0.05,
+      0
+     ],
+     [
+      0.085,
+      0.014,
+      0
+     ],
+     [
+      0.045,
+      0.004,
+      1
+     ],
+     [
+      0.115,
+      0.004,
+      1
+     ]
+    ],
+    "where": {
+     "not": [
+      "lining"
+     ]
+    }
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0.012,
+      "neck-0.295"
+     ],
+     [
+      0.085,
+      "chest+0.085"
+     ],
+     [
+      0.07,
+      "shoulder+0.005"
+     ]
+    ],
+    "style": "groove",
+    "width": 0.002,
+    "mirror": true
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0.085,
+      "chest+0.085"
+     ],
+     [
+      0.062,
+      "chest+0.105"
+     ]
+    ],
+    "style": "groove",
+    "width": 0.002,
+    "mirror": true
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0.012,
+      "neck-0.29"
+     ],
+     [
+      0.03,
+      "hem+0.03"
+     ],
+     [
+      0.07,
+      "hem"
+     ]
+    ],
+    "style": "seam"
+   },
+   {
+    "step": "dots",
+    "frame": "front",
+    "pts": [
+     [
+      0.012,
+      "waist+0.07"
+     ]
+    ],
+    "r": 0.01,
+    "style": "button",
+    "colour": "#111113"
+   },
+   {
+    "step": "distress",
+    "type": "edges",
+    "amount": 0.5,
+    "colour": "#3a1a14"
+   }
+  ]
+ },
+ {
+  "n": 343,
+  "id": "mcq-highland-rape-low-rise-trousers",
+  "designer": "Alexander McQueen",
+  "name": "Highland Rape Low-Rise Trousers",
+  "season": "FW1995",
+  "price": 6500,
+  "slot": "bottom",
+  "colour": "#b3261e",
+  "finish": {
+   "roughness": 0.95
+  },
+  "cut": {
+   "like": "slim",
+   "ease": {
+    "thigh": 0.012,
+    "knee": 0.014,
+    "hem": 0.02
+   },
+   "rise": "hip-0.02",
+   "riseBack": -0.045,
+   "hem": "ankle-0.03",
+   "straight": 0.6
+  },
+  "note": "The bumster cut in the McQueen tartan.",
+  "paint": [
+   {
+    "step": "fabric",
+    "type": "wool"
+   },
+   {
+    "step": "pattern",
+    "type": "tartan",
+    "colours": [
+     "#141414",
+     "#e3b21c"
+    ],
+    "period": 0.15,
+    "sett": [
+     [
+      0,
+      0.05,
+      0
+     ],
+     [
+      0.085,
+      0.014,
+      0
+     ],
+     [
+      0.045,
+      0.004,
+      1
+     ],
+     [
+      0.115,
+      0.004,
+      1
+     ]
+    ]
+   },
+   {
+    "step": "line",
+    "frame": "legs",
+    "pts": [
+     [
+      0,
+      -0.3
+     ],
+     [
+      0,
+      1.05
+     ]
+    ],
+    "style": "seam"
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      -0.4,
+      "top-0.012"
+     ],
+     [
+      0.4,
+      "top-0.012"
+     ]
+    ],
+    "style": "stitch",
+    "colour": "#3a1a14"
+   },
+   {
+    "step": "line",
+    "frame": "back",
+    "pts": [
+     [
+      -0.4,
+      "top-0.012"
+     ],
+     [
+      0.4,
+      "top-0.012"
+     ]
+    ],
+    "style": "stitch",
+    "colour": "#3a1a14"
+   },
+   {
+    "step": "line",
+    "frame": "back",
+    "pts": [
+     [
+      0,
+      "top"
+     ],
+     [
+      0,
+      "top-0.11"
+     ]
+    ],
+    "style": "zip",
+    "width": 0.003,
+    "colour": "#9a9da4",
+    "colour2": "#3a1a14"
+   }
+  ]
+ },
+ {
+  "n": 344,
+  "id": "mcq-hunger-printed-suit",
+  "designer": "Alexander McQueen",
+  "name": "The Hunger Printed Suit",
+  "season": "SS1996",
+  "price": 9000,
+  "slot": "top",
+  "colour": "#d9d3c0",
+  "finish": {
+   "roughness": 0.55
+  },
+  "cut": {
+   "like": "blazer",
+   "ease": {
+    "shoulder": 0.0085,
+    "chest": 0.0187,
+    "waist": 0.0255,
+    "hip": 0.0298,
+    "sleeve": 0.0112,
+    "cuff": 0.0103
+   },
+   "hem": "hip-0.1",
+   "waist": 0.07,
+   "neck": {
+    "v": 0.26,
+    "width": 0.08,
+    "depth": 0.03
+   }
+  },
+  "under": {
+   "colour": "#19191b",
+   "cut": {
+    "like": "tank",
+    "overWaist": false,
+    "hem": "hip+0.03",
+    "armhole": 0.22,
+    "neck": {
+     "depth": 0.035,
+     "round": 0.075
+    },
+    "ease": {
+     "shoulder": 0.002,
+     "chest": 0.004,
+     "waist": 0.004,
+     "hip": 0.004
+    }
+   },
+   "paint": [
+    {
+     "step": "fabric",
+     "type": "jersey"
+    }
+   ]
+  },
+  "with": "mcq-hunger-printed-trousers",
+  "paint": [
+   {
+    "step": "fabric",
+    "type": "satin"
+   },
+   {
+    "step": "print",
+    "frame": "front",
+    "art": "mcq-hunger-thorns",
+    "at": [
+     0,
+     "chest-0.08"
+    ],
+    "width": 0.5
+   },
+   {
+    "step": "print",
+    "frame": "back",
+    "art": "mcq-hunger-thorns",
+    "at": [
+     0,
+     "chest-0.08"
+    ],
+    "width": 0.5,
+    "rot": 180
+   },
+   {
+    "step": "print",
+    "frame": "sleeves",
+    "art": "mcq-hunger-thorns",
+    "at": [
+     0,
+     0.5
+    ],
+    "width": 0.3
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0.012,
+      "neck-0.295"
+     ],
+     [
+      0.085,
+      "chest+0.085"
+     ],
+     [
+      0.07,
+      "shoulder+0.005"
+     ]
+    ],
+    "style": "groove",
+    "width": 0.002,
+    "mirror": true
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0.085,
+      "chest+0.085"
+     ],
+     [
+      0.062,
+      "chest+0.105"
+     ]
+    ],
+    "style": "groove",
+    "width": 0.002,
+    "mirror": true
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0.012,
+      "neck-0.295"
+     ],
+     [
+      0.03,
+      "hem+0.04"
+     ],
+     [
+      0.07,
+      "hem"
+     ]
+    ],
+    "style": "seam"
+   },
+   {
+    "step": "dots",
+    "frame": "front",
+    "pts": [
+     [
+      0.012,
+      "waist+0.04+0"
+     ]
+    ],
+    "r": 0.009,
+    "style": "button",
+    "colour": "#2a1a14"
+   },
+   {
+    "step": "rect",
+    "frame": "front",
+    "at": [
+     0.125,
+     "hip+0.02"
+    ],
+    "size": [
+     0.13,
+     0.04
+    ],
+    "style": "flap",
+    "flap": 1,
+    "snap": false,
+    "mirror": true,
+    "stitch": "#2c2c30"
+   },
+   {
+    "step": "rect",
+    "frame": "front",
+    "at": [
+     0.1,
+     "chest+0.03"
+    ],
+    "size": [
+     0.085,
+     0.012
+    ],
+    "style": "welt"
+   },
+   {
+    "step": "dots",
+    "frame": "sleeves",
+    "from": [
+     -0.03,
+     0.9
+    ],
+    "to": [
+     -0.03,
+     0.98
+    ],
+    "count": 4,
+    "r": 0.0045,
+    "style": "button",
+    "colour": "#2a1a14"
+   },
+   {
+    "step": "line",
+    "frame": "back",
+    "pts": [
+     [
+      0,
+      "hem"
+     ],
+     [
+      0,
+      "hip+0.02"
+     ]
+    ],
+    "style": "groove",
+    "width": 0.002
+   }
+  ]
+ },
+ {
+  "n": 344,
+  "id": "mcq-hunger-printed-trousers",
+  "designer": "Alexander McQueen",
+  "name": "The Hunger Printed Trousers",
+  "season": "SS1996",
+  "slot": "bottom",
+  "colour": "#d9d3c0",
+  "finish": {
+   "roughness": 0.55
+  },
+  "cut": {
+   "like": "slim",
+   "ease": {
+    "waist": 0.002,
+    "seat": 0.0096,
+    "thigh": 0.0096,
+    "knee": 0.0096,
+    "hem": 0.0144
+   },
+   "rise": "waist-0.1"
+  },
+  "part": true,
+  "paint": [
+   {
+    "step": "fabric",
+    "type": "satin"
+   },
+   {
+    "step": "print",
+    "frame": "front",
+    "art": "mcq-hunger-thorns",
+    "at": [
+     0.09,
+     "thigh-0.05"
+    ],
+    "width": 0.22,
+    "mirror": true
+   },
+   {
+    "step": "print",
+    "frame": "front",
+    "art": "mcq-hunger-thorns",
+    "at": [
+     0.09,
+     "calf+0.1"
+    ],
+    "width": 0.2,
+    "rot": 90,
+    "mirror": true
+   },
+   {
+    "step": "print",
+    "frame": "back",
+    "art": "mcq-hunger-thorns",
+    "at": [
+     0.09,
+     "thigh-0.1"
+    ],
+    "width": 0.22,
+    "mirror": true
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      -0.4,
+      "top-0.04"
+     ],
+     [
+      0.4,
+      "top-0.04"
+     ]
+    ],
+    "style": "seam",
+    "colour": "#3a3a3e",
+    "width": 0.002
+   },
+   {
+    "step": "line",
+    "frame": "back",
+    "pts": [
+     [
+      -0.4,
+      "top-0.04"
+     ],
+     [
+      0.4,
+      "top-0.04"
+     ]
+    ],
+    "style": "seam",
+    "colour": "#3a3a3e",
+    "width": 0.002
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0,
+      "top-0.04"
+     ],
+     [
+      0.01,
+      "top-0.12"
+     ],
+     [
+      0,
+      "top-0.19"
+     ]
+    ],
+    "style": "stitch",
+    "colour": "#b9b3a0",
+    "width": 0.0011
+   },
+   {
+    "step": "dots",
+    "frame": "front",
+    "pts": [
+     [
+      0,
+      "top-0.02"
+     ]
+    ],
+    "r": 0.007,
+    "style": "button",
+    "colour": "#2a2a2c"
+   },
+   {
+    "step": "line",
+    "frame": "legs",
+    "pts": [
+     [
+      0,
+      -0.3
+     ],
+     [
+      0,
+      1.05
+     ]
+    ],
+    "style": "seam"
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0.165,
+      "top-0.04"
+     ],
+     [
+      0.115,
+      "top-0.2"
+     ]
+    ],
+    "style": "groove",
+    "width": 0.002,
+    "mirror": true
+   },
+   {
+    "step": "rect",
+    "frame": "back",
+    "at": [
+     0.085,
+     "top-0.13"
+    ],
+    "size": [
+     0.11,
+     0.01
+    ],
+    "style": "welt",
+    "mirror": true
+   },
+   {
+    "step": "rect",
+    "frame": "front",
+    "at": [
+     0.1,
+     "top-0.02"
+    ],
+    "size": [
+     0.01,
+     0.045
+    ],
+    "style": "patch",
+    "stitch": false,
+    "mirror": true,
+    "raise": 0.001
+   },
+   {
+    "step": "rect",
+    "frame": "back",
+    "at": [
+     0.1,
+     "top-0.02"
+    ],
+    "size": [
+     0.01,
+     0.045
+    ],
+    "style": "patch",
+    "stitch": false,
+    "mirror": true,
+    "raise": 0.001
+   }
+  ]
+ },
+ {
+  "n": 345,
+  "id": "mcq-dante-crucifix-coat",
+  "designer": "Alexander McQueen",
+  "name": "Dante Crucifix Print Coat",
+  "season": "FW1996",
+  "price": 15000,
+  "slot": "top",
+  "colour": "#1b1b1d",
+  "finish": {
+   "roughness": 0.95
+  },
+  "cut": {
+   "like": "coat",
+   "ease": {
+    "shoulder": 0.0068,
+    "chest": 0.0213,
+    "waist": 0.0298,
+    "hip": 0.0298,
+    "sleeve": 0.0131,
+    "cuff": 0.0131
+   },
+   "hem": "knee+0.1",
+   "waist": 0.07,
+   "flare": 0.06,
+   "neck": {
+    "v": 0.2,
+    "width": 0.07,
+    "depth": 0.03
+   },
+   "add": [
+    {
+     "type": "collar",
+     "style": "fold",
+     "height": 0.08,
+     "gap": 0.03,
+     "points": 0.8
+    }
+   ]
+  },
+  "under": {
+   "colour": "#222225",
+   "cut": {
+    "like": "longsleeve",
+    "hem": "hip+0.02",
+    "overWaist": false,
+    "neck": {
+     "y": 0.03,
+     "depth": 0.02,
+     "round": 0.075
+    }
+   },
+   "paint": [
+    {
+     "step": "fabric",
+     "type": "knit"
+    }
+   ]
+  },
+  "note": "The printed photograph of the original is a drawn stand-in: a figure before a cross.",
+  "paint": [
+   {
+    "step": "fabric",
+    "type": "wool"
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0.014,
+      "neck-0.235"
+     ],
+     [
+      0.085,
+      "chest+0.085"
+     ],
+     [
+      0.07,
+      "shoulder+0.005"
+     ]
+    ],
+    "style": "groove",
+    "width": 0.002,
+    "mirror": true
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0.085,
+      "chest+0.085"
+     ],
+     [
+      0.062,
+      "chest+0.105"
+     ]
+    ],
+    "style": "groove",
+    "width": 0.002,
+    "mirror": true
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0.014,
+      "neck-0.2"
+     ],
+     [
+      0.014,
+      "hem"
+     ]
+    ],
+    "style": "seam"
+   },
+   {
+    "step": "dots",
+    "frame": "front",
+    "pts": [
+     [
+      0,
+      "waist-0.1+0"
+     ],
+     [
+      0,
+      "waist-0.1+0.1"
+     ],
+     [
+      0,
+      "waist-0.1+0.2"
+     ]
+    ],
+    "r": 0.011,
+    "style": "button",
+    "colour": "#101012"
+   },
+   {
+    "step": "rect",
+    "frame": "front",
+    "at": [
+     0.125,
+     "hip-0.02"
+    ],
+    "size": [
+     0.15,
+     0.05
+    ],
+    "style": "flap",
+    "flap": 1,
+    "snap": false,
+    "mirror": true,
+    "stitch": "#3a3a40"
+   },
+   {
+    "step": "line",
+    "frame": "back",
+    "pts": [
+     [
+      0,
+      "hem"
+     ],
+     [
+      0,
+      "hip-0.05"
+     ]
+    ],
+    "style": "groove",
+    "width": 0.002
+   },
+   {
+    "step": "line",
+    "frame": "back",
+    "pts": [
+     [
+      -0.25,
+      "shoulder-0.05"
+     ],
+     [
+      0.25,
+      "shoulder-0.05"
+     ]
+    ],
+    "style": "seam",
+    "width": 0.0015
+   },
+   {
+    "step": "print",
+    "frame": "back",
+    "art": "mcq-dante-print",
+    "at": [
+     0,
+     "chest-0.05"
+    ],
+    "width": 0.3
+   },
+   {
+    "step": "print",
+    "frame": "front",
+    "art": "mcq-dante-print",
+    "at": [
+     0.1,
+     "hip-0.1"
+    ],
+    "width": 0.13
+   },
+   {
+    "step": "panel",
+    "colour": "#6a2a8c",
+    "where": {
+     "zone": "lining"
+    }
+   }
+  ]
+ },
+ {
+  "n": 346,
+  "id": "mcq-la-poupee-fringe-dress",
+  "designer": "Alexander McQueen",
+  "name": "La Poupée Metal Frame Dress",
+  "season": "SS1997",
+  "price": 20000,
+  "slot": "top",
+  "colour": "#19191b",
+  "finish": {
+   "roughness": 0.5,
+   "metalness": 0.2
+  },
+  "cut": {
+   "like": "dress",
+   "ease": {
+    "shoulder": 0.0042,
+    "chest": 0.0084,
+    "waist": 0.014,
+    "hip": 0.0175,
+    "hem": 0.05
+   },
+   "hem": "knee-0.0",
+   "armhole": 0.2,
+   "hang": 0.6,
+   "neck": {
+    "depth": 0.1,
+    "round": 0.1
+   },
+   "add": [
+    {
+     "type": "strap",
+     "from": {
+      "on": "front",
+      "x": 0.2,
+      "h": "hip"
+     },
+     "to": {
+      "on": "front",
+      "x": -0.2,
+      "h": "hip"
+     },
+     "width": 0.014,
+     "sag": -0.02,
+     "out": 0.12
+    },
+    {
+     "type": "strap",
+     "from": {
+      "on": "back",
+      "x": 0.2,
+      "h": "hip"
+     },
+     "to": {
+      "on": "back",
+      "x": -0.2,
+      "h": "hip"
+     },
+     "width": 0.014,
+     "sag": -0.02,
+     "out": 0.12
+    }
+   ]
+  },
+  "note": "The square metal frame that shackled the model is two bars standing off the hips; the dress is black net and fringe.",
+  "paint": [
+   {
+    "step": "fabric",
+    "type": "mesh",
+    "scale": 0.6
+   },
+   {
+    "step": "panel",
+    "colour": "#19191b",
+    "where": {},
+    "amount": 0.75
+   },
+   {
+    "step": "rib",
+    "where": {
+     "zone": "body",
+     "h": [
+      "hem",
+      "hip+0.05"
+     ]
+    },
+    "gauge": 0.005,
+    "depth": 0.001,
+    "colour": "#111113"
+   },
+   {
+    "step": "pattern",
+    "type": "speckle",
+    "colours": [
+     "#8a8b8e"
+    ],
+    "freq": 900,
+    "density": 0.1
+   },
+   {
+    "step": "panel",
+    "colour": "#b9babd",
+    "where": {
+     "zone": "strap"
+    }
+   },
+   {
+    "step": "distress",
+    "type": "edges",
+    "amount": 0.5
+   }
+  ]
+ },
+ {
+  "n": 347,
+  "id": "mcq-eclect-dissect-tailored-coat",
+  "designer": "Alexander McQueen",
+  "name": "Eclect Dissect Tailored Coat",
+  "season": "FW1997",
+  "price": 12000,
+  "slot": "top",
+  "colour": "#7a1418",
+  "finish": {
+   "roughness": 0.5
+  },
+  "cut": {
+   "like": "coat",
+   "ease": {
+    "shoulder": 0.0064,
+    "chest": 0.02,
+    "waist": 0.028,
+    "hip": 0.028,
+    "sleeve": 0.0127,
+    "cuff": 0.0127
+   },
+   "hem": "calf+0.14",
+   "waist": 0.08,
+   "flare": 0.1,
+   "neck": {
+    "v": 0.14,
+    "width": 0.06,
+    "depth": 0.03
+   },
+   "bumps": [
+    [
+     0.19,
+     "shoulder",
+     0,
+     0.06,
+     0.04
+    ],
+    [
+     -0.19,
+     "shoulder",
+     0,
+     0.06,
+     0.04
+    ]
+   ],
+   "add": [
+    {
+     "type": "collar",
+     "style": "funnel",
+     "height": 0.12,
+     "flare": 0.05,
+     "gap": 0.05,
+     "only": true
+    },
+    {
+     "type": "lip"
+    }
+   ]
+  },
+  "note": "From the couture show for Givenchy: blood-red brocade with a standing collar and fur cuffs.",
+  "paint": [
+   {
+    "step": "fabric",
+    "type": "satin"
+   },
+   {
+    "step": "pattern",
+    "type": "tapestry",
+    "colours": [
+     "#19191b",
+     "#4a0c10",
+     "#c9a23a"
+    ]
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0.012,
+      "neck-0.14"
+     ],
+     [
+      0.012,
+      "hem"
+     ]
+    ],
+    "style": "seam"
+   },
+   {
+    "step": "dots",
+    "frame": "front",
+    "from": [
+     0,
+     "waist-0.06"
+    ],
+    "to": [
+     0,
+     "chest"
+    ],
+    "count": 6,
+    "r": 0.007,
+    "style": "button",
+    "colour": "#19191b"
+   },
+   {
+    "step": "fabric",
+    "type": "fur",
+    "colour": "#19191b",
+    "where": {
+     "zone": "sleeves",
+     "s": [
+      0.85,
+      1.3
+     ]
+    }
+   },
+   {
+    "step": "panel",
+    "colour": "#19191b",
+    "where": {
+     "zone": "collar"
+    }
+   },
+   {
+    "step": "distress",
+    "type": "folds",
+    "freq": 10,
+    "depth": 0.005,
+    "where": {
+     "zone": "body",
+     "h": [
+      "hem",
+      "hip"
+     ]
+    }
+   }
+  ]
+ },
+ {
+  "n": 348,
+  "id": "mcq-joan-red-beaded-dress",
+  "designer": "Alexander McQueen",
+  "name": "Joan Red Beaded Dress",
+  "season": "FW1998",
+  "price": 45000,
+  "slot": "top",
+  "colour": "#b3151a",
+  "finish": {
+   "roughness": 0.3,
+   "metalness": 0.25
+  },
+  "cut": {
+   "like": "dress",
+   "ease": {
+    "shoulder": 0.003,
+    "chest": 0.006,
+    "waist": 0.01,
+    "hip": 0.0125,
+    "hem": 0.03,
+    "sleeve": 0.005,
+    "cuff": 0.005
+   },
+   "hem": "ankle+0.02",
+   "sleeve": 1,
+   "hug": 0.8,
+   "hang": 0.3,
+   "neck": {
+    "y": 0.04,
+    "depth": 0.01,
+    "round": 0.07
+   },
+   "add": [
+    {
+     "type": "collar",
+     "style": "funnel",
+     "height": 0.09,
+     "flare": 0.0,
+     "only": true
+    }
+   ]
+  },
+  "note": "Covered in red bugle beads from the throat to the floor. The beaded veil over the face is not made.",
+  "paint": [
+   {
+    "step": "fabric",
+    "type": "satin"
+   },
+   {
+    "step": "rib",
+    "where": {
+     "zone": [
+      "body",
+      "sleeves",
+      "collar"
+     ]
+    },
+    "gauge": 0.0035,
+    "depth": 0.0009,
+    "colour": "#8a0f14"
+   },
+   {
+    "step": "pattern",
+    "type": "speckle",
+    "colours": [
+     "#e8454a",
+     "#ff8a8a"
+    ],
+    "freq": 1500,
+    "density": 0.25
+   },
+   {
+    "step": "distress",
+    "type": "folds",
+    "freq": 14,
+    "depth": 0.003,
+    "where": {
+     "zone": "body",
+     "h": [
+      "hem",
+      "knee"
+     ]
+    }
+   }
+  ]
+ },
+ {
+  "n": 349,
+  "id": "mcq-no-thirteen-spray-painted-dress",
+  "designer": "Alexander McQueen",
+  "name": "No. 13 Spray-Painted Dress",
+  "season": "SS1999",
+  "price": 250000,
+  "slot": "top",
+  "colour": "#f1efe9",
+  "finish": {
+   "roughness": 0.8
+  },
+  "cut": {
+   "like": "dress",
+   "ease": {
+    "shoulder": 0.0096,
+    "chest": 0.0192,
+    "waist": 0.032,
+    "hip": 0.04,
+    "hem": 0.16
+   },
+   "shoulderDrop": 0.024,
+   "hem": "knee-0.02",
+   "armhole": 0.2,
+   "hang": 1,
+   "flare": 0.3,
+   "chest": 1,
+   "neck": {
+    "depth": 0.15,
+    "round": 0.105
+   },
+   "add": [
+    {
+     "type": "strap",
+     "from": {
+      "on": "front",
+      "x": -0.17,
+      "h": "chest+0.0"
+     },
+     "to": {
+      "on": "front",
+      "x": 0.17,
+      "h": "chest+0.0"
+     },
+     "width": 0.05,
+     "sag": 0.0,
+     "out": 0.004
+    }
+   ]
+  },
+  "note": "The white dress two robots sprayed black and yellow on the runway, belted under the arms with a leather strap. One was made.",
+  "paint": [
+   {
+    "step": "fabric",
+    "type": "plain"
+   },
+   {
+    "step": "panel",
+    "colour": "#8a6a4a",
+    "where": {
+     "zone": "strap"
+    }
+   },
+   {
+    "step": "rect",
+    "frame": "front",
+    "at": [
+     0,
+     "chest+0.0"
+    ],
+    "size": [
+     0.05,
+     0.05
+    ],
+    "style": "buckle",
+    "colour": "#c9c9cc"
+   },
+   {
+    "step": "pattern",
+    "type": "splatter",
+    "colours": [
+     "#151517"
+    ],
+    "size": 0.05,
+    "density": 0.22,
+    "where": {
+     "zone": "body",
+     "h": [
+      "hem",
+      "chest-0.04"
+     ]
+    }
+   },
+   {
+    "step": "pattern",
+    "type": "splatter",
+    "colours": [
+     "#d9d02a"
+    ],
+    "size": 0.045,
+    "density": 0.2,
+    "where": {
+     "zone": "body",
+     "h": [
+      "hem",
+      "chest-0.08"
+     ]
+    }
+   },
+   {
+    "step": "pattern",
+    "type": "splatter",
+    "colours": [
+     "#151517",
+     "#d9d02a"
+    ],
+    "size": 0.016,
+    "density": 0.2
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      -0.2,
+      "hip+0.1"
+     ],
+     [
+      0.1,
+      "hip-0.1"
+     ],
+     [
+      0.25,
+      "hip+0.05"
+     ]
+    ],
+    "style": "paint",
+    "width": 0.05,
+    "colour": "#151517",
+    "opacity": 0.7,
+    "dry": true
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      -0.25,
+      "thigh+0.1"
+     ],
+     [
+      0,
+      "thigh"
+     ],
+     [
+      0.2,
+      "thigh+0.14"
+     ]
+    ],
+    "style": "paint",
+    "width": 0.05,
+    "colour": "#d9d02a",
+    "opacity": 0.7,
+    "dry": true
+   },
+   {
+    "step": "distress",
+    "type": "folds",
+    "freq": 8,
+    "depth": 0.006
+   }
+  ]
+ },
+ {
+  "n": 351,
+  "id": "mcq-overlook-shearling-coat",
+  "designer": "Alexander McQueen",
+  "name": "The Overlook Horned Coat",
+  "season": "FW1999",
+  "price": 18000,
+  "slot": "top",
+  "colour": "#d9d3c4",
+  "finish": {
+   "roughness": 0.98
+  },
+  "cut": {
+   "like": "coat",
+   "ease": {
+    "shoulder": 0.012,
+    "chest": 0.0375,
+    "waist": 0.0525,
+    "hip": 0.0525,
+    "sleeve": 0.0172,
+    "cuff": 0.0172
+   },
+   "hem": "calf+0.16",
+   "flare": 0.08,
+   "shoulderDrop": 0.02,
+   "neck": {
+    "v": 0.12,
+    "width": 0.08,
+    "depth": 0.03
+   },
+   "add": [
+    {
+     "type": "collar",
+     "style": "fold",
+     "height": 0.12,
+     "flare": 0.06,
+     "gap": 0.04,
+     "points": 0.4
+    },
+    {
+     "type": "hood",
+     "size": 1.3,
+     "drop": 0.2
+    }
+   ]
+  },
+  "note": "A snow-country coat of long white fur. The horns of the show's headdresses are a separate piece.",
+  "paint": [
+   {
+    "step": "fabric",
+    "type": "fur",
+    "scale": 1.4
+   },
+   {
+    "step": "pattern",
+    "type": "clouds",
+    "colours": [
+     "#f1eee4",
+     "#b9b3a0"
+    ],
+    "freq": 8,
+    "amount": 0.5
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0.014,
+      "neck-0.12"
+     ],
+     [
+      0.014,
+      "hem"
+     ]
+    ],
+    "style": "seam",
+    "width": 0.003
+   },
+   {
+    "step": "dots",
+    "frame": "front",
+    "pts": [
+     [
+      0,
+      "chest-0.02"
+     ],
+     [
+      0,
+      "waist"
+     ],
+     [
+      0,
+      "hip"
+     ]
+    ],
+    "r": 0.014,
+    "style": "button",
+    "colour": "#8a7a5c"
+   },
+   {
+    "step": "distress",
+    "type": "folds",
+    "freq": 8,
+    "depth": 0.006
+   }
+  ]
+ },
+ {
+  "n": 352,
+  "id": "mcq-eshu-tailored-coat",
+  "designer": "Alexander McQueen",
+  "name": "Eshu Tailored Coat",
+  "season": "FW2000",
+  "price": 8000,
+  "slot": "top",
+  "colour": "#1b1b1d",
+  "finish": {
+   "roughness": 0.95
+  },
+  "cut": {
+   "like": "coat",
+   "ease": {
+    "shoulder": 0.0064,
+    "chest": 0.02,
+    "waist": 0.028,
+    "hip": 0.028,
+    "sleeve": 0.0127,
+    "cuff": 0.0127
+   },
+   "hem": "knee+0.04",
+   "waist": 0.08,
+   "flare": 0.05,
+   "neck": {
+    "v": 0.22,
+    "width": 0.08,
+    "depth": 0.03
+   },
+   "add": [
+    {
+     "type": "collar",
+     "style": "fold",
+     "height": 0.07,
+     "gap": 0.03,
+     "points": 0.8
+    },
+    {
+     "type": "hem",
+     "length": 0.14,
+     "flare": 0.02,
+     "zone": "lining"
+    }
+   ]
+  },
+  "under": {
+   "colour": "#222225",
+   "cut": {
+    "like": "longsleeve",
+    "hem": "hip+0.02",
+    "overWaist": false,
+    "neck": {
+     "y": 0.012,
+     "depth": 0.02,
+     "round": 0.075
+    }
+   },
+   "paint": [
+    {
+     "step": "fabric",
+     "type": "knit"
+    }
+   ]
+  },
+  "note": "Sharp tailoring with a hem of long horsehair, dragged through mud.",
+  "paint": [
+   {
+    "step": "fabric",
+    "type": "wool"
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0.014,
+      "neck-0.255"
+     ],
+     [
+      0.085,
+      "chest+0.085"
+     ],
+     [
+      0.07,
+      "shoulder+0.005"
+     ]
+    ],
+    "style": "groove",
+    "width": 0.002,
+    "mirror": true
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0.085,
+      "chest+0.085"
+     ],
+     [
+      0.062,
+      "chest+0.105"
+     ]
+    ],
+    "style": "groove",
+    "width": 0.002,
+    "mirror": true
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0.014,
+      "neck-0.22"
+     ],
+     [
+      0.014,
+      "hem"
+     ]
+    ],
+    "style": "seam"
+   },
+   {
+    "step": "dots",
+    "frame": "front",
+    "pts": [
+     [
+      0,
+      "waist-0.02+0"
+     ],
+     [
+      0,
+      "waist-0.02+0.1"
+     ]
+    ],
+    "r": 0.011,
+    "style": "button",
+    "colour": "#101012"
+   },
+   {
+    "step": "rect",
+    "frame": "front",
+    "at": [
+     0.125,
+     "hip-0.02"
+    ],
+    "size": [
+     0.15,
+     0.05
+    ],
+    "style": "flap",
+    "flap": 1,
+    "snap": false,
+    "mirror": true,
+    "stitch": "#3a3a40"
+   },
+   {
+    "step": "line",
+    "frame": "back",
+    "pts": [
+     [
+      0,
+      "hem"
+     ],
+     [
+      0,
+      "hip-0.05"
+     ]
+    ],
+    "style": "groove",
+    "width": 0.002
+   },
+   {
+    "step": "line",
+    "frame": "back",
+    "pts": [
+     [
+      -0.25,
+      "shoulder-0.05"
+     ],
+     [
+      0.25,
+      "shoulder-0.05"
+     ]
+    ],
+    "style": "seam",
+    "width": 0.0015
+   },
+   {
+    "step": "fabric",
+    "type": "fur",
+    "colour": "#3a2a1c",
+    "scale": 1.6,
+    "where": {
+     "zone": "lining"
+    }
+   },
+   {
+    "step": "rib",
+    "where": {
+     "zone": "lining"
+    },
+    "gauge": 0.006,
+    "depth": 0.001,
+    "colour": "#2a1c12"
+   },
+   {
+    "step": "pattern",
+    "type": "speckle",
+    "colours": [
+     "#8a5a2a",
+     "#c9a23a"
+    ],
+    "freq": 700,
+    "density": 0.12,
+    "where": {
+     "zone": "body",
+     "h": [
+      "hem",
+      "thigh+0.1"
+     ]
+    }
+   },
+   {
+    "step": "distress",
+    "type": "grime",
+    "amount": 0.3
+   }
+  ]
+ },
+ {
+  "n": 353,
+  "id": "mcq-voss-feather-and-glass-dress",
+  "designer": "Alexander McQueen",
+  "name": "Voss Feather-and-Glass Dress",
+  "season": "SS2001",
+  "price": 150000,
+  "slot": "top",
+  "colour": "#b3151a",
+  "finish": {
+   "roughness": 0.3
+  },
+  "cut": {
+   "like": "dress",
+   "ease": {
+    "waist": 0.01,
+    "hip": 0.06,
+    "hem": 0.2
+   },
+   "hem": "calf+0.02",
+   "armhole": 0.2,
+   "hang": 0.5,
+   "flare": 0.45,
+   "neck": {
+    "y": 0.03,
+    "depth": 0.01,
+    "round": 0.075
+   },
+   "add": [
+    {
+     "type": "collar",
+     "height": 0.04,
+     "only": true
+    }
+   ]
+  },
+  "note": "A bodice of red-painted microscope slides over a skirt of red and black ostrich feathers.",
+  "paint": [
+   {
+    "step": "fabric",
+    "type": "satin"
+   },
+   {
+    "step": "quilt",
+    "type": "box",
+    "size": 0.026,
+    "size2": 0.075,
+    "puff": 0.0015,
+    "colour": "#7a0f14",
+    "where": {
+     "zone": "body",
+     "h": [
+      "hip+0.02",
+      "top"
+     ]
+    }
+   },
+   {
+    "step": "fabric",
+    "type": "fur",
+    "colour": "#8a1418",
+    "scale": 2,
+    "where": {
+     "zone": "body",
+     "h": [
+      "hem",
+      "hip+0.02"
+     ]
+    }
+   },
+   {
+    "step": "pattern",
+    "type": "feathers",
+    "colours": [
+     "#b3151a",
+     "#5c0c10",
+     "#19191b"
+    ],
+    "size": 0.09,
+    "where": {
+     "zone": "body",
+     "h": [
+      "hem",
+      "hip+0.02"
+     ]
+    }
+   },
+   {
+    "step": "pattern",
+    "type": "feathers",
+    "colours": [
+     "#19191b"
+    ],
+    "size": 0.11,
+    "amount": 0.6,
+    "where": {
+     "zone": "body",
+     "h": [
+      "hem",
+      "knee"
+     ]
+    }
+   },
+   {
+    "step": "distress",
+    "type": "folds",
+    "freq": 7,
+    "depth": 0.008,
+    "where": {
+     "zone": "body",
+     "h": [
+      "hem",
+      "hip"
+     ]
+    }
+   }
+  ]
+ },
+ {
+  "n": 354,
+  "id": "mcq-voss-razor-clam-dress",
+  "designer": "Alexander McQueen",
+  "name": "Voss Shell Dress",
+  "season": "SS2001",
+  "price": 120000,
+  "slot": "top",
+  "colour": "#d9cdb3",
+  "finish": {
+   "roughness": 0.35
+  },
+  "cut": {
+   "like": "dress",
+   "ease": {
+    "shoulder": 0.0054,
+    "chest": 0.0108,
+    "waist": 0.018,
+    "hip": 0.0225,
+    "hem": 0.07
+   },
+   "hem": "knee-0.02",
+   "armhole": 0.2,
+   "hang": 0.6,
+   "flare": 0.12,
+   "chest": 0.6,
+   "neck": {
+    "depth": 0.13,
+    "round": 0.105
+   }
+  },
+  "note": "Razor-clam shells in overlapping rows; the model broke them off as she walked.",
+  "paint": [
+   {
+    "step": "fabric",
+    "type": "plain"
+   },
+   {
+    "step": "rib",
+    "where": {
+     "zone": "body"
+    },
+    "gauge": 0.016,
+    "depth": 0.0025,
+    "colour": "#8a7a5c"
+   },
+   {
+    "step": "pattern",
+    "type": "scales",
+    "colours": [
+     "#f1e9d6",
+     "#a8946e",
+     "#6b5a3c"
+    ],
+    "scale": 1.5
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      -0.4,
+      "hip+0.06"
+     ],
+     [
+      0.4,
+      "hip+0.06"
+     ]
+    ],
+    "style": "groove",
+    "colour": "#3a3a3e",
+    "width": 0.006,
+    "depth": 0.003
+   },
+   {
+    "step": "line",
+    "frame": "back",
+    "pts": [
+     [
+      -0.4,
+      "hip+0.06"
+     ],
+     [
+      0.4,
+      "hip+0.06"
+     ]
+    ],
+    "style": "groove",
+    "colour": "#3a3a3e",
+    "width": 0.006,
+    "depth": 0.003
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      -0.4,
+      "hip-0.1"
+     ],
+     [
+      0.4,
+      "hip-0.1"
+     ]
+    ],
+    "style": "groove",
+    "colour": "#3a3a3e",
+    "width": 0.006,
+    "depth": 0.003
+   },
+   {
+    "step": "line",
+    "frame": "back",
+    "pts": [
+     [
+      -0.4,
+      "hip-0.1"
+     ],
+     [
+      0.4,
+      "hip-0.1"
+     ]
+    ],
+    "style": "groove",
+    "colour": "#3a3a3e",
+    "width": 0.006,
+    "depth": 0.003
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      -0.4,
+      "thigh"
+     ],
+     [
+      0.4,
+      "thigh"
+     ]
+    ],
+    "style": "groove",
+    "colour": "#3a3a3e",
+    "width": 0.006,
+    "depth": 0.003
+   },
+   {
+    "step": "line",
+    "frame": "back",
+    "pts": [
+     [
+      -0.4,
+      "thigh"
+     ],
+     [
+      0.4,
+      "thigh"
+     ]
+    ],
+    "style": "groove",
+    "colour": "#3a3a3e",
+    "width": 0.006,
+    "depth": 0.003
+   },
+   {
+    "step": "distress",
+    "type": "edges",
+    "amount": 0.5,
+    "colour": "#6b5a3c"
+   }
+  ]
+ },
+ {
+  "n": 355,
+  "id": "mcq-supercalifragilistic-jacket",
+  "designer": "Alexander McQueen",
+  "name": "Supercalifragilisticexpialidocious Tailoring",
+  "season": "FW2002",
+  "price": 5000,
+  "slot": "top",
+  "colour": "#1b1b1d",
+  "finish": {
+   "roughness": 0.42
+  },
+  "cut": {
+   "like": "blazer",
+   "ease": {
+    "shoulder": 0.008,
+    "chest": 0.0176,
+    "waist": 0.024,
+    "hip": 0.028,
+    "sleeve": 0.0109,
+    "cuff": 0.01
+   },
+   "hem": "hip-0.06",
+   "waist": 0.08,
+   "neck": {
+    "v": 0.26,
+    "width": 0.08,
+    "depth": 0.03
+   },
+   "bumps": [
+    [
+     0.19,
+     "shoulder",
+     0,
+     0.05,
+     0.03
+    ],
+    [
+     -0.19,
+     "shoulder",
+     0,
+     0.05,
+     0.03
+    ]
+   ]
+  },
+  "under": {
+   "colour": "#8a6ab3",
+   "cut": {
+    "like": "shirt",
+    "sleeve": 0,
+    "armhole": 0.4,
+    "hem": "hip+0.03",
+    "hemCurve": 0,
+    "overWaist": false,
+    "ease": {
+     "shoulder": 0.004,
+     "chest": 0.008,
+     "waist": 0.012,
+     "hip": 0.012,
+     "sleeve": 0.006,
+     "cuff": 0.006
+    }
+   },
+   "paint": [
+    {
+     "step": "fabric",
+     "type": "plain"
+    },
+    {
+     "step": "line",
+     "frame": "front",
+     "pts": [
+      [
+       0.012,
+       "hem"
+      ],
+      [
+       0.012,
+       "top"
+      ]
+     ],
+     "style": "seam",
+     "width": 0.0012
+    },
+    {
+     "step": "dots",
+     "frame": "front",
+     "from": [
+      0,
+      "hem+0.06"
+     ],
+     "to": [
+      0,
+      "neck-0.05"
+     ],
+     "count": 6,
+     "r": 0.0045,
+     "style": "button",
+     "colour": "#d8d5cc"
+    }
+   ]
+  },
+  "note": "Black leather cut like a riding jacket, lined in the show's lilac.",
+  "paint": [
+   {
+    "step": "fabric",
+    "type": "leather"
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0.012,
+      "neck-0.295"
+     ],
+     [
+      0.085,
+      "chest+0.085"
+     ],
+     [
+      0.07,
+      "shoulder+0.005"
+     ]
+    ],
+    "style": "groove",
+    "width": 0.002,
+    "mirror": true
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0.085,
+      "chest+0.085"
+     ],
+     [
+      0.062,
+      "chest+0.105"
+     ]
+    ],
+    "style": "groove",
+    "width": 0.002,
+    "mirror": true
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0.012,
+      "neck-0.295"
+     ],
+     [
+      0.03,
+      "hem+0.04"
+     ],
+     [
+      0.07,
+      "hem"
+     ]
+    ],
+    "style": "seam"
+   },
+   {
+    "step": "dots",
+    "frame": "front",
+    "pts": [
+     [
+      0.012,
+      "waist+0.04+0"
+     ]
+    ],
+    "r": 0.009,
+    "style": "button",
+    "colour": "#111113"
+   },
+   {
+    "step": "rect",
+    "frame": "front",
+    "at": [
+     0.125,
+     "hip+0.03"
+    ],
+    "size": [
+     0.13,
+     0.012
+    ],
+    "style": "welt",
+    "mirror": true
+   },
+   {
+    "step": "rect",
+    "frame": "front",
+    "at": [
+     0.1,
+     "chest+0.03"
+    ],
+    "size": [
+     0.085,
+     0.012
+    ],
+    "style": "welt"
+   },
+   {
+    "step": "dots",
+    "frame": "sleeves",
+    "from": [
+     -0.03,
+     0.9
+    ],
+    "to": [
+     -0.03,
+     0.98
+    ],
+    "count": 4,
+    "r": 0.0045,
+    "style": "button",
+    "colour": "#111113"
+   },
+   {
+    "step": "line",
+    "frame": "back",
+    "pts": [
+     [
+      0,
+      "hem"
+     ],
+     [
+      0,
+      "hip+0.02"
+     ]
+    ],
+    "style": "groove",
+    "width": 0.002
+   },
+   {
+    "step": "panel",
+    "colour": "#8a6ab3",
+    "where": {
+     "zone": "lining"
+    }
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0.07,
+      "hem"
+     ],
+     [
+      0.05600000000000001,
+      "chest+0.05"
+     ]
+    ],
+    "style": "seam",
+    "width": 0.0025,
+    "mirror": true
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0.12,
+      "hem"
+     ],
+     [
+      0.096,
+      "chest+0.05"
+     ]
+    ],
+    "style": "seam",
+    "width": 0.0025,
+    "mirror": true
+   },
+   {
+    "step": "distress",
+    "type": "crumple",
+    "amount": 0.1
+   }
+  ]
+ },
+ {
+  "n": 356,
+  "id": "mcq-irere-oyster-dress",
+  "designer": "Alexander McQueen",
+  "name": "Irere Shipwrecked Dress",
+  "season": "SS2003",
+  "price": 80000,
+  "slot": "top",
+  "colour": "#e8dcc6",
+  "finish": {
+   "roughness": 0.8
+  },
+  "cut": {
+   "like": "dress",
+   "ease": {
+    "hip": 0.04,
+    "hem": 0.18
+   },
+   "hem": "ankle+0.04",
+   "hemSlant": 0.06,
+   "armhole": 0.2,
+   "hang": 0.5,
+   "flare": 0.4,
+   "neck": {
+    "depth": 0.15,
+    "round": 0.105
+   },
+   "add": [
+    {
+     "type": "hem",
+     "length": 0.08,
+     "flare": 0.03,
+     "zone": "body"
+    }
+   ]
+  },
+  "clear": true,
+  "note": "The \"oyster\" dress: hundreds of layers of shredded ivory organza, like a mille-feuille, on a boned bodice.",
+  "paint": [
+   {
+    "step": "fabric",
+    "type": "plain"
+   },
+   {
+    "step": "rib",
+    "where": {
+     "zone": "body",
+     "h": [
+      "hem",
+      "hip+0.06"
+     ]
+    },
+    "gauge": 0.012,
+    "depth": 0.0022,
+    "colour": "#c9b99a",
+    "dir": "h"
+   },
+   {
+    "step": "pattern",
+    "type": "clouds",
+    "colours": [
+     "#f4eee0",
+     "#c9b99a"
+    ],
+    "freq": 18,
+    "amount": 0.6
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      -0.1,
+      "top"
+     ],
+     [
+      0.05,
+      "waist"
+     ],
+     [
+      -0.05,
+      "hip+0.06"
+     ]
+    ],
+    "style": "groove",
+    "width": 0.004
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0.12,
+      "top"
+     ],
+     [
+      0.0,
+      "waist+0.05"
+     ]
+    ],
+    "style": "groove",
+    "width": 0.004
+   },
+   {
+    "step": "distress",
+    "type": "edges",
+    "amount": 0.8,
+    "colour": "#b9a888"
+   },
+   {
+    "step": "distress",
+    "type": "holes",
+    "size": 0.012,
+    "density": 0.06
+   },
+   {
+    "step": "distress",
+    "type": "folds",
+    "freq": 18,
+    "depth": 0.004
+   }
+  ]
+ },
+ {
+  "n": 357,
+  "id": "mcq-widows-of-culloden-tartan-dress",
+  "designer": "Alexander McQueen",
+  "name": "Widows of Culloden Tartan Dress",
+  "season": "FW2006",
+  "price": 20000,
+  "slot": "top",
+  "colour": "#b3261e",
+  "finish": {
+   "roughness": 0.95
+  },
+  "cut": {
+   "like": "dress",
+   "ease": {
+    "shoulder": 0.0054,
+    "chest": 0.0108,
+    "waist": 0.018,
+    "hip": 0.0225,
+    "hem": 0.12,
+    "sleeve": 0.008,
+    "cuff": 0.008
+   },
+   "hem": "knee+0.06",
+   "sleeve": 1,
+   "hang": 0.6,
+   "flare": 0.3,
+   "waist": 0.05,
+   "neck": {
+    "y": 0.03,
+    "depth": 0.01,
+    "round": 0.07
+   },
+   "add": [
+    {
+     "type": "collar",
+     "height": 0.05,
+     "only": true
+    },
+    {
+     "type": "hem",
+     "length": 0.06,
+     "flare": 0.02,
+     "zone": "lining"
+    }
+   ]
+  },
+  "note": "McQueen tartan with a black lace yoke and tulle underskirt.",
+  "paint": [
+   {
+    "step": "fabric",
+    "type": "wool"
+   },
+   {
+    "step": "pattern",
+    "type": "tartan",
+    "colours": [
+     "#141414",
+     "#e3b21c"
+    ],
+    "period": 0.15,
+    "sett": [
+     [
+      0,
+      0.05,
+      0
+     ],
+     [
+      0.085,
+      0.014,
+      0
+     ],
+     [
+      0.045,
+      0.004,
+      1
+     ],
+     [
+      0.115,
+      0.004,
+      1
+     ]
+    ],
+    "where": {
+     "not": [
+      "lining",
+      "collar"
+     ]
+    }
+   },
+   {
+    "step": "pattern",
+    "type": "lace",
+    "colours": [
+     "#19191b"
+    ],
+    "where": {
+     "zone": [
+      "lining",
+      "collar"
+     ]
+    }
+   },
+   {
+    "step": "panel",
+    "colour": "#e8dcc6",
+    "where": {
+     "zone": "lining"
+    },
+    "amount": 0.5
+   },
+   {
+    "step": "pattern",
+    "type": "lace",
+    "colours": [
+     "#19191b"
+    ],
+    "where": {
+     "zone": "body",
+     "h": [
+      "chest+0.02",
+      "top"
+     ]
+    }
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      -0.4,
+      "waist-0.01"
+     ],
+     [
+      0.4,
+      "waist-0.01"
+     ]
+    ],
+    "style": "strap",
+    "colour": "#19191b",
+    "width": 0.035
+   },
+   {
+    "step": "line",
+    "frame": "back",
+    "pts": [
+     [
+      -0.4,
+      "waist-0.01"
+     ],
+     [
+      0.4,
+      "waist-0.01"
+     ]
+    ],
+    "style": "strap",
+    "colour": "#19191b",
+    "width": 0.035
+   },
+   {
+    "step": "rect",
+    "frame": "front",
+    "at": [
+     0,
+     "waist-0.01"
+    ],
+    "size": [
+     0.05,
+     0.045
+    ],
+    "style": "buckle",
+    "colour": "#c9a23a"
+   },
+   {
+    "step": "distress",
+    "type": "folds",
+    "freq": 9,
+    "depth": 0.006,
+    "where": {
+     "zone": "body",
+     "h": [
+      "hem",
+      "hip"
+     ]
+    }
+   }
+  ]
+ },
+ {
+  "n": 359,
+  "id": "mcq-platos-atlantis-digital-print-dress",
+  "designer": "Alexander McQueen",
+  "name": "Plato's Atlantis Digital-Print Dress",
+  "season": "SS2010",
+  "price": 12000,
+  "slot": "top",
+  "colour": "#2a5a5c",
+  "finish": {
+   "roughness": 0.35,
+   "metalness": 0.2
+  },
+  "cut": {
+   "like": "dress",
+   "ease": {
+    "shoulder": 0.0048,
+    "chest": 0.0096,
+    "waist": 0.016,
+    "hip": 0.05,
+    "hem": 0.07
+   },
+   "hem": "thigh+0.02",
+   "sleeve": 0.2,
+   "hang": 0.8,
+   "chest": 0.7,
+   "neck": {
+    "depth": 0.05,
+    "round": 0.095
+   },
+   "bumps": [
+    [
+     0.18,
+     "hip+0.03",
+     0,
+     0.1,
+     0.07
+    ],
+    [
+     -0.18,
+     "hip+0.03",
+     0,
+     0.1,
+     0.07
+    ],
+    [
+     0.19,
+     "shoulder-0.01",
+     0,
+     0.05,
+     0.035
+    ],
+    [
+     -0.19,
+     "shoulder-0.01",
+     0,
+     0.05,
+     0.035
+    ]
+   ]
+  },
+  "note": "A short sculpted dress in a mirrored reptile print, drawn fresh in the layout of the originals.",
+  "paint": [
+   {
+    "step": "fabric",
+    "type": "satin"
+   },
+   {
+    "step": "print",
+    "frame": "front",
+    "art": "mcq-atlantis-reptile",
+    "at": [
+     0,
+     "waist+0.02"
+    ],
+    "width": 0.62
+   },
+   {
+    "step": "print",
+    "frame": "back",
+    "art": "mcq-atlantis-reptile",
+    "at": [
+     0,
+     "waist+0.02"
+    ],
+    "width": 0.62
+   },
+   {
+    "step": "print",
+    "frame": "sleeves",
+    "art": "mcq-atlantis-reptile",
+    "at": [
+     0,
+     0.15
+    ],
+    "width": 0.34
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0.06,
+      "hem"
+     ],
+     [
+      0.041999999999999996,
+      "top"
+     ]
+    ],
+    "style": "seam",
+    "mirror": true
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0.13,
+      "hem"
+     ],
+     [
+      0.091,
+      "top"
+     ]
+    ],
+    "style": "seam",
+    "mirror": true
+   }
+  ]
+ }
+]
