@@ -168,7 +168,7 @@ export function createCityGround({ scene, renderer = null, origin = CITY_ORIGIN,
         if (timedOut) image.src = '';
         if (!disposed) {
           if (wanted(job)) {
-            if (ok) job.complete(image);
+            if (ok) job.complete(job.source || image);
             else {
               failures++;
               // One immediate retry covers transient tile errors. Further
@@ -181,7 +181,15 @@ export function createCityGround({ scene, renderer = null, origin = CITY_ORIGIN,
           report();pump();
         }
       }
-      image.onload = () => finish(true);image.onerror = () => finish(false);
+      // A close tile is unpacked off the page's own thread before it is handed over: left to the moment it is first
+      // drawn, a street's worth of photographs cost the frames of a second or two.
+      image.onload = () => {
+        if (!job.key || typeof image.decode !== 'function' || typeof globalThis.createImageBitmap !== 'function') { finish(true);return; }
+        image.decode().then(() => globalThis.createImageBitmap(image, { imageOrientation: 'flipY' })).then(bitmap => {
+          if (finished) bitmap.close();else { job.source = bitmap;finish(true); }
+        }, () => finish(true));
+      };
+      image.onerror = () => finish(false);
       image.src = `${AERIAL_SERVICE}/tile/${job.zoom}/${job.row}/${job.column}`;
     }
     report();
@@ -193,7 +201,7 @@ export function createCityGround({ scene, renderer = null, origin = CITY_ORIGIN,
   pump();
   function release(entry) {
     if (!entry.mesh) return;
-    group.remove(entry.mesh);entry.mesh.geometry.dispose();entry.mesh.material.map.dispose();entry.mesh.material.dispose();
+    group.remove(entry.mesh);entry.mesh.geometry.dispose();entry.mesh.material.map.image?.close?.();entry.mesh.material.map.dispose();entry.mesh.material.dispose();
   }
   function paintLocal(zoom, column, row, map) {
     // A surviving request can finish after the atlas moves by one tile. Its
@@ -239,6 +247,8 @@ export function createCityGround({ scene, renderer = null, origin = CITY_ORIGIN,
       // an older request must not attach a mesh to its replacement cache entry.
       if (cache.get(key) !== entry) return;
       const map = new THREE.Texture(image);map.colorSpace = THREE.SRGBColorSpace;map.anisotropy = 4;map.needsUpdate = true;
+      // An unpacked picture arrives already turned the way the graphics card wants it.
+      if (typeof image.close === 'function') map.flipY = false;
       entry.mesh = plane(tileBounds(column, row, zoom, origin), -.035,
         new THREE.MeshStandardMaterial({ map, color: 0xffffff, roughness: 1, side: THREE.DoubleSide, depthWrite: false }));
       stairOpenings?.clip(entry.mesh.material);

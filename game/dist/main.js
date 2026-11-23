@@ -204,6 +204,8 @@ function arrivalZoom(over){
   const best=atlasZoomFor(viewHeight),ready=arrivalZooms.filter(zoom=>ground.has(over,zoom));
   return ready.filter(zoom=>zoom<=best).at(-1)??ready[0];
 }
+// The place last chosen on the picker's map, `{x, z}`, and the height below which the map shows it from sharper photographs.
+let cityPicked=null;const PICKER_SHARP=14000;
 let cityView=false, cityZoom=1, cityOrbit=0, cityFocus=null, roadCell='', roadEpoch=0, roadBusy=false, buildings=[], boroughs=[];
 let streetscape=null, streetLife=null, water=null, parkedCars=null, distantTraffic=null, signs=null, crowd=null, props=null, cityLife=createCityLife(null), lifeTimer=0;
 const noStreetFurniture=[], crowdAhead=new THREE.Vector3();
@@ -2242,7 +2244,10 @@ function frame(now) {
   if(!traveling)world.update(sim.player,camera,{overview:cityView||!started,altitude:started&&!cityView?viewHeight:0,collisionAltitude:Math.max(0,playerAltitude-35),view:started?buildingView():null});
   // Under the shot the ground is painted for the place and the height in the picture; otherwise for the street the player is on.
   const shotOver=switchShot.active?switchShot.over:null;
-  ground.update(shotOver||sim.player,{overview:cityView||!started,zoom:shotOver?arrivalZoom(shotOver):undefined});
+  // Over the picker's map a place that has been chosen is photographed at the zoom the map's own height wants,
+  // as soon as it is chosen: the whole-city photograph is thirty metres a pixel, and a place fills the screen at five.
+  const pickedOver=!shotOver&&cityView&&started&&cityPicked&&viewHeight<PICKER_SHARP?cityPicked:null;
+  ground.update(shotOver||pickedOver||sim.player,{overview:(cityView&&!pickedOver)||!started,zoom:shotOver?arrivalZoom(shotOver):pickedOver?atlasZoomFor(viewHeight):undefined});
   // Once the shot is over, what was fetched for it is let go.
   if(arrivalHeld&&!switchShot.active&&!traveling&&!(cityView&&warming)){arrivalHeld=false;arrivalZooms=[];world.releaseScenery();ground.release();}
   // While the shot hangs high over a place being built, the street builders work in long pieces: a stall is not seen from there.
@@ -2568,7 +2573,7 @@ function setView(mode){
   interaction?.close();
   if(mode!=='aerial'||!aerialView)aerialTracking=false;
   chaseLookAhead.set(0,0,0);
-  if(mode==='city'&&!cityView){cityFocus=null;cityZoom=1;}
+  if(mode==='city'&&!cityView){cityFocus=null;cityPicked=null;cityZoom=1;}
   pickerFlight.cancel();
   cityView=mode==='city';aerialView=mode==='aerial';input.clear();
   if(cityView)phone?.setOpen(false);
@@ -2721,6 +2726,7 @@ function focusCityDestination(place){
   // The map flies there from wherever it is: back far enough to show both places, across, and in on the new one.
   const b=city.bounds,span=Math.max(b.maxX-b.minX,b.maxZ-b.minZ);
   pickerFlight.start({x:cityFocus?.x??(b.minX+b.maxX)/2,z:cityFocus?.z??(b.minZ+b.maxZ)/2,width:span*cityZoom},{x:place.x,z:place.z,width:span*.18});
+  cityPicked={x:place.x,z:place.z};
   warmArrival(place);
 }
 // A place chosen on the picker's map is probably where the player will ask to be put down. What that arrival needs (the
