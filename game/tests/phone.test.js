@@ -50,7 +50,7 @@ test('the nearby list is the nearest first, narrowed by category and by what is 
 });
 
 test('every part of the phone the game fills in is on the page', () => {
-  const ids = ['phone', 'phone-clock', 'phone-title', 'phone-home', 'phone-nearby', 'phone-place', 'phone-contacts', 'phone-bank', 'phone-map-nearby', 'phone-app-settings', 'phone-app-contacts', 'phone-app-bank', 'phone-app-map', 'phone-app-messages', 'phone-messages', 'phone-thread', 'phone-call', 'phone-messages-badge', 'phone-contact-message', 'phone-call-end', 'phone-thread-send', 'phone-thread-call',
+  const ids = ['phone', 'phone-clock', 'phone-title', 'phone-home', 'phone-nearby', 'phone-place', 'phone-contacts', 'phone-bank', 'phone-map-nearby', 'phone-app-settings', 'phone-app-contacts', 'phone-app-bank', 'phone-app-map', 'phone-app-messages', 'phone-app-camera', 'phone-messages', 'phone-thread', 'phone-call', 'phone-camera', 'phone-gallery', 'phone-photo', 'phone-messages-badge', 'phone-contact-message', 'phone-call-end', 'phone-thread-send', 'phone-thread-call', 'phone-shutter', 'phone-camera-flip', 'phone-camera-roll', 'phone-lens', 'phone-gallery-empty', 'phone-photo-delete',
     ...CATEGORIES.map(category => `phone-chip-${category.id}`), 'phone-search', 'phone-empty', 'phone-prev', 'phone-next', 'phone-page', 'phone-place-name', 'phone-place-kind', 'phone-place-note', 'phone-directions',
     'phone-contact-mechanic', 'phone-bank-balance', 'phone-bank-savings', 'phone-bank-transfer', 'phone-back', 'phone-close', 'place-hint'];
   for (let i = 0; i < ROWS; i++) ids.push(`phone-row-${i}`, `phone-row-${i}-name`, `phone-row-${i}-note`);
@@ -432,6 +432,43 @@ test('messages keep the mechanic thread, and a call can start from it',()=>{
   restored.setOpen(true);again.click('phone-app-messages');again.click('phone-inbox-0');
   assert.equal(again.$('phone-inbox-0').getAttribute('data-unread'),'false');
   assert.equal(again.$('phone-bubble-1-text').textContent,'How much?');
+});
+
+test('the camera stores a street photo and a selfie, and deleting one leaves the other',async()=>{
+  const {$,click}=page(), storage=memory();
+  const phone=createPhone({$,storage,state:()=>({clock:'9:01 PM'}),onCapture:facing=>facing==='selfie'?'data:image/jpeg,selfie':'data:image/jpeg,street'});
+  phone.setOpen(true);click('phone-app-camera');
+  assert.deepEqual([phone.screen,phone.facing,$('phone-camera-status').textContent],['camera','rear','Rear camera']);
+  click('phone-shutter');
+  assert.equal($('phone-camera-status').textContent,'Saved.');
+  click('phone-camera-flip');
+  assert.equal(phone.facing,'selfie');
+  assert.equal($('phone-camera-status').textContent,'Front camera');
+  click('phone-shutter');
+  click('phone-camera-roll');
+  assert.equal($('phone-shot-0-image').getAttribute('alt'),'Selfie');
+  assert.equal($('phone-shot-1-image').getAttribute('src'),'data:image/jpeg,street');
+  click('phone-shot-0');
+  assert.equal($('phone-title').textContent,'Selfie');
+  click('phone-photo-delete');
+  assert.equal(phone.screen,'gallery');
+  assert.equal($('phone-shot-0-image').getAttribute('alt'),'Photo');
+  assert.equal($('phone-shot-1').hidden,true);
+  const bare=page(), closed=createPhone({$:bare.$});
+  closed.setOpen(true);bare.click('phone-app-camera');bare.click('phone-shutter');
+  assert.equal(bare.$('phone-camera-status').textContent,'The lens is still opening.');
+});
+
+test('the rear lens looks ahead and the selfie looks back at the face',async()=>{
+  const {PerspectiveCamera,Vector3}=await import('../dist/vendor/three.module.min.js');
+  const {aimLens}=await import('../dist/phone-camera.js');
+  const camera=new PerspectiveCamera(), ahead=new Vector3();
+  aimLens(camera,{x:10,y:0,z:20,angle:0},{x:10,y:1.6,z:20},'rear');
+  camera.getWorldDirection(ahead);
+  assert.ok(camera.position.z>20 && ahead.z>0.5);
+  aimLens(camera,{x:10,y:0,z:20,angle:Math.PI/2},{x:10,y:1.6,z:20},'selfie');
+  camera.getWorldDirection(ahead);
+  assert.ok(camera.position.x>10 && ahead.x<-0.5);
 });
 
 test('citywide ride legs pick up the lane and signal objects of each newly streamed block',async()=>{

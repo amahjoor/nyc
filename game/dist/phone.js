@@ -52,8 +52,8 @@ export function listPlaces(places, { category = 'all', query = '', x = 0, z = 0,
  * the places within reach. The live state supplies the clock, location and
  * checking and savings balances. App actions go back to the game.
  */
-export function createPhone({ $, isClosed, places = () => [], state = () => ({}), onDirections = () => {}, onTransport = () => {}, onWork = () => {}, onMap = () => {}, onOpenChange = () => {}, onTap = () => {}, showTap = () => true, onMechanic = () => {}, onCab = () => {}, onTransfer = () => '', onTrade = () => '', rides, roads = () => [], storage, destinations = () => [], searchCity = async () => [] } = {}) {
-  const titles = {home:'Home', nearby:'Nearby', place:'Place', contacts:'Contacts', contact:'Contact', messages:'Messages', thread:'Message', call:'Call', bank:'Bank', transfer:'Transfer', market:'Investments', order:'Trade shares', list:'Work', maps:'Maps', rides:'D Ride', settings:'Settings', wallpaper:'Wallpaper'};
+export function createPhone({ $, isClosed, places = () => [], state = () => ({}), onDirections = () => {}, onTransport = () => {}, onWork = () => {}, onMap = () => {}, onOpenChange = () => {}, onTap = () => {}, showTap = () => true, onMechanic = () => {}, onCab = () => {}, onCapture = () => '', onTransfer = () => '', onTrade = () => '', rides, roads = () => [], storage, destinations = () => [], searchCity = async () => [] } = {}) {
+  const titles = {home:'Home', nearby:'Nearby', place:'Place', contacts:'Contacts', contact:'Contact', messages:'Messages', thread:'Message', call:'Call', camera:'Camera', gallery:'Gallery', photo:'Photo', bank:'Bank', transfer:'Transfer', market:'Investments', order:'Trade shares', list:'Work', maps:'Maps', rides:'D Ride', settings:'Settings', wallpaper:'Wallpaper'};
   // Contacts is the address book. Calls start from a person, or from their
   // texts. Messages is the inbox. There is no keypad: these are the only numbers.
   const contacts = [
@@ -68,9 +68,9 @@ export function createPhone({ $, isClosed, places = () => [], state = () => ({})
       }},
   ];
   let listing=null, listPage=0, visibleJobs=[], mine=false, contact=null;
-  const messagesKey='nyc-phone-messages', BUBBLES=8;
+  const messagesKey='nyc-phone-messages', photosKey='nyc-phone-photos', BUBBLES=8, SHOTS=8;
   const threads=new Map(), seen=new Map(), inbox=[];
-  let call=null, threadPage=0;
+  let call=null, facing='rear', photos=[], photoSerial=0, shot=null, threadPage=0;
   let selectedStock=COMPANIES[0].symbol, displayedPrice=0;
   let sector='All sectors', jobSort='Featured', boardPage=0, jobMenu=null, jobOptions=[];
   const jobOptionCount=9;
@@ -100,8 +100,9 @@ export function createPhone({ $, isClosed, places = () => [], state = () => ({})
   }
   applyPreferences();
   function loadPhoneMemory(){
-    let saved=null;
+    let saved=null, shots=null;
     try { saved=JSON.parse(storage?.getItem(messagesKey)||'null'); } catch {}
+    try { shots=JSON.parse(storage?.getItem(photosKey)||'null'); } catch {}
     for(const person of contacts){
       const record=saved?.[person.id];
       const rows=Array.isArray(record)?record:Array.isArray(record?.rows)?record.rows:[];
@@ -109,13 +110,21 @@ export function createPhone({ $, isClosed, places = () => [], state = () => ({})
       threads.set(person.id, clean.length?clean:(person.seed||[]).map(text=>({who:'them',text,time:''})));
       seen.set(person.id, Number.isInteger(record?.seen)?record.seen:0);
     }
-
+    if(Array.isArray(shots))photos=shots.filter(item=>item&&typeof item.image==='string'&&(item.facing==='selfie'||item.facing==='rear')).slice(0,SHOTS);
+    photoSerial=photos.reduce((max,item)=>Math.max(max,item.id||0),0);
   }
   function saveThreads(){
     const data={};
     for(const person of contacts)data[person.id]={seen:seen.get(person.id)||0,rows:threads.get(person.id)||[]};
     try{storage?.setItem(messagesKey,JSON.stringify(data));}catch{}
   }
+  function savePhotos(){
+    try{storage?.setItem(photosKey,JSON.stringify(photos));}
+    catch{photos.splice(Math.ceil(photos.length/2));try{storage?.setItem(photosKey,JSON.stringify(photos));}catch{}}
+  }
+  loadPhoneMemory();
+  const unread=()=>{let n=0;for(const person of contacts)if((threads.get(person.id)||[]).length>(seen.get(person.id)||0))n++;return n;};
+  const clocked=seconds=>{const s=Math.max(0,Math.floor(seconds));return Math.floor(s/60)+':'+(s%60).toString().padStart(2,'0');};
   function openThread(person=contact){
     if(!person)return;
     contact=person;
@@ -198,7 +207,7 @@ export function createPhone({ $, isClosed, places = () => [], state = () => ({})
     if(screen==='rides' && !rides?.trip && (quote || quoting))return 'rides';
     if(screen==='list' && listing?.board && jobMenu)return 'list';
     if(screen==='list')return listing?.app==='maps'?'maps':listing?.onBack?'list':'home';
-    return ({order:'market',market:'bank',wallpaper:'settings',place:'nearby',nearby:'maps',contact:'contacts',transfer:'bank',thread:'messages',call:call?.from||'contact'})[screen] || 'home';
+    return ({order:'market',market:'bank',wallpaper:'settings',place:'nearby',nearby:'maps',contact:'contacts',transfer:'bank',thread:'messages',call:call?.from||'contact',gallery:'camera',photo:'gallery'})[screen] || 'home';
   }
   function back() {
     if(screen==='list' && listing?.board && jobMenu){
@@ -412,13 +421,13 @@ export function createPhone({ $, isClosed, places = () => [], state = () => ({})
     const following=handset.getAttribute('data-navigation')==='keys' && focused?.closest?.('.phone-screen')?.id==='phone-'+screen;
     handset.hidden = !open;
     if (!open) return;
-    const app=({market:'bank',order:'bank',contact:'contacts',transfer:'bank',wallpaper:'settings',place:'maps',nearby:'maps',list:listing?.app || 'work',call:call?.from==='thread'?'messages':'contacts',thread:'messages'})[screen] || screen;
+    const app=({market:'bank',order:'bank',contact:'contacts',transfer:'bank',wallpaper:'settings',place:'maps',nearby:'maps',list:listing?.app || 'work',call:call?.from==='thread'?'messages':'contacts',thread:'messages',gallery:'camera',photo:'camera'})[screen] || screen;
     handset.setAttribute('data-app',app);
     const waiting=unread();
     $('phone-messages-badge').hidden=waiting<1;
     $('phone-app-messages').setAttribute('aria-label',waiting?`Messages, ${waiting} unread`:'Messages');
     $('phone-clock').textContent=prefs.clock && Number.isFinite(now.hours) ? formatClock(now.hours,true) : now.clock || '';
-    $('phone-title').textContent=screen==='list'?listing?.title:screen==='thread'?(contact?.name||'Message'):titles[screen];
+    $('phone-title').textContent=screen==='list'?listing?.title:screen==='thread'?(contact?.name||'Message'):screen==='photo'?(shot?.facing==='selfie'?'Selfie':'Photo'):titles[screen];
     for (const name of Object.keys(titles)) $('phone-'+name).hidden = name !== screen;
     $('phone-toolbar').hidden = screen === 'home';
     $('phone-back').hidden = screen === 'home';
@@ -531,6 +540,25 @@ export function createPhone({ $, isClosed, places = () => [], state = () => ({})
       $('phone-call-name').textContent=person.name;
       $('phone-call-status').textContent=call.connected?'Connected':'Calling…';
       $('phone-call-timer').textContent=call.connected?clocked(call.elapsed-1.1):'';
+    }
+    if(screen==='camera'){
+      $('phone-camera-status').textContent=$('phone-camera-status').textContent||(facing==='selfie'?'Front camera':'Rear camera');
+    }
+    if(screen==='gallery'){
+      for(let i=0;i<SHOTS;i++){
+        const item=photos[i], id='phone-shot-'+i;
+        $(id).hidden=!item;
+        if(!item)continue;
+        $(id+'-image').setAttribute('src',item.image);
+        $(id+'-image').setAttribute('alt',item.facing==='selfie'?'Selfie':'Photo');
+        $(id).setAttribute('aria-label',(item.facing==='selfie'?'Selfie':'Photo')+(item.time?' · '+item.time:''));
+      }
+      $('phone-gallery-empty').hidden=photos.length>0;
+    }
+    if(screen==='photo' && shot){
+      $('phone-photo-image').setAttribute('src',shot.image);
+      $('phone-photo-image').setAttribute('alt',shot.facing==='selfie'?'Selfie':'Photo');
+      $('phone-photo-note').textContent=[shot.facing==='selfie'?'Selfie':'Photo',shot.time].filter(Boolean).join(' · ');
     }
     if (screen === 'list' && listing) {
       $('phone-title').textContent = listing.title;
@@ -681,6 +709,28 @@ export function createPhone({ $, isClosed, places = () => [], state = () => ({})
   click('phone-thread-next',()=>{threadPage++;render();});
   click('phone-thread-call',beginCall);
   click('phone-call-end',()=>{if(screen==='call')show(call?.from||'contact',true);});
+  click('phone-app-camera',()=>{facing='rear';$('phone-camera-status').textContent='Rear camera';show('camera');});
+  click('phone-camera-flip',()=>{
+    facing=facing==='selfie'?'rear':'selfie';
+    $('phone-camera-status').textContent=facing==='selfie'?'Front camera':'Rear camera';
+    render();
+  });
+  click('phone-shutter',()=>{
+    const image=onCapture(facing)||'';
+    if(!image){$('phone-camera-status').textContent='The lens is still opening.';return;}
+    photos.unshift({id:++photoSerial,facing,time:state().clock||'',image});
+    photos.splice(SHOTS);
+    savePhotos();
+    $('phone-camera-status').textContent='Saved.';
+    render();
+  });
+  click('phone-camera-roll',()=>show('gallery'));
+  for(let i=0;i<SHOTS;i++)click('phone-shot-'+i,()=>{shot=photos[i];if(shot)show('photo');});
+  click('phone-photo-delete',()=>{
+    if(!shot)return;
+    photos=photos.filter(item=>item!==shot);
+    shot=null;savePhotos();show('gallery',true);
+  });
   click('phone-cab-delivery',()=>{setOpen(false);onCab();});
   click('phone-back', back);
   click('phone-home-key',home);
@@ -689,6 +739,7 @@ export function createPhone({ $, isClosed, places = () => [], state = () => ({})
     get open() { return open; },
     get pressPhase() { return touch.phase; },
     get screen() { return screen; },
+    get facing() { return facing; },
     setOpen, handleKey, handlePad, focus:()=>focusScreen(true), toggle: navigation => setOpen(!open,navigation),
     /** Show a list to choose from: `rows` of { name, note }; `onPick(row)` is told which. */
     openList(title, rows, onPick, { message = '', keepOpen = false, app = 'work', board = false, refresh = null, onBack = null } = {}) { if(screen==='list' && listing?.board)boardPage=listPage; listing = { title, rows, onPick, message, keepOpen, app, board, refresh, onBack }; listPage = board ? boardPage : 0; setOpen(true); show('list'); },

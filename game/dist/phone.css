@@ -74,6 +74,9 @@
 .icon-messages { background:linear-gradient(#6ec15a,#248a3d); }
 .icon-messages::after { left:11px; right:11px; top:14px; height:16px; border-radius:8px; background:white; }
 .icon-messages::before { left:14px; bottom:12px; width:8px; height:8px; background:white; clip-path:polygon(0 0,100% 0,0 100%); }
+.icon-camera { background:linear-gradient(#6a727a,#2c3238); }
+.icon-camera::before { left:8px; right:8px; top:16px; height:18px; border-radius:4px; background:#d7dee3; }
+.icon-camera::after { left:17px; top:18px; width:15px; height:15px; border-radius:50%; background:radial-gradient(circle,#8fd0e8 0 4px,#1c2328 5px,#d7dee3 6px); }
 .app-badge { position:absolute; z-index:2; top:-1px; right:calc(50% - 30px); width:9px; height:9px; border-radius:50%; background:#e23d32; box-shadow:0 0 0 1.5px #fff; }
 .phone .phone-home-key { position:absolute; left:calc(50% - 21px); bottom:7px; width:42px; height:42px; border-radius:50%; border:1px solid #060707; background:linear-gradient(155deg,#0b0c0d 32%,#242629 77%,#424446); box-shadow:0 1px 1px #5557,inset 0 1px 2px #050505; }
 .phone-home-key::after { content:""; position:absolute; inset:12px; border-radius:4px; border:1.5px solid #b5b8bc; }
@@ -283,7 +286,19 @@
 .compose .phone-action { width:auto; margin:0; padding:9px 14px; }
 .phone .phone-end { background:linear-gradient(#c45448,#8d2e2a); border-color:#6d2c28; }
 #phone-call-timer { font-variant-numeric:tabular-nums; min-height:1.2em; }
+#phone-camera { display:flex; flex-direction:column; gap:6px; overflow:hidden; }
+#phone-lens { width:100%; flex:1 1 auto; min-height:0; height:0; object-fit:cover; background:#101214; border-radius:10px; }
+#phone-camera-status { margin:0; text-align:center; color:var(--muted); font-size:12px; }
+.camera-bar { display:grid; grid-template-columns:1fr auto 1fr; align-items:center; }
+.camera-bar button { justify-self:center; font-weight:700; }
+#phone-camera-roll { justify-self:end; }
+#phone-shutter { width:58px; height:58px; border-radius:50%; border:4px solid #f4f6f4; background:#e23b3b; box-shadow:0 0 0 2px #1a1c1d; }
+.photo-grid { display:grid; grid-template-columns:1fr 1fr; gap:6px; }
+.photo-tile { display:block; width:100%; padding:0; overflow:hidden; aspect-ratio:3/4; border-radius:8px; background:#111; }
+.photo-tile img,#phone-photo-image { width:100%; height:100%; object-fit:cover; display:block; background:#111; }
+#phone-photo-image { height:auto; aspect-ratio:3/4; border-radius:8px; }
 
+.phone .investment-entry { margin:8px 0; width:100%; }
 .stock-history { margin:10px 0; padding-bottom:6px; border-bottom:1px solid #8998a155; }
 .stock-history canvas { display:block; width:100%; height:44px; }
 .stock-history figcaption { font-size:11px; color:var(--muted); }

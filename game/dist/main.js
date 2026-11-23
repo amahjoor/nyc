@@ -70,6 +70,7 @@ import { setHandSource } from './view-hand.js';
 import { fingerPose, pinchOffset } from './hand-poses.js';
 import { createPhoneHand } from './phone-hand.js';
 import { createPhone, describePlace } from './phone.js';
+import { createPhoneLens } from './phone-camera.js';
 import { createFleet } from './fleet.js';
 import { createVehicleMeshLibrary } from './vehicle-assets.js';
 import { designFor } from './vehicle-designs.js';
@@ -171,7 +172,8 @@ let placeSource=null, storefronts=null, footprints=indexFootprints([]), fronts=[
 let doors=[], doorsFor=null;
 // The phone, and where a delivery can be sent: the streets around, and the places with a street front.
 const phoneBank=new PhoneBank();
-let cityRides=null, phoneHand=null;
+let cityRides=null, phoneHand=null, phoneLens=null;
+const lensEye=new THREE.Vector3();
 const phonePalm=new THREE.Vector3(), phoneTarget=new THREE.Vector3();
 let phone=null, interaction=null, work=null, roadDestinations=[], placeDestinations=[], shopHere=null;
 // The front the player is standing at if it has a room to go into, and the room they are in.
@@ -1180,7 +1182,7 @@ function showPlayer(dt,p,floor,eyeView,riding) {
   }
   if(phoneHand?.amount && mesh.visible && !take && !traversing && !p.reaction && !ending){
     const {bones,rig}=playerBody, head=bones[rig.index.get('Head')], palm=bones[rig.index.get('hand_r')];
-    head.rotateX(.14*phoneHand.amount);
+    head.rotateX((phone?.screen==='camera' && phone.facing==='selfie' ? -.2 : .14)*phoneHand.amount);
     for(const [i,q] of fingerPose(rig,'phone','r'))bones[i].quaternion.fromArray(q);
     head.getWorldPosition(phoneTarget);mesh.worldToLocal(phoneTarget);
     phoneTarget.x-=.14;phoneTarget.y-=.21;phoneTarget.z+=.31;
@@ -2481,6 +2483,9 @@ function frame(now) {
   if(aloft)for(const thing of [crowd?.mesh,signs?.group,props?.group,subwayStairs?.group,busStops?.group,shedMesh?.mesh,diningMesh?.mesh,standMesh?.mesh,bikeDocks?.group,trashMesh?.mesh])if(thing)thing.visible=false;
   if(figures)figures.group.visible=crowd.mesh.visible;
   gfx.render();
+  if(phone?.open && phone.screen==='camera'){
+    phoneLens?.preview({renderer,scene,view:camera,canvas:$('phone-lens'),player:sim.player,eye:playerBody?.eyePosition?.(lensEye)||null,facing:phone.facing,body:playerBody?.mesh,hide:phoneHand?.group});
+  }
   if(started && !paused && !mapOpen && !cityView && !traveling && !document.hidden && elapsedSeconds>0){
     sampledSeconds+=elapsedSeconds;sampledFrames++;
     if(sampledSeconds>=1){recentFrameMs=1000*sampledSeconds/sampledFrames;sampledSeconds=sampledFrames=0;}
@@ -2957,7 +2962,9 @@ async function boot() {
   phoneHand=createPhoneHand(ROOM_LAYER,VIEW_PISTOL_LAYER,$('phone'));
   phoneHand.tone('#'+PLAYER_LOOK.skin.toString(16).padStart(6,'0'));
   cityRides=new CityRides(sim,{planner:()=>plannerReady,paid:()=>saveProgress('Ride fare')});
+  phoneLens=createPhoneLens();
   phone=createPhone({$,rides:cityRides,showTap:firstPersonActive,onTap:(x,y,instant)=>phoneHand.tap(x,y,instant),roads:()=>sim.city.roads,destinations:()=>roadIndex.places.filter(place=>Math.hypot(place.x-sim.player.x,place.z-sim.player.z)>50),searchCity:findLocally,
+    onCapture:facing=>phoneLens.snapshot($('phone-lens'),facing),
     onTrade:(symbol,side,shares,price)=>{const error=phoneBank.trade(sim,symbol,side,shares,price,gfx.clock);if(!error)saveProgress();return error;},
     onTransfer:(direction,amount)=>{const error=phoneBank.transfer(sim,direction,amount,gfx.clock);if(!error)saveProgress();return error;},isClosed:closedAfterIncident,places:()=>placeSource.near(sim.player.x,sim.player.z,700),
     state:()=>({x:sim.player.x,z:sim.player.z,mapPin:gameMap?.pin,hours:gfx.hours,clock:gfx.clock,cash:sim.cash,availableCash:sim.cash-(sim.rideHoldCents||0)/100,jobActive:sim.mission.phase==='active',street:$('street-name').textContent,bank:phoneBank.record()}),

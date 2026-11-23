@@ -75,6 +75,7 @@ import { fingerPose, pinchOffset } from '../dist/hand-poses.js';
 import { setHandSource } from '../dist/view-hand.js';
 import { createPhoneHand } from '../dist/phone-hand.js';
 import { createPhone, describePlace } from '../dist/phone.js';
+import { createPhoneLens } from '../dist/phone-camera.js';
 import { createFleet } from '../dist/fleet.js';
 import { createVehicleMeshLibrary } from '../dist/vehicle-assets.js';
 import { designFor } from '../dist/vehicle-designs.js';
@@ -349,6 +350,7 @@ async function bootHarness({ stored = null, displayStored = null, unavailableSto
     createSportsCourts, addCourtPlaces, createStatueOfLiberty, STATUE, castWalkStyle, Landscape, RoadPilot, AbortSignal, createGraphics, createStreetLife, createWater, WATER_LEVEL, BOARDINGS, TRANSPORT, transportDestination, TransportFleet, createTransportScene, setVehicleLamps, OFFICER_LOOK, createPoliceScene, createCityLife, manhattanCore, createStreetSigns, createCrowd, dress, seeded, KIT, createStreetProps, createPlaceSource, placeName, joinPlaceSources, indexFootprints, solveFrontages, createStorefronts, createInteraction, CityRides, PhoneBank, createPhoneHand, createPhone, describePlace, createFleet, createVehicleMeshLibrary, designFor, createSwitchShot, createPickerFlight, createTileStore, offersAt, shopRows, planRoom, buildRoom, roomKind, hasRoom, doorBlips, plateFor, createDemographics, characterAt, createTransitNetwork, busJourney, clockTime, createBuses, createBusStops, createSheds, planSheds, createShedMesh, createDining, planDining, createDiningMesh, seatsOf, planStands, vendorOf, createStandMesh, createCollection, planTrash, createTrashMesh, aboveTheStreet, indexBikeLanes, createLaneMarkings, bikeLaneParking, createBikeTraffic, fitCyclist, PEDAL_PERIOD, createSkateboard, createBikeShare, planBikeDocks, createBikeDocks, menuFor, createSubway, createSubwayEntrances, SUBWAY_LAYER, FARE, indexKerbs, snapToKerb, formatDistance,
     // Bundled survey cells only: these tests stay offline.
     createStreetscape:options=>createStreetscape({...options,live:false,now:()=>timestamp}),
+    createPhoneLens,
     LEVELS, levelsFor, ceilingFor, groundReach,
     setTimeout(callback, delay) { return setTimeout(callback, delay).unref(); },
     console: { error: error => errors.push(error), warn: () => {}, log: () => {} },

@@ -87,6 +87,7 @@
           <button id="phone-app-settings" class="phone-app"><i class="app-icon icon-settings" aria-hidden="true"></i><b>Settings</b></button>
           <button id="phone-app-work" class="phone-app"><i class="app-icon icon-work" aria-hidden="true"></i><b>Work</b></button>
           <button id="phone-app-messages" class="phone-app" aria-label="Messages"><i class="app-badge" id="phone-messages-badge" hidden></i><i class="app-icon icon-messages" aria-hidden="true"></i><b>Messages</b></button>
+          <button id="phone-app-camera" class="phone-app"><i class="app-icon icon-camera" aria-hidden="true"></i><b>Camera</b></button>
           <button id="phone-app-rides" class="phone-app"><i class="app-icon icon-rides" aria-hidden="true"></i><b>D Ride</b></button>
         </div>
         <div class="app-dock">
@@ -367,6 +368,33 @@
           <b id="phone-call-timer"></b>
         </div>
         <button id="phone-call-end" class="phone-action phone-end">End</button>
+      </div>
+      <div id="phone-camera" class="phone-screen" hidden>
+        <canvas id="phone-lens" width="216" height="288" aria-label="Camera viewfinder"></canvas>
+        <p id="phone-camera-status" role="status"></p>
+        <div class="camera-bar">
+          <button id="phone-camera-flip">Flip</button>
+          <button id="phone-shutter" aria-label="Take photo"></button>
+          <button id="phone-camera-roll">Gallery</button>
+        </div>
+      </div>
+      <div id="phone-gallery" class="phone-screen" hidden>
+        <div class="photo-grid">
+          <button id="phone-shot-0" class="photo-tile" hidden><img id="phone-shot-0-image" alt=""></button>
+          <button id="phone-shot-1" class="photo-tile" hidden><img id="phone-shot-1-image" alt=""></button>
+          <button id="phone-shot-2" class="photo-tile" hidden><img id="phone-shot-2-image" alt=""></button>
+          <button id="phone-shot-3" class="photo-tile" hidden><img id="phone-shot-3-image" alt=""></button>
+          <button id="phone-shot-4" class="photo-tile" hidden><img id="phone-shot-4-image" alt=""></button>
+          <button id="phone-shot-5" class="photo-tile" hidden><img id="phone-shot-5-image" alt=""></button>
+          <button id="phone-shot-6" class="photo-tile" hidden><img id="phone-shot-6-image" alt=""></button>
+          <button id="phone-shot-7" class="photo-tile" hidden><img id="phone-shot-7-image" alt=""></button>
+        </div>
+        <p id="phone-gallery-empty" class="phone-empty" hidden>No photos yet.</p>
+      </div>
+      <div id="phone-photo" class="phone-screen" hidden>
+        <img id="phone-photo-image" alt="">
+        <p id="phone-photo-note"></p>
+        <button id="phone-photo-delete" class="phone-action">Delete</button>
       </div>
     </div>
     <button id="phone-home-key" class="phone-home-key" aria-label="Home" title="Home"></button>
