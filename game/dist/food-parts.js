@@ -156,13 +156,46 @@ export function sausage(k,x,z,yaw,{length=13,r=1.15,color=0x9a3f28,bend=.8,lift=
 }
 
 // ---- starch -------------------------------------------------------------------
-/** A mound of rice, grains and all. */
-export function riceMound(k,x,z,{r=5,rz=r,h=2.2,color=C.rice,grains=null,n=70,flecks=null}={}){
-  const seed=k.rand(9);
-  k.drop(puck(wobbly(r,16,.08,seed,rz),.5,{edge:.45,dome:h,bump:.3,freq:.9,seed,n:32}),x,z,{lift:-.05,color,gloss:.22,inside:color,whole:false,paint:mottle(.07,2.6)});
-  const floor=k.top(x,z)-h-.2;
-  k.sprinkle('seed',n,{x,z,r:Math.min(r,rz)*.95,stretch:1.25,color:grains||[color,new T.Color(color).multiplyScalar(.9).getHex(),new T.Color(color).lerp(new T.Color(0xffffff),.35).getHex()],size:.62,onFood:floor,gloss:.25});
-  if(flecks)k.sprinkle(flecks.kind||'cube',flecks.n||24,{x,z,r:Math.min(r,rz)*.9,color:flecks.color,size:flecks.size||.42,onFood:floor,gloss:.35});
+const riceGrain=blob({r:[.4,.128,.138],bump:.045,detail:0});
+const GOLDEN_ANGLE=Math.PI*(3-Math.sqrt(5));
+
+/** Grain-sized pieces follow the slope and sit partly buried in the rice below. */
+export function riceGrains(k,x,z,{r,rz=r,color=C.rice,grains=null,density=4.3,short=false,minY=0,inner=0,gloss=short?.39:.29}){
+  const base=new T.Color(color);
+  const shades=grains?.map(tone=>new T.Color(tone))||
+    [base.clone().multiplyScalar(.82),base,base,base.clone().lerp(new T.Color(0xffffff),.2)];
+  const count=Math.round(Math.PI*r*rz*(1-inner*inner)*density),spin=k.rand(TAU);
+  for(let i=0;i<count;i++){
+    const u=(i+k.rand(.06,.94))/count,d=Math.sqrt(inner*inner+(1-inner*inner)*u),a=spin+i*GOLDEN_ANGLE+k.rand(-.14,.14);
+    const px=x+Math.cos(a)*d*r,pz=z+Math.sin(a)*d*rz;
+    const y=k.top(px,pz);
+    if(y<minY)continue;
+    const grainSize=k.rand(.77,1.14),yaw=k.rand(TAU),dx=Math.cos(yaw)*.29,dz=-Math.sin(yaw)*.29;
+    const lean=clamp((k.top(px+dx,pz+dz)-k.top(px-dx,pz-dz))*.8,-.54,.54);
+    k.add(riceGrain,{at:[px,y+k.rand(-.025,.065),pz],rot:[k.rand(-.4,.4),yaw,lean+k.rand(-.22,.22)],
+      scale:[grainSize*(short?.71:1),grainSize,grainSize*(short?1.12:1)],color:k.pick(shades),gloss,cast:false,whole:true});
+  }
+}
+
+/** An uneven spooned mound with loose grains and an optional mix of vegetables or beans. */
+export function riceMound(k,x,z,{r=5,rz=r,h=2.2,color=C.rice,grains=null,flecks=null,short=false,outline=null,y=null}={}){
+  const seed=k.rand(9),shape=outline||wobbly(r,20,.15,seed,rz);
+  const base=new T.Color(color).multiplyScalar(short?.83:.72);
+  const heap=puck(shape,.28,{edge:.13,dome:h,bump:.38,freq:.72,seed,n:36});
+  if(y===null)k.drop(heap,x,z,{lift:-.055,color:base,gloss:.24,inside:color,whole:false,paint:mottle(.12,2.3)});
+  else k.add(heap,{at:[x,y,z],color:base,gloss:.24,inside:color,whole:false,paint:mottle(.12,2.3)});
+  const top=k.top(x,z),floor=top-h-.16;
+  riceGrains(k,x,z,{r:r*1.02,rz:rz*1.02,color,grains,short,minY:floor-.12});
+  if(flecks){
+    const {kind='cube',n=24,color:colors,size=.42}=flecks;
+    for(let i=0;i<n;i++){
+      const [px,pz]=k.spot(x,z,.91),fx=x+(px-x)*r,fz=z+(pz-z)*rz,y=k.top(fx,fz);
+      if(y<floor)continue;
+      const scale=size*k.rand(.7,1.25);
+      k.add(bitOf(kind),{at:[fx,y+scale*.28,fz],rot:[k.rand(-.4,.4),k.rand(TAU),k.rand(-.4,.4)],
+        scale:kind==='pea'?[scale*.8,scale*.53,scale*.54]:[scale,scale*.64,scale],color:k.pick(colors),gloss:.41,whole:true,cast:false});
+    }
+  }
 }
 /** A tangle of noodles coiled over a spot. */
 export function noodles(k,x,z,{r=5,h=1.6,color=C.noodle,n=18,thick=.26,sides=4,gloss=.45,flat=1}={}){

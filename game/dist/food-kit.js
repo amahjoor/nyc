@@ -2,6 +2,7 @@
 // lumpy solids, lofted slabs, tubes and sheets, set down on whatever is already
 // on the plate, then baked into one mesh with its own contact shading.
 import * as T from './vendor/three.module.min.js';
+import { PLAIN_UV } from './food-surface.js';
 
 export const TAU=Math.PI*2;
 export const clamp=(v,a=0,b=1)=>v<a?a:v>b?b:v;
@@ -335,7 +336,7 @@ export function kitchen(key,level=2){
       }
       const idx=g.index?g.index.array:null,count=idx?idx.length:n;
       const reach=Math.max(maxX-minX,maxZ-minZ,maxY-minY);
-      const part={pos,nor,col,idx,count,ware,opacity,gloss:o.gloss??.2,inside:o.inside??null,whole:o.whole??reach<2.6,cx,cz,top:maxY,bottom:minY,shade:o.shade!==false};
+      const part={pos,nor,col,uv:o.printed&&g.attributes.uv,idx,count,ware,opacity,gloss:o.gloss??.2,inside:o.inside??null,whole:o.whole??reach<2.6,cx,cz,top:maxY,bottom:minY,shade:o.shade!==false};
       if(opacity===1 && o.cast!==false)field.mesh(pos,idx,count);
       parts.push(part);return part;
     },
@@ -463,7 +464,8 @@ export function bake(k){
       position[at*3]=pos[v]*.01;position[at*3+1]=pos[v+1]*.01;position[at*3+2]=pos[v+2]*.01;
       normal[at*3]=nor[v];normal[at*3+1]=nor[v+1];normal[at*3+2]=nor[v+2];
       color[at*step]=col[v];color[at*step+1]=col[v+1];color[at*step+2]=col[v+2];if(translucent)color[at*step+3]=part.opacity;
-      gloss[at]=part.gloss;uv[at*2]=.994;uv[at*2+1]=.5;
+      gloss[at]=part.gloss;
+      uv[at*2]=part.uv?part.uv.getX(v/3):PLAIN_UV[0];uv[at*2+1]=part.uv?part.uv.getY(v/3):PLAIN_UV[1];
     }
   }
   const g=new T.BufferGeometry();

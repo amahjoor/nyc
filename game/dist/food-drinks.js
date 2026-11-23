@@ -1,5 +1,6 @@
 // Drinks: the vessel, what is in it and how much is left.
 import { blob,lathe,puck,tube,sheet,brick,circle,TAU,fbm,sn,smooth,mottle,toward,spots } from './food-kit.js';
+import { sodaCan } from './food-packaging.js';
 import { CHINA,PAPER,FOIL } from './food-ware.js';
 
 const GLASS=0xdcecea;
@@ -80,16 +81,9 @@ function bottle(k,{r=3,h=22,neck=.36,shoulder=.62,color=0x5a3a1a,opacity=.72,lab
   if(label!==null)k.ware(lathe([[r*1.012,h*.22],[r*1.012,h*.52]],28),{color:label,gloss:.3,cast:false});
   if(cap!==null && k.level===2)k.ware(lathe([[0,h],[r*neck*1.25,h],[r*neck*1.25,h+.6],[0,h+.65]],16),{color:cap,gloss:.6});
 }
-/** A can of soda: shut, then opened, then crushed. */
-export function can(k,x=0,z=0,{color=0xb23a2a,band=0xf1ece2,r=3.3,h=12.2}={}){
-  k.at(x,z,k.rand(TAU),()=>{
-    const crushed=k.level===0,tall=crushed?h*.74:h;
-    const w=crushed?.8:1;
-    k.ware(lathe([[0,0],[r*.78,0],[r*.96,.5],[r,1.1],[r,tall*.34],[r*w,tall*.38],[r*w,tall*.5],[r*w,tall*.6],[r,tall*.64],[r,tall-1.3],[r,tall-1.1],[r*.9,tall-.3],[r*.86,tall],[r*.78,tall-.12],[0,tall-.18]],28,{wave:crushed?(a,j)=>j>4&&j<8?1+.14*Math.sin(a*3):1:null}),
-      {color:0xc9cdd0,gloss:.8,paint:[toward(color,(P,N,L)=>N.y<.5&&N.y>-.5?smooth(.06,.1,L.y/tall)*smooth(.95,.91,L.y/tall):0),toward(band,(P,N,L)=>N.y<.5&&N.y>-.5?smooth(.35,.38,L.y/tall)*smooth(.63,.6,L.y/tall)*.9:0)]});
-    k.ware(lathe([[0,0],[.75,0],[.75,.1],[0,.1]],10),{at:[0,tall-.12,k.level===2?.4:.9],rot:[k.level===2?0:-.5,0,0],scale:[1,1,1.5],color:0xd9dcde,gloss:.85,cast:false});
-    if(k.level<2)k.ware(lathe([[0,0],[.8,0],[0,.02]],10),{at:[0,tall-.16,-.9],scale:[1,1,1.3],color:0x1c1a1a,gloss:.3,cast:false});
-  });
+/** A counter soda, using the same can as the Borough Cola on the shelf. */
+export function can(k,x=0,z=0){
+  k.at(x,z,.14,()=>sodaCan(k));
 }
 
 const coffee=0x3a2114,cola=0x3a1c12,beer=0xd79a2e;

@@ -1,4 +1,7 @@
 import test from 'node:test';
+import { Triangle,Vector3 } from '../dist/vendor/three.module.min.js';
+import { kitchen } from '../dist/food-kit.js';
+import { orangeBag } from '../dist/food-fruit.js';
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import { KINDS } from '../dist/places.js';
@@ -37,4 +40,27 @@ test('every food and drink in the city menus has buildable full, partial and emp
   assert.equal(heldFood(pantryItem('meal-seafood-dinner')),'plate-grilled-salmon');
   assert.equal(heldFood(pantryItem('meal-kosher-1')),'plate-pastrami');
   assert.equal(heldFood(pantryItem('meal-bbq-lunch-special')),'plate-bbq-ribs');
+});
+
+test('orange bag net clears the fruit in both filled states',()=>{
+  const triangle=new Triangle(),closest=new Vector3();
+  for(const [level,count] of [[2,5],[1,2]]){
+    const bench=kitchen('plate-oranges',level);
+    orangeBag(bench);
+    const oranges=bench.parts.filter(part=>!part.ware && part.top-part.bottom>4);
+    const bag=bench.parts.filter(part=>part.ware);
+    assert.equal(oranges.length,count);
+    for(const orange of oranges){
+      const center=new Vector3(orange.cx,(orange.top+orange.bottom)/2,orange.cz);
+      let radius=0,clearance=Infinity;
+      for(let i=0;i<orange.pos.length;i+=3)radius=Math.max(radius,center.distanceTo(closest.fromArray(orange.pos,i)));
+      for(const part of bag)for(let i=0;i<part.count;i+=3){
+        const offset=j=>3*(part.idx?part.idx[i+j]:i+j);
+        triangle.a.fromArray(part.pos,offset(0));triangle.b.fromArray(part.pos,offset(1));triangle.c.fromArray(part.pos,offset(2));
+        if(triangle.getArea()<1e-8)continue;
+        clearance=Math.min(clearance,center.distanceTo(triangle.closestPointToPoint(center,closest)));
+      }
+      assert.ok(clearance>=radius,`bag level ${level} penetrates the orange at ${orange.cx}, ${orange.cz}`);
+    }
+  }
 });

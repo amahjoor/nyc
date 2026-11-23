@@ -1,19 +1,13 @@
 import * as T from './vendor/three.module.min.js';
 import { groceries,groceryPrice } from './grocery-stock.js';
 import { roomPoint } from './room.js';
+import { ingredientMap,PLAIN_UV,printUV } from './food-surface.js';
+import { kitchen,bake } from './food-kit.js';
+import { sodaCan,chipBag } from './food-packaging.js';
 
 const shapes=new Map(), ink=new T.Color();
-let print;
-function labelMap(){
-  if(!print && typeof document!=='undefined'){
-    print=new T.TextureLoader().load(new URL('./assets/grocery-labels.jpg',import.meta.url).href);
-    print.colorSpace=T.SRGBColorSpace;print.anisotropy=8;
-  }
-  return print||null;
-}
-const printWidth=1536/1552;
 export function packageMaterial(street=false,id){
-  const settings={map:labelMap(),vertexColors:true,side:T.DoubleSide};
+  const settings={map:ingredientMap(),vertexColors:true,side:T.DoubleSide};
   const bottle=id==='grocery-water';
   return street?new T.MeshBasicMaterial({...settings,fog:false}):new T.MeshStandardMaterial({...settings,roughness:bottle?.23:.46,transparent:bottle});
 }
@@ -21,12 +15,18 @@ export function packageMaterial(street=false,id){
 export function packageGeometry(id,shelf=false,level=2){
   const distant=shelf==='window',key=distant?id+'-window':shelf?id+'-shelf':id+'@'+level;
   if(shapes.has(key))return shapes.get(key);
-  const item=groceries[id],pos=[],uv=[],color=[],col=item.tile%3,row=Math.floor(item.tile/3);
+  const item=groceries[id];
+  if(!shelf && (item.shape==='can' || id==='grocery-chips')){
+    const bench=kitchen(key,level);
+    if(item.shape==='can')sodaCan(bench,item.tile);else chipBag(bench);
+    const geometry=bake(bench);shapes.set(key,geometry);return geometry;
+  }
+  const pos=[],uv=[],color=[];
   const clearBottle=item.shape==='bottle' && !shelf;let opacity=1;
   function vertex(p,c,u,v,label){
     pos.push(...p);ink.set(c);color.push(ink.r,ink.g,ink.b);
     if(clearBottle)color.push(opacity);
-    uv.push(label?(col+.012+.976*u)/3*printWidth:.995,label?1-(row+1-.012-.976*v)/3:.5);
+    uv.push(...(label?printUV(item.tile,u,v):PLAIN_UV));
   }
   function quad(a,b,c,d,tint,printed=false,u0=0,u1=1,v0=0,v1=1){
     for(const [p,u,v] of [[a,u0,v0],[b,u1,v0],[c,u1,v1],[a,u0,v0],[c,u1,v1],[d,u0,v1]])vertex(p,tint,u,v,printed);
@@ -196,12 +196,11 @@ export function packageGeometry(id,shelf=false,level=2){
       pos[i+2]*=1-.34*crease;pos[i]+=.004*crease;
     }
   }
-  if(!shelf && level<2 && ['can','carton','box'].includes(item.shape)){
-    const top=item.shape==='can'?.121:item.shape==='carton'?.175:.212;
+  if(!shelf && level<2 && ['carton','box'].includes(item.shape)){
+    const top=item.shape==='carton'?.175:.212;
     for(let i=0;i<pos.length;i+=3){
       const y=pos[i+1]/top,crease=Math.sin(Math.PI*y);
-      if(item.shape==='can'){pos[i]*=1-(level?.04:.24)*crease*crease;pos[i+1]*=level?.98:.80;}
-      else{pos[i+2]*=1-(level?.15:.53)*crease;pos[i+1]*=level?.99:.86;pos[i]+=(level?.001:.006)*crease;}
+      pos[i+2]*=1-(level?.15:.53)*crease;pos[i+1]*=level?.99:.86;pos[i]+=(level?.001:.006)*crease;
     }
   }
   const g=new T.BufferGeometry();g.setAttribute('position',new T.Float32BufferAttribute(pos,3));g.setAttribute('color',new T.Float32BufferAttribute(color,clearBottle?4:3));g.setAttribute('uv',new T.Float32BufferAttribute(uv,2));g.computeVertexNormals();

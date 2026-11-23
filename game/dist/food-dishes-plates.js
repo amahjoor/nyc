@@ -60,7 +60,7 @@ function halal(k,{meat='chicken'}={}){
   W.foilPan(k,9.5,3.6);
   W.leavings(k,{crumbs:[C.yellowRice,0xd9a94a],smear:C.white,r:5});
   if(!k.level)return;
-  F.riceMound(k,-1.2,.8,{r:6.4,h:2.2,color:C.yellowRice,n:90});
+  F.riceMound(k,-1.2,.8,{r:6.4,h:2.2,color:0xe2aa45,grains:[0xf4ca69,0xe1a338,0xe9b34b,0xf0be59,0xd99930]});
   F.chunks(k,-1.8,1.6,meat==='lamb'?13:15,{r:1.15,color:meat==='lamb'?0x7a4a34:0xc98444,dark:meat==='lamb'?0x3e2418:0x7a4a1c,spread:3.4,cover:.36,gloss:.42});
   F.shreds(k,4.4,-2.6,60,{r:2.9,size:1.7});
   F.tomatoSlices(k,5.2,-2.2,2,{r:1.9,spread:1.3});
@@ -74,7 +74,7 @@ function ricePlate(k,main,{rice={},boxed=false,side=null,smear=C.gravy,scale=1}=
   if(boxed)blackBox(k);else W.plate(k,12.5);
   W.leavings(k,{crumbs:[rice.color??C.rice,0xd9c9a0],smear,r:5});
   if(!k.level)return;
-  F.riceMound(k,-4.2,-.6,{r:4.6,rz:5.6,h:2.3,n:70,...rice});
+  F.riceMound(k,-4.2,-.6,{r:4.6,rz:5.6,h:2.0,...rice});
   main(3.6,.4);
   if(side)side(1.2,-6.2);
   k.biteAngle=.1;k.biteAt=.5;
@@ -130,7 +130,7 @@ export const plates={
     for(let i=0;i<5;i++)k.at(.4+i*1.9,-.4+i*.25,.28,()=>k.drop(brick(1.6,1.5,7.6,.4,{n:24,bump:.16,freq:1.4}),0,0,{rot:[0,0,-.35],color:C.fried,gloss:.25,inside:C.chickenIn,whole:false,paint:[mottle(.18,2.4),spots(C.friedDark,.3,1.8,i),toward(C.chickenIn,(P,N,L)=>Math.abs(N.x)>.75?.9:0)]}));
     for(let i=0;i<3;i++){const [px,pz]=k.spot(6.6,3.8,1.4);k.drop(blob({r:[1,.8,1],bump:.06,detail:1,flat:.1}),px,pz,{color:k.pick([C.carrot,0xe3b84a]),gloss:.5,whole:true});}k.biteAngle=.1;k.biteAt=2.5;},
   biryani:k=>{W.plate(k,12.5);W.leavings(k,{crumbs:[0xe9c66a,0xf3ecd8],smear:0xb8601e});if(!k.level)return;
-    F.riceMound(k,0,0,{r:8.2,h:3.2,color:0xf1e2b0,grains:[0xf6ecd0,0xe9b83a,0xf3d98a,0xd9862a],n:150});
+    F.riceMound(k,0,0,{r:8.2,h:2.8,color:0xe8cb85,grains:[0xf6e9c5,0xe8bd63,0xf3d790,0xd79741]});
     F.friedPiece(k,-1,.4,.6,{r:2.5,color:0xa8601e,dark:0x5a2a0c,bone:true,gloss:.45});F.chunks(k,2.6,-1.6,3,{r:1.3,color:0xa8601e,dark:0x5a2a0c,spread:1.6});
     F.onionRings(k,1,2.6,3,{color:0x8a4a2a,r:1.5});F.herbs(k,0,0,26,{r:6,size:.6,onFood:1.2});k.sprinkle('pea',8,{r:6,color:[0xc9a05a],size:.6,onFood:1.2});
     W.ramekin(k,8.4,-6,0xf1eedc,{full:k.level===2?1:.4,paint:spots(0x6a9a3c,.2,3,1)});k.biteAngle=.2;k.biteAt=1;},

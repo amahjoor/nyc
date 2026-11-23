@@ -1,5 +1,6 @@
 // Bakery, dessert, ice cream, fruit and things out of a wrapper.
-import * as T from './vendor/three.module.min.js';
+import { banana,orangeBag } from './food-fruit.js';
+import { chipBag } from './food-packaging.js';
 import { blob,lathe,puck,tube,sheet,brick,circle,TAU,fbm,sn,smooth,mottle,toward,browned,pale,spots,outward,upward } from './food-kit.js';
 import * as W from './food-ware.js';
 import * as F from './food-parts.js';
@@ -34,17 +35,6 @@ const cherry=(k,x,z)=>{k.drop(blob({r:.9,detail:1,bump:0}),x,z,{color:C.cherry,g
 const coneOf=(k,{r=3.1,h=11,color=0xd9a45a}={})=>k.ware(lathe([[.25,0],[r*.5,h*.5],[r,h],[r+.12,h],[r+.12,h+.5],[r-.2,h+.5],[r-.2,h],[.2,.4]],28),{color,gloss:.25,paint:[toward(0x9a6a2a,(P,N,L)=>.55*smooth(.72,.95,Math.max(Math.abs(Math.sin(Math.atan2(L.z,L.x)*5+L.y*1.6)),Math.abs(Math.sin(Math.atan2(L.z,L.x)*5-L.y*1.6))))),mottle(.06,1.5)]});
 function clearCup(k,{r0=3.4,r1=4.6,h=10}={}){k.ware(lathe([[0,0],[r0,0],[r1,h],[r1+.1,h+.1],[r1-.1,h],[r0-.1,.2],[0,.2]],28),{color:0xdcecea,opacity:.2,gloss:.95,shade:false});}
 const paperCup=(k,{r0=3,r1=4.3,h=7,color=W.PAPER,band=null}={})=>{k.ware(lathe([[0,0],[r0,0],[r1,h],[r1+.14,h+.05],[r1+.14,h+.2],[r1-.08,h+.15],[r0-.1,.3],[0,.3]],28),{color,gloss:.25,paint:band?toward(band,(P,N,L)=>N.x*L.x+N.z*L.z>0&&N.y<.5?smooth(.2,.24,L.y/h)*smooth(.8,.76,L.y/h)*(.5+.5*Math.sign(Math.sin(Math.atan2(L.z,L.x)*8))):0):null});return {r0,r1,h};};
-function bag(k,{w=13,h=18,d=5,color=0xd9a23a,band=0xb8401e}){
-  // A pillow bag standing on its base seam; emptied, it lies crushed.
-  if(!k.level){let g=blob({r:[w*.5,1.6,h*.36],bump:.3,freq:.5,seed:3,detail:2,flat:.2}).toNonIndexed();g.computeVertexNormals();k.ware(g,{at:[0,1.2,0],color,gloss:.6,flat:true,paint:toward(band,P=>smooth(.3,.6,Math.sin(P.x*.9+P.z*.5)))});return;}
-  const rings=[];for(let j=0;j<=12;j++){const t=j/12,y=t*h,puff=Math.sin(Math.min(1,t*1.15)*Math.PI)**.5,half=w/2*(1-.06*Math.cos(t*TAU)),deep=d/2*puff+.06;
-    rings.push(Array.from({length:20},(_,i)=>{const a=i/20*TAU;return [Math.cos(a)*half*(1-.12*(1-puff)),y,Math.sin(a)*deep];}));}
-  const g=new T.BufferGeometry(),pos=[],idx=[];rings.forEach(r=>r.forEach(p=>pos.push(...p)));
-  for(let j=0;j<12;j++)for(let i=0;i<20;i++){const a=j*20+i,b=j*20+(i+1)%20;idx.push(a,a+20,b,b,a+20,b+20);}
-  g.setAttribute('position',new T.Float32BufferAttribute(pos,3));g.setIndex(idx);g.computeVertexNormals();
-  k.ware(g,{color,gloss:.62,paint:[toward(band,(P,N,L)=>smooth(.3,.34,L.y/h)*smooth(.7,.66,L.y/h)*.95),toward(0xfdf6e0,(P,N,L)=>smooth(.42,.45,L.y/h)*smooth(.58,.55,L.y/h)*smooth(.6,.3,Math.abs(L.x)/w*2)),(c,P,N,L)=>{if(L.y>h*.94||L.y<h*.03)c.multiplyScalar(.82+.12*Math.sin(L.x*14));}]});
-}
-
 export const sweets={
   // ---- bakery ----
   croissant:k=>{small(k,9,[0xd9a04a,0xf3e2b0]);croissant(k,0,0,.3);k.biteAngle=.3;k.biteAt=1.4;},
@@ -127,7 +117,7 @@ export const sweets={
     const y=W.fill(k,d,.34,0xd9982a,{gloss:.92});for(let i=0;i<count(k,3,1);i++){const a=i*TAU/3+.4;k.add(blob({r:1.75,bump:.03,detail:2}),{at:[Math.cos(a)*2,y+1.1,Math.sin(a)*2],color:0x7a3410,gloss:.85,paint:mottle(.14,2),whole:true});}
     if(k.level===2)k.sprinkle('cube',14,{r:2.6,color:[0x7aa63a,0xf6e6c0],size:.26,onFood:2.6});},
   'mango-sticky-rice':k=>{small(k,10.5,[C.rice,0xf2b03a],0xf6f1e4);if(!k.level)return;
-    F.riceMound(k,-3.4,.4,{r:3.8,rz:4.6,h:2,color:0xf6f1e4,n:60});F.coat(k,-3.4,.4,2.6,0xfbf8f0,{thick:.12,amp:.4,gloss:.7});F.sesame(k,-3.4,.4,26,{r:3,onFood:1.6,color:[0xe9d39c,0x2a2a30]});
+    F.riceMound(k,-3.4,.4,{r:3.8,rz:4.6,h:1.65,color:0xf6efdf,short:true});F.sesame(k,-3.4,.4,26,{r:3,onFood:1.6,color:[0xe9d39c,0x2a2a30]});
     for(let i=0;i<count(k,6,3);i++)k.at(2.2+i*1.15,-.4+i*.2,.2,()=>k.drop(puck([[-.6,-3.6],[.6,-3.4],[.9,0],[.6,3.4],[-.6,3.6],[-.9,0]],1.3,{edge:.4,n:20}),0,0,{rot:[0,0,-.5],color:0xf2a82a,gloss:.6,whole:true,paint:mottle(.05,1.6)}));k.cut=false;},
   mochi:k=>{small(k,9,[0xf6f1e4]);const n=count(k,3,1),cols=[0xf3b8c4,0xc9dcA0,0xf1e2b0];
     for(let i=0;i<n;i++){const a=i*TAU/3+.5;k.drop(blob({r:[2.5,1.9,2.5],bump:.03,freq:.6,seed:i,detail:3,flat:.2}),Math.cos(a)*3.1,Math.sin(a)*3.1,{color:cols[i],gloss:.2,inside:0xf6ecd8,whole:true,paint:[toward(0xfdfbf6,(P,N)=>.5*smooth(.2,1,N.y)),mottle(.03,2)]});}k.cut=false;},
@@ -162,17 +152,7 @@ export const sweets={
     const y=k.level===2?7.2:3.6,r=2.2+2*y/7.4-.1;
     k.add(lathe([[r,y],[r*.94,y+(k.level===2?1.2:.1)],[r*.7,y+(k.level===2?2.3:.2)],[r*.4,y+(k.level===2?2.9:.25)],[0,y+(k.level===2?3.1:.25)]],26,{bump:.05,freq:1.5}),{color:0xd9242e,gloss:.6,whole:true,paint:[toward(0x2a6ac9,(P,N,L)=>smooth(-.4,.4,Math.sin(Math.atan2(L.z,L.x)*1.5))),mottle(.1,3)]});},
   // ---- fruit ----
-  banana:k=>{k.cut=false;const path=[[-7,3.4,0],[-4.4,1.6,0],[0,1.25,0],[4.4,1.9,0],[7,3.9,0]];
-    if(k.level===2){k.add(tube(path,1.7,{sides:9,taper:t=>.5+.5*Math.sin(.25+t*2.6)**.5,section:a=>1+.05*Math.cos(a*TAU*5),steps:22}),{color:0xf0cc3a,gloss:.4,whole:true,paint:[spots(0x5a3a14,.07,2.6,3),toward(0x8a9a3a,(P,N,L)=>smooth(5.4,7,Math.abs(L.x))*.5),mottle(.05,1.5)]});k.add(tube([[7,3.9,0],[8,5.2,0]],.5,{sides:6,curve:false}),{color:0x6a5a2a,gloss:.3,whole:true});return;}
-    const peel=()=>{for(let i=0;i<3;i++){const a=i*TAU/3+.4;k.ware(sheet((u,v)=>{const s=v*7,drop=Math.min(1.5,s*.5);return [Math.cos(a)*(1+s*.9)+Math.cos(a+1.57)*(u-.5)*2.6*(1-v*.5),Math.max(.12,1.5-drop)+(k.level===1?1.4*(1-v):0),Math.sin(a)*(1+s*.9)+Math.sin(a+1.57)*(u-.5)*2.6*(1-v*.5)];},3,6),{color:0xf0cc3a,gloss:.35,paint:[toward(0xf6ecc0,(P,N)=>N.y>0?.85:0),spots(0x5a3a14,.07,2.6,i)]});}};
-    if(k.level===1){k.at(0,0,0,()=>{k.ware(tube([[0,0,0],[0,5.4,0]],1.75,{sides:9,curve:false,caps:false,section:a=>1+.05*Math.cos(a*TAU*5)}),{at:[0,.2,0],color:0xf0cc3a,gloss:.4});k.add(tube([[0,.2,0],[0,6,0],[.5,9.4,0]],1.4,{sides:9,taper:t=>t>.9?.6:1}),{color:0xf6ecc0,gloss:.3,whole:true,paint:mottle(.03,2)});});peel();return;}
-    peel();k.ware(tube([[0,.3,0],[0,1.4,0]],.5,{sides:6,curve:false}),{color:0x6a5a2a,gloss:.3});},
-  oranges:k=>{k.cut=false;const n=count(k,5,2),pos=[[-2.6,0,-1.6],[2.6,0,-1.2],[0,0,2.6],[-.4,3.6,.2],[2.2,3.4,2.2]];
-    for(let i=0;i<n;i++)k.add(blob({r:2.9,bump:.025,freq:2.4,seed:i,detail:3}),{at:[pos[i][0],pos[i][1]+2.9,pos[i][2]],color:0xee8a1e,gloss:.5,paint:[mottle(.06,5),spots(0xd9741a,.14,3,i)],whole:true});
-    const h=n?n>2?9:4.4:.6;
-    for(let i=0;i<9;i++){const a=i*TAU/9;k.ware(tube([[0,.1,0],[Math.cos(a)*6,h*.25,Math.sin(a)*6],[Math.cos(a+.5)*4.6,h*.8,Math.sin(a+.5)*4.6],[0,h+2.4,0]],.07,{sides:4,caps:false}),{color:0xd9442e,gloss:.4,cast:false});}
-    for(let j=1;j<4;j++){const y=h*j/4,r=5.6*Math.sin(Math.PI*(.12+.7*j/4));k.ware(tube(Array.from({length:17},(_,i)=>[Math.cos(i/16*TAU)*r,y,Math.sin(i/16*TAU)*r]),.07,{sides:4,caps:false,curve:false}),{color:0xd9442e,gloss:.4,cast:false});}
-    k.ware(lathe([[0,h+2.2],[.5,h+2.2],[.6,h+3.4],[0,h+3.4]],8),{color:0xf3ead6,gloss:.3});},
+  banana,oranges:orangeBag,
   fruit:k=>{k.cut=false;
     if(k.level){k.add(lathe([[0,.5],[1.4,0],[2.9,.6],[3.6,2.6],[3.5,4.6],[2.6,6.2],[1.2,6.6],[.3,6.2],[0,6.1]],28,{bump:.03,freq:.6,seed:2,wave:k.level===1?a=>1-.36*smooth(.55,1,Math.cos(a-.6)):null}),{color:0xb8281e,gloss:.7,whole:true,paint:[toward(0xe6c84a,(P,N,L)=>.5*smooth(.3,.8,fbm(L.x*.5,L.y*.3,L.z*.5)+.5)),k.level===1?toward(0xf6ecc8,(P,N,L)=>smooth(.75,.95,Math.cos(Math.atan2(L.z,L.x)-.6))*smooth(1,2,L.y)*smooth(6,5,L.y)):null,mottle(.06,2)].filter(Boolean)});
       k.add(tube([[0,6.1,0],[.2,7,0],[.6,7.6,.1]],.12,{sides:5}),{color:0x5a3a1a,gloss:.3,whole:true});return;}
@@ -186,7 +166,7 @@ export const sweets={
     const n=count(k,7,3);for(let i=0;i<n;i++){const a=i*TAU/7,r=i?2.4:0;k.add(tube([[Math.cos(a)*r*.6,.6,Math.sin(a)*r*.6],[Math.cos(a)*r,6,Math.sin(a)*r],[Math.cos(a)*r*1.5,k.level===2?12.4:7,Math.sin(a)*r*1.5]],1.15,{sides:7,ry:.8,taper:t=>1-.5*t}),{color:0xf2a82a,gloss:.6,whole:true,paint:[spots(0xb8301a,.3,2.2,i),mottle(.05,1.6)]});}
     if(k.level===2)W.citrus(k,3.6,0,.5,{rind:C.lime,flesh:0xcfe08a,r:1.6,lift:9.6});k.ware(tube([[0,2,0],[.6,13.6,.4]],.14,{sides:5,curve:false}),{color:0xd9b87a,gloss:.3,cast:false});},
   // ---- out of a wrapper ----
-  chips:k=>{k.cut=false;bag(k,{});if(k.level===1)k.parts[0].pos.forEach((v,i,a)=>{if(i%3===1&&v>12)a[i]=12+(v-12)*.35;});},
+  chips:k=>{k.cut=false;chipBag(k);},
   popcorn:k=>{k.cut=false;const w=8.6,h=13;
     k.ware(W.basin(W.rounded(w,w,.4,1),[[0,0],[.74,0],[1,h],[1.02,h],[.985,h],[.73,.3],[0,.3]]),{color:0xf7f3ea,gloss:.3});
     for(let i=0;i<4;i++)for(const s of [-1.5,-.5,.5,1.5])k.ware(sheet((u,v)=>{const sc=.74+.26*v;return [(s*.25+(u-.5)*.125)*w*sc,.3+v*(h-.3),w*.5*sc+.05];},1,2),{rot:[0,i*TAU/4,0],color:0xc9302a,gloss:.3,cast:false});

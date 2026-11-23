@@ -33,12 +33,14 @@ function steamer(k,r=9,h=4.6){
 }
 function maki(k,x,z,{r=1.9,h=2.6,fill=[C.salmon],outside=C.nori}={}){
   const cols=fill.map(c=>new T.Color(c));
-  k.drop(lathe([[0,0],[r,0],[r,h],[r*.93,h+.03],[r*.7,h+.1],[r*.42,h+.08],[r*.2,h+.08],[0,h+.08]],16),x,z,{rot:[0,k.rand(TAU),0],color:C.rice,gloss:.3,whole:true,settle:1,
+  const piece=k.drop(lathe([[0,0],[r,0],[r,h],[r*.93,h+.03],[r*.7,h+.1],[r*.42,h+.08],[r*.2,h+.08],[0,h+.08]],16),x,z,{rot:[0,k.rand(TAU),0],color:C.rice,gloss:.3,whole:true,settle:1,
     paint:[(c,P,N,L)=>{const d=Math.hypot(L.x,L.z);if(N.y<.5)c.set(outside);else if(d<r*.45)c.copy(cols[Math.floor((Math.atan2(L.z,L.x)/TAU+1)*cols.length)%cols.length]);},mottle(.06,3)]});
+  if(piece)F.riceGrains(k,x,z,{r:r*.9,inner:.5,short:true,density:4.8,minY:piece.top-.23});
 }
 function nigiri(k,x,z,yaw,{fish=C.salmon,stripe=0xf6c9ae,kind='fish'}={}){
   k.at(x,z,yaw,()=>{
     k.drop(blob({r:[2.6,1.1,1.4],bump:.05,freq:1.3,seed:k.rand(9),detail:2,flat:.2}),0,0,{color:C.rice,gloss:.25,paint:mottle(.06,3),whole:true});
+    F.riceGrains(k,0,0,{r:2.48,rz:1.36,short:true,density:5.4,minY:.55});
     if(kind==='egg'){k.drop(brick(5.2,.9,2.6,.2,{n:20}),0,0,{color:0xf3c84a,gloss:.4,paint:mottle(.06,1.5),whole:true});k.add(tube(Array.from({length:9},(_,i)=>{const a=i/8*TAU;return [0,1.2+Math.sin(a)*1.25,Math.cos(a)*1.6];}),.45,{sides:4,ry:.06,curve:false,caps:false}),{at:[0,-.1,0],color:C.nori,gloss:.3,cast:false});return;}
     const seed=k.rand(9);
     k.add(sheet((u,v)=>[(u-.5)*6.4,.12,(v-.5)*2.9*(1-.3*Math.abs(u-.5))],12,4),{at:[0,.03,0],drape:1.1,wide:.3,color:fish,gloss:.65,whole:true,paint:kind==='shrimp'?[toward(0xf7e2d2,(P,N,L)=>.8*smooth(.3,.8,Math.abs(Math.sin(L.x*2.6)))),toward(0xfaf0e6,(P,N,L)=>smooth(.5,.1,Math.abs(L.z))*.4)]:[toward(stripe,(P,N,L)=>.65*smooth(.7,.95,Math.abs(Math.sin(L.x*2.8+L.z*1.2+seed)))),mottle(.05,2)]});
@@ -106,9 +108,29 @@ export const small={
     sauceCup(k,4.6,-4.6,0x4a7a2a,{r:1.9,h:1.7});sauceCup(k,5.6,-.4,0x6a2a12,{r:1.9,h:1.7});k.biteAngle=.2;k.biteAt=0;},
   empanada:k=>{boat(k,18,12);W.leavings(k,{crumbs:[0xd9a84a],r:4});const n=count(k,2,1);
     for(let i=0;i<n;i++)halfMoon(k,-2+i*3.4,-1.6+i*3.2,.3-i*.5,{w:11.6,d:6,color:0xd9a84a,dark:0x9a5a1e});k.biteAngle=.2;k.biteAt=1.5;},
-  'beef-patty':k=>{W.deliPaper(k,17,13,{color:0xf1e9d6,yaw:.2});W.leavings(k,{crumbs:[0xe6b63a],r:4});
-    halfMoon(k,0,0,.25,{w:14,d:8,h:1.1,dome:1.1,color:0xe9b83a,dark:0xc9862a,crimp:false,inside:0x7a4a2a,bump:.2});
-    if(k.level)for(let i=0;i<9;i++)k.drizzle([[-5.6+i*1.2,-3.2],[-5.4+i*1.2,-2.2]],.1,0xb9842a,{gloss:.2,ry:.03});k.biteAngle=.2;k.biteAt=1.5;},
+  'beef-patty':k=>{W.deliPaper(k,18,13,{color:0xf1e9d6,yaw:.12});W.leavings(k,{crumbs:[0xe6b63a],r:4});
+    if(!k.level)return;
+    k.at(0,0,.19,()=>{
+      const rim=[[-6.8,-2.25],[-3.8,-2.92],[.2,-2.97],[4.25,-2.8],[6.8,-2.15],[6.6,-.38],[5.05,2.35],[2.7,3.69],[-.15,4.23],[-2.8,3.72],[-5.2,2.35],[-6.62,.09]];
+      const pastry=0xe3aa35,toast=0xa85d20;
+      k.drop(puck(rim,.48,{edge:.19,bump:.17,freq:1.46,seed:2,n:52}),0,0,{color:0xcb8c29,gloss:.18,inside:0xe9bd59,whole:false,
+        paint:[mottle(.14,3.2),spots(toast,.31,2.3,3)]});
+      const puff=rim.map(([x,z])=>[x*.95,z*.92-.22]);
+      k.drop(puck(puff,.72,{edge:.32,dome:1.3,bump:.29,freq:1.15,seed:6,n:52}),0,-.03,{lift:-.27,color:pastry,gloss:.21,
+        inside:0x8e6439,whole:false,paint:[mottle(.15,3.3),spots(0xc07b22,.33,2.1,4),spots(0xeec96b,.22,4.1,8)]});
+      // Fork marks follow the curved seam where the two pastry sheets meet.
+      for(let i=0;i<22;i++){
+        const a=i/21*Math.PI,x=Math.cos(a)*6.72,z=Math.sin(a)*6.65-2.4,ix=x*.921,iz=(z+2.4)*.94-2.4;
+        const y=k.top(x,z);
+        if(y<.19)continue;
+        k.add(tube([[x,y+.022,z],[ix,k.top(ix,iz)+.03,iz]],.105,{sides:4,ry:.043,curve:false}),{color:toast,gloss:.16,cast:false,whole:true});
+      }
+      for(let i=0;i<11;i++){
+        const [x,z]=k.spot(0,.4,3.8),y=k.top(x,z);
+        k.add(puck(F.wobble(k.rand(.23,.53),8,.18,i),.08,{edge:.028,bump:.06,n:12}),{at:[x,y-.03,z],rot:[0,k.rand(TAU),0],
+          color:k.pick([0xf2c96a,0xe8ba53,0xd39a39]),gloss:.16,cast:false,whole:true});
+      }
+    });k.biteAngle=.2;k.biteAt=1.5;},
   'meat-pie':k=>{W.plate(k,10);W.leavings(k,{crumbs:[0xd9a84a],r:4});
     k.drop(lathe([[0,0],[4.4,0],[5,1],[5.2,2.4],[4.9,2.9],[4.2,3.2],[2.4,3.7],[0,3.9]],26,{bump:.05,freq:.6,seed:2,wave:(a,j)=>j===4?1+.04*Math.sin(a*16):1}),0,0,{color:0xd9a84a,gloss:.4,inside:0x6a3a20,whole:false,paint:[browned(0x9a5a1e,.6,.8),mottle(.08,1.4)]});
     if(k.level)for(let i=0;i<3;i++)k.drizzle([[i*1.2-1.6,-.8],[i*1.2-.8,.8]],.14,0x5a2a10,{gloss:.3,ry:.04});k.biteAngle=.2;k.biteAt=1;},

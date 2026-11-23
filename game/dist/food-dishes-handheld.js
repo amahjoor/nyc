@@ -121,13 +121,43 @@ function tacoPlate(k,n,o={}){
   if(n>1){for(const [x,z] of [[7.6,-3.4],[8.6,-1.4]])F.coin(k,x,z,{r:1.2,h:.25,color:0xf6f2ea,dark:0xd9426a,cover:.0,gloss:.5,tilt:.1});k.cut=false;}
   else{k.biteAngle=1.4;k.biteAt=1.2;}
 }
-function burrito(k,{x=0,z=0,yaw=.3,length=15,r=2.9,color=C.flour,wrap=true,inside=0xc9a27a}={}){
-  k.at(x,z,yaw,()=>{
-    const y=r*.86;
-    k.add(tube([[-length/2,y,0],[-length/4,y,0],[0,y,0],[length/4,y,0],[length/2,y,0]],r,{sides:14,ry:r*.86,taper:t=>.62+.38*Math.min(1,Math.sin(t*Math.PI)*3.2),steps:14}),{color,gloss:.22,inside,whole:false,paint:[spots(0xb8864a,.2,1.1,k.rand(9)),mottle(.06,.8)]});
-    if(wrap)k.ware(tube([[-length/2-.1,y,0],[-length/4,y,0],[-.6,y,0]],r*1.045,{sides:14,ry:r*.9,taper:t=>(.64+.36*Math.min(1,Math.sin(t*Math.PI*.5)*3.2))*(1+.012*Math.sin(t*60)),steps:12,caps:false}),{color:W.FOIL,gloss:.62,paint:mottle(.14,2.2)});
+function burrito(k){
+  k.cut=false;
+  if(!k.level)return;
+  k.at(0,0,.32,()=>{
+    const full=k.level===2,end=full?7.3:2.85,r=3.02,y=r*.83;
+    const path=[[-7.1,y-.1,.17],[-5.6,y+.07,.04],[-2.8,y+.14,-.11],[.4,y+.05,-.04],[end,y,0]];
+    const section=(a,t)=>1+.027*Math.sin(a*TAU*5+t*1.7)+.022*Math.sin(a*TAU*3-t*5.1);
+    const taper=t=>.73+.27*smooth(0,.17,t)*(full?smooth(1.04,.79,t):1);
+    k.add(tube(path,r,{sides:24,ry:r*.82,taper,section,steps:25,caps:full}),{color:0xe9d2a4,gloss:.22,whole:true,
+      paint:[spots(0xa96832,.16,1.6,3),spots(0xd3a169,.35,2.9,6),mottle(.085,1.66)]});
+    const endFoil=full?-.3:-1.6;
+    k.ware(tube([[-7.24,y-.1,.17],[-5.6,y+.08,.04],[-2.8,y+.14,-.11],[endFoil,y+.07,-.04]],r*1.044,{sides:32,ry:r*.854,
+      taper:t=>.76+.24*smooth(0,.24,t),section:(a,t)=>section(a,t)+.022*Math.sin(a*TAU*9+t*29)+.017*Math.sin(a*TAU*21-t*34),
+      steps:27,caps:false}),{color:0xc3c9ca,gloss:.70,paint:[mottle(.15,2.4),spots(0x8f9698,.30,2.1,9)]});
+    if(full){
+      // Overlapping tortilla folds close the end over the filling.
+      for(let i=0;i<3;i++){
+        const angle=i*TAU/3+.7;
+        k.add(sheet((u,v)=>{
+          const a=angle+(u-.5)*1.93,radial=(1-v)*2.12;
+          return [end-.04+(Math.sin(u*Math.PI)*.12+v*.17)*Math.sin(v*2.5),y+Math.sin(a)*radial*.81,Math.cos(a)*radial];
+        },9,6),{color:i===1?0xe0c595:0xe9d2a5,gloss:.20,whole:true,paint:[spots(0xb17942,.2,2,3+i),mottle(.08,1.8)]});
+      }
+      return;
+    }
+    k.add(tube([[end-.5,y,0],[end-.045,y,0]],r*.966,{sides:24,ry:r*.795,curve:false}),{color:0x96734f,gloss:.28,whole:true,
+      paint:[spots(0x594231,.38,3.2,9),mottle(.16,4)]});
+    for(let i=0;i<107;i++){
+      const angle=i*2.39996+k.rand(-.22,.22),d=Math.sqrt((i+k.rand(.25,.65))/107)*2.71;
+      const py=y+Math.sin(angle)*d*.81,pz=Math.cos(angle)*d;
+      const grain=i%11<6,bean=i%11===6||i%11===7;
+      const color=grain?k.pick([0xf0e0b6,0xdebb79,0xe5ca93]):bean?k.pick([0x5b362e,0x704438]):k.pick([0xaa703f,0x9c482b,0xc25236,0x68934a,0x8eaf59]);
+      const bit=grain?F.bitOf('seed'):F.bitOf(bean?'pea':'cube');
+      k.add(bit,{at:[end+k.rand(-.015,.074),py,pz],rot:[k.rand(TAU),k.rand(-.5,.5),1.4],
+        scale:grain?[.56,.53,.66]:[.31,.24,.34],color,gloss:bean?.46:.26,whole:true,cast:false});
+    }
   });
-  k.biteAngle=-yaw;k.biteAt=x+3.4;
 }
 function pitaCone(k,{x=0,z=0,yaw=-.5,fill='gyro'}={}){
   // Built standing, then laid back on the plate.
@@ -211,7 +241,7 @@ function slicePlate(k,{n=1,top='cheese',soda=false}={}){
   W.paperPlate(k,n>1?12.5:11.5);W.leavings(k,{crumbs:[0xdcae62,0xb9772c],smear:0xd98a4a,n:14});
   if(n===1){pizzaSlice(k,0,.6,.25,{top});k.biteAngle=-1.82;k.biteAt=5.2;}
   else{if(k.level)pizzaSlice(k,-3.1,.4,.18,{s:.82,top});if(k.level===2)pizzaSlice(k,3.3,1,-.5,{s:.82,top});k.cut=false;}
-  if(soda)can(k,8.6,-8.4,{color:0xb23a2a});
+  if(soda)can(k,8.6,-8.4);
 }
 function sicilian(k){
   W.paperPlate(k,11.5);W.leavings(k,{crumbs:[0xdcae62,0xb9772c],smear:0xa62f1e,n:14});

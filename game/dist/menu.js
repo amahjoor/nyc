@@ -25,6 +25,10 @@ const MENUS = {
   barber: [['Haircut', 30, 'groom'], ['Shave', 20, 'groom']],
 };
 const KINDS = {
+  tailor: [['Trouser hem', 18, 'gift'], ['Button replacement', 5, 'gift']],
+  copyshop: [['Black and white copies', 1, 'gift'], ['Color print', 2, 'gift'], ['Padded mailer', 3, 'gift']],
+  repair: [['Tyre pressure gauge', 8, 'gift'], ['Shop towel', 3, 'gift']],
+  bodyshop: [['Microfiber cloth', 5, 'gift'], ['Polishing compound', 12, 'gift']],
   american: pool(4,[['Coffee', 2.5, 'pep'], ['Eggs, home fries and toast', 11, 'meal'], ['Burger deluxe', 16, 'meal'], ['Slice of pie', 6, 'meal'],
     ['Pancakes', 13, 'meal'], ['Western omelette', 14, 'meal'], ['Turkey club', 16, 'meal'], ['Grilled cheese', 9, 'meal'], ['Meatloaf', 19, 'meal'], ['Caesar salad', 13, 'meal'], ['Cheesecake', 8, 'pep'], ['Shake', 7, 'pep']]),
   chinese: pool(4,[['Egg roll', 2.5, 'pep'], ['Pork fried rice', 8, 'meal'], ['General Tso\'s chicken combo', 12.5, 'meal'], ['Spring rolls', 4.5, 'meal'],

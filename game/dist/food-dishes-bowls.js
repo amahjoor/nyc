@@ -45,7 +45,7 @@ function pasta(k,{color=C.noodle,sauce=null,over=null,vessel='bowl',thick=.26,n=
   k.cut=false;
 }
 /** The folded paper pail of a takeout counter. */
-function pail(k,fill,{mound,top}){
+function pail(k,{mound,top,rice=false}){
   const w=9.6,h=9.4;
   k.ware(W.basin(W.rounded(w,w,.5,2),[[0,0],[.72,0],[.74,.2],[1,h],[1.01,h],[.985,h],[.73,.35],[.4,.3],[0,.3]]),{color:W.PAPER,gloss:.3,paint:toward(0xb9382c,(P,N,L)=>Math.abs(N.y)<.5&&N.x*L.x+N.z*L.z>0?smooth(.42,.46,L.y/h)*smooth(.66,.62,L.y/h)*(.5+.5*Math.sign(Math.sin(Math.atan2(L.z,L.x)*4+.8)))*.9:0)});
   for(let i=0;i<4;i++)k.ware(sheet((u,v)=>[(u-.5)*w*(1-.12*v),v*3.4,v*1.6],3,3),{at:[Math.sin(i*TAU/4)*w*.5,h,Math.cos(i*TAU/4)*w*.5],rot:[0,i*TAU/4,0],color:W.PAPER,gloss:.3});
@@ -53,8 +53,10 @@ function pail(k,fill,{mound,top}){
   k.cut=false;
   if(!k.level)return;
   const y=k.level===2?h-1.6:h*.42,r=w*.5*(.73+.27*y/h)-.3;
-  k.add(puck(W.rounded(r*2,r*2,.6,2),.3,{dome:k.level===2?1.6:.4,bump:.3,freq:.9,n:28}),{at:[0,y,0],color:mound,gloss:.35,whole:true,paint:mottle(.1,2)});
-  top(r,k.level===2);
+  if(rice)F.riceMound(k,0,0,{r:r*1.09,h:k.level===2?1.15:.35,y,color:mound,outline:W.rounded(r*2,r*2,.8,2),
+    grains:[0xe5bf84,0xdba96a,0xc78951,0xd6a465],flecks:{color:[0x688d39,C.carrot,0xf3d35a,0x8a4a2a,0xc98a7a],size:.57,n:k.level===2?33:15}});
+  else k.add(puck(W.rounded(r*2,r*2,.6,2),.3,{dome:k.level===2?1.6:.4,bump:.3,freq:.9,n:28}),{at:[0,y,0],color:mound,gloss:.35,whole:true,paint:mottle(.1,2)});
+  top?.(r,k.level===2);
   W.chopsticks(k,0,.6,.5,{length:21});
 }
 
@@ -135,15 +137,50 @@ export const bowls={
     W.fill(k,b,k.level===2?.8:.35,C.tikka,{gloss:.65,dome:.2,paint:[spots(0xe99a5a,.28,1.2,2),mottle(.1,1.6)]});
     F.chunks(k,4.4,.6,k.level===2?6:2,{r:1.2,color:0xd9703a,dark:0x8a3a12,cover:.3,spread:3,gloss:.6,lift:-.5});
     if(k.level===2){k.add(tube([[2.8,2.9,-1],[4.2,3.1,.6],[6,2.9,1.6]],.2,{sides:5,ry:.07}),{color:0xf6f1e4,gloss:.6,cast:false,whole:true});F.herbs(k,4.4,.6,10,{r:3,size:.5,onFood:1.6});}k.cut=false;},
-  'fried-rice':k=>pail(k,0,{mound:C.friedRice,top:(r,full)=>{k.sprinkle('seed',full?90:40,{r:r*.95,color:[C.friedRice,0xe6c48a,0xc9925a],size:.62,stretch:1.25,onFood:2,gloss:.3});k.sprinkle('cube',full?34:12,{r:r*.9,color:[0x6fa644,C.carrot,0xf3d35a,0x8a4a2a,0xc98a7a],size:.44,onFood:2,gloss:.35});}}),
-  'lo-mein':k=>pail(k,0,{mound:0xb9843a,top:(r,full)=>{F.noodles(k,0,0,{r:r*.9,h:.3,color:0xd9a44a,n:full?13:6,thick:.3,gloss:.6});k.sprinkle('fleck',full?16:6,{r:r*.85,color:[0x5c9a34,C.carrot,0xe9e2c0],size:.5,stretch:3,onFood:2});for(let i=0;i<(full?4:1);i++){const [x,z]=k.spot(0,0,r*.6);k.drop(blob({r:[1.2,.6,.9],bump:.15,detail:1}),x,z,{color:0xc98a5a,gloss:.5,paint:spots(0x7a3a1a,.3,2,i),whole:true});}}}),
-  bibimbap:k=>{const d=W.bowl(k,9.6,6,{color:0x2a2a2c,inner:0x3a3a3c,gloss:.3});W.chopsticks(k,1,5,.3,{color:0xb4b9bd});k.cut=false;
-    if(!k.level){k.sprinkle('seed',26,{r:5,color:[C.rice],size:.6,ware:true});return;}
-    const y=W.fill(k,d,k.level===2?.6:.3,C.rice,{gloss:.25,dome:.6,paint:mottle(.07,3)});
-    if(k.level===1){k.sprinkle('seed',60,{r:4.4,color:[C.rice,0xe9c8a0,0xd9602a],size:.62,onFood:y-.3});return;}
-    const piles=[[0xe07a26,'fleck'],[0x3f7a2f,'leaf'],[0x7a5a40,'fleck'],[0xe9dcb8,'fleck'],[0x9a3a2a,'fleck'],[0x5c9a34,'fleck']];
-    piles.forEach(([c,kind],i)=>{const a=i*TAU/6,x=Math.cos(a)*4.6,z=Math.sin(a)*4.6;F.dollop(k,x,z,{r:2.1,h:.8,color:c,gloss:.4,bump:.2});k.sprinkle(kind,24,{x,z,r:2,color:[c],size:kind==='leaf'?.9:.5,stretch:kind==='leaf'?1:3,onFood:y});});
-    F.friedEgg(k,0,0,{r:2.9});F.dollop(k,2.6,2.4,{r:1.1,h:.6,color:0xa8201a,gloss:.7});F.sesame(k,0,0,30,{r:6,onFood:y});},
+  'fried-rice':k=>pail(k,{mound:C.friedRice,rice:true}),
+  'lo-mein':k=>pail(k,{mound:0xb9843a,top:(r,full)=>{F.noodles(k,0,0,{r:r*.9,h:.3,color:0xd9a44a,n:full?13:6,thick:.3,gloss:.6});k.sprinkle('fleck',full?16:6,{r:r*.85,color:[0x5c9a34,C.carrot,0xe9e2c0],size:.5,stretch:3,onFood:2});for(let i=0;i<(full?4:1);i++){const [x,z]=k.spot(0,0,r*.6);k.drop(blob({r:[1.2,.6,.9],bump:.15,detail:1}),x,z,{color:0xc98a5a,gloss:.5,paint:spots(0x7a3a1a,.3,2,i),whole:true});}}}),
+  bibimbap:k=>{const d=W.bowl(k,9.6,6,{color:0x2a2a2c,inner:0x3a3a3c,gloss:.3});k.cut=false;
+    const chopsticks=()=>W.chopsticks(k,.4,-6.6,.22,{color:0xaeb2b0});
+    if(!k.level){k.sprinkle('seed',26,{r:5,color:[C.rice],size:.6,ware:true});chopsticks();return;}
+    const y=W.fill(k,d,k.level===2?.6:.3,0xdacdb6,{gloss:.27,dome:.4,paint:mottle(.08,3)});
+    F.riceGrains(k,0,0,{r:d.width(y)*.93,short:true,density:k.level===2?2.2:5.4,minY:y-.1,
+      grains:k.level===1?[0xf3ead5,0xf3ead5,0xe5ceae,0xca854d]:null});
+    if(k.level===1){chopsticks();return;}
+    // Carrot matchsticks, blanched spinach, bean sprouts, bulgogi, mushrooms and cucumber.
+    for(let i=0;i<24;i++){
+      const [x,z]=k.spot(-4.67,-.6,1.43),length=k.rand(.65,1.45);
+      k.drop(tube([[-length,0,0],[length,.09,.15]],.11,{sides:5,curve:false}),x,z,{lift:-.04,
+        rot:[k.rand(-.25,.25),.68+k.rand(-.45,.45),k.rand(-.25,.25)],color:k.pick([0xec8023,0xf89436,0xe66c1d]),gloss:.41,whole:true});
+    }
+    for(let i=0;i<21;i++){
+      const [x,z]=k.spot(-2.76,-3.83,1.67);
+      k.add(sheet((u,v)=>[(u-.5)*2.9,.16+.27*Math.sin(u*7+i)*Math.sin(v*3.1),(v-.5)*1.28*Math.sin(Math.PI*(.08+.84*u))],8,4),
+        {at:[x,y+.35+k.rand(0,.38),z],color:k.pick([0x326038,0x3a6a31,0x223f24]),gloss:.47,
+          rot:[0,k.rand(TAU),k.rand(-.18,.18)],whole:true,cast:false});
+    }
+    for(let i=0;i<24;i++){
+      const [x,z]=k.spot(2.17,-3.71,1.67),angle=k.rand(-.2,1.1);
+      k.at(x,z,angle,()=>{
+        k.add(tube([[-1.28,0,0],[-.33,.13,.11],[.64,.18,.31],[1.22,.32,.42]],.079,{sides:5,steps:6}),{color:0xede0c0,gloss:.43,whole:true});
+        k.add(blob({r:[.24,.11,.16],detail:1,bump:.14}),{at:[1.17,.32,.43],color:0xd9b74d,gloss:.39,whole:true});
+      });
+    }
+    for(let i=0;i<14;i++){
+      const [x,z]=k.spot(4.43,-.27,1.53);
+      k.drop(puck(F.wobble(1.05,10,.28,i,.64),.32,{edge:.13,bump:.19,n:14}),x,z,{color:k.pick([0x99562e,0x774426,0x935a38]),gloss:.52,lift:-.08,
+        rot:[0,k.rand(TAU),k.rand(-.25,.25)],paint:[spots(0x562f1c,.3,2.1,i),mottle(.16,2.2)],whole:true});
+    }
+    for(let i=0;i<11;i++){
+      const [x,z]=k.spot(2.35,3.94,1.60);
+      k.drop(puck([[-1.1,-.5],[.8,-.52],[1.32,.1],[.9,.66],[-.52,.74],[-1.15,.17]],.28,{edge:.12,bump:.09,n:17}),x,z,
+        {color:0x8a6040,gloss:.43,lift:-.075,rot:[0,k.rand(TAU),0],paint:[outward(0x56351e,.61,1.16,.81),mottle(.13,1.6)],whole:true});
+    }
+    for(let i=0;i<9;i++){
+      const a=-.5+.28*i;
+      F.coin(k,-3.2+Math.sin(a)*1.66,3.75+Math.cos(a)*1.08,{r:1.06,rz:.60,h:.29,color:0xa6bc68,dark:0x446a35,tilt:.26});
+    }
+    F.friedEgg(k,.1,.15,{r:2.67});
+    F.dollop(k,1.92,2.46,{r:.84,h:.39,color:0x9d3121,gloss:.62});F.sesame(k,0,0,23,{r:5.4,onFood:y,size:.32});chopsticks();},
   'pad-thai':k=>pasta(k,{vessel:'plate',color:0xd9984a,thick:.34,flat:.4,n:16,smear:0xc9702a,over:s=>{
     for(let i=0;i<Math.round(3*s);i++)F.shrimp(k,Math.cos(i*2.1)*3,Math.sin(i*2.1)*3,i*1.4,{s:.9});
     for(let i=0;i<Math.round(14*s);i++){const [x,z]=k.spot(0,0,5);k.drop(tube([[-1.7,0,0],[0,.2,.3],[1.7,0,0]],.17,{sides:5}),x,z,{rot:[0,k.rand(TAU),0],color:0xf3ecd8,gloss:.4,whole:true});}
