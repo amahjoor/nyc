@@ -1,5 +1,6 @@
 import { createSportsCourts, addCourtPlaces } from './sports-courts.js';
 import { renderStats, performanceName } from './vehicle-stats.js';
+import { formatMoney } from './money.js';
 import { createDoorDebris, hasAlteredGlazing } from './vehicle-detail.js';
 import { updateChaseHeight } from './vehicle-presentation.js';
 import { cabinSeatPoint, placeDriverCamera } from './driver-cabin.js';
@@ -370,6 +371,7 @@ function interfaceKey(event){
   return interaction?.handleKey(event) || phone?.handleKey(event);
 }
 const input=new Input(canvas, action, interfaceKey, weaponControls, index=>{
+  if($('pause-dialog').open)return pausePad(index);
   if (mapOpen && (index === 14 || index === 15)) {
     gameMap.key.stepTarget(index === 14 ? -1 : 1);
     return true;
@@ -417,7 +419,7 @@ function weaponControls(){
 }
 function focusedAim(){return input.aiming && !sim.room && !sim.seat;}
 function updatePerspectiveButton(){
-  $('first-person-button').textContent=firstPersonActive()?'THIRD PERSON':'FIRST PERSON';
+  $('perspective-value').textContent=firstPerson?'FIRST PERSON':'THIRD PERSON';
 }
 const closedAfterIncident = place => work.isClosed(place);
 const shopOpen = place => !closedAfterIncident(place) && isOpen(place.kind,gfx.hours);
@@ -483,6 +485,7 @@ function enterSubwayOnFoot(controls){
 
 function action(name,event) {
   if(!sim)return;
+  if($('pause-dialog').open&&!$('sources-dialog').open&&(name==='kick'||name==='interact')){showPauseTab(pauseTab+(name==='interact'?1:-1),true);return;}
   if(interaction?.open){
     if(name==='pause'||name==='shop'||name==='inventory'){interaction.close();return;}
     if(name==='map')interaction.close();
@@ -500,7 +503,6 @@ function action(name,event) {
     // Escape also dismisses native dialogs by default, including one just opened here.
     event?.preventDefault();
     if($('sources-dialog').open)$('sources-dialog').close();
-    else if($('help-dialog').open)$('help-dialog').close();
     else if(mapOpen)gameMap.setOpen(false);
     else if(phone?.open)phone.setOpen(false);
     else togglePause();
@@ -580,19 +582,7 @@ function action(name,event) {
   }
   if(mapOpen)return;
   if(name==='perspective'){
-    if(!started||paused||traveling||!bootReady)return;
-    firstPerson=!firstPersonActive();
-    if(cityView||aerialView)setView('street');
-    else{
-      const p=sim.player;
-      headAnchor=p.mode==='walk'?null:undefined;
-      if(firstPerson&&p.mode==='walk'){
-        camera.getWorldDirection(cameraForward);
-        yaw=Math.atan2(cameraForward.x,cameraForward.z);
-      }else if(p.mode==='drive')yaw=p.angle;
-      headTurn=0;headPitch=0;input.lookDelta=0;input.lookVertical=0;
-      updatePerspectiveButton();
-    }
+    if(!paused)switchPerspective();
     return;
   }
   if(name==='view') { setView(cityView?'street':aerialView?'city':'aerial');return; }
@@ -655,28 +645,136 @@ function action(name,event) {
   }
   if(name==='horn')audio.horn();
 }
+function switchPerspective(){
+  if(!started||traveling||!bootReady||mapOpen)return;
+  firstPerson=!firstPersonActive();
+  if(cityView||aerialView)setView('street');
+  else{
+    const p=sim.player;
+    headAnchor=p.mode==='walk' && !sim.seat?null:undefined;
+    if(firstPerson&&p.mode==='walk'){
+      camera.getWorldDirection(cameraForward);
+      yaw=Math.atan2(cameraForward.x,cameraForward.z);
+    }else if(p.mode==='drive')yaw=p.angle;
+    headTurn=0;headPitch=0;input.lookDelta=0;input.lookVertical=0;
+    updatePerspectiveButton();
+  }
+}
 function togglePause(force) {
   if(!started)return;
   paused=force??!paused;
   if(paused)interaction?.close();
   if(paused&&mapOpen)gameMap.setOpen(false);
   input.clear();
-  if(paused && !$('pause-dialog').open && !$('help-dialog').open && !$('sources-dialog').open) {
-    const performanceLine=$('street-performance');
-    if(performanceLine){
-      performanceLine.hidden=!recentFrameMs;
-      if(recentFrameMs)performanceLine.textContent='Recent street performance · '+Math.round(1000/recentFrameMs)+' FPS · '+Math.round(recentFrameMs)+' ms per frame';
-    }
-    const car = sim.vehicle || sim.getNearbyCar();
-    $('pause-car').hidden = !car;
-    if (car) {
-      $('pause-car-name').textContent = performanceName(car);
-      renderStats($('pause-car-stats'), vehicleHandling(car));
-    }
+  if(paused && !$('pause-dialog').open && !$('sources-dialog').open) {
+    refreshPauseMenu();
+    showPauseTab(0);
     $('pause-dialog').showModal();
+    drawPausePreview();
   }
-  if(!paused&&$('pause-dialog').open)$('pause-dialog').close();
+  if(!paused&&$('pause-dialog').open){$('pause-dialog').close();closeCharacter();}
 }
+
+const PAUSE_TABS=['map','player','settings','controls','about'];
+const CONTROL_SETS=['foot','vehicles','skate','combat','city','camera'];
+const WEEKDAYS=['MONDAY','TUESDAY','WEDNESDAY','THURSDAY','FRIDAY','SATURDAY','SUNDAY'];
+let pauseTab=0;
+function showPauseTab(index,focus=false){
+  pauseTab=(index+PAUSE_TABS.length)%PAUSE_TABS.length;
+  PAUSE_TABS.forEach((name,i)=>{
+    const tab=$('pause-tab-'+name),selected=i===pauseTab;
+    tab.setAttribute('aria-selected',String(selected));tab.tabIndex=selected?0:-1;
+    $('pause-'+name).hidden=!selected;
+  });
+  if(focus)$('pause-tab-'+PAUSE_TABS[pauseTab]).focus();
+  $('pause-help').textContent=$('about-help').textContent='';
+  if(!$('pause-dialog').open)return;
+  if(PAUSE_TABS[pauseTab]==='map')drawPausePreview();
+  if(PAUSE_TABS[pauseTab]==='player'&&!characterOpen){characterOpen=true;characterFrame.setAttribute('src','./character.html?embed');}
+}
+PAUSE_TABS.forEach((name,i)=>$('pause-tab-'+name).addEventListener('click',()=>showPauseTab(i)));
+function showControls(name){
+  for(const set of CONTROL_SETS){
+    $('controls-'+set).hidden=set!==name;
+    $('controls-tab-'+set).setAttribute('aria-pressed',String(set===name));
+  }
+}
+for(const set of CONTROL_SETS)for(const event of ['click','focus'])$('controls-tab-'+set).addEventListener(event,()=>showControls(set));
+for(const event of ['pointerover','focusin'])$('pause-dialog').addEventListener(event,({target})=>{
+  const option=target?.closest?.('.pause-option');
+  if(!option)return;
+  $(PAUSE_TABS[pauseTab]==='about'?'about-help':'pause-help').textContent=option.dataset.help||'';
+});
+const characterFrame=$('pause-character');
+let characterOpen=false;
+function closeCharacter(){
+  if(!characterOpen)return;
+  characterOpen=false;
+  if(document.activeElement===characterFrame)canvas.focus();
+  characterFrame.setAttribute('src','about:blank');
+  dressPlayer();
+}
+window.addEventListener('message',event=>{
+  if(event.origin!==location.origin||event.source!==characterFrame.contentWindow||event.data?.type!=='pause-key'||!$('pause-dialog').open)return;
+  if(event.data.code==='Escape')togglePause(false);
+  else showPauseTab(pauseTab+(event.data.code==='KeyE'?1:-1),true);
+});
+let previewSpan=1400;
+function drawPausePreview(){if(!$('pause-map').hidden)gameMap?.drawPreview($('pause-map-canvas'),previewSpan);}
+$('open-map-button').addEventListener('wheel',event=>{
+  event.preventDefault();
+  previewSpan=clamp(previewSpan*Math.exp(clamp(event.deltaY,-300,300)*.002),300,16000);
+  drawPausePreview();
+},{passive:false});
+function pauseClock(){return (WEEKDAYS[weekday]||'')+' '+(gfx?.clock||'');}
+function refreshPauseMenu(){
+  $('pause-place').textContent=$('district-name').textContent;
+  $('pause-clock').textContent=pauseClock();
+  $('pause-cash').textContent=formatMoney(sim.cash);
+  $('pause-savings').textContent=formatMoney(phoneBank.savings/100);
+  $('pause-street').textContent=$('street-name').textContent;
+  $('pause-coordinates').textContent=$('coordinates').textContent;
+  const condition=Math.max(0,Math.round(sim.health)),stars=Math.min(5,Math.max(0,Math.ceil(sim.heat-1e-9)));
+  $('pause-health').textContent=String(condition);
+  $('pause-health-bar').style.width=condition+'%';
+  $('pause-wanted').textContent='★'.repeat(stars)+'☆'.repeat(5-stars);
+  $('pause-deliveries').textContent=String(sim.deliveries);
+  $('pause-distance').textContent=(sim.distanceTravelled*.000621371).toFixed(1)+' MI';
+  const performanceLine=$('street-performance');
+  performanceLine.hidden=!recentFrameMs;
+  if(recentFrameMs)performanceLine.textContent=Math.round(1000/recentFrameMs)+' FPS · '+Math.round(recentFrameMs)+' ms per frame';
+  const car = sim.vehicle;
+  $('pause-car').hidden = !car;
+  if (car) {
+    $('pause-car-name').textContent = performanceName(car);
+    renderStats($('pause-car-stats'), vehicleHandling(car));
+  }
+  updatePerspectiveButton();
+}
+function pauseItems(){
+  const panel=$('pause-'+PAUSE_TABS[pauseTab]);
+  return [...(panel.querySelectorAll?.('.pause-option,.pause-map-view')||[])].filter(item=>!item.hidden&&item.offsetParent!==null);
+}
+function movePauseFocus(step){
+  const items=pauseItems();
+  if(!items.length)return;
+  const at=items.indexOf(document.activeElement);
+  items[at<0?(step>0?0:items.length-1):(at+step+items.length)%items.length].focus();
+}
+function pausePad(index){
+  if($('sources-dialog').open){if(index===1)$('sources-dialog').close();return index!==9;}
+  if(index===4||index===5)showPauseTab(pauseTab+(index===5?1:-1),true);
+  else if(index===12||index===13)movePauseFocus(index===13?1:-1);
+  else if(index===0){const item=document.activeElement;if(item&&$('pause-dialog').contains(item))item.click();}
+  else if(index===1)togglePause(false);
+  return index!==9;
+}
+$('pause-dialog').addEventListener('keydown',event=>{
+  if($('sources-dialog').open)return;
+  const item=document.activeElement,onTab=item?.getAttribute?.('role')==='tab';
+  if(event.key==='ArrowDown'||event.key==='ArrowUp'){event.preventDefault();movePauseFocus(event.key==='ArrowDown'?1:-1);}
+  else if(onTab&&(event.key==='ArrowLeft'||event.key==='ArrowRight')){event.preventDefault();showPauseTab(pauseTab+(event.key==='ArrowRight'?1:-1),true);}
+});
 
 $('start-button').addEventListener('click',()=>{
   if(!sim||!bootReady)return;
@@ -685,11 +783,11 @@ $('start-button').addEventListener('click',()=>{
 });
 $('sound-button').addEventListener('click',async()=>{
   const enabled=await audio.toggle();
-  $('sound-button').textContent=enabled?'SOUND ON':'SOUND OFF';
-  $('sound-button').setAttribute('aria-label',enabled?'Turn sound off':'Turn sound on');
+  $('sound-value').textContent=enabled?'ON':'OFF';
+  $('sound-button').setAttribute('aria-pressed',String(enabled));
 });
 const paceButton=$('controller-sprint');
-function showPaceButton(){paceButton.textContent='CONTROLLER SPRINT: '+(input.tapSprint?'TAP':'HOLD');}
+function showPaceButton(){$('sprint-value').textContent=input.tapSprint?'TAP':'HOLD';}
 try{input.tapSprint=localStorage.getItem('nyc.controller-sprint')==='tap';}catch{}
 showPaceButton();
 paceButton.addEventListener('click',()=>{
@@ -703,14 +801,11 @@ $('shadows-button').addEventListener('click',()=>{
   if(renderer)setLocalShadows(!cityView);
   saveDisplaySettings();
 });
-$('time-button').addEventListener('click',fromMenu(()=>action('time')));
-$('help-button').addEventListener('click',()=>{if($('pause-dialog').open)togglePause(false);if(started){paused=true;input.clear();}$('help-dialog').showModal();});
-$('help-dialog').addEventListener('close',()=>{if(started)paused=false;input.clear();});
+$('time-button').addEventListener('click',()=>{action('time');$('pause-clock').textContent=pauseClock();});
 function fromMenu(run){return event=>{if($('pause-dialog').open)togglePause(false);run(event);};}
-$('view-button').addEventListener('click',fromMenu(()=>action('view')));
-$('first-person-button').addEventListener('click',fromMenu(()=>action('perspective')));
+$('view-button').addEventListener('click',()=>action('view'));
+$('first-person-button').addEventListener('click',()=>{if(!busRide)switchPerspective();});
 $('open-map-button').addEventListener('click',fromMenu(()=>action('map')));
-$('phone-button').addEventListener('click',fromMenu(event=>action('phone',event)));
 $('city-button').addEventListener('click',fromMenu(()=>{if(!started&&bootReady){$('start-button').click();return;}setView(cityView?'street':'city');}));
 $('road-pilot-mode-button').addEventListener('click',()=>{
   if(!roadPilot)return;
@@ -731,8 +826,6 @@ $('pause-dialog').addEventListener('cancel',e=>{e.preventDefault();togglePause(f
 $('resume-button').addEventListener('click',()=>togglePause(false));
 $('recover-button').addEventListener('click',()=>{togglePause(false);action('recover');});
 $('inventory-button').addEventListener('click',fromMenu(()=>action('inventory')));
-$('shop-action-button').addEventListener('click',fromMenu(()=>action('shop')));
-$('show-cash-button').addEventListener('click',fromMenu(()=>action('cash')));
 $('map-button').addEventListener('click',()=>action('map'));
 $('touch-skate')?.addEventListener('click',()=>action('skate'));
 $('ride-speed').addEventListener('click',()=>action('driverSpeed'));
@@ -754,7 +847,7 @@ function applyQuality() {
   gfx.setQuality(highQuality?'high':'balanced');
   renderer.setPixelRatio(Math.min(devicePixelRatio||1,gfx.pixelRatioLimit));
   setLocalShadows(!cityView);
-  $('quality-button').textContent='QUALITY: '+(highQuality?'HIGH':'BALANCED');
+  $('quality-value').textContent=highQuality?'HIGH':'BALANCED';
   resize();
 }
 function setLocalShadows(enabled) {
@@ -763,11 +856,11 @@ function setLocalShadows(enabled) {
   gfx.setShadows(shadowsEnabled,Boolean(enabled));
 }
 function updateTimeButton() {
-  $('time-button').textContent='TIME: '+gfx.clock;
+  $('time-value').textContent=gfx.clock;
   $('time-button').setAttribute('aria-label','Time of day, '+gfx.clock+'. Select to skip ahead.');
 }
 function updateShadowButton(){
-  $('shadows-button').textContent='SHADOWS: '+(shadowsEnabled?'ON':'OFF');
+  $('shadows-value').textContent=shadowsEnabled?'ON':'OFF';
   $('shadows-button').setAttribute('aria-pressed',String(shadowsEnabled));
 }
 function restoreDisplaySettings(){
@@ -2374,9 +2467,8 @@ function setView(mode){
   if(cityView)phone?.setOpen(false);
   headAnchor=undefined;input.lookDelta=0;input.lookVertical=0;
   updatePerspectiveButton();
-  $('view-button').textContent=cityView?'STREET CAMERA':aerialView?'CITY OVERVIEW':'AERIAL VIEW';
+  $('view-value').textContent=cityView?'FIVE BOROUGHS':aerialView?'AERIAL':'STREET';
   $('city-button').textContent=cityView?'RETURN TO STREET':'ALL FIVE BOROUGHS';
-  $('show-cash-button').disabled=cityView;
   $('city-navigation').hidden=!cityView;
   navigation?.setVisible(cityView);
   if(started)for(const id of ['hud','mission-panel','wanted'])$(id).hidden=cityView;
@@ -2834,7 +2926,7 @@ async function boot() {
     onDirections:place=>{const name=place.name||describePlace(place,gfx.hours).name;requestDirections({x:place.x,z:place.z}).then(found=>announce(found?'Directions to '+name+'. Follow the highlighted streets.':'No way to '+name+' along mapped streets.'));},
     onTransport:()=>phone.openList('Travel to a boarding point',BOARDINGS.map(stop=>({stop,name:TRANSPORT[stop.type].name,note:stop.place+' · '+stop.borough})),row=>travel(transportDestination(row.stop)),{app:'maps'}),
     onWork:()=>work.board(),onMap:()=>action('map'),
-    onOpenChange:open=>{$('phone-button').setAttribute('aria-expanded',String(open));$('mission-panel').classList.toggle('behind-phone',open);if(!open){if(interaction?.open)interaction.focus();else canvas.focus();}}});
+    onOpenChange:open=>{$('mission-panel').classList.toggle('behind-phone',open);if(!open){if(interaction?.open)interaction.focus();else canvas.focus();}}});
   loadData('street-life.json').then(data=>{cityLife=createCityLife(data);props.setData(data);sim.setActiveCity({signalHints});}).catch(()=>{});
   world=createCityStream(cityIndex,{scene,onCollisionChange:applyBuildings,onStatus:updateStreaming,heightAt:terrainHeight,store:createTileStore()});
   ground=createCityGround({scene,renderer,stairOpenings,onStatus:status=>{if(status.failures)$('imagery-status').textContent='Some aerial tiles are unavailable. NYC imagery will retry as you explore; surveyed geometry loads separately.';}});

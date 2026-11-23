@@ -4,6 +4,7 @@ import { createStatueOfLiberty, STATUE } from '../dist/liberty.js';
 import { carCondition, PANEL } from '../dist/vehicle-damage.js';
 import { createDoorDebris, hasAlteredGlazing } from '../dist/vehicle-detail.js';
 import { renderStats, performanceName } from '../dist/vehicle-stats.js';
+import { formatMoney } from '../dist/money.js';
 import { updateChaseHeight } from '../dist/vehicle-presentation.js';
 import { cabinSeatPoint, placeDriverCamera } from '../dist/driver-cabin.js';
 import test from 'node:test';
@@ -343,7 +344,7 @@ async function bootHarness({ stored = null, displayStored = null, unavailableSto
     },
     updateChaseHeight, cabinSeatPoint, placeDriverCamera, createCityGround, worldToGeographic, atlasZoomFor, createRoadStream, nearestStreet, localDestinations, createCityNavigation,
     createStreetDetail:(manifest,options)=>createStreetDetail(manifest,{...options,now:()=>timestamp}),
-    renderStats, performanceName, vehicleHandling, createDoorDebris, hasAlteredGlazing, carCondition, createCarSmoke, createCentralPark, GUN, carTop, setCarShell, fitFallPose, shared,
+    renderStats, performanceName, formatMoney, vehicleHandling, createDoorDebris, hasAlteredGlazing, carCondition, createCarSmoke, createCentralPark, GUN, carTop, setCarShell, fitFallPose, shared,
     fingerPose, pinchOffset, setHandSource, isOpen, roomPoint, roomLocal, crossesFixture, seatApproach, seatEyeOffset, seatHeight, beginRegisterTake, updateClerk, registerAction, inviteCustomer, populateShop, createHumanShop:(meta,options)=>createHumanShop(meta,{...options,base:'./human/'}), createHumanMesh, createMotion, createAnimator, fitPose, gripOffsetFor, writeMovements, createFigures, loadPerson, savePerson, foodPreviewOptions,openFoodCounter,openInventory,counterInReach,stepCounterOrder,promptTableService,waitsTables,diningTable,browseShop, fittedLook, patrolAppearance, carriedItems,createFoodHand,
     createSportsCourts, addCourtPlaces, createStatueOfLiberty, STATUE, castWalkStyle, Landscape, RoadPilot, AbortSignal, createGraphics, createStreetLife, createWater, WATER_LEVEL, BOARDINGS, TRANSPORT, transportDestination, TransportFleet, createTransportScene, setVehicleLamps, OFFICER_LOOK, createPoliceScene, createCityLife, manhattanCore, createStreetSigns, createCrowd, dress, seeded, KIT, createStreetProps, createPlaceSource, placeName, joinPlaceSources, indexFootprints, solveFrontages, createStorefronts, createInteraction, CityRides, PhoneBank, createPhoneHand, createPhone, describePlace, createFleet, createVehicleMeshLibrary, designFor, createSwitchShot, createPickerFlight, createTileStore, offersAt, shopRows, planRoom, buildRoom, roomKind, hasRoom, doorBlips, plateFor, createDemographics, characterAt, createTransitNetwork, busJourney, clockTime, createBuses, createBusStops, createSheds, planSheds, createShedMesh, createDining, planDining, createDiningMesh, seatsOf, planStands, vendorOf, createStandMesh, createCollection, planTrash, createTrashMesh, aboveTheStreet, indexBikeLanes, createLaneMarkings, bikeLaneParking, createBikeTraffic, fitCyclist, PEDAL_PERIOD, createSkateboard, createBikeShare, planBikeDocks, createBikeDocks, menuFor, createSubway, createSubwayEntrances, SUBWAY_LAYER, FARE, indexKerbs, snapToKerb, formatDistance,
     // Bundled survey cells only: these tests stay offline.
@@ -433,7 +434,7 @@ async function bootHarness({ stored = null, displayStored = null, unavailableSto
         }
       },
     };
-  } catch (error) { close(); throw error; }
+  } catch (error) { console.log('BOOTERR',error); close(); throw error; }
 }
 
 function spawnAtPreset(app, name) {
@@ -504,6 +505,11 @@ test('five-borough app boots, walks, enters a cab, delivers, saves and pauses th
     app.click('city-button');assert.equal(app.state().cityView,false);assert.equal(app.state().aerialView,false);
     assert.equal(app.key('Escape').defaultPrevented,true);
     app.key('Escape',false);
+    assert.equal(app.elements.get('pause-map').hidden,false,'the pause menu opens on the map tab');
+    app.key('KeyE');app.key('KeyE',false);
+    assert.deepEqual([app.elements.get('pause-map').hidden,app.elements.get('pause-player').hidden],[true,false],'E moves to the next tab');
+    app.key('KeyQ');app.key('KeyQ',false);
+    assert.equal(app.elements.get('pause-map').hidden,false,'Q moves back');
     app.click('sources-button');
     assert.equal(app.state().paused,true);
     assert.equal(app.elements.get('sources-dialog').open,true);
@@ -718,7 +724,7 @@ test('street view builds surveyed SoHo street surfaces and shares source imagery
     farCar.brokenGlass = 0;
     app.frames();
     assert.ok(!exterior(), 'a repaired car rejoins the intact batch');
-    assert.equal(app.elements.get('quality-button').textContent,'QUALITY: BALANCED');
+    assert.equal(app.elements.get('quality-value').textContent,'BALANCED');
     assert.equal(app.rendererInstances[0].shadowMap.enabled,true,'balanced quality retains nearby shadows');
     const localGround=scene.getObjectByName('NYC 2024 aerial imagery').children.filter(child=>child.visible&&child.material.isMeshStandardMaterial);
     assert.ok(localGround.length>0);
@@ -1257,7 +1263,10 @@ test('first person follows the walker at eye level and keeps their heading while
     assert.ok(p.y>start.y+.15,'the eye rises with a jump');checkWalkingEye(app);
     app.key('KeyM');app.key('KeyB');assert.equal(app.state().firstPersonView,true);
     app.click('game-map-close');app.key('Escape');
-    app.click('first-person-button');app.frames();
+    app.click('first-person-button');
+    assert.equal(app.state().paused,true,'perspective changes without leaving the pause menu');
+    assert.equal(app.elements.get('perspective-value').textContent,'THIRD PERSON');
+    app.click('resume-button');app.frames();
     assert.equal(app.state().paused,false);assert.equal(app.state().firstPersonView,false);
     assert.ok(Math.hypot(app.camera().position.x-p.x,app.camera().position.z-p.z)>.5);
     await app.until(()=>app.window.nycGame.playerBody,'player hand skeleton');
@@ -1736,7 +1745,7 @@ test('shadow preference persists and survives quality changes and camera switche
   try{
     app.click('start-button');app.click('view-button');app.frames();
     assert.equal(app.state().shadows.enabled,false);assert.equal(app.state().shadows.active,false);
-    assert.equal(app.elements.get('shadows-button').textContent,'SHADOWS: OFF');
+    assert.equal(app.elements.get('shadows-value').textContent,'OFF');
     app.click('quality-button');app.frames();assert.equal(app.state().shadows.active,false);
     app.click('shadows-button');app.frames();
     assert.equal(app.state().shadows.active,true);
@@ -2061,7 +2070,7 @@ test('ordering at a store uses the interaction menu and leaving the counter canc
     app.frames(12);
     const panel = app.elements.get('interaction'), options = app.elements.get('interaction-options');
     const press = code => { app.key(code); app.key(code,false); };
-    app.click('phone-button');app.click('phone-app-bank');
+    app.key('ArrowUp');app.key('ArrowUp',false);app.click('phone-app-bank');
     press('KeyG');
     assert.equal(panel.hidden,false);
     assert.equal(app.elements.get('phone').hidden,false);
@@ -2107,7 +2116,7 @@ test('G picks groceries from the shelf and checks them out, and I reopens the sa
     assert.ok(view);app.setShopStreet(front);
     const {plan}=view;
     sim.doorway=view;assert.ok(sim.enterRoom(plan,{a:0,b:.3}));
-    app.click('phone-button');app.click('phone-app-bank');
+    app.key('ArrowUp');app.key('ArrowUp',false);app.click('phone-app-bank');
     const moveTo=(a,b)=>{[sim.player.x,sim.player.z]=roomPoint(plan,a,b);Object.assign(sim.room,{a,b});};
     const choose=label=>{
       const rows=app.elements.get('interaction-options').children;
@@ -2152,7 +2161,7 @@ test('G opens the shop’s own fitting catalog from the sales floor and Escape l
 test('a player can clock in through the phone, finish a shift and spend the paycheck', async () => {
   const app = await bootHarness();
   try {
-    app.click('start-button'); app.click('view-button'); app.click('phone-button');
+    app.click('start-button'); app.click('view-button'); app.key('ArrowUp');app.key('ArrowUp',false);
     app.click('phone-app-work'); app.click('phone-ride-0');
     app.click('phone-ride-0'); app.click('phone-ride-0');
     assert.equal(app.elements.get('phone').hidden,false);
@@ -2361,7 +2370,7 @@ test('D Ride quotes a street route, dispatches a separate cab and records the fa
   try{
     app.click('start-button');app.click('view-button');
     app.gameMap().setPin({...geographicToWorld(-74.00026,40.72377),name:'Meet on Spring Street'});
-    app.click('phone-button');app.click('phone-app-rides');
+    app.key('ArrowUp');app.key('ArrowUp',false);app.click('phone-app-rides');
     assert.equal(app.elements.get('phone-destination-pin').hidden,false);
     assert.match(app.elements.get('phone-destination-pin-note').textContent,/Meet on Spring Street/);
     const search=app.elements.get('phone-ride-search');
@@ -2421,7 +2430,7 @@ test('Bank invests checking money and restores the shares on the next game launc
   for(const returning of [false,true]){
     const app=await bootHarness({stored:stored||JSON.stringify({version:1,cash:100})});
     try{
-      app.click('start-button');app.click('view-button');app.click('phone-button');app.click('phone-app-bank');
+      app.click('start-button');app.click('view-button');app.key('ArrowUp');app.key('ArrowUp',false);app.click('phone-app-bank');
       app.click('phone-bank-invest');app.click('phone-stock-BGL');
       if(!returning){
         const input=app.elements.get('phone-order-shares');input.value='2';input.dispatch('input');

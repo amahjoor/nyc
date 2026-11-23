@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <link rel="icon" href="data:,">
   <title>Your character · GTA NYC</title>
+  <link rel="stylesheet" href="fonts.css">
   <style>
     :root { color-scheme: dark; font: 15px/1.45 Arial, Helvetica, sans-serif; color: #eae9e2; background: #151b1d; }
     * { box-sizing: border-box }
@@ -37,6 +38,44 @@
     .swatches input { width: 28px; height: 24px; padding: 0; border: 0; background: none }
     .swatches button.original { width: auto; border-radius: 4px; background: #253035; padding: 0 6px }
     .actions { display: flex; flex-wrap: wrap; gap: 8px; margin: 12px 0 }
+    [hidden] { display: none !important }
+
+    .side-tabs { display: flex; gap: 4px; margin: 12px 0 }
+    .side-tabs button { flex: 1; border-radius: 0; text-transform: uppercase; letter-spacing: .06em; font-weight: bold }
+    .side-tabs button[aria-pressed=true] { background: #f2f2f2; color: #111; border-color: #f2f2f2 }
+    .wardrobe h3 { margin: 16px 0 4px; font-size: 11px; letter-spacing: .18em; text-transform: uppercase; color: #8f9797 }
+    .wardrobe h3:first-child { margin-top: 4px }
+    .outfit { display: flex }
+    .outfit button { flex: 1; text-align: left; border: 0; border-radius: 0; background: transparent; padding: 8px 12px; text-transform: uppercase; letter-spacing: .04em; font-weight: bold }
+    .outfit button:hover, .outfit button:focus-visible { background: #f2f2f2; color: #111; outline: none }
+    .outfit button[aria-pressed=true]:not(:hover, :focus-visible) { background: #ffffff1f; box-shadow: inset 4px 0 #ff794f }
+    .outfit button[aria-pressed=true]::after { content: "✓"; float: right }
+    .outfit .remove { flex: 0 0 auto; text-align: center; padding: 8px 12px }
+    .wardrobe .empty { margin: 4px 12px; }
+    #save-outfit { width: 100%; margin: 8px 0 0 }
+
+    /* Inside the pause menu: the character stands over the frozen city, the controls match the menu. */
+    html.embed, html.embed body { background: transparent }
+    html.embed { font-family: var(--heading); }
+    html.embed body { grid-template-columns: minmax(0, 1fr) minmax(250px, 320px) }
+    html.embed .stage { background: radial-gradient(ellipse at 50% 85%, #ffffff14, transparent 60%) }
+    html.embed aside { border-left: 0; padding: 0 0 24px; background: #000000a8; scrollbar-width: thin }
+    html.embed .intro, html.embed #save { display: none }
+    html.embed .side-tabs { margin: 0 0 6px; gap: 0 }
+    html.embed .side-tabs button { padding: 10px 6px; border: 0; background: #0006; color: #fff; font-size: 14px }
+    html.embed .side-tabs button[aria-pressed=true] { background: #f2f2f2; color: #111 }
+    html.embed .outfit button { font-size: 14px; padding: 9px 16px; color: #fff }
+    html.embed .outfit button:is(:hover, :focus-visible) { color: #111 }
+    html.embed .wardrobe h3 { margin-inline: 16px }
+    html.embed #save-outfit, html.embed .actions button, html.embed .bar button, html.embed .bar select { border-radius: 0; border: 0; background: #000000b8; color: #fff; text-transform: uppercase; letter-spacing: .06em; font-weight: bold; font-size: 13px; padding: 8px 12px }
+    html.embed #save-outfit { width: calc(100% - 32px); margin: 10px 16px 0 }
+    html.embed :is(#save-outfit, .actions button, .bar button):hover { background: #f2f2f2; color: #111 }
+    html.embed #designer { padding: 0 16px }
+    html.embed details { border-color: #ffffff1a }
+    html.embed summary { text-transform: uppercase; letter-spacing: .06em }
+    html.embed label { color: #ddd }
+    html.embed select { border-radius: 0; background: #0009; border-color: #ffffff30 }
+    html.embed .status { background: #000000c8; border-radius: 0; text-transform: uppercase; letter-spacing: .08em }
     @media (max-width: 760px) { body { grid-template-columns: 1fr; grid-template-rows: 55vh auto } aside { border-left: 0; border-top: 1px solid #435054 } }
   </style>
 </head>
@@ -50,10 +89,21 @@
     </div>
   </div>
   <aside>
-    <h1>Your character</h1>
-    <p>Everybody in the city is grown from a design like this one. Yours is kept in this browser and is who you are the next time you are on foot. <a href="./index.html">Back to the city</a></p>
-    <div class="actions"><button id="random">Somebody else</button><button id="reset">Start over</button><button id="save" class="primary">Saved</button></div>
-    <div id="fields"></div>
+    <div class="intro">
+      <h1>Your character</h1>
+      <p>Everybody in the city is grown from a design like this one. Yours is kept in this browser and is who you are the next time you are on foot. <a href="./index.html">Back to the city</a></p>
+    </div>
+    <nav class="side-tabs"><button id="side-outfits" type="button" aria-pressed="true">Outfits</button><button id="side-design" type="button" aria-pressed="false">Design</button></nav>
+    <section id="wardrobe" class="wardrobe" aria-label="Outfits">
+      <h3>My outfits</h3>
+      <div id="my-outfits"></div>
+      <button id="save-outfit" type="button">Save current outfit</button>
+      <div id="preset-outfits"></div>
+    </section>
+    <div id="designer" hidden>
+      <div class="actions"><button id="random">Somebody else</button><button id="reset">Start over</button><button id="save" class="primary">Saved</button></div>
+      <div id="fields"></div>
+    </div>
   </aside>
   <script type="module" src="./character.js"></script>
 </body>

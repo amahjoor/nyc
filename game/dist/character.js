@@ -13,14 +13,17 @@ import { BEARDS, GLASSES, BAGS } from './body.js';
 import { FASHION_LOOKS } from './fashion.js';
 
 const el = id => document.getElementById(id), canvas = el('view');
-const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, preserveDrawingBuffer: true });
+// The pause menu shows this page in a frame, over the paused city.
+const embedded = new URLSearchParams(location.search).has('embed');
+if (embedded) document.documentElement.classList.add('embed');
+const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, preserveDrawingBuffer: true, alpha: embedded });
 renderer.setPixelRatio(Math.min(devicePixelRatio, 2)); renderer.toneMapping = THREE.ACESFilmicToneMapping; renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.PCFSoftShadowMap;
-const scene = new THREE.Scene(); scene.background = new THREE.Color(0x829294);
+const scene = new THREE.Scene(); scene.background = embedded ? null : new THREE.Color(0x829294);
 const camera = new THREE.PerspectiveCamera(30, 1, .05, 50);
 scene.add(new THREE.HemisphereLight(0xdfe9f0, 0x5b5348, 1.5));
 const sun = new THREE.DirectionalLight(0xfff1dd, 2.6); sun.position.set(2.2, 4, 3); sun.castShadow = true; sun.shadow.mapSize.set(2048, 2048); Object.assign(sun.shadow.camera, { left: -2, right: 2, top: 2.5, bottom: -.5 }); sun.shadow.bias = -.0005; scene.add(sun);
 const fill = new THREE.DirectionalLight(0xbfd4ff, .7); fill.position.set(-3, 2, -2); scene.add(fill);
-const floor = new THREE.Mesh(new THREE.CircleGeometry(4, 48), new THREE.MeshStandardMaterial({ color: 0x6f7d7e, roughness: 1 })); floor.rotation.x = -Math.PI / 2; floor.receiveShadow = true; scene.add(floor);
+const floor = new THREE.Mesh(new THREE.CircleGeometry(4, 48), embedded ? new THREE.ShadowMaterial({ opacity: .4 }) : new THREE.MeshStandardMaterial({ color: 0x6f7d7e, roughness: 1 })); floor.rotation.x = -Math.PI / 2; floor.receiveShadow = true; scene.add(floor);
 
 const meta = await (await fetch('./motion.json')).json();
 const moves = writeMovements(createMotion(meta, new Int16Array(await (await fetch('./motion.bin')).arrayBuffer())));
@@ -51,10 +54,63 @@ function syncOutfit(){
   outfitSelect.value=matching?.name || '';
 }
 function changed(quick = true) {
-  syncOutfit();
-  saved = false; el('save').textContent = 'Save'; clearTimeout(timer);
+  syncOutfit(); renderOutfits();
+  saved = embedded && savePerson(design); el('save').textContent = saved ? 'Saved' : 'Save'; clearTimeout(timer);
   if (quick) timer = setTimeout(() => regrow('close'), 100); else regrow('close');
 }
+
+// --- Outfits: the looks the city sells, and the player's own -------------------------------
+const OUTFITS_KEY = 'nyc.outfits', MAX_OUTFITS = 24;
+const CLOTHES = ['top', 'bottom', 'shoes', 'hat', 'glasses', 'bag', 'topColour', 'bottomColour', 'shoeColour', 'hatColour', 'trimColour'];
+const OCCASIONS = [['casual', 'Everyday'], ['business', 'Tailoring'], ['athletic', 'Sport']];
+function loadOutfits() {
+  try {
+    const list = JSON.parse(localStorage.getItem(OUTFITS_KEY) || '[]');
+    return Array.isArray(list) ? list.filter(o => typeof o?.name === 'string' && o.clothes && typeof o.clothes === 'object').slice(0, MAX_OUTFITS) : [];
+  } catch { return []; }
+}
+function storeOutfits(list) { try { localStorage.setItem(OUTFITS_KEY, JSON.stringify(list)); return true; } catch { return false; } }
+const wearing = clothes => Object.entries(clothes).every(([key, value]) => (design[key] ?? null) === (value ?? null));
+function wear(clothes) {
+  const next = tidyPerson({ ...design, ...clothes });
+  design = { ...design, ...Object.fromEntries(Object.keys(clothes).map(key => [key, next[key]])) };
+  build(); changed(false);
+}
+function outfitRow(name, clothes, remove) {
+  const row = document.createElement('div'); row.className = 'outfit';
+  const button = Object.assign(document.createElement('button'), { type: 'button', textContent: name });
+  button.setAttribute('aria-pressed', String(wearing(clothes))); button.addEventListener('click', () => wear(clothes));
+  row.append(button);
+  if (remove) {
+    const cut = Object.assign(document.createElement('button'), { type: 'button', className: 'remove', textContent: '×' });
+    cut.setAttribute('aria-label', 'Delete ' + name); cut.addEventListener('click', remove); row.append(cut);
+  }
+  return row;
+}
+function renderOutfits() {
+  const mine = loadOutfits(), host = el('my-outfits'), presets = el('preset-outfits');
+  host.textContent = ''; presets.textContent = '';
+  if (!mine.length) host.append(Object.assign(document.createElement('p'), { className: 'empty', textContent: 'Nothing saved yet.' }));
+  mine.forEach((outfit, i) => host.append(outfitRow(outfit.name, outfit.clothes, () => { mine.splice(i, 1); storeOutfits(mine); renderOutfits(); })));
+  el('save-outfit').disabled = mine.length >= MAX_OUTFITS;
+  for (const [occasion, title] of OCCASIONS) {
+    presets.append(Object.assign(document.createElement('h3'), { textContent: title }));
+    for (const look of FASHION_LOOKS.filter(look => look.occasion === occasion)) presets.append(outfitRow(look.name, look.clothes));
+  }
+}
+el('save-outfit').addEventListener('click', () => {
+  const mine = loadOutfits(), used = mine.map(o => Number(o.name.match(/^Outfit (\d+)$/)?.[1]) || 0);
+  mine.push({ name: 'Outfit ' + (Math.max(0, ...used) + 1), clothes: Object.fromEntries(CLOTHES.map(key => [key, design[key] ?? null])) });
+  el('status').textContent = storeOutfits(mine) ? '' : 'Browser storage is unavailable.';
+  renderOutfits();
+});
+for (const [id, other, panel, hide] of [['side-outfits', 'side-design', 'wardrobe', 'designer'], ['side-design', 'side-outfits', 'designer', 'wardrobe']]) {
+  el(id).addEventListener('click', () => { el(id).setAttribute('aria-pressed', 'true'); el(other).setAttribute('aria-pressed', 'false'); el(panel).hidden = false; el(hide).hidden = true; });
+}
+if (embedded) addEventListener('keydown', event => {
+  if (event.target.closest?.('select, input') && event.code !== 'Escape') return;
+  if (['Escape', 'KeyQ', 'KeyE'].includes(event.code)) { event.preventDefault(); parent.postMessage({ type: 'pause-key', code: event.code }, location.origin); }
+});
 
 // --- The dials ------------------------------------------------------------------------------
 const catalog = await (await fetch('./human/human.json')).json();
@@ -124,7 +180,7 @@ function build() {
     host.append(section);
   });
 }
-build();
+build(); renderOutfits();
 for (const id of [...moves.clips.keys()].sort()) el('movement').append(new Option(id, id));
 el('movement').value = 'idle';
 el('movement').addEventListener('change', () => { movement = el('movement').value; clock = 0; frozen = null; });
@@ -137,7 +193,7 @@ el('reset').addEventListener('click', () => { design = tidyPerson(null); build()
 el('save').addEventListener('click', () => { saved = savePerson(design); el('save').textContent = saved ? 'Saved' : 'Save'; el('status').textContent = saved ? '' : 'Browser storage is unavailable.'; });
 el('view-body').addEventListener('click', () => Object.assign(view, { target: [0, .95, 0], distance: 5.2, pitch: .08 }));
 el('view-face').addEventListener('click', () => Object.assign(view, { target: [0, (body?.rig.height || 1.76) - .13, 0], distance: 1.05, pitch: .02 }));
-addEventListener('beforeunload', event => { if (!saved) { event.preventDefault(); event.returnValue = ''; } });
+addEventListener('beforeunload', event => { if (!saved && !embedded) { event.preventDefault(); event.returnValue = ''; } });
 
 // --- Looking at it ----------------------------------------------------------------------------
 let drag = null;
