@@ -43,18 +43,24 @@ test('gathered into squares nothing is lost, and each square sits among its own 
   assert.equal(layer.gathered(soho, 250).reduce((sum, square) => sum + square.count, 0), layer.within(soho, null, 1e6).length);
 });
 
-test('a wide view shows where places gather, a close one each place, the closest their names', () => {
+test('every view draws individual places, shrinking distant marks and naming places up close', () => {
   const view = span => ({ x: 126, z: -80, span, width: 1000, height: 700 });
   const city = placeMarks(layer, view(30000)), district = placeMarks(layer, view(1000), ['eat']), block = placeMarks(layer, view(300), ['eat', 'coffee']);
-  assert.equal(city.mode, 'gathered'); assert.ok(city.marks.length > 200 && city.marks.length < 15000 && city.marks.every(mark => mark.radius >= 2 && mark.radius < 60 && !mark.label && mark.count >= 1));
-  assert.ok(Math.max(...city.marks.map(mark => mark.count)) > 200, 'the busiest square of the city holds hundreds');
+  const extent = { minX: 126 - 15000, maxX: 126 + 15000, minZ: -80 - 10500, maxZ: -80 + 10500 };
+  const visible = layer.within(extent, null, Infinity);
+  assert.ok(visible.length > 15000);
+  assert.equal(city.marks.length, visible.length);
+  for (let i = 0; i < visible.length; i++) {
+    const mark = city.marks[i];
+    assert.equal(mark.px, (visible[i].x - 126) * (1000 / 30000) + 500);
+    assert.equal(mark.count, 1);assert.equal(mark.radius, 1);assert.equal(mark.label, '');
+  }
   assert.equal(district.mode, 'places'); assert.ok(district.marks.length > 50 && district.marks.every(mark => mark.colour === '#ff794f' && mark.label === '' && mark.px >= 0 && mark.px <= 1000 && mark.py >= 0 && mark.py <= 700));
   assert.ok(block.marks.length >= 4 && block.marks.every(mark => mark.label) && block.marks.some(mark => mark.label === 'FANELLI CAFE'));
   // A kind with few places in view is shown place by place even from far off: the banks of a square mile, not a blur.
   const banks = placeMarks(layer, view(3000), ['bank']);
   assert.equal(banks.mode, 'places'); assert.ok(banks.marks.length > 5 && banks.marks.length <= 350 && banks.marks.every(mark => mark.radius <= 4));
-  assert.equal(placeMarks(layer, view(3000), ['eat']).mode, 'gathered', 'thousands of restaurants are still gathered');
-  assert.ok(placeMarks(layer, view(3000), ['eat']).marks.every(mark => mark.radius <= 3 + 2.4 * Math.sqrt(mark.count) + 1e-9), 'a disc is no bigger than its count warrants');
+  assert.ok(banks.marks[0].radius < district.marks[0].radius && banks.marks[0].radius > city.marks[0].radius);
   // Drawn: a disc for every mark, and no name over another.
   const calls = { arc: 0, text: [] }, context = { save() {}, restore() {}, beginPath() {}, fill() {}, fillRect() {}, arc() { calls.arc++; }, measureText: text => ({ width: text.length * 6 }), fillText(text, x, y) { calls.text.push({ x, y, w: text.length * 6 }); } };
   drawPlaceMarks(context, block);

@@ -181,6 +181,11 @@ class Element extends EventTarget {
   getBoundingClientRect() { return {left:0,top:0,right:1440,bottom:900,width:1440,height:900}; }
   append(...nodes) { for(const node of nodes){node.parentElement=this;this.children.push(node);} }
   appendChild(node) { this.append(node);return node; }
+  remove() {
+    if (!this.parentElement) return;
+    this.parentElement.children = this.parentElement.children.filter(child => child !== this);
+    this.parentElement = null;
+  }
   prepend(...nodes) { for(const node of nodes)node.parentElement=this;this.children.unshift(...nodes); }
   replaceChildren(...nodes) { for(const child of this.children)child.parentElement=null;this.children=[];this.append(...nodes); }
   contains(node) { return node===this||this.children.some(child=>child.contains(node)); }

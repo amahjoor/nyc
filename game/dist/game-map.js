@@ -2,8 +2,9 @@ import { TransitMap } from './transit-map.js';
 import { airports } from './airport-data.js';
 import { searchDestinations } from './geocoder.js';
 import { matchPresets } from './local-search.js';
-import { MAP_CATEGORIES, placeMarks, drawPlaceMarks } from './map-places.js';
-import { thinBlips, drawBlips, blipOpen, blipLegend, blipSvg } from './map-blips.js';
+import { MapKey } from './map-key.js';
+import { markerScale, placeMarks, drawPlaceMarks } from './map-places.js';
+import { thinBlips, drawBlips, blipOpen } from './map-blips.js';
 import { TRANSPORT, isWatercraft, isAircraft } from './transport-catalog.js';
 
 const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
@@ -44,17 +45,9 @@ export class GameMap {
     this.transit = new TransitMap(this,listen,loadTransit);
     this.searchLocal = searchLocal;
     this.getPresets = getPresets;
-    // What is where: the kinds of place chosen to be shown, and the places themselves once they have been fetched.
-    this.placeLayer = null;this.placeKinds = new Set();this.placeChips = new Map();
-    // The doors near the player that can be walked through (map-blips.js), the time of day, and those of them far enough apart to draw at each scale.
+    this.placeLayer = null;this.placeKinds = new Set();
     this.doors = [];this.hours = 12;this.doorQuarter = null;this.doorsApart = new Map();
-    const chips = byId('game-map-places');
-    if (chips) for (const category of MAP_CATEGORIES) {
-      const chip = document.createElement('button');
-      chip.type = 'button';chip.className = 'game-map-chip';chip.textContent = category.label;chip.style?.setProperty?.('--chip', category.colour);chip.setAttribute?.('aria-pressed', 'false');
-      listen(chip, 'click', () => { if (this.placeKinds.has(category.id)) this.placeKinds.delete(category.id);else this.placeKinds.add(category.id);chip.setAttribute?.('aria-pressed', String(this.placeKinds.has(category.id)));if (!this.placeLayer) onPlacesWanted();this.dirty = true;this.draw(); });
-      chips.append(chip);this.placeChips.set(category.id, chip);
-    }
+    this.key = new MapKey(this, listen, onPlacesWanted);
     this.showBikeLanes=true;
     const laneButton=byId('game-map-bike-lanes');
     if(laneButton)listen(laneButton,'click',()=>{
@@ -95,7 +88,9 @@ export class GameMap {
         // dialog; the existing 3D map and pause dialogs remain separate flows.
         const elements = [byId('game-map-address'), byId('game-map-search-button'),
           ...Array.from(byId('game-map-search-results').children || []),
-          ...[this.transit.button,this.transit.select,this.transit.guide,this.transit.skip].filter(el=>el&&!el.hidden), ...(laneButton?[laneButton]:[]), ...this.placeChips.values(), ...['game-map-close','game-map-canvas','game-map-zoom-in','game-map-zoom-out','game-map-recenter','game-map-city','game-map-spawn'].map(byId)
+          ...['game-map-close','game-map-canvas','game-map-zoom-in','game-map-zoom-out'].map(byId),
+          ...this.key.focusable(), byId('game-map-recenter'), byId('game-map-city'),
+          ...[this.transit.guide,this.transit.skip].filter(el=>el&&!el.hidden), byId('game-map-spawn')
         ].filter(element => !element.disabled);
         const i = elements.indexOf(document.activeElement);
         const next = i < 0 ? (event.shiftKey ? elements.length - 1 : 0) : (i + (event.shiftKey ? -1 : 1) + elements.length) % elements.length;
@@ -152,15 +147,24 @@ export class GameMap {
       return;
     }
     if (drag.moved) return;
-    if(this.transit.active){
-      const stop=this.transit.hit(this.pointerPoint(event));
-      if(stop){this.setPin({x:stop.x,z:stop.z,name:stop.name+' · '+[...stop.lines].map(l=>l.name).join(' / ')});return;}
+    this.pinAtScreenPoint(this.pointerPoint(event));
+  }
+  pinAtScreenPoint(screen) {
+    const preview = this.key.preview;
+    if (preview) {
+      const p = mapWorldToScreen(preview, this.view);
+      if (Math.hypot(p.x - screen.x, p.y - screen.y) <= 11) return this.key.pinPreview();
     }
-    // A click on a place that is shown pins the place itself, by name.
-    const door = !this.transit.active && this.doorAt(this.pointerPoint(event));
-    if (door) { this.setPin({ x: door.x, z: door.z, name: `${door.name} · ${door.what}` });return; }
-    const point = mapScreenToWorld(this.pointerPoint(event), this.view), place = this.placeLayer && this.placeKinds.size && this.view.span <= 1400 ? this.placeLayer.nearest(point, 12 * this.view.span / this.view.width, this.placeKinds) : null;
-    this.setPin(place ? { x: place.x, z: place.z, name: `${place.name} · ${place.kind}` } : point);
+    if(this.transit.active){
+      const stop=this.transit.hit(screen);
+      if(stop)return this.setPin({x:stop.x,z:stop.z,name:stop.name+' · '+[...stop.lines].map(l=>l.name).join(' / ')});
+    }
+    const door = !this.transit.active && this.doorAt(screen);
+    if (door) return this.setPin({ x: door.x, z: door.z, name: `${door.name} · ${door.what}` });
+    const point = mapScreenToWorld(screen, this.view);
+    const radius = Math.max(4, 12 * markerScale(this.view.span)) * this.view.span / this.view.width;
+    const place = this.placeKinds.size && this.placeLayer?.nearest(point, radius, this.placeKinds);
+    return this.setPin(place ? { x: place.x, z: place.z, name: `${place.name} · ${place.kind}` } : point);
   }
   cancelPointer(event) { if (this.drag?.pointerId === event.pointerId) { this.drag = null;this.draw(); } }
   clampCenter() {
@@ -179,8 +183,8 @@ export class GameMap {
   setOpen(open) {
     if (this.disposed || this.open === Boolean(open) || (!open && this.transit.journey)) return;
     this.open = Boolean(open);this.element.hidden = !this.open;
-    if (this.open) { this.previousFocus = this.document.activeElement;this.dimensions();this.transit.refresh();this.recenter();this.byId('game-map-close').focus();this.listDoors(); }
-    else { this.drag = null;this.dropSharpRoads();this.clearAddressResults();this.previousFocus?.focus?.(); }
+    if (this.open) { this.previousFocus = this.document.activeElement;if (!this.placeLayer) this.key.requestPlaces();this.dimensions();this.transit.refresh();this.recenter();this.byId('game-map-close').focus();this.listDoors(); }
+    else { this.key.hover = null;this.drag = null;this.dropSharpRoads();this.clearAddressResults();this.previousFocus?.focus?.(); }
     this.byId('map-button').setAttribute('aria-expanded', String(this.open));this.byId('open-map-button').setAttribute('aria-expanded', String(this.open));this.onOpenChange(this.open);
   }
   toggle() { this.setOpen(!this.open); }
@@ -248,7 +252,7 @@ export class GameMap {
   /** `layer` is map-places.js createPlaceLayer(): the places the chips show. */
   setPlaces(layer) {
     this.placeLayer = layer;
-    for (const category of MAP_CATEGORIES) { const chip = this.placeChips.get(category.id);if (chip) chip.title = `${(layer?.totals[category.id] || 0).toLocaleString('en-US')} in the city`; }
+    this.key.setPlaces(layer);
     this.dirty = true;if (this.open) this.draw();
   }
   /**
@@ -273,31 +277,25 @@ export class GameMap {
   }
   /** The door whose badge is under a point of the open map, if any. */
   doorAt(point) {
-    if (!this.doors.length || this.view.span > 2600) return null;
-    let best = null, distance = 13;
-    for (const blip of this.doorsShown(20, this.view.width / this.view.span)) { const p = mapWorldToScreen(blip, this.view), d = Math.hypot(p.x - point.x, p.y - point.y);if (d < distance) { distance = d;best = blip; } }
+    if (!this.doors.length) return null;
+    let best = null, distance = Math.max(4, 13 * markerScale(this.view.span));
+    for (const blip of this.doors) {
+      if (this.key.hiddenDoors.has(blip.icon)) continue;
+      const p = mapWorldToScreen(blip, this.view), d = Math.hypot(p.x - point.x, p.y - point.y);
+      if (d < distance) { distance = d;best = blip; }
+    }
     return best;
   }
   /** Beside the open map: what each badge among the doors nearby stands for, and how many there are. */
   listDoors() {
-    const legend = this.byId('game-map-legend');
-    if (!legend) return;
-    const rows = this.transit.active ? [] : blipLegend(this.doors);
-    legend.hidden = !rows.length;legend.replaceChildren();
-    if (!rows.length) return;
-    const title = this.document.createElement('p');title.className = 'small-label';title.textContent = 'WALK IN NEARBY';legend.append(title);
-    for (const row of rows.slice(0, 14)) {
-      const line = this.document.createElement('span'), picture = this.document.createElement('i'), text = this.document.createElement('b');
-      line.className = 'game-map-legend-row';picture.innerHTML = blipSvg(row.id, row.colour, 18);text.textContent = `${row.label.toUpperCase()} · ${row.count}`;
-      line.append(picture);line.append(text);legend.append(line);
-    }
+    this.key.setDoors(this.transit.active ? [] : this.doors);
   }
   paintDoors(context, view, mini) {
-    // Past a few kilometres across, the doors around one person are a smudge.
-    if (!this.doors.length || view.span > 2600) return;
-    // On the open map badges may touch; on the radar, a fifth the width, they are kept clear of each other.
-    const scale = view.width / view.span, size = mini ? 28 : 22, reach = size / scale, bounds = viewBounds(view), marks = [];
-    for (const blip of this.doorsShown(mini ? 33 : 20, scale)) {
+    if (!this.doors.length) return;
+    const scale = view.width / view.span, size = mini ? 28 : Math.max(6, Math.round(22 * markerScale(view.span)));
+    const reach = size / scale, bounds = viewBounds(view), marks = [];
+    for (const blip of mini ? this.doorsShown(33, scale) : this.doors) {
+      if (!mini && this.key.hiddenDoors.has(blip.icon)) continue;
       if (blip.x < bounds.minX - reach || blip.x > bounds.maxX + reach || blip.z < bounds.minZ - reach || blip.z > bounds.maxZ + reach) continue;
       const p = mapWorldToScreen(blip, view);
       marks.push({ px: p.x, py: p.y, icon: blip.icon, colour: blip.colour, open: blipOpen(blip, this.hours), label: !mini && view.span <= 700 ? blip.name : '' });
@@ -500,6 +498,14 @@ export class GameMap {
     this.paint(context, this.view, false);this.dirty = false;
     this.byId('game-map-scale').textContent = `${distanceText(this.view.span)} across · NORTH ↑`;
   }
+  drawPreview(canvas, span = 1400) {
+    if (this.disposed || !this.player) return;
+    const rect = canvas.getBoundingClientRect(), width = Math.max(1, rect.width || 640), height = Math.max(1, rect.height || 420);
+    const ratio = Math.min(2, globalThis.devicePixelRatio || 1);
+    canvas.width = Math.round(width * ratio);canvas.height = Math.round(height * ratio);
+    const context = canvas.getContext('2d');context.setTransform(ratio, 0, 0, ratio, 0, 0);
+    this.paint(context, { x: this.player.x, z: this.player.z, width, height, span }, false);
+  }
   drawMini() {
     if (!this.mini || this.disposed) return;
     const size = this.mini.width, context = this.mini.getContext('2d');
@@ -525,8 +531,8 @@ export class GameMap {
     const overview = !mini && view.span > 10000 && this.roads.length > 1000;
     const roads = overview ? [] : this.visibleRoads(bounds);
     if (overview) this.paintOverviewRoads(context, view);else this.paintRoads(context, view, roads, mini ? 1.3 : .65);
-    if (this.showBikeLanes && this.bikeLanes && view.span < 5000) {
-      context.strokeStyle='#80c4a4';context.lineWidth=mini?1.6:1.9;
+    if (this.showBikeLanes && this.bikeLanes) {
+      context.strokeStyle='#80c4a4';context.lineWidth=mini?1.6:Math.max(.5,1.9*markerScale(view.span));
       context.beginPath();
       const shared=[];
       for(const lane of this.bikeLanes.within(bounds)){
@@ -552,10 +558,7 @@ export class GameMap {
     if (!mini && view.span > 8000) { context.font = '700 13px "Chalet Menu", Jost, Arial';context.fillStyle = '#c3c9c0';context.textAlign = 'center';for (const borough of this.city.boroughs || []) if (finitePoint(borough.label)) { const p = mapWorldToScreen(borough.label, view);context.fillText(borough.name.toUpperCase(), p.x, p.y); } }
     if (!mini && this.placeLayer && this.placeKinds.size) {
       drawPlaceMarks(context, placeMarks(this.placeLayer, view, this.placeKinds));
-      // How many of each chosen kind are in view.
-      const counted = this.placeLayer.counts(bounds), note = this.byId('game-map-places-note');
-      if (note) note.textContent = MAP_CATEGORIES.filter(category => this.placeKinds.has(category.id)).map(category => `${counted[category.id].toLocaleString('en-US')} ${category.label}`).join(' · ') + ' IN VIEW';
-    } else if (!mini) { const note = this.byId('game-map-places-note');if (note) note.textContent = this.placeKinds.size ? 'LOADING PLACES…' : ''; }
+    }
     const route = pointsOf(this.route);
     for (const stop of this.sim?.transport?.stops || []) {
       const p = mapWorldToScreen(stop.board,view);
@@ -572,6 +575,12 @@ export class GameMap {
     if ((mini || !this.transit.active) && route.length > 1) { context.strokeStyle = '#131c24';context.lineWidth = mini ? 9 : 8;context.beginPath();chain(route);context.stroke();context.strokeStyle = '#ba8cff';context.lineWidth = mini ? 5 : 4;context.stroke(); }
     if (!mini && this.transit.active) this.transit.paint(context,view,bounds);
     else this.paintDoors(context, view, mini);
+    if (!mini && this.key.preview) {
+      const p = mapWorldToScreen(this.key.preview, view);
+      context.beginPath();context.arc(p.x, p.y, 13, 0, Math.PI * 2);
+      context.strokeStyle = '#172329';context.lineWidth = 4;context.stroke();
+      context.strokeStyle = '#fff1c6';context.lineWidth = 2;context.stroke();
+    }
     const pin = this.drag?.preview || this.pin || (this.sim?.mission?.phase === 'active' ? this.sim.mission.target : null);
     if (pin) { const p = mapWorldToScreen(pin, view), x = mini ? clamp(p.x, 12, view.width - 12) : p.x, y = mini ? clamp(p.y, 12, view.height - 12) : p.y;context.fillStyle = '#ff9369';context.strokeStyle = '#1b2529';context.lineWidth = 3;context.beginPath();context.arc(x, y, mini ? 7 : 9, 0, Math.PI * 2);context.fill();context.stroke(); }
     // Civilian traffic stays off the map. Police show once you are wanted, held
@@ -641,5 +650,5 @@ export class GameMap {
     const p = mapWorldToScreen(this.player, view);context.translate(p.x, p.y);context.rotate(-(this.player.angle || 0));context.fillStyle = '#f8f2df';context.strokeStyle = '#172127';context.lineWidth = 3;context.beginPath();context.moveTo(0, 12);context.lineTo(-8, -8);context.lineTo(0, -4);context.lineTo(8, -8);context.closePath();context.fill();context.stroke();context.restore();
   }
   getState() { return { open: this.open, pin: this.pin && { ...this.pin }, view: { ...this.view }, busy: this.busy, route: this.route && { distance: this.route.distance, points: pointsOf(this.route).map(point => [...point]) } }; }
-  dispose() { if (this.disposed) return;this.setOpen(false);this.disposed = true;for (const remove of this.listeners) remove();this.listeners = [];this.doors = [];this.doorsApart.clear();this.roadGrid.clear();this.chunks = null;this.dropSharpRoads();this.miniLandCache = null;this.drag = null; }
+  dispose() { if (this.disposed) return;this.setOpen(false);this.disposed = true;for (const remove of this.listeners) remove();this.listeners = [];this.key.dispose();this.doors = [];this.doorsApart.clear();this.roadGrid.clear();this.chunks = null;this.dropSharpRoads();this.miniLandCache = null;this.drag = null; }
 }

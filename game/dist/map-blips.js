@@ -4,7 +4,7 @@
 // small badge with a picture of its trade: a slice for a pizzeria, scissors
 // for a barber, a bed for a hotel. The badge takes the colour its kind of
 // place has among the map's chips (map-places.js), and goes dim while the
-// place is shut. Where doors stand closer than badges can, the rarer trade is
+// place is shut. On the radar, where doors stand closer than badges can, the rarer trade is
 // the one shown, so a street of restaurants does not hide its one locksmith.
 //
 // This module is the pictures, which trade gets which, and the drawing. Which

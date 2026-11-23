@@ -304,6 +304,10 @@ function interfaceKey(event){
   return interaction?.handleKey(event) || phone?.handleKey(event);
 }
 const input=new Input(canvas, action, interfaceKey, weaponControls, index=>{
+  if (mapOpen && (index === 14 || index === 15)) {
+    gameMap.key.stepTarget(index === 14 ? -1 : 1);
+    return true;
+  }
   if(interaction?.open){
     const key=({0:'Enter',1:'Escape',12:'ArrowUp',13:'ArrowDown'})[index];
     if(key)interaction.handleKey({key,preventDefault(){}});

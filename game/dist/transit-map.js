@@ -1,3 +1,4 @@
+import { markerScale } from './map-places.js';
 import { legGeometry } from './transit-network.js';
 const inView=(s,b)=>s.x>=b.minX&&s.x<=b.maxX&&s.z>=b.minZ&&s.z<=b.maxZ;
 const mode=line=>line.id.startsWith('rail:')?'Subway':'Bus';
@@ -66,7 +67,14 @@ export class TransitMap {
     guide.hidden=false;guide.textContent='Directions to '+trip.legs[0].from.name;
   }
   accepts(line){return line.id===this.filter||line.id.startsWith(this.filter+':');}
-  hit(p){return this.shown.find(s=>Math.hypot(s.x-p.x,s.y-p.y)<11)?.stop;}
+  hit(p){
+    let nearest = null, distance = Math.max(4, 11 * markerScale(this.map.view.span));
+    for (const entry of this.shown) {
+      const d = Math.hypot(entry.x - p.x, entry.y - p.y);
+      if (d < distance) { nearest = entry.stop;distance = d; }
+    }
+    return nearest;
+  }
   paint(ctx,v,bounds){
     if(!this.active||!this.network)return;
     const scale=v.width/v.span,left=v.width/2-v.x*scale,top=v.height/2-v.z*scale;
@@ -108,7 +116,7 @@ export class TransitMap {
     const drawStop=s=>{
       if(!inView(s,bounds))return;
       const [x,y]=at(s.x,s.z);this.shown.push({x,y,stop:s});
-      ctx.beginPath();ctx.arc(x,y,important.has(s)?5:3,0,Math.PI*2);ctx.fillStyle='#fff6dd';ctx.fill();
+      ctx.beginPath();ctx.arc(x,y,important.has(s)?5:Math.max(1.5,3*markerScale(v.span)),0,Math.PI*2);ctx.fillStyle='#fff6dd';ctx.fill();
       ctx.strokeStyle='#192630';ctx.lineWidth=1.3;ctx.stroke();
       const key=Math.floor(x/120)+','+Math.floor(y/22);
       if((v.span<2400||important.has(s))&&!labels.has(key)){
@@ -117,7 +125,7 @@ export class TransitMap {
       }
     };
     for(const s of important)drawStop(s);
-    if(v.span<8500&&!this.journey)for(const s of this.network.stops){
+    if(!this.journey)for(const s of this.network.stops){
       if(!important.has(s)&&inView(s,bounds)&&[...s.lines].some(l=>this.accepts(l)))drawStop(s);
     }
     if(this.marker){

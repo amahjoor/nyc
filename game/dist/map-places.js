@@ -1,10 +1,6 @@
 // What is where, on the street map: the bundled places drawn by kind.
 //
-// Zoomed out, the map shows where a kind of place gathers: one disc for each
-// square of ground, as big as the number of such places in it. Zoomed in,
-// each place is a dot in its kind's colour, and closer still, named. The
-// places are those of place-names.json (scripts/build-place-search.mjs):
-// every named place in the registers and from OpenStreetMap.
+// Each enabled place keeps its geographic position at every zoom level.
 import { KINDS, facilityIndex } from './places.js';
 
 /** The kinds of place the map can show, each a set of kinds or groups from places.js and a colour. */
@@ -24,23 +20,28 @@ export const MAP_CATEGORIES = [
   { id: 'public', label: 'SCHOOLS & PUBLIC', colour: '#8fa0ff', groups: ['public'] },
   { id: 'shops', label: 'OTHER SHOPS', colour: '#d0d9d5', groups: ['shop', 'stand'] },
   // Not a kind of business: the city's individual landmarks, by name (landmarks.json).
-  { id: 'landmark', label: 'LANDMARKS', colour: '#ffffff' },
+  { id: 'landmark', label: 'LANDMARKS', colour: '#ffffff', labels: ['Landmark'] },
 ];
 // Each kind of place belongs to the first category that names it, or its group.
 const CATEGORY_OF = KINDS.map(kind => { const found = MAP_CATEGORIES.findIndex(category => category.kinds?.includes(kind.id)); return found >= 0 ? found : MAP_CATEGORIES.findIndex(category => category.groups?.includes(kind.group)); });
 /** The category a kind of place is shown under, by the kind's id. */
 export const categoryOf = kind => { const index = KINDS.findIndex(entry => entry.id === kind); return index >= 0 && CATEGORY_OF[index] >= 0 ? MAP_CATEGORIES[CATEGORY_OF[index]].id : null; };
 
-const CELL = 250, LANDMARK = MAP_CATEGORIES.findIndex(category => category.id === 'landmark');
+const CATEGORY_BY_LABEL = new Map(MAP_CATEGORIES.flatMap((category, i) => (category.labels || []).map(label => [label, i])));
+const CELL = 250;
 /** `data` is place-names.json: { kinds, places: [[name, x, z, kind, borough]] }. */
 export function createPlaceLayer(data = null) {
-  const grid = new Map(), totals = new Array(MAP_CATEGORIES.length).fill(0), places = [];
+  const members = new Map(MAP_CATEGORIES.map(category => [category.id, []]));
+  const grid = new Map();
+  let count = 0;
   for (const [name, x, z, recorded] of data?.places || []) {
     const kind = facilityIndex(recorded, name, data.kinds);
-    const category = data.kinds[kind] === 'Landmark' ? LANDMARK : CATEGORY_OF[kind];
+    const label = data.kinds[kind];
+    const category = CATEGORY_BY_LABEL.get(label) ?? CATEGORY_OF[kind];
     if (category === undefined || category < 0) continue;
-    const place = { name, x, z, kind: data.kinds[kind] || '', category };
-    places.push(place); totals[category]++;
+    const place = { name, x, z, kind: label || '', category };
+    count++;
+    members.get(MAP_CATEGORIES[category].id).push(place);
     const key = `${Math.floor(x / CELL)},${Math.floor(z / CELL)}`;
     if (!grid.has(key)) grid.set(key, []);
     grid.get(key).push(place);
@@ -52,9 +53,10 @@ export function createPlaceLayer(data = null) {
     }
   };
   return {
-    count: places.length,
+    count,
+    members(id) { return members.get(id) || []; },
     /** How many places of each category there are in the whole city, by category id. */
-    get totals() { return Object.fromEntries(MAP_CATEGORIES.map((category, i) => [category.id, totals[i]])); },
+    get totals() { return Object.fromEntries([...members].map(([id, places]) => [id, places.length])); },
     /** How many of each category lie within `bounds` ({ minX, maxX, minZ, maxZ }). */
     counts(bounds) { const counted = new Array(MAP_CATEGORIES.length).fill(0); each(bounds, place => { counted[place.category]++; }); return Object.fromEntries(MAP_CATEGORIES.map((category, i) => [category.id, counted[i]])); },
     /** The places of the chosen categories within `bounds`, at most `limit`, as { name, x, z, kind, category }. */
@@ -90,35 +92,22 @@ export function createPlaceLayer(data = null) {
 }
 
 const COLOUR = Object.fromEntries(MAP_CATEGORIES.map(category => [category.id, category.colour]));
-/**
- * What to draw for a view of the map: `view` is the street map's
- * { x, z, span, width, height } (span is the metres across its width).
- * Wide views get discs for squares of ground; close views get each place,
- * and the closest get names.
- * @returns {{mode: 'gathered' | 'places', marks: {px, py, radius, colour, label, count}[]}}
- */
+export const markerScale = span => Math.min(1, Math.sqrt(1400 / span));
+/** Individual locations in the visible bounds, with smaller dots beyond street zoom. */
 export function placeMarks(layer, view, categories = null) {
   const scale = view.width / view.span, halfZ = view.span * view.height / view.width / 2;
   const bounds = { minX: view.x - view.span / 2, maxX: view.x + view.span / 2, minZ: view.z - halfZ, maxZ: view.z + halfZ };
   const at = place => ({ px: (place.x - view.x) * scale + view.width / 2, py: (place.z - view.z) * scale + view.height / 2 });
-  // Few enough to tell apart, they are shown one by one however far off; otherwise wide views gather them.
-  const few = view.span <= 9000 ? layer.within(bounds, categories, 351) : null;
-  if (view.span > 1400 && !(few && few.length <= 350)) {
-    // About forty squares across the map, never finer than the grid the places are kept in.
-    const size = Math.max(CELL, Math.ceil(view.span / 40 / CELL) * CELL), squares = layer.gathered(bounds, size, categories), most = {};
-    // Each kind is sized against its own busiest square, so where barbers gather shows beside where restaurants do; the bigger discs are drawn first.
-    for (const square of squares) most[square.category] = Math.max(most[square.category] || 1, square.count);
-    return { mode: 'gathered', marks: squares.sort((a, b) => b.count / most[b.category] - a.count / most[a.category]).map(square => ({ ...at(square), radius: Math.max(2, Math.min(Math.sqrt(square.count / most[square.category]) * size * scale * .55, 3 + 2.4 * Math.sqrt(square.count))), colour: COLOUR[square.category], label: '', count: square.count })) };
-  }
   const named = view.span <= 450;
-  return { mode: 'places', marks: (few && few.length <= 350 ? few : layer.within(bounds, categories, 2500)).map(place => ({ ...at(place), radius: named ? 4 : 3, colour: COLOUR[place.category], label: named ? place.name : '', count: 1 })) };
+  const radius = named ? 4 : Math.max(1, 3 * markerScale(view.span));
+  return { mode: 'places', marks: layer.within(bounds, categories, Infinity).map(place => ({ ...at(place), radius, colour: COLOUR[place.category], label: named ? place.name : '', count: 1 })) };
 }
 
 /** Draw placeMarks() on a 2D canvas context. */
-export function drawPlaceMarks(context, { mode, marks }) {
+export function drawPlaceMarks(context, { marks }) {
   context.save();
   for (const mark of marks) {
-    context.globalAlpha = mode === 'gathered' ? .55 : .95; context.fillStyle = mark.colour;
+    context.globalAlpha = .95; context.fillStyle = mark.colour;
     context.beginPath(); context.arc(mark.px, mark.py, mark.radius, 0, Math.PI * 2); context.fill();
   }
   context.globalAlpha = 1; context.font = '600 10px "Chalet Menu", Jost, Arial, sans-serif'; context.textBaseline = 'middle'; context.textAlign = 'left';

@@ -207,7 +207,7 @@ The 1,439 individual landmarks are also kept by name (`dist/landmarks.json`): th
 
 ## What is where, on the map
 
-The street map (**M**) has a row of fourteen kinds of place and the city's landmarks: restaurants, coffee and bakeries, delis and groceries, bars and liquor, barbers, hair and nails, clothes and shoes, banks, laundry, pharmacy and health, garages and parking, hotels and shows, schools and public buildings, and other shops. Chosen kinds are drawn from the same list of 82,023 named places the search uses (`map-places.js`). Seen from far off, each kind is a disc for every square of ground that holds any, sized against that kind's own busiest square, so where barbers gather shows beside where restaurants do even though there are fourteen restaurants to a barber. Closer than about a mile across, or wherever a chosen kind has only a few hundred places in view, each place is a dot, and at block level it is named. A line on the map counts each chosen kind in view. Clicking a place pins it by name, to route or spawn there. Only named places are shown, so a deli the register knows only as a deli is missing.
+Open the street map with **M**. The right-hand **Map key** toggles transit, bike lanes, nearby walk-in doors, and citywide categories including businesses, landmarks. Hover or focus a category and press **← / →**, or click its arrows, to center each location and see its number and name. Click the name or its marker to pin it for directions or spawning. Every enabled place stays at its own coordinates through the five-borough view. Markers shrink beyond 1.4 km across, and names appear at block level where they fit.
 
 ## Shops the registers do not list
 
