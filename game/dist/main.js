@@ -286,6 +286,7 @@ function cityPresets(){
   return places;
 }
 let chaseHeight=null, chaseEyeOffset=null;
+let seatedEyeStart=null;
 let firstPerson=false, headAnchor, headTurn=0, headPitch=0, snapChase=false, ownBody=false;
 const eyeGoal=new THREE.Vector3();
 let gameMap, mapOpen=false, routePlanner=null, plannerReady=null, activeRoute=null, routeDestination=null, routeGuidance=null, routeEpoch=0, rerouteAt=0;
@@ -1645,12 +1646,14 @@ function updateFirstPerson(look,vertical){
   const p=sim.player, driving=p.mode==='drive'||p.mode==='passenger';
   const ride=sim.transport.active, anchor=ride??(driving?p.vehicleId:p.mode==='bike'?sim.bike:p.mode==='skate'?p.board:sim.seat??null);
   if(headAnchor!==anchor){
+    // Carry the walking eye height into the seat blend, including on a high stool.
+    seatedEyeStart=sim.seat && headAnchor===null ? camera.position.y-sim.seat.fromY : null;
     if(sim.seat||headAnchor?.seatKind){headTurn=clamp(angleDifference(yaw,p.angle),-1.95,1.95);}
     else{yaw=p.angle;headTurn=0;headPitch=0;}
     headAnchor=anchor;
   }
   if(paused||traveling){look=0;vertical=0;}
-  headPitch=clamp(headPitch+vertical,driving?-.9:-1.4,driving?1.05:1.4);
+  headPitch=clamp(headPitch+vertical,driving?-.9:-1.4,driving?1.05:p.mode==='walk' && !sim.seat?Math.PI/2:1.4);
   if(driving){
     headTurn=clamp(headTurn+look,-2.8,2.8);
     yaw=p.angle+headTurn;
@@ -1673,7 +1676,9 @@ function updateFirstPerson(look,vertical){
     }
     const floor=p.y??roomGroup?.userData.floorY;
     const height=playerBody?.rig.height??PLAYER_LOOK.height;
-    camera.position.set(p.x,(floor??0)+height-.12+seatEyeOffset(sim.seat,height),p.z);
+    let eyeHeight=height-.12+seatEyeOffset(sim.seat,height);
+    if(sim.seat && seatedEyeStart!==null)eyeHeight+=(seatedEyeStart-(height-.12))*(1-sim.seat.weight);
+    camera.position.set(p.x,(floor??0)+eyeHeight,p.z);
     if(ownBody && playerBody?.mesh.visible && p.mode==='walk'){
       // Look input is consumed after posing. Turn the drawn body on this frame
       // before reading its fitted eye sockets, including on a fast mouse turn.

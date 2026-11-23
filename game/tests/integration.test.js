@@ -1135,8 +1135,9 @@ test('a shop visit keeps the same room and occupants on both sides of its swingi
     const doorPosition={x:sim.player.x,z:sim.player.z};
     // Put the player beside the chair, then use the same interaction as a controller or touch button.
     Object.assign(sim.player,{x:approach[0],z:approach[1],velocityX:0,velocityZ:0});
-    app.key('KeyE');app.key('KeyE',false);assert.ok(sim.seat);
+    app.frames();
     const standingEye=camera.position.y;
+    app.key('KeyE');app.key('KeyE',false);assert.ok(sim.seat);
     app.frames(32);
     assert.ok(sim.seat.weight>0&&sim.seat.weight<1&&camera.position.y<standingEye);
     const midwayEye=camera.position.y;
@@ -1153,7 +1154,7 @@ test('a shop visit keeps the same room and occupants on both sides of its swingi
     app.key('KeyE');app.key('KeyE',false);app.frames(24);
     assert.ok(sim.seat.leaving&&camera.position.y>sittingEye&&camera.position.y<standingEye);
     app.frames(70);
-    assert.equal(sim.seat,null);assert.ok(Math.abs(camera.position.y-standingEye)<.001);
+    assert.equal(sim.seat,null);checkWalkingEye(app);
     Object.assign(sim.player,doorPosition);
     app.face(Math.atan2(plan.nx,plan.nz));app.frames();app.key('KeyW');
     for(let i=0;i<60&&sim.room;i++)app.frames();
@@ -2631,7 +2632,7 @@ test('first person keeps the relaxed arms, tracks the posed eyes through turns, 
     checkEyes();
     assert.ok(body.mesh.visible);
     assert.ok(armNames.every((name,i)=>joint(name).quaternion.equals(resting[i])));
-    drag(420,500);app.frames();
+    drag(420,600);app.frames();
     assert.equal(body.mesh.rotation.y,player.angle);
     assert.ok(inView('hand_l') && inView('hand_r'),'looking down reveals both relaxed wrists');
 
@@ -2646,7 +2647,7 @@ test('first person keeps the relaxed arms, tracks the posed eyes through turns, 
     assert.ok(belowNeck>0 && belowNeck<full);
     assert.equal(countFor(new THREE.PerspectiveCamera()),full,'the mirror draws the head');
 
-    drag(0,-500);app.frames();
+    drag(0,-Math.PI/2/.003);app.frames();
     app.key('KeyW');app.key('ShiftLeft');
     for(let i=0;i<10;i++){app.frames(1,65);checkEyes();}
     drag(-550,0);app.frames(1,16);checkEyes();
