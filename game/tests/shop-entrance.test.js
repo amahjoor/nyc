@@ -5,7 +5,7 @@ import { createStorefronts } from '../dist/storefronts.js';
 import { planRoom } from '../dist/interiors.js';
 import { roomPoint,roomLocal } from '../dist/room.js';
 import { planShopEntrance,treadHeight,shopStairRoute } from '../dist/shop-entrance.js';
-import { roomWalkStep } from '../dist/room-walk.js';
+import { followRoute,roomWalkStep } from '../dist/room-walk.js';
 import { Simulation } from '../dist/simulation.js';
 
 function front(mirror,skew){
@@ -14,6 +14,29 @@ function front(mirror,skew){
     width:8,tx:mirror*c,tz:mirror*s,nx:-s,nz:c,skew};
 }
 function canvas(){return {getContext:()=>null};}
+
+test('arrivals clear the landing for departing customers on straight and turning stairs',()=>{
+  for(const sidewalk of [2,8]){
+    const room={x:0,z:0,tx:1,tz:0,nx:0,nz:1,width:8,depth:8,things:[]};
+    const groundAt=()=>0,entry=planShopEntrance(room,1,groundAt,(_x,z)=>z<sidewalk);
+    const {stairs,floor}=entry;
+    assert.equal(Boolean(stairs.turn),sidewalk===2);
+    const start=roomLocal(room,...stairs.point(stairs.toe+.75,0));
+    const stairsRoute=shopStairRoute(room,stairs,start);
+    const inward={path:[...stairsRoute,{a:0,b:.5},{a:0,b:1.7}],phase:'entering',at:0};
+    const outward={path:[...stairsRoute.toReversed(),start],phase:'back to sidewalk',at:0};
+    const [x,z]=stairs.point(stairs.toe-.25,0);
+    const arriving={x,z,y:.3,look:{pace:1.4},visit:{task:inward}};
+    const departing={x:0,z:-.7,y:floor,look:{pace:1.4},visit:{task:outward}};
+    const view={plan:room,floor,entry,groundAt,visitors:new Set([arriving,departing])};
+    for(let i=0;i<600 && inward.at<inward.path.length;i++){
+      followRoute(view,arriving,inward,1/60);
+      if(followRoute(view,departing,outward,1/60))departing.visit=null;
+    }
+    assert.equal(departing.visit,null,'the departing customer reaches the sidewalk');
+    assert.equal(inward.at,inward.path.length,'the arriving customer continues inside');
+  }
+});
 
 test('a grounded walker climbs every rendered tread, pushes the door and walks down the same flight',()=>{
   for(const sidewalk of [2.05,7])for(const mirror of [-1,1]){

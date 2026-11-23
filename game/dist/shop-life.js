@@ -1,9 +1,10 @@
-import { crossesFixture, DOOR, roomLocal, roomPoint } from './room.js';
-import { pathsFromDoor, peopleInRoom, roomSeatStep, roomWalkStep, shopAisle } from './room-walk.js';
+import { crossesFixture, DOOR, roomLocal, roomPoint, roomUnderFire, walkRoom } from './room.js';
+import { receiveImpulse, stepImpulse } from './character-physics.js';
+import { pathsFromDoor, peopleInRoom, roomSeatStep, roomWalkStep, shopAisle, yieldShopDoor } from './room-walk.js';
 import { clearTravel } from './pedestrian-motion.js';
 import { startFacilityVisit, serviceMode, stepServiceJobs } from './facility-visits.js';
 import { shopStairRoute } from './shop-entrance.js';
-import { seatApproach } from './seating.js';
+import { seatApproach, seatApproachEnd } from './seating.js';
 import { menuFor } from './menu.js';
 import { servingFor,portionKey } from './food-catalog.js';
 import { dress, KIT, seeded } from './crowd.js';
@@ -86,7 +87,7 @@ const SIDEWALK_EXIT = -1.25;
 // The witness keeps this even when a fall, a blocked aisle or the doorway
 // changes who is moving them. The heading leads along the shop front.
 export function fleeShop(view, actor, delay) {
-  if (actor.escape || actor.gone) return;
+  if (actor.escape || actor.gone || actor.dead || actor.state === 'down') return;
   const room = view.plan, sign = (view.random?.() ?? .5) < .5 ? -1 : 1;
   actor.robbery = { x:room.x, z:room.z, heading:Math.atan2(sign*room.tx, sign*room.tz) };
   delay ??= .12 + (view.random?.() ?? .5) * .78;
@@ -96,6 +97,37 @@ export function fleeShop(view, actor, delay) {
   actor.clip = actor.sitting ? null : 'cower';
   actor.time = 0; actor.stride = 0; actor.from = null;
   if (!delay) planEscape(view, actor);
+}
+
+/** Release a hit actor's seat and keep their injury on the room's floor. */
+export function roomOccupantHit(view, actor) {
+  if (actor.sitting) view.occupied.delete(actor.visit?.spot ?? actor.spot);
+  actor.sitting = false;
+  actor.seat = null;
+  actor.carry = null;
+  actor.lift = 0;
+  if (!actor.visit && actor.state === 'down') {
+    if (actor.dead) actor.escape = null;
+    receiveImpulse(actor,0,0,{fall:true,rest:actor.dead ? Infinity : Math.max(.1,actor.down-2.2)});
+  }
+}
+
+export function stepRoomInjury(view, actor, dt) {
+  if (!actor.reaction) return false;
+  const room = view.plan, reaction = actor.reaction;
+  stepImpulse(actor,dt,(person,x,z)=>{
+    const from=roomLocal(room,person.x,person.z), to=roomLocal(room,x,z);
+    const moved=walkRoom(room,from.a,from.b,to.a-from.a,to.b-from.b,.20);
+    const [wx,wz]=roomPoint(room,moved.a,Math.max(.08,moved.b));
+    return {x:wx,z:wz};
+  },()=>view.floor);
+  actor.clip = reaction.clip;
+  actor.time = reaction.time;
+  if (!actor.reaction && !actor.dead) {
+    actor.state = 'flee';
+    if (actor.escape) actor.escape.path = null;
+  }
+  return true;
 }
 
 function planEscape(view, actor, blocker) {
@@ -205,7 +237,8 @@ function advanceEscape(view, actor, dt, player) {
     actor.stride = 0;
     return false;
   }
-  let left = 3.6 * dt;
+  const budget = 3.6 * dt;
+  let left = budget;
   while (left > 0 && escape.path.length) {
     // After sidestepping another witness, aim at the farthest visible point.
     // Requiring everyone to touch the same aisle mark can deadlock a queue.
@@ -232,7 +265,7 @@ function advanceEscape(view, actor, dt, player) {
         actor.clip = 'cower'; actor.stride = 0;
         return false;
       }
-      const walked = roomWalkStep(view,actor,x,z,step,undefined,null,body);
+      const walked = roomWalkStep(view,actor,x,z,step,undefined,null,body,dt);
       const actual = roomLocal(room,actor.x,actor.z);
       const skew = room.skew || 0;
       view.door?.push(at.a+skew*at.b,at.b,actual.a+skew*actual.b,actual.b,.25,dt);
@@ -241,6 +274,12 @@ function advanceEscape(view, actor, dt, player) {
       if (Math.hypot(actor.x-x,actor.z-z)>.0001) break;
     }
     escape.path.pop();
+  }
+  if (!actor.visit && dt > 0) {
+    const speed = (budget-left)/dt;
+    actor.clip = speed > .15 ? 'jog' : 'cower';
+    actor.stride = Math.min(1,speed/3.6);
+    if (actor.clip === 'jog') actor.time += dt*(speed/3.5-1);
   }
   return !escape.path.length;
 }
@@ -256,7 +295,7 @@ export function inviteCustomer(view, people, time, sale, playerSeat = () => null
   stepServiceJobs(view,time);
   const mode=serviceMode(view.plan);
   const capacity=mode ? Math.max(2,Math.min(4,Math.floor(view.plan.width*view.plan.depth/19))) : 1;
-  if (view.closed || view.handoff || !view.menu.length || time < view.nextVisit ||
+  if (view.closed || view.handoff || roomUnderFire(view,time) || !view.menu.length || time < view.nextVisit ||
       (mode ? view.visitors.size>=capacity : view.visitor?.visit) ||
       view.actors.some(actor=>actor.escape && !actor.gone)) return;
   view.nextVisit = time + 2;
@@ -313,7 +352,7 @@ function reserveTable(person) {
     if (view.occupied.has(spot) || occupied && Math.hypot(x-occupied.x,z-occupied.z)<.2) continue;
     const [fx,fz] = roomPoint(room,spot.a+spot.da,spot.b+spot.db);
     const seat = {...spot,x,z,y:view.floor,heading:Math.atan2(fx-x,fz-z)};
-    const others = room.things.filter(t=>t.solid && !(t.a===spot.a && t.b===spot.b));
+    const others = room.things.filter(t=>t.solid && (spot.fixture ? t!==spot.fixture : !(t.a===spot.a && t.b===spot.b)));
     const clear = (from,to) => {
       const a=roomLocal(room,from.x,from.z), b=roomLocal(room,to.x,to.z);
       return Math.abs(b.a)<room.width/2-.1 && b.b>.1 && b.b<room.depth-.1 && !others.some(t=>crossesFixture(a,b,t,.10));
@@ -338,7 +377,8 @@ function reserveTable(person) {
       visit.chairAt=visit.at+there.length-1;
       // The approach takes the first 40% of the easing curve. Bound its
       // peak speed even if they turn back halfway through taking the seat.
-      const duration = Math.max(.8+path.length*.42, 3.75*path.length/person.look.pace);
+      const length = path.length+seatApproachEnd(path,seat,fromX,fromZ);
+      const duration = Math.max(.8+length*.42, 3.75*length/person.look.pace);
       visit.table={...seat,fromX,fromZ,fromY:view.floor,path,progress:0,weight:0,duration};
       visit.spot=spot;
       view.occupied.add(spot);
@@ -378,7 +418,6 @@ export function stepCustomer(person, dt, time, player) {
       seat.leaving=visit.mealTime<=0;
     }
     roomSeatStep(view,person,seat,dt);
-    person.heading=person.angle;
     if (seat.leaving && seat.progress===0) {
       view.occupied.delete(visit.spot);
       person.sitting=false;person.seat=null;person.spot=null;visit.spot=null;
@@ -395,16 +434,18 @@ export function stepCustomer(person, dt, time, player) {
     return;
   }
   const point = visit.path[visit.at], [x,z] = roomPoint(room, point.a, point.b);
+  if(!visit.interrupted && visit.at<visit.counter && yieldShopDoor(view,person,dt))return;
   const dx = x - person.x, dz = z - person.z, distance = Math.hypot(dx,dz);
   const step = Math.min(distance, dt * (visit.interrupted ? 3.6 : person.look.pace));
   const at = roomLocal(room, person.x, person.z);
   if (distance > .001) {
-    roomWalkStep(view,person,x,z,step);
+    roomWalkStep(view,person,x,z,step,undefined,null,null,dt);
   }
   const next = roomLocal(room, person.x, person.z);
   const skew = room.skew || 0;
   view.door.push(at.a + skew * at.b, at.b, next.a + skew * next.b, next.b, .29, dt);
-  if (Math.hypot(x-person.x,z-person.z)>.001) return;
+  const lastMark = visit.at===visit.path.length-1 || visit.at===visit.chairAt;
+  if (Math.hypot(x-person.x,z-person.z)>(lastMark ? .001 : .035)) return;
   if (!visit.interrupted && visit.at === visit.counter) {
     visit.wait = 3 + view.random() * 2;
     const staff = view.route.staff, [sx,sz] = roomPoint(room, staff.a, staff.b);

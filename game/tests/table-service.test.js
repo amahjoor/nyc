@@ -110,6 +110,7 @@ test('a sitting: the server is waved over, asks, takes the order, the kitchen co
 test('what is on the heat can be seen at the station while a step is worked, and is gone after',()=>{
   const {view,bag,tick,sitAt,seats,ui,ctx}=store('italian');
   try{
+    for(const actor of view.actors)actor.rest=Infinity;
     sitAt(seats()[0]);openTableService(ctx);const ticket=bag.order;tick(90,()=>ui.open);
     ui.pick('I am ready');ui.pick('Spaghetti pomodoro');ui.pick('Nothing');
     const wares=()=>view.group.children.filter(c=>c.name==='Cookware in use');
@@ -138,6 +139,28 @@ test('asking for a few minutes sends the server away until they are called back'
     ui.pick(r=>r.item);if(ui.open)ui.pick('Nothing');tick(3);
     openTableService(ctx);ui.pick('Cancel the order');assert.equal(bag.order,null);assert.equal(sim.cash,500);
     tick(30);assert.equal(view.claims.size,0);assert.ok(view.actors.every(a=>!a.serviceOwner));
+  }finally{view.group.userData.dispose();}
+});
+
+test('a guest with no cash can order and leave an unfinished serving on the table',()=>{
+  const {view,sim,bag,tick,sitAt,seats,ui,ctx}=store('italian');
+  try{
+    sim.cash=0;
+    const table=sitAt(seats()[0]);openTableService(ctx);const ticket=bag.order;
+    assert.ok(tick(90,()=>ui.open));
+    ui.pick('I am ready to order');
+    const dish=tableMenu(ticket.room.place).find(d=>!d.drink);
+    ui.pick(dish.item.name);
+    if(ui.open)ui.pick('Nothing');
+    assert.ok(tick(120,()=>ticket.stage==='dining'));
+    openTableService(ctx);ui.pick('Take a bite');
+    assert.ok(tick(5,()=>!bag.eating));
+    assert.equal(ticket.items[0].state,'table');assert.equal(ticket.items[0].remaining,2);
+    assert.equal(view.claims.get(table),ticket);
+    assert.equal(ticket.due(),dish.price);
+    openTableService(ctx);ui.pick('Eat the');
+    assert.ok(tick(5,()=>!bag.eating));
+    assert.equal(ticket.items[0].state,'eaten');assert.equal(ticket.due(),dish.price);
   }finally{view.group.userData.dispose();}
 });
 

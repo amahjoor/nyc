@@ -92,7 +92,7 @@ export const LOGO_TRIM = 8;
  * Keep the three textures in step with the street fronts around the player.
  * `createCanvas` makes the canvas the lettering is drawn on.
  */
-export function createStorefronts({ createCanvas = () => document.createElement('canvas'), scene, roomFor, floorFor, groundAt, clearApproach, physics, populate, isClosed = () => false } = {}) {
+export function createStorefronts({ createCanvas = () => document.createElement('canvas'), scene, roomFor, floorFor, groundAt, clearApproach, physics, populate, isClosed = () => false, policeUsing = () => false } = {}) {
   const mapData = new Uint8Array(MAP_SPAN * MAP_SPAN * 2), nearest = new Float32Array(MAP_SPAN * MAP_SPAN);
   const map = new THREE.DataTexture(mapData, MAP_SPAN, MAP_SPAN, THREE.RGFormat, THREE.UnsignedByteType);
   map.name = 'Whose shop front is where'; map.magFilter = map.minFilter = THREE.NearestFilter; map.generateMipmaps = false; map.needsUpdate = true;
@@ -119,7 +119,7 @@ export function createStorefronts({ createCanvas = () => document.createElement(
   // Which sign each lettering cell holds, by place.
   const held = new Array(cells).fill(null), where = new Map();
   let shown = [], source = null, at = null, openAt = -1, lettered = 0;
-  const rooms = new Map();
+  const rooms = new Map(), brokenGlass = new Map();
   const entries = new Map();
   let pending = [], windowsVisible = false, floorRevision = -1, closureRevision = -1;
   let faces = [], faceRows = new Map(), active = null, closingDoor = null;
@@ -176,6 +176,8 @@ export function createStorefronts({ createCanvas = () => document.createElement(
     const group = buildRoom(plan, 0, { streetView: true }), floor = entry.floor;
     group.position.y = floor; scene.add(group);
     view = { plan, front, group, floor, entry, groundAt, door: group.userData.door, actors: [], occupied: new Set() };
+    const broken = brokenGlass.get(plan.place.id);
+    if (broken) group.userData.setBrokenGlass(broken);
     populate?.(view); rooms.set(front.place.id, view);
     return view;
   }
@@ -201,7 +203,7 @@ export function createStorefronts({ createCanvas = () => document.createElement(
       const id = front.place.id;
       const existing=rooms.get(id);
       const visiting = existing?.visitor?.visit || existing?.cleanups?.length || existing?.actors.some(actor=>actor.escape && !actor.gone) || (existing?.handoff && existing.clerk && !existing.clerk.gone);
-      const occupied = active?.plan.place.id === id || closingDoor?.plan.place.id === id;
+      const occupied = active?.plan.place.id === id || closingDoor?.plan.place.id === id || (existing && policeUsing(existing));
       const distance=Math.hypot(front.x-focus.x,front.z-focus.z);
       if(!visiting && !occupied){
         if(!visible || distance>WINDOW_RANGE)continue;
@@ -229,7 +231,7 @@ export function createStorefronts({ createCanvas = () => document.createElement(
         if (plan) { pending.push({ front, plan }); wanted.add(id); }
       }
     }
-    for (const [id, view] of rooms) if (view !== active && view !== closingDoor && !wanted.has(id)) release(view);
+    for (const [id, view] of rooms) if (view !== active && view !== closingDoor && !wanted.has(id) && !policeUsing(view)) release(view);
     for(const [id,entry] of entries)if(!wanted.has(id) && !outside.has(id) && !rooms.has(id)){
       if(walker && treadHeight(entry.stairs,walker.x,walker.z)!==null)continue;
       removeSteps(entry);entries.delete(id);
@@ -245,6 +247,13 @@ export function createStorefronts({ createCanvas = () => document.createElement(
     /** The fronts in the table, row 1 first. */
     get fronts() { return shown; },
     get rooms() { return rooms.values(); },
+    breakGlass(view,id) {
+      const key = view.plan.place.id, broken = brokenGlass.get(key) ?? new Set();
+      if (broken.has(id)) return false;
+      broken.add(id); brokenGlass.set(key,broken);
+      view.group.userData.setBrokenGlass(broken);
+      return true;
+    },
     stepHeightAt(x,z,referenceHeight){
       let highest=null;
       for(const {stairs,plan} of entries.values()){

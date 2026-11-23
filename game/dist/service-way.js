@@ -19,7 +19,7 @@ export function openServiceWay(room) {
     if(!stuck.length)return true;
     const near=thing=>Math.min(...stuck.map(spot=>gap(spot,thing)));
     const tables=room.things.filter(t=>t.shape==='table').sort((s,t)=>near(s)-near(t));
-    const seatOf=spot=>room.things.find(t=>t.solid && t.a===spot.a && t.b===spot.b);
+    const seatOf=spot=>spot.fixture ?? room.things.find(t=>t.solid && t.a===spot.a && t.b===spot.b);
     let gone;
     if(tables.length){
       const table=tables[0], seats=room.seats.filter(s=>gap(s,table)<1.2 && (table.a-s.a)*s.da+(table.b-s.b)*s.db>0);

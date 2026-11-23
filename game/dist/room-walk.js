@@ -66,29 +66,47 @@ export function peopleInRoom(view,actor) {
   const people = [...(view.actors || []),...(view.visitors || [])];
   if(view.visitor && !people.includes(view.visitor))people.push(view.visitor);
   for(const p of view.nearbyPeople?.(actor) || [])if(!people.includes(p))people.push(p);
-  const others=people.filter(p=>p!==actor && !p.gone && Math.abs((p.y??view.floor)-(actor.y??view.floor))<1.6);
-  for(const p of people)if(p!==actor && p.sitting && p.seat?.clearance)others.push(...p.seat.clearance);
+  const player=view.player;
+  if(player?.mode==='walk' && !people.includes(player))people.push(player);
+  const at=floorAt(view,actor);
+  const others=people.filter(p=>p!==actor && !p.gone && Math.abs((p.y??view.floor)-(actor.y??view.floor))<1.6 &&
+    insideWalls(view.plan,at,floorAt(view,p),0));
+  const bodyCount=others.length;
+  for(let i=0;i<bodyCount;i++){
+    const p=others[i];
+    if(p.sitting && p.seat?.clearance)others.push(...p.seat.clearance);
+  }
   return others;
 }
 
 // A newly arrived walker can interrupt a seat animation, including a hurried exit.
 export function roomSeatStep(view,actor,seat,dt) {
   const pose={x:actor.x,z:actor.z}, progress=seat.progress, weight=seat.weight;
+  seat.alignAtSeat=true;
   stepSeating(pose,seat,dt);
   const dx=pose.x-actor.x,dz=pose.z-actor.z,step=Math.hypot(dx,dz);
   if(step && clearTravel(actor,dx/step,dz/step,step,peopleInRoom(view,actor))<step){
     seat.progress=progress;seat.weight=weight;seat.stepSpeed=0;return false;
   }
   Object.assign(actor,pose);
+  actor.heading=pose.angle;
+  seat.stepTime=(seat.stepTime || 0)+seat.stepSpeed*dt/(WALK_CLIP_SPEED*(actor.look?.height||1.76)/1.76);
   return true;
 }
 
-function insideWalls(room,at,p) {
-  if (p.b > 0 && (Math.abs(p.a) > room.width/2-.15 || p.b > room.depth-.15)) return false;
-  return (at.b > 0) === (p.b > 0) || Math.abs(at.a + (p.a-at.a)*at.b/(at.b-p.b)) <= DOOR/2-.16;
+function insideWalls(room,at,p,radius=.15) {
+  if (p.b > 0 && (Math.abs(p.a) > room.width/2-radius || p.b > room.depth-radius)) return false;
+  return (at.b > 0) === (p.b > 0) || Math.abs(at.a + (p.a-at.a)*at.b/(at.b-p.b)) <= DOOR/2-radius;
 }
 
-export function roomWalkStep(view, actor, x, z, budget, others = peopleInRoom(view,actor), except = null, blocker = null) {
+export function clipRoomWalk(view,actor,x,z,contact){
+  const dx=x-actor.x,dz=z-actor.z,step=Math.hypot(dx,dz);
+  if(step<.00001)return [x,z];
+  const free=clearTravel(actor,dx/step,dz/step,step,peopleInRoom(view,actor),actor.x,actor.z,contact);
+  return [actor.x+dx*free/step,actor.z+dz*free/step];
+}
+
+export function roomWalkStep(view, actor, x, z, budget, others = peopleInRoom(view,actor), except = null, blocker = null, dt = 0) {
   const room = view.plan, at = floorAt(view,actor);
   const inside = (wx,wz) => {
     const p = roomLocal(room,wx,wz);
@@ -96,7 +114,12 @@ export function roomWalkStep(view, actor, x, z, budget, others = peopleInRoom(vi
     const obstructs = t => crossesFixture(at,p,t,.15) && !crossesFixture(at,at,t,.15);
     return !(blocker && obstructs(blocker)) && !room.things.some(t=>t!==except && t.solid && obstructs(t));
   };
+  const heading = actor.heading;
   const walked = walkTowards(actor,x,z,budget,others,inside);
+  if(walked && dt && Number.isFinite(heading)){
+    const turn = Math.atan2(Math.sin(actor.heading-heading),Math.cos(actor.heading-heading));
+    actor.heading = heading+Math.max(-6*dt,Math.min(6*dt,turn));
+  }
   const b=floorAt(view,actor).b;
   if(b<0 && view.groundAt)actor.y=Math.max(view.groundAt(actor.x,actor.z),treadHeight(view.entry?.stairs,actor.x,actor.z)??-Infinity);
   else if(b>-.6)actor.y=view.floor;
@@ -110,6 +133,39 @@ export function walkingPose(actor,metres,dt) {
   actor.clip=walking?'walk':'idle';
   actor.time=(actor.time||0)+(walking?metres/pace:dt);
   actor.stride=walking?Math.min(1,metres/(dt*pace)):0;
+}
+
+const leavingRoom=person=>person.escape || person.visit?.task?.phase==='leaving' ||
+  person.visit?.task?.phase==='back to sidewalk' || person.visit?.interrupted || person.visit?.at>person.visit?.counter;
+
+// An arriving customer waits beside the approach while someone comes out.
+// Keep the original route intact so the customer resumes as soon as it clears.
+export function yieldShopDoor(view,actor,dt){
+  const room=view.plan,at=floorAt(view,actor),stairs=view.entry?.stairs;
+  if(at.b>.14 || (!stairs && at.b<-2.4))return false;
+  const traffic=[...(view.visitors||[]),...(view.actors||[]),view.visitor];
+  if(!traffic.some(person=>{
+    if(!person || person===actor || person.gone || !leavingRoom(person))return false;
+    const p=floorAt(view,person),a=p.a+(room.skew||0)*p.b;
+    if(p.b>=0)return p.b<2 && Math.abs(a)<1.05;
+    if(!stairs)return p.b>-1.2 && Math.abs(a)<.75;
+    const {s,t}=stairs.local(person.x,person.z);
+    return s>=stairs.back && s<stairs.toe+.75 && Math.abs(t)<stairs.half;
+  }))return false;
+  actor.stride=0;
+  const a=at.a+(room.skew||0)*at.b,side=Math.sign(a)||1;
+  let goal;
+  if(stairs){
+    const {s,t}=stairs.local(actor.x,actor.z);
+    if(Math.abs(t)>stairs.half)return true;
+    const foot=stairs.toe+.12;
+    goal=s<stairs.toe-.02?stairs.point(foot,0):stairs.point(Math.max(foot,s),Math.sign(t||a||1)*(stairs.half+.28));
+  }else if(Math.abs(a)<.88 || at.b>=0){
+    const b=Math.min(-.85,at.b);
+    goal=roomPoint(room,side*.95-(room.skew||0)*b,b);
+  }
+  if(goal)roomWalkStep(view,actor,...goal,dt*(actor.look?.pace||1.35),undefined,null,null,dt);
+  return true;
 }
 
 // If someone stops in a narrow aisle, search the connected floor around them.
@@ -178,10 +234,11 @@ function makeRoom(view, actor, goal, others) {
 export function followRoute(view,actor,task,dt) {
   let left=dt*(actor.look?.pace||1.35);
   const room=view.plan;
+  if(task.phase==='entering' && yieldShopDoor(view,actor,dt))return false;
   if(task.yielding){
     const {guest,x,z}=task.yielding;
     if(guest.visit && !guest.sitting && !guest.escape && guest.visit.task?.actor!==guest && Math.hypot(guest.x-x,guest.z-z)>.04){
-      const walked=roomWalkStep(view,guest,x,z,dt*(guest.look?.pace||1.35));
+      const walked=roomWalkStep(view,guest,x,z,dt*(guest.look?.pace||1.35),undefined,null,null,dt);
       walkingPose(guest,walked,dt);
       if(walked>.001)return false;
     }
@@ -189,17 +246,30 @@ export function followRoute(view,actor,task,dt) {
   }
   while(task.at<task.path.length) {
     const point=task.path[task.at], [x,z]=roomPoint(room,point.a,point.b);
+    const stairs=view.entry?.stairs;
+    if(stairs && task.phase==='entering' && point.b<0 && task.at+1<task.path.length){
+      const mark=stairs.local(x,z),at=stairs.local(actor.x,actor.z);
+      // An arrival already on the flight can continue toward the landing.
+      if(mark.s>stairs.toe && Math.abs(mark.t)<.1 && at.s<mark.s && at.s>=stairs.back && Math.abs(at.t)<.25){
+        task.at++;task.bestGap=undefined;
+        continue;
+      }
+    }
     const dx=x-actor.x,dz=z-actor.z,gap=Math.hypot(dx,dz);
     if(gap>.0001){
       const at=floorAt(view,actor);
       const others=peopleInRoom(view,actor);
       const machine=task.rise===undefined ? null : actor.visit?.display;
-      const step=roomWalkStep(view,actor,x,z,Math.min(left,gap),others,machine);
+      const step=roomWalkStep(view,actor,x,z,Math.min(left,gap),others,machine,null,dt);
       const next=floorAt(view,actor), skew=room.skew||0;
       if(Math.abs(next.b)<.85)view.door?.push(at.a+skew*at.b,at.b,next.a+skew*next.b,next.b,.25,dt);
       left-=step;
       const remaining=Math.hypot(x-actor.x,z-actor.z);
-      if(remaining>.0001){
+      if(remaining>.0001 && remaining<=.035 && step>0 && task.phase==='back to sidewalk' && task.at===task.path.length-1){
+        const free=clearTravel(actor,(x-actor.x)/remaining,(z-actor.z)/remaining,remaining,others);
+        if(free>=remaining)return false;
+      }
+      if(remaining>.035){
         // A meeting ends at arm's length when another person occupies its mark.
         const beside = other => (next.b>.18 && point.b>0 ||
           task.phase==='back to sidewalk' && next.b<-.65 && point.b<0 && !other.visit) &&

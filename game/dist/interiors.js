@@ -17,7 +17,8 @@ import { buildSalonMirrors } from './salon-mirrors.js';
 // street is seen through the doorway and the two windows in that wall.
 import * as THREE from './vendor/three.module.min.js';
 import { KIND, placeName } from './places.js';
-import { CEILING, roomPoint, DOOR, ShopDoor } from './room.js';
+import { blocksShopEntry, CEILING, roomPoint, DOOR, ShopDoor, shopWindowPanes, WINDOW_SILL, WINDOW_HEAD } from './room.js';
+import { roomFixturePanes } from './room-glass.js';
 import { roomProps, furnishRoom, OWN_STYLE_OF } from './room-props.js';
 import { planRegister } from './register.js';
 import { SHOP_GLASS_OPACITY, SHOP_GLASS_TINT, SHOP_WINDOW_GLSL } from './shop-window.js';
@@ -295,7 +296,7 @@ export function planRoom(front, inside = () => true) {
     const shape = top >= .7 ? 'stool' : w > .62 || d > .62 ? 'bench' : 'chair';
     const seatKind = kind ?? (shape === 'bench' && (da ? w : d) >= .64 ? 'lounge' : shape);
     r.add(a, b, w, d, top, color, 0, true, shape, [da, db]);
-    r.seats.push({ a, b, da, db, lift, seatKind, seatHeight: top, seatWidth: da ? d : w, seatDepth: da ? w : d });
+    r.seats.push({ a, b, da, db, lift, seatKind, seatHeight: top, seatWidth: da ? d : w, seatDepth: da ? w : d, fixture: r.things.at(-1) });
   };
   /** A table for two: its chairs to either side along the wall, facing each other. */
   r.table = (a, b, top = WOOD, chair = DARK) => { r.add(a, b, .8, .8, .74, top, 0, true, 'table'); r.seat(a - .65, b, 1, 0, 0, chair); r.seat(a + .65, b, -1, 0, 0, chair); };
@@ -313,11 +314,10 @@ export function planRoom(front, inside = () => true) {
   // Whatever a manner of room asks for, the room is the size it is: anything that would stand in the doorway,
   // poke through a wall or reach the ceiling is left out, and so is anyone who would then be standing in the furniture.
   const fits = thing => Math.abs(thing.a) + thing.w / 2 <= half + .005 && thing.b - thing.d / 2 >= -.005 && thing.b + thing.d / 2 <= depth + .005 && thing.y >= 0 && thing.y + thing.h <= CEILING && thing.w > 0 && thing.d > 0 && thing.h > 0;
-  const blocks = thing => thing.solid && Math.abs(thing.a) < thing.w / 2 + .45 && thing.b - thing.d / 2 < 1.45;
+  const blocks = thing => thing.solid && blocksShopEntry(front, thing);
   let things = r.things.filter(thing => fits(thing) && !blocks(thing));
   const within = (spot, thing, margin = 0) => thing.solid && Math.abs(spot.a - thing.a) < thing.w / 2 + margin && Math.abs(spot.b - thing.b) < thing.d / 2 + margin;
   let staff = r.people.filter(spot => Math.abs(spot.a) < half - .2 && spot.b > .4 && spot.b < depth - .2 && !things.some(thing => within(spot, thing)));
-  let seats = r.seats.filter(spot => things.some(thing => thing.solid && thing.h <= .8 && thing.a === spot.a && thing.b === spot.b));
   // A room too small for its manner of furnishing still has a counter across the back and someone behind it.
   if (!staff.length || things.length < 3 || things.filter(thing => thing.solid).length < 2) {
     const counter = { a: 0, b: depth - 1.35, w: width - 1.8, d: .6, h: 1.05, y: 0, color: WOOD, solid: true };
@@ -325,7 +325,9 @@ export function planRoom(front, inside = () => true) {
     things.push(counter, { a: 0, b: depth - .2, w: width - .6, d: .3, h: 1.9, y: 0, color: STEEL, solid: true }, { a: 0, b: depth - .37, w: width - .9, d: .05, h: .3, y: 1.2, color: GOODS[seed % GOODS.length], solid: false });
     staff = [{ a: 0, b: depth - .75, da: 0, db: -1, facing: 0 }];
   }
-  seats = seats.filter(spot => things.some(thing => thing.solid && thing.h <= .8 && thing.a === spot.a && thing.b === spot.b));
+  const removedTables = r.things.filter(thing => thing.shape === 'table' && !things.includes(thing));
+  things = things.filter(thing => !removedTables.some(table => !thing.solid && Math.abs(thing.y-table.h)<.08 && within(thing,table)));
+  const seats = r.seats.filter(spot => things.includes(spot.fixture));
   // What is sold is written up where it can be read from the door: over the counter a manner of room has in its
   // middle, or else on the back wall, in front of whatever stands against it.
   const menu = menuFor(place), board = menu.length && ['eat','bar'].includes(kind) ? { a: 0, b: r.boardAt != null ? r.boardAt - .06 : depth - .62, w: Math.min(3.4, width - 1.4), h: .78, up: 2.12, lines: menu.map(item => [item.name, item.price]) } : null;
@@ -378,7 +380,7 @@ export function buildRoom(room, y = 0, { streetView = false } = {}) {
       position.push(x, y + y0 + h / 2 + h * p.getY(i + k), z); color.push(tone.r * shade, tone.g * shade, tone.b * shade);
     }
   };
-  const half = room.width / 2, wall = .055, sill = .64, head = 2.27, dark = '#303638';
+  const half = room.width / 2, wall = .055, sill = WINDOW_SILL, head = WINDOW_HEAD, dark = '#303638';
   box(0, room.depth + wall / 2, room.width, wall, CEILING, 0, room.wall);
   for (const side of [-1, 1]) {
     const a = side * (half + wall / 2), length = room.returns?.find(edge => edge.side === side)?.length || 0;
@@ -447,7 +449,12 @@ export function buildRoom(room, y = 0, { streetView = false } = {}) {
     }
   }
   const LEG = '#2a2c30', props = roomProps(room, y, position, color);
-  const paneVertices = [], surfaces=[];
+  const surfaces=[];
+  const fixturePanes = roomFixturePanes(room);
+  const glassPoint = ([a,b,up]) => {
+    const [x,z] = roomPoint(room,a,b);
+    return [x,y+up,z];
+  };
   const till=room.register;
   if (till) {
     if(till.mounted){
@@ -478,17 +485,7 @@ export function buildRoom(room, y = 0, { streetView = false } = {}) {
     const { a, b, w, d, h, y: up, color: hex, shape, face } = thing;
     // The working checkout below replaces the decorative register in the layout.
     if (shape==='register' || thing.more?.pickup) continue;
-    if (shape === 'branchPartition') {
-      const [lx,lz]=roomPoint(room,a-w/2+.038,b), [rx,rz]=roomPoint(room,a+w/2-.038,b);
-      const low=y+up+.07, high=y+up+h-.04;
-      paneVertices.push(lx,low,lz,rx,low,rz,rx,high,rz,lx,low,lz,rx,high,rz,lx,high,lz);
-    }
-    if (shape === 'tellerPane') {
-      const [lx, lz] = roomPoint(room, a - w / 2, b), [rx, rz] = roomPoint(room, a + w / 2, b);
-      const low = y + up, high = low + h;
-      paneVertices.push(lx,low,lz, rx,low,rz, rx,high,rz, lx,low,lz, rx,high,rz, lx,high,lz);
-      continue;
-    }
+    if (thing.glass || shape==='tellerPane') continue;
     // What marks the trade is drawn as itself (room-props.js): an oven, a dressed figure, a case of watches.
     if (props.draw(thing)) continue;
     if (shape === 'table') {
@@ -513,24 +510,6 @@ export function buildRoom(room, y = 0, { streetView = false } = {}) {
       // A counter: a recessed kick at the floor and a top that overhangs a little.
       box(a, b, w - .06, d - .06, .1, 0, '#1b1d20'); box(a, b, w, d, h - .14, .1, hex); box(a, b, w + .06, d + .06, .04, h - .04, '#d9d4c8');
     } else box(a, b, w, d, h, up, hex);
-  }
-  // Display cases and teller windows share a transparent batch.
-  surfaces.push([position.length/3,0]);
-  for (const t of room.things) if (t.shape === 'showcase' || t.shape==='hotServery') {
-    const [da,db] = t.face, w = db ? t.w : t.d, d = db ? t.d : t.w;
-    const point = (u,v,up) => {
-      const [x,z]=roomPoint(room,t.a+db*u+da*v,t.b-da*u+db*v);
-      return [x,y+t.y+up,z];
-    };
-    const left=-w/2+.012, right=-left, front=d/2-.011, top=t.h-.014, base=t.more?.deck??Math.max(.045,t.h-.34);
-    const quad=(a,b,c,e)=>paneVertices.push(...a,...b,...c,...a,...c,...e);
-    if(t.shape==='hotServery'){
-      const edge=d*.43, sill=t.more.countertop?.15:1.01;
-      quad(point(left,edge,sill),point(right,edge,sill),point(right,edge,top),point(left,edge,top));
-      quad(point(left,edge,top),point(right,edge,top),point(right,-d*.12,top),point(left,-d*.12,top));continue;
-    }
-    quad(point(left,front,base),point(right,front,base),point(right,front,top),point(left,front,top));
-    quad(point(left,front,top),point(right,front,top),point(right,-front,top),point(left,-front,top));
   }
   let drawer, notes, takeArm;
 
@@ -621,10 +600,11 @@ export function buildRoom(room, y = 0, { streetView = false } = {}) {
     menuBoard = new THREE.Mesh(plane, new THREE.MeshBasicMaterial({ map: lettering, side: THREE.DoubleSide, fog: false })); menuBoard.name = 'Menu board'; menuBoard.frustumCulled = streetView; group.add(menuBoard);
   }
   let caseGlass;
-  if (paneVertices.length) {
+  if (fixturePanes.length) {
+    const paneVertices = fixturePanes.flatMap(({quad})=>[0,1,2,0,2,3].flatMap(i=>glassPoint(quad[i])));
     const surface=new THREE.BufferGeometry();
     surface.setAttribute('position',new THREE.Float32BufferAttribute(paneVertices,3));
-    caseGlass=new THREE.Mesh(surface,new THREE.MeshBasicMaterial({color:0xb4d9d9,opacity:.10,transparent:true,depthWrite:false,side:THREE.DoubleSide,fog:false}));
+    caseGlass=new THREE.Mesh(surface,new THREE.MeshBasicMaterial({color:0xb4d9d9,opacity:.10,transparent:true,depthWrite:false,side:THREE.DoubleSide,forceSinglePass:true,fog:false}));
     caseGlass.name='Display case glass'; group.add(caseGlass);
   }
   const terminal=till && checkoutScreens(room,till,y);
@@ -705,12 +685,8 @@ export function buildRoom(room, y = 0, { streetView = false } = {}) {
     const low = y + sill, high = y + head;
     windowVertices.push(x0,low,z0, x1,low,z1, x1,high,z1, x0,low,z0, x1,high,z1, x0,high,z0);
   };
-  // Seat the fixed sheets in their frames. The door uses the same single sheet on its hinge.
-  for (const side of [-1,1]) {
-    addWindow(side * .7,.04,side * (half - .22),.04);
-    const length = room.returns?.find(edge => edge.side === side)?.length;
-    if (length > .44) addWindow(side * half,.22,side * half,length - .22);
-  }
+  const sheets = shopWindowPanes(room);
+  for (const {a0,b0,a1,b1} of sheets) addWindow(a0,b0,a1,b1);
   const windowGeometry = new THREE.BufferGeometry();
   windowGeometry.setAttribute('position',new THREE.Float32BufferAttribute(windowVertices,3));
   const windows = new THREE.Mesh(windowGeometry,glass);
@@ -734,6 +710,22 @@ export function buildRoom(room, y = 0, { streetView = false } = {}) {
   const pane = new THREE.Mesh(new THREE.PlaneGeometry(DOOR - .1, 1.9), glass);
   pane.name = 'Storefront door glass';
   pane.position.set(DOOR / 2,1.16,0); leaf.add(pane);
+  const showPanes = (geometry,panes,broken) => {
+    if (!geometry) return;
+    if (!geometry.index) geometry.setIndex(new THREE.BufferAttribute(new Uint16Array(panes.length*6),1));
+    let count = 0;
+    panes.forEach(({id},i)=>{
+      if (broken.has(id)) return;
+      for (let j=0;j<6;j++) geometry.index.setX(count++,i*6+j);
+    });
+    geometry.index.needsUpdate = true;
+    geometry.setDrawRange(0,count);
+  };
+  group.userData.setBrokenGlass = broken => {
+    pane.visible = !broken.has('door');
+    showPanes(windowGeometry,sheets,broken);
+    showPanes(caseGlass?.geometry,fixturePanes,broken);
+  };
   const door = new ShopDoor();
   group.userData.door = door;
   group.userData.updateDoor = () => { leaf.rotation.y = (mirrored ? 1 : -1) * door.angle; };

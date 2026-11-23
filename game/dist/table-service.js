@@ -3,10 +3,10 @@
 // and settles the check before leaving. One ticket stays open for the sitting.
 import { ask, done, walking, pause, reached } from './facility-visits.js';
 import { cookDish, workSteps, frontOfHouse, clearPlate, passApproach, passOf, clearWare } from './kitchen-line.js';
-import { diningTable, foodId, pantryItem, heldFood, beverage } from './shopping.js';
+import { diningTable, foodId, pantryItem, heldFood, beverage, servingSize } from './shopping.js';
 import { floorAt, facePoint, shopAisle } from './room-walk.js';
 import { roomLocal, roomPoint } from './room.js';
-import { menuFor, PEP, carriedOrder } from './menu.js';
+import { menuFor, carriedOrder } from './menu.js';
 import { servingFor } from './food-catalog.js';
 import { foodPreviewOptions } from './food-counter.js';
 
@@ -70,7 +70,6 @@ export function callServer(sim,view,{sale}={}) {
   const say=(server,line,seconds=5)=>{o.said=line;sim._say((server?staffName(view,server)+': ':'')+line,seconds);};
   const idle=(seconds=.25)=>pause(sim.player,undefined,seconds,null,'idle');
   o.due=()=>o.items.filter(d=>d.state!=='ordered' && d.state!=='cooking' && d.state!=='pass').reduce((sum,d)=>sum+d.price,0);
-  o.total=()=>o.items.reduce((sum,d)=>sum+d.price,0);
   function tableEdge(server) {
     const at=playerAt(), aisle=shopAisle(view), from=floorAt(view,server);
     const nodes=aisle.nodes.filter(n=>gap(n,at)>.62 && gap(n,table)<1.5).sort((p,q)=>gap(p,table)-gap(q,table));
@@ -211,14 +210,20 @@ export function callServer(sim,view,{sale}={}) {
   /** A choice made at the table: 'hail', 'more' or 'check'. */
   o.ask=wish=>{o.wish=wish;};
   /** Start on something that has been set down. */
-  o.consume=d=>{
+  o.consume=(d,finish=true)=>{
     if(bag.eating || d.state!=='table')return false;
     if(d.drink)view.group?.userData.drinkAt?.(d.spot,'mug',false);
     else view.group?.userData.mealAt?.(table,false);
     view.claims.delete(table);
-    sim.pep=d.food.effect==='drink'?0:Math.max(sim.pep||0,PEP[d.food.effect]||PEP.pep);
-    bag.beginEating(d.food,view);
-    d.state='eating';o.eating=d;
+    d.state='eating';
+    bag.beginEating(d.food,view,0,{finish,remaining:d.remaining||servingSize(d.food),onRemaining:(remaining,meal)=>{
+      d.remaining=remaining;
+      d.state=remaining && meal.table?'table':'eaten';
+      if(d.state!=='table')return false;
+      if(d.drink)view.group?.userData.drinkAt?.(d.spot,'mug',true,d.food,meal.level);
+      view.claims.set(table,o);
+      return true;
+    }});
     sim._say((d.drink?'Drinking ':'Eating ')+lower(d.food.name)+'.');
     return true;
   };
@@ -234,20 +239,23 @@ export function callServer(sim,view,{sale}={}) {
     return true;
   };
   /** Leaving with the check unpaid. Staff who see it go report it. */
-  o.walkout=()=>{
+  o.walkout=combine=>{
     const due=o.due();
     if(o.paid || !due)return;
     o.paid=true;
-    if(bag.witness(view) && sim._random()<.85)sim.offence('theft',{x:room.x,y:sim.player.y,z:room.z,witnessReport:true,message:'The restaurant reported a walkout on a '+money(due)+' check.'});
+    if(combine && bag.charge(place,due,o.sale))return;
+    if(bag.witness(view) && sim._random()<.85)sim.offence('theft',{x:room.x,y:sim.player.y,z:room.z,witnessReport:true,localResponse:true,identified:false,roomView:view,message:'The restaurant reported a walkout on a '+money(due)+' check.'});
     else sim._say('You walked out on a '+money(due)+' check.',5);
   };
   o.release=()=>{
+    if(bag.eating?.table===table && o.items.some(d=>d.state==='eating'))bag.clearEating();
+    if(!o.paid && o.due())bag.charge(place,o.due(),o.sale);
     clearWare(o);
     for(const d of o.items){
       if(d.portion){clearPlate(o,d.portion);d.portion=null;}
       if(d.state==='table'){
         // What is left on the table is cleared like any other plate.
-        if(d.drink){view.group?.userData.drinkAt?.(d.spot,'mug',false);const mug={...d.spot};view.group?.userData.drinkAt?.(mug,'mug',true,d.food,2);view.cleanups.push({table,mug,emptyCarry:servingFor(d.food,true),server:null,left:1.2});}
+        if(d.drink){view.group?.userData.drinkAt?.(d.spot,'mug',false);const mug={...d.spot};view.group?.userData.drinkAt?.(mug,'mug',true,d.food,d.remaining?1:2);view.cleanups.push({table,mug,emptyCarry:servingFor(d.food,true),server:null,left:1.2});}
         else view.cleanups.push({table,mug:null,emptyCarry:servingFor(d.food,true),server:null,left:1.2});
         d.state='left';
       }
@@ -258,7 +266,6 @@ export function callServer(sim,view,{sale}={}) {
   };
   o.step=dt=>{
     if(sim.room?.place.id!==o.shop || view.handoff || view.closed || sim.player.armed || sim.ending || o.employee?.escape || o.employee?.gone){bag.cancelOrder();return;}
-    if(o.eating && bag.eating?.item!==o.eating.food){o.eating.state='eaten';o.eating=null;bag.revision++;}
     if(!view.claims.has(table))view.claims.set(table,o);
     const here=diningTable(sim,view)===table;
     o.away=here?0:o.away+dt;
@@ -287,15 +294,14 @@ function listing(ctx,o,title,message,rows,extra={}) {
   interaction.openList(title,rows,row=>row.run?.(),{message,cash:sim.cash,available,...extra.options,onClose:()=>{o.talkOpen=false;extra.options?.onClose?.();}});
   o.talkOpen=interaction.open;
 }
-function sendOrder(ctx,o,items) {
-  const total=items.reduce((sum,d)=>sum+d.price,0);
-  if(!items.length || !ctx.sim.shopping.canPay(o.total()+total))return;
+function sendOrder(o,items) {
+  if(!items.length)return;
   o.reply={items:items.map(d=>({...d}))};
 }
 function orderMenu(ctx,o,{drinksOnly=false,chosen=null}={}) {
   const place=o.room.place, voice=voiceOf(o.room), who=staffName(o.view,o.talk.server);
   const menu=tableMenu(place), foods=menu.filter(d=>!d.drink), drinks=menu.filter(d=>d.drink);
-  const send=items=>sendOrder(ctx,o,items);
+  const send=items=>sendOrder(o,items);
   const options=foodPreviewOptions(ctx.$);
   const row=(d,run)=>({item:d.item,name:d.item.name,note:money(d.price),run});
   if(chosen || drinksOnly){
@@ -318,7 +324,7 @@ function greeting(ctx,o) {
   const rows=[
     {name:'I am ready to order',run:()=>orderMenu(ctx,o)},
     {name:'What do you recommend?',run:()=>listing(ctx,o,who+' · your server',voice.pick(lower(pick.item.name)),[
-      {name:'I will have the '+lower(pick.item.name),note:money(pick.price),run:()=>pick.drink?sendOrder(ctx,o,[pick]):orderMenu(ctx,o,{chosen:pick})},
+      {name:'I will have the '+lower(pick.item.name),note:money(pick.price),run:()=>pick.drink?sendOrder(o,[pick]):orderMenu(ctx,o,{chosen:pick})},
       {name:'Let me see the menu',run:()=>orderMenu(ctx,o)}],{kind:'greeting'})},
     {name:'I need a few minutes',run:()=>{o.reply={later:true};}},
   ];
@@ -334,9 +340,16 @@ function check(ctx,o) {
 }
 function atTable(ctx,o) {
   const {sim}=ctx, bag=sim.shopping, place=o.room.place, rows=[];
-  if(bag.eating){sim._say('Finish your '+(bag.eating.drink?'drink':'food')+' first.');return;}
+  if(bag.eating){
+    listing(ctx,o,bag.eating.item.name,'',[{name:bag.eating.drink?'Stop drinking':'Stop eating',run:()=>bag.clearEating()}]);
+    return;
+  }
   const here=diningTable(sim,o.view)===o.table;
-  if(here)for(const d of o.items.filter(d=>d.state==='table'))rows.push({name:(d.drink?'Drink the ':'Eat the ')+lower(d.food.name),run:()=>{o.consume(d);}});
+  if(here)for(const d of o.items.filter(d=>d.state==='table')){
+    const name=lower(d.food.name),remaining=d.remaining||servingSize(d.food);
+    rows.push({name:(d.drink?'Take a sip of ':'Take a bite of ')+name,note:remaining+(d.drink?' sips':' bites')+' left',run:()=>o.consume(d,false)});
+    if(remaining>1)rows.push({name:(d.drink?'Drink the ':'Eat the ')+name,note:'Finish the serving',run:()=>o.consume(d)});
+  }
   if(o.stage==='dining' && here){
     rows.push({name:'Order something else',run:()=>o.ask('more')});
     if(o.due())rows.push({name:'Ask for the check',note:money(o.due()),run:()=>o.ask('check')});

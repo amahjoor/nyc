@@ -5,7 +5,8 @@ import * as THREE from '../dist/vendor/three.module.min.js';
 import { KIND } from '../dist/places.js';
 import { planRoom, buildRoom, roomKind, roomStyle, STYLE_OF, CEILING } from '../dist/interiors.js';
 import { KINDS } from '../dist/places.js';
-import { walkRoom, roomPoint, DOOR, ShopDoor } from '../dist/room.js';
+import { blocksShopEntry, walkRoom, roomPoint, DOOR, ShopDoor } from '../dist/room.js';
+import { followRoute, roomSeatStep } from '../dist/room-walk.js';
 import { fleeShop, inviteCustomer, populateShop, stepEscape } from '../dist/shop-life.js';
 import { Simulation } from '../dist/simulation.js';
 
@@ -13,6 +14,33 @@ const place = (kind, name = 'X') => ({ id: name, kind, group: KIND[kind].group, 
 // A front on a wall along z = 0 facing +z; the building runs back to z = -depth.
 const front = (kind, width = 7) => ({ place: place(kind), x: 10, z: 0, tx: 1, tz: 0, nx: 0, nz: 1, width });
 const building = depth => (x, z) => z < 0 && z > -depth && x > -20 && x < 40;
+
+test('skewed entrances keep an open path and all seats have their original fixture', () => {
+  const fixture = {a:-1.35,b:1.2,w:.4,d:.4};
+  assert.equal(blocksShopEntry({skew:0},fixture),false);
+  assert.equal(blocksShopEntry({skew:.55},fixture),true);
+  for (const kind of ['bar','pizza','coffee','american']) for (const skew of [-.55,0,.55]) {
+    const plan = planRoom({...front(kind),skew},building(12));
+    assert.ok(plan.things.every(thing=>!thing.solid || !blocksShopEntry(plan,thing)),kind);
+    assert.ok(plan.seats.every(seat=>plan.things.includes(seat.fixture)),kind);
+  }
+});
+
+test('a diner stays upright when blocked and only lowers onto the seat anchor', () => {
+  const person = {x:0,z:0,y:0,heading:Math.PI/2};
+  const obstacle = {x:.4,z:0,y:0};
+  const view = {plan:{...front('bar'),x:0,z:-2,depth:8},floor:0,actors:[person,obstacle]};
+  const seat = {x:1,z:0,y:0,fromX:0,fromZ:0,fromY:0,fromAngle:person.heading,turn:0,
+    weight:0,progress:0,duration:1,path:{length:0,points:[]}};
+  assert.equal(roomSeatStep(view,person,seat,.1),false);
+  assert.deepEqual([person.x,person.heading,seat.weight],[0,Math.PI/2,0]);
+  obstacle.gone=true;
+  for (let i=0;i<20;i++) {
+    assert.equal(roomSeatStep(view,person,seat,.05),true);
+    if (seat.weight>0) assert.deepEqual([person.x,person.z],[seat.x,seat.z]);
+  }
+  assert.equal(seat.progress,1);
+});
 
 test('a room is as deep as its building allows and furnished for the kind of place', () => {
   assert.deepEqual(['bodega', 'pizza', 'coffee', 'bar', 'nails', 'barber', 'hotel', 'library', 'repair', 'gas', 'newsstand'].map(kind => roomKind(place(kind))), ['shop', 'eat', 'eat', 'bar', 'chairs', 'chairs', 'lobby', 'lobby', 'shop', null, null]);
@@ -63,24 +91,56 @@ test('both storefront windings show the inside of the walls and the tops of furn
 });
 
 test('the door, display windows and corner windows use the same single sheet of tinted glass', () => {
-  const plan = planRoom({ ...front('coffee'), returns: [{ side: 1, length: 4 }] });
-  const group = buildRoom(plan, 0, { streetView: true });
-  const windows = group.getObjectByName('Storefront window glass');
-  const door = group.getObjectByName('Storefront door glass');
-  assert.equal(door.material, windows.material);
-  assert.ok(windows.material.transparent && !windows.material.depthWrite && windows.material.forceSinglePass);
-  group.updateMatrixWorld(true);
   const hits = (origin, direction, mesh) => new THREE.Raycaster(new THREE.Vector3(...origin),
     new THREE.Vector3(...direction)).intersectObject(mesh).length;
-  assert.equal(hits([10.25,1.5,2], [0,0,-1], door), 1);
-  assert.equal(hits([8,1.5,2], [0,0,-1], windows), 1);
-  assert.equal(hits([12,1.5,2], [0,0,-1], windows), 1);
-  assert.equal(hits([15,1.5,-1], [-1,0,0], windows), 1);
-  group.userData.door.angle = Math.PI / 2;
-  group.userData.updateDoor();
-  group.updateMatrixWorld(true);
-  assert.equal(hits([10.25,1.5,2], [0,0,-1], door), 0);
-  group.userData.dispose();
+  for (const kind of ['pizza', 'coffee', 'bodega']) {
+    const plan = planRoom({ ...front(kind), returns: [{ side: 1, length: 4 }] });
+    const group = buildRoom(plan, 0, { streetView: true });
+    const windows = group.getObjectByName('Storefront window glass');
+    const door = group.getObjectByName('Storefront door glass');
+    assert.equal(door.material, windows.material);
+    assert.ok(windows.material.transparent && !windows.material.depthWrite && windows.material.forceSinglePass);
+    group.updateMatrixWorld(true);
+    assert.equal(hits([10.25,1.5,2], [0,0,-1], door), 1);
+    assert.equal(hits([7.6,1.5,2], [0,0,-1], windows), 1);
+    assert.equal(hits([12.4,1.5,2], [0,0,-1], windows), 1);
+    assert.equal(hits([15,1.5,-1], [-1,0,0], windows), 1);
+    group.userData.setBrokenGlass(new Set(['front:-1','door']));
+    assert.equal(hits([7.6,1.5,2], [0,0,-1], windows), 0);
+    assert.equal(hits([8.5,1.5,2], [0,0,-1], windows), 1);
+    assert.equal(hits([12.4,1.5,2], [0,0,-1], windows), 1);
+    assert.equal(door.visible,false);
+    group.userData.setBrokenGlass(new Set());
+    group.userData.door.angle = Math.PI / 2;
+    group.userData.updateDoor();
+    group.updateMatrixWorld(true);
+    assert.equal(hits([10.25,1.5,2], [0,0,-1], door), 0);
+    group.userData.dispose();
+  }
+});
+
+test('counter guards render as one transparent pane outside the opaque room mesh', () => {
+  for (const kind of ['pizza', 'liquor']) {
+    const room = planRoom(front(kind));
+    const guard = room.things.find(thing => thing.glass && !thing.shape);
+    assert.ok(guard, kind);
+    const group = buildRoom(room, 0, { streetView: true });
+    try {
+      const glass = group.getObjectByName('Display case glass');
+      assert.ok(glass.material.transparent && !glass.material.depthWrite && glass.material.forceSinglePass);
+      group.updateMatrixWorld(true);
+      const alongA = guard.w > guard.d;
+      const a = guard.a + (alongA ? guard.w * .15 : 0);
+      const b = guard.b + (alongA ? 0 : guard.d * .15);
+      const [px, pz] = roomPoint(room, a, b);
+      const [ox, oz] = roomPoint(room, a + (alongA ? 0 : .12), b + (alongA ? .12 : 0));
+      const height = guard.y + guard.h * .6;
+      const ray = new THREE.Raycaster(new THREE.Vector3(ox, height, oz),
+        new THREE.Vector3(px - ox, 0, pz - oz).normalize(), 0, .24);
+      assert.equal(ray.intersectObject(glass).length, 1, kind);
+      assert.equal(ray.intersectObject(group.children[0]).length, 0, kind);
+    } finally { group.userData.dispose(); }
+  }
 });
 
 test('walking about a room: walls and furniture stop you, the door lets you out', () => {
@@ -120,6 +180,40 @@ test('the player goes in on foot, is kept in the room, and comes out on the side
   assert.equal(sim.room, null); assert.ok(sim.player.z > 0 && sim.player.z < 2.5, 'back out through the door');
   for(let i=0;i<50&&!sim.room;i++)sim.step({moveZ:-1},1/60);
   assert.ok(sim.room,'can turn straight back without a cooldown');
+});
+
+test('a player cannot walk through indoor staff or use the threshold to pass through a visitor',()=>{
+  const room=planRoom(front('pizza'),building(30));
+  const sim=new Simulation({bounds:{minX:-50,maxX:50,minZ:-50,maxZ:50},roads:[],buildings:[],spawn:{x:10,z:2}});
+  const npc={x:10,y:0,z:-.24,look:{height:1.76,build:1}};
+  let bumps=0;
+  sim.doorway={plan:room,floor:0,door:new ShopDoor(),actors:[npc],visitors:new Set()};
+  sim.onPedestrianBump=person=>{assert.equal(person,npc);bumps++;};
+  for(let i=0;i<100;i++)sim.step({moveZ:-1},1/60);
+  assert.ok(!sim.room);
+  assert.ok(sim.player.z>npc.z+.6);assert.ok(bumps>0);
+  npc.x+=1.1;
+  for(let i=0;i<140 && !sim.room;i++)sim.step({moveZ:-1},1/60);
+  assert.ok(sim.room);
+  Object.assign(npc,{x:10,z:-1.8});
+  for(let i=0;i<90;i++)sim.step({moveZ:-1},1/60);
+  assert.ok(sim.player.z>npc.z+.6,'the same body spacing applies inside');
+});
+
+test('an arriving customer steps aside while another customer crosses the same door',()=>{
+  const room={x:0,z:0,tx:1,tz:0,nx:0,nz:1,width:5,depth:6,things:[]};
+  const entry={path:[{a:0,b:-.85},{a:0,b:1}],phase:'entering',at:0};
+  const exit={path:[{a:0,b:-.85},{a:0,b:-2.7}],phase:'back to sidewalk',at:0};
+  const incoming={x:0,z:1,y:0,look:{pace:1.4},visit:{task:entry}};
+  const outgoing={x:0,z:-.55,y:0,look:{pace:1.4},visit:{task:exit}};
+  const view={plan:room,floor:0,door:new ShopDoor(),visitors:new Set([incoming,outgoing])};
+  for(let i=0;i<300 && (entry.at<2 || exit.at<2);i++){
+    followRoute(view,incoming,entry,1/60);
+    followRoute(view,outgoing,exit,1/60);
+    assert.ok(Math.hypot(incoming.x-outgoing.x,incoming.z-outgoing.z)>.61,'the two bodies keep their distance');
+  }
+  assert.equal(exit.at,2);
+  assert.equal(entry.at,2);
 });
 
 test('there is somewhere for customers to sit: at tables, at the bar and in the barber chairs, each on a seat and facing what they came for', () => {

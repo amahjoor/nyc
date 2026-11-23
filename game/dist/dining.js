@@ -8,6 +8,7 @@
 // the parking lane would stand where the game parks cars.
 import * as THREE from './vendor/three.module.min.js';
 import { wallFinder } from './places.js';
+import { DOOR } from './room.js';
 
 const CELL = 256;
 /** How far apart tables stand along the wall, how far out from it, and the most in one row. */
@@ -35,8 +36,13 @@ export function createDining(data = null) {
  * centred at (x, z) on the wall, running along (tx, tz), with (nx, nz) out over
  * the sidewalk. `footprints` is places.js indexFootprints().
  */
-export function planDining(points, footprints, isStreet) {
+export function planDining(points, footprints, isStreet, { fronts = [] } = {}) {
   const walls = wallFinder(footprints, isStreet), rows = [], taken = new Set();
+  const entrances = new Map();
+  for (const front of fronts) {
+    if (!entrances.has(front.building)) entrances.set(front.building, []);
+    entrances.get(front.building).push(front);
+  }
   for (const point of points) {
     if (point.roadway) continue;
     let best = null;
@@ -44,13 +50,30 @@ export function planDining(points, footprints, isStreet) {
     if (inside) candidates.add(inside);
     for (const building of candidates) for (const wall of walls(building)) {
       const t = Math.max(0, Math.min(1, ((point.x - wall.a[0]) * wall.tx + (point.z - wall.a[1]) * wall.tz) / wall.length)), x = wall.a[0] + wall.tx * wall.length * t, z = wall.a[1] + wall.tz * wall.length * t, distance = Math.hypot(x - point.x, z - point.z);
-      if (distance < 22 && (!best || distance < best.distance)) best = { wall, t, distance };
+      if (distance < 22 && (!best || distance < best.distance)) best = { building, wall, t, distance };
     }
     if (!best || best.wall.length < CAFE.pitch * 2 || taken.has(best.wall)) continue;
-    taken.add(best.wall);
-    const { wall } = best, tables = Math.max(2, Math.min(CAFE.most, Math.floor((wall.length - 1.6) / CAFE.pitch))), half = tables * CAFE.pitch / 2 + .5;
-    // The row keeps to its wall.
-    const along = Math.max(half, Math.min(wall.length - half, best.t * wall.length));
+    const { wall } = best, center = best.t * wall.length, clearance = DOOR/2+.55;
+    const doors = (entrances.get(best.building) || []).flatMap(front => {
+      const dx = front.x-wall.a[0], dz = front.z-wall.a[1], along = dx*wall.tx+dz*wall.tz;
+      return front.nx*wall.nx+front.nz*wall.nz > .99 && Math.abs(dx*wall.nx+dz*wall.nz)<.1 &&
+        along >= 0 && along <= wall.length ? [along] : [];
+    }).sort((a,b)=>a-b);
+    let low = 0, space = null;
+    for (const door of [...doors, wall.length+clearance]) {
+      const high = door-clearance;
+      const tables = Math.min(CAFE.most, Math.floor((high-low-1) / CAFE.pitch));
+      const half = tables*CAFE.pitch/2+.5;
+      if (tables > 0) {
+        const along = Math.max(low+half,Math.min(high-half,center));
+        if (!space || tables > space.tables || tables === space.tables && Math.abs(along-center)<Math.abs(space.along-center))
+          space = {along,tables};
+      }
+      low = Math.max(low,door+clearance);
+    }
+    if (!space) continue;
+    taken.add(wall);
+    const {along,tables} = space;
     rows.push({ x: wall.a[0] + wall.tx * along, z: wall.a[1] + wall.tz * along, tx: wall.tx, tz: wall.tz, nx: wall.nx, nz: wall.nz, tables });
   }
   return rows;

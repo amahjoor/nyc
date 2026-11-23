@@ -18,6 +18,10 @@ for (const [seatKind, clip] of Object.entries(SEAT_CLIPS)) {
 }
 
 const ease = t => { t = Math.max(0, Math.min(1, t)); return t * t * (3 - 2 * t); };
+export function seatApproachEnd(path,seat,fromX,fromZ) {
+  const last = path.points.at(-1);
+  return Math.hypot(seat.x-(last?.x??fromX),seat.z-(last?.z??fromZ));
+}
 
 // Finish the turn beside the cushion. From behind a chair, walk round the
 // nearer end of its backrest first. A table or adjacent chair may rule out
@@ -57,16 +61,19 @@ export function stepSeating(player, seat, dt) {
   const align = ease(seat.progress / .4);
   const weight = seat.weight = ease((seat.progress - .4) / .6);
   const previousX = player.x, previousZ = player.z;
-  const along = seat.path.length * align;
+  const {points,length} = seat.path;
+  const finalLeg = seat.alignAtSeat ? seatApproachEnd(seat.path,seat,seat.fromX,seat.fromZ) : 0;
+  const along = (length + finalLeg) * align;
   let x=seat.fromX, z=seat.fromZ, start=0;
-  for (const p of seat.path.points) {
+  for (const p of points) {
     const t = p.distance > start ? Math.min(1,(along-start)/(p.distance-start)) : 1;
     x += (p.x-x)*t; z += (p.z-z)*t;
     if (along<=p.distance) break;
     start=p.distance;
   }
-  player.x = x + (seat.x-x)*weight;
-  player.z = z + (seat.z-z)*weight;
+  const onCushion = seat.alignAtSeat ? finalLeg ? Math.max(0,Math.min(1,(along-length)/finalLeg)) : Number(align===1) : weight;
+  player.x = x + (seat.x-x)*onCushion;
+  player.z = z + (seat.z-z)*onCushion;
   player.y = seat.fromY + (seat.y-seat.fromY)*ease(seat.progress);
   player.angle = seat.fromAngle + seat.turn * align;
   seat.stepSpeed = dt > 0 && seat.progress < .4 ? Math.hypot(player.x - previousX, player.z - previousZ) / dt : 0;

@@ -54,6 +54,14 @@ test('each table has a top, a leg and two chairs, all over the sidewalk, with a 
   cafes.dispose(); small.dispose(); assert.equal(scene.children.length, 0);
 });
 
+test('every part of a patio row stays clear of the shop entrance', () => {
+  const building = {polygon:[[0,-10],[14,-10],[14,0],[0,0]]};
+  const fronts = [{building,x:7,z:0,nx:0,nz:1}];
+  const [row] = planDining([{x:7,z:1,roadway:false}],indexFootprints([building]),(_x,z)=>z>0,{fronts});
+  assert.equal(row.tables,2);
+  assert.ok(Math.abs(row.x-7)-row.tables*CAFE.pitch/2-.5>=1.1-1e-8);
+});
+
 test('two chairs to a table, each facing it across the table from the other', () => {
   const seats = seatsOf({ x: 6, z: 0, tx: 1, tz: 0, nx: 0, nz: 1, tables: 2 });
   assert.equal(seats.length, 4);

@@ -1,9 +1,9 @@
 // Cash registers are fixtures in the generated interiors. The same local
 // coordinates place the drawer, its operator side, and the interaction.
-import { crossesFixture, roomLocal, roomPoint, walkRoom } from './room.js';
-import { fleeShop, stepEscape } from './shop-life.js';
+import { blocksShopEntry, crossesFixture, roomLocal, roomPoint, roomUnderFire, walkRoom } from './room.js';
+import { fleeShop, stepEscape, stepRoomInjury } from './shop-life.js';
 import { checkoutAxes, CHECKOUT_WIDTH, CHECKOUT_DEPTH } from './checkout-model.js';
-import { menuFor } from './menu.js';
+import { KIND } from './places.js';
 
 const clamp = (n, low, high) => Math.min(high, Math.max(low,n));
 
@@ -27,7 +27,9 @@ function reachableFloor(room, extra) {
 }
 
 export function planRegister(room) {
-  if (!room.staff.length || !menuFor(room.place).length) return null;
+  const kind = room.place.kind;
+  // Public reception desks handle no payments, except at the post office.
+  if (!room.staff.length || (KIND[kind]?.group === 'public' && kind !== 'postoffice')) return null;
   const floor=reachableFloor(room), markers=room.things.filter(t=>t.shape==='register');
   const cashier=room.staff.findIndex(s=>s.checkout || s.role==='cashier');
   const operators=cashier>=0?[[cashier,room.staff[cashier]]]:[...room.staff.entries()];
@@ -108,7 +110,7 @@ export function planRegister(room) {
         const a=staff.a-da*distance+db*side,b=staff.b-db*distance-da*side;
         const w=da?.50:.61,d=da?.61:.50;
         if(Math.abs(a)+w/2>half-.06 || b-d/2<.12 || b+d/2>room.depth-.06 ||
-          Math.abs(a)<w/2+.48 && b-d/2<1.45)continue;
+          blocksShopEntry(room,{a,b,w,d}))continue;
         const podium={a,b,w,d,h:.96,y:0,solid:true,shape:'checkoutCounter',face:[-da,-db],
           color:'#706653',more:{trim:'#a99c87'}};
         if(room.things.some(t=>t.y<1.30 && overlaps(t,a,b,w/2+.018,d/2+.018)) ||
@@ -177,7 +179,7 @@ export function beginRegisterTake(sim, work) {
   const source=kind==='collect' ? {...view.cashPoint} : drawerPoint(view.plan);
   view.take={kind,source,age:0,duration:kind==='drawer'?1.35:.95};
   if (kind==='drawer') {
-    if (!view.handoff) work.alarm(view,'The clerk recoils as the drawer opens. Store alarm reported.');
+    work.alarm(view,'The clerk recoils as the drawer opens. Store alarm reported.');
     view.handoff={phase:'alarmed',age:0,safeTime:0};
   }
   return true;
@@ -202,6 +204,7 @@ export function updateClerk(view, sim, yaw, pitch, dt, work, {outside, palm, fir
   const room=view.plan, p=sim.player, till=room.register, clerk=view.clerk;
   const active=sim.doorway===view && sim.room?.place?.id===room.place.id && !sim.ending && p.mode==='walk';
   const armed=active && p.armed && !sim.seat;
+  const gunfire=roomUnderFire(view,sim.elapsed);
   const closed=work.isClosed(room.place);
   if (view.closed && !closed) {
     // A room can stay streamed in for the entire closure.
@@ -212,7 +215,8 @@ export function updateClerk(view, sim, yaw, pitch, dt, work, {outside, palm, fir
       if (sitting && active && sim.seat && Math.hypot(sim.seat.x-x,sim.seat.z-z)<.2) {
         actor.gone=true; view.occupied.delete(s); continue;
       }
-      Object.assign(actor,{x,z,heading:Math.atan2(fx-x,fz-z),escape:null,robbery:null,gone:false,clip:null,from:null,stride:0,lift:s.lift||0,sitting,seat:sitting?s:null});
+      Object.assign(actor,{x,z,heading:Math.atan2(fx-x,fz-z),escape:null,robbery:null,gone:false,clip:null,from:null,stride:0,lift:s.lift||0,sitting,seat:sitting?s:null,
+        dead:false,hp:3,wounds:0,wounded:false,state:null,reaction:null});
       if (actor.sitting) view.occupied.add(s);
     }
     view.handoff=null;
@@ -221,17 +225,21 @@ export function updateClerk(view, sim, yaw, pitch, dt, work, {outside, palm, fir
   if (closed && !view.handoff) for (const actor of view.actors) actor.gone=true;
   if (!dt) return;
   let event=view.handoff;
-  if (clerk && !clerk.gone && !clerk.escape && !event && armed && canNotice(view,p,clerk)) {
-    event=view.handoff={phase:'startled',age:0,safeTime:0};
-    work.alarm(view,'The clerk spots the pistol and raises their hands. Store alarm reported.');
+  if (gunfire && event && event.phase!=='escaping') {
+    event=view.handoff={phase:'escaping',age:0};
+    if (view.take?.kind==='collect') view.take=null;
   }
-  // Anyone who sees the pistol can react before the clerk. The alarm also
-  // reaches people seated behind shelves and customers on their way to pay.
+  if (clerk && !clerk.gone && !clerk.escape && !clerk.dead && !event && !gunfire && armed && canNotice(view,p,clerk)) {
+    event=view.handoff={phase:'startled',age:0,safeTime:0};
+    sim._say('The clerk spots the pistol and raises their hands.');
+  }
+  // People who hear the commotion can flee alongside those who see the pistol.
   for(const visitor of view.visitors?.size ? view.visitors : [view.visitor])
-    if(visitor?.visit && (event || armed && canNotice(view,p,visitor))) fleeShop(view,visitor);
+    if(visitor?.visit && (gunfire || event || armed && canNotice(view,p,visitor))) fleeShop(view,visitor);
   for (const actor of view.actors) {
     if (actor.gone) continue;
-    if (!actor.escape && actor!==clerk && (event || armed && canNotice(view,p,actor))) fleeShop(view,actor);
+    if (stepRoomInjury(view,actor,dt)) continue;
+    if (!actor.escape && (gunfire || actor!==clerk && (event || armed && canNotice(view,p,actor)))) fleeShop(view,actor);
     if (actor.escape) stepEscape(view,actor,dt,outside,p);
     else if (actor.machine && !actor.serviceOwner && !(event && actor===clerk)) {
       const [x,z]=roomPoint(room,actor.machine.a,actor.machine.b);

@@ -1,12 +1,12 @@
 // Customers keep their sidewalk actor and walking route. A visit leases actual
 // employees, seats, display cases and equipment until the relevant task ends.
 import { foodId,pantryItem,heldFood,diningTable,beverage } from './shopping.js';
-import { DOOR, roomPoint,roomLocal } from './room.js';
+import { DOOR, roomPoint, roomLocal, roomUnderFire } from './room.js';
 import { floorAt, facePoint, followRoute, peopleInRoom, roomSeatStep, shopAisle, walkingPose } from './room-walk.js';
 import { shopStairRoute } from './shop-entrance.js';
 import { clearTravel, hasStandingRoom } from './pedestrian-motion.js';
 import { servingFor,portionKey } from './food-catalog.js';
-import { seatApproach } from './seating.js';
+import { seatApproach, seatApproachEnd } from './seating.js';
 import { cookDish, workSteps, clearPlate, clearWare, passApproach, stepKitchenChores } from './kitchen-line.js';
 
 const serviceStyles={coffee:'cafe', diner:'restaurant',fine:'restaurant',sushi:'restaurant',steamtable:'restaurant',
@@ -49,7 +49,7 @@ function freeSeat(v) {
     if(v.view.occupied.has(spot) || occupied && Math.hypot(x-occupied.x,z-occupied.z)<.25) continue;
     const [fx,fz]=roomPoint(v.room,spot.a+spot.da,spot.b+spot.db);
     const seat={...spot,x,z,y:v.view.floor,heading:Math.atan2(fx-x,fz-z)};
-    const fixture=v.room.things.find(t=>t.solid && t.a===spot.a && t.b===spot.b);
+    const fixture=spot.fixture ?? v.room.things.find(t=>t.solid && t.a===spot.a && t.b===spot.b);
     const table=v.room.things.filter(t=>t.shape==='table' && (t.a-spot.a)*spot.da+(t.b-spot.b)*spot.db>0)
       .sort((a,b)=>dist(a,spot)-dist(b,spot))[0];
     if(v.mode==='restaurant' && (!table || dist(table,spot)>1.65 || v.view.claims.has(table)))continue;
@@ -82,7 +82,8 @@ function chairPath(v,from,others) {
 function setChairPath(v,from,path) {
   const {seat,person}=v;
   seat.fromX=from.x;seat.fromZ=from.z;seat.path=path;
-  seat.duration=Math.max(1.5,3.8*path.length/person.look.pace);
+  const length=path.length+seatApproachEnd(path,seat,from.x,from.z);
+  seat.duration=Math.max(1.5,3.8*length/person.look.pace);
   seat.clearance=[];
   let prev=from;
   for(const next of [...path.points,seat]){
@@ -472,8 +473,10 @@ function bail(v) {
   if(v.request){v.request.requests=v.request.requests.filter(req=>req!==v);v.request=null;}
   leaveQueue(v);
   v.script=(function*(){
-    yield walking(person,entrance,'leaving');
-    yield walking(person,v.start,'back to sidewalk',[{a:0,b:Math.min(-1,v.start.b)},v.start]);
+    const at=floorAt(v.view,person),stairs=v.view.entry?.stairs;
+    if(at.b>0)yield walking(person,entrance,'leaving');
+    const via=shopStairRoute(v.room,stairs,v.start)?.reverse() ?? (at.b>0?[{a:0,b:Math.min(-1,v.start.b)}]:[]);
+    yield walking(person,v.start,'back to sidewalk',[...via,v.start]);
   })();
 }
 function tick(v,dt,time) {
@@ -489,7 +492,7 @@ function tick(v,dt,time) {
     if(!reached(v,task,dt))return;
     if(task.missed && actor===v.person){bail(v);return;}
   } else if(task.seating) {
-    v.wait=.1;roomSeatStep(v.view,actor,task.seating,dt);actor.heading=actor.angle;
+    v.wait=.1;roomSeatStep(v.view,actor,task.seating,dt);
     if(task.seating.progress!==(task.seating.leaving?0:1))return;
   } else {
     if(task.face)facePoint(v.view,actor,task.face);
@@ -508,8 +511,9 @@ function busTable(view,job){
 export function stepServiceJobs(view,time) {
   const dt=Math.max(0,Math.min(.1,time-(view.lastServiceTime??time)));view.lastServiceTime=time;
   if(!dt || !view.cleanups)return;
-  stepKitchenChores(view,dt);
-  if(view.closed || view.handoff){
+  const gunfire=roomUnderFire(view,time);
+  if(!gunfire)stepKitchenChores(view,dt);
+  if(view.closed || view.handoff || gunfire){
     for(const job of view.cleanups){
       busTable(view,job);if(job.server)release(job.server);
     }
@@ -605,7 +609,6 @@ export function startCounterOrder(sim,view,{item,basket=false,sale}){
     }
   }else if(shopping.basket?.shop!==room.place.id || !shopping.basket.units.length)return false;
   const price=basket?shopping.total(room.place):item.price;
-  if(!shopping.canPay(price))return false;
   const table=diningTable(sim,view);
   if(table && view.claims.has(table)){sim._say('This table is still being served.');return false;}
   const o={shop:room.place.id,room,view,person:sim.player,basket,slot,food,price,table,sale,

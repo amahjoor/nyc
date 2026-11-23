@@ -2,15 +2,17 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { buildRoom, planRoom } from '../dist/interiors.js';
 import { beginRegisterTake, registerAction, updateClerk } from '../dist/register.js';
-import { inviteCustomer, populateShop } from '../dist/shop-life.js';
+import { fleeShop, inviteCustomer, populateShop, roomOccupantHit } from '../dist/shop-life.js';
 import { roomLocal, roomPoint } from '../dist/room.js';
+import { pathsFromDoor } from '../dist/room-walk.js';
 import { createCrowd, dress, seeded } from '../dist/crowd.js';
 import { checkoutAxes, CHECKOUT_DEPTH, CHECKOUT_WIDTH } from '../dist/checkout-model.js';
+import { menuFor } from '../dist/menu.js';
 import { Work } from '../dist/work.js';
 
-function fixture(kind='clothes') {
+function fixture(kind='clothes', front={}, inside) {
   const place={id:'fixture',kind,name:'Costume Shop',x:0,z:0};
-  const plan=planRoom({place,x:0,z:0,width:9,tx:1,tz:0,nx:0,nz:1});
+  const plan=planRoom({place,x:0,z:0,width:9,tx:1,tz:0,nx:0,nz:1,...front},inside);
   const view={plan,group:buildRoom(plan),floor:0,actors:[],occupied:new Set()};
   view.door=view.group.userData.door;
   populateShop(view);
@@ -29,6 +31,43 @@ function fixture(kind='clothes') {
   }
   return {place,sim,work,view,side,stand,look,tick,escaped,reports,notices};
 }
+
+function walkToDrawer(f) {
+  return pathsFromDoor(f.view.plan,.0625,.4).some(point=>{
+    f.stand(point.a,point.b);
+    return registerAction(f.sim)==='drawer';
+  });
+}
+
+test('a pet shop has a working cash drawer even with no purchase menu',()=>{
+  const f=fixture('pets');
+  try {
+    assert.deepEqual(menuFor(f.place),[]);
+    assert.ok(f.view.group.getObjectByName('Register drawer'));
+    assert.ok(walkToDrawer(f));
+    const amount=f.work.balance(f.place);
+    assert.ok(amount>0 && beginRegisterTake(f.sim,f.work));
+    f.tick(1.4);
+    assert.equal(f.sim.cash,amount);
+  } finally {f.view.group.userData.dispose();}
+});
+
+test('a narrow corner clothing store keeps a walkable aisle to its drawer',()=>{
+  const f=fixture('clothes',{width:4.4,skew:-.24,returns:[{side:-1,length:3}]},(_x,z)=>z>=-7);
+  try {
+    assert.ok(f.view.group.getObjectByName('Register drawer'));
+    assert.ok(walkToDrawer(f));
+  } finally {f.view.group.userData.dispose();}
+});
+
+test('a public library keeps its reception desk and a post office has a cash drawer',()=>{
+  const front={x:0,z:0,width:9,tx:1,tz:0,nx:0,nz:1};
+  const library=planRoom({...front,place:{id:'library',kind:'library',name:'Library'}});
+  const post=planRoom({...front,place:{id:'postoffice',kind:'postoffice',name:'Post Office'}});
+  assert.ok(library.staff.length);
+  assert.equal(library.register,null);
+  assert.ok(post.register);
+});
 
 test('reaching into the drawer opens it and taking the notes pays exactly once',()=>{
   const f=fixture();try {
@@ -60,7 +99,7 @@ test('the clerk notices a visible weapon off-axis and picks up and extends the s
   const f=fixture();try {
     f.side(-1);f.tick(.1);assert.equal(f.view.handoff??null,null);
     f.sim.player.armed=true;f.tick(.1,f.look()+1.1,.6);
-    assert.equal(f.view.clerk.clip,'handsUp');assert.equal(f.reports.length,1);
+    assert.equal(f.view.clerk.clip,'handsUp');assert.equal(f.reports.length,0);
     f.tick(.6,f.look()+.7);assert.equal(f.view.clerk.clip,'pickUp');
     const cash=f.view.group.getObjectByName('Cash from clerk'), inDrawer=cash.position.clone();
     f.tick(.65);assert.ok(cash.position.distanceTo(inDrawer)>.12);
@@ -86,7 +125,7 @@ test('a shelf blocks sight and turning away long enough lets the clerk escape',(
     f.view.plan.things.pop();f.tick(.1);f.tick(.4,f.look()+Math.PI);
     assert.equal(f.view.handoff.phase,'startled');
     f.tick(1.2,f.look()+Math.PI);assert.equal(f.view.handoff.phase,'escaping');
-    assert.equal(f.sim.cash,0);assert.ok(f.work.balance(f.place)>0);assert.equal(f.reports.length,1);
+    assert.equal(f.sim.cash,0);assert.ok(f.work.balance(f.place)>0);assert.equal(f.reports.length,0);
   } finally {f.view.group.userData.dispose();}
 });
 
@@ -134,6 +173,39 @@ test('a café alarm interrupts drink preparation and diners react at different t
     assert.equal(view.occupied.size,0);
     assert.equal(clerk.clip,'jog');
   } finally { f.view.group.userData.dispose(); }
+});
+
+test('gunfire scatters the café staff and diners with the player unarmed', () => {
+  const f=fixture('coffee'), {sim,view}=f;
+  try {
+    const diners=view.actors.filter(actor=>actor.sitting);
+    assert.ok(diners.length>0);
+    f.side(1);
+    view.gunfireAt=sim.elapsed;
+    f.tick(.05);
+    assert.equal(view.handoff??null,null);
+    assert.ok([view.clerk,...diners].every(actor=>actor.escape));
+    sim.room=null;sim.player.x=100;
+    for(let i=0;i<360;i++)f.tick(.05);
+    assert.ok([view.clerk,...diners].every(actor=>f.escaped.includes(actor)));
+  } finally {view.group.userData.dispose();}
+});
+
+test('an injured clerk falls inside and escapes after getting back up', () => {
+  const f=fixture('coffee'), {sim,view}=f, {clerk}=view;
+  const crowd=createCrowd();
+  try {
+    sim.room=null;sim.player.x=100;
+    fleeShop(view,clerk);
+    assert.equal(crowd.hitByShot(clerk,{x:1,z:0},'legs'),false);
+    roomOccupantHit(view,clerk);
+    f.tick(.5);
+    assert.equal(clerk.state,'down');
+    assert.ok(clerk.reaction?.fall && !clerk.gone);
+    assert.equal(clerk.y,view.floor);
+    for(let i=0;i<540&&!clerk.gone;i++)f.tick(.05);
+    assert.ok(f.escaped.includes(clerk));
+  } finally {crowd.dispose();view.group.userData.dispose();}
 });
 
 test('a visiting diner interrupted mid-seat escapes into the crowd and runs again after a bump', () => {

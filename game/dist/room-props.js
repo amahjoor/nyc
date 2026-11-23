@@ -68,7 +68,8 @@ export function roomProps(room, y, position, color, servingUV=null) {
   /** Set down one unit solid: `size` along the prop's width, height and depth, centred at `at` (width, height above its foot, depth). */
   const put = (shape, size, at, hex, glow = false, pitchCos = 1, pitchSin = 0) => {
     const p = shape.attributes.position, n = shape.attributes.normal;
-    if(hex!==null)tone.set(hex);
+    const vertexColor = hex === null && shape.attributes.color;
+    if (!vertexColor) tone.set(hex ?? '#686763');
     for (let i = 0; i < p.count; i += 3) for (const k of order) {
       const py = p.getY(i + k) * size[1], pz = p.getZ(i + k) * size[2];
       const lx = at[0] + p.getX(i + k) * size[0], ly = at[1] + py * pitchCos - pz * pitchSin, lz = at[2] + py * pitchSin + pz * pitchCos;
@@ -79,7 +80,7 @@ export function roomProps(room, y, position, color, servingUV=null) {
       const side = n.getX(i + k) * cos + nz * sin, front = nz * cos - n.getX(i + k) * sin;
       const shade = glow ? 1 : .71 + .37 * Math.max(0, .72 * ny + .36 * side - .60 * front) + .10 * Math.max(0, front);
 
-      if(hex===null)tone.fromBufferAttribute(shape.attributes.color,i+k);
+      if (vertexColor) tone.fromBufferAttribute(vertexColor,i+k);
       position.push(x, y + floor + ly, z); color.push(tone.r * shade, tone.g * shade, tone.b * shade);
       if(servingUV){
         color.push(shape.attributes.color.itemSize===4?shape.attributes.color.getW(i+k):1);
