@@ -14,10 +14,7 @@ function lightenInside(shader) {
     '#include <color_fragment>\nif (!gl_FrontFacing) diffuseColor.a *= .16;');
 }
 glass.onBeforeCompile = lightenInside;
-const privacy = glass.clone();
-privacy.onBeforeCompile = lightenInside;
-privacy.color.setHex(0x32454d); privacy.opacity = .40;
-glass.name = 'Clear glass'; privacy.name = 'Privacy glass';
+glass.name = 'Car glass';
 const char = new THREE.MeshStandardMaterial({ color: 0x292727, metalness: .23, roughness: .91, side: THREE.DoubleSide });
 const cracked = glass.clone();
 cracked.onBeforeCompile = shader => {
@@ -38,11 +35,7 @@ export function hasAlteredGlazing(car) {
   return Boolean(car.brokenGlass || car.missingDoors || car.doorOpen || car.destroyed || windshieldCracked(car));
 }
 
-const glazing = { clear: glass, tinted: privacy };
-function surfaceOf(part) {
-  if (part === 'windshield' || part === 'leftGlass' || part === 'rightGlass') return 'clear';
-  return part.endsWith('Glass') ? 'tinted' : 'body';
-}
+const isGlazing = part => part === 'windshield' || part.endsWith('Glass');
 
 function partition(built, batched = false) {
   if (!batched && exteriors.has(built.body)) return exteriors.get(built.body);
@@ -76,7 +69,7 @@ function partition(built, batched = false) {
       } else if (door) part = side;
       else if (z > cowl && Math.abs(x) < width * .94 && normal.getY(a)+normal.getY(b)+normal.getY(c) > 1.7 && y > height * .33) part = 'hood';
     }
-    if (batched) part = surfaceOf(part);
+    if (batched) part = isGlazing(part) ? 'glass' : 'body';
     if (!buckets.has(part)) buckets.set(part, []);
     buckets.get(part).push(a,b,c);
   }
@@ -99,7 +92,7 @@ function partition(built, batched = false) {
 
 export function batchExterior(built) {
   const { parts, layout } = partition(built, true);
-  return { body: parts.body, windows: [[parts.clear, glass], [parts.tinted, privacy]], layout };
+  return { body: parts.body, windows: [[parts.glass, glass]], layout };
 }
 
 export function fitExterior(chassis, built, paint) {
@@ -114,7 +107,7 @@ export function fitExterior(chassis, built, paint) {
   const hood = new THREE.Group(); hood.name = 'Hood hinge';
   hood.position.set(0, height*.62, cowl); chassis.add(hood);
   for (const [name, geometry] of Object.entries(parts)) {
-    const pane = glazing[surfaceOf(name)];
+    const pane = isGlazing(name) ? glass : null;
     const mesh = new THREE.Mesh(geometry, pane || paint);
     // Glass shows what it reflects and what is behind it. A shadow laid across it reads as a dark patch on the pane.
     mesh.castShadow = !pane; mesh.receiveShadow = !pane;

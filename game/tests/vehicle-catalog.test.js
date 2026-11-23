@@ -140,7 +140,7 @@ test('a stationary car updates as its shared exterior arrives, moves between det
   parked.dispose(); distant.dispose();
 });
 
-test('parked and passing cars keep the close-up window triangles and tints at a distance', () => {
+test('every intact car pane shares one tint at every detail level', () => {
   const models = [null, generateVehicle(designFor('Toyota', 'RAV4', 2021, 'suv')), decodeVehicleMesh(bufferFor(art[0].url), art[0])];
   const triangles = meshes => meshes.flatMap(mesh => {
     const indices = mesh.geometry.index.array, faces = [];
@@ -150,18 +150,21 @@ test('parked and passing cars keep the close-up window triangles and tints at a 
   for (const model of models) {
     const car = { id: 'space', type: 'sedan', shape: 'sedan', color: '#ab4341', x: 0, z: 0, _kerb: true, identity: { asset: model } };
     const near = createCar({ ...car, seed: car.id, model }), panels = Object.values(near.userData.detail.pieces);
+    const { windshield, rearGlass } = near.userData.detail.pieces;
+    const material = windshield.material, closePanes = panels.filter(mesh => mesh.material.transparent);
+    assert.equal(rearGlass.material, material);
+    assert.ok(closePanes.length >= 4 && closePanes.every(mesh => mesh.material === material));
+    assert.ok(material.transparent && !material.depthWrite);
     for (const createSet of [createParkedCars, createDistantTraffic]) {
       const batch = createSet({ capacity: 1, library: { get: () => model } });
       batch.update([car]);
       const visible = batch.group.children.filter(mesh => mesh.count > 0);
       const body = visible.find(mesh => mesh.name.endsWith(' bodies'));
       assert.deepEqual(triangles([body]), triangles(panels.filter(mesh => !mesh.material.transparent)));
-      for (const material of [near.userData.detail.pieces.windshield.material, near.userData.detail.pieces.rearGlass.material]) {
-        const panes = visible.filter(mesh => mesh.material === material);
-        assert.ok(material.transparent && !material.depthWrite && panes.length === 1);
-        assert.ok(!panes[0].castShadow && panes[0].instanceMatrix === body.instanceMatrix);
-        assert.deepEqual(triangles(panes), triangles(panels.filter(mesh => mesh.material === material)));
-      }
+      const panes = visible.filter(mesh => mesh.material === material);
+      assert.equal(panes.length, 1);
+      assert.ok(!panes[0].castShadow && panes[0].instanceMatrix === body.instanceMatrix);
+      assert.deepEqual(triangles(panes), triangles(closePanes));
       assert.equal(visible.find(mesh => mesh.name.endsWith('Cabin upholstery')).count, 1);
       assert.ok(!visible.some(mesh => mesh.name.endsWith('Seated driver')));
       batch.dispose();

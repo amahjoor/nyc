@@ -280,7 +280,7 @@ test('visual suspension filters bumps while individual tires retain measured non
 test('kerbside cars are drawn as a few instanced meshes that change only when the kerb does', () => {
   const parked = createParkedCars({ capacity: 40 });
   const meshes = parked.group.children;
-  assert.equal(meshes.length, 8 * 4 + 10, 'each style batches its body, two tints of glass and lamps, plus shared tyres, cabins, number plates and the seven wheels a car may wear');
+  assert.equal(meshes.length, 8 * 3 + 10, 'each style batches its body, glass and lamps, plus shared tyres, cabins, number plates and the seven wheels a car may wear');
   assert.ok(meshes.every(mesh => mesh.isInstancedMesh && mesh.count === 0));
   const kerb = (id, x, extra = {}) => ({ id, type: 'sedan', color: '#7a1f1f', x, y: 2, z: 5, angle: Math.PI / 2, pitch: 0, roll: 0, wheelHeights: [2, 2, 2, 2], _kerb: true, ...extra });
   const cars = [kerb('kerb:1', 0), kerb('kerb:2', 6), kerb('kerb:3', 12), { id: 'traffic-1', type: 'sedan', x: 3, y: 2, z: 0, angle: 0 }, kerb('kerb:4', 18, { controlled: true })];
@@ -313,7 +313,7 @@ test('kerbside cars are drawn as a few instanced meshes that change only when th
 test('traffic beyond a few car lengths is drawn together, cabs in their own colours and with their lamps lit', () => {
   const traffic = createDistantTraffic({ capacity: 8 });
   const named = name => traffic.group.getObjectByName(name);
-  assert.equal(traffic.group.children.length, 10 * 4 + 10, 'eight body styles and two cabs share cabin, tyre, wheel and number plate batches');
+  assert.equal(traffic.group.children.length, 10 * 3 + 10, 'eight body styles and two cabs share cabin, tyre, wheel and number plate batches');
   const cars = [
     { id: 'traffic-101', type: 'sedan', color: '#a64438', x: 10, y: 2, z: 20, angle: Math.PI / 2, pitch: .02, roll: -.01, wheelHeights: [2, 2.1, 2, 2.1], _edge: {} },
     { id: 'traffic-102', type: 'taxi', color: '#f2b91c', x: 30, y: 0, z: 0, angle: 0 },
