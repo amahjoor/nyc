@@ -8,7 +8,7 @@
 // Each is reduced to the same three parts: a compass direction if it leads
 // the name, the name itself with numbers as digits, and the kind of street.
 
-import { facilityIndex } from './places.js';
+import { facilityIndex, KINDS } from './places.js';
 
 const UNITS = { ZERO: 0, ONE: 1, TWO: 2, THREE: 3, FOUR: 4, FIVE: 5, SIX: 6, SEVEN: 7, EIGHT: 8, NINE: 9, TEN: 10, ELEVEN: 11, TWELVE: 12, THIRTEEN: 13, FOURTEEN: 14, FIFTEEN: 15, SIXTEEN: 16, SEVENTEEN: 17, EIGHTEEN: 18, NINETEEN: 19,
   FIRST: 1, SECOND: 2, THIRD: 3, FOURTH: 4, FIFTH: 5, SIXTH: 6, SEVENTH: 7, EIGHTH: 8, NINTH: 9, TENTH: 10, ELEVENTH: 11, TWELFTH: 12, THIRTEENTH: 13, FOURTEENTH: 14, FIFTEENTH: 15, SIXTEENTH: 16, SEVENTEENTH: 17, EIGHTEENTH: 18, NINETEENTH: 19 };
@@ -207,7 +207,10 @@ export function parseQuery(text) {
  * `data` is place-names.json: { kinds, places: [[name, x, z, kind, borough]] }.
  */
 export function createPlaceIndex(data = null) {
-  const places = (data?.places || []).map(([name, x, z, kind, borough]) => ({ name, x, z, kind: data.kinds[facilityIndex(kind, name, data.kinds)] || '', borough: BOROUGH_NAMES[borough] || '', order: borough, words: plain(name).split(' ') }));
+  const places = (data?.places || []).map(([name,x,z,kind,borough])=>{
+    const kindIndex=facilityIndex(kind,name,data.kinds);
+    return {name,x,z,kindIndex,kind:data.kinds[kindIndex] || '',borough:BOROUGH_NAMES[borough] || '',order:borough,words:plain(name).split(' ')};
+  });
   const facilities = {
     hospital: places.filter(place => place.kind === 'Hospital'),
     courthouse: places.filter(place => place.kind === 'Courthouse' && /\b(?:CRIM(?:INAL)?|DETENTION)\b/i.test(place.name)),
@@ -226,7 +229,7 @@ export function createPlaceIndex(data = null) {
      * Places whose name holds every word typed (a word may be unfinished),
      * best first; among equals the nearest to `near` first.
      */
-    search(text, { borough = 0, near = null, limit = 6 } = {}) {
+    search(text, { borough = 0, near = null, limit = 6, listings = false } = {}) {
       const asked = plain(text).split(' ').filter(word => word && !/^[&@/+]$/.test(word)), whole = asked.join(' ');
       if (!whole || whole.length < 2) return [];
       const kindQuery = TRADE_QUERIES.get(whole);
@@ -234,6 +237,7 @@ export function createPlaceIndex(data = null) {
       const found = [];
       for (const place of places) {
         if (borough && place.order !== borough) continue;
+        if(listings && KINDS[place.kindIndex]?.label!==place.kind)continue;
         const name = place.words.join(' ');
         let score = 0;
         // The mapped clubs use both spellings, and some share a name with their café.
@@ -246,7 +250,13 @@ export function createPlaceIndex(data = null) {
         if (score) found.push({ place, score, distance: near ? Math.hypot(place.x - near.x, place.z - near.z) : 0 });
       }
       found.sort((a, b) => b.score - a.score || a.distance - b.distance || a.place.name.length - b.place.name.length);
-      return found.slice(0, limit).map(({ place }) => ({ kind: 'place', x: place.x, z: place.z, name: place.name, what: place.kind, borough: place.borough }));
+      // A citywide map search uses spelling suggestions only when there are no direct matches.
+      const matches = limit === Infinity && found[0]?.score > 1 ? found.filter(result => result.score > 1) : found;
+      if(listings)return matches.slice(0,limit).map(({place})=>{
+        const {id:kind,group}=KINDS[place.kindIndex],{name,x,z}=place;
+        return {id:'map/'+x+'/'+z+'/'+kind,name,kind,group,x,z};
+      });
+      return matches.slice(0, limit).map(({ place }) => ({ kind: 'place', x: place.x, z: place.z, name: place.name, what: place.kind, borough: place.borough }));
     },
   };
 }

@@ -1,10 +1,10 @@
 import { TransitMap } from './transit-map.js';
 import { airports } from './airport-data.js';
 import { searchDestinations } from './geocoder.js';
-import { matchPresets } from './local-search.js';
+import { matchPresets, parseQuery } from './local-search.js';
 import { MapKey } from './map-key.js';
-import { markerScale, placeMarks, drawPlaceMarks } from './map-places.js';
-import { thinBlips, drawBlips, blipOpen } from './map-blips.js';
+import { createPlaceLayer, MAP_CATEGORIES, PLACE_BADGE_SPAN, markerScale, placeMarks, drawPlaceMarks } from './map-places.js';
+import { blipOf, thinBlips, drawBlips, blipOpen } from './map-blips.js';
 import { TRANSPORT, isWatercraft, isAircraft } from './transport-catalog.js';
 
 const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
@@ -12,6 +12,9 @@ const finitePoint = point => point && Number.isFinite(point.x) && Number.isFinit
 const distanceText = meters => meters >= 1000 ? `${(meters / 1000).toFixed(1)} km` : `${Math.round(meters)} m`;
 const pointsOf = route => route?.ok !== false && Array.isArray(route?.points) ? route.points : [];
 const overlaps = (a, b) => a.maxX >= b.minX && a.minX <= b.maxX && a.maxZ >= b.minZ && a.minZ <= b.maxZ;
+const resultName = place => [place.name, place.what, place.detail, place.borough].filter(Boolean).join(' · ');
+const searchMarkerRadius = 5;
+const placeBadgeSize = 22;
 
 export function mapWorldToScreen(point, view) {
   const scale = view.width / view.span;
@@ -33,8 +36,8 @@ function shapeBounds(points) {
 
 /** Canvas map uses the game's local meters, never an independent map projection. */
 export class GameMap {
-  constructor({ document = globalThis.document, city, getPresets = () => [], searchLocal = () => [], onPlacesWanted = () => {}, loadTransit, lookupAddress, onPin = () => {}, onSpawn = () => {}, onOpenChange = () => {}, onCue = () => {} } = {}) {
-    this.document = document;this.city = city;this.onPin = onPin;this.onSpawn = onSpawn;this.onOpenChange = onOpenChange;this.onCue = onCue;
+  constructor({ document = globalThis.document, city, getPresets = () => [], searchLocal = () => [], onPlacesWanted = () => {}, loadTransit, lookupAddress, onPin = () => {}, onSpawn = () => {}, onOpenChange = () => {}, onZoom = () => {}, onCue = () => {} } = {}) {
+    this.document = document;this.city = city;this.onPin = onPin;this.onSpawn = onSpawn;this.onOpenChange = onOpenChange;this.onCue = onCue;this.onZoom = onZoom;
     this.element = document.getElementById('game-map');this.canvas = document.getElementById('game-map-canvas');
     this.mini = document.getElementById('minimap');this.open = false;this.pin = null;this.route = null;this.progress = null;this.busy = false;
     this.player = { x: city.spawn?.x || 0, z: city.spawn?.z || 0, angle: 0 };
@@ -45,8 +48,11 @@ export class GameMap {
     this.transit = new TransitMap(this,listen,loadTransit);
     this.searchLocal = searchLocal;
     this.getPresets = getPresets;
-    this.placeLayer = null;this.placeKinds = new Set();
+    this.placeLayer = createPlaceLayer();this.placesLoaded = false;
+    this.placeKinds = new Set(MAP_CATEGORIES.map(category => category.id));
+    this.placeBadges = [];
     this.doors = [];this.hours = 12;this.doorQuarter = null;this.doorsApart = new Map();
+    this.searchMatches = [];
     this.key = new MapKey(this, listen, onPlacesWanted);
     this.showBikeLanes=true;
     const laneButton=byId('game-map-bike-lanes');
@@ -81,7 +87,7 @@ export class GameMap {
       if (!this.open) return;
       const key = event.key || event.code;
       const typing = document.activeElement === byId('game-map-address');
-      if (key === 'Escape' || (!typing && ['m','M','KeyM'].includes(key))) {
+      if (key === 'Escape' || (!typing && key === 'F7')) {
         event.preventDefault();event.stopImmediatePropagation();if (!event.repeat) this.setOpen(false);
       } else if (key === 'Tab') {
         // Keep keyboard focus inside this modal without relying on a native
@@ -123,7 +129,11 @@ export class GameMap {
   pointerDown(event) {
     if (!this.open || this.busy || this.drag || (event.button != null && event.button !== 0)) return;
     event.preventDefault();this.canvas.focus();this.dimensions();const point = this.pointerPoint(event), pin = this.pin && mapWorldToScreen(this.pin, this.view);
-    this.drag = { pointerId: event.pointerId, start: point, center: { x: this.view.x, z: this.view.z }, pin: Boolean(pin && Math.hypot(pin.x - point.x, pin.y - point.y) < 20), moved: false };
+    const pinDistance = pin ? Math.hypot(pin.x - point.x, pin.y - point.y) : Infinity;
+    const match = pinDistance < 20 && this.searchMatchAt(point);
+    const matchPoint = match && mapWorldToScreen(match, this.view);
+    const hitPin = pinDistance < 20 && (!matchPoint || pinDistance <= Math.hypot(matchPoint.x - point.x, matchPoint.y - point.y));
+    this.drag = { pointerId: event.pointerId, start: point, center: { x: this.view.x, z: this.view.z }, pin: hitPin, moved: false };
     this.canvas.setPointerCapture?.(event.pointerId);
   }
   pointerMove(event) {
@@ -153,7 +163,18 @@ export class GameMap {
     if (drag.moved) return;
     if (this.pinAtScreenPoint(this.pointerPoint(event))) this.onCue('select');
   }
+  searchMatchAt(screen) {
+    const point = mapScreenToWorld(screen, this.view);
+    let match = null, reach = (searchMarkerRadius + 5) * this.view.span / this.view.width;
+    for (const place of this.searchMatches) {
+      const distance = Math.hypot(place.x - point.x, place.z - point.z);
+      if (distance < reach) { match = place;reach = distance; }
+    }
+    return match;
+  }
   pinAtScreenPoint(screen) {
+    const match = this.searchMatchAt(screen);
+    if (match) return this.setPin({ ...match, name: resultName(match) });
     const preview = this.key.preview;
     if (preview) {
       const p = mapWorldToScreen(preview, this.view);
@@ -163,12 +184,17 @@ export class GameMap {
       const stop=this.transit.hit(screen);
       if(stop)return this.setPin({x:stop.x,z:stop.z,name:stop.name+' · '+[...stop.lines].map(l=>l.name).join(' / ')});
     }
-    const door = !this.transit.active && this.doorAt(screen);
-    if (door) return this.setPin({ x: door.x, z: door.z, name: `${door.name} · ${door.what}` });
+    const badge = this.placeBadges.find(mark => Math.hypot(mark.px - screen.x, mark.py - screen.y) <= placeBadgeSize / 2);
+    if (badge) return this.pinPlace(badge.place);
     const point = mapScreenToWorld(screen, this.view);
     const radius = Math.max(4, 12 * markerScale(this.view.span)) * this.view.span / this.view.width;
-    const place = this.placeKinds.size && this.placeLayer?.nearest(point, radius, this.placeKinds);
-    return this.setPin(place ? { x: place.x, z: place.z, name: `${place.name} · ${place.kind}` } : point);
+    const station = this.placeKinds.has('subway') ? this.subwayLayer?.nearest(point, radius) : null;
+    const place = this.placeKinds.size ? this.placeLayer.nearest(point, station?.distance ?? radius, this.placeKinds) ?? station : null;
+    return place ? this.pinPlace(place) : this.setPin(point);
+  }
+  pinPlace(place) {
+    const { x, z } = place.door || place;
+    return this.setPin({ x, z, name: `${place.name} · ${place.kind}` });
   }
   cancelPointer(event) { if (this.drag?.pointerId === event.pointerId) { this.drag = null;this.draw(); } }
   clampCenter() {
@@ -178,7 +204,9 @@ export class GameMap {
   zoom(factor, anchor = { x: this.view.width / 2, y: this.view.height / 2 }) {
     if (!Number.isFinite(factor) || factor <= 0) return;
     const before = mapScreenToWorld(anchor, this.view);
-    this.view.span = clamp(this.view.span * factor, 120, this.fullSpan() * 1.25);
+    const span = clamp(this.view.span * factor, 120, this.fullSpan() * 1.25);
+    if (span !== this.view.span) this.onZoom(span < this.view.span);
+    this.view.span = span;
     const after = mapScreenToWorld(anchor, this.view);this.view.x += before.x - after.x;this.view.z += before.z - after.z;
     this.following = false;this.clampCenter();this.draw();
   }
@@ -187,8 +215,13 @@ export class GameMap {
   setOpen(open) {
     if (this.disposed || this.open === Boolean(open) || (!open && this.transit.journey)) return;
     this.open = Boolean(open);this.element.hidden = !this.open;
-    if (this.open) { this.previousFocus = this.document.activeElement;if (!this.placeLayer) this.key.requestPlaces();this.dimensions();this.transit.refresh();this.recenter();this.byId('game-map-close').focus();this.listDoors(); }
-    else { this.key.hover = null;this.drag = null;this.dropSharpRoads();this.clearAddressResults();this.previousFocus?.focus?.(); }
+    if (this.open) {
+      this.previousFocus = this.document.activeElement;
+      if (!this.placesLoaded) this.key.requestPlaces();
+      if (this.placeLayer.setDoors(this.doors)) this.key.setPlaces();
+      this.dimensions();this.transit.refresh();this.recenter();this.byId('game-map-close').focus();
+    }
+    else { this.key.hover = null;this.drag = null;this.dropSharpRoads();this.placeOverview = null;this.clearAddressResults();this.previousFocus?.focus?.(); }
     this.byId('map-button').setAttribute('aria-expanded', String(this.open));this.byId('open-map-button').setAttribute('aria-expanded', String(this.open));this.onOpenChange(this.open);
   }
   toggle() { this.setOpen(!this.open); }
@@ -198,6 +231,10 @@ export class GameMap {
     this.byId('game-map-search-results').replaceChildren();
     this.byId('game-map-search-status').textContent = '';
     this.byId('game-map-search').setAttribute('aria-busy', 'false');
+    if (this.searchMatches.length) {
+      this.searchMatches = [];
+      this.draw();
+    }
   }
   showAddressResults(places) {
     const results = this.byId('game-map-search-results');
@@ -205,7 +242,7 @@ export class GameMap {
       const button = this.document.createElement('button');
       button.type = 'button';
       button.className = 'address-result';
-      button.textContent = [place.name, place.what, place.detail, place.borough].filter(Boolean).join(' · ');
+      button.textContent = resultName(place);
       button.addEventListener('click', () => {
         if (!this.open || this.busy || !this.setPin({ ...place, name: button.textContent })) return;
         this.view.x = place.x;this.view.z = place.z;this.view.span = 1000;
@@ -215,22 +252,39 @@ export class GameMap {
       results.append(button);
     }
   }
+  frameSearchMatches() {
+    let minX = Infinity, minZ = Infinity, maxX = -Infinity, maxZ = -Infinity;
+    for (const { x, z } of this.searchMatches) {
+      minX = Math.min(minX, x);maxX = Math.max(maxX, x);
+      minZ = Math.min(minZ, z);maxZ = Math.max(maxZ, z);
+    }
+    this.dimensions();
+    const { width, height } = this.view;
+    const span = Math.max(maxX - minX, (maxZ - minZ) * width / height);
+    Object.assign(this.view, { x: (minX + maxX) / 2, z: (minZ + maxZ) / 2, span: Math.max(1000, span * 1.25) });
+    this.following = false;this.clampCenter();this.draw();
+  }
   async searchAddress() {
     if (!this.open || this.busy) return;
     this.clearAddressResults();
     const controller = new AbortController();
     this.addressRequest = controller;
     const field = this.byId('game-map-address');
+    const query = field.value;
     const status = this.byId('game-map-search-status');
     this.byId('game-map-search').setAttribute('aria-busy', 'true');
     status.textContent = 'Searching…';
     try {
-      const places = await searchDestinations(field.value, {
-        searchLocal: this.searchLocal, presets: this.getPresets(), lookup: this.lookupAddress, signal: controller.signal,
+      const places = await searchDestinations(query, {
+        searchLocal: this.searchLocal, presets: this.getPresets(), lookup: this.lookupAddress, signal: controller.signal, allPlaces: true,
       });
       if (controller.signal.aborted) return;
-      status.textContent = places.length ? '' : 'No results. Try a nearby intersection or add the borough.';
+      if (!parseQuery(query).numbered) this.searchMatches = places.filter(place => place.kind === 'place' && finitePoint(place));
+      const count = this.searchMatches.length;
+      status.textContent = count ? `${count.toLocaleString('en-US')} ${count === 1 ? 'location' : 'locations'} on the map`
+        : places.length ? '' : 'No results. Try a nearby intersection or add the borough.';
       this.showAddressResults(places);
+      if (count) this.frameSearchMatches();
     } catch (error) {
       if (!controller.signal.aborted) status.textContent = error.message;
     } finally {
@@ -256,7 +310,21 @@ export class GameMap {
   /** `layer` is map-places.js createPlaceLayer(): the places the chips show. */
   setPlaces(layer) {
     this.placeLayer = layer;
-    this.key.setPlaces(layer);
+    this.placesLoaded = true;
+    this.placeOverview = null;
+    if (this.open) layer.setDoors(this.doors);
+    this.key.setPlaces();
+    this.dirty = true;if (this.open) this.draw();
+  }
+  setSubwayStations(stations) {
+    const places = stations.map(station => {
+      const distance = ([x, z]) => (x - station.x) ** 2 + (z - station.z) ** 2;
+      const [x, z] = station.entrances.reduce((nearest, entry) => !nearest || distance(entry) < distance(nearest) ? entry : nearest, null) ?? [station.x, station.z];
+      return [station.name, x, z, 0];
+    });
+    this.subwayLayer = createPlaceLayer({ kinds: ['Subway Station'], places });
+    this.placeOverview = null;
+    this.key.setPlaces();
     this.dirty = true;if (this.open) this.draw();
   }
   /**
@@ -267,9 +335,13 @@ export class GameMap {
   setDoors(blips, hours = this.hours) {
     const quarter = Math.floor(hours * 4);
     if (blips === this.doors && quarter === this.doorQuarter) return;
-    const changed = blips !== this.doors;
-    this.doors = blips || [];this.hours = hours;this.doorQuarter = quarter;this.doorsApart.clear();this.dirty = true;
-    if (this.open) { if (changed) this.listDoors();this.draw(); }
+    this.doors = blips || [];
+    this.placeOverview = null;
+    this.hours = hours;this.doorQuarter = quarter;this.doorsApart.clear();this.dirty = true;
+    if (this.open) {
+      if (this.placeLayer.setDoors(this.doors)) this.key.setPlaces();
+      this.draw();
+    }
   }
   /** The doors to draw when badges are kept `gap` pixels apart at `scale` pixels to the metre: all of them where they fit, the rarer trades where they do not. */
   doorsShown(gap, scale) {
@@ -279,32 +351,59 @@ export class GameMap {
     if (!kept) { if (this.doorsApart.size > 40) this.doorsApart.clear();this.doorsApart.set(key, kept = thinBlips(this.doors, spacing, this.hours)); }
     return kept;
   }
-  /** The door whose badge is under a point of the open map, if any. */
-  doorAt(point) {
-    if (!this.doors.length) return null;
-    let best = null, distance = Math.max(4, 13 * markerScale(this.view.span));
-    for (const blip of this.doors) {
-      if (this.key.hiddenDoors.has(blip.icon)) continue;
-      const p = mapWorldToScreen(blip, this.view), d = Math.hypot(p.x - point.x, p.y - point.y);
-      if (d < distance) { distance = d;best = blip; }
-    }
-    return best;
-  }
-  /** Beside the open map: what each badge among the doors nearby stands for, and how many there are. */
-  listDoors() {
-    this.key.setDoors(this.transit.active ? [] : this.doors);
-  }
-  paintDoors(context, view, mini) {
+  paintRadarDoors(context, view) {
     if (!this.doors.length) return;
-    const scale = view.width / view.span, size = mini ? 28 : Math.max(6, Math.round(22 * markerScale(view.span)));
+    const scale = view.width / view.span, size = 28;
     const reach = size / scale, bounds = viewBounds(view), marks = [];
-    for (const blip of mini ? this.doorsShown(33, scale) : this.doors) {
-      if (!mini && this.key.hiddenDoors.has(blip.icon)) continue;
+    for (const blip of this.doorsShown(33, scale)) {
       if (blip.x < bounds.minX - reach || blip.x > bounds.maxX + reach || blip.z < bounds.minZ - reach || blip.z > bounds.maxZ + reach) continue;
       const p = mapWorldToScreen(blip, view);
-      marks.push({ px: p.x, py: p.y, icon: blip.icon, colour: blip.colour, open: blipOpen(blip, this.hours), label: !mini && view.span <= 700 ? blip.name : '' });
+      marks.push({ px: p.x, py: p.y, icon: blip.icon, colour: blip.colour, open: blipOpen(blip, this.hours) });
     }
-    drawBlips(context, marks, { size, ratio: mini ? 1 : this.ratio, document: this.document });
+    drawBlips(context, marks, { size, document: this.document });
+  }
+  drawPlaces(context, view) {
+    const places = placeMarks(this.placeLayer, view, this.placeKinds, this.hours);
+    if (this.subwayLayer && this.placeKinds.has('subway')) places.marks.push(...placeMarks(this.subwayLayer, view, this.placeKinds).marks);
+    if (view.span <= PLACE_BADGE_SPAN) {
+      const badges = places.marks.map((mark, id) => ({ ...mark, id, x: mark.px, z: mark.py, icon: blipOf(mark.place.kindId) }));
+      const shown = thinBlips(badges, placeBadgeSize + 3, this.hours);
+      const pictured = new Set(shown);
+      const compact = badges.filter(mark => !pictured.has(mark)).map(mark => ({ ...mark, radius: 2, label: '' }));
+      drawPlaceMarks(context, { marks: compact });
+      drawBlips(context, shown, { size: placeBadgeSize, ratio: this.ratio, document: this.document });
+      if (view === this.view) this.placeBadges = shown;
+      return;
+    }
+    drawPlaceMarks(context, places);
+  }
+  paintPlaces(context, view) {
+    if (view === this.view) this.placeBadges = [];
+    if (!this.placeKinds.size || !(this.placeLayer.count || this.subwayLayer?.count)) return;
+    if (view.span < 5000) { this.drawPlaces(context, view);return; }
+
+    // Keep a little extra around the viewport so a pan or a small zoom can
+    // reuse the same set of markers instead of redrawing the whole city.
+    const scale = view.width / view.span, bounds = viewBounds(view);
+    const filters = [...this.placeKinds].join(',');
+    let cache = this.placeOverview;
+    const kept = cache?.bounds;
+    if (!cache || cache.filters !== filters || cache.ratio !== this.ratio || Math.abs(Math.log(scale / cache.scale)) > .1 ||
+        kept.minX > bounds.minX || kept.maxX < bounds.maxX || kept.minZ > bounds.minZ || kept.maxZ < bounds.maxZ) {
+      const ratio = this.ratio, margin = 1.3;
+      const canvas = cache?.canvas || this.document.createElement('canvas');
+      const width = Math.ceil(view.width * ratio * margin), height = Math.ceil(view.height * ratio * margin);
+      if (canvas.width !== width || canvas.height !== height) { canvas.width = width;canvas.height = height; }
+      const bufferedView = { ...view, width: width / ratio, height: height / ratio, span: width / ratio / scale };
+      const buffer = canvas.getContext('2d');
+      buffer.setTransform(ratio, 0, 0, ratio, 0, 0);
+      buffer.clearRect(0, 0, bufferedView.width, bufferedView.height);
+      this.drawPlaces(buffer, bufferedView);
+      this.placeOverview = cache = { canvas, view: bufferedView, bounds: viewBounds(bufferedView), scale, ratio, filters };
+    }
+    const corner = mapWorldToScreen({ x: cache.bounds.minX, z: cache.bounds.minZ }, view);
+    const grown = scale / cache.scale;
+    context.drawImage(cache.canvas, corner.x, corner.y, cache.view.width * grown, cache.view.height * grown);
   }
   setRoads(roads) {
     this.roads = roads || [];this.roadGrid.clear();this.longRoads = [];this.chunks = null;this.dropSharpRoads();
@@ -338,8 +437,8 @@ export class GameMap {
   }
   paintMiniLand(context, view) {
     const bounds = viewBounds(view), cached = this.miniLandCache, b = cached && viewBounds(cached.view);
-    if (!cached || cached.view.width !== view.width * 2 || bounds.minX < b.minX || bounds.maxX > b.maxX || bounds.minZ < b.minZ || bounds.maxZ > b.maxZ) {
-      // A 600 m land buffer at the same pixel scale preserves the measured
+    if (!cached || cached.view.span !== view.span * 2 || cached.view.width !== view.width * 2 || bounds.minX < b.minX || bounds.maxX > b.maxX || bounds.minZ < b.minZ || bounds.maxZ > b.maxZ) {
+      // A land buffer at the same pixel scale preserves the measured
       // shoreline while avoiding thousands of boundary vertices each HUD tick.
       const canvas = this.document.createElement('canvas');canvas.width = view.width * 2;canvas.height = view.height * 2;
       const cacheView = { ...view, width: canvas.width, height: canvas.height, span: view.span * 2 };
@@ -458,12 +557,21 @@ export class GameMap {
     if (!finitePoint(point)) return;
     const b = this.city.bounds;
     if (point.x < b.minX || point.x > b.maxX || point.z < b.minZ || point.z > b.maxZ) { this.setStatus('Choose a point inside New York City.');return; }
-    this.clearAddressResults();
-    this.byId('game-map-address').value = point.name || '';
+    if (!this.searchMatches.length) {
+      this.clearAddressResults();
+      this.byId('game-map-address').value = point.name || '';
+    }
     this.pin = { x: point.x, z: point.z, name: point.name || 'Map pin' };this.route = null;this.progress = null;this.transit.refresh();
     this.setStatus(point.name || '');this.updateControls();this.onPin(this.transit.active ? null : { ...this.pin });this.dirty = true;this.draw();return true;
   }
-  clearPin() { this.drag = null;this.clearAddressResults();this.byId('game-map-address').value = '';this.pin = null;this.route = null;this.progress = null;this.transit.refresh();this.onPin(null);this.setStatus('');this.updateControls();this.dirty = true;this.draw();this.canvas.focus(); }
+  clearPin() {
+    this.drag = null;
+    if (!this.searchMatches.length) {
+      this.clearAddressResults();
+      this.byId('game-map-address').value = '';
+    }
+    this.pin = null;this.route = null;this.progress = null;this.transit.refresh();this.onPin(null);this.setStatus('');this.updateControls();this.dirty = true;this.draw();this.canvas.focus();
+  }
   setRoute(route) { this.route = route?.ok === false ? null : route;this.progress = null;this.dirty = true;this.updateDirections();this.draw(); }
   setRouteProgress(progress) { this.progress = progress;this.updateDirections(); }
   setGuidance(progress) { this.setRouteProgress(progress); }
@@ -495,7 +603,7 @@ export class GameMap {
     try { const result = await this.onSpawn({ ...this.pin });if (result === true) this.setOpen(false); } catch (error) { this.setStatus(error?.message || 'That destination is unavailable.'); }
     finally { if (!this.disposed) this.setBusy(false); }
   }
-  update(sim) { this.sim = sim;this.setPlayer(sim.player);this.drawMini();if (this.open) { this.dimensions();if (this.dirty) this.draw(); } }
+  update(sim, radarExpanded = false) { this.sim = sim;this.setPlayer(sim.player);this.drawMini(radarExpanded ? 600 : 300);if (this.open) { this.dimensions();if (this.dirty) this.draw(); } }
   draw() {
     this.dirty = true;if (!this.open || this.disposed) return;
     const ratio = this.ratio = this.dimensions(), context = this.canvas.getContext('2d');context.setTransform(ratio, 0, 0, ratio, 0, 0);
@@ -510,10 +618,21 @@ export class GameMap {
     const context = canvas.getContext('2d');context.setTransform(ratio, 0, 0, ratio, 0, 0);
     this.paint(context, { x: this.player.x, z: this.player.z, width, height, span }, false);
   }
-  drawMini() {
+  drawMini(span = 300) {
     if (!this.mini || this.disposed) return;
     const size = this.mini.width, context = this.mini.getContext('2d');
-    this.paint(context, { x: this.player.x, z: this.player.z, width: size, height: size, span: 300 }, true);
+    this.paint(context, { x: this.player.x, z: this.player.z, width: size, height: size, span }, true);
+  }
+  paintSearchMatches(context, view, bounds) {
+    context.beginPath();
+    for (const place of this.searchMatches) {
+      if (place.x < bounds.minX || place.x > bounds.maxX || place.z < bounds.minZ || place.z > bounds.maxZ) continue;
+      const p = mapWorldToScreen(place, view);
+      context.moveTo(p.x + searchMarkerRadius, p.y);
+      context.arc(p.x, p.y, searchMarkerRadius, 0, Math.PI * 2);
+    }
+    context.strokeStyle = '#20171a';context.lineWidth = 3;context.stroke();
+    context.fillStyle = '#ff9fa0';context.fill();
   }
   paint(context, view, mini) {
     const bounds = viewBounds(view), xy = point => mapWorldToScreen({ x: point[0], z: point[1] }, view);
@@ -560,9 +679,7 @@ export class GameMap {
       }
     }
     if (!mini && view.span > 8000) { context.font = '700 13px "Chalet Menu", Jost, Arial';context.fillStyle = '#c3c9c0';context.textAlign = 'center';for (const borough of this.city.boroughs || []) if (finitePoint(borough.label)) { const p = mapWorldToScreen(borough.label, view);context.fillText(borough.name.toUpperCase(), p.x, p.y); } }
-    if (!mini && this.placeLayer && this.placeKinds.size) {
-      drawPlaceMarks(context, placeMarks(this.placeLayer, view, this.placeKinds));
-    }
+    if (!mini) this.paintPlaces(context, view);
     const route = pointsOf(this.route);
     for (const stop of this.sim?.transport?.stops || []) {
       const p = mapWorldToScreen(stop.board,view);
@@ -577,8 +694,9 @@ export class GameMap {
       }
     }
     if ((mini || !this.transit.active) && route.length > 1) { context.strokeStyle = '#131c24';context.lineWidth = mini ? 9 : 8;context.beginPath();chain(route);context.stroke();context.strokeStyle = '#ba8cff';context.lineWidth = mini ? 5 : 4;context.stroke(); }
-    if (!mini && this.transit.active) this.transit.paint(context,view,bounds);
-    else this.paintDoors(context, view, mini);
+    if (mini) this.paintRadarDoors(context, view);
+    else if (this.transit.active) this.transit.paint(context,view,bounds);
+    if (!mini && this.searchMatches.length) this.paintSearchMatches(context, view, bounds);
     if (!mini && this.key.preview) {
       const p = mapWorldToScreen(this.key.preview, view);
       context.beginPath();context.arc(p.x, p.y, 13, 0, Math.PI * 2);

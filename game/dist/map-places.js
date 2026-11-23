@@ -1,7 +1,7 @@
 // What is where, on the street map: the bundled places drawn by kind.
 //
 // Each enabled place keeps its geographic position at every zoom level.
-import { KINDS, facilityIndex } from './places.js';
+import { KIND, KINDS, facilityIndex, isOpen } from './places.js';
 
 /** The kinds of place the map can show, each a set of kinds or groups from places.js and a colour. */
 export const MAP_CATEGORIES = [
@@ -20,6 +20,7 @@ export const MAP_CATEGORIES = [
   { id: 'public', label: 'SCHOOLS & PUBLIC', colour: '#8fa0ff', groups: ['public'] },
   { id: 'shops', label: 'OTHER SHOPS', colour: '#d0d9d5', groups: ['shop', 'stand'] },
   { id: 'courts', label: 'COURTS & FIELDS', colour: '#72c69c', labels: ['Basketball Court', 'Soccer Field'] },
+  { id: 'subway', label: 'SUBWAY STATIONS', colour: '#f49aad', labels: ['Subway Station'] },
   // Not a kind of business: the city's individual landmarks, by name (landmarks.json).
   { id: 'landmark', label: 'LANDMARKS', colour: '#ffffff', labels: ['Landmark'] },
 ];
@@ -30,42 +31,79 @@ export const categoryOf = kind => { const index = KINDS.findIndex(entry => entry
 
 const CATEGORY_BY_LABEL = new Map(MAP_CATEGORIES.flatMap((category, i) => (category.labels || []).map(label => [label, i])));
 const CELL = 250;
+const cellAt = (x, z) => `${Math.floor(x / CELL)},${Math.floor(z / CELL)}`;
 /** `data` is place-names.json: { kinds, places: [[name, x, z, kind, borough]] }. */
 export function createPlaceLayer(data = null) {
   const members = new Map(MAP_CATEGORIES.map(category => [category.id, []]));
   const grid = new Map();
+  let doors = null, linked = [], localOnly = [], merged = new Map();
   let count = 0;
   for (const [name, x, z, recorded] of data?.places || []) {
     const kind = facilityIndex(recorded, name, data.kinds);
     const label = data.kinds[kind];
     const category = CATEGORY_BY_LABEL.get(label) ?? CATEGORY_OF[kind];
     if (category === undefined || category < 0) continue;
-    const place = { name, x, z, kind: label || '', category };
+    const kindId = CATEGORY_BY_LABEL.has(label) ? MAP_CATEGORIES[category].id : KINDS[kind]?.id;
+    const place = { name, x, z, kind: label || '', kindId, category };
     count++;
     members.get(MAP_CATEGORIES[category].id).push(place);
-    const key = `${Math.floor(x / CELL)},${Math.floor(z / CELL)}`;
+    const key = cellAt(x, z);
     if (!grid.has(key)) grid.set(key, []);
     grid.get(key).push(place);
   }
   const wanted = categories => { const list = categories ? [...categories] : MAP_CATEGORIES.map(category => category.id); return MAP_CATEGORIES.map(category => list.includes(category.id)); };
   const each = (bounds, visit) => {
+    const visible = place => place.x >= bounds.minX && place.x <= bounds.maxX && place.z >= bounds.minZ && place.z <= bounds.maxZ;
     for (let gx = Math.floor(bounds.minX / CELL); gx <= Math.floor(bounds.maxX / CELL); gx++) for (let gz = Math.floor(bounds.minZ / CELL); gz <= Math.floor(bounds.maxZ / CELL); gz++) {
-      for (const place of grid.get(`${gx},${gz}`) || []) if (place.x >= bounds.minX && place.x <= bounds.maxX && place.z >= bounds.minZ && place.z <= bounds.maxZ) visit(place);
+      for (const place of grid.get(`${gx},${gz}`) || []) if (visible(place)) visit(place);
     }
+    for (const place of localOnly) if (visible(place)) visit(place);
+  };
+  const forEachWithin = (bounds, categories, visit) => {
+    const show = wanted(categories);
+    each(bounds, place => { if (show[place.category]) visit(place, MAP_CATEGORIES[place.category].id); });
   };
   return {
-    count,
-    members(id) { return members.get(id) || []; },
+    get count() { return count + localOnly.length; },
+    members(id) { return merged.get(id) || members.get(id) || []; },
+    /** Attach real entrances to catalog locations and retain doors absent from the catalog. */
+    setDoors(blips) {
+      if (blips === doors) return false;
+      doors = blips;
+      for (const place of linked) delete place.door;
+      linked = [];localOnly = [];merged = new Map();
+      for (const door of blips) {
+        // Subway stations already use mapped entrances from the citywide station list.
+        const category = CATEGORY_OF[KIND[door.kind]?.index];
+        if (category == null || category < 0) continue;
+        // Both datasets carry the same original survey coordinates, even when
+        // the walk-in entrance itself is on a different side of the building.
+        const catalogPlace = grid.get(cellAt(door.sourceX, door.sourceZ))?.find(place =>
+          place.x === door.sourceX && place.z === door.sourceZ && place.name === door.name && place.kind === door.what);
+        if (catalogPlace) {
+          catalogPlace.door = door;
+          linked.push(catalogPlace);
+        } else {
+          const place = { x: door.x, z: door.z, name: door.name, kind: door.what, kindId: door.kind, category, door };
+          const id = MAP_CATEGORIES[category].id;
+          if (!merged.has(id)) merged.set(id, [...members.get(id)]);
+          merged.get(id).push(place);
+          localOnly.push(place);
+        }
+      }
+      return true;
+    },
     /** How many places of each category there are in the whole city, by category id. */
-    get totals() { return Object.fromEntries([...members].map(([id, places]) => [id, places.length])); },
+    get totals() { return Object.fromEntries([...members].map(([id, places]) => [id, (merged.get(id) || places).length])); },
     /** How many of each category lie within `bounds` ({ minX, maxX, minZ, maxZ }). */
     counts(bounds) { const counted = new Array(MAP_CATEGORIES.length).fill(0); each(bounds, place => { counted[place.category]++; }); return Object.fromEntries(MAP_CATEGORIES.map((category, i) => [category.id, counted[i]])); },
     /** The places of the chosen categories within `bounds`, at most `limit`, as { name, x, z, kind, category }. */
     within(bounds, categories = null, limit = 4000) {
-      const show = wanted(categories), found = [];
-      each(bounds, place => { if (show[place.category] && found.length < limit) found.push({ ...place, category: MAP_CATEGORIES[place.category].id }); });
+      const found = [];
+      forEachWithin(bounds, categories, (place, category) => { if (found.length < limit) found.push({ ...place, category }); });
       return found;
     },
+    forEachWithin,
     /**
      * The same places gathered into squares `size` metres across: one
      * { x, z, count, category } for each category in each square that holds
@@ -94,22 +132,46 @@ export function createPlaceLayer(data = null) {
 
 const COLOUR = Object.fromEntries(MAP_CATEGORIES.map(category => [category.id, category.colour]));
 export const markerScale = span => Math.min(1, Math.sqrt(1400 / span));
+export const PLACE_BADGE_SPAN = 1000;
 /** Individual locations in the visible bounds, with smaller dots beyond street zoom. */
-export function placeMarks(layer, view, categories = null) {
+export function placeMarks(layer, view, categories = null, hours = 12) {
   const scale = view.width / view.span, halfZ = view.span * view.height / view.width / 2;
   const bounds = { minX: view.x - view.span / 2, maxX: view.x + view.span / 2, minZ: view.z - halfZ, maxZ: view.z + halfZ };
-  const at = place => ({ px: (place.x - view.x) * scale + view.width / 2, py: (place.z - view.z) * scale + view.height / 2 });
-  const named = view.span <= 450;
+  const named = view.span <= 700;
+  const detailed = view.span <= PLACE_BADGE_SPAN;
   const radius = named ? 4 : Math.max(1, 3 * markerScale(view.span));
-  return { mode: 'places', marks: layer.within(bounds, categories, Infinity).map(place => ({ ...at(place), radius, colour: COLOUR[place.category], label: named ? place.name : '', count: 1 })) };
+  const marks = [];
+  layer.forEachWithin(bounds, categories, (place, category) => {
+    const shut = place.door && (place.door.closed || !isOpen(place.door.kind, hours));
+    const mark = {
+      px: (place.x - view.x) * scale + view.width / 2,
+      py: (place.z - view.z) * scale + view.height / 2,
+      radius, colour: COLOUR[category], open: !shut, label: named ? place.name : '', count: 1,
+    };
+    if (detailed) mark.place = place;
+    marks.push(mark);
+  });
+  return { mode: 'places', marks };
 }
 
 /** Draw placeMarks() on a 2D canvas context. */
 export function drawPlaceMarks(context, { marks }) {
+  if (!marks.length) return;
   context.save();
+  const batches = new Map();
   for (const mark of marks) {
-    context.globalAlpha = .95; context.fillStyle = mark.colour;
-    context.beginPath(); context.arc(mark.px, mark.py, mark.radius, 0, Math.PI * 2); context.fill();
+    const key = mark.colour + '/' + mark.open;
+    if (!batches.has(key)) batches.set(key, []);
+    batches.get(key).push(mark);
+  }
+  for (const batch of batches.values()) {
+    context.globalAlpha = batch[0].open ? .95 : .42;context.fillStyle = batch[0].colour;
+    context.beginPath();
+    for (const mark of batch) {
+      context.moveTo(mark.px + mark.radius, mark.py);
+      context.arc(mark.px, mark.py, mark.radius, 0, Math.PI * 2);
+    }
+    context.fill();
   }
   context.globalAlpha = 1; context.font = '600 10px "Chalet Menu", Jost, Arial, sans-serif'; context.textBaseline = 'middle'; context.textAlign = 'left';
   // Names are written where there is room: one that would run over another already written is left out.

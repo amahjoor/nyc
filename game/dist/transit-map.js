@@ -40,7 +40,6 @@ export class TransitMap {
     this.active=value;this.button?.setAttribute('aria-pressed',String(value));
     if(this.select)this.select.hidden=!value;
     if(this.map.pin&&!this.journey){this.map.onPin(value?null:{...this.map.pin});this.map.setStatus(this.map.pin.name);}
-    this.map.listDoors();
     if(value&&!this.network&&this.load)this.load().then(n=>this.setNetwork(n)).catch(()=>{if(this.active)this.info.textContent='Transit routes could not load. Switch Transit off and on to retry.';});
     this.refresh();this.map.draw();
   }

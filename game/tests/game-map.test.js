@@ -3,7 +3,8 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { GameMap, mapWorldToScreen, mapScreenToWorld } from '../dist/game-map.js';
 import { createPlaceLayer } from '../dist/map-places.js';
-import { doorBlips } from '../dist/map-blips.js';
+import { blipColour, doorBlips } from '../dist/map-blips.js';
+import { KIND, KINDS } from '../dist/places.js';
 
 class Events {
   listeners = new Map();
@@ -12,7 +13,7 @@ class Events {
   fire(type, values = {}) { const event = { preventDefault() { this.prevented = true; },stopPropagation() {},stopImmediatePropagation() {}, ...values };return [...(this.listeners.get(type) || [])].map(fn => fn(event)); }
 }
 class Element extends Events {
-  constructor(document) { super();this.document = document;this.hidden = true;this.disabled = false;this.width = 440;this.height = 440;this.attributes = new Map();this.textContent = '';this.captures = new Set();this.calls = [];const that = this;this.context = new Proxy({}, { get(target, key) { if (key in target) return target[key];return (...args) => that.calls.push({ key, args, strokeStyle: target.strokeStyle }); } }); }
+  constructor(document) { super();this.document = document;this.hidden = true;this.disabled = false;this.width = 440;this.height = 440;this.attributes = new Map();this.textContent = '';this.captures = new Set();this.calls = [];const that = this;this.context = new Proxy({}, { get(target, key) { if (key in target) return target[key];return (...args) => that.calls.push({ key, args, strokeStyle: target.strokeStyle, fillStyle: target.fillStyle, alpha: target.globalAlpha }); } }); }
   getContext() { return this.context; }
   getBoundingClientRect() { return { left: 40, top: 20, width: 900, height: 600 }; }
   setAttribute(key, value) { this.attributes.set(key, value); }
@@ -190,10 +191,10 @@ test('the actual route polyline renders on the compact map and directions clear 
 test('keyboard closing restores focus and disposing removes all event listeners', t => {
   const { map, document, byId, canvas } = fixture(t);
   const before = byId('open-map-button');before.focus();map.setOpen(true);
-  document.fire('keydown', { code: 'KeyM', repeat: true });assert.equal(map.open, true);
+  document.fire('keydown', { code: 'F7', repeat: true });assert.equal(map.open, true);
   document.fire('keydown', { key: 'Tab' });assert.equal(document.activeElement, canvas);
   document.fire('keydown', { key: 'Escape' });assert.equal(map.open, false);assert.equal(document.activeElement, before);
-  map.setOpen(true);document.fire('keydown', { code: 'KeyM' });assert.equal(map.open, false);
+  map.setOpen(true);document.fire('keydown', { code: 'F7' });assert.equal(map.open, false);
   map.dispose();assert.equal([...document.listeners.values()].reduce((n, list) => n + list.size, 0), 0);
   assert.equal([...canvas.listeners.values()].reduce((n, list) => n + list.size, 0), 0);
 });
@@ -225,6 +226,11 @@ test('local land uses only intersecting polygons and reuses its precise buffer u
   assert.equal(cache.view.width / cache.view.span, byId('minimap').width / 300, 'buffer retains the full local pixel resolution');
   map.update({ player: { x: 80, z: 40 } });assert.equal(map.miniLandCache, cache);
   map.update({ player: { x: 350, z: 40 } });assert.notEqual(map.miniLandCache, cache);
+  const player = { x: 350, z: 40 };
+  map.update({ player }, true);
+  assert.equal(map.miniLandCache.view.width / map.miniLandCache.view.span, byId('minimap').width / 600);
+  map.update({ player });
+  assert.equal(map.miniLandCache.view.width / map.miniLandCache.view.span, byId('minimap').width / 300, 'restoring the radar redraws the shoreline at the compact scale');
 });
 
 test('zoomed-out streets stay at screen resolution through every zoom and pan', async t => {
@@ -232,7 +238,7 @@ test('zoomed-out streets stay at screen resolution through every zoom and pan', 
   for (let i = 0; i < 1200; i++) roads.push({ id: `r${i}`, width: 8, kind: i % 100 ? 'street' : 'highway', points: [[-15000 + i * 30, -20000], [-15000 + i * 30, 30000]] });
   f.map.setRoads(roads);f.map.setOpen(true);f.map.zoom(12);
   assert.equal(f.map.view.span, 12000);
-  const blit = () => f.canvas.calls.filter(call => call.key === 'drawImage').at(-1).args;
+  const blit = () => f.canvas.calls.findLast(call => call.key === 'drawImage' && call.args[0] === f.map.sharpRoads.canvas).args;
   const exact = () => {
     const sharp = f.map.sharpRoads;assert.equal(blit()[0], sharp.canvas);
     assert.ok(Math.abs(sharp.canvas.width / sharp.view.span - 900 / f.map.view.span) < 1e-9, 'one kept pixel per screen pixel');
@@ -270,55 +276,78 @@ test('zoomed-out streets are stroked from paths built once, only where in sight'
 
 const door = (kind, x, z, name = '') => ({ place: { id: `${kind}|${x}|${z}`, kind, name, x, z }, x, z, tx: 1, tz: 0, nx: 0, nz: 1, width: 6 });
 
-test('doors nearby are marked on the radar and the open map, and a click on a badge pins that place by name', t => {
+test('one place filter covers nearby doors and distant catalog locations at every zoom', t => {
   const pins = [], { map, pointer, byId } = fixture(t, { onPin: pin => pins.push(pin) });
-  const doors = doorBlips([door('pizza', 30, -20, "JOE'S PIZZA"), door('barber', -40, 35)]);
+  const pizza = door('pizza', 30, -20, "JOE'S PIZZA");
+  pizza.place.x = 35;
+  const doors = doorBlips([pizza, door('barber', -40, 35)]);
+  map.setPlaces(createPlaceLayer({ kinds: KINDS.map(kind => kind.label), places: [
+    ["JOE'S PIZZA", 35, -20, KIND.pizza.index, 1], ['FAR PIZZA', 12500, 6000, KIND.pizza.index, 4],
+  ] }));
   map.setDoors(doors, 12);
   const mini = byId('minimap');mini.calls.length = 0;
-  map.update({ player: { x: 0, z: 0, angle: 0 } });
+  const heading = .6;
+  map.update({ player: { x: 0, z: 0, angle: heading } });
   // The radar is 300 m across a canvas 440 wide: each door is a badge 28 across where it stands, the rarer trade drawn first.
-  const badges = calls => calls.filter(call => call.key === 'arc' && (call.args[2] === 14 || call.args[2] === 11)).map(call => call.args.slice(0, 2).map(Math.round));
+  const badges = calls => calls.filter(call => call.key === 'arc' && call.args[2] === 14).map(call => call.args.slice(0, 2).map(Math.round));
   assert.deepEqual(badges(mini.calls), [[161, 271], [264, 191]]);
-  // The open map is 1000 m across 900 pixels: the same doors, smaller.
-  const canvas = byId('game-map-canvas');map.setOpen(true);
-  assert.deepEqual(badges(canvas.calls).sort((a,b)=>a[0]-b[0]), [[414, 332], [477, 282]]);
-  // Closer in, 600 m across, each has its name beside it.
+  const canvas = byId('game-map-canvas');
+  const restaurantMarks = (element = canvas) => element.calls.filter(call => call.key === 'arc' && call.fillStyle === blipColour('pizza'));
+  const playerHeading = element => element.calls.findLast(call => call.key === 'rotate')?.args[0];
+  assert.equal(playerHeading(mini), -heading);
+  map.setOpen(true);
+  assert.equal(restaurantMarks().length, 1, 'the doorway and catalog point share one marker');
+  assert.equal(playerHeading(canvas), -heading);
+  assert.equal(map.key.rows.get('place/eat').count.textContent, '2');
+  assert.equal(map.key.rows.get('place/barber').count.textContent, '1', 'a door missing from the catalog is also browsable');
+  assert.equal(byId('game-map-nearby'), undefined);
   canvas.calls.length = 0;map.zoom(.6);
-  assert.deepEqual(badges(canvas.calls).sort((a,b)=>a[0]-b[0]), [[390, 353], [495, 270]]);
+  const [mark] = restaurantMarks();
+  assert.equal(mark.args[2], 11, 'street zoom uses the illustrated badge renderer');
   assert.deepEqual(canvas.calls.filter(call => call.key === 'fillText' && /PIZZA|BARBER/.test(call.args[0])).map(call => call.args[0]).sort(), ['BARBER SHOP', "JOE'S PIZZA"]);
-  // Beside it, what each badge stands for.
-  const legend = byId('game-map-legend');
-  assert.equal(legend.hidden, false);
-  const rows = byId('game-map-nearby').children;
-  assert.deepEqual(rows.map(row => row.children[0].children[1].textContent), ['Barber', 'Pizza']);
-  assert.match(rows[0].children[0].children[0].innerHTML, /^<svg /);
-  // A click on the badge is a click on the place.
-  pointer('pointerdown', 498, 273);pointer('pointerup', 498, 273);
+  pointer('pointerdown', ...mark.args.slice(0, 2));pointer('pointerup', ...mark.args.slice(0, 2));
   assert.deepEqual(pins.at(-1), { x: 30, z: -20, name: "JOE'S PIZZA · Pizza" });
-  // A click clear of every badge is still a plain pin.
-  pointer('pointerdown', 700, 100);pointer('pointerup', 700, 100);
-  assert.equal(pins.at(-1).name, 'Map pin');
+  map.clearPin();
+  canvas.calls.length = 0;map.showCity();
+  assert.equal(playerHeading(canvas), -heading, 'the player keeps their heading arrow in the city overview');
+  const overview = map.placeOverview.canvas;
+  assert.deepEqual(restaurantMarks(overview).map(call => call.args[2]), [1, 1], 'the same colored marker reaches distant places');
+  overview.calls.length = 0;
+  map.view.x += 100;map.draw();
+  assert.equal(overview.calls.length, 0, 'a small pan reuses the overview markers');
+  map.key.rows.get('place/eat').toggle.fire('click');
+  assert.equal(restaurantMarks(overview).length, 0);
+  canvas.calls.length = 0;map.recenter();
+  assert.equal(restaurantMarks().length, 0, 'the same filter hides the nearby restaurant');
 });
 
-test('doors are redrawn when they or the hour change, dim when shut, and remain individually visible across the whole city', t => {
+test('known doors dim when closed and disappear from the map when unloaded if they have no catalog point', t => {
   const { map, byId } = fixture(t), canvas = byId('game-map-canvas');
   const doors = doorBlips([door('barber', 20, 0), door('bodega', 120, 0)]);
   map.setOpen(true);map.setDoors(doors, 12);
-  const alphas = () => canvas.calls.filter(call => call.key === 'arc' && call.args[2] === 11).length;
-  assert.equal(alphas(), 2);
+  const barber = () => canvas.calls.find(call => call.key === 'arc' && call.fillStyle === blipColour('barber'));
+  assert.equal(barber().alpha, 1);
   // The same doors at the same hour draw nothing again.
   canvas.calls.length = 0;map.setDoors(doors, 12.1);assert.equal(canvas.calls.length, 0);
   // At midnight the barber is shut: the map is drawn again.
-  map.setDoors(doors, 0);assert.equal(alphas(), 2);assert.equal(map.hours, 0);
-  const radii = () => canvas.calls.filter(call => call.key === 'arc').map(call => call.args[2]);
-  canvas.calls.length = 0;map.view.span = 2400;
-  map.setDoors(doorBlips([door('barber', 20, 0), door('bodega', 60, 0)]), 12);
-  assert.deepEqual(radii(), [8.5, 8.5]);
-  canvas.calls.length = 0;map.showCity();assert.deepEqual(radii(), [3, 3]);
-  byId('game-map-nearby').children[0].children[0].fire('click');
-  canvas.calls.length = 0;map.draw();assert.deepEqual(radii(), [3]);
-  // With no doors there is no legend.
-  map.setDoors([], 12);assert.equal(byId('game-map-legend').hidden, true);
+  map.setDoors(doors, 0);assert.equal(barber().alpha, .42);
+  canvas.calls.length = 0;map.setDoors([], 12);
+  assert.equal(barber(), undefined);
+  assert.equal(map.key.rows.get('place/barber').count.textContent, '0');
+});
+
+test('a close badge stays selectable when more places share the same patch of screen', t => {
+  const { map, canvas } = fixture(t);
+  map.setPlaces(createPlaceLayer({ kinds: KINDS.map(kind => kind.label), places: [
+    ['Deli', 20, 0, KIND.bodega.index, 1], ['Pizzeria', 25, 0, KIND.pizza.index, 1],
+  ] }));
+  map.setOpen(true);
+  assert.equal(map.placeBadges.length, 1);
+  const [badge] = map.placeBadges;
+  assert.equal(canvas.calls.filter(call => call.key === 'arc' && call.args[2] === 2).length, 1);
+  const other = badge.place.name === 'Deli' ? { x: 25, z: 0 } : { x: 20, z: 0 };
+  map.pinAtScreenPoint(mapWorldToScreen(other, map.view));
+  assert.ok(map.pin.name.startsWith(badge.place.name));
 });
 
 test('the Bike lanes control toggles the same neighborhood geometry on the map and minimap', t=>{
@@ -340,7 +369,7 @@ test('the key browses every citywide location and pins only on selection', t => 
   map.setPlaces(layer);map.setOpen(true);
   const row = byId('game-map-places').children.at(-1);
   const [toggle, prev, count, next, selection] = row.children;
-  toggle.fire('click');map.showCity();
+  map.showCity();
   const citySpan = map.view.span;
   const far = mapWorldToScreen({ x: 12500, z: 6000 }, map.view);
   pointer('pointerdown',far.x,far.y);pointer('pointerup',far.x,far.y);
@@ -351,9 +380,62 @@ test('the key browses every citywide location and pins only on selection', t => 
   prev.fire('click');assert.equal(count.textContent, '2 / 2');
   row.fire('pointerleave');next.focus();document.fire('keydown', { key: 'ArrowRight' });
   selection.fire('click');assert.equal(map.pin.name, 'Near · Landmark');
-  toggle.fire('click');assert.equal(map.key.preview, undefined);assert.equal(map.placeKinds.size, 0);
+  toggle.fire('click');assert.equal(map.key.preview, undefined);assert.equal(map.placeKinds.has('landmark'), false);
   assert.equal(map.pin.name, 'Near · Landmark');
   byId('game-map-key-toggle').fire('click');
   assert.equal(byId('game-map-key-list').hidden, true);
   assert.equal(map.key.stepTarget(1), false);
+});
+
+test('subway stations use the citywide key and route to a station entrance', t => {
+  const { map, byId } = fixture(t);
+  const near = { name: 'Near Station', x: 100, z: 0, entrances: [[150, 0], [106, 0]] };
+  const far = { name: 'Far Station', x: 12500, z: 6000, entrances: [[12506, 6000]] };
+  map.setSubwayStations([far, near]);
+  map.setPlaces(createPlaceLayer());
+  map.setDoors(doorBlips([], [{ x: 106, z: 0, station: near }]), 12);
+  map.setOpen(true);
+  assert.equal(byId('game-map-nearby'), undefined);
+  const row = map.key.rows.get('place/subway');
+  assert.equal(row.toggle.children[0].textContent, 'SUBWAY STATIONS');
+  assert.equal(row.count.textContent, '2');
+  row.next.fire('click');
+  assert.equal(row.selection.textContent, near.name);
+  assert.equal(map.view.x, 106);
+  assert.equal(map.pin, null);
+  row.next.fire('click');
+  assert.equal(row.selection.textContent, far.name);
+  row.selection.fire('click');
+  assert.deepEqual(map.pin, { x: 12506, z: 6000, name: 'Far Station · Subway Station' });
+  map.setPlayer(far);
+  row.next.fire('click');
+  assert.equal(row.selection.textContent, far.name, 'starting from a new player position re-sorts the stations');
+});
+
+test('citywide place search frames and highlights every match and lets nearby markers be selected individually', async t => {
+  const matches = Array.from({ length: 12 }, (_, i) => ({ kind: 'place', name: 'Coffee', detail: 'Store ' + i, x: i * 70, z: 0 }));
+  matches.push({ kind: 'place', name: 'Coffee', detail: 'Far store', x: 16000, z: 7000 });
+  const { map, byId, canvas, pointer } = fixture(t, {
+    searchLocal: (query, { limit }) => matches.slice(0, limit),
+    lookupAddress: async () => assert.fail('a local place search needs no address lookup'),
+  });
+  map.setOpen(true);
+  byId('game-map-address').value = 'Coffee';
+  canvas.calls.length = 0;
+  await map.searchAddress();
+  assert.equal(byId('game-map-search-results').children.length, 13);
+  assert.equal(byId('game-map-search-status').textContent, '13 locations on the map');
+  assert.equal(canvas.calls.filter(call => call.key === 'arc' && call.args[2] === 5).length, 13);
+  assert.equal(map.pin, null);
+  for (const place of matches.slice(0, 2)) {
+    const { x, y } = mapWorldToScreen(place, map.view);
+    pointer('pointerdown', x, y);pointer('pointerup', x, y);
+    assert.equal(map.pin.name, 'Coffee · ' + place.detail);
+  }
+  assert.equal(map.searchMatches.length, 13);
+  byId('game-map-address').value = '';
+  byId('game-map-address').fire('input');
+  assert.equal(map.searchMatches.length, 0);
+  assert.equal(byId('game-map-search-results').children.length, 0);
+  assert.equal(map.pin.name, 'Coffee · Store 1');
 });

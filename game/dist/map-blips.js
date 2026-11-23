@@ -80,6 +80,7 @@ export const BLIP = Object.fromEntries(BLIPS.map(blip => [blip.id, blip]));
 
 // Which picture each kind of place takes (places.js); a kind not named here is a shop.
 const PICTURE = {
+  courts: 'gym', landmark: 'civic',
   pizza: 'pizza', chinese: 'noodles', japanese: 'noodles', korean: 'noodles', thai: 'noodles', asian: 'noodles', coffee: 'coffee', juice: 'coffee', bakery: 'bakery', donuts: 'bakery', bagels: 'bakery', icecream: 'icecream',
   burgers: 'burger', chicken: 'burger', sandwiches: 'burger', bbq: 'burger', seafood: 'fish', pub: 'bar', bar: 'bar', club: 'bar',
   mexican: 'eat', latin: 'eat', caribbean: 'eat', italian: 'eat', american: 'eat', kosher: 'eat', indian: 'eat', mediterranean: 'eat', french: 'eat', steakhouse: 'eat', european: 'eat', african: 'eat',
@@ -95,19 +96,19 @@ const PICTURE = {
 export const blipOf = kind => PICTURE[kind] || (kind === 'subway' ? 'subway' : 'shop');
 const CATEGORY_COLOUR = Object.fromEntries(MAP_CATEGORIES.map(category => [category.id, category.colour]));
 /** The colour a kind of place is marked in: that of its chip on the street map. */
-export const blipColour = kind => kind === 'subway' ? '#ffffff' : CATEGORY_COLOUR[categoryOf(kind)] || '#d0d9d5';
+export const blipColour = kind => CATEGORY_COLOUR[kind === 'subway' ? kind : categoryOf(kind)] || '#d0d9d5';
 
 /**
  * The badges for a set of doors.
  * @param fronts street fronts with a room behind them, as solveFrontages() gives them
  * @param stairs subway stairs: { x, z, station: { name } }
- * @returns {{id, x, z, name, kind, what, icon, colour}[]} `what` is the kind of place in words
+ * @returns {{id, x, z, sourceX?, sourceZ?, name, kind, what, icon, colour}[]} `what` is the kind of place in words
  */
 export function doorBlips(fronts = [], stairs = []) {
   const blips = [];
   for (const front of fronts) {
     const place = front.place, kind = place.kind;
-    blips.push({ id: String(place.id ?? `${kind}|${Math.round(front.x)}|${Math.round(front.z)}`), x: front.x, z: front.z, name: placeName(place), kind, what: KIND[kind]?.label || 'Place', icon: blipOf(kind), colour: blipColour(kind) });
+    blips.push({ id: String(place.id ?? `${kind}|${Math.round(front.x)}|${Math.round(front.z)}`), x: front.x, z: front.z, sourceX: place.x, sourceZ: place.z, name: placeName(place), kind, what: KIND[kind]?.label || 'Place', icon: blipOf(kind), colour: blipColour(kind) });
   }
   // One badge for a station however many stairs it has on the corner: the first of each cluster.
   const seen = [];
@@ -121,7 +122,7 @@ export function doorBlips(fronts = [], stairs = []) {
 }
 
 /** Whether the door behind a badge is open at `hours`: the subway never shuts. */
-export const blipOpen = (blip, hours) => blip.kind === 'subway' || (!blip.closed && isOpen(blip.kind, hours));
+export const blipOpen = (blip, hours) => blip.open ?? (blip.kind === 'subway' || (!blip.closed && isOpen(blip.kind, hours)));
 
 /**
  * Those of `blips` that can be drawn `spacing` metres apart without one

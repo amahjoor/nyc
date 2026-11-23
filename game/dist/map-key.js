@@ -1,5 +1,4 @@
 import { MAP_CATEGORIES } from './map-places.js';
-import { blipLegend, blipSvg } from './map-blips.js';
 
 const number = new Intl.NumberFormat('en-US');
 
@@ -8,12 +7,11 @@ export class MapKey {
     this.map = map;
     this.requestPlaces = requestPlaces;
     this.rows = new Map();
-    this.hiddenDoors = new Set();
     this.toggle = map.byId('game-map-key-toggle');
     this.list = map.byId('game-map-key-list');
     this.setExpanded(!globalThis.matchMedia?.('(max-width:650px)').matches);
     listen(this.toggle, 'click', () => this.setExpanded(this.list.hidden));
-    for (const category of MAP_CATEGORIES) this.addRow(category, false);
+    for (const category of MAP_CATEGORIES) this.addRow(category);
   }
 
   setExpanded(expanded) {
@@ -22,7 +20,7 @@ export class MapKey {
     this.hover = null;
   }
 
-  addRow(category, nearby) {
+  addRow(category) {
     const make = (tag, className, text = '') => {
       const el = this.map.document.createElement(tag);
       el.className = className;
@@ -34,11 +32,6 @@ export class MapKey {
     const el = make('div', 'game-map-key-row');
     const toggle = make('button', 'game-map-chip');
     toggle.style?.setProperty?.('--chip', colour);
-    if (nearby) {
-      const icon = make('i', '');
-      icon.innerHTML = blipSvg(id, colour);
-      toggle.append(icon);
-    }
     toggle.append(make('span', '', label));
     const prev = make('button', 'game-map-step', '‹');
     const next = make('button', 'game-map-step', '›');
@@ -46,14 +39,14 @@ export class MapKey {
     next.setAttribute('aria-label', 'Next location · ' + label);
     const count = make('span', 'game-map-count');
     const selection = make('button', 'game-map-selection');
-    const row = { id, nearby, el, toggle, prev, count, next, selection, places: null, index: -1 };
+    const row = { id, el, toggle, prev, count, next, selection, places: null, index: -1 };
     toggle.title = 'Click to toggle. Use the left and right arrows to browse locations.';
     for (const child of [toggle, prev, count, next, selection]) el.append(child);
     el.addEventListener('pointerenter', () => { this.hover = row; });
     el.addEventListener('pointerleave', () => { if (this.hover === row) this.hover = null; });
     toggle.addEventListener('click', () => {
       this.enable(row, !this.enabled(row));
-      if (!nearby && !this.map.placeLayer) this.requestPlaces();
+      if (!this.map.placesLoaded) this.requestPlaces();
       this.refresh(row);
       this.map.draw();
     });
@@ -67,20 +60,19 @@ export class MapKey {
     prev.addEventListener('click', () => this.step(row, -1));
     next.addEventListener('click', () => this.step(row, 1));
     selection.addEventListener('click', () => this.pinPreview());
-    this.map.byId(nearby ? 'game-map-nearby' : 'game-map-places').append(el);
-    this.rows.set((nearby ? 'door/' : 'place/') + id, row);
+    this.map.byId('game-map-places').append(el);
+    this.rows.set('place/' + id, row);
     this.refresh(row);
     return row;
   }
 
   enabled(row) {
-    return row.nearby ? !this.hiddenDoors.has(row.id) : this.map.placeKinds.has(row.id);
+    return this.map.placeKinds.has(row.id);
   }
 
   enable(row, enabled) {
-    const set = row.nearby ? this.hiddenDoors : this.map.placeKinds;
-    if (row.nearby ? !enabled : enabled) set.add(row.id);
-    else set.delete(row.id);
+    if (enabled) this.map.placeKinds.add(row.id);
+    else this.map.placeKinds.delete(row.id);
     if (!enabled && this.active === row) this.active = null;
   }
 
@@ -98,53 +90,33 @@ export class MapKey {
     }
   }
 
-  setPlaces(layer) {
+  setPlaces() {
     for (const row of this.rows.values()) {
-      if (row.nearby) continue;
+      const layer = row.id === 'subway' ? this.map.subwayLayer : this.map.placeLayer;
+      const places = layer?.members(row.id);
+      if (row.source === places) continue;
       if (this.active === row) this.active = null;
-      row.places = layer?.members(row.id);
+      row.source = row.places = places;
       row.index = -1;
       this.refresh(row);
     }
-  }
-
-  setDoors(doors) {
-    const groups = new Map();
-    for (const door of doors) {
-      if (!groups.has(door.icon)) groups.set(door.icon, []);
-      groups.get(door.icon).push(door);
-    }
-    for (const [key, row] of this.rows) {
-      if (!row.nearby || groups.has(row.id)) continue;
-      if (this.active === row) this.active = null;
-      if (this.hover === row) this.hover = null;
-      row.el.remove();
-      this.rows.delete(key);
-    }
-    for (const category of blipLegend(doors)) {
-      const row = this.rows.get('door/' + category.id) || this.addRow(category, true);
-      const selected = row.places?.[row.index];
-      row.places = groups.get(category.id);
-      row.index = selected ? row.places.findIndex(place => place.id === selected.id) : -1;
-      if (this.active === row && row.index < 0) this.active = null;
-      this.refresh(row);
-    }
-    this.map.byId('game-map-legend').hidden = !groups.size;
   }
 
   get preview() { return this.active?.places[this.active.index]; }
 
   pinPreview() {
     const place = this.preview;
-    if (place) return this.map.setPin({ x: place.x, z: place.z, name: place.name + ' · ' + (place.what || place.kind) });
+    if (place) return this.map.pinPlace(place);
   }
 
   step(row, direction) {
     if (!row?.places?.length || this.map.busy) return false;
-    if (row.index < 0 && !row.nearby) {
-      const { x, z } = this.map.player;
+    const { x, z } = this.map.player;
+    if (row.index < 0 || row.sortedX !== x || row.sortedZ !== z) {
       const distance = p => (p.x - x) ** 2 + (p.z - z) ** 2;
-      row.places = [...row.places].sort((a, b) => distance(a) - distance(b));
+      row.places = [...row.source].sort((a, b) => distance(a) - distance(b));
+      row.index = -1;
+      row.sortedX = x;row.sortedZ = z;
     }
     const old = this.active;
     this.enable(row, true);
@@ -184,7 +156,6 @@ export class MapKey {
 
   dispose() {
     this.map.byId('game-map-places').replaceChildren();
-    this.map.byId('game-map-nearby').replaceChildren();
     this.rows.clear();
   }
 }

@@ -62,7 +62,7 @@ test('every view draws individual places, shrinking distant marks and naming pla
   assert.equal(banks.mode, 'places'); assert.ok(banks.marks.length > 5 && banks.marks.length <= 350 && banks.marks.every(mark => mark.radius <= 4));
   assert.ok(banks.marks[0].radius < district.marks[0].radius && banks.marks[0].radius > city.marks[0].radius);
   // Drawn: a disc for every mark, and no name over another.
-  const calls = { arc: 0, text: [] }, context = { save() {}, restore() {}, beginPath() {}, fill() {}, fillRect() {}, arc() { calls.arc++; }, measureText: text => ({ width: text.length * 6 }), fillText(text, x, y) { calls.text.push({ x, y, w: text.length * 6 }); } };
+  const calls = { arc: 0, text: [] }, context = { save() {}, restore() {}, beginPath() {}, fill() {}, fillRect() {}, moveTo() {}, arc() { calls.arc++; }, measureText: text => ({ width: text.length * 6 }), fillText(text, x, y) { calls.text.push({ x, y, w: text.length * 6 }); } };
   drawPlaceMarks(context, block);
   assert.equal(calls.arc, block.marks.length); assert.ok(calls.text.length >= 3 && calls.text.length <= block.marks.length);
   for (const a of calls.text) for (const b of calls.text) if (a !== b) assert.ok(!(a.x < b.x + b.w && a.x + a.w > b.x && Math.abs(a.y - b.y) < 12), 'names do not overlap');

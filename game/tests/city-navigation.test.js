@@ -38,16 +38,19 @@ test('map selection and screen pin both follow terrain, including a later elevat
   const canvas=element(),camera=new THREE.PerspectiveCamera(60,1,.1,10000);
   camera.position.set(0,100,100);camera.lookAt(0,0,0);camera.updateMatrixWorld();
   let elevation=20;
-  const cues=[];
+  const cues=[], previews=[], trips=[];
   const navigation=createCityNavigation({canvas,camera,input:{clear(){},pointerLookEnabled:true},
-    bounds:{minX:-1000,maxX:1000,minZ:-1000,maxZ:1000},onTravel(){},onMapPick:cue=>cues.push(cue),heightAt:()=>elevation});
+    bounds:{minX:-1000,maxX:1000,minZ:-1000,maxZ:1000},onTravel:place=>trips.push(place),
+    onDestinationSelected:place=>previews.push(place),onMapPick:cue=>cues.push(cue),heightAt:()=>elevation});
   navigation.setVisible(true);elements.get('pick-spawn-button').listeners.get('click')();
   canvas.listeners.get('pointerdown')({clientX:400,clientY:400,pointerId:1,button:0,preventDefault(){}});
   canvas.listeners.get('pointermove')({clientX:400,clientY:400,pointerId:1});
   assert.deepEqual(cues,[],'dragging the map pin is quiet until release');
+  assert.deepEqual(previews,[],'the camera waits until release');
   canvas.listeners.get('pointerup')({clientX:400,clientY:400,pointerId:1});
   assert.deepEqual(cues,['select']);
   const selected=navigation.getState().selected;
+  assert.deepEqual(previews,[selected]);
   assert.ok(Math.abs(selected.x)<.01);assert.ok(Math.abs(selected.z-20)<.01,'elevation shifts the selected horizontal location along the ray');
   const pin=elements.get('spawn-pin');assert.equal(pin.hidden,false);
   assert.ok(Math.abs(parseFloat(pin.style.top)-400)<.01,'the pin remains beneath the pointer on the raised terrain');
@@ -57,5 +60,18 @@ test('map selection and screen pin both follow terrain, including a later elevat
   assert.ok(parseFloat(pin.style.top)<400,'streamed terrain updates move the projected pin without changing its geographic selection');
   elements.get('pick-spawn-button').listeners.get('click')();
   canvas.listeners.get('dblclick')({clientX:400,clientY:400});
-  assert.deepEqual(cues,['select','confirm']);
+  assert.deepEqual(cues,['select','select']);
+  assert.deepEqual(previews.at(-1),navigation.getState().selected);
+  assert.equal(trips.length,0,'double-clicking only places a preview pin');
+  const anchorX=parseFloat(pin.style.left),anchorY=parseFloat(pin.style.top);
+  pin.listeners.get('pointerdown')({clientX:anchorX,clientY:anchorY-20,pointerId:2,preventDefault(){}});
+  canvas.listeners.get('pointermove')({clientX:anchorX+25,clientY:anchorY-20,pointerId:2});
+  assert.equal(previews.length,2,'moving an existing pin does not move the camera mid-drag');
+  canvas.listeners.get('pointerup')({clientX:anchorX+25,clientY:anchorY-20,pointerId:2});
+  assert.deepEqual(previews.at(-1),navigation.getState().selected);
+  assert.ok(Math.abs(parseFloat(pin.style.left)-anchorX-25)<.01);
+  assert.ok(Math.abs(parseFloat(pin.style.top)-anchorY)<.01,'dragging by the label keeps its offset from the tip');
+  assert.equal(trips.length,0);
+  elements.get('spawn-button').listeners.get('click')();
+  assert.deepEqual(trips,[navigation.getState().selected]);
 });

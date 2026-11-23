@@ -92,19 +92,27 @@ export async function searchAddresses(query, { signal, fetcher = globalThis.fetc
 }
 
 /** Combine surveyed intersections and businesses with NYC building addresses. */
-export async function searchDestinations(query, { searchLocal, presets = [], lookup = searchAddresses, signal }) {
+export async function searchDestinations(query, { searchLocal, presets = [], lookup = searchAddresses, signal, allPlaces = false }) {
   if (signal?.aborted) throw canceled();
   const exact = matchPresets(query, presets, { exact: true });
   if (exact.length) return exact;
-  const [local, remote] = await Promise.allSettled([
-    Promise.resolve().then(() => searchLocal(query)),
-    lookup(query, { signal }),
-  ]);
+  const { numbered } = parseQuery(query);
+  const citywide = allPlaces && !numbered;
+  const local = Promise.resolve().then(() => searchLocal(query, { limit: citywide ? Infinity : MAX_RESULTS }))
+    .then(result => Array.isArray(result) ? result : []).catch(() => []);
+  if (citywide) {
+    // Named places are already indexed across the city. Address lookup adds no
+    // branch locations and can be unavailable while the bundled data still works.
+    const found = await local;
+    if (signal?.aborted) throw canceled();
+    if (found.some(place => place.kind === 'corner')) return found.slice(0, 8);
+    if (found.some(place => place.kind === 'place')) return found;
+  }
+  const [{ value: found }, remote] = await Promise.allSettled([local, lookup(query, { signal })]);
   if (signal?.aborted) throw canceled();
-  const found = local.status === 'fulfilled' && Array.isArray(local.value) ? local.value : [];
   if (remote.status === 'rejected' && !found.length) throw remote.reason;
   const addresses = remote.status === 'fulfilled' ? remote.value : [];
 
   if (found.some(place => place.kind === 'corner')) return found.slice(0, 8);
-  return (parseQuery(query).numbered ? [...addresses, ...found] : [...found, ...addresses]).slice(0, 8);
+  return (numbered ? [...addresses, ...found] : [...found, ...addresses]).slice(0, 8);
 }
