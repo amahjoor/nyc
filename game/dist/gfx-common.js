@@ -13,6 +13,8 @@ export const shared = {
   uNycAmbientSky: { value: new THREE.Color(.5, .6, .8) },
   uNycAmbientGround: { value: new THREE.Color(.1, .1, .1) },
   uNycBounce: { value: new THREE.Color(0, 0, 0) },
+  // xyz is the nearest engine fire or explosion, w its current light intensity.
+  uNycFire: { value: new THREE.Vector4(0,0,0,0) },
   uNycNight: { value: 0 },
   uNycLights: { value: 0 },
   // 0 in the evening, rising to 1 in the small hours when most windows go dark.
@@ -44,9 +46,11 @@ export const shared = {
   // The room the player is standing in, so that its building's street wall
   // can be left out in front of it and the street seen from indoors. Room:
   // the middle of its front at floor level (x, y, z), then 1 while indoors.
-  // Side: the way out (x, z), and half the room's width.
+  // Side: the way out (x, z), half-width and skew. Edges: the front tangent
+  // (x, z) and the depths of the left and right corner windows.
   uNycRoom: { value: new THREE.Vector4(0, 0, 0, 0) },
   uNycRoomSide: { value: new THREE.Vector4(0, 1, 0, 0) },
+  uNycRoomEdges: { value: new THREE.Vector4() },
 };
 
 export const CASCADES = 3;
@@ -84,6 +88,7 @@ uniform vec4 uNycFog;
 uniform vec3 uNycFogSunColor;
 uniform sampler2D uNycNoise;
 uniform float uNycWet;
+uniform vec4 uNycFire;
 uniform sampler2D uNycLightMap;
 uniform vec4 uNycLightRect;
 uniform sampler2D uNycLand;
@@ -97,6 +102,7 @@ uniform sampler2D uNycPlaceAtlas;
 uniform vec4 uNycPlaceGlyphs;
 uniform vec4 uNycRoom;
 uniform vec4 uNycRoomSide;
+uniform vec4 uNycRoomEdges;
 // 1 on dry land, 0 over open water. Everything is land until a shoreline is supplied.
 float nycLand( vec2 xz ) {
 	if ( uNycLandRect.w < 0.5 ) return 1.0;
@@ -232,6 +238,13 @@ const CITY_LIGHT_GLSL = /* glsl */`
 #if defined( RE_IndirectDiffuse )
 	// Sunlight returned by the walls and pavements around.
 	irradiance += uNycBounce;
+  if ( uNycFire.w > 0.0 ) {
+    vec3 toFire = ( viewMatrix * vec4( uNycFire.xyz, 1.0 ) ).xyz + vViewPosition;
+    float dist2 = dot( toFire, toFire );
+    float reach = clamp( 1.0 - dist2 * .01, 0.0, 1.0 );
+    float facing = max( 0.0, dot( geometryNormal, toFire ) * inversesqrt( max( dist2, .01 ) ) );
+    irradiance += vec3( 1.0, .33, .055 ) * ( uNycFire.w * facing * reach * reach / max( 1.0, dist2 ) );
+  }
 	if ( uNycLightRect.w > 0.0 ) {
 		vec3 nycWorld = cameraPosition - vViewPosition * mat3( viewMatrix );
 		vec2 nycLightUV = ( nycWorld.xz - uNycLightRect.xy ) * uNycLightRect.z;

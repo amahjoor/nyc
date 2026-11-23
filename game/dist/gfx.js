@@ -59,7 +59,7 @@ export class Graphics {
     // Fill light for renderers that cannot build a reflection map.
     this.fill = new THREE.HemisphereLight(0xffffff, 0x444444, 0); this.fill.name = 'Sky fill'; scene.add(this.fill);
 
-    this.sky = new Sky(); scene.add(this.sky.mesh);
+    this.sky = new Sky(this.accelerated); scene.add(this.sky.mesh);
     this.post = this.accelerated ? new PostPipeline(renderer, { samples: QUALITY[this.quality].samples }) : null;
     if (this.accelerated) {
       renderer.toneMapping = THREE.NoToneMapping; renderer.outputColorSpace = THREE.SRGBColorSpace;
@@ -208,6 +208,7 @@ export class Graphics {
     shareSceneUniforms(scene);
     const exposure=this.subwayInterior?1.12:this.state.exposure;
     if (!this.accelerated) {
+      if (renderer.isWebGLRenderer) this.sky.renderPanorama(renderer);
       this.fill.intensity = 1;
       if (renderer.capabilities) renderer.toneMappingExposure = Math.min(3,exposure);
       renderer.render(scene, camera);

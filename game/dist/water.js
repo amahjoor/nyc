@@ -95,7 +95,14 @@ void main() {
 	vec2 swell = texture2D( uNycNoise, p * 0.0031 + vec2( t * 0.0021, t * 0.0013 ) ).rg - 0.5;
 	vec2 wave = texture2D( uNycNoise, p * 0.017 + vec2( - t * 0.007, t * 0.0052 ) ).gb - 0.5;
 	vec2 ripple = texture2D( uNycNoise, p * 0.083 + vec2( t * 0.021, - t * 0.017 ) ).rb - 0.5;
-	vec2 slope = swell * 0.22 + wave * 0.42 / ( 1.0 + range * 0.0016 ) + ripple * 0.5 / ( 1.0 + range * 0.011 );
+	// Wind-stretched crests break into irregular groups as the two swells
+	// cross. Filter each train away when a pixel spans most of a wave.
+	vec2 phase = vec2( dot( p, vec2( 0.36, 0.19 ) ), dot( p, vec2( -0.32, 0.91 ) ) )
+		+ vec2( -0.92, -1.47 ) * t + swell * 12.0 + wave * 2.3;
+	vec2 resolved = 1.0 - smoothstep( vec2( 0.35 ), vec2( 3.0 ), fwidth( phase ) );
+	vec2 crest = cos( phase ) * resolved * smoothstep( vec2( -0.26 ), vec2( 0.2 ), swell );
+	vec2 slope = swell * 0.16 + vec2( 0.068, 0.036 ) * crest.x + vec2( -0.021, 0.06 ) * crest.y;
+	slope += wave * 0.26 / ( 1.0 + range * 0.0016 ) + ripple * 0.28 / ( 1.0 + range * 0.011 );
     float foam=0.0;
     if(uSwimRipple>0.) {
         // A stroke disturbs a short patch of surface behind the shoulders.
@@ -124,17 +131,20 @@ void main() {
 	float fresnel = 0.02 + 0.98 * pow( 1.0 - facing, 5.0 );
 	vec3 mirrored = reflect( - toEye, normal );
 	mirrored.y = abs( mirrored.y ) + 0.002;
-	vec3 sky = texture2D( tSkyPanorama, waterPanoramaUV( normalize( mirrored ) ) ).rgb;
+	vec4 reflectedSky = texture2D( tSkyPanorama, waterPanoramaUV( normalize( mirrored ) ) );
+	vec3 sky = reflectedSky.rgb;
 	// The city standing over the water, pushed about by the ripples.
 	vec3 scene = sky;
 	if ( uMirror > 0.5 ) {
 		vec2 uv = vWaterMirror.xy / vWaterMirror.w + slope * vec2( 0.05, 0.09 ) * uChop;
 		vec4 hit = texture2D( tMirror, clamp( uv, 0.001, 0.999 ) );
-		scene = mix( sky, hit.rgb, hit.a );
+		vec2 edge = min( uv, 1.0 - uv );
+		float inFrame = smoothstep( 0.0, 0.025, min( edge.x, edge.y ) );
+		scene = mix( sky, hit.rgb, hit.a * inFrame );
 	}
 	// The sun's glitter path: a tight highlight scattered by every facet.
 	float glint = max( dot( mirrored, uNycSunDir ), 0.0 );
-	vec3 sun = uNycKeyColor * ( 26.0 * pow( glint, 900.0 ) + 0.9 * pow( glint, 90.0 ) );
+	vec3 sun = reflectedSky.a * uNycKeyColor * ( 26.0 * pow( glint, 900.0 ) + 0.9 * pow( glint, 90.0 ) );
 	// Light scattered back out of the water column gives it its own colour.
 	vec3 body = uWaterTint * ( uNycAmbientSky * 0.5 + uNycKeyColor * max( uNycSunDir.y, 0.0 ) * 0.35 );
 	gl_FragColor = vec4( max(0.,foam)*uNycAmbientSky + mix( body, scene, fresnel ) + sun * ( 0.25 + 0.75 * fresnel ), 1.0 );

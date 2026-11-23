@@ -3,10 +3,19 @@ import { SKY_GLSL, SUN_IRRADIANCE, MOON_IRRADIANCE } from './atmosphere.js';
 import { shared, FullscreenPass, FULLSCREEN_VERTEX } from './gfx-common.js';
 
 // The sky is integrated into a small panorama whenever the sun moves, then
-// drawn behind the city with the sun, moon, stars and drifting cloud added at
-// full resolution. The same dome lights the city through its reflection map.
+// composited with two drifting cloud layers. The water and city share that
+// sky, while the sun, moon and stars retain their full screen resolution.
 
 const LUT_WIDTH = 256, LUT_HEIGHT = 128;
+
+const PANORAMA_DIRECTION = /* glsl */`
+vec3 panoramaDirection( vec2 uv ) {
+	// Rows crowd toward the horizon, where the sky changes fastest.
+	float azimuth = ( uv.x - 0.5 ) * 6.28318530718;
+	float s = ( uv.y - 0.5 ) * 2.0;
+	float elevation = sign( s ) * s * s * 1.57079632679;
+	return vec3( sin( azimuth ) * cos( elevation ), sin( elevation ), -cos( azimuth ) * cos( elevation ) );
+}`;
 
 const PANORAMA_FRAGMENT = /* glsl */`
 varying vec2 vUv;
@@ -17,16 +26,71 @@ uniform float uMoonIrradiance;
 uniform float uSkyNight;
 uniform float uSunElevation;
 ${SKY_GLSL}
+${PANORAMA_DIRECTION}
 void main() {
-	// Rows crowd toward the horizon, where the sky changes fastest.
-	float azimuth = ( vUv.x - 0.5 ) * 6.28318530718;
-	float s = ( vUv.y - 0.5 ) * 2.0;
-	float elevation = sign( s ) * s * s * 1.57079632679;
-	vec3 view = vec3( sin( azimuth ) * cos( elevation ), sin( elevation ), -cos( azimuth ) * cos( elevation ) );
+	vec3 view = panoramaDirection( vUv );
 	vec3 radiance = atmoScatter( view, uSkySun ) * uSunIrradiance;
 	if ( uMoonIrradiance > 0.0 ) radiance += atmoScatter( view, uSkyMoon ) * uMoonIrradiance;
 	radiance += atmoCityGlow( view ) * uSkyNight + atmoTwilight( view, uSkySun, uSunElevation );
 	gl_FragColor = vec4( radiance, 1.0 );
+}`;
+
+// RGB stores sky radiance. Alpha is the clear fraction seen through both
+// cloud decks, also used to dim the celestial discs and their glitter paths.
+const CLOUD_FRAGMENT = /* glsl */`
+#include <common>
+varying vec2 vUv;
+uniform sampler2D tClearSky;
+uniform vec3 uSkySun;
+uniform vec3 uCloudSun;
+uniform vec3 uCloudAmbient;
+uniform vec3 uCloudGlow;
+uniform float uCloudCover;
+${PANORAMA_DIRECTION}
+
+float bank( vec2 p ) {
+    vec2 bend = texture2D( uNycNoise, p * 0.046 ).rg - 0.5;
+    vec3 lobes = texture2D( uNycNoise, p * 0.083 + bend * 0.12 ).rgb;
+    float detail = texture2D( uNycNoise, p * 0.34 + bend * 0.27 ).g;
+    return dot( lobes, vec3( 0.55, 0.28, 0.05 ) ) + detail * 0.12;
+}
+void main() {
+    vec3 ray = panoramaDirection( vUv );
+    vec3 sky = texture2D( tClearSky, vUv ).rgb;
+    float clear = 1.0;
+    if ( ray.y > 0.0 && uCloudCover > 0.0 ) {
+        // The curved horizon bounds the projection of each cloud deck.
+        vec2 p = ray.xz / sqrt( ray.y * ray.y + 0.009 );
+        float horizon = smoothstep( 0.0, 0.085, ray.y );
+        float forward = pow( max( dot( ray, uSkySun ), 0.0 ), 7.0 );
+        vec3 fill = uCloudAmbient + uCloudGlow;
+        // Thin ice clouds shear into long streaks across broader moist bands.
+        vec2 high = vec2( dot( p, vec2( 0.8, 0.6 ) ), dot( p, vec2( -0.6, 0.8 ) ) );
+        high += vec2( 0.001, -0.0007 ) * uNycTime;
+        vec2 moisture = texture2D( uNycNoise, high * 0.095 + 0.31 ).rg;
+        float fibres = texture2D( uNycNoise, high * vec2( 0.064, 0.46 ) + moisture.r * 0.19 ).g;
+        fibres += ( texture2D( uNycNoise, high * vec2( 0.12, 0.66 ) ).b - 0.5 ) * 0.26;
+        float veil = smoothstep( 0.41, 0.71, moisture.r ) * smoothstep( 0.36, 0.68, fibres );
+        veil *= horizon * uCloudCover * 0.8;
+        sky = mix( sky, fill + uCloudSun * ( 0.85 + forward ), veil );
+        clear *= 1.0 - veil;
+
+        vec2 low = p + vec2( 0.012, 0.004 ) * uNycTime;
+        float threshold = mix( 0.70, 0.32, uCloudCover );
+        float mass = max( bank( low ) - threshold, 0.0 );
+        if ( mass > 0.0 ) {
+            vec2 towardLight = uNycSunDir.xz / ( 0.35 + abs( uNycSunDir.y ) );
+            float nearMass = max( bank( low + towardLight * 0.24 ) - threshold, 0.0 );
+            float farMass = max( bank( low + towardLight * 0.72 ) - threshold, 0.0 );
+            float light = exp( -7.0 * nearMass - 4.0 * farMass );
+            float opacity = horizon * ( 1.0 - exp( -15.0 * mass ) );
+            float rim = forward * exp( -12.0 * mass );
+            vec3 cloud = fill * ( 0.66 + 0.34 * light ) + uCloudSun * ( 0.13 + light * ( 0.87 + 2.0 * rim ) );
+            sky = mix( sky, cloud, opacity );
+            clear *= 1.0 - opacity;
+        }
+    }
+    gl_FragColor = vec4( sky, clear );
 }`;
 
 const DOME_VERTEX = /* glsl */`
@@ -48,10 +112,7 @@ uniform vec3 uSkyMoon;
 uniform vec3 uSunDisc;
 uniform vec3 uMoonDisc;
 uniform float uStars;
-uniform float uCloudCover;
-uniform vec3 uCloudSun;
 uniform vec3 uCloudAmbient;
-uniform vec3 uCloudGlow;
 uniform vec3 uGroundColor;
 uniform vec3 uHorizonColor;
 uniform float uSkySaturation;
@@ -70,14 +131,10 @@ float starField( vec3 d ) {
 	float twinkle = 0.72 + 0.28 * sin( uNycTime * ( 1.6 + h * 40.0 ) + h * 900.0 );
 	return ( 1.0 - smoothstep( 0.0, 0.2, length( f - jitter * 0.6 ) ) ) * ( 0.2 + 2.4 * magnitude ) * twinkle;
 }
-float cloudShape( vec2 p, vec2 wind ) {
-	float n = texture2D( uNycNoise, p * 0.043 + wind ).r * 0.62;
-	n += texture2D( uNycNoise, p * 0.127 + wind * 1.7 ).g * 0.27;
-	return n;
-}
 void main() {
 	vec3 d = normalize( vSkyRay );
-	vec3 sky = texture2D( tSkyPanorama, panoramaUV( d ) ).rgb;
+	vec4 panorama = texture2D( tSkyPanorama, panoramaUV( d ) );
+	vec3 sky = panorama.rgb;
 	sky = mix( vec3( dot( sky, vec3( 0.2126, 0.7152, 0.0722 ) ) ), sky, uSkySaturation );
 	vec3 color = sky;
 	float lift = smoothstep( 0.02, 0.32, d.y );
@@ -101,28 +158,7 @@ void main() {
 		float disc = 1.0 - smoothstep( 0.0078, 0.0096, sunAngle );
 		float limb = sqrt( max( 1.0 - ( sunAngle / 0.0096 ) * ( sunAngle / 0.0096 ), 0.0 ) );
 		color += uSunDisc * ( disc * ( 0.55 + 0.45 * limb ) + 0.02 * exp( - sunAngle * 90.0 ) );
-	}
-
-	if ( d.y > 0.004 && uCloudCover > 0.0 ) {
-		// Project onto a shallow dome so clouds recede toward the horizon.
-		vec2 p = d.xz / ( d.y + 0.11 );
-		vec2 wind = vec2( 0.0052, 0.0021 ) * uNycTime;
-		float fine = texture2D( uNycNoise, p * 0.39 + wind * 2.3 ).b * 0.11;
-		float shape = cloudShape( p, wind ) + fine;
-		float threshold = mix( 0.74, 0.44, uCloudCover );
-		float density = smoothstep( threshold, threshold + 0.15, shape );
-		if ( density > 0.001 ) {
-			// A second tap toward the sun stands in for self-shadowing.
-			vec2 toSun = uSkySun.xz / max( abs( uSkySun.y ), 0.18 ) * 0.22;
-			float shade = exp( - 5.0 * smoothstep( threshold - 0.04, threshold + 0.2, cloudShape( p + toSun, wind ) + fine ) * 0.55 );
-			float forward = pow( max( dot( d, uSkySun ), 0.0 ), 9.0 );
-			vec3 cloud = uCloudSun * ( 0.2 + 0.8 * shade ) * ( 1.0 + 2.4 * forward * ( 1.0 - 0.65 * density ) )
-				+ uCloudAmbient * ( 1.0 - 0.4 * density ) + uCloudGlow;
-			// Distant cloud sinks into the same air as the sky behind it.
-			float air = 1.0 - exp( - 0.045 / ( d.y + 0.035 ) );
-			cloud = mix( cloud, sky, clamp( air, 0.0, 1.0 ) );
-			color = mix( color, cloud, density * smoothstep( 0.004, 0.09, d.y ) );
-		}
+		color = mix( sky, color, panorama.a );
 	}
 
 	if ( uReflection > 0.5 ) {
@@ -141,17 +177,25 @@ void main() {
 	color = mix( color, uHorizonColor, exp( - abs( d.y ) * 46.0 ) * 0.7 );
 	color = mix( color, uGroundColor, 1.0 - smoothstep( -0.12, 0.0, d.y ) );
 	gl_FragColor = vec4( color, 1.0 );
+#ifdef NYC_DIRECT_SKY
+	#include <tonemapping_fragment>
+	#include <colorspace_fragment>
+#endif
 }`;
 
 const scale = (rgb, factor) => new THREE.Color(rgb[0] * factor, rgb[1] * factor, rgb[2] * factor);
 
 export class Sky {
-  constructor() {
+  constructor(hdr = true) {
     this.fullscreen = new FullscreenPass();
-    this.panorama = new THREE.WebGLRenderTarget(LUT_WIDTH, LUT_HEIGHT, { type: THREE.HalfFloatType, format: THREE.RGBAFormat,
+    this.clearSky = new THREE.WebGLRenderTarget(LUT_WIDTH, LUT_HEIGHT, { type: hdr ? THREE.HalfFloatType : THREE.UnsignedByteType, format: THREE.RGBAFormat,
       minFilter: THREE.LinearFilter, magFilter: THREE.LinearFilter, wrapS: THREE.RepeatWrapping, wrapT: THREE.ClampToEdgeWrapping,
       depthBuffer: false, generateMipmaps: false });
-    this.panorama.texture.name = 'Sky panorama';
+    this.clearSky.texture.name = 'Clear atmosphere';
+    this.panorama = this.clearSky.clone();
+    this.panorama.setSize(1024, 512);
+    this.panorama.texture.name = 'Clouded sky panorama';
+    this.lastCloudTime = -Infinity;
     this.panoramaMaterial = new THREE.ShaderMaterial({ vertexShader: FULLSCREEN_VERTEX, fragmentShader: PANORAMA_FRAGMENT, depthTest: false, depthWrite: false,
       uniforms: { uSkySun: { value: new THREE.Vector3(0, 1, 0) }, uSkyMoon: { value: new THREE.Vector3(0, -1, 0) }, uSunIrradiance: { value: SUN_IRRADIANCE },
         uMoonIrradiance: { value: 0 }, uSkyNight: { value: 0 }, uSunElevation: { value: 60 } } });
@@ -160,10 +204,13 @@ export class Sky {
       uSunDisc: { value: new THREE.Color() }, uMoonDisc: { value: new THREE.Color() }, uStars: { value: 0 }, uCloudCover: { value: .42 },
       uCloudSun: { value: new THREE.Color() }, uCloudAmbient: { value: new THREE.Color() }, uCloudGlow: { value: new THREE.Color() },
       uGroundColor: { value: new THREE.Color() }, uHorizonColor: { value: new THREE.Color() }, uSkySaturation: { value: .9 }, uReflection: { value: 0 } };
+    this.cloudMaterial = new THREE.ShaderMaterial({ vertexShader: FULLSCREEN_VERTEX, fragmentShader: CLOUD_FRAGMENT,
+      uniforms: { ...this.uniforms, tClearSky: { value: this.clearSky.texture } }, depthTest: false, depthWrite: false });
     const dome = reflection => {
       const material = new THREE.ShaderMaterial({ vertexShader: DOME_VERTEX, fragmentShader: DOME_FRAGMENT,
         uniforms: { ...this.uniforms, uReflection: { value: reflection ? 1 : 0 }, uSkySaturation: { value: reflection ? .5 : .9 } },
-        depthWrite: false, depthFunc: THREE.LessEqualDepth, fog: false, toneMapped: false });
+        defines: hdr ? {} : { NYC_DIRECT_SKY: 1 },
+        depthWrite: false, depthFunc: THREE.LessEqualDepth, fog: false, toneMapped: !hdr });
       const mesh = new THREE.Mesh(this.fullscreen.mesh.geometry, material);
       // Drawn after the city, so only pixels that still show sky are shaded.
       mesh.frustumCulled = false; mesh.renderOrder = 1000; mesh.name = reflection ? 'Sky for reflections' : 'Sky';
@@ -194,16 +241,25 @@ export class Sky {
     u.uStars.value = state.starVisibility;
     u.uCloudSun.value.copy(scale(state.keyIsMoon ? state.moonColor : state.sunColor, .98 / Math.PI));
     u.uCloudAmbient.value.copy(scale(state.ambientSky, .62 / Math.PI));
-    u.uCloudGlow.value.setRGB(.034, .022, .015).multiplyScalar(state.night);
+    // High cloud remains sunlit briefly after street level falls into shadow.
+    const afterglow = THREE.MathUtils.smoothstep(state.sunElevation, -6, -1)
+      * (1 - THREE.MathUtils.smoothstep(state.sunElevation, 0, 5));
+    u.uCloudSun.value.r += .34 * afterglow;
+    u.uCloudSun.value.g += .105 * afterglow;
+    u.uCloudSun.value.b += .055 * afterglow;
+    u.uCloudGlow.value.setRGB(.024, .016, .013).multiplyScalar(state.night);
     u.uGroundColor.value.fromArray(state.groundRadiance);
     u.uHorizonColor.value.fromArray(state.fogColor);
   }
 
   /** Re-integrate the panorama if the sun moved. Needs a real WebGL renderer. */
   renderPanorama(renderer) {
-    if (!this.panoramaDirty) return false;
+    const now = shared.uNycTime.value;
+    if (!this.panoramaDirty && now - this.lastCloudTime < .35) return false;
     const target = renderer.getRenderTarget();
-    this.fullscreen.render(renderer, this.panoramaMaterial, this.panorama);
+    if (this.panoramaDirty) this.fullscreen.render(renderer, this.panoramaMaterial, this.clearSky);
+    this.fullscreen.render(renderer, this.cloudMaterial, this.panorama);
+    this.lastCloudTime = now;
     renderer.setRenderTarget(target);
     this.panoramaDirty = false; this.reflectionDirty = true;
     return true;
@@ -227,7 +283,7 @@ export class Sky {
   }
 
   dispose() {
-    this.panorama.dispose(); this.panoramaMaterial.dispose(); this.mesh.material.dispose(); this.reflectionMesh.material.dispose();
+    this.clearSky.dispose(); this.cloudMaterial.dispose(); this.panorama.dispose(); this.panoramaMaterial.dispose(); this.mesh.material.dispose(); this.reflectionMesh.material.dispose();
     this.reflectionTarget?.dispose(); this.generator?.dispose(); this.fullscreen.dispose();
   }
 }
