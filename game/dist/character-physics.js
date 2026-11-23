@@ -2,6 +2,41 @@
 // The angle of the falling body drives its pose independently of horizontal travel.
 export const GRAVITY = 9.81, WALK_SPEED = 1.85, JOG_SPEED = 3.95, RUN_SPEED = 8.6;
 
+const bounded = (value, limit) => Math.max(-limit, Math.min(limit, value));
+const angleTo = (from, to) => Math.atan2(Math.sin(to - from), Math.cos(to - from));
+
+// The runner can redirect a walking step almost immediately. At speed the
+// outside leg has to brake and carry the body around a finite turning radius.
+export function stepGroundStride(player, desiredX, desiredZ, dt, aimYaw) {
+  const vx = player.velocityX, vz = player.velocityZ;
+  const speed = Math.hypot(vx, vz), goal = Math.hypot(desiredX, desiredZ);
+  const intent = Math.atan2(desiredX, desiredZ);
+  let heading = speed > .04 ? Math.atan2(vx, vz) : intent;
+  const turn = angleTo(heading, intent);
+  const pivot = goal > .02 && speed > .08 && Math.abs(turn) > 2.4;
+  if (speed <= .08 && goal > .02) heading = intent;
+  else if (goal > .02 && !pivot) heading += bounded(turn, 15 * dt / speed);
+  const cornerPace = 1 - .38 * Math.min(1, speed / JOG_SPEED) * Math.min(1, Math.abs(turn) / 1.57);
+  const target = pivot ? 0 : goal * cornerPace;
+  const push = target > speed ? Math.min(12, 5.5 * goal) : 13 + .75 * speed;
+  const next = speed + bounded(target - speed, push * dt);
+  player.velocityX = next * Math.sin(heading);
+  player.velocityZ = next * Math.cos(heading);
+
+  if (Number.isFinite(aimYaw)) player.angle = aimYaw;
+  else if (goal > .02) {
+    // Lead a bend with the shoulders. On a reversal hold the old heading
+    // through the braking step and pivot as weight comes off that foot.
+    const lead = pivot ? 0 : bounded(angleTo(heading, intent), .40);
+    const face = angleTo(player.angle, heading + lead);
+    player.angle += bounded(face * (1 - Math.exp(-18 * dt)), (speed < 2 ? 13 : 8) * dt);
+  }
+  const sin = Math.sin(player.angle), cos = Math.cos(player.angle);
+  player.strideForward = ((player.velocityX - vx) * sin + (player.velocityZ - vz) * cos) / dt;
+  player.strideSide = ((player.velocityX - vx) * cos - (player.velocityZ - vz) * sin) / dt;
+  player.strideTurn = goal > .02 ? bounded(angleTo(player.angle, intent), .75) : 0;
+}
+
 export function receiveImpulse(actor,vx,vz,{fall=false,lift=0,rest=.45,clip='stumble',impact=0}={}) {
   const previous=actor.reaction;
   const r=actor.reaction={vx:vx+(previous?.vx||0),vz:vz+(previous?.vz||0),
@@ -55,7 +90,7 @@ export function stepImpulse(actor,dt,resolve,floor) {
     r.clearance=Math.max(0,actor.y-support);
     const drag=Math.exp(-(r.grounded ? (r.fall?4:7) : .28)*h);
     r.vx*=drag;r.vz*=drag;
-    if(!r.fall){r.time=r.age;if(r.age>=.38 && r.grounded) break;continue;}
+    if(!r.fall){r.time=r.age+(r.poseLead||0);if(r.age>=.38 && r.grounded) break;continue;}
     // Impact rocks the torso; friction and damping settle it while the
     // limbs still carry their own momentum.
     r.rockSpeed+=(-65*r.rock-9*r.rockSpeed)*h;

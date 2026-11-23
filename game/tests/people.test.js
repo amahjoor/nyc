@@ -303,6 +303,24 @@ test('each patrol crew wears the same fitted uniform in the car and on foot', ()
   }
 });
 
+test('skin along a fitted shirt is recessed at covered corners and unchanged on exposed faces', () => {
+  const binary=name=>Uint8Array.from(readFileSync(new URL('../dist/human/'+name,import.meta.url))).buffer;
+  const human=createHuman(JSON.parse(readFileSync(new URL('../dist/human/human.json',import.meta.url))),binary('body.bin'),binary('parts.bin'),meta);
+  const garment='garment/male_casualsuit05-top';
+  for (const detail of ['close','near']) {
+    const body = wear => human.build({height:1.76,wear},{detail,skinOnly:true}).pieces[0];
+    const bare = body([]), clothed = body([garment]);
+    assert.ok(clothed.index.length<bare.index.length,'fully covered triangles are omitted');
+    assert.ok(clothed.index.some(i=>Math.abs(clothed.position[3*i]-bare.position[3*i])>.008),
+      'remaining covered corners sit farther under the cloth');
+    for (const i of clothed.index) if (bare.position[3*i+1]>1.60) {
+      assert.equal(clothed.position[3*i],bare.position[3*i]);
+      assert.equal(clothed.position[3*i+1],bare.position[3*i+1]);
+      assert.equal(clothed.position[3*i+2],bare.position[3*i+2]);
+    }
+  }
+});
+
 test('street outfits retain source textures, underlayers and independent garment dyes', () => {
   const binary=name=>Uint8Array.from(readFileSync(new URL('../dist/human/'+name,import.meta.url))).buffer;
   const human=createHuman(JSON.parse(readFileSync(new URL('../dist/human/human.json',import.meta.url))),binary('body.bin'),binary('parts.bin'),meta);
@@ -352,11 +370,16 @@ test('street LODs share the textured cast, colours, fitted pose frames and the g
     const reaction=receiveImpulse(falling,3,1,{fall:true,lift:1});
     stepImpulse(falling,.12,(_,x,z)=>({x,z}),()=>0);
     figures.begin();
-    figures.add(member,0,falling.y,0,.4,height,look,6,reaction.clip,reaction.time,null,0,0,null,reaction);
+    figures.trackContact(falling);
+    figures.add(member,0,falling.y,0,.4,height,look,6,reaction.clip,reaction.time,null,0,0,null,reaction,falling);
     const second={heading:0,x:4,y:0,z:0},other=receiveImpulse(second,-4,1,{fall:true});
     stepImpulse(second,.16,(_,x,z)=>({x,z}),()=>0);
     figures.add(member,4,0,0,0,height,look,32,other.clip,other.time,null,0,0,null,other);
     figures.end();
+    const marker=new Vector3();
+    assert.ok(figures.contactJoint(falling,'pelvis',marker));
+    assert.ok(Number.isFinite(marker.length()) && marker.y>falling.y && marker.y<falling.y+height);
+    assert.ok(!figures.contactJoint(second,'pelvis',marker));
     const shader={uniforms:{},vertexShader:'',fragmentShader:''};
     type.material.onBeforeCompile(shader);
     const palette=shader.uniforms.uNycFalls.value, rowSize=palette.image.width*4;
@@ -464,7 +487,7 @@ test('a car that hits someone knocks them down, one that nearly does makes them 
   // On foot: walking into someone staggers them, running into them puts them on the ground for a moment.
   const fifth = someone(30, 3, { run: walks[0], s: 70 }); crowd.people.push(fifth);
   crowd.update(.016, { ...context([]), player: { mode: 'walk', x: 30, z: 2.6, velocityX: 0, velocityZ: 4 } });
-  assert.equal(fifth.clip, 'stumble'); assert.equal(fifth.state, 'walk'); assert.deepEqual(crowd.bumps, [{ hard: false }]);
+  assert.equal(fifth.clip, 'stumble'); assert.equal(fifth.state, 'walk'); assert.deepEqual(crowd.bumps, [{ person:fifth, pace:4, hard:false }]);
   fifth.bumped = 0;
   crowd.update(.016, { ...context([]), player: { mode: 'walk', x: fifth.x + fifth.shove[0], z: fifth.z + fifth.shove[1] - .4, velocityX: 0, velocityZ: 8 } });
   assert.equal(fifth.state, 'down'); assert.equal(fifth.calm, true);
@@ -605,7 +628,7 @@ test('cycling keeps the rider on the saddle with grips on the bars and shoes on 
   }
 });
 
-test('the right thumb reaches each corner while the support fingers retain the phone grip',async()=>{
+test('a held touch moves the thumb while the wrist and support fingers stay anchored',async()=>{
   const {setHandSource,viewHand}=await import('../dist/view-hand.js');
   const {Group,Quaternion,MeshStandardMaterial}=await import('../dist/vendor/three.module.min.js');
   const asset=name=>readFileSync(new URL('../dist/human/'+name,import.meta.url));
@@ -616,14 +639,20 @@ test('the right thumb reaches each corner while the support fingers retain the p
   const hand=viewHand('r'),parent=new Group();
   parent.rotation.y=.37;parent.add(hand.group);
   hand.pose('phone');
-  const end=hand.group.getObjectByName('thumb_03_r'),index=hand.group.getObjectByName('index_02_r');
-  const grip=index.quaternion.clone(),rest=built.rig.bones[built.rig.index.get(end.name)];
+  const end=hand.group.getObjectByName('thumb_03_r');
+  const rest=built.rig.bones[built.rig.index.get(end.name)];
   const pad=end.position.clone().applyQuaternion(new Quaternion(...rest.q).invert()).multiplyScalar(.74);
+  const origin=end.localToWorld(pad.clone());
+  const held=['hand_r','index_02_r','middle_02_r','ring_02_r','pinky_02_r'].map(name=>hand.group.getObjectByName(name));
+  const anchors=held.map(bone=>bone.getWorldPosition(new Vector3()));
   for(const x of [-.038,.038])for(const y of [-.072,.072]){
     const target=new Vector3(x,y,.011);
     hand.reachThumb(target);
-    assert.ok(end.localToWorld(pad.clone()).distanceTo(target)<1e-6);
-    assert.ok(index.quaternion.equals(grip));
+    const tip=end.localToWorld(pad.clone());
+    assert.ok(tip.distanceTo(target)<origin.distanceTo(target));
+    for(let i=0;i<held.length;i++)assert.ok(held[i].getWorldPosition(new Vector3()).distanceTo(anchors[i])<1e-8);
+    hand.reachThumb(target);
+    assert.ok(end.localToWorld(pad.clone()).distanceTo(tip)<1e-8);
   }
   hand.dispose();material.dispose();
 });

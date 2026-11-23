@@ -134,6 +134,8 @@ export function createHumanMesh(built, look = {}) {
   const head = rig.index.get('Head'), neck = rig.index.get('neck_01');
   const eyes = new THREE.Vector3(...built.marks.eye_l)
     .lerp(new THREE.Vector3(...built.marks.eye_r), .5).applyMatrix4(inverses[head]);
+  // In the bind pose the face looks along +Z and a camera looks along -Z.
+  const eyeRotation = new THREE.Quaternion().fromArray(rig.bind[head].q).invert().multiply(new THREE.Quaternion(0, 1, 0, 0));
   let eyeCamera = null, eyeReady = false;
 
   // The renderer also uses these meshes for shadows and mirrors. Restrict the
@@ -191,6 +193,7 @@ export function createHumanMesh(built, look = {}) {
   return {
     mesh: group, meshes, bones, rig, setFirstPerson,
     eyePosition(target) { return bones[head].localToWorld(target.copy(eyes)); },
+    eyeOrientation(target) { return bones[head].getWorldQuaternion(target).multiply(eyeRotation); },
     pose(local) {
       for (let i = 0; i < bones.length; i++) { const q = local.q[i]; bones[i].quaternion.set(q[0], q[1], q[2], q[3]); }
       if (local.pelvis) bones[pelvis].position.fromArray(local.pelvis);

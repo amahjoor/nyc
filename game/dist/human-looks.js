@@ -58,6 +58,10 @@ export function sharesGarmentDye(piece, main) {
  * What a design wears and how it is coloured.
  * @returns {{wear: string[], look: object}} for human.build({ ...design, wear }) and human-mesh.js
  */
+// One stock tee is not worn by anybody, in any colour: a design that names it, or names nothing, gets the boxy tee.
+const RETIRED_TOP = 'male_casualsuit04-top';
+/** The top a design is drawn in. */
+export const wornTop = design => !design.top || design.top === RETIRED_TOP ? 'gallery-box-tee' : design.top;
 export function lookOf(design, human) {
   const wear = [], colours = {}, garments = human.parts.filter(part => part.kind === 'garment');
   const put = (id, colour) => {
@@ -70,7 +74,7 @@ export function lookOf(design, human) {
       if (colour && sharesGarmentDye(part,main) && !part.ownColour) colours['garment/'+part.id]=colour;
     }
   };
-  put(design.bottom || 'male_casualsuit04-bottom', design.bottomColour); put(design.top || 'male_casualsuit04-top', design.topColour);
+  put(design.bottom || 'male_casualsuit04-bottom', design.bottomColour); put(wornTop(design), design.topColour);
   if (design.shoes !== 'none') wear.push('shoes/' + (design.shoes || 'shoes02'));
   if (design.hat && design.hat !== 'none') wear.push('hat/' + design.hat);
   if (design.shoeColour && !human.parts.find(part => part.kind === 'shoes' && part.id === design.shoes)?.ownColour) colours['shoes/' + design.shoes] = design.shoeColour;
@@ -151,17 +155,30 @@ export function somebody(random, human, { shares = [313, 208, 145, 284, 49], lan
   d.browColour = random() < grey * .6 ? HAIR_COLOURS.grey : dark || coily ? HAIR_COLOURS.black : HAIR_COLOURS.brown;
   const balding = !woman ? clamp((d.age - 28) / 90, 0, .5) : 0;
   d.hair = woman
-    ? draw(random, [['long01', coily ? 8 : 30], ['ponytail01', coily ? 10 : 22], ['bob01', coily ? 6 : 14], ['bob02', coily ? 6 : 12], ['braid01', coily ? 30 : 8], ['afro01', coily ? 30 : 1], ['short02', 5], ['short04', 4], ['short01', d.age > 55 ? 14 : 3]])
-    : draw(random, [['short01', 18], ['short02', 24], ['short03', 22], ['short04', 22], ['afro01', coily ? 22 : .5], ['none', 6 + balding * 100 + (coily ? 10 : 0)], ['long01', 2], ['ponytail01', 2]]);
+    ? draw(random, [['long01', coily ? 8 : 30], ['ponytail01', coily ? 10 : 22], ['bob01', coily ? 6 : 14], ['bob02', coily ? 6 : 12], ['braid01', coily ? 30 : 8], ['afro01', coily ? 30 : 1], ['short02', 5], ['short04', 4], ['short01', d.age > 55 ? 14 : 3],
+      // The community's styles: bobs, braids, a bun, long and shaggy cuts.
+      ['toigo_blunt_bob', coily ? 2 : 9], ['toigo_blunt_bob_with_bangs', coily ? 2 : 9], ['toigo_curled_under_bob', coily ? 2 : 8], ['toigo_curled_under_bob_with_bangs', coily ? 2 : 7],
+      ['toigo_inverted_bob', coily ? 2 : 8], ['toigo_inverted_bob_with_bangs', coily ? 2 : 8], ['littleright_bobcut_hair', coily ? 2 : 7], ['cortu_straight_bangs', coily ? 1 : 8],
+      ['elvs_double_mh_braid', coily ? 14 : 5], ['elvs_french_braid_variation', coily ? 12 : 6], ['elvs_unkempt_french_braid', coily ? 10 : 6], ['elvs_reverse_french_braid_bun', coily ? 8 : 4],
+      ['rehmanpolanski_hair_bun_brown', d.age > 40 ? 12 : 6], ['culturalibre_hair_01', coily ? 2 : 9], ['sonntag78_junglebook_hair', 7], ['faydaen_hair_1', coily ? 1 : 6],
+      ['cortu_shaggy_green_hair', d.age < 40 ? 5 : 1], ['cortu_short_messy_hair', 4]])
+    : draw(random, [['short01', 18], ['short02', 24], ['short03', 22], ['short04', 22], ['afro01', coily ? 22 : .5], ['none', 6 + balding * 100 + (coily ? 10 : 0)], ['long01', 2], ['ponytail01', 2],
+      ['culturalibre_hair_02', 16], ['culturalibre_hair_05', 12], ['cortu_short_messy_hair', coily ? 2 : 12], ['sonntag78_junglebook_hair', d.age < 45 ? 4 : 1],
+      ['cortu_shaggy_green_hair', d.age < 35 ? 3 : 0], ['culturalibre_hair_01', d.age < 40 ? 2 : 0], ['elvs_double_mh_braid', coily && d.age < 40 ? 6 : 0]]);
   d.brows = 'eyebrow' + String(1 + Math.floor(random() * 12)).padStart(3, '0');
   d.eyes = random() < shareOf.european * shareOf.european * .5 && !dark ? pick(random, EYES.slice(2)) : random() < .2 ? 'brownlight' : 'brown';
   // Clothes.
-  const tops = woman ? [['female_casualsuit01-top', 22], ['female_casualsuit02-top', 14], ['female_elegantsuit01-top', 12], ['female_sportsuit01-top', d.age < 45 ? 8 : 1], ['male_casualsuit04-top', 16], ['male_casualsuit02-top', 14], ['male_casualsuit03-top', 8], ['male_casualsuit05-top', 8]]
-    : [['male_casualsuit04-top', 26], ['male_casualsuit02-top', 22], ['male_casualsuit03-top', 16], ['male_casualsuit05-top', 14], ['male_casualsuit06-top', 14], ['male_elegantsuit01-top', 8]];
+  const tops = woman ? [['female_casualsuit01-top', 22], ['female_casualsuit02-top', 14], ['female_elegantsuit01-top', 12], ['female_sportsuit01-top', d.age < 45 ? 8 : 1], ['male_casualsuit02-top', 30], ['male_casualsuit03-top', 8], ['male_casualsuit05-top', 8]]
+    : [['male_casualsuit02-top', 48], ['male_casualsuit03-top', 16], ['male_casualsuit05-top', 14], ['male_casualsuit06-top', 14], ['male_elegantsuit01-top', 8]];
+  // Grown people in their everyday clothes mostly wear the game's own basics, not the plain stock tee: a boxy tee, a
+  // knit, a polo, with trousers or cargos to go with them. Children keep the stock clothes, which are cut to fit them.
+  // Only tops long enough to be worn loose over any trousers: the ones cut to be tucked in, or cropped, are left to the looks that pair them.
+  if (d.age >= 18) tops.push(['gallery-box-tee', 30], ['offset-long-tee', 26], ['breakwater-crew', 24], ['service-polo', 16]);
   d.top = outfit === 'business' ? (woman ? draw(random, [['female_elegantsuit01-top', 60], ['male_casualsuit03-top', 40]]) : draw(random, [['male_elegantsuit01-top', 55], ['male_casualsuit03-top', 45]]))
-    : outfit === 'athletic' ? (woman ? draw(random, [['female_sportsuit01-top', 60], ['male_casualsuit04-top', 40]]) : 'male_casualsuit04-top') : draw(random, tops);
+    : outfit === 'athletic' ? (woman ? draw(random, [['female_sportsuit01-top', 60], ['relay-polo', 40]]) : 'relay-polo') : draw(random, tops);
   const bottoms = woman ? [['female_casualsuit01-bottom', 46], ['female_casualsuit02-bottom', d.age < 50 ? 14 : 3], ['female_elegantsuit01-bottom', 18], ['male_elegantsuit01-bottom', 14]]
     : [['male_casualsuit04-bottom', 62], ['male_elegantsuit01-bottom', 30], ['male_worksuit01-bottom', 3]];
+  if (d.age >= 18) bottoms.push(['broadcloth-trousers', 34], ['switchback-cargos', 24]);
   if (outfit === 'business') bottoms.splice(0, bottoms.length, ...(woman ? [['female_elegantsuit01-bottom', 55], ['male_elegantsuit01-bottom', 45]] : [['male_elegantsuit01-bottom', 1]]));
   if (outfit === 'athletic' && woman) bottoms.splice(0, bottoms.length, ['female_casualsuit02-bottom', 50], ['female_sportsuit01-bottom', 50]);
   d.bottom = d.top === 'male_elegantsuit01-top' ? 'male_elegantsuit01-bottom' : d.top === 'female_sportsuit01-top' ? 'female_sportsuit01-bottom' : draw(random, bottoms);

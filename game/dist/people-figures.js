@@ -139,7 +139,7 @@ export function createFigures({motion, grow, capacity=320, scene=null, layer=0, 
   const queue = new Map();
   let loading=0, disposed=false;
   function pump() {
-    if (disposed || loading>=2 || !queue.size) return;
+    if (disposed || loading>=3 || !queue.size) return;
     let member, nearest=Infinity;
     for (const [id,distance] of queue) if (member==null || distance<nearest) {member=id; nearest=distance;}
     queue.delete(member); loading++;
@@ -188,7 +188,11 @@ export function createFigures({motion, grow, capacity=320, scene=null, layer=0, 
   // The meshes somebody has, finest first: the third, for the far end of the block, is missing from an older figure.
   const levels=entry=>entry.distant?[entry.near,entry.far,entry.distant]:[entry.near,entry.far];
   const frustum=new THREE.Frustum(), projection=new THREE.Matrix4(), inverse=new THREE.Matrix4(), around=new THREE.Sphere();
-  let sight=null;
+  let sight=null, tick=0;
+  // Retain the submitted skin row for the one person the player is reaching for.
+  let tracked=null, submitted=null;
+  const ready=[];
+  const KEPT=320;
   const toolFrame=new THREE.Quaternion(),toolNext=new THREE.Quaternion(),toolUp=new THREE.Vector3(0,1,0);
   function palmAt(entry,[a,b,t],matrix) {
     const axis=i=>entry.palms[a*3+i]*(1-t)+entry.palms[b*3+i]*t;
@@ -202,7 +206,7 @@ export function createFigures({motion, grow, capacity=320, scene=null, layer=0, 
     group,types,rows,ask,seconds:clip=>rowFor(clip).seconds,
     ready:id=>Boolean(types.get(id)?.near),
     get anyReady(){for(const entry of types.values()) if(entry?.near)return true; return false;},
-    begin(){fallCount=0;props.begin();for(const entry of types.values()) if(entry?.near) for(const to of levels(entry)) to.mesh.count=0;},
+    begin(){fallCount=0;props.begin();ready.length=0;for(const [id,entry] of types) if(entry?.near)ready.push(id);for(const entry of types.values()) if(entry?.near) for(const to of levels(entry)) to.mesh.count=0;},
     /**
      * Say where the street is being seen from: `camera` is a three.js camera whose world matrix is up to date, or
      * null. With one, somebody more than UNSEEN_BEYOND metres off who is not in the picture, nor near enough to its
@@ -212,14 +216,46 @@ export function createFigures({motion, grow, capacity=320, scene=null, layer=0, 
       if(!camera){sight=null;return;}
       sight=frustum.setFromProjectionMatrix(projection.multiplyMatrices(camera.projectionMatrix,inverse.copy(camera.matrixWorld).invert()));
     },
+    trackContact(actor) {
+      if (tracked!==actor) submitted=null;
+      tracked=actor;
+    },
+    contactJoint(actor,name,out) {
+      if (!submitted || actor!==tracked || submitted.tick!==tick-1) return false;
+      const {entry,to,at}=submitted, i=entry.rig?.index.get(name);
+      if (i==null) return false;
+      const [x,y,z]=entry.rig.bind[i].p;
+      // Decode the exact two skin matrices and interpolation used by the shader,
+      // including dynamically fitted rows for falling characters.
+      const coord=(row,axis)=>{
+        const data=row<0 ? pixels : entry.poses.image.data;
+        const offset=((row<0 ? -1-row : row)*kept.length+compact[i])*12+axis*4;
+        const half=THREE.DataUtils.fromHalfFloat;
+        return half(data[offset])*x+half(data[offset+1])*y+half(data[offset+2])*z+half(data[offset+3]);
+      };
+      const a=to.anim.getX(at),b=to.anim.getY(at),t=to.anim.getZ(at);
+      const axis=k=>coord(a,k)*(1-t)+coord(b,k)*t;
+      to.mesh.getMatrixAt(at,matrix);
+      out.set(axis(0),axis(1),axis(2)).applyMatrix4(matrix);
+      out.x+=actor.x-submitted.x;out.y+=(actor.y||0)-submitted.y;out.z+=actor.z-submitted.z;
+      return true;
+    },
     palm(member,actor) {
       const entry=types.get(member); if(!entry?.near)return null;
       const p=palmAt(entry,frames(actor.clip,actor.time,actor.from,actor.fromTime,actor.fade,null),
         transform(entry,actor.x,0,actor.z,actor.heading,actor.look.height));
       return {x:p.x,y:p.y,z:p.z};
     },
-    add(member,x,y,z,heading,height,look,distance,clip,time,from,fromTime,fade,carry=null,reaction=null) {
-      if (!ask(member,distance)) return false;
+    add(member,x,y,z,heading,height,look,distance,clip,time,from,fromTime,fade,carry=null,reaction=null,actor=null) {
+      // Somebody whose own figure is still being made is drawn as somebody who is ready (themselves in their first outfit
+      // if that is, otherwise another of the cast, always the same one), never as the blocked-out shape. They change
+      // into themselves when their figure arrives.
+      if (!ask(member,distance)) {
+        const own=member%1000;
+        if(types.get(own)?.near)member=own;
+        else if(ready.length)member=ready[member%ready.length];
+        else return false;
+      }
       if(sight && distance>UNSEEN_BEYOND && !sight.intersectsSphere(around.set(point.set(x,y+1,z),SHADOW_REACH)))return true;
       const entry=types.get(member), to=distance>NEAR ? (distance>DISTANT && entry.distant ? entry.distant : entry.far) : entry.near;
       if(to.mesh.count>=capacity)return false;
@@ -232,6 +268,7 @@ export function createFigures({motion, grow, capacity=320, scene=null, layer=0, 
         const row=-(++fallCount);
         to.anim.setXYZ(at,row,row,0);
       }else to.anim.setXYZ(at,...sample);
+      if (actor && actor===tracked) submitted={entry,to,at,tick,x:actor.x,y:actor.y||0,z:actor.z};
       for (const key of ['top','bottom']) {
         colour.setHex(look[key]); to[key].setXYZ(at,colour.r,colour.g,colour.b);
       }
@@ -258,6 +295,18 @@ export function createFigures({motion, grow, capacity=320, scene=null, layer=0, 
       }
       // A mesh nobody is drawn from this frame is not handed to the renderer at all: there are three for each of a
       // hundred kinds of people, and each would be set up for every pass only to draw nothing.
+      // With dozens of outfits to each of a hundred people, figures are kept only while they are being seen: past KEPT of
+      // them, the ones longest out of the picture are let go, and built again if that person in that outfit comes back.
+      tick++;
+      for(const entry of types.values()) if(entry?.near && levels(entry).some(to=>to.mesh.count>0)) entry.seen=tick;
+      if(tick%90===0 && types.size>KEPT){
+        const idle=[...types].filter(([,entry])=>entry?.near && tick-(entry.seen||0)>600).sort((a,b)=>(a[1].seen||0)-(b[1].seen||0));
+        for(const [member,entry] of idle.slice(0,types.size-KEPT)){
+          for(const {mesh} of levels(entry)){group.remove(mesh);mesh.geometry.dispose();mesh.dispose();}
+          entry.material.dispose();entry.depth.dispose();entry.poses.dispose();entry.map.dispose();entry.map.image?.close?.();
+          types.delete(member);
+        }
+      }
       for(const entry of types.values()) if(entry?.near) for(const to of levels(entry)) {
         to.mesh.visible=to.mesh.count>0;
         if(to.mesh.count) for(const attr of [to.anim,to.top,to.bottom,to.mesh.instanceMatrix])attr.needsUpdate=true;

@@ -18,6 +18,7 @@ export function createHumanShop(motion, { worker = true, moves, base = new URL('
   let thread = null, next = 1, here = null; const waiting = new Map();
   const local = async (design, detail, member) => {
     const human = await (here ||= loadHuman(motion, base)), who = design || designOf(member, human), dressed = lookOf(who, human);
+    await human.ready(dressed.wear);
     if (detail === 'street') return streetFigure(human,moves,who,base);
     return { ...human.build({ ...who, wear: dressed.wear }, { detail }), look: dressed.look };
   };

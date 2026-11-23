@@ -73,23 +73,32 @@ export function statureOf(design) {
  * @param {ArrayBuffer} bodyBin dist/human/body.bin
  * @param {ArrayBuffer} partsBin dist/human/parts.bin
  * @param {object} motion dist/motion.json (the skeleton the movements are for)
+ * @param {(name: string) => Promise<ArrayBuffer>} [fetchBin] gives dist/human/<name>.bin, for the parts that lie in a bin of their own
  */
-export function createHuman(meta, bodyBin, partsBin, motion) {
+export function createHuman(meta, bodyBin, partsBin, motion, fetchBin = null) {
   const B = meta.body, N = B.points;
   const from = (buffer, [at, count], Type) => new Type(buffer, at, count);
   const basePosition = from(bodyBin, B.position, Float32Array), baseIndex = from(bodyBin, B.skinIndex, Uint8Array), baseWeight = from(bodyBin, B.skinWeight, Uint8Array);
   const skin = { corners: from(bodyBin, B.skin.corners, Uint16Array), uv: from(bodyBin, B.skin.uv, Float32Array), triangles: from(bodyBin, B.skin.triangles, B.skin.corners[1] > 65536 ? Uint32Array : Uint16Array) };
   const targets = new Map(B.targets.map(target => [target.name, { ...target, points: from(bodyBin, [target.at, target.count], Uint16Array), moves: from(bodyBin, [target.moved, target.count * 3], Int16Array) }]));
   const dials = new Map(B.dials.map(dial => [dial.id, dial]));
-  const parts = new Map(meta.parts.map(part => {
-    return [part.kind + '/' + part.id, { ...part,
-      // (A cut garment's shares are bytes, out of 255; a stock garment's are floats.)
-      tie: from(partsBin, part.tie, Uint16Array), share: from(partsBin, part.share, part.ties ? Uint8Array : Float32Array), off: from(partsBin, part.off, Float32Array),
-      corners: from(partsBin, part.corners, part.points > 65536 ? Uint32Array : Uint16Array), uv: from(partsBin, part.uv, Float32Array), triangles: from(partsBin, part.triangles, part.corners[1] > 65536 ? Uint32Array : Uint16Array),
-      hidden: part.hidden ? from(partsBin, part.hidden, Uint16Array) : null,
-      // A cut garment says for itself which bones move each of its points (scripts/garment-shells.mjs).
-      skinBone: part.skinBone ? from(partsBin, part.skinBone, Uint8Array) : null, skinPull: part.skinPull ? from(partsBin, part.skinPull, Uint8Array) : null }];
-  }));
+  const read = (part, buffer) => ({ ...part,
+    // (A cut garment's shares are bytes, out of 255; a stock garment's are floats.)
+    tie: from(buffer, part.tie, Uint16Array), share: from(buffer, part.share, part.ties ? Uint8Array : Float32Array), off: from(buffer, part.off, Float32Array),
+    corners: from(buffer, part.corners, part.points > 65536 ? Uint32Array : Uint16Array), uv: from(buffer, part.uv, Float32Array), triangles: from(buffer, part.triangles, part.corners[1] > 65536 ? Uint32Array : Uint16Array),
+    hidden: part.hidden ? from(buffer, part.hidden, Uint16Array) : null,
+    // A cut garment says for itself which bones move each of its points (scripts/garment-shells.mjs).
+    skinBone: part.skinBone ? from(buffer, part.skinBone, Uint8Array) : null, skinPull: part.skinPull ? from(buffer, part.skinPull, Uint8Array) : null });
+  const parts = new Map(meta.parts.filter(part => !part.bin).map(part => [part.kind + '/' + part.id, read(part, partsBin)]));
+  // A part with a `bin` lies in a file of its own (a later chapter of the archive collection), read once somebody wears it.
+  const later = new Map(meta.parts.filter(part => part.bin).map(part => [part.kind + '/' + part.id, part])), fetched = new Map();
+  const fetchParts = name => Promise.resolve(fetchBin?.(name)).then(buffer => { if (!buffer) { fetched.delete(name); return; } for (const [key, part] of later) if (part.bin === name) parts.set(key, read(part, buffer)); }, () => { fetched.delete(name); });
+  /** Resolves when everything in `wear` (a list of 'kind/id') that can be built can be: fetches the bins its parts lie in. */
+  async function ready(wear) {
+    const names = new Set();
+    for (const key of wear || []) if (!parts.has(key) && later.has(key)) names.add(later.get(key).bin);
+    await Promise.all([...names].map(name => { if (!fetched.has(name)) fetched.set(name, fetchParts(name)); return fetched.get(name); }));
+  }
   const boneIndex = new Map(motion.bones.map((bone, i) => [bone.name, i]));
   // The movements' own skeleton at rest: which way each bone lies before anything moves it.
   const rest = restWorld(motion.bones);
@@ -245,19 +254,26 @@ export function createHuman(meta, bodyBin, partsBin, motion) {
     // (`painted`: nothing worn is built but hair and hats; the body is whole, and `cover` says, corner by corner,
     // which of `wear` lies over it, counting from one, so that it can be coloured as if dressed. For somebody far off.)
     const hidden = new Uint8Array(N), cover = painted ? new Uint8Array(N) : null;
-    worn.forEach((part, order) => { if (part.hidden && part.kind !== 'hair' && part.kind !== 'hat') for (const p of part.hidden) { if (cover) { if (!cover[p]) cover[p] = order + 1; } else hidden[p] = 1; } });
+    worn.forEach((part, order) => { if (part.hidden && !part.sheer && part.kind !== 'hair' && part.kind !== 'hat') for (const p of part.hidden) { if (cover) { if (!cover[p]) cover[p] = order + 1; } else hidden[p] = 1; } });
+    const overlap = .026*tall/1.76;
     const pieces = [];
     // The body itself, or the lighter stand-in for it further off.
     const lighter = detail === 'close' ? null : parts.get('body/' + (detail === 'far' ? 'proxy741' : (design.sex ?? 0) > .5 ? 'female1605' : 'male1591'));
     if (lighter) {
       const laid = fit(lighter, P);
-      // A stand-in's point is hidden when the body points it is tied to are.
-      const gone = new Uint8Array(lighter.points); for (let i = 0; i < lighter.points; i++) gone[i] = hidden[lighter.tie[i * 3]] && hidden[lighter.tie[i * 3 + 1]] && hidden[lighter.tie[i * 3 + 2]] ? 1 : 0;
-      pieces.push(piece('skin', 'body', lighter.corners, lighter.uv, lighter.triangles, laid.at, lighter.points, i => laid.bone.subarray(i * 4, i * 4 + 4), i => laid.pull.subarray(i * 4, i * 4 + 4), gone));
+      // A near-zero contribution from an uncovered tie shouldn't expose a
+      // point whose body surface is otherwise under clothing.
+      const gone = new Uint8Array(lighter.points);
+      for (let i = 0; i < lighter.points; i++) {
+        let covered = 0;
+        for (let j = i*3; j < i*3+3; j++) covered += hidden[lighter.tie[j]]*lighter.share[j];
+        gone[i] = Number(covered >= .88);
+      }
+      pieces.push(piece('skin', 'body', lighter.corners, lighter.uv, lighter.triangles, laid.at, lighter.points, i => laid.bone.subarray(i * 4, i * 4 + 4), i => laid.pull.subarray(i * 4, i * 4 + 4), gone, overlap));
       if (cover) { const over = pieces[0].cover = new Uint8Array(lighter.corners.length); for (let c = 0; c < over.length; c++) { const p = lighter.corners[c] * 3, a = cover[lighter.tie[p]]; over[c] = a && a === cover[lighter.tie[p + 1]] && a === cover[lighter.tie[p + 2]] ? a : 0; } pieces[0].worn = worn.map(part => part.kind + '/' + part.id); }
     } else {
       const weight = new Float32Array(4);
-      pieces.push(piece('skin', 'body', skin.corners, skin.uv, skin.triangles, P, N, i => baseIndex.subarray(i * 4, i * 4 + 4), i => { for (let j = 0; j < 4; j++) weight[j] = baseWeight[i * 4 + j] / 255; return weight; }, hidden));
+      pieces.push(piece('skin', 'body', skin.corners, skin.uv, skin.triangles, P, N, i => baseIndex.subarray(i * 4, i * 4 + 4), i => { for (let j = 0; j < 4; j++) weight[j] = baseWeight[i * 4 + j] / 255; return weight; }, hidden, overlap));
     }
     // The crowd shares its fitted clothes across both draw distances. When
     // it asks for the detailed skin, applying the masks above is sufficient.
@@ -280,7 +296,7 @@ export function createHuman(meta, bodyBin, partsBin, motion) {
     return { pieces, rig, height: tall, marks };
   }
 
-  function piece(kind, id, corners, uvs, triangles, at, points, boneOf, pullOf, gone) {
+  function piece(kind, id, corners, uvs, triangles, at, points, boneOf, pullOf, gone, overlap = 0) {
     const n = corners.length, position = new Float32Array(n * 3), skinIndex = new Uint8Array(n * 4), skinWeight = new Float32Array(n * 4);
     for (let i = 0; i < n; i++) {
       const p = corners[i]; position[i * 3] = at[p * 3]; position[i * 3 + 1] = at[p * 3 + 1]; position[i * 3 + 2] = at[p * 3 + 2];
@@ -292,19 +308,27 @@ export function createHuman(meta, bodyBin, partsBin, motion) {
       for (let t = 0; t < triangles.length; t += 3) { const a = triangles[t], b = triangles[t + 1], c = triangles[t + 2]; if (!(gone[corners[a]] && gone[corners[b]] && gone[corners[c]])) kept.push(a, b, c); }
       index = n > 65535 ? Uint32Array.from(kept) : Uint16Array.from(kept);
     }
+    if (overlap && index.length !== triangles.length) {
+      // A face crossing the clothing mask must stay to meet the visible skin.
+      // Recess its covered corners so they don't poke through a bent waist.
+      const normal = normalsOf(position, corners, triangles, points);
+      const used = new Uint8Array(n);
+      for (const i of index) if (gone[corners[i]]) used[i] = 1;
+      for (let i=0;i<n;i++) if (used[i]) for (let j=i*3;j<i*3+3;j++) position[j] -= normal[j]*overlap;
+    }
     const uv = new Float32Array(uvs);
     return { kind, id, position, normal: normalsOf(position, corners, index, points), uv, skinIndex, skinWeight, index: index.slice ? index.slice() : index };
   }
 
   return {
-    meta, shape, build, rigFor, place,
+    meta, shape, build, ready, rigFor, place,
     dials: B.dials, parts: meta.parts, skins: meta.skins, irises: meta.irises,
-    has: key => parts.has(key),
+    has: key => parts.has(key) || later.has(key),
   };
 }
 
 /** Fetch the figure. `base` is where dist/human/ is served. */
 export async function loadHuman(motion, base = './human/') {
   const [meta, body, parts] = await Promise.all([fetch(base + 'human.json').then(r => r.json()), fetch(base + 'body.bin').then(r => r.arrayBuffer()), fetch(base + 'parts.bin').then(r => r.arrayBuffer())]);
-  return createHuman(meta, body, parts, motion);
+  return createHuman(meta, body, parts, motion, name => fetch(base + name + '.bin').then(r => r.ok ? r.arrayBuffer() : null));
 }

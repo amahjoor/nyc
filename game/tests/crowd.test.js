@@ -106,6 +106,32 @@ test('sidewalks join at corners and across the roadway, and nowhere else', () =>
   assert.equal(network.linksFrom(by('ne-ave'), 1), links, 'links are worked out once');
 });
 
+test('a walker chooses another corner route when their usual turn is crowded', () => {
+  const look={...dress('casual',seeded(4)),height:1.72,build:1,pace:1.45};
+  for(const busy of [false,true]){
+    const walks=corner();
+    const links=createWalkNetwork(walks,{isRoad}).linksFrom(walks[0],1);
+    const turn=links.findIndex(link=>link.run===walks[1]);
+    const draw=(turn+.5)/(links.length+.42);
+    const crowd=createCrowd({life:life(0),isRoad,random:()=>draw});
+    const frame={walks,focus:{x:9,z:0},time:0,junctions:[],cars:[]};
+    crowd.update(0,frame);
+    if(busy){
+      for(let i=0;i<6;i++)crowd.people.push({run:walks[1],s:1+i*.65,way:1,lane:2,x:10+i*.65,z:-7,y:0,look,
+        state:'rest',wait:20,age:5,shove:[0,0],heading:Math.PI/2});
+    }
+    const walker={run:walks[0],s:walks[0].length,way:1,lane:1,x:10,z:-5,y:0,look,
+      state:'walk',age:5,shove:[0,0],heading:0};
+    crowd.people.push(walker);
+    crowd.update(.05,frame);
+    if(busy){
+      assert.equal(walker.state,'wait');
+      assert.notEqual(walker.hop.run,walks[1]);
+    }else assert.equal(walker.run,walks[1]);
+    crowd.dispose();
+  }
+});
+
 test('a street fills to the density the city model asks for, and empties when it asks for less', () => {
   const crowd = createCrowd({ life: life(.2), capacity: 400, range: 150, random: seeded(3) }), walks = corner();
   const context = { walks, focus: { x: 0, z: 0 }, hours: 13, time: 0, junctions: [], cars: [] };
@@ -183,14 +209,18 @@ test('with no signal, or a bold New Yorker, the gap in traffic decides', () => {
     crowd.people.push({ run: walks[0], s: walks[0].length, way: 1, lane: 1, look: dress('casual', seeded(1)), state: 'wait', hop, wait: 0, bold: true, phase: 0, y: 0, sample: 0, age: 5, shove: [0, 0], x: 9, z: -5, heading: 0 });
     return crowd.people[0];
   };
-  const car = (speed, z = 0, x = 30) => ({ x, z, speed, _kerb: false });
+  const car = (speed, z = 0, x = 30) => ({ x, z, speed, angle:-Math.PI/2, _kerb: false });
   const hop = createWalkNetwork(walks, { isRoad }).linksFrom(walks[0], 1).find(link => link.run.id === 'se-ave'), middle = [(hop.from[0] + hop.to[0]) / 2, (hop.from[1] + hop.to[1]) / 2];
   const from = item => Math.hypot(item.x - middle[0], item.z - middle[1]);
   assert.ok(from(car(0)) > 14 && from(car(0)) < 24 && from(car(0, middle[1], middle[0] + 8)) < 14);
-  // A car bearing down: wait. The same car standing down the block at the light, or parked: go.
-  // A car standing at the crossing itself is waiting to go: nobody steps out in front of it, unless it has been left there.
-  const cases = [[[car(9)], false, 'a car coming'], [[car(0)], true, 'a car standing down the block'], [[{ ...car(9), _kerb: true }], true, 'a car at the kerb'], [[car(9, 400)], true, 'a car far away'], [[{ ...car(9), y: 6 }], true, 'traffic on the bridge above the crossing'], [[], true, 'an empty street'],
-    [[car(0, middle[1], middle[0] + 8)], false, 'a car standing at the crossing'], [[{ ...car(0, middle[1], middle[0] + 8), parked: true }], true, 'a car left standing at the crossing']];
+  const approach=car(6);
+  const cases = [[[approach], false, 'an approaching car reaching the crossing with the pedestrian'],
+    [[{...approach,angle:Math.PI/2}],true,'a car driving away'],
+    [[car(0)], true, 'a car standing down the block'], [[{...approach,_kerb:true}], true, 'a car at the kerb'],
+    [[car(9,400)], true, 'a car far away'], [[{...approach,y:6}], true, 'traffic on the bridge above the crossing'], [[], true, 'an empty street'],
+    [[car(0,0,middle[0]+8)], true, 'a car stopped near the crossing with space to walk'],
+    [[car(0,0,middle[0]+1)], false, 'a stationary car across the walking path'],
+    [[{...car(0,0,middle[0]+1),parked:true}], false, 'a parked car across the walking path']];
   for (const [cars, goes, what] of cases) {
     const crowd = start(), person = waiting(crowd);
     for (let i = 0; i < 90; i++) crowd.update(1 / 60, { walks, focus: { x: 0, z: 0 }, hours: 13, time: i / 60, junctions: [], cars });
@@ -218,6 +248,81 @@ test('with no signal, or a bold New Yorker, the gap in traffic decides', () => {
     }
   }
   assert.equal(crossed.size,3,'the entire queue makes it across when the street clears');
+  crowd.dispose();
+});
+
+test('opposing curb queues cross past a stopped car or walk on if the crossing is blocked', () => {
+  const walks=corner(), network=createWalkNetwork(walks,{isRoad});
+  for(const blocked of [false,true]){
+    const crowd=createCrowd({life:life(0),random:seeded(8)});
+    const frame={walks,focus:{x:9,z:0},time:0,junctions:[],cars:[{x:blocked?10:17,z:0,y:0,speed:0,angle:Math.PI/2}]};
+    crowd.update(0,frame);
+    const walkers=[];
+    for(const [from,to,side] of [[walks[0],walks[2],-1],[walks[2],walks[0],1]]){
+      const hop=network.linksFrom(from,1).find(link=>link.run===to);
+      const queuePoint={x:10,z:side*5.35};
+      for(let i=0;i<5;i++){
+        const person={run:from,s:from.length-.35-.85*i,way:1,lane:1,look:{...dress('casual',seeded(i)),height:1.72,build:1,pace:1.5},
+          state:'wait',hop,wait:0,queuePoint,bold:true,phase:0,y:0,age:5,shove:[0,0],x:10,z:side*(5.35+.85*i),heading:0};
+        walkers.push({person,from,to,side,start:person.z});crowd.people.push(person);
+      }
+    }
+    const crossed=new Set(), diverted=new Set();
+    for(let i=0;i<520;i++){
+      frame.time+=.05;crowd.update(.05,frame);
+      for(const {person,from,to,side,start} of walkers){
+        if(person.run===to)crossed.add(person);
+        if(person.state==='walk' && (person.run!==from || side*(person.z-start)>1.2))diverted.add(person);
+      }
+    }
+    if(blocked){
+      assert.equal(crossed.size,0,'nobody crosses through the car');
+      assert.equal(diverted.size,walkers.length,JSON.stringify(walkers.filter(({person})=>!diverted.has(person))
+        .map(({person,start})=>({run:person.run.id,way:person.way,state:person.state,x:person.x,z:person.z,start}))));
+    }else assert.equal(crossed.size,walkers.length,JSON.stringify(walkers.filter(({person})=>!crossed.has(person))
+      .map(({person})=>({run:person.run.id,state:person.state,x:person.x,z:person.z,way:person.way,landing:person.landing,curb:person.curbSpot}))));
+    crowd.dispose();
+  }
+});
+
+test('a crossing queue finds space beside someone standing on its curb marker', () => {
+  const walks=corner(), crowd=createCrowd({life:life(0),random:seeded(8)});
+  const hop=createWalkNetwork(walks,{isRoad}).linksFrom(walks[0],1).find(link=>link.run===walks[2]);
+  const frame={walks,focus:{x:9,z:0},time:0,junctions:[],cars:[]};
+  const queuePoint={x:10,z:-5.35};
+  crowd.update(0,frame);
+  const look={...dress('casual',seeded(5)),height:1.72,build:1,pace:1.5};
+  crowd.setExtras([],[{...queuePoint,y:0,look}]);
+  const walkers=Array.from({length:4},(_,i)=>({run:walks[0],s:walks[0].length-1.2-.85*i,way:1,lane:1,look,
+    state:'wait',hop,wait:0,queuePoint,bold:true,phase:0,y:0,age:5,shove:[0,0],x:10,z:-6.2-.85*i,heading:0}));
+  crowd.people.push(...walkers);
+  const crossed=new Set();
+  for(let i=0;i<400;i++){
+    frame.time+=.05;crowd.update(.05,frame);
+    for(const walker of walkers)if(walker.run===hop.run)crossed.add(walker);
+  }
+  assert.equal(crossed.size,walkers.length);
+  crowd.dispose();
+});
+
+test('pedestrians meeting head-on in the crosswalk step aside and keep going', () => {
+  const walks=corner(), network=createWalkNetwork(walks,{isRoad});
+  const crowd=createCrowd({life:life(0),random:seeded(8)});
+  const frame={walks,focus:{x:9,z:0},time:0,junctions:[],cars:[]};
+  crowd.update(0,frame);
+  const look={...dress('casual',seeded(5)),height:1.72,build:1,pace:1.5};
+  const pair=[[walks[0],walks[2],-.333],[walks[2],walks[0],.333]].map(([from,to,z])=>({
+    run:from,s:from.length,way:1,lane:1,look,state:'cross',
+    hop:network.linksFrom(from,1).find(link=>link.run===to),progress:.5,x:10,y:0,z,age:5,shove:[0,0],heading:z<0?0:Math.PI,
+  }));
+  crowd.people.push(...pair);
+  const crossed=new Set();
+  for(let i=0;i<160;i++){
+    frame.time+=.05;crowd.update(.05,frame);
+    assert.ok(Math.hypot(pair[0].x-pair[1].x,pair[0].z-pair[1].z)>=.64);
+    for(const [i,p] of pair.entries())if(p.run===walks[i===0?2:0])crossed.add(p);
+  }
+  assert.equal(crossed.size,2);
   crowd.dispose();
 });
 
@@ -464,6 +569,44 @@ test('a queue uses the opening in a blocked sidewalk or turns back at a closure'
       assert.ok(file.every(p=>closed ? p.z<32 && p.way===-1 : p.z>54 && p.way===1));
     } finally { crowd.dispose(); }
   }
+});
+
+test('a walker backs out of a sidewalk pocket and goes around it', () => {
+  const walls=[[1.25,1.7,18,23],[2.9,3.35,18,23],[1.25,3.35,23,23.55]];
+  const blocked=(x,z,y,r=0)=>walls.some(([left,right,near,far])=>
+    x+r>=left && x-r<=right && z+r>=near && z-r<=far);
+  for(const hz of [20,60]){
+    const {crowd,walker,step}=sidewalk(4.5,0,blocked);
+    const person=walker(21,1,1.45,2.3);
+    let retreated=false;
+    for(let i=0;i<hz*24;i++){
+      step(1/hz);
+      retreated ||= person.z<17.7;
+      assert.ok(!blocked(person.x,person.z,0,.319));
+    }
+    assert.ok(retreated,'the walker found the opening behind them');
+    assert.ok(person.z>29 && person.way===1,'they continue down the sidewalk after the detour');
+    crowd.dispose();
+  }
+});
+
+test('a trapped runner stops playing the jogging animation until they can move', () => {
+  let trapped=false;
+  const {crowd,walker,step}=sidewalk(3.4,0,()=>trapped);
+  const p=walker(20,1,1.4);
+  crowd.setFigures({group:{},begin(){},end(){},seconds:()=>1,add:()=>true,dispose(){}});
+  p.state='flee';p.mad=10;
+  for(let i=0;i<15;i++)step(1/30);
+  assert.equal(p.clip,'jog');
+  trapped=true;
+  for(let i=0;i<15;i++)step(1/30);
+  assert.equal(p.state,'flee');
+  assert.equal(p.clip,'idle');
+  assert.equal(p.walkSpeed,0);
+  trapped=false;
+  for(let i=0;i<15;i++)step(1/30);
+  assert.equal(p.clip,'jog');
+  crowd.dispose();
 });
 
 test('arrivals spread along a newly loaded sidewalk', () => {

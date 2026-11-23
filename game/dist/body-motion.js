@@ -274,9 +274,17 @@ export function createAnimator(motion) {
   motion.bones.forEach((bone, i) => { upper[i] = UPPER.test(bone.name) ? 1 : bone.name === 'spine_01' ? .4 : 0; });
   let stride = 0, clock = 0, air = 0, airTime = 0, stance = 0, stanceClip = 'guard', held = 0, heldClip = 'drive', wasGrounded = true, punches = 0;
   let act = null, last = null, lastWeight = 0;
+  let bank = 0, pitch = 0, gaze = 0;
+  const waist = motion.index.get('spine_01'), neck = motion.index.get('neck_01');
+  const turnJoint = (joint, delta) => {
+    const parent = motion.rest[motion.bones[joint].parent].q;
+    const q = pose.q.subarray(joint * 4, joint * 4 + 4);
+    q.set(qmul(qmul(qmul(qinv(parent), delta), parent), q));
+  };
   const toward = (value, goal, rate, dt) => value + (goal - value) * (1 - Math.exp(-rate * dt));
   const gaits = [['walk', 2.05], ['jog', 3.5], ['sprint', 7]];
   const animator = {
+    get strideCycle() { return stride; },
     /** Run a movement over the top once. `rate` is how fast, `from` where in it to start, `upperOnly` leaves the legs to walk, `hold` keeps its last pose until stop(). */
     play(clip, { rate = 1, from = 0, upperOnly = false, hold = false, fadeIn = .1, fadeOut = .16 } = {}) {
       if (act) { last = act; lastWeight = act.weight; }
@@ -291,6 +299,7 @@ export function createAnimator(motion) {
       return animator.play(clip, { rate: recorded?2:1, from: recorded ? (clip==='jab'?.12:.16) : 0, upperOnly: moving, fadeIn: .05, fadeOut: .2 }); },
     /**
      * `s`: speed (m/s over the ground), grounded, falling (m/s downward), guard (squared up), aim, held (a movement to stay in: 'drive', 'sit', 'kneel', 'cuffed', 'handsUp', 'lying', 'death'...), sliding.
+     * `heldTime` overrides the animation clock for a held pose tied to a sequence.
      * Returns the pose, for fitPose.
      */
     update(dt, s = {}) {
@@ -302,10 +311,11 @@ export function createAnimator(motion) {
       else for (let i = 0; i + 1 < gaits.length; i++) if (speed > gaits[i][1]) { low = gaits[i]; high = gaits[i + 1]; t = (speed - gaits[i][1]) / (gaits[i + 1][1] - gaits[i][1]); }
       const lowLength = motion.clip(low[0]).seconds, highLength = motion.clip(high[0]).seconds, length = lowLength + (highLength - lowLength) * t, pace = low[1] + (high[1] - low[1]) * t;
       const cadenceSpeed=low[0]==='walk' ? WALK_CLIP_SPEED*strideFactor(s.walkStyle)*(1-t)+high[1]*t : pace;
-      const cadence=clamp(speed/(cadenceSpeed*(s.strideScale||1)),.55,1.7);
-      stride=(stride+dt*cadence/length)%1;
-      motion.sample(low[0]==='walk'?walkClip(s.walkStyle):low[0], stride * lowLength, a);
-      if (high !== low) { motion.sample(high[0], stride * highLength, b); motion.blend(a, b, t, a); }
+      const cadence=clamp(speed/(cadenceSpeed*(s.strideScale||1)),0,2);
+      stride += dt * cadence / length;
+      const phase = stride % 1;
+      motion.sample(low[0]==='walk'?walkClip(s.walkStyle):low[0], phase * lowLength, a);
+      if (high !== low) { motion.sample(high[0], phase * highLength, b); motion.blend(a, b, t, a); }
       const moving = Math.min(1, speed / .9);
       // Squared up, or aiming: the whole body when standing, from the waist up when moving.
       const wantStance = s.aim ? 'aim' : s.guard ? 'guard' : null;
@@ -314,6 +324,16 @@ export function createAnimator(motion) {
       motion.sample('idle', clock, b);
       if (stance > .01) { motion.sample(stanceClip, clock, c); motion.blend(b, c, stance, b); motion.blend(a, c, stance, a, upper); }
       motion.blend(b, a, moving, pose);
+      // Bank over the loaded leg, brace on a stop, and let the gaze lead
+      // the shoulders around a bend. The legs retain their sampled contacts.
+      const effort = s.strideEffort;
+      bank = toward(bank, clamp(-(effort?.strideSide || 0) * .022, -.30, .30), 10, dt);
+      pitch = toward(pitch, clamp((effort?.strideForward || 0) * .014, -.18, .20), 12, dt);
+      gaze = toward(gaze, (effort?.strideTurn || 0) * .55, 12, dt);
+      if (Math.abs(bank) + Math.abs(pitch) + Math.abs(gaze) > .001) {
+        turnJoint(waist, qmul(qaxis(AXES.y, gaze * .45), qmul(qaxis(AXES.z, bank), qaxis(AXES.x, pitch))));
+        turnJoint(neck, qmul(qaxis(AXES.y, gaze * .55), qmul(qaxis(AXES.z, -.45 * bank), qaxis(AXES.x, -.40 * pitch))));
+      }
       // In the air: a jump's hang, and past a second of it, a fall.
       const grounded = s.grounded !== false;
       airTime = grounded ? 0 : airTime + dt;
@@ -333,7 +353,7 @@ export function createAnimator(motion) {
       // Something to stay in.
       if (s.held) heldClip = s.held;
       held = toward(held, s.held ? 1 : 0, 8, dt);
-      if (held > .01) { motion.sample(heldClip, clock, b); motion.blend(pose, b, held, pose); }
+      if (held > .01) { motion.sample(heldClip, s.heldTime ?? clock, b); motion.blend(pose, b, held, pose); }
       // The movement asked for, over the top; the one it took over from dies away under it.
       if (last) { lastWeight = toward(lastWeight, 0, 14, dt); if (lastWeight < .02) last = null; else { motion.sample(last.clip, last.time, b); motion.blend(pose, b, lastWeight, pose, last.mask); } }
       if (act) {

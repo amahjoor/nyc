@@ -3,8 +3,9 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <link rel="icon" href="data:,">
-  <title>Your character · GTA NYC</title>
+  <link rel="icon" type="image/png" href="./assets/favicon.png">
+  <link rel="apple-touch-icon" href="./assets/favicon.png">
+  <title>Your character · I Heart NYC</title>
   <link rel="stylesheet" href="fonts.css">
   <style>
     :root { color-scheme: dark; font: 15px/1.45 Arial, Helvetica, sans-serif; color: #eae9e2; background: #151b1d; }
@@ -20,21 +21,21 @@
     aside { overflow-y: auto; border-left: 1px solid #435054; padding: 18px 18px 40px }
     h1 { margin: 0 0 4px; font-size: 26px; letter-spacing: -.03em }
     p { margin: 4px 0 12px; color: #b7c2c1; font-size: 13px }
-    a { color: #ffab8e }
+    a { color: var(--brand-blush) }
     details { border-top: 1px solid #435054; padding: 8px 0 }
     summary { cursor: pointer; font-weight: bold; padding: 4px 0 }
     label { display: grid; grid-template-columns: 9.5em 1fr 3.2em; gap: 8px; align-items: center; font-size: 13px; color: #c8d3d2; margin: 5px 0 }
     label.pick { grid-template-columns: 9.5em 1fr }
     output { text-align: right; font-variant-numeric: tabular-nums; color: #9fb0af }
-    input[type=range] { width: 100%; accent-color: #ffab8e }
+    input[type=range] { width: 100%; accent-color: var(--brand-blush) }
     select, button { font: inherit; color: #f0eee6; background: #253035; border: 1px solid #526066; border-radius: 4px; padding: 6px 9px }
     button { cursor: pointer }
-    button:hover, select:hover { border-color: #ffab8e }
-    button.primary { background: #b9573a; border-color: #b9573a; font-weight: bold }
+    button:hover, select:hover { border-color: var(--brand-blush) }
+    button.primary { background: var(--brand-cream); border-color: var(--brand-cream); color: var(--brand-ink); font-weight: bold }
     .swatches { display: flex; flex-wrap: wrap; gap: 4px; margin: 2px 0 8px }
     .swatches span { font-size: 13px; color: #c8d3d2; width: 100%; }
     .swatches button { width: 24px; height: 24px; padding: 0; border-radius: 50%; border: 2px solid #0000; outline: 1px solid #aaa6; background: var(--c) }
-    .swatches button[aria-pressed=true] { border-color: #ffab8e; outline-color: #ffab8e }
+    .swatches button[aria-pressed=true] { border-color: var(--brand-blush); outline-color: var(--brand-blush) }
     .swatches input { width: 28px; height: 24px; padding: 0; border: 0; background: none }
     .swatches button.original { width: auto; border-radius: 4px; background: #253035; padding: 0 6px }
     .actions { display: flex; flex-wrap: wrap; gap: 8px; margin: 12px 0 }
@@ -42,13 +43,13 @@
 
     .side-tabs { display: flex; gap: 4px; margin: 12px 0 }
     .side-tabs button { flex: 1; border-radius: 0; text-transform: uppercase; letter-spacing: .06em; font-weight: bold }
-    .side-tabs button[aria-pressed=true] { background: #f2f2f2; color: #111; border-color: #f2f2f2 }
+    .side-tabs button[aria-pressed=true] { background: var(--brand-cream); color: var(--brand-ink); border-color: var(--brand-cream) }
     .wardrobe h3 { margin: 16px 0 4px; font-size: 11px; letter-spacing: .18em; text-transform: uppercase; color: #8f9797 }
     .wardrobe h3:first-child { margin-top: 4px }
     .outfit { display: flex }
     .outfit button { flex: 1; text-align: left; border: 0; border-radius: 0; background: transparent; padding: 8px 12px; text-transform: uppercase; letter-spacing: .04em; font-weight: bold }
-    .outfit button:hover, .outfit button:focus-visible { background: #f2f2f2; color: #111; outline: none }
-    .outfit button[aria-pressed=true]:not(:hover, :focus-visible) { background: #ffffff1f; box-shadow: inset 4px 0 #ff794f }
+    .outfit button:hover, .outfit button:focus-visible { background: var(--brand-cream); color: var(--brand-ink); outline: none }
+    .outfit button[aria-pressed=true]:not(:hover, :focus-visible) { background: #ffffff1f; box-shadow: inset 4px 0 var(--brand-red) }
     .outfit button[aria-pressed=true]::after { content: "✓"; float: right }
     .outfit .remove { flex: 0 0 auto; text-align: center; padding: 8px 12px }
     .wardrobe .empty { margin: 4px 12px; }
@@ -63,13 +64,13 @@
     html.embed .intro, html.embed #save { display: none }
     html.embed .side-tabs { margin: 0 0 6px; gap: 0 }
     html.embed .side-tabs button { padding: 10px 6px; border: 0; background: #0006; color: #fff; font-size: 14px }
-    html.embed .side-tabs button[aria-pressed=true] { background: #f2f2f2; color: #111 }
+    html.embed .side-tabs button[aria-pressed=true] { background: var(--brand-cream); color: var(--brand-ink) }
     html.embed .outfit button { font-size: 14px; padding: 9px 16px; color: #fff }
     html.embed .outfit button:is(:hover, :focus-visible) { color: #111 }
     html.embed .wardrobe h3 { margin-inline: 16px }
     html.embed #save-outfit, html.embed .actions button, html.embed .bar button, html.embed .bar select { border-radius: 0; border: 0; background: #000000b8; color: #fff; text-transform: uppercase; letter-spacing: .06em; font-weight: bold; font-size: 13px; padding: 8px 12px }
     html.embed #save-outfit { width: calc(100% - 32px); margin: 10px 16px 0 }
-    html.embed :is(#save-outfit, .actions button, .bar button):hover { background: #f2f2f2; color: #111 }
+    html.embed :is(#save-outfit, .actions button, .bar button):hover { background: var(--brand-cream); color: var(--brand-ink) }
     html.embed #designer { padding: 0 16px }
     html.embed details { border-color: #ffffff1a }
     html.embed summary { text-transform: uppercase; letter-spacing: .06em }

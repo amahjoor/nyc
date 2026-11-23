@@ -105,9 +105,63 @@ const archiveLooks=new Map();
 /** The archive look a member of the cast wears on the street, if they wear one. */
 export const archiveForMember=id=>archiveLooks.get(id);
 
-/** The design a number stands for. */
+// Nobody owns one outfit. Each grown member of the cast has a wardrobe: the look they were dealt (0), plain everyday
+// clothes (1), and then every look that suits them, followed by outfits put together from those looks: the top of one
+// with the trousers and shoes of another. That is dozens apiece. A figure is drawn for a member in one outfit, and is
+// known by the member's number plus VARIANT_STEP for each step along their list.
+export const VARIANT_STEP = 1000;
+// The full skirt was on every third person behind a counter. A skirt is now for women, and the full one for one woman in three.
+const wearsSkirt = (id, look) => !/skirt|mini/.test(look.clothes.bottom || '') || (memberInfo(id).woman && (!/bias-full-skirt/.test(look.clothes.bottom) || id % 3 === 0));
+const MIXED = 36;
+const wardrobesOf = new Map();
+for (let id = 0; id < OFFICERS[0]; id++) {
+  const info = memberInfo(id);
+  if (info.child) continue;
+  const first = streetLooks.get(id) || archiveLooks.get(id);
+  const suits = [...ARCHIVE_LOOKS, ...FASHION_LOOKS].filter(look => look !== first && look.occasion === info.outfit
+    && (look.woman == null || look.woman === info.woman) && !(look.young && info.old) && wearsSkirt(id, look));
+  const outfits = suits.map(look => look.clothes), roll = mulberry(Math.imul(id + 7, 0x85ebca6b)), seen = new Set();
+  // Mixed outfits: nobody is given the same pairing twice, and a suit is not split from its own trousers by chance alone.
+  for (let tries = 0; outfits.length < suits.length + MIXED && tries < MIXED * 6 && suits.length > 1; tries++) {
+    const a = suits[Math.floor(roll() * suits.length)].clothes, b = suits[Math.floor(roll() * suits.length)].clothes, c = suits[Math.floor(roll() * suits.length)].clothes;
+    // A top stays with the trousers or skirt it was cut to be worn with: a short top over somebody else's low trousers
+    // leaves a gap of skin at the waist and the seat. What changes from one mixed outfit to the next is the shoes.
+    const key = a.top + '|' + a.bottom + '|' + c.shoes;
+    if (a === c || seen.has(key)) continue;
+    seen.add(key);
+    outfits.push({ ...a, shoes: c.shoes ?? a.shoes, shoeColour: c.shoeColour ?? a.shoeColour });
+  }
+  wardrobesOf.set(id, outfits);
+}
+/** The clothes a member wears in one of their outfits, or null for plain everyday clothes. */
+export function clothesFor(id, variant = 0) {
+  const dealt = streetLooks.get(id) || archiveLooks.get(id), first = dealt && wearsSkirt(id, dealt) ? dealt.clothes : null;
+  if (variant === 1) return null;
+  return variant >= 2 ? wardrobesOf.get(id)?.[variant - 2] || first : first;
+}
+/** How many outfits a member has, the look they were dealt and their plain clothes included. */
+export const outfitCount = id => 2 + (wardrobesOf.get(id)?.length || 0);
+/**
+ * Which of their outfits somebody has on today. `style` (0 to 1) is how dressed the street they are on is: on a shopping
+ * street or a street of bars nearly everybody is in a look; on a quiet block more are in plain clothes.
+ */
+export function chooseVariant(id, random, style = .3) {
+  if (id >= OFFICERS[0] || memberInfo(id).child) return 0;
+  const dressed = .45 + .45 * Math.max(0, Math.min(1, style)), roll = random(), more = wardrobesOf.get(id)?.length || 0;
+  // Of a wardrobe of dozens, each person is going about in one of a handful at any one time, and the handful moves on
+  // every ten minutes: the street stays varied without a new figure having to be made for nearly everybody who appears.
+  const IN_USE = 4, turn = Math.floor(Date.now() / 600000);
+  if (roll < dressed && more) return 2 + (turn * IN_USE + id * 7 + Math.floor(random() * Math.min(IN_USE, more))) % more;
+  return roll < dressed + .15 ? 0 : 1;
+}
+
+/** The design a number stands for: a member of the cast, in the outfit its thousands say. */
 export function designOf(id, human) {
-  const info = memberInfo(id), face=info.officer ? OFFICERS[info.slot] : id;
+  const variant = id >= OFFICERS[0] && id < VARIANT_STEP ? 0 : Math.floor(id / VARIANT_STEP);
+  id %= VARIANT_STEP;
+  // Past their own two outfits, each outfit in a member's wardrobe is worn by somebody else of the same kind: another
+  // face, age, build, hair and colouring. A hundred members are then several thousand different people.
+  const info = memberInfo(id), face=info.officer ? OFFICERS[info.slot] : variant >= 2 ? id + variant * 131 : id;
   const random = mulberry(0x9e3779b1 ^ Math.imul(face + 1, 2654435761));
   if (info.officer) {
     const [,height,skin,hair] = patrol[info.slot];
@@ -119,7 +173,7 @@ export function designOf(id, human) {
   const shares = GROUPS.map(group => group === info.group ? 1 : 0);
   const age = info.kind === CHILD ? 10 + Math.floor(random() * 7) : info.kind === OLD ? 68 + Math.floor(random() * 18) : info.kind === OLDER ? 52 + Math.floor(random() * 14) : info.kind === RUNNER ? 19 + Math.floor(random() * 22) : 18 + Math.floor(random() * 32);
   return {...somebody(random, human, { shares, sex: info.woman ? 1 : 0, age, kind: info.line || (info.group === 'white' ? 'european' : null), outfit: info.outfit }),
-    ...(fashionForMember(id) || archiveForMember(id))?.clothes,walkStyle:castWalkStyle(id)};
+    ...clothesFor(id, variant),walkStyle:castWalkStyle(id)};
 }
 
 /**

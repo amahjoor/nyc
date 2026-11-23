@@ -18,11 +18,11 @@ import { qmul, qinv, qrot } from './body.js';
 import { FURNITURE_CLIPS, sheetSeats } from './seating.js';
 import { fitPose, gripOffsetFor, walkClip } from './body-motion.js';
 import { fingerPose } from './hand-poses.js';
-import { lookOf, sharesGarmentDye } from './human-looks.js';
+import { lookOf, sharesGarmentDye, wornTop } from './human-looks.js';
 
 export const ATLAS = 512, SHEET_FPS = 15;
 /** The movements people on the street may be seen in. */
-export const STREET_CLIPS = ['idle', 'walk', 'jog', 'sprint', 'sit', ...FURNITURE_CLIPS, 'sitTalk', 'talk', 'hitChest', 'hitHead', 'death', 'guard', ...new Set([...handStrikes,...closeStrikes,...movingStrikes]), ...standingKicks, 'foldBack','reelLeft','reelRight', 'fall', 'flinch', 'knocked', 'lying', 'getUp', 'stumble', 'handsUp', 'cower', 'kneel', 'cuffed', 'cuffing', 'cycle', 'cycleStop', 'horseRide', 'motorRide', 'stretch', 'rowCable', 'cutHair', 'curlWeight', 'giveCash', 'strum', 'aim', 'shoot', 'thrown', 'drive', 'reach', 'pickUp', 'crouch', 'stir', 'chop', 'toss', 'flip'];
+export const STREET_CLIPS = ['idle', 'walk', 'jog', 'sprint', 'sit', ...FURNITURE_CLIPS, 'sitTalk', 'talk', 'hitChest', 'hitHead', 'death', 'guard', ...new Set([...handStrikes,...closeStrikes,...movingStrikes]), ...standingKicks, 'foldBack','reelLeft','reelRight', 'fall', 'flinch', 'knocked', 'lying', 'getUp', 'stumble', 'handsUp', 'cower', 'kneel', 'cuffed', 'cuffing', 'cycle', 'cycleStop', 'horseRide', 'motorRide', 'stretch', 'rowCable', 'cutHair', 'curlWeight', 'giveCash', 'strum', 'aim', 'shoot', 'thrown', 'drive', 'reach', 'pickUp', 'crouch', 'stir', 'chop', 'toss', 'flip', 'lowKick', 'lowSweep'];
 
 /** Keep body columns first and append the three joints of every digit. */
 export function streetBones(bones) {
@@ -237,7 +237,7 @@ function merged(pieces, atlas, clothing, fittedBelt, distant=false, rig=null) {
 export function streetWardrobe(pieces, design, look, base) {
   const textureUrl=name=>name && new URL('tex/'+name,new URL(base,import.meta.url)).href;
   const wardrobe=[], clothing=new Map();
-  const top=pieces.find(p=>p.id===(design.top || 'male_casualsuit04-top'));
+  const top=pieces.find(p=>p.id===wornTop(design));
   const bottom=pieces.find(p=>p.id===(design.bottom || 'male_casualsuit04-bottom'));
   for(const piece of pieces){
     if(!piece.map || piece.clear || !['garment','suit','uniform','shoes','hat'].includes(piece.kind))continue;

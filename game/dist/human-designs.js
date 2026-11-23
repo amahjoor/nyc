@@ -6,7 +6,7 @@ import { HAIR_COLOURS, ARCHIVE_BAGS } from './human-looks.js';
 /** Somebody ordinary, until the player says otherwise. */
 export const DEFAULT_PERSON = { v: 2, walkStyle: 'natural', sex: 0, age: 28, height: 1.78, weight: 0, muscle: .1, african: .2, asian: .1, european: .7, tone: '#c89a76', dials: {},
   hair: 'short02', hairColour: HAIR_COLOURS.darkBrown, browColour: HAIR_COLOURS.darkBrown, brows: 'eyebrow003', eyes: 'brown',
-  top: 'male_casualsuit04-top', bottom: 'male_casualsuit04-bottom', shoes: 'shoes05', hat: 'none', beard:'none', glasses:'none', bag:'none',
+  top: 'gallery-box-tee', bottom: 'male_casualsuit04-bottom', shoes: 'shoes05', hat: 'none', beard:'none', glasses:'none', bag:'none',
   trimColour:null, topColour: '#d7774e', bottomColour: null };
 const KEY = 'nyc.person', NUMBERS = { sex: [0, 1], age: [6, 95], height: [1.1, 2.15], weight: [-1, 1], muscle: [-1, 1], chest: [-1, 1], firm: [-1, 1], african: [0, 1], asian: [0, 1], european: [0, 1] };
 const TEXTS = ['hair', 'brows', 'eyes', 'top', 'bottom', 'shoes', 'hat'], COLOURS = ['tone', 'hairColour', 'browColour', 'topColour', 'bottomColour', 'shoeColour', 'hatColour','trimColour'];

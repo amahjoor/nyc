@@ -121,6 +121,10 @@ export function writeMovements(motion) {
   motion.define('guard', { seconds: 1.1, loop: true, base: 'jab', keys: [[0, {}], [.55, { pelvis: [0, -.012, 0], '+spine_02': ['x', 1.5] }]] });
   // A kick with the back leg, straight out to the front.
   const chamber = { '+hips': ['x', -6], thigh_r: ['x', -92, 'z', -4], calf_r: ['x', 112], foot_r: ['x', 20], '+spine_01': ['x', -4], '+thigh_l': ['x', 4], '+upperarm_r': ['z', -12] };
+  for (const [id,lean] of [['dodgeLeft',-18],['dodgeRight',18],['dodgeBack',0]]) {
+    const slip={pelvis:[0,-.095,0],'+spine_01':['z',lean,'x',lean?7:-18],'+thigh_l':['x',-20],'+calf_l':['x',30],'+thigh_r':['x',-20],'+calf_r':['x',30]};
+    motion.define(id,{seconds:.43,base:'guard',keys:[[0,{}],[.13,slip],[.23,slip],[.43,{}]]});
+  }
   motion.define('kick', { seconds: .72, base: 'jab', keys: [
     [0, {}], [.17, chamber],
     [.29, { '+hips': ['x', -15], pelvis: [0, .01, .07], thigh_r: ['x', -98, 'z', -4], calf_r: ['x', 6], foot_r: ['x', -12], '+spine_01': ['x', -10], '+thigh_l': ['x', 14], '+upperarm_r': ['z', -25], '+upperarm_l': ['z', 12] }],

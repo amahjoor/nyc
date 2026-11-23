@@ -21,6 +21,8 @@ self.onmessage = async ({ data: { id, design, member, detail } }) => {
   try {
     const { human, motion } = await (ready ||= load());
     const who = design || designOf(member, human);
+    // What they wear may lie in a bin not fetched yet (a later chapter of the archive collection).
+    await human.ready(lookOf(who, human).wear);
     if (detail === 'street') { const { transfer, ...figure } = await streetFigure(human, motion, who, BASE); self.postMessage({ id, ...figure }, transfer); return; }
     const dressed = lookOf(who, human), built = human.build({ ...who, wear: dressed.wear }, { detail });
     const buffers = built.pieces.flatMap(piece => [piece.position.buffer, piece.normal.buffer, piece.uv.buffer, piece.skinIndex.buffer, piece.skinWeight.buffer, piece.index.buffer]);

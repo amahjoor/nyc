@@ -77,7 +77,7 @@ export function recoverStandingRoom(person, others, allowed) {
 
 // Distance to first contact on a swept step. Someone already touching can
 // always walk away, including after an external shove or a floor-height change.
-export function clearTravel(person, ux, uz, reach, others, x = bodyX(person), z = bodyZ(person)) {
+export function clearTravel(person, ux, uz, reach, others, x = bodyX(person), z = bodyZ(person), contact = null) {
   const radius = pedestrianRadius(person);
   let clear = reach;
   for (const other of others) {
@@ -86,7 +86,10 @@ export function clearTravel(person, ux, uz, reach, others, x = bodyX(person), z 
     if (ahead <= 0) continue;
     const across = dx*uz - dz*ux, gap = radius + pedestrianRadius(other) + .025;
     if (Math.abs(across) >= gap) continue;
-    clear = Math.min(clear, Math.max(0, ahead - Math.sqrt(gap*gap-across*across)));
+    const distance=Math.max(0,ahead-Math.sqrt(gap*gap-across*across));
+    if(distance>=clear)continue;
+    clear=distance;
+    if(contact)contact.person=other;
   }
   return clear;
 }
@@ -100,6 +103,38 @@ export function limitPedestrianStep(person, fromX, fromZ, others) {
     person.x -= dx*(1-free/step);
     person.z -= dz*(1-free/step);
   }
+}
+
+const WALK_NEIGHBORS = [[1,0],[-1,0],[0,1],[0,-1]];
+
+// A bounded search for when local steering cannot get to the next waypoint.
+// The first steps can go away from the goal to get around an obstruction.
+export function localWalkRoute(actor, goal, blocked, step=1.2, limit=12) {
+  const size=limit*2+1, start={i:0,j:0,x:actor.x,z:actor.z,prev:null};
+  const queue=[start], seen=new Uint8Array(size*size);
+  seen[limit*size+limit]=1;
+  let best=start, nearest=Math.hypot(goal.x-actor.x,goal.z-actor.z), arrived=false;
+  for(let n=0;n<queue.length && !arrived;n++){
+    const from=queue[n];
+    for(const [di,dj] of WALK_NEIGHBORS){
+      const i=from.i+di,j=from.j+dj;
+      if(Math.abs(i)>limit || Math.abs(j)>limit)continue;
+      const key=(i+limit)*size+j+limit;
+      if(seen[key])continue;
+      const x=start.x+i*step,z=start.z+j*step;
+      if(blocked(x,z)){seen[key]=1;continue;}
+      if(blocked((x+from.x)/2,(z+from.z)/2))continue;
+      seen[key]=1;
+      const point={i,j,x,z,prev:from};
+      queue.push(point);
+      const gap=Math.hypot(goal.x-x,goal.z-z);
+      if(gap<step && !blocked((x+goal.x)/2,(z+goal.z)/2)){best=point;arrived=true;break;}
+      if(gap<nearest){nearest=gap;best=point;}
+    }
+  }
+  const path=[];
+  for(let node=best;node.prev;node=node.prev)path.push({x:node.x,z:node.z});
+  return path.reverse();
 }
 
 // Try straight ahead, then increasingly wide detours. For equally open
