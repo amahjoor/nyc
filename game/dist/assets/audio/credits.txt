@@ -1,0 +1,93 @@
+I Heart NYC — sound credits
+
+The field recordings below were mixed to mono, trimmed, level-matched and resampled.
+Loops have short crossfades. Individual recordings retain the licenses listed here.
+
+Hard footsteps — Erdie, CC BY 3.0, https://freesound.org/s/41579/
+Water footsteps — AGFX, CC BY 3.0, https://freesound.org/people/AGFX/packs/1253/
+Wood footsteps — Mito551, CC BY-SA 3.0. The edited wood clips are distributed under CC BY-SA 3.0.
+Footstep variants sourced from https://github.com/luanti-org/minetest_game/tree/9e895af6e9feb98332fa1a778001442f5669bc20/mods/default
+
+Vehicle engines — nhaudio, CC BY 4.0, https://freesound.org/s/275402/
+Bumper and chassis impacts — craigsmith, CC0. Edited takes from the USC optical and magnetic effects collection.
+https://freesound.org/s/675466/
+https://freesound.org/s/675460/
+Cabin impact Foley — tickle_feet_frida, CC0. Two trimmed interior takes recorded in a Mazda CX-5.
+https://freesound.org/s/848307/
+Door opening — j1987, CC0, https://freesound.org/s/123020/
+Door closing — monotraum, CC0, https://freesound.org/s/208695/
+Car horn — Legnalegna55, CC0, https://freesound.org/s/545015/
+Police siren — conleec, CC0, https://freesound.org/s/159743/
+Vehicle edits sourced from https://github.com/Fris0uman/CDDA-Soundpacks/tree/02b65460a808624b500013d4b9aa71dccd968817/sound/CC-Sounds
+
+Truck horn — Daniel Lucas (danlucaz), CC0, https://freesound.org/s/513741/
+Body landing — Breviceps, CC0, https://freesound.org/s/447922/
+Frying pan — BenjaminNelan, CC0, https://freesound.org/s/353124/
+Scissors — lyndseymel, CC0, https://freesound.org/s/241364/
+Crowd walla — IENBA, CC0, https://freesound.org/s/867051/
+Shore — TheyLook_Here, CC0, https://freesound.org/s/866205/
+Subway ride NYC — e.zeta, CC0, https://freesound.org/s/825939/
+
+Skateboard wheels — bruno.auzet, CC0, https://freesound.org/s/836284/
+Deck pop and wheel landing — FOSSarts, CC0, https://freesound.org/s/740121/
+Board scrape — 21100495, CC0, https://freesound.org/s/655372/
+Bicycle drivetrain — Rudmer_Rotteveel, CC0, https://freesound.org/s/719482/
+Bicycle freewheel — stib, CC0, https://freesound.org/s/494328/
+Sliding car tires — YleArkisto, CC BY 4.0, https://freesound.org/s/454687/
+Espresso machine — Andra4, CC0, https://freesound.org/s/504961/
+Chopping vegetables — Erbsland-Music, CC0, https://freesound.org/s/634119/
+Shop door opening — Peter Havran (Raven2236), CC BY 3.0, https://freesound.org/s/183603/
+Shop door closing — kyles, CC0, https://freesound.org/s/407312/
+Shop door clips sourced from the CC-Sounds pack credited above.
+
+NPC dialogue uses 904 speakers from Piper's English LibriTTS-R medium voice model.
+The common greeting is rendered with Piper, trimmed, level-matched and packed as MP3.
+The eight original recordings use model speakers 12, 45, 76, 101, 207, 311, 530 and 745.
+Training corpus by Heiga Zen and collaborators, restored by Younggun Lee and collaborators.
+LibriTTS-R is distributed under CC BY 4.0. Reader labels come from LibriSpeech.
+https://www.openslr.org/141/
+https://www.openslr.org/12/
+https://huggingface.co/rhasspy/piper-voices/tree/main/en/en_US/libritts_r/medium
+
+ONNX Runtime Web 1.20.1 by Microsoft and contributors (MIT).
+Bundled license and third-party notices are in dist/vendor/onnx/.
+https://github.com/microsoft/onnxruntime/tree/v1.20.1
+
+License terms
+https://creativecommons.org/publicdomain/zero/1.0/
+https://creativecommons.org/licenses/by/3.0/
+https://creativecommons.org/licenses/by-sa/3.0/
+https://creativecommons.org/licenses/by/4.0/
+
+Additional gameplay Foley
+Impact Sounds and RPG Audio — Kenney, CC0. Trimmed and level-matched.
+https://kenney.nl/assets/impact-sounds
+https://kenney.nl/assets/rpg-audio
+
+Additional CC-Sounds recordings, trimmed and level-matched from the revision credited above.
+Ashe Kirk — CC0 1.0: https://freesound.org/s/151228/, https://freesound.org/s/151229/, https://freesound.org/s/151230/, https://freesound.org/s/151235/
+CogFireStudios — CC0 1.0: https://freesound.org/s/619835/
+Flammos — CC BY 3.0: https://freesound.org/s/613205/
+Frederik_Sunne — CC-BY: https://freesound.org/people/Frederik_Sunne/sounds/324138/
+GiocoSound — CC0: https://freesound.org/people/GiocoSound/sounds/401553/
+GiocoSound — CC0 1.0: https://freesound.org/s/421132/, https://freesound.org/s/421133/, https://freesound.org/s/421134/, https://freesound.org/s/421136/, https://freesound.org/s/421137/
+InspectorJ — CC-BY: https://freesound.org/s/336598/
+JaimeLopes — CC-BY: https://freesound.org/people/JaimeLopes/sounds/442766/
+MWsfx — CC0 1.0: https://freesound.org/s/574247/
+dawidwmika — CC0: https://freesound.org/s/372518/
+deleted_user_7146007 — CC0: https://freesound.org/people/deleted_user_7146007/sounds/383882/
+duckduckpony — CC-BY: https://freesound.org/s/204017/, https://freesound.org/s/204032/, https://freesound.org/s/204033/, https://freesound.org/s/204034/, https://freesound.org/s/204035/
+florianreichelt — CC0: https://freesound.org/people/florianreichelt/sounds/459993/
+kretopi — CC0 1.0: https://freesound.org/s/406744/, https://freesound.org/s/406745/, https://freesound.org/s/406746/, https://freesound.org/s/406747/, https://freesound.org/s/406748/, https://freesound.org/s/406749/
+kwahmah_02 — CC BY 3.0: https://freesound.org/people/kwahmah_02/sounds/269295/
+nathanaelj83 — CC0: https://freesound.org/s/145242/
+nhaudio — CC-BY: https://freesound.org/people/nhaudio/sounds/275402/
+nuFF3 — CC-BY: https://freesound.org/s/477390/, https://freesound.org/s/477391/, https://freesound.org/s/477392/, https://freesound.org/s/477394/, https://freesound.org/s/477395/, https://freesound.org/s/477396/
+nuncaconoci — CC0 1.0: https://freesound.org/people/nuncaconoci/sounds/570370/
+samulis — CC0: https://freesound.org/s/197778/, https://freesound.org/s/197779/, https://freesound.org/s/197780/, https://freesound.org/s/197781/
+spycrah — CC BY 3.0: https://freesound.org/s/535222/
+tatianafeudal — CC BY 3.0: https://freesound.org/s/542258/
+
+Patrol siren loops (sirens.flac), trimmed, crossfaded and level-matched:
+Stationary US police wail — conleec, CC0, https://freesound.org/s/159753/
+Whelen Yelp, recorded directly from the siren unit — Jefflix, CC0, https://freesound.org/s/157866/
