@@ -1,3 +1,6 @@
+export const SHOP_GLASS_TINT = 0x9fc8d5;
+export const SHOP_GLASS_OPACITY = .13;
+
 // Apertures in both the surveyed facade and the room. The door leaf and
 // handle are geometry, so its entire opening stays clear as the hinge turns.
 export const SHOP_WINDOW_GLSL = /* glsl */`

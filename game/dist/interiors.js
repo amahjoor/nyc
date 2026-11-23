@@ -20,7 +20,7 @@ import { KIND, placeName } from './places.js';
 import { CEILING, roomPoint, DOOR, ShopDoor } from './room.js';
 import { roomProps, furnishRoom, OWN_STYLE_OF } from './room-props.js';
 import { planRegister } from './register.js';
-import { SHOP_WINDOW_GLSL } from './shop-window.js';
+import { SHOP_GLASS_OPACITY, SHOP_GLASS_TINT, SHOP_WINDOW_GLSL } from './shop-window.js';
 import { buildRoomFinish, lightRoomSurface } from './room-finish.js';
 import { menuFor } from './menu.js';
 import { openServiceWay } from './service-way.js';
@@ -716,11 +716,30 @@ export function buildRoom(room, y = 0, { streetView = false } = {}) {
   lightRoomSurface(material,room,y);
   if(print)lightRoomSurface(print.material,room,y,true);
   if(finish)lightRoomSurface(finish.material,room,y,true);
+  const glass = new THREE.MeshBasicMaterial({
+    color: SHOP_GLASS_TINT, transparent: true, opacity: SHOP_GLASS_OPACITY,
+    depthWrite: false, side: THREE.DoubleSide, forceSinglePass: true,
+  });
+  const windowVertices = [];
+  const addWindow = (a0,b0,a1,b1) => {
+    const [x0,z0] = roomPoint(room,a0,b0), [x1,z1] = roomPoint(room,a1,b1);
+    const low = y + sill, high = y + head;
+    windowVertices.push(x0,low,z0, x1,low,z1, x1,high,z1, x0,low,z0, x1,high,z1, x0,high,z0);
+  };
+  // Seat the fixed sheets in their frames. The door uses the same single sheet on its hinge.
+  for (const side of [-1,1]) {
+    addWindow(side * .7,.04,side * (half - .22),.04);
+    const length = room.returns?.find(edge => edge.side === side)?.length;
+    if (length > .44) addWindow(side * half,.22,side * half,length - .22);
+  }
+  const windowGeometry = new THREE.BufferGeometry();
+  windowGeometry.setAttribute('position',new THREE.Float32BufferAttribute(windowVertices,3));
+  const windows = new THREE.Mesh(windowGeometry,glass);
+  windows.name = 'Storefront window glass'; group.add(windows);
   // Origin at the jamb. The rotation sign follows the footprint winding.
   const hinge = new THREE.Group(), leaf = new THREE.Group(), [hx, hz] = roomPoint(room, -DOOR / 2, 0);
   hinge.position.set(hx, y, hz); hinge.rotation.y = Math.atan2(-room.tz, room.tx); hinge.add(leaf); group.add(hinge);
   const frame = new THREE.MeshBasicMaterial({ color: 0x39434a });
-  const glass = new THREE.MeshBasicMaterial({ color: 0x9fc8d5, transparent: true, opacity: .13, depthWrite: false });
   // One draw for the moving frame, one for its glass.
   const frameVertices = [];
   const block = (x, up, w, h, d) => {
@@ -733,7 +752,8 @@ export function buildRoom(room, y = 0, { streetView = false } = {}) {
   const frameGeometry = new THREE.BufferGeometry();
   frameGeometry.setAttribute('position', new THREE.Float32BufferAttribute(frameVertices, 3));
   leaf.add(new THREE.Mesh(frameGeometry, frame));
-  const pane = new THREE.Mesh(new THREE.BoxGeometry(DOOR - .1, 1.9, .018), glass);
+  const pane = new THREE.Mesh(new THREE.PlaneGeometry(DOOR - .1, 1.9), glass);
+  pane.name = 'Storefront door glass';
   pane.position.set(DOOR / 2,1.16,0); leaf.add(pane);
   const door = new ShopDoor();
   group.userData.door = door;
@@ -798,7 +818,7 @@ export function buildRoom(room, y = 0, { streetView = false } = {}) {
     terminal?.userData.dispose();
     if (print) { print.material.map.dispose(); print.material.dispose(); print.geometry.dispose(); }
     if (finish) { finish.material.map.dispose(); finish.material.dispose(); finish.geometry.dispose(); }
-    frame.dispose(); glass.dispose(); geometry.dispose(); material.dispose(); group.removeFromParent();
+    frame.dispose(); windowGeometry.dispose(); glass.dispose(); geometry.dispose(); material.dispose(); group.removeFromParent();
   };
   return group;
 }

@@ -62,6 +62,27 @@ test('both storefront windings show the inside of the walls and the tops of furn
   }
 });
 
+test('the door, display windows and corner windows use the same single sheet of tinted glass', () => {
+  const plan = planRoom({ ...front('coffee'), returns: [{ side: 1, length: 4 }] });
+  const group = buildRoom(plan, 0, { streetView: true });
+  const windows = group.getObjectByName('Storefront window glass');
+  const door = group.getObjectByName('Storefront door glass');
+  assert.equal(door.material, windows.material);
+  assert.ok(windows.material.transparent && !windows.material.depthWrite && windows.material.forceSinglePass);
+  group.updateMatrixWorld(true);
+  const hits = (origin, direction, mesh) => new THREE.Raycaster(new THREE.Vector3(...origin),
+    new THREE.Vector3(...direction)).intersectObject(mesh).length;
+  assert.equal(hits([10.25,1.5,2], [0,0,-1], door), 1);
+  assert.equal(hits([8,1.5,2], [0,0,-1], windows), 1);
+  assert.equal(hits([12,1.5,2], [0,0,-1], windows), 1);
+  assert.equal(hits([15,1.5,-1], [-1,0,0], windows), 1);
+  group.userData.door.angle = Math.PI / 2;
+  group.userData.updateDoor();
+  group.updateMatrixWorld(true);
+  assert.equal(hits([10.25,1.5,2], [0,0,-1], door), 0);
+  group.userData.dispose();
+});
+
 test('walking about a room: walls and furniture stop you, the door lets you out', () => {
   const room = planRoom(front('bodega', 9), building(30));
   assert.deepEqual(roomPoint(room, 2, 3), [12, -3]);

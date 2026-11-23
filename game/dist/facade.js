@@ -12,7 +12,7 @@ import { airports } from './airport-data.js';
 import { lotStyle } from './lots.js';
 import { landmarkStyle, paletteFor } from './landmarks.js';
 import { monumentAt } from './monuments.js';
-import { SHOP_WINDOW_GLSL } from './shop-window.js';
+import { SHOP_GLASS_TINT, SHOP_WINDOW_GLSL } from './shop-window.js';
 
 export const MATERIAL = { BRICK: 0, STONE: 1, CONCRETE: 2, GLASS: 3, IRON: 4, BROWNSTONE: 5, SIDING: 6 };
 
@@ -274,6 +274,7 @@ export function writeFacade(positions, start, end, { normals, facade, style, hei
 const glslFloat = value => Number.isInteger(value) ? `${value}.0` : String(value);
 const glslVec3 = values => `vec3(${values.map(value => value.toFixed(4)).join(', ')})`;
 const glslVec4 = values => `vec4(${values.map(glslFloat).join(', ')})`;
+const shopGlass = glslVec3(srgb('#' + SHOP_GLASS_TINT.toString(16).padStart(6, '0')));
 const table = (type, name, rows, format) => `const ${type} ${name}[${rows.length}] = ${type}[${rows.length}](\n  ${rows.map(format).join(',\n  ')}\n);`;
 const palette = index => STYLES.flatMap(style => style.palettes.map(entry => srgb(entry[index])));
 
@@ -639,7 +640,7 @@ NycFacade nycFacade( vec4 facade, vec4 styleIn, vec3 wallNormal, float facing, v
 		float storeyHeight = tenanted ? streetStorey : ground, height = v / storeyHeight;
 		if ( tenanted || ( shop && ! blank ) ) {
 			// Each shop takes two bays: plate glass over a low bulkhead, under a sign band.
-			float shopSeed = nycHash12( vec2( shopIndex, seed * 173.0 ) );
+			float shopSeed = nycHash12( tenanted ? tenantAt.xy : vec2( shopIndex, seed * 173.0 ) );
 			float glazing = nycPulse( cellU, 0.05, 0.9, cellPixel.x ) * nycBox( height, 0.13, 0.74, pixel.y / storeyHeight );
 			float signBand = nycBox( height, 0.77, 0.95, pixel.y / storeyHeight );
 			// Awning and sign colours, as varied as the shops.
@@ -718,9 +719,11 @@ NycFacade nycFacade( vec4 facade, vec4 styleIn, vec3 wallNormal, float facing, v
 				glass = mix( glass, leaf * ( 1.0 - handle ) * ( 1.0 - shutter ), doorway );
 			}
 			frame = ( 1.0 - nycPulse( cellU * 2.0, 0.02, 0.96, cellPixel.x * 2.0 ) ) * close * ( 1.0 - doorway );
-			pane = vec2( shopIndex, -1.0 ); roomAt = vec2( fract( ( cellU + shopShift ) * 0.5 ), seen.y / 0.78 );
+			pane = vec2( shopSeed * 1024.0, -1.0 );
+			roomAt = vec2( tenanted ? across : fract( ( cellU + shopShift ) * 0.5 ), seen.y / 0.78 );
 			roomDepth = 9.0; roomHeight = storeyHeight * 0.78;
 			litChance = open; litBoost = 1.0; warmth = mix( 0.35, 0.8, fract( shopSeed * 5.0 ) );
+			glassColor = ${shopGlass} * 0.48;
 			glassReflect = 0.22; glassRough = 0.06;
 		} else {
 			// A plain base course in the trim stone, with smaller windows.
