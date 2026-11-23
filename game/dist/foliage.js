@@ -17,19 +17,24 @@ export function createLeafMaterial({ attribute = false, vertexColors = false, si
     shader.vertexShader = `varying vec4 vCrown;\n#ifdef NYC_CROWN_ATTRIBUTE\nattribute vec4 aCrown;\n#endif\n${shader.vertexShader}`.replace('#include <begin_vertex>', /* glsl */`#include <begin_vertex>
 	#ifdef NYC_CROWN_ATTRIBUTE
 		vCrown = aCrown;
-		float nycPhase = uNycTime * 1.5 + position.x * 0.31 + position.z * 0.37;
-		float nycSway = aCrown.w * ( aCrown.y + 0.6 );
 	#else
 		vCrown = vec4( position, 1.0 );
-		float nycPhase = uNycTime * 1.5;
-		#ifdef USE_INSTANCING
-			nycPhase += instanceMatrix[ 3 ].x * 0.71 + instanceMatrix[ 3 ].z * 0.93;
-		#endif
-		float nycSway = position.y + 0.6;
 	#endif
-	// Each crown stirs on its own beat, most at the top.
-	transformed.x += sin( nycPhase + vCrown.y * 1.9 ) * 0.03 * nycSway;
-	transformed.z += cos( nycPhase * 0.83 + vCrown.x * 2.3 ) * 0.022 * nycSway;`);
+	// A gust travels across a stand of trees. Convert its direction back
+	// into each crown's rotated axes before bending the outer branches.
+	vec2 breeze = vec2( 0.88, 0.47 );
+	vec2 centre = modelMatrix[3].xz;
+	vec2 bend = breeze;
+	#ifdef USE_INSTANCING
+		centre += instanceMatrix[3].xz;
+		vec2 axisX = instanceMatrix[0].xz, axisZ = instanceMatrix[2].xz;
+		bend = vec2( dot( breeze, axisX ) / max( length( axisX ), 0.001 ),
+		             dot( breeze, axisZ ) / max( length( axisZ ), 0.001 ) );
+	#endif
+	float gust = sin( dot( centre, breeze ) * 0.09 - uNycTime * 0.96 );
+	float flutter = sin( dot( centre, vec2( 0.37, 0.19 ) ) + vCrown.y * 2.1 + uNycTime * 2.7 );
+	float flex = vCrown.w * smoothstep( -0.9, 1.0, vCrown.y );
+	transformed.xz += bend * flex * ( 0.045 * gust + 0.014 * flutter );`);
     shader.fragmentShader = `varying vec4 vCrown;\n${shader.fragmentShader}`.replace('#include <emissivemap_fragment>', /* glsl */`#include <emissivemap_fragment>
 	if ( vCrown.w > 0.5 ) {
 		vec3 c = vCrown.xyz;
@@ -45,6 +50,11 @@ export function createLeafMaterial({ attribute = false, vertexColors = false, si
 		// Dark in the heart of the crown and underneath, bright at the tips.
 		float height = smoothstep( -0.8, 0.9, c.y );
 		diffuseColor.rgb *= ( 0.42 + 0.58 * height ) * ( 0.55 + 0.85 * clump ) * ( 0.74 + 0.52 * leaf );
+		// Thin outer leaves pick up a yellow-green tint when seen into the sun.
+		vec3 eyeRay = -normalize( vViewPosition ) * mat3( viewMatrix );
+		float through = pow( max( dot( eyeRay, uNycSunDir ), 0.0 ), 3.0 ) * ( 1.0 - uNycNight );
+		float fringe = through * ( 1.0 - edge ) * height * smoothstep( 0.35, 0.68, clump );
+		diffuseColor.rgb *= vec3( 1.0 ) + vec3( 1.15, 0.64, 0.10 ) * fringe;
 		// Gaps between boughs read as near-black holes.
 		diffuseColor.rgb *= 1.0 - 0.4 * smoothstep( 0.58, 0.72, texture2D( uNycNoise, w.xy * 1.1 + w.z * 0.83 + 0.4 ).g );
 		vec3 flutter = vec3( leaf, texture2D( uNycNoise, w.zy * 2.1 ).g, clump ) - 0.5;

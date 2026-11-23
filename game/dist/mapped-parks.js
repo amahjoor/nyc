@@ -25,6 +25,28 @@ export function createMappedPark({ scene = null, landscape, physics = null, stre
   base = './central-park/', loadTextures = loadParkTextures, onStatus = () => {}, treeReach = 3200, bind = true } = {}) {
   let manifest = null, trees = null, treesLoading = null, textures = null, disposed = false, error = null, painted = null, bound = bind;
   let regionGround = null;
+  let footing = null, retryFooting = 0;
+  const materials = [null, 'hard', 'rock', 'dirt', 'grass', 'woodland'];
+  async function loadFooting() {
+    retryFooting = Infinity;
+    try {
+      const response = await fetcher(base + 'footing.bin');
+      if (!response.ok) throw new Error('Park footing unavailable');
+      const bytes = new DataView(await response.arrayBuffer());
+      const width = bytes.getUint16(0, true), height = bytes.getUint16(2, true);
+      if (!width || !height || width * height > 4000000) throw new Error('Invalid park footing dimensions');
+      const cells = new Uint8Array(width * height);
+      let offset = 0;
+      for (let i = 4; i < bytes.byteLength; i += 3) {
+        const material = bytes.getUint8(i), end = offset + bytes.getUint16(i + 1, true);
+        if (material >= materials.length || end > cells.length) throw new Error('Invalid park footing run');
+        cells.fill(material, offset, end);
+        offset = end;
+      }
+      if (offset !== cells.length) throw new Error('Incomplete park footing');
+      if (!disposed) footing = { width, height, cells };
+    } catch { retryFooting = Date.now() + 30000; }
+  }
   let structures = null, structuresLoading = null, decks = null, lidMaterial = null;
   const status = () => ({ id: manifest?.id || null, ready: Boolean(manifest), ground: Boolean(textures), trees: trees?.count || 0, treeCells: trees?.drawn || null, sourceTrees: manifest?.trees.count || 0, error });
   const report = () => { if (!disposed) onStatus(status()); };
@@ -70,6 +92,17 @@ export function createMappedPark({ scene = null, landscape, physics = null, stre
   return {
     ready,
     get manifest() { return manifest; },
+    footingAt(point) {
+      if (!manifest || distanceTo(manifest.bounds, point) > 0) return null;
+      const { frame, size } = manifest, dx = point.x - frame.x, dz = point.z - frame.z;
+      const u = (dx * frame.cos + dz * frame.sin) / size.width, v = (dz * frame.cos - dx * frame.sin) / size.depth;
+      if (u < 0 || u >= 1 || v < 0 || v >= 1) return null;
+      if (!footing) {
+        if (Date.now() >= retryFooting) loadFooting();
+        return null;
+      }
+      return materials[footing.cells[Math.floor(v * footing.height) * footing.width + Math.floor(u * footing.width)]];
+    },
     get trees() { return trees; },
     /** What the terrain needs to draw this park's ground, once its maps have loaded. */
     get ground() { return ground(); },

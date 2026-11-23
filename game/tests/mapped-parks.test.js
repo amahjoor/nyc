@@ -141,3 +141,20 @@ test('the island\'s shore is the surveyed one, and no shelf of surrounding count
   assert.equal(png.readUInt32BE(16), context.width);assert.equal(png.readUInt32BE(20), context.height);
   assert.match(context.source.modifications, /on either side of it/);
 });
+
+test('footsteps follow surveyed Central Park materials and load the contact map once', async () => {
+  const f = fixture();
+  const parks = createMappedParks({ landscape:f.landscape, fetcher:f.fetcher, loadTextures:f.loadTextures });
+  await parks.ready;
+  const park = parks.park('central-park');
+  assert.equal(park.footingAt({x:0,z:0}), null);
+  const spots = [
+    [3290.87,-7847.23,'hard'], [3325.95,-7827.84,'dirt'], [3357.53,-7810.39,'woodland'],
+    [3441.73,-7763.85,'grass'], [3502.59,-7716.51,'rock']
+  ];
+  for(const [x,z] of spots) park.footingAt({x,z});
+  await new Promise(resolve => setImmediate(resolve));
+  for(const [x,z,material] of spots) assert.equal(park.footingAt({x,z}),material);
+  assert.equal(f.requests.filter(url=>url.endsWith('footing.bin')).length,1);
+  parks.dispose();
+});

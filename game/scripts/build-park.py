@@ -1060,6 +1060,8 @@ def build(cache, output, park_id="central-park", download=False, preview=None):
     (land / f"{park_id}-terrain.json").write_text(json.dumps(terrain, separators=(",", ":")) + "\n")
     features = {"version": 1, "water": [{key: value for key, value in feature.items() if key != "local"} for feature in water], "canopies": []}
     (land / f"{park_id}-features.json").write_text(json.dumps(features, separators=(",", ":")) + "\n")
+    from park_footing import write_footing
+    write_footing(park_dir, surface, over)
     Image.fromarray(surface, "RGBA").save(park_dir / "surface.png", optimize=True)
     Image.fromarray(over, "RGBA").save(park_dir / "canopy.png", optimize=True)
     (park_dir / "trees.bin").write_bytes(trees.tobytes())

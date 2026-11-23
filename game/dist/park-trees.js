@@ -135,8 +135,6 @@ export function createTreeMaterial() {
   const leaves = material.onBeforeCompile;
   material.onBeforeCompile = (shader, renderer) => {
     leaves(shader, renderer);
-    shader.vertexShader = shader.vertexShader.replace('float nycPhase = uNycTime * 1.5 + position.x * 0.31 + position.z * 0.37;',
-      'float nycPhase = uNycTime * 1.5 + position.x * 0.31 + position.z * 0.37;\n\t\t#ifdef USE_INSTANCING\n\t\t\tnycPhase += instanceMatrix[ 3 ].x * 0.71 + instanceMatrix[ 3 ].z * 0.93;\n\t\t#endif');
     shader.fragmentShader = shader.fragmentShader.replace('#include <color_fragment>', /* glsl */`#include <color_fragment>
 	if ( vCrown.w < 0.5 ) {
 		// Bark: furrowed along the limb, the same grey-brown on every tree.
