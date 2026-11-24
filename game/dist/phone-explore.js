@@ -34,7 +34,7 @@ export function createPhoneExplore({$,click,worldMap,locations,openPlace,summary
     const button=$('mobile-key-'+id);
     if(kind)button.insertAdjacentHTML?.('afterbegin',blipSvg(blipOf(kind),blipColour(kind),18));
     button.setAttribute('aria-pressed',String(id===filter));
-    click(button.id,()=>{
+    click(button,()=>{
       selectFilter(id);setKey(false);$('map-key-toggle').focus?.();
     });
     button.addEventListener('contextmenu',event=>{
