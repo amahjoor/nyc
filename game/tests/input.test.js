@@ -7,7 +7,7 @@ function movementInput(t, handleInterfaceKey, weaponControls){
   const original=new Map(['window','document','navigator'].map(name=>[name,Object.getOwnPropertyDescriptor(globalThis,name)]));
   const listeners=new Map(),actions=[];
   const target={captures:[],captured:null,addEventListener(name,handler){if(!listeners.has(name))listeners.set(name,[]);listeners.get(name).push(handler);},
-    emit(name,event={}){for(const handler of listeners.get(name)||[])handler(event);},
+    emit(name,event={}){for(const handler of listeners.get(name)||[])handler({preventDefault(){},...event});},
     setPointerCapture(id){this.captures.push(id);this.captured=id;},
     hasPointerCapture(id){return this.captured===id;},releasePointerCapture(){this.captured=null;}};
   const pad={axes:[0,0,0,0],buttons:Array.from({length:12},()=>({pressed:false,value:0}))};
@@ -315,6 +315,31 @@ test('aim and fire use independent mouse buttons and controller trigger edges',t
   pad.buttons[6].value=0;pad.buttons[7].value=0;input.sample(0,.02);
   equipped=true;pad.buttons[1]={pressed:true,value:1};input.sample(0,.02);input.sample(0,.02);
   assert.deepEqual(actions,['fire','fire','reload']);
+});
+
+test('play surface consumes held keys and repeats while leaving native editing and shortcuts available',t=>{
+  const {input,target,actions}=movementInput(t);
+  function press(code,key,tagName,options={}){
+    let prevented=false;
+    target.emit('keydown',{code,key,target:{tagName},preventDefault(){prevented=true;},...options});
+    return prevented;
+  }
+  for(const tag of ['CANVAS','BODY']){
+    for(const repeat of [false,true]){
+      for(const [code,key] of [['ShiftLeft','Shift'],['ShiftRight','Shift'],['KeyW','W'],['KeyB','b'],['ArrowLeft','ArrowLeft']]){
+        assert.equal(press(code,key,tag,{repeat}),true);
+      }
+    }
+  }
+  const controls=input.sample(0,.016);
+  assert.equal(controls.forward,1);
+  assert.equal(controls.run,true);
+  assert.deepEqual(actions,[]);
+  assert.equal(press('KeyW','w','CANVAS',{metaKey:true}),false);
+  assert.equal(press('KeyW','w','DIV',{target:{tagName:'DIV',isContentEditable:true}}),false);
+  assert.equal(press('KeyW','w','BUTTON'),false);
+  input.context=()=>'menu';
+  assert.equal(press('KeyW','w','BODY',{repeat:true}),false);
 });
 
 test('tapping pace while moving toggles jog, holding sprints, and stopping resets the jog', t=>{

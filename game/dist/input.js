@@ -2,7 +2,7 @@ import { dualSense, PS5Controls } from './ps5-controls.js';
 import { flickStick } from './skate-tricks.js';
 
 const browserModifier = event => event.ctrlKey || event.metaKey || event.altKey;
-const textEntry = event => ['INPUT','TEXTAREA','SELECT'].includes(event.target.tagName);
+const textEntry = event => event.target.isContentEditable || ['INPUT','TEXTAREA','SELECT'].includes(event.target.tagName);
 const CAB_TAKEOVER_HOLD = .5;
 
 /** Input is sampled each physics frame; one-shot actions run on key-down edges. */
@@ -45,7 +45,12 @@ export class Input {
         return;
       }
       if (e.code === 'Space' && e.target.tagName === 'BUTTON' && !interfaceHandled) return;
-      if (e.code === 'ArrowUp' || e.code === 'Space') e.preventDefault();
+      // Held keys keep sending keydowns. Cancel native text handling on the
+      // play surface on every repeat, while still sampling movement below.
+      const playSurface = e.target === canvas || ['CANVAS','BODY','HTML'].includes(e.target.tagName);
+      const playKey = e.key?.length === 1 || e.key === 'Shift' || e.code.startsWith('Arrow') || actions[e.code];
+      if (e.code === 'ArrowUp' || e.code === 'Space' ||
+          (playSurface && !interfaceHandled && this.context() !== 'menu' && playKey && !e.isComposing)) e.preventDefault();
       // Sample held movement even while the phone owns shortcuts and app navigation.
       if (!e.repeat && e.code.startsWith('Shift') && this.shiftDown == null) this.shiftDown = e.timeStamp;
       if (!e.repeat) this.keys.add(e.code);
