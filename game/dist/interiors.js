@@ -526,11 +526,11 @@ export function buildRoom(room, y = 0, { streetView = false } = {}) {
   let foodMaterial=null,windowMask=null;
   function showProduct(fixture,shape,visible,item,level=2) {
     let product=serviceMeshes.get(fixture);
-    if(product && (product.userData.shape!==shape || visible && (level!==product.userData.level || item?.name!==product.userData.order) || fixture.temporary && !visible || shape==='mealPlate' &&
+    if(product && (product.userData.shape!==shape || fixture.temporary && !visible || shape==='mealPlate' &&
       (item && product.userData.order!==item.name || (!visible && fixture.index!==undefined)))){
       product.removeFromParent();product.geometry.dispose();serviceMeshes.delete(fixture);product=null;
     }
-    if(!product && visible){
+    if(visible && (!product || level!==product.userData.level || item?.name!==product.userData.order)){
       const positions=[],colors=[];
       const isMeal=shape==='mealPlate', isRing=shape==='ringSample';
       const uv=isRing?null:[];
@@ -547,9 +547,14 @@ export function buildRoom(room, y = 0, { streetView = false } = {}) {
         }
       }
       g.setAttribute('surfaceTile',new THREE.BufferAttribute(new Uint8Array(positions.length/3).fill(isRing?5:6),1));
-      product=new THREE.Mesh(g,isRing?material:foodMaterial);product.name=isMeal?'Served plate':isRing?'Solitaire on display':'Drink at pickup';
+      if(product){
+        product.geometry.dispose();product.geometry=g;
+      }else{
+        product=new THREE.Mesh(g,isRing?material:foodMaterial);product.name=isMeal?'Served plate':isRing?'Solitaire on display':'Drink at pickup';
+        serviceMeshes.set(fixture,product);group.add(product);
+      }
       product.userData.shape=shape;product.userData.level=level;
-      product.userData.order=item?.name;serviceMeshes.set(fixture,product);group.add(product);
+      product.userData.order=item?.name;
     }
     if(product) product.visible=visible;
   }
