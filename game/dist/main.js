@@ -542,6 +542,12 @@ const input=new Input(canvas, action, interfaceKey, weaponControls, index=>{
   return false;
 },()=>streetControls() ? sim.player.mode : 'menu');
 const cameraTarget=new THREE.Vector3(), desiredCamera=new THREE.Vector3(), cameraForward=new THREE.Vector3();
+let walkingLookBackYaw=null;
+function walkingControlYaw(){
+  if(walkingLookBackYaw!==null)return walkingLookBackYaw;
+  camera.getWorldDirection(cameraForward);
+  return Math.atan2(cameraForward.x,cameraForward.z);
+}
 const aerialTarget=new THREE.Vector3(), aerialOffset=new THREE.Vector3(-95,240,180);
 // How far back the aerial camera stands, as a multiple of that offset: 1 is
 // the view F6 opens on. The wheel sets the goal and the camera eases to it.
@@ -1107,8 +1113,7 @@ function switchPerspective(){
     const p=sim.player;
     headAnchor=p.mode==='walk' && !sim.seat?null:undefined;
     if(firstPerson&&p.mode==='walk'){
-      camera.getWorldDirection(cameraForward);
-      yaw=Math.atan2(cameraForward.x,cameraForward.z);
+      yaw=walkingControlYaw();
     }else if(!firstPerson && p.mode==='walk' && p.armed)shoulderPitch=clamp(headPitch,-1,.95);
     else if(p.mode==='drive')yaw=p.angle;
     headTurn=0;headPitch=shoulderActive?shoulderPitch:0;input.lookDelta=0;input.lookVertical=0;
@@ -2747,7 +2752,10 @@ function updateFirstPerson(look,vertical,dt){
     camera.rotateX(-bow*.24);
     if(ending.kind==='wasted')camera.rotateZ(bow*.16);
   }
-  if(input.lookingBack && !ending && !sim.seat)camera.rotateY(Math.PI);
+  if(input.lookingBack && !ending && !sim.seat){
+    if(p.mode==='walk')walkingLookBackYaw=yaw;
+    camera.rotateY(Math.PI);
+  }
   const aimZoom=!ending && !(sim.police?.arrest>.2) && focusedAim();
   eyeFocus=ending?0:THREE.MathUtils.damp(eyeFocus,Number(aimZoom),15,dt);
   camera.near=.07;camera.fov=THREE.MathUtils.lerp(70,54,eyeFocus);camera.updateProjectionMatrix();
@@ -2808,6 +2816,8 @@ function updateShoulderCamera(p){
 }
 
 function updateCamera(dt) {
+  const previousLookBackYaw=walkingLookBackYaw;
+  walkingLookBackYaw=null;
   const p=sim.player,driving=p.mode==='drive'||p.mode==='passenger';
   const indoorView=started&&sim.room&&!aerialView&&!cityView;
   const streetOnFoot=started && p.mode==='walk' && !cityView && !aerialView && !firstPerson && !fitting &&
@@ -2982,7 +2992,13 @@ function updateCamera(dt) {
   let safeDistance=distance;
   // Pull the chase camera forward before its sightline crosses a facade.
   // Checking the same collision geometry keeps narrow SoHo streets readable.
-  const orbitYaw=yaw+(input.lookingBack ? Math.PI : 0);
+  // Keep steering on the forward view while the chase camera moves around the walker.
+  // Restore that view on release so the return trip cannot reverse the next input sample.
+  if(p.mode==='walk'){
+    if(input.lookingBack)walkingLookBackYaw=(previousLookBackYaw ?? walkingControlYaw())+look;
+    else if(previousLookBackYaw!==null){yaw=previousLookBackYaw+look;snapChase=true;}
+  }
+  const orbitYaw=(walkingLookBackYaw ?? yaw)+(input.lookingBack ? Math.PI : 0);
   const sightStep=ride?Math.max(.6,distance/40):.6;
   for(let d=1;d<=distance;d+=sightStep){
     if(cameraContact(p.x-Math.sin(orbitYaw)*d,p.z-Math.cos(orbitYaw)*d,d)){safeDistance=Math.max(.9,d-sightStep-.1);break;}
