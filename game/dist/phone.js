@@ -2,11 +2,12 @@ import { renderBank, renderTransfer } from './phone-bank.js';
 import { createStockScreens } from './phone-stocks.js';
 import { formatClock } from './atmosphere.js';
 import { createThumbPress } from './phone-touch.js';
+import { createPhoneExplore } from './phone-explore.js';
 import { createPlaceSheet } from './phone-place.js';
 import { drawPhoneMap } from './phone-map.js';
 import { searchDestinations } from './geocoder.js';
 import { formatMoney } from './money.js';
-import { mechanicReply, mayaReply, requestMayaReply } from './phone-messages.js';
+import { mechanicReply, requestMayaReply } from './phone-messages.js';
 // The in-game handset shares places, jobs, transport and balances with the world.
 //
 // It is a panel of the page, built in index.html; this module fills it in and
@@ -64,8 +65,7 @@ export function createPhone({ $, canUse = () => true, isClosed, places = () => [
     {id:'mechanic',name:'Mechanic',initials:'M',role:'Roadside assistance',note:'Repair your current car or a nearby burned-out cab. $'+CALL_OUT+' call-out plus repairs.',call:onMechanic,
       seed:[`Hey, got your number. Call-out is ${formatMoney(CALL_OUT)} if you ever get stuck. Text me what's wrong first.`],
       reply:rows=>mechanicReply(rows,mechanicQuote())},
-    {id:'maya',name:'Maya',initials:'M',role:'Friend',note:'Friend from the city',seed:['hey you still in the city?'],seedRead:true,
-      reply:(rows,now)=>mayaReply(rows,now,(kind,id)=>nearbyFood(kind,now,id))},
+    {id:'maya',name:'Maya',initials:'M',role:'Friend',note:'Friend from the city',seed:['hey you still in the city?'],seedRead:true},
   ];
   let listing=null, listPage=0, visibleJobs=[], mine=false, contact=null;
   const messagesKey='nyc-phone-messages', photosKey='nyc-phone-photos', SHOTS=8;
@@ -80,8 +80,7 @@ export function createPhone({ $, canUse = () => true, isClosed, places = () => [
   let destinationRows=[], quote=null, rideMessage='', searchRevision=0, quoteRevision=0, quoting=false;
   let open = false, screen = 'home', category = 'all', page = 0, rows = [], chosen = null, listed = -Infinity;
   const handset = $('phone');
-  const browser = handset.ownerDocument?.defaultView;
-  const mayaModel = generateMaya ?? (['localhost','127.0.0.1','[::1]'].includes(browser?.location?.hostname)?requestMayaReply:null);
+  const mayaModel = generateMaya ?? requestMayaReply;
   const papers = ['earth', 'soho', 'tide', 'six-seven', 'charles'];
   const paperKey = 'nyc-phone-wallpaper', settingsKey = 'nyc-phone-preferences';
   const prefs = {dark:false, large:false, motion:false, clock:false};
@@ -113,7 +112,8 @@ export function createPhone({ $, canUse = () => true, isClosed, places = () => [
       const clean=rows.filter(row=>row&&(row.who==='me'||row.who==='them')&&typeof row.text==='string').slice(-40);
       threads.set(person.id, clean.length?clean:(person.seed||[]).map(text=>({who:'them',text,time:''})));
       seen.set(person.id, Number.isInteger(record?.seen)?record.seen:person.seedRead?threads.get(person.id).length:0);
-      if(record?.pending===true && clean.at(-1)?.who==='me')replies.set(person.id,{until:1.3});
+      if(record?.pending===true && clean.at(-1)?.who==='me')
+        replies.set(person.id,{until:1.3,failed:person.id==='maya' && record.failed===true});
       const order=Number.isSafeInteger(record?.activity)?record.activity:0;
       activity.set(person.id,order);
       messageSerial=Math.max(messageSerial,order);
@@ -123,7 +123,11 @@ export function createPhone({ $, canUse = () => true, isClosed, places = () => [
   }
   function saveThreads(){
     const data={};
-    for(const person of contacts)data[person.id]={seen:seen.get(person.id)||0,rows:threads.get(person.id)||[],pending:replies.has(person.id),activity:activity.get(person.id)};
+    for(const person of contacts){
+      const pending=replies.get(person.id);
+      data[person.id]={seen:seen.get(person.id)||0,rows:threads.get(person.id)||[],pending:Boolean(pending),
+        failed:pending?.failed===true,activity:activity.get(person.id)};
+    }
     try{storage?.setItem(messagesKey,JSON.stringify(data));}catch{}
   }
   function savePhotos(){
@@ -146,7 +150,7 @@ export function createPhone({ $, canUse = () => true, isClosed, places = () => [
   }
   function renderThread(){
     const rows=threads.get(contact.id);
-    const typing=$('phone-thread-typing'), following=atLatest()||renderedThread!==contact;
+    const typing=$('phone-thread-typing'), retry=$('phone-thread-reply-error'), following=atLatest()||renderedThread!==contact;
     const last=rows.at(-1), changed=renderedThread!==contact || renderedMessage!==last;
     if(changed){
       const start=renderedThread===contact?rows.indexOf(renderedMessage)+1:0;
@@ -156,6 +160,10 @@ export function createPhone({ $, canUse = () => true, isClosed, places = () => [
         const sender=log.ownerDocument.createElement('b');
         const message=log.ownerDocument.createElement('span');
         bubble.setAttribute('data-who',row.who);
+        if(row.source){
+          bubble.setAttribute('data-reply-source',row.source);
+          bubble.title=row.source==='model' ? 'Local model'+(row.model?' · '+row.model:'') : 'Scripted reply';
+        }
         sender.textContent=(row.who==='me'?'You':contact.name)+(row.time?' · '+row.time:'');
         message.textContent=row.text;
         bubble.append(sender,message);
@@ -165,10 +173,12 @@ export function createPhone({ $, canUse = () => true, isClosed, places = () => [
       renderedThread=contact;
       renderedMessage=last;
     }
-    const typingHidden=!replies.has(contact.id);
-    const typingChanged=typing.hidden!==typingHidden;
+    const pending=replies.get(contact.id);
+    const typingHidden=!pending || pending.failed===true, retryHidden=!pending?.failed;
+    const statusChanged=typing.hidden!==typingHidden || retry.hidden!==retryHidden;
     typing.hidden=typingHidden;
-    if(following && (changed || typingChanged))scrollToLatest();
+    retry.hidden=retryHidden;
+    if(following && (changed || statusChanged))scrollToLatest();
   }
   function openThread(person=contact){
     if(!person)return;
@@ -214,9 +224,9 @@ export function createPhone({ $, canUse = () => true, isClosed, places = () => [
   function receiveReplies(time){
     messageClock=time;
     for(const [id,pending] of replies){
-      if(time<pending.until || pending.controller)continue;
+      if(time<pending.until || pending.controller || pending.failed)continue;
       const person=contacts.find(item=>item.id===id),rows=threads.get(id),now=state();
-      if(id==='maya' && mayaModel)receiveMaya(person,pending,rows,now);
+      if(id==='maya')receiveMaya(person,pending,rows,now);
       else deliverReply(person,pending,person.reply(rows,now));
     }
   }
@@ -233,14 +243,29 @@ export function createPhone({ $, canUse = () => true, isClosed, places = () => [
     for(const kind of ['pizza','coffee','food'])addSpot(kind);
     try {
       const answer=await mayaModel(transcript,{clock:now.clock,street:now.street,onShift:now.jobActive,nearby},pending.controller.signal);
-      const text=typeof answer==='string'?answer.trim():'';
+      const content=typeof answer==='string'?answer:answer?.text;
+      const text=typeof content==='string'?content.trim():'';
       if(text && text.length<=240){
         const spot=nearby.find(item=>text.toLowerCase().includes(item.name.toLowerCase()));
-        deliverReply(person,pending,spot?{text,topic:spot.kind,placeId:spot.id}:{text,topic:'chat'});
+        const model=typeof answer?.model==='string'?answer.model.slice(0,100):null;
+        const reply={text,source:'model',model,topic:spot?.kind||'chat'};
+        if(spot)reply.placeId=spot.id;
+        deliverReply(person,pending,reply);
         return;
       }
     } catch {}
-    if(!pending.controller.signal.aborted)deliverReply(person,pending,person.reply(rows,state()));
+    if(replies.get(person.id)!==pending || pending.controller.signal.aborted)return;
+    pending.failed=true;
+    saveThreads();
+    if(open)render();
+  }
+  function retryMaya(){
+    if(screen!=='thread' || contact?.id!=='maya' || !replies.get('maya')?.failed)return;
+    const pending={until:messageClock};
+    replies.set('maya',pending);
+    saveThreads();
+    render();
+    receiveMaya(contact,pending,threads.get('maya'),state());
   }
   history.addEventListener('scroll',readVisibleThread);
   function nearbyFood(kind,now,id){
@@ -312,7 +337,7 @@ export function createPhone({ $, canUse = () => true, isClosed, places = () => [
     $('phone-'+next).animate?.([{transform:start,opacity:.65},{transform:'none',opacity:1}],{duration:160,easing:'ease-out'});
   }
   function parentScreen() {
-    if(screen==='rides' && !rides?.trip && (quote || quoting))return 'rides';
+    if(screen==='rides' && (!rides?.trip || rides.choosing) && (quote || quoting))return 'rides';
     if(screen==='list' && listing?.board && jobMenu)return 'list';
     if(screen==='list')return listing?.app==='maps' || listing?.app==='rides'?listing.app:listing?.onBack?'list':'home';
     return ({order:'market',market:marketParent,wallpaper:'settings',place:placeParent,nearby:nearbyParent,contact:'contacts',transfer:'bank',thread:'messages',call:call?.from||'contact',gallery:'camera',photo:'gallery'})[screen] || 'home';
@@ -391,11 +416,6 @@ export function createPhone({ $, canUse = () => true, isClosed, places = () => [
     } else if (!editing && (key === 'Enter' || key === ' ')) {
       event.preventDefault();
       if (!event.repeat && handset.contains?.(active)) active.click();
-    } else if (!editing && event.code === 'F7' && !event.ctrlKey && !event.metaKey && !event.altKey) {
-      if (!event.repeat) {
-        setOpen(false);
-        onMap();
-      }
     } else return editing;
     return true;
   }
@@ -443,11 +463,13 @@ export function createPhone({ $, canUse = () => true, isClosed, places = () => [
     page = Math.max(0, Math.min(page, Math.ceil(rows.length / ROWS) - 1));
   }
   function renderRide(now) {
-    const trip=rides?.trip, selected=trip || quote;
-    $('phone-drive').hidden=Boolean(selected || quoting);
+    const trip=rides?.trip, choosing=rides?.choosing;
+    if(quote?.streetTrip && quote.streetTrip!==trip)quote=null;
+    const selected=choosing?quote:trip || quote;
+    $('phone-drive').hidden=Boolean(trip || selected || quoting);
     $('phone-ride-street').textContent=trip?.pickupName || now.street || 'Current location';
     $('phone-ride-destination').textContent=selected?.destination.name || 'Choose a destination';
-    $('phone-ride-picker').hidden=Boolean(selected || trip);
+    $('phone-ride-picker').hidden=Boolean(selected);
     const pin=now.mapPin;
     $('phone-destination-pin').hidden=!pin;
     if(pin){
@@ -460,12 +482,12 @@ export function createPhone({ $, canUse = () => true, isClosed, places = () => [
       if(place){$(id+'-name').textContent=place.name; $(id+'-note').textContent=place.detail || place.borough || formatDistance(Math.hypot(place.x-now.x,place.z-now.z));}
     }
     const eta=$('phone-ride-eta'), driver=$('phone-driver');
-    eta.hidden=!trip; driver.hidden=!trip;
+    eta.hidden=!trip || choosing; driver.hidden=!trip;
     if(trip){
       const identity=trip.car.identity;
       const model=identity ? [identity.make,identity.model].filter(Boolean).join(' ') : '';
       const seconds=trip.eta;
-      eta.textContent=trip.phase==='waiting'?'Arrived':seconds<60?seconds+' sec':Math.ceil(seconds/60)+' min';
+      eta.textContent=choosing?'Aboard':trip.phase==='waiting'?'Arrived':seconds<60?seconds+' sec':Math.ceil(seconds/60)+' min';
       $('phone-driver-name').textContent=trip.driver.name;
       $('phone-driver-rating').textContent='★ '+trip.driver.rating;
       const color=trip.car.color===GREEN_CAB?'Green':'Yellow';
@@ -482,8 +504,8 @@ export function createPhone({ $, canUse = () => true, isClosed, places = () => [
     if(quote && !trip && now.cash<quote.fare)$('phone-ride-summary').textContent+=' · Insufficient funds';
     $('phone-ride-board').hidden=trip?.phase!=='waiting';
     $('phone-ride-board').disabled=!rides?.canBoard();
-    $('phone-ride-cancel').hidden=(!quote && !trip && !quoting) || trip?.phase==='traveling';
-    $('phone-ride-cancel').textContent=trip?'Cancel ride':'Change destination';
+    $('phone-ride-cancel').hidden=(!quote && (!trip || choosing) && !quoting) || trip?.phase==='traveling';
+    $('phone-ride-cancel').textContent=trip && !choosing?'Cancel ride':'Change destination';
   }
   async function findDestination() {
     stopSearch();
@@ -508,7 +530,7 @@ export function createPhone({ $, canUse = () => true, isClosed, places = () => [
     rideMessage=destinationRows.length?'':(failure || 'No matching destinations.');render();
   }
   async function chooseDestination(place) {
-    if(!place || !rides || rides.trip)return;
+    if(!place || !rides || rides.trip && !rides.choosing)return;
     const revision=++quoteRevision;
     stopSearch(); quoting=true; rideMessage='Finding the street fare…';render();
     try {
@@ -537,25 +559,8 @@ export function createPhone({ $, canUse = () => true, isClosed, places = () => [
     $('phone-back').textContent=titles[parentScreen()];
     if(screen==='rides')renderRide(now);
     if(screen==='bank')renderBank($,now);
-    if(screen==='transfer')renderTransfer($,now);
     if(screen==='market' || screen==='order')renderStocks(screen,now);
-    if(screen==='maps'){
-      $('phone-map-street').textContent=now.street || 'Current location';
-      const nearby=listPlaces(places(),{...now,isClosed}).slice(0,3);
-      mapPicks=nearby;
-      for(let i=0;i<3;i++){
-        const row=nearby[i];$('map-pick-'+i).hidden=!row;
-        if(row){$('map-pick-'+i+'-name').textContent=row.name;$('map-pick-'+i+'-note').textContent=row.note;}
-      }
-      const pins=drawPhoneMap($('phone-map-preview'), {roads:roads(),center:now,places:nearby.map(row=>row.place),insetTop:48}) || [];
-      for(let i=0;i<3;i++){
-        const pin=$('map-pin-'+i),point=pins[i];pin.hidden=!point;
-        if(point){
-          pin.style.left=(point.left*100)+'%';pin.style.top=(point.top*100)+'%';
-          pin.setAttribute('aria-label',nearby[i].name);pin.title=nearby[i].name;
-        }
-      }
-    }
+    if(screen==='maps')explore.paint(now);
     if(screen==='settings')$('phone-paper-name').textContent=$('phone-wall-'+paper).textContent.trim();
     if(screen==='wallpaper')for(const id of papers)$('phone-wall-'+id).setAttribute('aria-pressed',String(paper===id));
     if (screen === 'nearby') {
@@ -697,20 +702,21 @@ export function createPhone({ $, canUse = () => true, isClosed, places = () => [
     if(following && (focused.disabled || focused.closest('[hidden]')))focusScreen();
   }
   const setOpen = (next,navigation) => {
-    next = Boolean(next);
-    if (next === open) return;
+    next = Boolean(next) && canUse();
+    if (next === open) return open;
     touch.cancel();viewRevision++;
     if(!next && screen==='place')placeSheet.close();
     open = next; stopSearch(); quoteRevision++; quoting=false;
     if(open && navigation)handset.setAttribute('data-navigation',navigation);
     if (open) { screen = 'home'; $('phone-search').value = ''; page = 0; }
     render(); onOpenChange(open); if (open) focusScreen();
+    return open;
   };
   function activate(button,event,action) {
     if(!open || button.disabled || button.closest?.('[hidden]'))return;
     const revision=viewRevision;
     touch.press(button,event,()=>{
-      if(!open || revision!==viewRevision || button.disabled || button.closest?.('[hidden]'))return;
+      if(!open || !canUse() || revision!==viewRevision || button.disabled || button.closest?.('[hidden]'))return;
       if(button.id!=='phone-shutter')onSound('phoneTap');
       action();
     });
@@ -733,17 +739,14 @@ export function createPhone({ $, canUse = () => true, isClosed, places = () => [
     try { storage?.setItem(paperKey,id); } catch {}
     render();
   });
-  const placeSheet=createPlaceSheet({$,click,storage,roll:()=>photos,previewScene});
-  let mapPicks=[],placeParent='nearby';
+  const placeSheet=createPlaceSheet({$,click,storage,roll:()=>photos,previewScene,onResolved:place=>{chosen=place;render();}});
+  let placeParent='nearby';
   function openPlace(place){
     if(!place)return;
     placeParent=screen;chosen=place;show('place');placeSheet.open(place);
     $('phone-place').scrollTop=0;
   }
-  for(let i=0;i<3;i++)for(const prefix of ['map-pick-','map-pin-'])click(prefix+i,()=>openPlace(mapPicks[i]?.place));
-  for(const filter of ['eat','coffee','hair'])click('map-'+filter,()=>{
-    nearbyParent='maps';category=filter;page=0;$('phone-search').value='';show('nearby');
-  });
+  const explore=createPhoneExplore({$,click,worldMap,locations:places,openPlace,summary:(p,now)=>listPlaces([p],{...now,isClosed})[0]});
   click('phone-map-nearby', () => { nearbyParent='maps';category='all';page = 0; $('phone-search').value='';show('nearby'); }); click('phone-app-contacts', () => { $('phone-contact-search').value='';show('contacts'); });
   click('phone-app-bank', () => show('bank'));
   const renderStocks=createStockScreens({$,click,activate,show,render,onTrade});
@@ -761,9 +764,9 @@ export function createPhone({ $, canUse = () => true, isClosed, places = () => [
   });
   click('phone-destination-pin',()=>chooseDestination(state().mapPin));
   for(let i=0;i<5;i++)click('phone-destination-'+i,()=>chooseDestination(destinationRows[i]));
-  click('phone-ride-request',()=>{if(!quote || !rides || rides.trip)return;rideMessage=rides.request(quote);
+  click('phone-ride-request',()=>{if(!quote || !rides || rides.trip && !rides.choosing)return;rideMessage=rides.request(quote);
     if(rideMessage && rides.pickupChanged(quote)){chooseDestination(quote.destination);return;}
-    if(rides.trip){rides.trip.pickupName=state().street;quote=null;}render();});
+    if(!rideMessage && rides.trip){rides.trip.pickupName=state().street;quote=null;}render();});
   click('phone-ride-cancel',()=>{rides?.cancel();quote=null;rideMessage='';$('phone-ride-search').value='';findDestination();});
   click('phone-drive',onDrive);
   click('phone-ride-board',()=>{if(rides?.canBoard()){rides.board();render();}});
@@ -781,7 +784,7 @@ export function createPhone({ $, canUse = () => true, isClosed, places = () => [
   $('phone-contact-search').addEventListener('input',render);
   click('phone-app-work',()=>{mine=false;boardPage=0;jobMenu=null;sector='All sectors';jobSort='Featured';$('phone-job-search').value='';onWork();});
   click('phone-map-stops',onTransport);
-  click('phone-app-map',()=>show('maps'));
+  click('phone-app-map',()=>{explore.enter();show('maps');loadMapPlaces?.()?.then(()=>{if(open && screen==='maps')render();});});
   click('phone-map-full',()=>{setOpen(false);onMap();});
   for (const item of CATEGORIES) click(`phone-chip-${item.id}`, () => { category = item.id; page = 0; render(); });
   $('phone-search').addEventListener('input', () => { page = 0; searchMap();render(); });
@@ -796,6 +799,7 @@ export function createPhone({ $, canUse = () => true, isClosed, places = () => [
   click('phone-app-messages',()=>show('messages'));
   for(let i=0;i<ROWS;i++)click('phone-inbox-'+i,()=>{const person=inbox[i];if(person)openThread(person);});
   click('phone-thread-send',sendThread);
+  click('phone-thread-retry',retryMaya);
   $('phone-thread-draft').addEventListener('keydown',event=>{
     if(event.key==='Enter' && !event.isComposing){event.preventDefault();activate($('phone-thread-send'),event,sendThread);}
   });
@@ -835,7 +839,13 @@ export function createPhone({ $, canUse = () => true, isClosed, places = () => [
     get facing() { return facing; },
     setOpen, openRidePicker, handleKey, handlePad, focus:()=>focusScreen(true), toggle: navigation => setOpen(!open,navigation),
     /** Show a list to choose from: `rows` of { name, note }; `onPick(row)` is told which. */
-    openList(title, rows, onPick, { message = '', keepOpen = false, app = 'work', board = false, refresh = null, onBack = null } = {}) { if(screen==='list' && listing?.board)boardPage=listPage; listing = { title, rows, onPick, message, keepOpen, app, board, refresh, onBack }; listPage = board ? boardPage : 0; setOpen(true); show('list'); },
+    openList(title, rows, onPick, { message = '', keepOpen = false, app = 'work', board = false, refresh = null, onBack = null } = {}) {
+      if(!setOpen(true))return;
+      if(screen==='list' && listing?.board)boardPage=listPage;
+      listing = { title, rows, onPick, message, keepOpen, app, board, refresh, onBack };
+      listPage = board ? boardPage : 0;
+      show('list');
+    },
     /** Keep the clock, the cash and the distances current while the phone is out. `time` is in seconds. */
     update(time = 0) {
       receiveReplies(time);

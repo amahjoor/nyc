@@ -16,7 +16,7 @@
 .phone::before,.phone::after { content:""; position:absolute; top:23px; }
 .phone::before { left:calc(50% - 24px); width:48px; height:6px; border-radius:5px; background:repeating-linear-gradient(90deg,#353638 0 1px,#080909 1px 3px); box-shadow:inset 0 1px 2px #000,0 1px #5558; }
 .phone::after { left:calc(50% - 45px); width:7px; height:7px; border-radius:50%; background:radial-gradient(circle at 38% 34%,#426085,#10192a 44%,#060708 70%); box-shadow:0 1px #36383c; }
-.phone-glass { height:100%; position:relative; display:flex; flex-direction:column; min-height:0; overflow:hidden; border-radius:3px; border:1px solid #000; background:linear-gradient(#f4f6f4ed,#e9edeced),#c5ccd4 url('./vendor/iui/pinstripes.png'); }
+.phone-glass { isolation:isolate; height:100%; position:relative; display:flex; flex-direction:column; min-height:0; overflow:hidden; border-radius:3px; border:1px solid #000; background:linear-gradient(#f4f6f4ed,#e9edeced),#c5ccd4 url('./vendor/iui/pinstripes.png'); }
 .phone[data-wallpaper="earth"],[data-paper="earth"] { --wall:#020304 url('./assets/phone/earth.webp') center 54% / 134% auto no-repeat; }
 .phone[data-wallpaper="soho"],[data-paper="soho"] { --wall:linear-gradient(0deg,#10202650,transparent 70%),url('./assets/references/72-greene.jpg') center / cover; }
 .phone[data-wallpaper="tide"],[data-paper="tide"] { --wall:radial-gradient(ellipse 150% 83% at 12% -4%,transparent 68%,#7bd6ea66 69%,#005f88 72%,transparent 76%),radial-gradient(ellipse 90% 95% at 105% 105%,#042333 38%,#2487ae 63%,#70bfd0 64%,transparent 66%),linear-gradient(145deg,#04192e,#127aa0 52%,#a1d9d4); }
@@ -232,6 +232,7 @@
 #phone[data-navigation="keys"] .phone-app:focus .app-icon { scale:1.09; box-shadow:0 3px 7px #0008,0 0 12px #ffe8b77a; }
 
 #phone-thumb { display:none; position:absolute; z-index:5; pointer-events:none; width:300%; height:208.333%; left:-60.526%; top:-19.444%; }
+.held-in-view { translate:0 var(--phone-grip-drop,0px); }
 .held-in-view #phone-thumb { display:block; }
 .phone[data-reduce-motion="true"],.phone[data-reduce-motion="true"] .setting-switch::after { transition:none; }
 @media(prefers-reduced-motion:reduce) { .setting-switch::after { transition:none; } }
@@ -279,6 +280,8 @@
 .thread-log p b { display:block; font-size:11px; font-weight:650; color:var(--muted); }
 .thread-log p span { display:block; }
 #phone-thread-typing { margin:7px 4px 0; color:var(--muted); font-size:12px; }
+#phone-thread-reply-error { display:flex; flex-wrap:wrap; align-items:center; gap:6px; margin:7px 4px 0; color:var(--muted); font-size:12px; }
+.phone #phone-thread-retry { width:auto; margin:0; padding:4px 8px; }
 .phone-row[data-unread="true"] b::before { content:""; display:inline-block; width:7px; height:7px; margin-right:6px; border-radius:50%; background:#d6453d; vertical-align:1px; }
 .compose { display:flex; flex:none; gap:6px; align-items:center; margin-top:10px; }
 .compose input { flex:1; min-width:0; margin:0; }
@@ -372,7 +375,7 @@
 .place-figure img { display:block; width:100%; height:156px; object-fit:cover; }
 .place-figure figcaption { display:flex; flex-wrap:wrap; align-items:baseline; gap:2px 7px; padding:5px 10px; color:#fff; background:#25333a; font-size:10px; }
 .place-figure figcaption span { font-size:12px; font-weight:650; margin-right:auto; }
-.place-figure figcaption a { color:inherit; }
+.place-figure figcaption small { color:inherit; }
 .phone .place-tabs { border-bottom:1px solid var(--map-line); margin:9px 0 12px; }
 .phone .place-tabs button { flex:1; color:var(--muted); padding:8px 2px; border-bottom:3px solid transparent; font-size:13px; font-weight:650; }
 .phone .place-tabs [aria-pressed="true"] { border-color:var(--map-blue); color:var(--map-blue); }
@@ -388,18 +391,32 @@
 #place-own-review { border-left:3px solid var(--map-blue); padding-left:9px; margin-bottom:12px; }
 #place-own-review p { white-space:pre-wrap; overflow-wrap:anywhere; }
 #place-own-photo { max-width:100%; max-height:130px; border-radius:7px; }
-#place-google-card gmp-place-details { display:block; width:100%; }
+#phone-maps .maps-search { position:relative; top:auto; left:auto; right:auto; width:100%; min-height:40px; margin:0 0 7px; text-align:left; border:1px solid var(--map-line); border-radius:9px; }
+#phone-maps .maps-explore { position:relative; margin:0 -10px; background:#253233; color:#f7f1de; overflow:hidden; }
+#map-touch { position:relative; touch-action:none; user-select:none; }
+#map-touch #phone-map-preview { display:block; width:100%; height:clamp(170px,29dvh,262px); background:#293737; }
 .map-pins { position:absolute; inset:0; pointer-events:none; }
-.phone .map-pins button { position:absolute; width:24px; height:24px; transform:translate(-50%,-50%); pointer-events:auto; border-radius:50%; }
-.map-pins button::after { content:""; position:absolute; left:5px; top:1px; width:13px; height:13px; background:#b73e2f; border:2px solid white; border-radius:50% 50% 50% 0; transform:rotate(-45deg); box-shadow:-1px 1px 2px #5e352e59; }
-#place-guide-review { padding:10px; background:var(--surface); border-radius:8px; font-size:11px; }
-#place-guide-review blockquote { margin:5px 0 8px; font:15px/1.4 Georgia,serif; }
-#place-guide-review a { color:var(--map-blue); }
-
+.phone .map-pins button { position:absolute; display:grid; place-items:center; width:34px; height:34px; transform:translate(-50%,-50%); pointer-events:auto; border-radius:50%; }
+.map-north,#map-scale { position:absolute; left:6px; padding:2px 5px; border-radius:3px; background:#11191de0; color:#f2f2ed; font:650 11px/1.3 "Chalet Menu",Arial,sans-serif; pointer-events:none; }
+.map-north { top:7px; } #map-scale { bottom:7px; border-bottom:2px solid #ebe9dc; }
+.phone-map-tools { position:absolute; right:6px; bottom:6px; display:grid; gap:3px; }
+.phone .phone-map-tools button { width:36px; height:36px; border-radius:5px; border:1px solid #718079; box-shadow:0 1px 3px #1118; background:#192225eb; color:#fff6e3; font-size:23px; line-height:1; }
+.place-details { margin:8px 0; }
+.place-details>div { padding:6px 0; border-bottom:1px solid var(--map-line); }
+.place-details dt { color:var(--muted); font-size:11px; }
+.place-details dd { margin:2px 0 0; overflow-wrap:anywhere; }
+.place-details a,#place-sources a { color:var(--map-blue); }
+#place-sources { display:flex; flex-wrap:wrap; gap:3px 9px; font-size:10px; }
+.place-review-heading,.visitor-review>div { display:flex; align-items:baseline; justify-content:space-between; gap:5px; }
+.visitor-review { border-bottom:1px solid var(--map-line); padding:10px 0; }
+.visitor-review>div span { color:var(--map-blue); letter-spacing:1px; }
+.visitor-review p { margin:5px 0; color:var(--ink); font-size:13px; }
+.visitor-review img { display:block; width:112px; height:68px; border-radius:7px; object-fit:cover; }
+#place-summary-rating { color:var(--ink); font-weight:650; }
 /* Bank and the in-branch ATM share the finance toolbar and currency typography. */
 .bank-screen { background:#101419; color:#f4f5f7; padding:12px 14px 18px; font-variant-numeric:tabular-nums; }
 .bank-history { margin:0 0 12px; padding:13px 14px 9px; background:linear-gradient(145deg,#20362f,#192329 72%); border:1px solid #364740; border-radius:13px; }
-.bank-history figcaption,.bank-route small,.bank-account small,.bank-axis,.bank-activity small,.bank-route span { color:#b2c3c0; font-size:.83em; }
+.bank-history figcaption,.bank-account small,.bank-axis,.bank-activity small { color:#b2c3c0; font-size:.83em; }
 .bank-history > strong { display:block; font-size:2.45em; line-height:1.14; letter-spacing:-.055em; overflow-wrap:anywhere; }
 #phone-bank-change { color:#b2c3c0; font-size:.83em; }
 #phone-bank-change[data-trend="up"],.activity-row[data-flow="in"] > b { color:#79e4b9; }
@@ -407,26 +424,17 @@
 .bank-history canvas { display:block; width:100%; height:52px; margin-top:6px; }
 .bank-chart-description { position:absolute; width:1px; height:1px; overflow:hidden; clip-path:inset(50%); }
 .bank-axis { display:flex; justify-content:space-between; font-size:.72em; }
-.bank-accounts,.bank-route { padding:0 12px; background:#20262d; border-radius:10px; }
+.bank-screen .bank-account.bank-payment { width:100%; margin-top:8px; padding:8px 12px; background:#20262d; border-radius:8px; color:inherit; text-align:left; }
+.bank-accounts { padding:0 12px; background:#20262d; border-radius:10px; }
 .bank-screen .bank-account { width:100%; display:grid; grid-template-columns:minmax(0,1fr) auto 9px; align-items:center; gap:6px; min-height:38px; padding:8px 0; text-align:left; }
 .bank-account + .bank-account { border-top:1px solid #364047; }
-.bank-account > span,.bank-route > div { display:grid; }
+.bank-account > span { display:grid; }
 .bank-account i { font-style:normal; color:#79e4b9; }
 .bank-screen .bank-action { width:100%; padding:9px; min-height:39px; margin-top:9px; background:#79dfba; color:#112e25; border-radius:8px; font-weight:700; }
 .bank-screen h3 { margin:16px 0 4px; color:#f1f4f5; text-shadow:none; font-size:1.08em; }
 .bank-activity .activity-row { display:grid; grid-template-columns:minmax(0,1fr) auto; align-items:center; gap:8px; margin:0; padding:9px 0; border-bottom:1px solid #323a40; font-size:.94em; }
 .bank-activity small { display:block; margin-top:2px; }
 #phone-bank-empty { margin:7px 0; color:#b0b7c0; font-size:.9em; }
-.bank-route { display:grid; grid-template-columns:minmax(0,1fr) auto; align-items:center; margin:2px 0 18px; }
-.bank-route > div { padding:12px 0; }
-.bank-route > div:last-child { border-top:1px solid #374047; }
-.bank-route strong { font-size:1.15em; }
-.bank-route button { grid-column:2; grid-row:1 / 3; margin-left:12px; padding:7px 11px; color:#a5f0d8; border-radius:8px; background:#32443f; font-size:1.25em; }
-.bank-screen label { color:#c1cbd0; display:block; margin:0 0 5px; }
-.bank-amount { display:flex; align-items:center; gap:3px; padding:0 12px; border:1px solid #52635e; border-radius:8px; background:#20262d; }
-.bank-amount span { font-size:1.6em; color:#a5b9b1; }
-#phone-bank-amount { flex:1; min-width:0; margin:0; padding:8px 4px; background:transparent; border:0; color:white; font-size:1.6em; }
-#phone-bank-message { color:#ffb7a6; font-size:.9em; }
 .stock-indices { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:4px; margin-bottom:9px; }
 .stock-indices button { text-align:left; display:grid; gap:2px; border-radius:7px; padding:7px 5px; background:#222931; }
 .stock-indices b { font-size:.8em; color:#d0d5dc; }
@@ -439,5 +447,14 @@
 .stock-index-actions button,.stock-pages button { background:#273530; border-radius:7px; min-height:33px; }
 .stock-pages { justify-content:space-between; margin-top:7px; color:#c4ccd5; font-size:.9em; }
 .stock-pages button { min-width:38px; }
-.bank-presets { display:flex; gap:6px; margin:7px 0 2px; }
-.bank-presets button { flex:1 1 auto; padding:6px 4px; background:#25332f; color:#b4efda; border-radius:6px; font-size:.85em; }
+
+#phone-maps { --ink:#f0f3eb; --muted:#b7c6c2; --map-paper:#17252f; --map-blue:#b3dccc; --map-line:#53646b; background:#17252f; color:var(--ink); }
+#phone-maps #phone-map-nearby { color:#eef1e8; border-color:#64747a; background:#22333d; border-radius:5px; font-family:"Chalet Menu",Helvetica,sans-serif; }
+#phone-maps .phone-map-key { margin:0 -10px 5px; }
+.phone #map-key-toggle { width:100%; padding:9px 12px; text-align:left; background:#22323a; color:#f4f5ef; border-bottom:1px solid #46585d; font-weight:650; }
+#map-key-toggle::after { content:"+"; float:right; } #map-key-toggle[aria-expanded="true"]::after { content:"−"; }
+#map-key-options { display:grid; grid-template-columns:1fr 1fr; gap:2px; padding:5px; background:#1a2a32; }
+.phone #map-key-options button { display:flex; align-items:center; gap:5px; min-height:35px; padding:4px; text-align:left; font-size:12px; color:#d8e3da; }
+#map-key-options [aria-pressed="true"] { background:#3b514f; border-radius:4px; }
+#phone-maps #phone-map-full { background:#33534c; border:1px solid #719084; }
+#phone-maps #phone-map-stops { color:#e6ede5; background:#22343b; text-shadow:none; }

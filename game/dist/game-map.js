@@ -610,13 +610,15 @@ export class GameMap {
     this.paint(context, this.view, false);this.dirty = false;
     this.byId('game-map-scale').textContent = `${distanceText(this.view.span)} across · NORTH ↑`;
   }
-  drawPreview(canvas, span = 1400) {
+  drawPreview(canvas, span = 1400, center = this.player, showPlaces = true) {
     if (this.disposed || !this.player) return;
     const rect = canvas.getBoundingClientRect(), width = Math.max(1, rect.width || 640), height = Math.max(1, rect.height || 420);
     const ratio = Math.min(2, globalThis.devicePixelRatio || 1);
-    canvas.width = Math.round(width * ratio);canvas.height = Math.round(height * ratio);
+    if(canvas.width!==Math.round(width*ratio))canvas.width=Math.round(width*ratio);
+    if(canvas.height!==Math.round(height*ratio))canvas.height=Math.round(height*ratio);
     const context = canvas.getContext('2d');context.setTransform(ratio, 0, 0, ratio, 0, 0);
-    this.paint(context, { x: this.player.x, z: this.player.z, width, height, span }, false);
+    const view={x:center.x,z:center.z,width,height,span};
+    this.paint(context,view,false,showPlaces);return view;
   }
   drawMini(span = 300) {
     if (!this.mini || this.disposed) return;
@@ -634,7 +636,7 @@ export class GameMap {
     context.strokeStyle = '#20171a';context.lineWidth = 3;context.stroke();
     context.fillStyle = '#ff9fa0';context.fill();
   }
-  paint(context, view, mini) {
+  paint(context, view, mini, showPlaces = true) {
     const bounds = viewBounds(view), xy = point => mapWorldToScreen({ x: point[0], z: point[1] }, view);
     const chain = points => { points.forEach((point, i) => { const p = xy(point);i ? context.lineTo(p.x, p.y) : context.moveTo(p.x, p.y); }); };
     context.save();if (mini) this.paintMiniLand(context, view);else this.paintLand(context, view);
@@ -679,7 +681,7 @@ export class GameMap {
       }
     }
     if (!mini && view.span > 8000) { context.font = '700 13px "Chalet Menu", Jost, Arial';context.fillStyle = '#c3c9c0';context.textAlign = 'center';for (const borough of this.city.boroughs || []) if (finitePoint(borough.label)) { const p = mapWorldToScreen(borough.label, view);context.fillText(borough.name.toUpperCase(), p.x, p.y); } }
-    if (!mini) this.paintPlaces(context, view);
+    if (!mini && showPlaces) this.paintPlaces(context, view);
     const route = pointsOf(this.route);
     for (const stop of this.sim?.transport?.stops || []) {
       const p = mapWorldToScreen(stop.board,view);
