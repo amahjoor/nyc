@@ -1164,16 +1164,18 @@ export function createCrowd({ scene = null, life, boroughs = [], heightAt = () =
    * What a moving car does to someone: hit at speed they are thrown down, nudged
    * they stagger, and when one bears down on them they start back from it.
    */
+  const underWay = [];
   function traffic(person, dt, cars, player) {
     person.scare = Math.max(0, (person.scare || 0) - dt);
     if (person.state === 'down') return;
     for (const car of cars) {
+      // Distance first: it is the cheapest question and rules out nearly every car.
+      const dx = person.x + person.shove[0] - car.x, dz = person.z + person.shove[1] - car.z;
+      if (dx > 30 || dx < -30 || dz > 30 || dz < -30) continue;
       // A car somebody is driving, or one that has got loose, counts whatever it was doing before.
       if (!car.controlled && !(car._loose > 0) && (car._kerb || car.parked)) continue;
       const vx = car.velocityX || Math.sin(car.angle || 0) * (car.speed || 0), vz = car.velocityZ || Math.cos(car.angle || 0) * (car.speed || 0), v = Math.hypot(vx, vz);
-      if (v < 1) continue;
-      const dx = person.x + person.shove[0] - car.x, dz = person.z + person.shove[1] - car.z;
-      if (Math.abs(dx) > 30 || Math.abs(dz) > 30 || !trafficAtHeight(car, person.y)) continue;
+      if (v < 1 || !trafficAtHeight(car, person.y)) continue;
       const fx = Math.sin(car.angle || 0), fz = Math.cos(car.angle || 0), along = dx * fx + dz * fz, across = dx * fz - dz * fx, ux = vx / v, uz = vz / v;
       if (Math.abs(along) < 2.55 && Math.abs(across) < 1.2) {
         if ((person.struck || 0) > 0) continue;
@@ -1470,6 +1472,12 @@ export function createCrowd({ scene = null, life, boroughs = [], heightAt = () =
       // A car creeping past is stepped back from. One coming fast is another matter: there is no time, and they are hit or they jump (traffic()).
       const pace = player ? Math.hypot(player.velocityX || 0, player.velocityZ || 0) : 0, driving = player && player.mode === 'drive' && pace > 2 && pace < 5.5;
       for (let i = people.length - 1; i >= 0; i--) if (people[i].gone || (people[i].robbery && Math.hypot(people[i].x-focus.x,people[i].z-focus.z) > range+70)) people.splice(i, 1);
+      // Cars under way, found once: on a busy street most cars are at the kerb, and every person would look at every one.
+      underWay.length = 0;
+      for (const car of context.cars || []) {
+        if (!car.controlled && !(car._loose > 0) && (car._kerb || car.parked)) continue;
+        if (Math.hypot(car.velocityX || Math.sin(car.angle || 0) * (car.speed || 0), car.velocityZ || Math.cos(car.angle || 0) * (car.speed || 0)) >= 1) underWay.push(car);
+      }
       for (let i = 0; i < people.length; i++) {
         const person = people[i];
         if (person.y == null) person.y = heightAt(person.x, person.z);
@@ -1477,7 +1485,7 @@ export function createCrowd({ scene = null, life, boroughs = [], heightAt = () =
         const startX = person.x, startZ = person.z;
         const fromX = startX+person.shove[0], fromZ = startZ+person.shove[1];
         const others = neighbours.around(person,Math.max(person.state==='walk'?4.8:3,dt*(Math.hypot(person.vx||0,person.vz||0)+4)+1));
-        if (dt > 0 && !person.visit) traffic(person, dt, context.cars || [], player);
+        if (dt > 0 && !person.visit) traffic(person, dt, underWay, player);
         if (person.visit && !person.robbery && person.state !== 'shopping') { if(person.visit.detach) person.visit.detach();
           else {person.visit.view.occupied?.delete(person.visit.spot);person.visit.view.visitor=null;}
           person.sitting=false; person.seat=null; person.visit=null; }

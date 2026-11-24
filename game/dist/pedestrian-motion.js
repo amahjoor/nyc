@@ -5,6 +5,8 @@ export function pedestrianRadius(person) {
 }
 const bodyX = p => p.x + (p.shove?.[0] || 0);
 const bodyZ = p => p.z + (p.shove?.[1] || 0);
+// One number for a four-metre cell. Building a string for each lookup was a measurable share of every frame on a busy street.
+const cellKey = (i, j) => i * 65536 + j + 32768;
 
 // A frame starts with everyone in their current cell. Publish each accepted move
 // immediately so a second walker cannot claim the space the first one just took.
@@ -14,7 +16,7 @@ export class PedestrianGrid {
   nearby = [];
   clear() { this.cells.clear(); this.keys.clear(); }
   put(person) {
-    const key = Math.floor(bodyX(person)/4) + ',' + Math.floor(bodyZ(person)/4);
+    const key = cellKey(Math.floor(bodyX(person)/4), Math.floor(bodyZ(person)/4));
     if (key === this.keys.get(person)) return;
     this.remove(person);
     if (!this.cells.has(key)) this.cells.set(key, new Set());
@@ -30,7 +32,7 @@ export class PedestrianGrid {
     nearby.length = 0;
     for (let i = Math.floor((x-reach)/4); i <= Math.floor((x+reach)/4); i++) {
       for (let j = Math.floor((z-reach)/4); j <= Math.floor((z+reach)/4); j++) {
-        const cell = this.cells.get(i + ',' + j);
+        const cell = this.cells.get(cellKey(i, j));
         if (!cell) continue;
         for (const other of cell) {
           if (other !== person && !other.gone && Math.abs(bodyX(other)-x) < reach && Math.abs(bodyZ(other)-z) < reach &&

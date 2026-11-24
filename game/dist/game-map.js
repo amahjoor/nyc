@@ -28,6 +28,9 @@ function viewBounds(view) {
   const halfZ = view.span * view.height / view.width / 2;
   return { minX: view.x - view.span / 2, maxX: view.x + view.span / 2, minZ: view.z - halfZ, maxZ: view.z + halfZ };
 }
+const keptBounds = new WeakMap();
+/** A footprint's bounds, worked out once: the minimap asks for every loaded building's on each redraw. */
+function footprintBounds(points) { let bounds = keptBounds.get(points);if (!bounds) keptBounds.set(points, bounds = shapeBounds(points));return bounds; }
 function shapeBounds(points) {
   let minX = Infinity, maxX = -Infinity, minZ = Infinity, maxZ = -Infinity;
   for (const [x, z] of points) { minX = Math.min(minX, x);maxX = Math.max(maxX, x);minZ = Math.min(minZ, z);maxZ = Math.max(maxZ, z); }
@@ -652,7 +655,7 @@ export class GameMap {
     }
     // Geometry comes from loaded survey footprints. At city scale the road
     // network supplies context without thousands of sub-pixel building fills.
-    if (view.span < 4000) { context.fillStyle = '#445251';for (const building of this.city.buildings || []) { if (!building.polygon?.length || !overlaps(bounds, shapeBounds(building.polygon))) continue;context.beginPath();for (const ring of [building.polygon, ...(building.holes || [])]) { chain(ring);context.closePath(); }context.fill('evenodd'); } }
+    if (view.span < 4000) { context.fillStyle = '#445251';for (const building of this.city.buildings || []) { if (!building.polygon?.length || !overlaps(bounds, footprintBounds(building.polygon))) continue;context.beginPath();for (const ring of [building.polygon, ...(building.holes || [])]) { chain(ring);context.closePath(); }context.fill('evenodd'); } }
     const overview = !mini && view.span > 10000 && this.roads.length > 1000;
     const roads = overview ? [] : this.visibleRoads(bounds);
     if (overview) this.paintOverviewRoads(context, view);else this.paintRoads(context, view, roads, mini ? 1.3 : .65);
