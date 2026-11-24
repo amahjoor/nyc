@@ -1011,17 +1011,16 @@
    "roughness": 0.85
   },
   "cut": {
-   "like": "parka",
+   "like": "trucker",
    "ease": {
-    "shoulder": 0.0144,
-    "chest": 0.048,
-    "waist": 0.072,
-    "hip": 0.072,
-    "sleeve": 0.024,
-    "cuff": 0.024
+    "shoulder": 0.0116,
+    "chest": 0.0319,
+    "waist": 0.0435,
+    "hip": 0.0435,
+    "sleeve": 0.0144,
+    "cuff": 0.012
    },
    "hem": "hip-0.1",
-   "hemBack": 0,
    "shoulderDrop": 0.02,
    "add": [
     {
@@ -1030,13 +1029,6 @@
      "height": 0.06,
      "gap": 0.03,
      "points": 0.4
-    },
-    {
-     "type": "lip"
-    },
-    {
-     "type": "hood",
-     "only": false
     }
    ]
   },

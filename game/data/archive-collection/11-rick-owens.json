@@ -1586,6 +1586,279 @@
   ]
  },
  {
+  "n": 210,
+  "id": "ro-larry-platform-boots",
+  "designer": "Rick Owens",
+  "name": "Larry Runway Platform Boots",
+  "season": "FW2019",
+  "price": 1500,
+  "slot": "shoes",
+  "colour": "#161617",
+  "finish": {
+   "roughness": 0.34
+  },
+  "pack": "shoes01",
+  "source": "culturalibre_heroine_boots_3",
+  "shape": [
+   {
+    "op": "platform",
+    "height": 0.065
+   },
+   {
+    "op": "wide",
+    "by": 0.06,
+    "below": 0.08
+   },
+   {
+    "op": "toe",
+    "square": 0.5
+   }
+  ],
+  "paint": [
+   {
+    "step": "fabric",
+    "type": "leather"
+   },
+   {
+    "step": "panel",
+    "colour": "#0f0f10",
+    "where": {
+     "h": [
+      -1,
+      0.072
+     ]
+    }
+   },
+   {
+    "step": "line",
+    "frame": "shaft",
+    "pts": [
+     [
+      -1,
+      0.074
+     ],
+     [
+      1,
+      0.074
+     ]
+    ],
+    "style": "groove",
+    "width": 0.002
+   },
+   {
+    "step": "rib",
+    "where": {
+     "h": [
+      0.0,
+      0.072
+     ]
+    },
+    "gauge": 0.012,
+    "depth": 0.0012,
+    "colour": "#1e1e20",
+    "dir": "h"
+   },
+   {
+    "step": "line",
+    "frame": "inner",
+    "pts": [
+     [
+      0.1,
+      0.08
+     ],
+     [
+      0.1,
+      0.3
+     ]
+    ],
+    "style": "zip",
+    "width": 0.003,
+    "colour": "#8a8b8e"
+   },
+   {
+    "step": "distress",
+    "type": "crumple",
+    "depth": 0.0014,
+    "freq": 30,
+    "where": {
+     "h": [
+      0.1,
+      0.2
+     ]
+    }
+   }
+  ]
+ },
+ {
+  "n": 211,
+  "id": "ro-cyclops-geobasket",
+  "designer": "Rick Owens",
+  "name": "Cyclops Geobasket Sneakers",
+  "season": "FW2020",
+  "price": 1100,
+  "slot": "shoes",
+  "colour": "#161617",
+  "finish": {
+   "roughness": 0.42
+  },
+  "pack": "shoes01",
+  "source": "toigo_ankle_boots_male",
+  "shape": [
+   {
+    "op": "wide",
+    "by": 0.18
+   },
+   {
+    "op": "platform",
+    "height": 0.03,
+    "from": 0.02
+   },
+   {
+    "op": "shaft",
+    "add": 0.045,
+    "from": 0.07
+   },
+   {
+    "op": "tongue",
+    "up": 0.11,
+    "out": 0.03
+   },
+   {
+    "op": "toe",
+    "bulb": 0.5
+   }
+  ],
+  "note": "The one-eyed version: a single great eyelet in the oversized tongue.",
+  "paint": [
+   {
+    "step": "fabric",
+    "type": "leather"
+   },
+   {
+    "step": "panel",
+    "colour": "#e8e3d3",
+    "where": {
+     "h": [
+      -1,
+      0.052
+     ]
+    }
+   },
+   {
+    "step": "panel",
+    "colour": "#e8e3d3",
+    "where": {
+     "ft": [
+      0.86,
+      1.2
+     ],
+     "h": [
+      0.052,
+      0.095
+     ]
+    }
+   },
+   {
+    "step": "line",
+    "frame": "sides",
+    "pts": [
+     [
+      0.045,
+      0.12
+     ],
+     [
+      0.235,
+      0.055
+     ],
+     [
+      0.045,
+      0.055
+     ],
+     [
+      0.045,
+      0.12
+     ]
+    ],
+    "style": "tape",
+    "width": 0.011,
+    "colour": "#e8e3d3",
+    "raise": 0.0006
+   },
+   {
+    "step": "panel",
+    "colour": "#e8e3d3",
+    "where": {
+     "face": "front",
+     "h": [
+      0.18,
+      0.5
+     ]
+    }
+   },
+   {
+    "step": "dots",
+    "frame": "toe",
+    "pts": [
+     [
+      0,
+      0.2
+     ]
+    ],
+    "r": 0.02,
+    "style": "eyelet",
+    "colour": "#8a8b8e"
+   },
+   {
+    "step": "laces",
+    "frame": "vamp",
+    "from": [
+     0,
+     0.13
+    ],
+    "to": [
+     0,
+     0.21
+    ],
+    "rows": 4,
+    "width": 0.046,
+    "colour": "#e8e3d3",
+    "thick": 0.0045
+   },
+   {
+    "step": "laces",
+    "frame": "toe",
+    "from": [
+     0,
+     0.08
+    ],
+    "to": [
+     0,
+     0.15
+    ],
+    "rows": 4,
+    "width": 0.046,
+    "colour": "#e8e3d3",
+    "thick": 0.0045
+   },
+   {
+    "step": "line",
+    "frame": "inner",
+    "pts": [
+     [
+      0.1,
+      0.045
+     ],
+     [
+      0.1,
+      0.18
+     ]
+    ],
+    "style": "zip",
+    "width": 0.003
+   }
+  ]
+ },
+ {
   "n": 212,
   "id": "ro-megalace-cargo-trousers",
   "designer": "Rick Owens",
@@ -3792,6 +4065,143 @@
       1.1
      ]
     }
+   }
+  ]
+ },
+ {
+  "n": 220,
+  "id": "ro-drkshdw-abstract-low-sneakers",
+  "designer": "Rick Owens DRKSHDW",
+  "name": "DRKSHDW Abstract Low Sneakers",
+  "season": "SS2021",
+  "price": 450,
+  "slot": "shoes",
+  "colour": "#19191a",
+  "finish": {
+   "roughness": 0.8
+  },
+  "pack": "shoes01",
+  "source": "toigo_ankle_boots_female",
+  "shape": [
+   {
+    "op": "wide",
+    "by": 0.08
+   },
+   {
+    "op": "platform",
+    "height": 0.03,
+    "from": 0.02
+   },
+   {
+    "op": "toe",
+    "bulb": 0.35
+   }
+  ],
+  "paint": [
+   {
+    "step": "fabric",
+    "type": "canvas"
+   },
+   {
+    "step": "panel",
+    "colour": "#e8e3d3",
+    "where": {
+     "h": [
+      -1,
+      0.05
+     ]
+    }
+   },
+   {
+    "step": "panel",
+    "colour": "#e8e3d3",
+    "where": {
+     "ft": [
+      0.8,
+      1.2
+     ],
+     "h": [
+      0.05,
+      0.095
+     ]
+    }
+   },
+   {
+    "step": "line",
+    "frame": "shaft",
+    "pts": [
+     [
+      -1,
+      0.012
+     ],
+     [
+      1,
+      0.012
+     ]
+    ],
+    "style": "groove",
+    "width": 0.0012
+   },
+   {
+    "step": "line",
+    "frame": "sides",
+    "pts": [
+     [
+      0.04,
+      0.1
+     ],
+     [
+      0.14,
+      0.055
+     ],
+     [
+      0.22,
+      0.1
+     ]
+    ],
+    "style": "tape",
+    "width": 0.008,
+    "colour": "#e8e3d3",
+    "raise": 0.0006
+   },
+   {
+    "step": "line",
+    "frame": "sides",
+    "pts": [
+     [
+      0.09,
+      0.055
+     ],
+     [
+      0.14,
+      0.1
+     ],
+     [
+      0.19,
+      0.055
+     ]
+    ],
+    "style": "tape",
+    "width": 0.008,
+    "colour": "#e8e3d3",
+    "raise": 0.0006
+   },
+   {
+    "step": "laces",
+    "frame": "vamp",
+    "from": [
+     0,
+     0.11
+    ],
+    "to": [
+     0,
+     0.19
+    ],
+    "rows": 5,
+    "width": 0.036,
+    "colour": "#e8e3d3",
+    "thick": 0.004,
+    "eyelets": "#b9babd"
    }
   ]
  }

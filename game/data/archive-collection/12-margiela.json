@@ -1957,6 +1957,583 @@
   ]
  },
  {
+  "n": 233,
+  "id": "mmm-artisanal-broken-plate-necklace",
+  "designer": "Maison Martin Margiela",
+  "name": "Artisanal Broken-Plate Accessories",
+  "season": "FW1989",
+  "price": 6000,
+  "slot": "bag",
+  "bag": "plate necklace",
+  "colour": "#f1efe6",
+  "note": "The necklace of porcelain shards on wire stands for the family. Not a cut garment: it is built in dist/archive-accessories.js and worn in the bag's place."
+ },
+ {
+  "n": 234,
+  "id": "mmm-replica-gat-painted",
+  "designer": "Maison Martin Margiela",
+  "name": "Replica German Army Trainer (Painted)",
+  "season": "SS2002",
+  "price": 500,
+  "slot": "shoes",
+  "colour": "#f1efe9",
+  "finish": {
+   "roughness": 0.7
+  },
+  "pack": "shoes01",
+  "source": "toigo_ankle_boots_female",
+  "shape": [
+   {
+    "op": "platform",
+    "height": 0.012
+   },
+   {
+    "op": "wide",
+    "by": 0.04
+   }
+  ],
+  "note": "Painted over by hand in white: suede, laces, gum sole and all, cracking as it wears.",
+  "paint": [
+   {
+    "step": "fabric",
+    "type": "leather"
+   },
+   {
+    "step": "panel",
+    "colour": "#b4b1a8",
+    "where": {
+     "ft": [
+      0.76,
+      1.2
+     ],
+     "h": [
+      0.02,
+      0.2
+     ]
+    }
+   },
+   {
+    "step": "panel",
+    "colour": "#b4b1a8",
+    "where": {
+     "ft": [
+      -1,
+      0.17
+     ],
+     "h": [
+      0.02,
+      0.2
+     ]
+    }
+   },
+   {
+    "step": "panel",
+    "colour": "#b17c42",
+    "where": {
+     "h": [
+      -1,
+      0.03
+     ]
+    }
+   },
+   {
+    "step": "line",
+    "frame": "shaft",
+    "pts": [
+     [
+      -1,
+      0.031
+     ],
+     [
+      1,
+      0.031
+     ]
+    ],
+    "style": "stitch",
+    "colour": "#e9d9bd",
+    "width": 0.0012
+   },
+   {
+    "step": "laces",
+    "frame": "vamp",
+    "from": [
+     0,
+     0.105
+    ],
+    "to": [
+     0,
+     0.175
+    ],
+    "rows": 5,
+    "width": 0.03,
+    "colour": "#f4f2ec",
+    "thick": 0.004,
+    "eyelets": "#d8d5cc"
+   },
+   {
+    "step": "pattern",
+    "type": "splatter",
+    "colours": [
+     "#f8f7f2"
+    ],
+    "size": 0.03,
+    "density": 0.6
+   },
+   {
+    "step": "pattern",
+    "type": "splatter",
+    "colours": [
+     "#f8f7f2"
+    ],
+    "size": 0.012,
+    "density": 0.5
+   },
+   {
+    "step": "distress",
+    "type": "crackle",
+    "amount": 0.6,
+    "colour": "#8a867a"
+   },
+   {
+    "step": "distress",
+    "type": "edges",
+    "amount": 0.4,
+    "colour": "#b17c42"
+   }
+  ]
+ },
+ {
+  "n": 235,
+  "id": "mmm-tabi-boots-painted",
+  "designer": "Maison Martin Margiela",
+  "name": "Tabi Ankle Boots (Original, White-Painted)",
+  "season": "SS1989",
+  "price": 1800,
+  "slot": "shoes",
+  "colour": "#ecebe4",
+  "finish": {
+   "roughness": 0.6
+  },
+  "pack": "shoes01",
+  "source": "toigo_ankle_boots_male",
+  "shape": [
+   {
+    "op": "platform",
+    "height": 0.022
+   },
+   {
+    "op": "arch",
+    "depth": 0.016,
+    "from": 0.36,
+    "to": 0.62
+   },
+   {
+    "op": "toe",
+    "split": 0.007,
+    "from": 0.78
+   },
+   {
+    "op": "shaft",
+    "add": 0.015,
+    "from": 0.08
+   }
+  ],
+  "note": "The first show's boots, painted white over black leather so that the paint cracks.",
+  "paint": [
+   {
+    "step": "fabric",
+    "type": "leather"
+   },
+   {
+    "step": "panel",
+    "colour": "#2a2018",
+    "where": {
+     "h": [
+      -1,
+      0.008
+     ]
+    }
+   },
+   {
+    "step": "panel",
+    "colour": "#d9d6cc",
+    "where": {
+     "ft": [
+      -1,
+      0.34
+     ],
+     "h": [
+      -1,
+      0.026
+     ]
+    }
+   },
+   {
+    "step": "line",
+    "frame": "vamp",
+    "pts": [
+     [
+      -0.012,
+      0.33
+     ],
+     [
+      -0.012,
+      0.215
+     ]
+    ],
+    "style": "groove",
+    "width": 0.0035,
+    "depth": 0.0025
+   },
+   {
+    "step": "line",
+    "frame": "toe",
+    "pts": [
+     [
+      -0.012,
+      0
+     ],
+     [
+      -0.012,
+      0.06
+     ]
+    ],
+    "style": "groove",
+    "width": 0.0035,
+    "depth": 0.0025
+   },
+   {
+    "step": "line",
+    "frame": "vamp",
+    "pts": [
+     [
+      -0.012,
+      0.215
+     ],
+     [
+      0,
+      0.14
+     ]
+    ],
+    "style": "seam"
+   },
+   {
+    "step": "line",
+    "frame": "inner",
+    "pts": [
+     [
+      0.09,
+      0.05
+     ],
+     [
+      0.085,
+      0.16
+     ]
+    ],
+    "style": "seam"
+   },
+   {
+    "step": "dots",
+    "frame": "inner",
+    "from": [
+     0.094,
+     0.07
+    ],
+    "to": [
+     0.09,
+     0.15
+    ],
+    "count": 5,
+    "r": 0.0035,
+    "style": "stud",
+    "colour": "#b9b6ae"
+   },
+   {
+    "step": "distress",
+    "type": "crackle",
+    "amount": 0.7,
+    "colour": "#2a2826"
+   },
+   {
+    "step": "distress",
+    "type": "edges",
+    "amount": 0.5,
+    "colour": "#2a2826"
+   }
+  ]
+ },
+ {
+  "n": 236,
+  "id": "mmm-tabi-ballet-flats",
+  "designer": "Maison Martin Margiela",
+  "name": "Tabi Ballet Flats",
+  "season": "2000s",
+  "price": 500,
+  "slot": "shoes",
+  "colour": "#161617",
+  "finish": {
+   "roughness": 0.42
+  },
+  "pack": "shoes01",
+  "source": "toigo_ankle_boots_female",
+  "shape": [
+   {
+    "op": "toe",
+    "split": 0.007,
+    "from": 0.78
+   }
+  ],
+  "note": "Flat split-toe slippers, shown with white tabi socks: the sock is part of the piece.",
+  "paint": [
+   {
+    "step": "fabric",
+    "type": "leather"
+   },
+   {
+    "step": "panel",
+    "colour": "#e8e5dc",
+    "where": {
+     "h": [
+      0.05,
+      1
+     ]
+    }
+   },
+   {
+    "step": "rib",
+    "where": {
+     "h": [
+      0.05,
+      1
+     ]
+    },
+    "gauge": 0.003,
+    "depth": 0.0004
+   },
+   {
+    "step": "panel",
+    "colour": "#161617",
+    "where": {
+     "ft": [
+      0.62,
+      1.2
+     ],
+     "h": [
+      -1,
+      0.075
+     ]
+    }
+   },
+   {
+    "step": "panel",
+    "colour": "#161617",
+    "where": {
+     "ft": [
+      -1,
+      0.2
+     ],
+     "h": [
+      -1,
+      0.075
+     ]
+    }
+   },
+   {
+    "step": "panel",
+    "colour": "#2a2018",
+    "where": {
+     "h": [
+      -1,
+      0.006
+     ]
+    }
+   },
+   {
+    "step": "line",
+    "frame": "vamp",
+    "pts": [
+     [
+      -0.012,
+      0.33
+     ],
+     [
+      -0.012,
+      0.23
+     ]
+    ],
+    "style": "groove",
+    "width": 0.0035,
+    "depth": 0.0025
+   },
+   {
+    "step": "line",
+    "frame": "toe",
+    "pts": [
+     [
+      -0.012,
+      0
+     ],
+     [
+      -0.012,
+      0.05
+     ]
+    ],
+    "style": "groove",
+    "width": 0.0035,
+    "depth": 0.0025
+   },
+   {
+    "step": "line",
+    "frame": "toe",
+    "pts": [
+     [
+      -0.012,
+      0.0
+     ],
+     [
+      -0.012,
+      0.2
+     ]
+    ],
+    "style": "groove",
+    "width": 0.002,
+    "depth": 0.001
+   }
+  ]
+ },
+ {
+  "n": 237,
+  "id": "mmm-tabi-high-heel-pumps",
+  "designer": "Maison Martin Margiela",
+  "name": "Tabi High-Heel Pumps",
+  "season": "2000s",
+  "price": 750,
+  "slot": "shoes",
+  "colour": "#8a1a1c",
+  "finish": {
+   "roughness": 0.3
+  },
+  "pack": "shoes01",
+  "source": "toigo_ankle_boots_female",
+  "shape": [
+   {
+    "op": "platform",
+    "height": 0.06
+   },
+   {
+    "op": "arch",
+    "depth": 0.052,
+    "from": 0.3,
+    "to": 0.66
+   },
+   {
+    "op": "toe",
+    "split": 0.007,
+    "from": 0.78
+   }
+  ],
+  "note": "Oxblood patent on a cylinder heel, shown with black tabi socks.",
+  "paint": [
+   {
+    "step": "fabric",
+    "type": "leather"
+   },
+   {
+    "step": "panel",
+    "colour": "#19191b",
+    "where": {
+     "h": [
+      0.1,
+      1
+     ]
+    }
+   },
+   {
+    "step": "rib",
+    "where": {
+     "h": [
+      0.1,
+      1
+     ]
+    },
+    "gauge": 0.003,
+    "depth": 0.0004
+   },
+   {
+    "step": "panel",
+    "colour": "#8a1a1c",
+    "where": {
+     "ft": [
+      0.6,
+      1.2
+     ],
+     "h": [
+      -1,
+      0.125
+     ]
+    }
+   },
+   {
+    "step": "panel",
+    "colour": "#8a1a1c",
+    "where": {
+     "ft": [
+      -1,
+      0.2
+     ],
+     "h": [
+      -1,
+      0.13
+     ]
+    }
+   },
+   {
+    "step": "panel",
+    "colour": "#2a2018",
+    "where": {
+     "h": [
+      -1,
+      0.006
+     ]
+    }
+   },
+   {
+    "step": "line",
+    "frame": "vamp",
+    "pts": [
+     [
+      -0.012,
+      0.33
+     ],
+     [
+      -0.012,
+      0.23
+     ]
+    ],
+    "style": "groove",
+    "width": 0.0035,
+    "depth": 0.0025
+   },
+   {
+    "step": "line",
+    "frame": "toe",
+    "pts": [
+     [
+      -0.012,
+      0
+     ],
+     [
+      -0.012,
+      0.09
+     ]
+    ],
+    "style": "groove",
+    "width": 0.0035,
+    "depth": 0.0025
+   }
+  ]
+ },
+ {
   "n": 238,
   "id": "mmm-replica-vintage-leather-jacket",
   "designer": "Maison Martin Margiela",

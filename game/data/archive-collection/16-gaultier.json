@@ -421,15 +421,14 @@
     "shoulder": 0.003,
     "chest": 0.006,
     "waist": 0.01,
-    "hip": 0.0125,
+    "hip": 0.04,
     "sleeve": 0.004,
     "cuff": 0.004,
-    "hem": 0.012
+    "hem": 0.08
    },
    "hem": "calf+0.1",
    "sleeve": 1,
-   "hug": 1,
-   "hang": 0,
+   "hang": 0.9,
    "neck": {
     "y": 0.012,
     "depth": 0.02,
@@ -897,12 +896,11 @@
     "shoulder": 0.003,
     "chest": 0.006,
     "waist": 0.01,
-    "hip": 0.0125,
-    "hem": 0.012
+    "hip": 0.04,
+    "hem": 0.08
    },
    "hem": "calf+0.12",
-   "hug": 1,
-   "hang": 0,
+   "hang": 0.9,
    "armhole": 0.22,
    "neck": {
     "depth": 0.06,
