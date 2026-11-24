@@ -67,7 +67,7 @@ export function buildShopSteps(stairs,ground) {
   const mesh=new THREE.Mesh(g,material);
   const [x,z]=point(0,0),[sx,sz]=point(1,0),[tx,tz]=point(0,1);
   mesh.matrix.makeBasis(new THREE.Vector3(tx-x,0,tz-z),up,new THREE.Vector3(sx-x,0,sz-z));
-  mesh.matrix.setPosition(x,floor,z);mesh.matrixAutoUpdate=false;
+  mesh.matrix.setPosition(x,floor,z);mesh.matrixAutoUpdate=false;mesh.matrixWorldNeedsUpdate=true;
   mesh.name='Shop entrance steps';mesh.receiveShadow=true;mesh.castShadow=true;
   mesh.userData.barriers=barriers;
   return mesh;

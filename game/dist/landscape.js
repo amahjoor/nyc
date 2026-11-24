@@ -479,7 +479,7 @@ export class Landscape {
     this.physics = physics;
     this.stairOpenings = stairOpenings;
     this.orthophoto = orthophoto;this.localOrthophoto = localOrthophoto;
-    this.group = new THREE.Group();this.group.name = 'Measured NYC landscape reconstruction';scene?.add(this.group);
+    this.group = new THREE.Group();this.group.name = 'Measured NYC landscape reconstruction';this.group.matrixAutoUpdate = false;scene?.add(this.group);
     this.cache = new Map();this.pending = new Map();this.errors = new Map();this.wanted = new Map();this.preparing = new Map();this.serial = 0;this.disposed = false;
     this.layers = { terrain: true, water: true, vegetation: true };this.base = null;this.basePromise = null;this.baseWaterReady = false;this.review = null;this.focus = { x: 0, z: 0 };
     this.airportTexture = new THREE.Texture();
@@ -558,7 +558,7 @@ export class Landscape {
     const chunks = regionId && terrain.width * terrain.height > 200_000 && terrain.renderedHeights.every(finite) ? buildTerrainChunks(terrain) : null;
     const mesh = chunks ? new THREE.Group() : new THREE.Mesh(buildTerrainGeometry(terrain), material);
     for (const chunk of chunks || []) for (const level of ['fine', 'coarse']) {
-      const piece = new THREE.Mesh(chunk[level], material);piece.receiveShadow = true;piece.visible = level === 'coarse';chunk[level + 'Mesh'] = piece;mesh.add(piece);
+      const piece = new THREE.Mesh(chunk[level], material);piece.receiveShadow = true;piece.visible = level === 'coarse';piece.matrixAutoUpdate = false;chunk[level + 'Mesh'] = piece;mesh.add(piece);
     }
     mesh.receiveShadow = true;mesh.name = 'Surveyed terrain';group.add(mesh);this.group.add(group);
     bindAtlas(material, this.orthophoto);bindAtlas(material, this.localOrthophoto, true);

@@ -422,13 +422,13 @@ export const carShape = bodyShape;
  * for a turning wheel to be seen.
  */
 function createCarSet({ name, label, capacity, lit, select, library }) {
-  const group = new THREE.Group(); group.name = name;
+  const group = new THREE.Group(); group.name = name; group.matrixAutoUpdate = false;
   const paint = createCarMaterial({ instancedPaint: true }); paint.name = `${label} car paint and trim`;
   const exteriorPaint = createCarMaterial({ instancedPaint: true, doubleSided: true });
   // Traffic shows the lamps every moving car shows. Nobody leaves their lights on at the kerb.
   const lens = lit ? carGlow : parkedLamps;
   const styles = new Map();
-  const add = mesh => { mesh.count = 0; mesh.frustumCulled = false; group.add(mesh); };
+  const add = mesh => { mesh.count = 0; mesh.frustumCulled = false; mesh.matrixAutoUpdate = false; group.add(mesh); };
   const style = (key, type, shape, tone, model = null) => {
     // Instance tint belongs to this set. Near cars and the other set can
     // share the source without overwriting each other's paint attributes.

@@ -179,7 +179,8 @@ export class Graphics {
       light.shadow.autoUpdate = i === 0 && !far;
       if (i === 0 && far) light.shadow.needsUpdate = this.frame % 16 === 3;
       if (i === 1) light.shadow.needsUpdate = far ? this.frame % 16 === 7 : this.frame % 2 === 0;
-      if (i === 2) light.shadow.needsUpdate = far ? this.frame % 8 === 1 : this.frame % 4 === 1;
+      // The widest map is the dearest to draw and the slowest to change: at its scale a person or a car is under a texel.
+      if (i === 2) light.shadow.needsUpdate = this.frame % 8 === 1;
     });
   }
 

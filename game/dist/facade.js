@@ -311,13 +311,8 @@ vStyle = aStyle;
 if ( aFacade.z > 0.5 && aFacade.y < 0.5 ) { transformed.y -= ${glslFloat(FOUNDATION_DEPTH)}; vFacade.y = - ${glslFloat(FOUNDATION_DEPTH)}; }
 `;
 
-export const FACADE_FRAGMENT_PARS = /* glsl */`
-${CITY_SURFACE_GLSL}
-varying vec2 vFacade;
-flat varying vec2 vFacadeWall;
-flat varying vec4 vStyle;
-// Where in the world the fragment is, for looking up whose shop front this is.
-vec3 nycFacadeWorld = vec3( 0.0 );
+/** Where a furnished shopfront is cut through a wall: above zero inside the opening, in metres from its edge. */
+export const SHOP_OPENING_GLSL = /* glsl */`
 ${SHOP_WINDOW_GLSL}
 // The place map identifies the tenant at this pixel. The last table texel
 // gives a window its outward normal, measured floor height and half width.
@@ -337,6 +332,15 @@ float nycShopOpening( vec3 point, vec3 normal ) {
 	vec3 atPane = point - ray * ( outwards / towardEye );
 	return nycShopPane( vec2( dot( atPane.xz - center, vec2( pane.y, -pane.x ) ), atPane.y - pane.z ), pane.w );
 }
+`;
+export const FACADE_FRAGMENT_PARS = /* glsl */`
+${CITY_SURFACE_GLSL}
+varying vec2 vFacade;
+flat varying vec2 vFacadeWall;
+flat varying vec4 vStyle;
+// Where in the world the fragment is, for looking up whose shop front this is.
+vec3 nycFacadeWorld = vec3( 0.0 );
+${SHOP_OPENING_GLSL}
 vec3 nycOccupiedShopLocal( vec3 world ) {
 	vec3 delta = world - uNycRoom.xyz;
 	float depth = -dot( delta.xz, uNycRoomSide.xy );

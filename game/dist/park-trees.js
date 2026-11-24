@@ -171,7 +171,7 @@ export async function createParkTrees({ scene = null, records, scale, offset, fr
   let since = performance.now();
   const breathe = async () => { if (pause && performance.now() - since > 6) { await pause(); since = performance.now(); } };
   const count = Math.floor(records.length / 6), group = new THREE.Group(), cells = new Map(), blocks = new Map();
-  group.name = 'Park trees'; scene?.add(group);
+  group.name = 'Park trees'; group.matrixAutoUpdate = false; scene?.add(group);
   const forms = buildTreeForms(), material = createTreeMaterial();
   const trees = new Array(count), dummy = new THREE.Object3D(), tint = new THREE.Color(), sphere = new THREE.Sphere(), hidden = new THREE.Matrix4().makeScale(0, 0, 0);
   for (let i = 0; i < count; i++) {
@@ -190,7 +190,7 @@ export async function createParkTrees({ scene = null, records, scale, offset, fr
   const instanced = (geometry, list, name, own = false) => {
     if (!list.length) return null;
     const mesh = new THREE.InstancedMesh(geometry, material, list.length);
-    mesh.name = name; mesh.receiveShadow = true; mesh.visible = false;
+    mesh.name = name; mesh.receiveShadow = true; mesh.visible = false; mesh.matrixAutoUpdate = false;
     list.forEach((tree, i) => {
       mesh.setMatrixAt(i, tree.matrix); mesh.setColorAt(i, tint.setRGB(tree.look.tint[0], tree.look.tint[1], tree.look.tint[2]));
       if (own) { tree.mesh = mesh; tree.slot = i; }
@@ -222,7 +222,7 @@ export async function createParkTrees({ scene = null, records, scale, offset, fr
   // The nearest trees, whichever cells they stand in, are drawn from these.
   const near = forms.near.map(geometry => {
     const mesh = new THREE.InstancedMesh(geometry, material, NEAR_TREES);
-    mesh.name = 'Park trees, near'; mesh.count = 0; mesh.castShadow = true; mesh.receiveShadow = true; mesh.frustumCulled = false;
+    mesh.name = 'Park trees, near'; mesh.count = 0; mesh.castShadow = true; mesh.receiveShadow = true; mesh.frustumCulled = false; mesh.matrixAutoUpdate = false;
     mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
     mesh.setColorAt(0, tint.setRGB(1, 1, 1)); mesh.instanceColor.setUsage(THREE.DynamicDrawUsage);
     group.add(mesh);

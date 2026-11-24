@@ -5,7 +5,7 @@ import { createRoomCutaways } from './room-cutaways.js';
 import * as THREE from './vendor/three.module.min.js';
 import { mercatorCoefficients, atlasProjectionGLSL } from './imagery-projection.js';
 import { bindCitySurface } from './city-materials.js';
-import { chooseStyle, featureRandom, writeFacade, createFacadeScratch, applyFacadeShader, FLAG, HEIGHT_UNIT, setLots, setLandmarks } from './facade.js';
+import { chooseStyle, featureRandom, writeFacade, createFacadeScratch, applyFacadeShader, FACADE_VERTEX_PARS, FACADE_VERTEX, SHOP_OPENING_GLSL, FLAG, HEIGHT_UNIT, setLots, setLandmarks } from './facade.js';
 import { createLots } from './lots.js';
 import { streamRanges, leadPoint } from './aloft.js';
 import { looksCoarse, inPicture } from './detail-view.js';
@@ -418,7 +418,7 @@ class CityStream {
     this.scene = scene; this.onCollisionChange = onCollisionChange; this.onStatus = onStatus; this.fetcher = fetcher;
     this.concurrency = concurrency; this.maxCacheBytes = maxCacheBytes;
     this.heightAt = heightAt;this.terrainRevision = null;
-    this.group = new THREE.Group(); this.group.name = 'Streamed official NYC survey'; scene?.add(this.group);
+    this.group = new THREE.Group(); this.group.name = 'Streamed official NYC survey'; this.group.matrixAutoUpdate = false; scene?.add(this.group);
     this.cache = new Map(); this.requests = new Map(); this.queue = []; this.errors = new Map();
     this.active = 0; this.serial = 0; this.disposed = false; this.desired = new Set(); this.protected = new Set(); this.held = new Set();
     this.collisionDesired = new Set(); this.preparedCollisions = new Set(); this.collisionRecords = new Map();
@@ -430,6 +430,22 @@ class CityStream {
     this.depthMaterial = new THREE.MeshDepthMaterial({ depthPacking: THREE.RGBADepthPacking });
     this.facadeDepth = createFacadeDepth(this.material,this.depthMaterial);
     this.depthMaterial.onBeforeCompile = this.roomCutaways.apply;
+    // Dressing a wall is the dearest thing the card does, and down a street most walls stand behind others. Each tile is
+    // first drawn into depth alone, so that a wall is dressed only where it is the nearest thing. This pass must never
+    // cover what the dressed wall leaves open: it leaves the same shopfront openings, with a margin, and the same
+    // furnished rooms, and draws nothing while the player is inside a room. It sits a touch behind the wall itself.
+    this.depthFirst = new THREE.MeshDepthMaterial({ side: THREE.DoubleSide, colorWrite: false, polygonOffset: true, polygonOffsetFactor: 1, polygonOffsetUnits: 2 });
+    this.depthFirst.name = 'Building depth, drawn first';
+    this.depthFirst.onBeforeCompile = shader => {
+      shader.vertexShader = FACADE_VERTEX_PARS + 'varying vec3 vFirstWorld;\nvarying vec3 vFirstNormal;\n'
+        + shader.vertexShader.replace('#include <begin_vertex>', `#include <begin_vertex>\n${FACADE_VERTEX}\nvFirstWorld = ( modelMatrix * vec4( transformed, 1.0 ) ).xyz; vFirstNormal = normal;`);
+      this.roomCutaways.apply(shader);
+      shader.fragmentShader = shader.fragmentShader
+        .replace('#include <clipping_planes_pars_fragment>', `#include <clipping_planes_pars_fragment>\nvarying vec2 vFacade;\nflat varying vec2 vFacadeWall;\nvarying vec3 vFirstWorld;\nvarying vec3 vFirstNormal;\n${SHOP_OPENING_GLSL}`)
+        .replace('#include <clipping_planes_fragment>', `#include <clipping_planes_fragment>
+          if ( uNycRoom.w > 0.5 ) discard;
+          if ( vFacadeWall.x > 0.004 && vFacade.y < 8.0 && nycShopOpening( vFirstWorld, normalize( vFirstNormal ) ) > -0.06 ) discard;`);
+    };
     this.material.name = 'Official citywide measured surfaces';
     this.orthoUniforms = { cityOrtho: { value: null }, cityOrthoBounds: { value: new THREE.Vector4() }, cityUseOrtho: { value: false },
       cityMercator: { value: new THREE.Vector4() }, cityUseMercator: { value: false },
@@ -541,7 +557,17 @@ class CityStream {
     if (altitude > 0 && !streamRanges(altitude).physics) return true;
     // A scenery cache hit alone does not mean the simulation has its walls.
     // Publish the region first, then allow movement into its cached geometry.
-    return this.nearby({ x, z }, radius).every(node => this.cache.has(node.id) && this.collisionRecords.get(node.id) === this.cache.get(node.id));
+    for (let i = Math.floor((x - radius) / 1000), iEnd = Math.floor((x + radius) / 1000); i <= iEnd; i++) {
+      for (let j = Math.floor((z - radius) / 1000), jEnd = Math.floor((z + radius) / 1000); j <= jEnd; j++) {
+        const nodes = this.spatial.get(`${i},${j}`);
+        if (nodes) for (const node of nodes) {
+          if (Math.hypot(node.x - x, node.z - z) > radius + node.radius) continue;
+          const record = this.cache.get(node.id);
+          if (record === undefined || this.collisionRecords.get(node.id) !== record) return false;
+        }
+      }
+    }
+    return true;
   }
 
   async prepareAt(point, radius = 80) {
@@ -763,7 +789,9 @@ class CityStream {
       geometry.computeBoundingSphere();
       const mesh = new THREE.Mesh(geometry, this.material); mesh.name = `NYC survey node ${node.resource}`;
       mesh.customDepthMaterial = this.depthMaterial;
-      mesh.castShadow = true; mesh.receiveShadow = true; mesh.visible = false;
+      mesh.castShadow = true; mesh.receiveShadow = true; mesh.visible = false; mesh.matrixAutoUpdate = false;
+      const first = new THREE.Mesh(geometry, this.depthFirst); first.name = 'Depth first'; first.renderOrder = -1; first.matrixAutoUpdate = false; first.raycast = () => {};
+      mesh.add(first);
       this.group.add(mesh);
       const tanks = this.tankModels.batch(mesh, data.anchors);
       const signs = !node.children.length ? this.timesSquare.attach(mesh,data.anchors) : null;
@@ -863,7 +891,7 @@ class CityStream {
     for (const record of this.cache.values()) { record.tanks?.dispose(); record.signs?.dispose(); record.mesh.geometry.dispose(); }
     this.tankModels.dispose();
     this.timesSquare.dispose();
-    this.cache.clear(); this.collisionRecords.clear(); this.preparedCollisions.clear(); this.material.dispose(); this.depthMaterial.dispose(); this.roomCutaways.dispose(); this.scene?.remove(this.group); this.group.clear();
+    this.cache.clear(); this.collisionRecords.clear(); this.preparedCollisions.clear(); this.material.dispose(); this.depthMaterial.dispose(); this.depthFirst.dispose(); this.roomCutaways.dispose(); this.scene?.remove(this.group); this.group.clear();
   }
 }
 

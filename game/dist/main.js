@@ -3969,6 +3969,9 @@ async function boot() {
   renderer=new THREE.WebGLRenderer({canvas,antialias:false,powerPreference:'high-performance'});
   veilOpening();
   scene=new THREE.Scene();
+  // The scene itself never moves. Left to itself it would have every matrix beneath it worked out again each frame,
+  // including those of the batches and tiles that never move either.
+  scene.matrixAutoUpdate=false;
   camera=new THREE.PerspectiveCamera(52,innerWidth/innerHeight,10,150000);
   // Sky, sun, haze and the screen-space finish share one time of day.
   gfx=createGraphics({renderer,scene,camera,quality:graphicsQuality});
