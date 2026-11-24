@@ -1,6 +1,7 @@
 // Prop origins are the cup's centre and the tray's underside, in metres.
 import * as THREE from './vendor/three.module.min.js';
 
+import { prepTool } from './prep-tools.js';
 import { viewHand } from './view-hand.js';
 import { gripForItem } from './hand-poses.js';
 import { groceries } from './grocery-stock.js';
@@ -78,6 +79,16 @@ export function carriedItems(capacity,foodOnly=false) {
   const crockery=servingMaterial();
   function ensure(key){
     if(batches[key])return true;
+    if(key.startsWith('prep')){
+      const parts=prepTool(key);
+      if(!parts)return false;
+      batches[key]=parts.map(([geometry,color])=>{
+        const mesh=new THREE.InstancedMesh(geometry,new THREE.MeshStandardMaterial({color,roughness:.46}),capacity);
+        mesh.name=key;mesh.count=0;mesh.layers.mask=group.layers.mask;mesh.frustumCulled=false;
+        group.add(mesh);return mesh;
+      });
+      return true;
+    }
     const base=portionBase(key),item=groceries[base];
     if(!item && !isServing(base))return false;
     const geometry=item?packageGeometry(base,false,portionLevel(key)):servingGeometry(key);
@@ -90,10 +101,11 @@ export function carriedItems(capacity,foodOnly=false) {
   return {
     group,ensure,
     begin() { for (const meshes of Object.values(batches)) for (const mesh of meshes) mesh.count = 0; },
-    add(kind, point, heading, rotation=null, color=null) {
+    add(kind, point, heading, rotation=null, color=null, size=null) {
       if(!ensure(kind))return;
       if(rotation)matrix.makeRotationFromQuaternion(rotation);
       else matrix.makeRotationY(heading);
+      if(size)matrix.scale(size);
       matrix.setPosition(point);
       for (const mesh of batches[kind]||[]) if (mesh.count < capacity) {
         const held=groceries[portionBase(kind)]?handMatrix.copy(matrix).multiply(offset):matrix;

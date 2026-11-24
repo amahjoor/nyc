@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { dishStyle, drinkStyle, plateStyles, drinkStyles } from '../dist/food-catalog.js';
+import { techniques } from '../dist/prep-motion.js';
 import { KINDS } from '../dist/places.js';
 import { menuFor } from '../dist/menu.js';
 import { STATIONS, WARES, DISHES, DRINKS, BY_KIND, recipeFor, foodTone } from '../dist/recipes.js';
@@ -11,6 +12,7 @@ const HEX = /^#[0-9a-f]{6}$/;
 function sound(steps, label) {
   assert.ok(Array.isArray(steps) && steps.length, label);
   for (const step of steps) {
+    assert.ok(step.actions.length && step.actions.every(a=>Object.hasOwn(techniques,a)), label+' '+step.actions);
     assert.ok(STATIONS.includes(step.at), `${label}: station ${step.at}`);
     assert.ok(step.ware === undefined || WARES.includes(step.ware), `${label}: ware ${step.ware}`);
     assert.ok(typeof step.say === 'string' && step.say.length > 0 && step.say.length <= 62, `${label}: "${step.say}" is ${step.say?.length} long`);
@@ -83,7 +85,7 @@ test('what is not food is not cooked, and a recipe is the same one each time it 
   assert.equal(recipeFor({ name: 'Apple', preparation: 'Spaghetti pomodoro' }, 'italian'), recipeFor('Spaghetti pomodoro'));
   const pasta = recipeFor({ name: 'Spaghetti pomodoro' }, 'italian');
   assert.equal(pasta, recipeFor({ name: 'Spaghetti pomodoro' }, 'italian')); assert.ok(Object.isFrozen(pasta) && Object.isFrozen(pasta[0]));
-  assert.deepEqual(pasta[0], { at: 'range', ware: 'pot', say: 'Dropping spaghetti into salted boiling water', secs: 4 });
+  assert.deepEqual(pasta[0], { at: 'range', ware: 'pot', say: 'Dropping spaghetti into salted boiling water', secs: 4, actions:['tongs'] });
   assert.equal(pasta.at(-1).at, 'pass');
   assert.equal(foodTone({ name: 'Spaghetti pomodoro' }), '#c4432c'); assert.notEqual(foodTone({ name: 'Saag paneer' }), foodTone({ name: 'Fries' }));
 });

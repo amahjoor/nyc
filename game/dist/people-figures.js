@@ -2,6 +2,7 @@
 // sheet and two meshes over the same atlas. Only the outfit and pose vary per instance.
 import * as THREE from './vendor/three.module.min.js';
 import { sheetRows, streetBones, writeSkinRow } from './human-crowd.js';
+import { fitPrepHands } from './prep-motion.js';
 import { fitFallPose } from './fall-pose.js';
 import { carryPose,fitPose } from './body-motion.js';
 import { carriedItems } from './carried-items.js';
@@ -128,7 +129,7 @@ const DISTANT=60, UNSEEN_BEYOND=20, SHADOW_REACH=10;
 const NEAR=22;
 export function createFigures({motion, grow, capacity=320, scene=null, layer=0, layers=[layer]}={}) {
   const {rows} = sheetRows(motion), {compact,kept} = streetBones(motion.bones);
-  // A live palette for active falls. Every other figure uses its baked sheet.
+  // Live rows fit active falls and workers in contact with a fixture.
   const stride=kept.length*12, pixels=new Uint16Array(capacity*stride);
   const falls=new THREE.DataTexture(pixels,kept.length*3,capacity,THREE.RGBAFormat,THREE.HalfFloatType);
   falls.needsUpdate=true;
@@ -261,9 +262,13 @@ export function createFigures({motion, grow, capacity=320, scene=null, layer=0, 
       if(to.mesh.count>=capacity)return false;
       const at=to.mesh.count++, sample=frames(clip,time,from,fromTime,fade,carry);
       transform(entry,x,y,z,heading,height); to.mesh.setMatrixAt(at,matrix);
-      if(reaction?.fall && entry.rig && fallCount<capacity){
-        const pose=fitPose(motion,entry.rig,motion.sample(reaction.clip,reaction.time,fallSample),fitted);
-        fitFallPose(entry.rig,pose,reaction,heading);
+      const prep=actor?.preparation;
+      const working=prep && prep.task.time>=0 && !actor.escape && !actor.reaction && !actor.suspendCarry && clip===prep.task.clip;
+      if((reaction?.fall || working) && entry.rig && fallCount<capacity){
+        const pose=fitPose(motion,entry.rig,motion.sample(reaction?.fall?reaction.clip:'idle',reaction?.fall?reaction.time:time,fallSample),fitted);
+        if(reaction?.fall)fitFallPose(entry.rig,pose,reaction,heading);
+        else for(const part of fitPrepHands(entry.rig,pose,prep,matrix))
+          props.add(part.tool,part.point,heading,part.rotation,null,part.size);
         writeSkinRow(entry.rig,pose,kept,world,pixels,fallCount*stride);
         const row=-(++fallCount);
         to.anim.setXYZ(at,row,row,0);
