@@ -2,43 +2,50 @@ const rate = 24000;
 const tau = 2 * Math.PI;
 
 function renderZoomCue(context, inward) {
-  const duration = inward ? .64 : .53;
+  const duration = inward ? .61 : .49;
   const buffer = context.createBuffer(2, Math.round(duration * rate), rate);
   const left = buffer.getChannelData(0), right = buffer.getChannelData(1);
-  const wind = new Float32Array(left.length);
-  const early = Math.round(.011 * rate), late = Math.round(.026 * rate);
-  const impactAt = inward ? .12 : .017;
-  let seed = 349891, lowAir = 0, highAir = 0, rumble = 0, sweepPhase = 0, impactPhase = 0;
+  const reflection = new Float32Array(left.length);
+  const near = Math.round(.019 * rate), far = Math.round(.047 * rate);
+  const hitAt = inward ? .14 : 0;
+  let seed = 349891, air = 0, phase = 0;
   for (let i = 0; i < left.length; i++) {
     const t = i / rate;
-    const motion = 1 - Math.exp(-t * 8);
     seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0;
-    const noise = seed / 2147483648 - 1;
+    air += ((seed / 2147483648 - 1) - air) * .29;
 
-    // A widening gust on the pullback, a closing gust on the drop.
-    const opening = inward ? 1 - motion : motion;
-    const cutoff = 320 + 1640 * opening * opening;
-    highAir += (noise - highAir) * (1 - Math.exp(-tau * cutoff / rate));
-    lowAir += (highAir - lowAir) * .028;
-    wind[i] = (highAir - lowAir) * (1 - Math.exp(-t * 41)) * Math.exp(-t * (inward ? 5.2 : 6.5));
+    // The pullback snaps at the cut. The dive draws air into the hit.
+    const motion = 1 - Math.exp(-t * 12);
+    phase += tau * (inward ? 790 - 620 * motion : 210 + 720 * motion) / rate;
+    const envelope = inward && t < hitAt ? (t / hitAt) ** 1.6 : Math.exp(-Math.max(0, t - hitAt) * 15);
+    const scan = envelope * (.29 * air + .16 * Math.sin(phase + 1.3 * Math.sin(phase * .5)));
 
-    const sweepHz = inward ? 54 + 131 * (1 - motion) ** 2 : 65 + 85 * motion;
-    sweepPhase += tau * sweepHz / rate;
-    const swell = (1 - Math.exp(-t * 22)) * Math.exp(-t * 5.3);
-    const sweep = swell * (.24 * Math.sin(sweepPhase) + .11 * Math.sin(2 * sweepPhase + .18));
+    const age = Math.max(0, t - hitAt);
+    // A pitched drum transient with an upper harmonic audible on small speakers.
+    const drumPhase = tau * (52 * age + 3.2 * (1 - Math.exp(-age * 55)));
+    const drum = (.47 * Math.sin(drumPhase) + .16 * Math.sin(2 * drumPhase)) * Math.exp(-age * (inward ? 10 : 19));
+    const click = .17 * Math.sin(tau * 1420 * age) * Math.exp(-age * 210);
+    reflection[i] = scan + click;
+    const fade = Math.min(1, t / .003, (left.length - 1 - i) / (.03 * rate));
+    left[i] = fade * (drum + reflection[i] + .30 * (reflection[i - near] || 0));
+    right[i] = fade * (drum + reflection[i] + .25 * (reflection[i - far] || 0));
+  }
+  return buffer;
+}
 
-    // A short pressure pulse gives each step weight, with a heavier arrival.
-    const hitAge = Math.max(0, t - impactAt);
-    impactPhase += tau * (39 + 49 * Math.exp(-hitAge * 20)) / rate;
-    rumble += (noise - rumble) * .045;
-    const pulse = (1 - Math.exp(-hitAge * 115)) * Math.exp(-hitAge * (inward ? 11 : 17));
-    const pressure = pulse * ((inward ? .43 : .32) * Math.sin(impactPhase) +
-      .095 * Math.sin(2 * impactPhase) + .19 * rumble);
-
-    // Keep the pressure centered and give the air short, unequal reflections.
-    const fade = Math.min(1, t / .006, (left.length - 1 - i) / (.076 * rate));
-    left[i] = fade * (sweep + pressure + .58 * wind[i] + .24 * (wind[i - early] || 0));
-    right[i] = fade * (sweep + pressure + .58 * wind[i] + .24 * (wind[i - late] || 0));
+function renderDeathCue(context) {
+  const buffer = context.createBuffer(1, Math.round(1.85 * rate), rate);
+  const samples = buffer.getChannelData(0);
+  const echo = Math.round(.19 * rate);
+  for (let i = 0; i < samples.length; i++) {
+    const t = i / rate;
+    const bassPhase = tau * (44 * t + 2.8 * (1 - Math.exp(-t * 38)));
+    const impact = (.48 * Math.sin(bassPhase) + .17 * Math.sin(2 * bassPhase)) * Math.exp(-t * 7);
+    // Two metallic partials sag in pitch together, with a longer ring after the hit.
+    const bellPhase = tau * (218 * t + 16 * (1 - Math.exp(-t * 4)));
+    const ring = (.19 * Math.sin(bellPhase) + .10 * Math.sin(bellPhase * 1.47)) * Math.exp(-t * 3.6);
+    const fade = Math.min(1, t / .005, (samples.length - 1 - i) / (.05 * rate));
+    samples[i] = fade * (impact + ring + .29 * (samples[i - echo] || 0));
   }
   return buffer;
 }
@@ -73,37 +80,27 @@ function renderMapZoomCue(context, inward) {
 export function renderSceneCue(context, kind) {
   if (kind === 'zoomIn' || kind === 'zoomOut') return renderZoomCue(context, kind === 'zoomIn');
   if (kind === 'mapZoomIn' || kind === 'mapZoomOut') return renderMapZoomCue(context, kind === 'mapZoomIn');
-  const duration = kind === 'wasted' ? 1.95 : 1.25;
+  if (kind === 'wasted') return renderDeathCue(context);
+  const duration = 1.25;
   const buffer = context.createBuffer(1, Math.ceil(duration * rate), rate);
   const samples = buffer.getChannelData(0);
-  let seed = 349891,
-    air = 0,
-    bass = 0,
-    phase = 0;
+  let seed = 349891, air = 0;
   for (let i = 0; i < samples.length; i++) {
     const t = i / rate;
     seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0;
     const noise = seed / 2147483648 - 1;
-    let sample;
-    if (kind === 'wasted') {
-      bass += (noise - bass) * 0.023;
-      phase += (tau * (33 + 57 * Math.exp(-t * 5.6))) / rate;
-      const pulse = Math.exp(-2.6 * t) + 0.34 * (t >= 0.43 ? Math.exp(-(t - 0.43) * 6) : 0);
-      sample = pulse * (0.73 * Math.sin(phase) + 0.48 * bass) + 0.11 * Math.sin(tau * 64 * t) * Math.exp(-2 * t);
-    } else {
-      // Two short ratchet strikes followed by a muted low chord.
-      const strike = t < 0.14 ? t : t - 0.14;
-      air += (noise - air) * 0.47;
-      const metal =
-        (0.5 * air + 0.19 * Math.sin(tau * 1184 * strike) + 0.1 * Math.sin(tau * 1937 * strike)) *
-        Math.exp(-strike * 46);
-      const body = t - 0.15;
-      sample =
-        metal +
-        (body > 0
-          ? (0.33 * Math.sin(tau * 82 * body) + 0.2 * Math.sin(tau * 110 * body)) * Math.exp(-3.8 * body)
-          : 0);
-    }
+    // Two short ratchet strikes followed by a muted low chord.
+    const strike = t < 0.14 ? t : t - 0.14;
+    air += (noise - air) * 0.47;
+    const metal =
+      (0.5 * air + 0.19 * Math.sin(tau * 1184 * strike) + 0.1 * Math.sin(tau * 1937 * strike)) *
+      Math.exp(-strike * 46);
+    const body = t - 0.15;
+    const sample =
+      metal +
+      (body > 0
+        ? (0.33 * Math.sin(tau * 82 * body) + 0.2 * Math.sin(tau * 110 * body)) * Math.exp(-3.8 * body)
+        : 0);
     samples[i] = sample * Math.min(1, t / 0.004, (duration - t) / 0.035);
   }
   return buffer;
