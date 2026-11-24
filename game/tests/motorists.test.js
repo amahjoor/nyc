@@ -159,3 +159,14 @@ test('a sudden cut-in during a phone glance can cause a physical rear-end collis
   assert.equal(cutIn(50),false);
   assert.equal(cutIn(0),true);
 });
+
+test('driver patience controls the horn gesture and a sustained obstruction escalates it',()=>{
+  const {sim,car}=street(), driver=motorist(car);
+  sim.player.x=car.x;sim.player.z=car.z;
+  function honk(patience,waiting){
+    Object.assign(driver,{confronts:false,patience});car.blockedForHorn=waiting;
+    sim.elapsed+=25;sim._driverHorn(car);return sim.moveEvents.at(-1).gesture;
+  }
+  assert.equal(honk(12,12),'courteous');assert.equal(honk(9,9),'ordinary');
+  assert.equal(honk(6,6),'impatient');assert.equal(honk(6,22),'insistent');assert.equal(honk(12,32),'ordinary');
+});

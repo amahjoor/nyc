@@ -1922,7 +1922,7 @@ export class Simulation {
       car.bodyRock.heave=-.075;
     } else this.rockVehicle(car,dx,dz,power);
     if (car.type !== 'police' && !car.controlled && !car.hired && hasDriver(car) && Math.abs(car.speed)<.6) {
-      this._driverHorn(car);
+      this._driverHorn(car, true);
       if (motorist(car).confronts && car.provokedAt != null && this.elapsed-car.provokedAt < 8) {
         const x=car.x+1.6*Math.cos(car.angle), z=car.z-1.6*Math.sin(car.angle);
         if (!this.isBlocked(x,z,.35,{baseHeight:car.y}) && !this._nearCar(x,z,.35,car.id,car.y)) {
@@ -2660,10 +2660,17 @@ export class Simulation {
     car.parked=false; car.errand=null; car.finishedErrand=true;
   }
 
-  _driverHorn(car) {
+  _driverHorn(car, startled = false) {
     if (this.elapsed < (car.hornUntil ?? -1) || distance(car,this.player)>60) return;
-    car.hornUntil=this.elapsed+16;
-    this.moveEvents.push({kind:'driverHorn',car,at:this.elapsed,x:car.x,z:car.z,y:car.y});
+    const driver = motorist(car);
+    const waiting = car.blockedForHorn || 0;
+    const impatient = driver.confronts || driver.patience < 7.5;
+    let gesture = impatient ? 'impatient' : startled || driver.patience < 10 ? 'ordinary' : 'courteous';
+    if (waiting > driver.patience + 10) {
+      gesture = impatient ? 'insistent' : driver.patience < 10 ? 'impatient' : 'ordinary';
+    }
+    car.hornUntil = this.elapsed + (impatient ? 12 : 18);
+    this.moveEvents.push({kind:'driverHorn',car,gesture,at:this.elapsed,x:car.x,z:car.z,y:car.y});
   }
 
   _traffic(car, dt) {
