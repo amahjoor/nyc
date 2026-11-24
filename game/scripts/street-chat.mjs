@@ -5,7 +5,7 @@ import {join} from 'node:path';
 import {handleLocalChat, requestLocalModel} from './phone-chat.mjs';
 
 const short = (s, limit) => typeof s === 'string' ? s.replace(/\s+/g,' ').trim().slice(0,limit) : '';
-const actions = ['map','change','coffee'];
+const actions = ['map','change','coffee','number'];
 const format = {type:'object', properties:{
   text:{type:'string'}, followUp:{type:'string',pattern:'^(What|How|Why|When|Where|Who|Do|Did|Can|Could|Is|Was|Would) [^?]{3,84}\\?$'}, action:{type:'string',enum:['none',...actions]},
 }, required:['text','followUp','action']};
@@ -51,13 +51,19 @@ function prompt(input) {
   const facts = input.facts || {};
   const scene = {
     name:short(facts.name,32), playerName:short(facts.playerName,32), background:short(facts.background,180), time:short(facts.time,16),
-    street:short(facts.street,80), nearby:short(facts.nearby,100), pastEncounter:short(facts.pastEncounter,120),
+    street:short(facts.street,80), nearby:short(facts.nearby,100), pastEncounter:short(facts.pastEncounter,120), recentContact:short(facts.recentContact,100),
     actions:actions.filter(id => Array.isArray(facts.actions) && facts.actions.includes(id)),
+  };
+  const history=facts.phoneHistory;
+  if(history)scene.phoneHistory={
+    bond:short(history.bond,24),mood:short(history.mood,16),unresolvedConflict:short(history.unresolvedConflict,140),
+    texts:Array.isArray(history.recentTexts)?history.recentTexts.slice(-4).map(row=>({speaker:row?.who==='me'?'player':scene.name,text:short(row?.text,140)})):[],
+    memories:Array.isArray(history.memories)?history.memories.slice(-4).map(row=>({speaker:row?.who==='me'?'player':scene.name,text:short(row?.quote,140)})):[],
   };
   return [{role:'system',content:[
     `You are ${scene.name}, chatting face to face. Write your own first-person answer in one short spoken sentence. Answer the latest question directly, using your memories below.`,
     'Use the exact nearby name for a place recommendation. If none is listed, say you do not know a spot.',
-    'Return text (your answer), followUp (a question the player could ask about your answer), and action (usually none). Use map for directions, change for spare change, coffee for a coffee sale.',
+    'Return text (your answer), followUp (a question the player could ask about your answer), and action (usually none). When asked to exchange numbers, use number if you agree and it is available. Use map for directions, change for spare change, coffee for a coffee sale.',
     'The follow-up question should pick up a concrete detail in your reply. Never promise a quest or an errand.',
     JSON.stringify(scene),
   ].join('\n')},...rows];

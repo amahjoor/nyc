@@ -1,3 +1,4 @@
+import { reactionKind, noteContact } from '../dist/street-reactions.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {Work} from '../dist/work.js';
@@ -76,7 +77,7 @@ test('selecting the change suggestion runs one street transaction and resumes th
   const action=f.panel.options.find(option=>option.name==='Ask for spare change');
   action.choose();action.choose();
   assert.equal(f.sim.cash,4);
-  assert.equal(f.panel.rows.at(-1).text,'Yeah, here you go.');
+  assert.equal(reactionKind(f.panel.rows.at(-1).text),'give');
   assert.equal(f.person.talkingTo,f.sim.player);
   assert.equal(f.work.record.conversations[0].pastEncounter,'You gave the player spare change.');
 });
@@ -117,4 +118,40 @@ test('simultaneous warmups share a model load and recover when GPU allocation fa
   assert.equal(a.status,204);assert.equal(b.status,204);
   assert.ok(options[0]!==0);
   assert.deepEqual(options.slice(1),[0]);
+});
+
+test('saving an offered number connects the same street identity to phone history on a later visit',async()=>{
+  const history={bond:'Close friends',mood:'Guarded',unresolvedConflict:'You ditched me.'};
+  const contexts=[];let saved;
+  const f=fixture(async(identity,facts,rows)=>{
+    contexts.push(facts);
+    return {text:'Yeah, let’s keep in touch.',action:rows.at(-1).text.includes('numbers')?'number':null};
+  });
+  f.work.phone=()=>({
+    exchangeNumbers(identity,entry){saved={identity,rows:[...entry.rows]};},
+    contactHistory(key){return key===saved?.identity.key ? history : null;},
+  });
+  f.open();
+  await f.panel.send('How’s your day?');
+  await f.panel.options.find(option=>option.name==='Ask to exchange numbers').choose();
+  assert.ok(contexts.at(-1).actions.includes('number'));
+  assert.equal(saved,undefined);
+  f.panel.options.find(option=>option.name.startsWith('Save ')).choose();
+  assert.equal(saved.identity.key,'resident/71');
+  assert.equal(saved.rows.at(-2).text,'Want to exchange numbers?');
+  f.open();await f.panel.send('about last night');
+  assert.deepEqual(contexts.at(-1).phoneHistory,history);
+  assert.ok(!contexts.at(-1).actions.includes('number'));
+});
+
+test('a second shove changes the opening and an apology resolves it immediately without calling the model', async () => {
+  const contexts=[];
+  const f=fixture(async(_identity,facts)=>{contexts.push(facts);return {text:'I hear you.'};});
+  f.sim.elapsed=4;noteContact(f.person,6,0);noteContact(f.person,4,4);
+  f.open();assert.equal(reactionKind(f.panel.rows.at(-1).text),'wary');
+  await f.panel.send('What just happened?');assert.match(contexts[0].recentContact,/repeatedly/);
+  f.panel.options.find(o=>o.name==='Sorry I bumped into you.').choose();
+  assert.equal(reactionKind(f.panel.rows.at(-1).text),'apology');
+  assert.equal(contexts.length,1);assert.equal(f.person.streetContact,undefined);
+  assert.ok(!f.panel.options.some(o=>o.name==='Sorry I bumped into you.'));
 });

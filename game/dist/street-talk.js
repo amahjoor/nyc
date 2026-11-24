@@ -1,3 +1,4 @@
+import { recentContact, streetLines } from './street-reactions.js';
 import {asksForPlace,groundedTurn} from './street-intent.js';
 import {chatFrames} from './chat-stream.js';
 // Each encounter uses a stable cast identity and a small, bounded conversation history.
@@ -11,6 +12,7 @@ const stories = [
   ['I collect little sounds around the city.','I caught a lovely rhythm between a loose grate and a delivery cart the other day.','What are you listening for today?','A quiet second between the brakes and the horns. There’s usually a bird in there.'],
 ];
 const clip = (s,n) => typeof s==='string' ? s.trim().slice(0,n) : '';
+const asksForNumber = text => /(?:exchange|swap) numbers|(?:your|my) (?:phone )?number|keep in touch/i.test(text);
 const starters = ['How’s your day going?', 'What do you like about this block?'];
 
 let lastWarm=-Infinity;
@@ -54,6 +56,8 @@ export function encounter(records,key) {
 
 function offlineTurn({name,story},facts,rows) {
   const latest=rows.at(-1).text.toLowerCase();
+  if (facts.actions.includes('number') && asksForNumber(latest))
+    return {text:'Yeah, let’s keep in touch.',action:'number',followUp:'What are you up to later?'};
   if (asksForPlace(latest) && facts.nearby)
     return {text:`There’s ${facts.nearby} close by. Want me to point it out?`,action:'map',followUp:'What do you like about this block?'};
   if (/coffee/.test(latest) && facts.actions.includes('coffee'))
@@ -88,20 +92,37 @@ export async function streetReply(identity,facts,rows,signal,onPartial,onSpeech)
   return groundedTurn(facts,rows.at(-1).text) || offlineTurn(identity,facts,rows);
 }
 
+function streetGreeting(person, entry, contact) {
+  if (entry?.pastEncounter === 'This player took your wallet.') return 'robbedAgain';
+  if (contact) return contact === 'brush' ? 'recognize' : 'wary';
+  if (entry?.pastEncounter === 'The player sold you a coffee.') return 'coffee';
+  return 'greet';
+}
+export function greetPerson(work, person) {
+  const entry = work.record.conversations.find(row => row.key === streetIdentity(person).key);
+  const contact = recentContact(person, work.sim.elapsed ?? 0);
+  return streetLines.choose(person, streetGreeting(person, entry, contact));
+}
+
 export function talkToPerson(work,person) {
   if (!work.canTalk(person)) return;
   const identity=streetIdentity(person), entry=encounter(work.record.conversations,identity.key);
   const session=new AbortController();
-  const opening=entry.pastEncounter==='The player sold you a coffee.'?'Thanks for the coffee.':'Hey, how’s it going?';
+  let contact=recentContact(person,work.sim.elapsed ?? 0);
+  const newContact=contact && !person.streetContact.discussed;
+  const needsOpening=!entry.rows.length || newContact;
+  const opening=needsOpening ? streetLines.choose(person,streetGreeting(person,entry,contact)) : null;
   let place=work.talkPlace(person);
+  const phone=work.phone?.();
   const actions=()=>({
+    number:phone?.exchangeNumbers && entry.rows.some(row=>row.who==='me') && !phone.contactHistory(identity.key) &&
+      {name:'Save '+identity.name+'’s number',choose:()=>phone.exchangeNumbers(identity,entry,work.streetName())},
     map:place && {name:'Show '+place.name+' on map',choose:()=>work.guide(place)},
     change:!work.streetActions.ask.has(person) && {name:'Ask for spare change',choose:()=>work.trade(person,'ask',resumeAfter('Could you spare some change?'))},
     coffee:work.record.cart && work.record.cups>0 && !work.streetActions.sell.has(person) &&
       {name:'Offer a coffee · $5',choose:()=>work.pourCoffee(person,resumeAfter('Here’s your coffee.'))},
   });
   let pending=false, suggested=null, draftTurn=null, speech=null;
-  if (!entry.rows.length) entry.rows.push({who:'them',text:opening});
   const view=work.openTalk(identity.name,()=>work.canTalk(person),()=>{
     delete person.talkingTo;
     session.abort();
@@ -109,6 +130,8 @@ export function talkToPerson(work,person) {
   });
   if (!view) return;
   person.talkingTo=work.sim.player;
+  if (opening) entry.rows=[...entry.rows,{who:'them',text:opening}].slice(-10);
+  if (newContact) person.streetContact.discussed=true;
   function resumeAfter(line) {
     return reply=>{
       entry.rows=[...entry.rows,{who:'me',text:line},{who:'them',text:reply}].slice(-10);
@@ -122,6 +145,8 @@ export function talkToPerson(work,person) {
     const prompts=entry.followUp ? [entry.followUp,directions,'What do you like about this block?'] : [...starters,directions];
     const choices=[...new Set(prompts.filter(Boolean))].slice(0,entry.followUp?2:3)
       .map(text=>({name:text,choose:()=>send(text)}));
+    if(suggested!=='number' && actions().number) choices.push({name:'Ask to exchange numbers',choose:()=>send('Want to exchange numbers?')});
+    if (contact) choices.unshift({name:'Sorry I bumped into you.',choose:()=>send('Sorry I bumped into you.')});
     if (action) choices.unshift({name:action.name,choose:()=>{
       if (session.signal.aborted || !work.canTalk(person) || !actions()[suggested]) return;
       view.close();
@@ -133,6 +158,14 @@ export function talkToPerson(work,person) {
     const text=clip(input,240);
     if (!text || pending || session.signal.aborted || !work.canTalk(person)) return;
     speech?.abort();
+    if (contact && /^(?:sorry\b|i(?:'m| am) sorry\b|my (?:bad|apologies)\b|i apologize\b)/i.test(text)) {
+      const answer=streetLines.choose(person,'apology');
+      entry.rows=[...entry.rows,{who:'me',text},{who:'them',text:answer}].slice(-10);
+      contact=null;delete person.streetContact;
+      entry.followUp='';suggested=null;draw();work.save();
+      speech=new AbortController();work.speak(person,answer,undefined,speech.signal);
+      return;
+    }
     pending=true;draftTurn={who:'me',text};draw();
     const introduced=text.match(/\b(?:my name is|call me)\s+([\p{L}’'-]{1,32})/iu)?.[1];
     const playerName=introduced || entry.playerName || '';
@@ -141,8 +174,9 @@ export function talkToPerson(work,person) {
     const hour=work.hours(), minute=Math.floor((hour%1)*60);
     const availableActions=actions();
     const facts={name:identity.name,background:identity.story[0]+' '+identity.story[1],time:Math.floor(hour)+':'+String(minute).padStart(2,'0'),
+      recentContact:contact ? {brush:'You and the player brushed shoulders.',shove:'The player just barged into you.',repeat:'The player has bumped into you repeatedly.'}[contact] : '',
       street:work.streetName(),nearby:place?.name || '',pastEncounter:entry.pastEncounter,playerName,
-      actions:Object.keys(availableActions).filter(id=>availableActions[id])};
+      phoneHistory:phone?.contactHistory?.(identity.key),actions:Object.keys(availableActions).filter(id=>availableActions[id])};
     const rows=[...entry.rows,draftTurn];
     let reply, voicedText;
     function voice(turn) {
@@ -166,11 +200,16 @@ export function talkToPerson(work,person) {
         (reply.action==='map' && /directions|pin|map/.test(reference)))) suggested='map';
     if (facts.actions.includes('change') && /spare change|spare a|dollars?|my pockets/.test(reference)) suggested='change';
     if (facts.actions.includes('coffee') && /coffee|cup/.test(reference) && !looking) suggested='coffee';
+    if (facts.actions.includes('number') && asksForNumber(text)) {
+      const agrees=/^(?:yeah|yes|sure|absolutely|of course)\b|here[’']?s my number/i.test(reply.text);
+      const declines=/\b(?:no|nope|prefer not|rather not|can[’']t|don[’']t)\b/i.test(reply.text);
+      if (!declines && (reply.action==='number' || agrees)) suggested='number';
+    }
     draftTurn=null;pending=false;draw();work.save();
     voice(reply);
   }
   draw();
-  if (entry.rows.length===1) {
+  if (opening) {
     speech=new AbortController();work.speak(person,opening,undefined,speech.signal);
   }
 }
