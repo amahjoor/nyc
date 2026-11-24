@@ -563,18 +563,27 @@ export function buildRoom(room, y = 0, { streetView = false } = {}) {
   group.userData.mealRemaining=(table,item,level)=>showProduct(table,'mealPlate',true,item,level);
   group.userData.sampleAt=(display,visible)=>showProduct(display,'ringSample',visible);
   // What a cook has on the heat or under the knife, where they are working: `ware` null takes it away.
-  group.userData.cookAt=(spot,ware,tone='#c98a4b')=>{
+  group.userData.cookAt=(spot,ware,tone='#c98a4b',inUse=false)=>{
     const old=serviceMeshes.get(spot);
     if(old){old.removeFromParent();old.geometry.dispose();serviceMeshes.delete(spot);}
     if(!ware)return;
+    if(inUse?.at==='pass' && inUse.style){
+      // The plate being finished at the pass is the one that goes to the guest.
+      const table={...spot,a:spot.a-.1,y:spot.y-.022,h:0};
+      showProduct(table,'mealPlate',true,inUse.item);
+      const dish=serviceMeshes.get(table);
+      serviceMeshes.delete(table);serviceMeshes.set(spot,dish);
+      dish.name='Cookware in use';dish.userData.ware=ware;
+      return dish;
+    }
     const positions=[],colors=[];
-    roomProps(room,y,positions,colors).draw({shape:'cookware',a:spot.a,b:spot.b,w:.34,d:.34,h:.3,y:spot.y,face:spot.face,color:tone,more:{ware,tone}});
+    roomProps(room,y,positions,colors).draw({shape:'cookware',a:spot.a,b:spot.b,w:.34,d:.34,h:.3,y:spot.y,face:spot.face,color:tone,more:{ware,tone,inUse}});
     if(!positions.length)return;
     const g=new THREE.BufferGeometry();
     g.setAttribute('position',new THREE.Float32BufferAttribute(positions,3));g.setAttribute('color',new THREE.Float32BufferAttribute(colors,3));
     g.setAttribute('surfaceTile',new THREE.BufferAttribute(new Uint8Array(positions.length/3).fill(5),1));
     const pan=new THREE.Mesh(g,material);pan.name='Cookware in use';pan.frustumCulled=mesh.frustumCulled;
-    pan.userData.shape='cookware';pan.userData.ware=ware;serviceMeshes.set(spot,pan);group.add(pan);
+    pan.userData.shape='cookware';pan.userData.ware=ware;serviceMeshes.set(spot,pan);group.add(pan);return pan;
   };
   if(room.style==='jewelry') for(const display of room.things.filter(t=>t.more?.items==='rings'))group.userData.sampleAt(display,true);
   // The menu, lettered, where the plan puts it. Drawn only where there is a page to draw on.

@@ -1,6 +1,8 @@
 // The line. Where each kind of cooking is done in a room, and the staff who
 // work a ticket through it: every dish is made step by step at the equipment
 // that step needs (recipes.js), and what is on the heat can be seen there.
+import { roomPoint } from './room.js';
+import { servingFor,drinkStyle,dishStyle } from './food-catalog.js';
 import { recipeFor, foodTone } from './recipes.js';
 import { floorAt, facePoint, shopAisle } from './room-walk.js';
 import { ask, done, walking, pause, reached } from './facility-visits.js';
@@ -37,8 +39,7 @@ const TOP={kitchenRange:.87,cookline:.93,gasRange:.93,wokRange:.9,flatTop:.93,ch
 // What is seen on the equipment while a step is under way, and how the cook moves doing it.
 const WARE={range:'pan',wok:'wok',flat:'griddle',grill:'griddle',fry:'basket',oven:'tray',board:'board',cold:'bowl',steam:'ladle',sushi:'board',
   spit:'board',smoker:'tray',espresso:'cup',blender:'cup',fountain:'cup',brew:'cup',bar:'cup',scoop:'cup',pass:'plate'};
-const CLIP={range:'stir',wok:'toss',flat:'flip',grill:'flip',fry:'reach',oven:'reach',board:'chop',cold:'pickUp',steam:'stir',sushi:'chop',
-  spit:'chop',smoker:'reach',espresso:'reach',blender:'reach',fountain:'reach',brew:'reach',bar:'reach',case:'pickUp',scoop:'stir',pass:'reach'};
+const CLIP={chop:'chop',slice:'chop',carve:'chop',stir:'stir',whisk:'stir',baste:'stir',barStir:'stir',toss:'toss',turn:'flip',press:'flip',rest:'idle',settle:'idle'};
 export const FRONT_OF_HOUSE=['espresso','blender','fountain','brew','bar','case','scoop'];
 
 /** Where a station's work is done in this room: { kind, thing, a, b, y, face }, or null where the room has nothing for it. */
@@ -82,37 +83,92 @@ export function standAt(view,station,actor) {
   return best;
 }
 
-function setWare(v,station,ware,tone) {
-  clearWare(v);
-  if(!ware || !station)return;
-  v.ware={a:station.wareAt?.a??station.a,b:station.wareAt?.b??station.b,y:station.y,face:station.face};
-  v.view.group?.userData.cookAt?.(v.ware,ware,tone);
+// Convert a point on the model's face to the same room axes roomProps draws.
+function workPoint(station,action,actor,view){
+  const thing=station.thing,[fa,fb]=station.face,at=floorAt(view,actor);
+  const side=(at.a-station.a)*fa+(at.b-station.b)*fb>=0?1:-1;
+  const width=fb?thing.w:thing.d,depth=station.depth;
+  let u=0,v=side*Math.max(0,depth/2-.095),y=station.y;
+  if(station.wareAt){
+    v=(station.wareAt.a-station.a)*fa+(station.wareAt.b-station.b)*fb;
+  }
+  if(thing.shape==='espresso'){
+    const group=-width*.13-width*.65*.23;
+    if(action==='dose'){u=width*.365;v=.079;}
+    else if(['lock','extract'].includes(action)){u=group;v=depth*.19;}
+    else if(['steam','steamFoam'].includes(action)){u=-width*.13-width*.65*.36;v=depth*.35+.044;}
+    else {u=width/2+.064;v=depth*.32;}
+    y=thing.y;
+  }else if(thing.shape==='draftTaps'){
+    u=['tap','topOff','settle'].includes(action)?0:width/2+.12;
+    v=.06;y=thing.y;
+  }else if(thing.shape==='blenders' && action==='blend'){
+    u=-width*.22;v=0;y=thing.y;
+  }
+  return {a:station.a+fb*u+fa*v,b:station.b-fa*u+fb*v,y,face:[fa*side,fb*side]};
 }
-/** Take whatever a visit's cook had on the heat off it. */
-export function clearWare(v) {
-  if(!v.ware)return;
-  v.view.group?.userData.cookAt?.(v.ware,null);v.ware=null;
+
+const fillShare={milkArt:2,milkPour:2,pour:2,bottlePour:1,winePour:1,dispense:1,extract:.5,
+  strain:1,tap:3,topOff:1,ladle:1};
+// A mixer or a shaker is a separate vessel. Only transfers into the serving
+// glass contribute to its level, which survives tool changes and garnishing.
+function fillWeight(step,action){
+  if(step.at==='range' || action==='extract' && step.at!=='espresso')return 0;
+  return fillShare[action]||0;
+}
+function startWork(v,worker,station,step,action,duration,phase,item,level=[0,1]){
+  const clip=CLIP[action]||'reach';
+  const spot=station && workPoint(station,action,worker,v.view);
+  const task=pause(worker,phase,duration,spot,clip);
+  if(!spot || gap(floorAt(v.view,worker),spot)>.87)return task;
+  const [x,z]=roomPoint(v.view.plan,spot.a,spot.b);
+  const ware=step.ware??WARE[step.at],cup=servingFor(item,true);
+  const preparingDrink=!!drinkStyle(typeof item==='string'?item:item?.preparation||item?.name);
+  const work={task,duration,action,x,z,y:(v.view.floor||0)+spot.y,ware,cup:preparingDrink?cup:'cup',
+    level,drink:preparingDrink,pack:preparingDrink && /soda-can|soda-bottle|water|ginger-beer|soju|drink-wine$/.test(cup)?cup:null,station:station.thing.shape};
+  worker.preparation=work;v.preparing=worker;
+  // Cups in a worker's hand and machine fittings already supply their vessel.
+  if(ware && (!preparingDrink || ['pot','bowl'].includes(ware)) && !(ware==='cup' && work.pack)){
+    v.ware=spot;
+    work.mesh=v.view.group?.userData.cookAt?.(spot,ware,step.tone??foodTone(item),{action,item,at:step.at,style:dishStyle(item?.preparation||item?.name)});
+  }
+  return task;
+}
+export function clearWare(v){
+  if(v.preparing && v.preparing.preparation?.task===v.prepTask)v.preparing.preparation=null;
+  v.preparing=null;v.prepTask=null;
+  if(v.ware)v.view.group?.userData.cookAt?.(v.ware,null);
+  v.ware=null;
 }
 const voice=actor=>actor.spot?.role==='cook' || actor.spot?.role==='deliCook' || actor.spot?.role==='prep' ? 'Chef' : actor.spot?.role==='server' ? 'Server' : 'Counter';
 
-/** One member of staff working an item's steps at the stations of `kinds` (all of them if not given). Returns the last station used. */
+/** Walk once to each working position. Compound recipe steps have time for
+ * distinct grips, including setting a vessel down to change implements. */
 export function* workSteps(v,worker,item,{kinds=null,label=voice(worker)}={}) {
-  const steps=recipeFor(item,v.room.place.kind)||[], tone=foodTone(item);
-  let last=null;
+  const steps=recipeFor(item,v.room.place.kind)||[];
+  const total=steps.reduce((n,step)=>n+step.actions.reduce((sum,act)=>sum+fillWeight(step,act),0),0)||1;
+  let last=null,volume=0;
   for(const step of steps){
     if(kinds && !kinds.includes(step.at))continue;
-    const station=stationOf(v.view,step.at), phase=label+' · '+step.say;
-    if(station){
-      const stand=standAt(v.view,station,worker);
-      if(stand)yield walking(worker,stand,phase);
-      last=station;
-    }else if(worker.spot && gap(floorAt(v.view,worker),worker.spot)>.5)yield walking(worker,worker.spot,phase);
-    setWare(v,station,step.ware===undefined?WARE[step.at]:step.ware,tone);
-    v.cooking=step;
-    yield pause(worker,phase,step.secs,station||null,CLIP[step.at]||'reach');
-    clearWare(v);
+    const station=stationOf(v.view,step.at)||stationOf(v.view,'board')||stationOf(v.view,'pass');
+    const phase=label+' · '+step.say;
+    for(const action of step.actions){
+      if(station){
+        const spot=workPoint(station,action,worker,v.view);
+        const [fa,fb]=spot.face;
+        const desired={a:spot.a+fa*.39,b:spot.b+fb*.39};
+        const aisle=shopAisle(v.view),node=aisle.nearest(desired);
+        const stand=node && gap(node,desired)<.32 && aisle.route(floorAt(v.view,worker),node)?node:standAt(v.view,station,worker);
+        if(stand && gap(floorAt(v.view,worker),stand)>.16)yield walking(worker,stand,phase);
+        last=station;
+      }
+      v.cooking=step;
+      const before=volume;volume+=fillWeight(step,action)/total;
+      v.prepTask=startWork(v,worker,station,step,action,step.secs/step.actions.length,phase,item,[before,volume]);
+      yield v.prepTask;
+      clearWare(v);v.cooking=null;
+    }
   }
-  v.cooking=null;
   return last;
 }
 /** Whether an item is made behind the counter by whoever serves (a drink, a pastry from the case) and not on the line. */
@@ -196,12 +252,12 @@ export function* cookDish(v,item,{onFire}={}) {
 
 // Between tickets a cook keeps the kitchen going: stock, prep, a clean griddle.
 const CHORES=[
-  ['board','board','Chopping onions for the line',5.5,'#e9e2c4'],['range','pot','Stirring the stockpot',5,'#b98a4a'],
-  ['flat','griddle','Scraping down the flat-top',4,null],['board','board','Portioning for service',5,'#c9785a'],
-  ['steam','ladle','Topping up the steam table',4,'#b87940'],['cold','bowl','Restocking the cold station',4,'#7fa860'],
-  ['oven','tray','Checking what is in the oven',3.5,'#d9a45a'],['wok','wok','Seasoning the wok',4,null],
-  ['fry','basket','Skimming the fryer',3.5,null],['sushi','board','Slicing fish for the case',5,'#e98a6a'],
-  ['spit','board','Shaving the spit',4,'#8a4a2a'],['board','bowl','Mixing a batch',5,'#e9dcb4'],
+  ['board','board','Chopping onions for the line',5.5,'#e9e2c4','chop'],['range','pot','Stirring the stockpot',5,'#b98a4a','stir'],
+  ['flat','griddle','Scraping down the flat-top',4,null,'scrape'],['board','board','Portioning for service',5,'#c9785a','slice'],
+  ['steam','ladle','Topping up the steam table',4,'#b87940','ladle'],['cold','bowl','Restocking the cold station',4,'#7fa860','place'],
+  ['oven','tray','Checking what is in the oven',3.5,'#d9a45a','tray'],['wok','wok','Seasoning the wok',4,null,'stir'],
+  ['fry','basket','Skimming the fryer',3.5,null,'scoop'],['sushi','board','Slicing fish for the case',5,'#e98a6a','slice'],
+  ['spit','board','Shaving the spit',4,'#8a4a2a','carve'],['board','bowl','Mixing a batch',5,'#e9dcb4','stir'],
 ];
 /** Idle cooks do the work a kitchen never runs out of. They drop it the moment a ticket comes in. */
 export function stepKitchenChores(view,dt) {
@@ -221,21 +277,21 @@ export function stepKitchenChores(view,dt) {
       // Only on the equipment the job is really done at: nobody seasons a wok on a pizza oven.
       const jobs=CHORES.filter(([kind])=>{const shape=stationOf(view,kind)?.thing?.shape, at=EQUIPMENT[kind].indexOf(shape);return at>=0 && at<(kind==='board'||kind==='cold'?4:kind==='range'||kind==='steam'?3:2);});
       if(!jobs.length){actor.rest=30;continue;}
-      const [kind,ware,phase,time,tone]=jobs[Math.floor(view.random()*jobs.length)], station=stationOf(view,kind);
+      const [kind,ware,phase,time,tone,action]=jobs[Math.floor(view.random()*jobs.length)], station=stationOf(view,kind);
       const stand=standAt(view,station,actor);
       if(!stand){actor.rest=6;continue;}
-      actor.chore={view,station,ware,tone,phase,time,clip:CLIP[kind]||'reach',trip:walking(actor,stand,phase)};
+      actor.chore={view,station,kind,ware,tone,phase,time,action,clip:CLIP[action]||'reach',trip:walking(actor,stand,phase)};
       continue;
     }
     if(chore.trip){
       if(!reached({view},chore.trip,dt))continue;
       chore.trip=null;
-      setWare(chore,chore.station,chore.tone?chore.ware:null,chore.tone);
+      chore.prepTask=startWork(chore,actor,chore.station,{at:chore.kind,ware:chore.ware,tone:chore.tone},chore.action,chore.time,chore.phase,null);
     }
     const at=floorAt(view,actor);
     if(gap(at,chore.station)>.05)facePoint(view,actor,chore.station);
     actor.clip=chore.clip;actor.stride=0;actor.time=(actor.time||0)+dt;
-    chore.time-=dt;
+    chore.time-=dt;chore.prepTask.time=chore.time;
     if(chore.time<=0){
       clearWare(chore);actor.chore=null;actor.clip=null;actor.rest=2+view.random()*5;
       if(gap(at,actor.spot)>.6)actor.returning=true;

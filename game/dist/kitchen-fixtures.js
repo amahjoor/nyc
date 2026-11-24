@@ -80,14 +80,36 @@ const WARES={
     for(let i=0;i<5;i++){const a=i*1.26+.4;t.can(Math.cos(a)*.08,Math.sin(a)*.08,.018,.003,.024,mix(tone,'#8a2a1e',.65));}
     t.can(.01,-.01,.02,.003,.024,mix(tone,'#fff3c8',.6));t.can(-.05,.03,.016,.003,.0245,mix(tone,'#fff3c8',.5));
   },
-  board(t,tone){
-    t.box(0,0,.3,.22,.018,0,'#e7e3d3');t.box(-.08,-.04,.09,.06,.042,.018,tone);
+  board(t,tone,inUse){
+    t.box(0,0,.3,.22,.018,0,'#e7e3d3');
+    if(['sushi','kimbap','nigiri'].includes(inUse?.style)){
+      if(inUse.style==='nigiri'){
+        t.ball(.015,0,.063,.024,.034,.042,inUse.action==='slice'?'#e99570':'#eee7cd');
+        if(inUse.action==='shape')t.ball(.015,0,.057,.009,.034,.065,'#df8a69');
+      }else{
+        for(let i=-6;i<=6;i++)t.rodU(0,i*.014,.245,.006,.024,'#bda16b');
+        if(inUse.action==='slice'){
+          t.rodU(0,0,.192,.029,.057,'#414939');
+          for(const u of [-.061,-.023,.022,.067])t.box(u,.001,.003,.055,.046,.033,'#e1dec6');
+        }else{
+          t.box(0,0,.19,.14,.003,.032,'#444c3d');t.box(0,.01,.179,.10,.007,.035,'#ebe5d1');
+          if(inUse.action!=='spread')t.rodU(0,.024,.16,.012,.048,'#df9471');
+        }
+      }
+      return;
+    }
+    if(inUse?.action==='stretch' || inUse?.style==='calzone'){
+      t.ball(0,0,.128,.014,.094,.032,'#e8cda3');return;
+    }
+    t.box(-.08,-.04,.09,.06,.042,.018,tone);
     for(const[u,v,k]of[[-.01,-.05,.2],[.02,-.02,-.15],[.05,-.055,.1],[.0,-.0,.3],[.045,.005,-.1],[.08,-.025,.22]])t.box(u,v,.022,.02,.016,.018,mix(tone,k>0?'#fff0c8':'#3a2416',Math.abs(k)));
+    if(inUse)return;
     t.box(.05,.065,.17,.034,.003,.019,'#d5d9d8');t.box(-.085,.062,.1,.022,.016,.018,IRON);
   },
-  bowl(t,tone){
+  bowl(t,tone,inUse){
     t.basin(0,0,.3,.3,.13,0,'#c4c9c5');t.disc(0,0,.1,.004,.078,tone);
     t.ball(-.01,-.01,.06,.014,.06,.084,mix(tone,'#ffffff',.18));
+    if(inUse)return;
     t.slope(.03,.02,.092,.14,.19,.011,.011,CHROME);t.bud(.03,.02,.024,.098,CHROME);
   },
   plate(t,tone){
@@ -95,17 +117,28 @@ const WARES={
     t.ball(-.015,-.005,.055,.03,.05,.038,tone);t.ball(.05,-.04,.032,.018,.03,.022,mix(tone,'#f0e6c8',.65));
     t.bud(.03,.05,.02,.022,'#5f8f45');t.bud(.055,.035,.015,.02,'#b8402f');
   },
-  ladle(t,tone){
+  ladle(t,tone,inUse){
     t.box(0,0,.33,.27,.065,0,'#b9bfbb');t.box(0,0,.35,.29,.006,.065,HI);t.box(0,0,.3,.24,.004,.071,tone);
     for(const[u,v,k]of[[-.08,-.05,.2],[-.03,.05,-.15],[-.1,.06,.1],[.09,.07,-.1]])t.ball(u,v,.035,.014,.03,.076,mix(tone,k>0?'#fff0c8':'#3a2416',Math.abs(k)));
+    if(inUse)return;
     t.ball(.06,-.045,.036,.02,.036,.085,CHROME);t.slope(.06,-.03,.085,.13,.2,.014,.008,CHROME);
   },
   cup(t,tone){
     t.post(0,0,.033,.05,0,'#f1efe6');t.post(0,0,.039,.075,.05,'#f1efe6');t.post(0,0,.036,.04,.04,'#b8463c');
     t.disc(0,0,.042,.006,.123,'#f7f5ee');t.disc(0,0,.034,.002,.129,tone);
   },
-  griddle(t,tone){
+  griddle(t,tone,inUse){
+    if(/burger|sliders/.test(inUse?.style)){
+      const count=inUse.style==='sliders'?3:inUse.style==='burger-double'?2:1;
+      for(let i=0;i<count;i++){
+        const u=(i-(count-1)/2)*(count===3?.09:.13),r=count===3?.043:.065;
+        t.disc(u,0,r,.021,0,inUse.action==='press'?'#a46452':'#77503a');
+        if(inUse.action==='place')t.box(u,0,r*1.8,r*1.8,.004,.021,'#efb84d');
+      }
+      return;
+    }
     for(const[u,v]of[[-.08,-.045],[.045,-.065],[-.03,.065]]){t.can(u,v,.052,.016,0,tone);t.can(u,v,.04,.003,.016,mix(tone,'#3a2416',.45));}
+    if(inUse)return;
     t.box(.1,.055,.075,.09,.003,.003,'#cfd3d0');t.slope(.1,.1,.008,.215,.075,.022,.012,IRON);
   },
 };
@@ -618,7 +651,7 @@ export const KITCHEN_FIXTURES={
     for(let k=-1;k<=1;k++)t.box(0,-.04+k*.06,w-.14,.022,.002,h-.015,IRON);
   },
   /** What is on the heat or the board while a cook works: `more.ware` names it, `more.tone` colours the food. */
-  cookware(t,w,d,h,hex,{ware,tone='#c98a4b'}={}){
-    (Object.hasOwn(WARES,ware)?WARES[ware]:WARES.pan)(t,tone);
+  cookware(t,w,d,h,hex,{ware,tone='#c98a4b',inUse}={}){
+    (Object.hasOwn(WARES,ware)?WARES[ware]:WARES.pan)(t,tone,inUse);
   },
 };

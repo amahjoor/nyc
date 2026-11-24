@@ -289,13 +289,14 @@ function cafeKitchen(r,prop) {
   if(!bar)return;
   bar.face=[1,0];
   const up=1.045, machine=r.things.find(t=>t.shape==='espresso' || t.shape==='blenders'), glass=r.things.find(t=>t.shape==='showcase');
-  if(machine)for(const job of machine.shape==='espresso'?['espresso','brew']:['blender','fountain'])station(r,job,machine,{top:up});
+  if(machine)for(const job of machine.shape==='espresso'?['espresso']:['blender','fountain'])station(r,job,machine,{top:up});
   if(glass)station(r,'case',glass,{top:up+.05});
   for(const [shape,jobs] of [['toaster',['oven','flat']],[r.place.kind==='juice'?null:'coffeeBrewer',['brew']]]){
     if(!shape)continue;
     const at=freeStretch(r,bar,shape==='toaster'?.5:.55,true);
     if(at!=null)onTop(r,prop,shape,bar.a-.04,at,up,[-1,0],jobs);
   }
+  if(machine?.shape==='espresso')station(r,'brew',machine,{top:up});
   const cup=r.things.find(t=>t.shape==='cup' && t.more?.pickup);
   station(r,'pass',bar,{b:cup?cup.b-.3:bar.b,top:up});station(r,'board',bar,{b:cup?cup.b-.3:bar.b,top:up});
 }
