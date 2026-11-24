@@ -110,7 +110,9 @@ const angleDifference = (a,b) => Math.atan2(Math.sin(a-b),Math.cos(a-b));
 const SAVE_KEY = 'nyc-after-hours-v1';
 const DISPLAY_KEY = 'nyc-after-hours-display-v1';
 let sim, city, renderer, scene, camera, world, hud, avatar, marker, markerDiamond, navigation, gfx, policeScene;
-let started=false, paused=false, highQuality=false, farCamera=false, aerialView=false, aerialTracking=false, savedEarnings='';
+let started=false, paused=false, farCamera=false, aerialView=false, aerialTracking=false, savedEarnings='';
+const graphicsTiers=['performance','balanced','high'];
+let graphicsQuality='balanced';
 let shadowsEnabled=true;
 let cityIndex, roadIndex, roadStream, ground, streetDetail, bootReady=false, traveling=false;
 let viewOverride=null;
@@ -1308,7 +1310,12 @@ paceButton.addEventListener('click',()=>{
   input.clear();input.tapSprint=!input.tapSprint;showPaceButton();
   try{localStorage.setItem('nyc.controller-sprint',input.tapSprint?'tap':'hold');}catch{}
 });
-$('quality-button').addEventListener('click',()=>{highQuality=!highQuality;qualityTimer=slowSeconds=0;applyQuality();});
+$('quality-button').addEventListener('click',()=>{
+  const index=graphicsTiers.indexOf(graphicsQuality);
+  graphicsQuality=graphicsTiers[(index+1)%graphicsTiers.length];
+  qualityTimer=slowSeconds=0;
+  applyQuality();saveDisplaySettings();
+});
 $('hours-button').addEventListener('click',()=>{
   actualHours=!actualHours;
   updateHoursButton();
@@ -1411,10 +1418,10 @@ window.addEventListener('resize',resize);
 function applyQuality() {
   if(!renderer)return;
   // Quality sets shadow map sizes and the resolution the frame is drawn at.
-  gfx.setQuality(highQuality?'high':'balanced');
+  gfx.setQuality(graphicsQuality);
   renderer.setPixelRatio(Math.min(devicePixelRatio||1,gfx.pixelRatioLimit));
   setLocalShadows(!cityView);
-  $('quality-value').textContent=highQuality?'HIGH':'BALANCED';
+  $('quality-value').textContent=graphicsQuality.toUpperCase();
   resize();
 }
 function setLocalShadows(enabled) {
@@ -1440,13 +1447,14 @@ function updateHoursButton(){
 function restoreDisplaySettings(){
   try{
     const saved=JSON.parse(localStorage.getItem(DISPLAY_KEY)||'null');
+    if(saved?.version===1&&graphicsTiers.includes(saved.quality))graphicsQuality=saved.quality;
     if(saved?.version===1&&typeof saved.shadows==='boolean')shadowsEnabled=saved.shadows;
     if(saved?.version===1&&typeof saved.actualHours==='boolean')actualHours=saved.actualHours;
   }catch{}
   updateShadowButton();updateHoursButton();
 }
 function saveDisplaySettings(){
-  try{localStorage.setItem(DISPLAY_KEY,JSON.stringify({version:1,shadows:shadowsEnabled,actualHours}));}catch{}
+  try{localStorage.setItem(DISPLAY_KEY,JSON.stringify({version:1,shadows:shadowsEnabled,actualHours,quality:graphicsQuality}));}catch{}
 }
 function resize() {
   if(!renderer)return;
@@ -3529,11 +3537,17 @@ function frame(now) {
   if(started && !paused && !mapOpen && !cityView && !traveling && !document.hidden && elapsedSeconds>0){
     sampledSeconds+=elapsedSeconds;sampledFrames++;
     if(sampledSeconds>=1){recentFrameMs=1000*sampledSeconds/sampledFrames;sampledSeconds=sampledFrames=0;}
-    if(highQuality){
-      qualityTimer+=elapsedSeconds;
-      if(elapsedSeconds>.035)slowSeconds+=elapsedSeconds;
+    if(graphicsQuality!=='performance'){
+      // One long load or a return from a background tab must not decide the tier.
+      const sample=Math.min(.1,elapsedSeconds);
+      qualityTimer+=sample;
+      if(elapsedSeconds>.035)slowSeconds+=sample;
       if(qualityTimer>=5){
-        if(slowSeconds>qualityTimer*.64){highQuality=false;applyQuality();announce('Switched to balanced graphics for smoother streets.');}
+        if(slowSeconds>qualityTimer*.64){
+          graphicsQuality=graphicsTiers[graphicsTiers.indexOf(graphicsQuality)-1];
+          applyQuality();saveDisplaySettings();
+          announce('Switched to '+graphicsQuality+' graphics for smoother streets.');
+        }
         qualityTimer=slowSeconds=0;
       }
     }
@@ -3957,7 +3971,7 @@ async function boot() {
   scene=new THREE.Scene();
   camera=new THREE.PerspectiveCamera(52,innerWidth/innerHeight,10,150000);
   // Sky, sun, haze and the screen-space finish share one time of day.
-  gfx=createGraphics({renderer,scene,camera});
+  gfx=createGraphics({renderer,scene,camera,quality:graphicsQuality});
   sim=new Simulation(city,{bank:phoneBank,bankClock:()=>gfx.clock,onVehicleContact:(kind,car,other,speed)=>audio.vehicleContact(kind,car,other,speed),
     onPedestrianBump:(person,pace)=>audio.bump(person,pace,sim.elapsed),onTripPaid:saveProgress,
     onEndingLoss:(kind,carried)=>{
@@ -3986,7 +4000,7 @@ async function boot() {
     image.onload=()=>water.setContext(image,manifest);
     image.src=manifest.url;
   }).catch(()=>{});
-  gfx.passes.push((renderer,scene,camera)=>water.renderMirror(renderer,scene,camera,{enabled:!gfx.indoors&&(Boolean(viewOverride)||!cityView),scale:highQuality?.75:.5}));
+  gfx.passes.push((renderer,scene,camera)=>water.renderMirror(renderer,scene,camera,{enabled:graphicsQuality!=='performance'&&!gfx.indoors&&(Boolean(viewOverride)||!cityView),scale:graphicsQuality==='high'?.75:.5}));
   sim.moves=true;
   // The crowd answers for itself when a car hits it, and a death or an arrest is watched before what follows.
   sim.peopleReact=true;sim.endingSeconds=2;

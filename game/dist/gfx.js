@@ -12,6 +12,7 @@ export { TIME_PRESETS, formatClock };
 /** Half-width in metres of each sun shadow cascade, nearest first. */
 export const CASCADE_EXTENTS = [48, 190, 900];
 export const QUALITY = {
+  performance: { pixelRatio: 1, samples: 0, shadowSizes: [1024, 1024, 512], occlusion: false, shafts: false, bloomLevels: 3 },
   balanced: { pixelRatio: 1.15, samples: 4, shadowSizes: [2048, 2048, 1024], occlusion: true, shafts: true, bloomLevels: 5 },
   high: { pixelRatio: 1.65, samples: 4, shadowSizes: [4096, 2048, 2048], occlusion: true, shafts: true, bloomLevels: 6 },
 };

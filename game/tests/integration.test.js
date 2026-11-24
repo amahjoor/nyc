@@ -2040,6 +2040,21 @@ test('Prospect Lake arrival retains real building collisions while slower park d
   }finally{app.releaseLandscape();await app.until(()=>!app.state().traveling);app.close();}
 });
 
+test('slow street frames select Performance and the quality button can restore Balanced',async()=>{
+  const app=await bootHarness();
+  try{
+    app.click('start-button');app.click('view-button');app.frames();
+    const label=app.elements.get('quality-value');
+    app.frames(1,6000);
+    assert.equal(label.textContent,'BALANCED');
+    app.frames(52,100);
+    assert.equal(label.textContent,'PERFORMANCE');
+    assert.equal(JSON.parse(app.storage.get('nyc-after-hours-display-v1')).quality,'performance');
+    app.click('quality-button');
+    assert.equal(label.textContent,'BALANCED');
+  }finally{app.close();}
+});
+
 test('shadow preference persists and survives quality changes and camera switches',async()=>{
   const app=await bootHarness({displayStored:JSON.stringify({version:1,shadows:false})});
   try{
@@ -2050,7 +2065,7 @@ test('shadow preference persists and survives quality changes and camera switche
     app.click('shadows-button');app.frames();
     assert.equal(app.state().shadows.active,true);
     assert.equal(app.elements.get('shadows-button').getAttribute('aria-pressed'),'true');
-    assert.deepEqual(JSON.parse(app.storage.get('nyc-after-hours-display-v1')),{version:1,shadows:true});
+    assert.deepEqual(JSON.parse(app.storage.get('nyc-after-hours-display-v1')),{version:1,shadows:true,actualHours:false,quality:'high'});
     app.click('city-button');app.frames();assert.equal(app.state().shadows.active,false);
     app.click('city-button');app.frames();assert.equal(app.state().shadows.active,true);
     app.click('shadows-button');app.frames();assert.equal(app.state().shadows.active,false);
