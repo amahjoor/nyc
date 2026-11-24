@@ -7,7 +7,9 @@ The archive collection is five hundred pieces of archival fashion, each cut and 
 - The tailor: [`scripts/garment-shells.mjs`](../scripts/garment-shells.mjs). The painter: [`scripts/garment-paint.mjs`](../scripts/garment-paint.mjs).
 - `node scripts/build-human.mjs` builds everything into `dist/human/`.
 
-The first hundred ship with the figure, in `dist/human/parts.bin`. Each later chapter has a bin of its own, `dist/human/archive/<chapter>.bin`, which the game fetches when one of its pieces is first put on (`human.ready(wear)` in [`dist/human.js`](../dist/human.js)): a piece numbered above 100 is given its chapter's `bin` by the build, and nothing in a recipe says so.
+The first hundred ship with the figure, in `dist/human/parts.bin`. Each later piece has a bin of its own, `dist/human/archive/<id>.bin` (with whatever is worn under it), which the game fetches when the piece is first put on, by the player or by somebody on the street (`human.ready(wear)` in [`dist/human.js`](../dist/human.js)): a piece numbered above 100 is given its `bin` by the build, and nothing in a recipe says so.
+
+People on the street wear the collection as looks ([`dist/archive-looks.js`](../dist/archive-looks.js)): a top with the trousers and shoes that go with it. A look is in the wardrobe of everybody it suits, so a new one is on the street as soon as it is listed. What a look wears is drawn from smaller pictures at street distance; `node scripts/archive-wardrobe.mjs street` makes them for any piece a look names that has none.
 
 ## A piece
 
