@@ -7,6 +7,7 @@ export const propId = (kind, x, z) => `${kind}:${Math.round(x * 100)}:${Math.rou
 export class StreetObjects {
   constructor() {
     this.groups = new Map();
+    this.byId = new Map();
     this.grid = new Map();
     this.damage = new Map();
     this.moving = new Map();
@@ -34,6 +35,7 @@ export class StreetObjects {
   replace(group, bodies) {
     for (const body of this.groups.get(group) || []) {
       this._index(body, false);
+      if(this.byId.get(body.id)===body)this.byId.delete(body.id);
       if (body.pose && !body.pose.settled) {
         // Finish the movement after the mesh streams out. Drop the GPU references.
         this.moving.set(body.id, { ...body, draw: null, loaded: false });
@@ -43,6 +45,7 @@ export class StreetObjects {
     else this.groups.delete(group);
     for (const body of bodies) {
       body.kind ??= group;
+      this.byId.set(body.id,body);
       body.loaded = true;
       body.pose = this.damage.get(body.id);
       if (body.pose) {
@@ -51,6 +54,20 @@ export class StreetObjects {
       }
       this._index(body, true);
     }
+  }
+
+  applyPose(id, values) {
+    const body=this.byId.get(id);
+    if(!body)return;
+    this._index(body,false);
+    const [dx,dz,lift,tilt,nx,nz,vx,vz,vy,air,spin,restTilt,settled]=values;
+    const pose=Object.assign(body.pose || {},{dx,dz,lift,tilt,nx,nz,vx,vz,vy,air,spin,restTilt,settled:!!settled});
+    body.pose=pose;
+    this.damage.set(id,pose);
+    if(settled)this.moving.delete(id);
+    else this.moving.set(id,body);
+    this._index(body,true);
+    body.draw?.(pose);
   }
 
   skateRail(x,y,z,heading){
@@ -140,6 +157,7 @@ export class StreetObjects {
       settled: false, actor: actor.id ?? 'player', clearAt: time + (loose ? .35 : .85) });
     body.pose = pose;
     this.damage.set(body.id, pose);
+    this.onStrike?.(hit,actor,vx,vz,vehicle);
     this.moving.set(body.id, body);
     body.draw?.(pose);
     const retained = bag ? .995 : loose ? .94 : body.kind === 'lamp' ? .61 : body.kind === 'rail' ? .78 : .84;

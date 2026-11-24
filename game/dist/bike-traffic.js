@@ -240,6 +240,18 @@ export function createBikeTraffic({scene,index,heightAt,appearance,onDisplaced,o
   return {riders,bicycles,figures,meshes,take,update(focus,dt,context={}){
     parts.reset();figures.length=0;bicycles.length=0;for(const mesh of meshes)mesh.count=0;
     if(!context.visible){spawnIn=0;return;}
+    if(context.networkBikes){
+      riders.length=0;
+      for(const [x,y,z,angle,personal,scale,pedal] of context.networkBikes){
+        const mesh=meshes[personal?1:0];
+        if(mesh.count>=mesh.instanceMatrix.count)continue;
+        matrix.scale.setScalar(scale);matrix.position.set(x,y,z);matrix.rotation.set(0,angle,0,'YXZ');matrix.updateMatrix();
+        mesh.setMatrixAt(mesh.count++,matrix.matrix);
+        parts.draw(x,y,z,angle,pedal,pedal*2*Math.PI/PEDAL_PERIOD,scale,0);
+      }
+      for(const mesh of meshes)mesh.instanceMatrix.needsUpdate=true;
+      return;
+    }
     for(let i=riders.length-1;i>=0;i--)if(Math.hypot(riders[i].x-focus.x,riders[i].z-focus.z)>165)riders.splice(i,1);
     spawnIn-=dt;
     if(spawnIn<=0){spawn(focus,context);spawnIn=.85;}

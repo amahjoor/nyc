@@ -447,7 +447,7 @@ export class Simulation {
     const from = Math.atan2(car.x - junction.x, car.z - junction.z);
     let index = -1, best = .9;
     junction.arms.forEach((arm, i) => { const d = Math.abs(turnDelta(arm.angle, from)); if (d < best) { best = d; index = i; } });
-    if (index < 0 || vehicleAspect(junction.plan, junction.plan.groups[index], this.elapsed).aspect !== 'red') return;
+    if (index < 0 || vehicleAspect(junction.plan, junction.plan.groups[index], this.onlineClock ?? this.elapsed).aspect !== 'red') return;
     this.redLights = (this.redLights || 0) + 1;
     if (this.police.watching(car)) {
       this.offence('redLight', { seen: true, message: 'A patrol saw you run that red light.' });
@@ -757,7 +757,7 @@ export class Simulation {
     const focus = this._trafficFocus(), strays = [];
     let moving = 0, farthest = null, unseen = 0;
     for (const car of this.cars) {
-      if (!car._edge || car.hired || car.errand || car._kerb || car.controlled || car.siren) continue;
+      if (!car._edge || car.hired || car.errand || car._kerb || car.controlled || car.onlineDriver || car.siren) continue;
       // A car may go from wherever one may appear.
       const seen = distance(car, this.player), hidden = seen >= this._joinDistance(car);
       if (car.type !== 'police') { moving++; if (hidden && seen > unseen) { farthest = car; unseen = seen; } }
@@ -1253,6 +1253,7 @@ export class Simulation {
    * @returns {number} kerbside cars now present
    */
   syncParkedCars(spaces = []) {
+    if(this.onlineReplica)return this.cars.filter(car=>car._kerb).length;
     const wanted = new Map(spaces.map(space => [space.id,space]));
     let changed = false, present = 0;
     this.cars = this.cars.filter(car => {
@@ -1564,6 +1565,7 @@ export class Simulation {
         return true;
       }
       if (!car) { this._say('Move closer to a taxi or parked car.'); return false; }
+      if (car.onlineDriver) { this._say('Another player is driving this car.'); return false; }
       if (car.destroyed || car.burningSince != null) { this._say(car.destroyed ? 'This car is burned out.' : 'The car is on fire.'); return false; }
       if (vehicleTravelSpeed(car) > 4) { this._say('Wait for the car to slow down.'); return false; }
       // With moves on, getting in takes a moment: a door opened, a window broken or a driver hauled out (player-moves.js).
@@ -1796,8 +1798,13 @@ export class Simulation {
     }
     this.distanceTravelled += distance(before, this.player);
     this._trafficTimer = (this._trafficTimer || 0) - dt;
-    if (this._trafficTimer <= 0) { this._trafficTimer = .5; this._balanceTraffic(); }
+    if (!this.onlineReplica && this._trafficTimer <= 0) { this._trafficTimer = .5; this._balanceTraffic(); }
     for (const car of this.cars) {
+      if (car.onlineDriver || this.onlineReplica && !car.controlled) {
+        if (!this.room && !this.subway?.enclosed && ['walk','bike','skate'].includes(this.player.mode) &&
+            vehicleTravelSpeed(car)>.02 && distance(car,this.player)<7) this._hitPerson(car,this.player,vehicleTravelSpeed(car));
+        continue;
+      }
       if(car.bodyRock){
         const age=this.elapsed-car.bodyRock.at;
         if(age>1) delete car.bodyRock;
@@ -1877,7 +1884,7 @@ export class Simulation {
       this._hitPeople(car);
     }
     this.updateGrounding();
-    this.police.update(dt);
+    if(!this.onlineReplica || this.heat || this.police.calls.length)this.police.update(dt);
     this._updateMission(dt,Boolean(this.subway));
     if (this.health <= 0 && !this.ending) {
       const cause = this._downed || 'wreck';
@@ -2799,7 +2806,7 @@ export class Simulation {
       }
       const gap = (1 - projection.t) * edge.length - setback - halfLength;
       if (gap > -1.5 && gap < 45) {
-        const { aspect } = vehicleAspect(plan, edge.arrives, this.elapsed);
+        const { aspect } = vehicleAspect(plan, edge.arrives, this.onlineClock ?? this.elapsed);
         const braking = 1.8 + .6 * pace;
         if (aspect === 'yellow') {
           if (car._yellowEdge !== edge.id) {

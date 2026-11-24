@@ -14,6 +14,8 @@ export function createPoliceScene(scene, heightAt = () => 0) {
   const details = createPoliceDetails(), equipment = new Map(), field = new THREE.Group();
   field.name = 'Police field details';
   scene.add(field);
+  const sharedEquipment=new Map(), sharedField=new THREE.Group();
+  scene.add(sharedField);
   let previousPlan;
   const visibleActors=[], deployedIds=new Set();
   function nearestFacing(player,actors,reach){
@@ -69,6 +71,28 @@ export function createPoliceScene(scene, heightAt = () => 0) {
   const down = new THREE.Vector3(0, -1, 0), toward = new THREE.Vector3();
   return {
     helicopter, details,
+    captureEquipment(){
+      const rows=[];
+      for(const actor of details.actors){
+        const m=equipment.get(actor.id)?.model;
+        if(m?.visible && rows.length<48)rows.push([String(actor.id),actor.post.unit.activity,m.position.x,m.position.y,m.position.z,m.rotation.y]);
+      }
+      return rows;
+    },
+    drawSharedEquipment(rows,shown){
+      sharedField.visible=Boolean(rows && shown);
+      if(!rows && !sharedEquipment.size)return;
+      const keep=new Set();
+      for(const [id,activity,x,y,z,angle] of rows || []){
+        const key=id+'/'+activity;
+        let model=sharedEquipment.get(key);
+        if(!model){model=equipmentFor(activity);sharedField.add(model);sharedEquipment.set(key,model);}
+        model.position.set(x,y,z);model.rotation.y=angle;
+        model.visible=!['dog','horse'].includes(activity) || Boolean(model.userData.animal);
+        keep.add(key);
+      }
+      for(const [key,model] of sharedEquipment)if(!keep.has(key)){sharedField.remove(model);sharedEquipment.delete(key);}
+    },
     plan(context) {
       const last = previousPlan;
       if (last && last.fronts === context.fronts && last.kerbs === context.kerbs &&

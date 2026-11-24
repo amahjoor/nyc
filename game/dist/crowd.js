@@ -1394,6 +1394,7 @@ export function createCrowd({ scene = null, life, boroughs = [], heightAt = () =
       // A jump across the city starts a new crowd rather than marching the old one over.
       if (lastFocus && Math.hypot(focus.x - lastFocus.x, focus.z - lastFocus.z) > 150) { people.length = 0; filled = false; encountered.clear();balanceTimer=0; }
       lastFocus = { x: focus.x, z: focus.z };
+      if(context.replica && people.length){people.length=0;encountered.clear();filled=false;}
       neighbours.clear();
       // Read one frame's pace and spacing for the whole file, even if its
       // leader updates last. Each collision sweep still sees the live bodies.
@@ -1405,7 +1406,7 @@ export function createCrowd({ scene = null, life, boroughs = [], heightAt = () =
       for (const officer of context.officers || []) neighbours.put(officer);
       if (player?.mode === 'walk') neighbours.put(player);
       balanceTimer -= dt;
-      if (balanceTimer <= 0 && walks.length) {
+      if (!context.replica && balanceTimer <= 0 && walks.length) {
         balanceTimer = .35;
         // How many people each stretch should hold, scaled down together if the city asks for more than can be drawn.
         const near = []; let wanted = 0, plazaHeadroom = 0;
@@ -1620,6 +1621,18 @@ export function createCrowd({ scene = null, life, boroughs = [], heightAt = () =
      * { top, bottom, skin, hair, kit, height }, `phase` is where in its stride the figure is, in radians,
      * and `stride` how much it is striding, from 0 standing to 1; `sitting` seats the figure instead.
      */
+    resumePedestrians(actors) {
+      for(const actor of actors){
+        if(!actor.pedestrian || people.length>=capacity)continue;
+        const run=nearestRun(actor.x,actor.z);
+        if(!run)continue;
+        const person=streetWitness({...actor});
+        Object.assign(person,{run,clip:null,wait:0,bold:false,sample:0,fade:0,
+          look:{...actor.look,member:actor.member%VARIANT_STEP,variant:Math.floor(actor.member/VARIANT_STEP),build:1,pace:1.4}});
+        rejoin(person);
+        if(actor.dead){person.dead=true;person.state='down';person.out=true;person.down=10;}
+      }
+    },
     setExtras(list, bodies = list) { extras = list || []; extraBodies = bodies || []; },
     palm(actor) { return figures?.palm?.(figureOf(actor.look),actor); },
     updateShoppingDrivers(sim,spaces,stores,appearance) {

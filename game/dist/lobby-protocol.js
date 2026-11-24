@@ -1,6 +1,7 @@
 // All clients use city world metres and radians. Name, mode and activity IDs
 // come from this shared vocabulary, including on the standalone lobby server.
-export const PROTOCOL = 'concrete-jungle.v1';
+export const LEGACY_PROTOCOL = 'concrete-jungle.v1';
+export const PROTOCOL = 'concrete-jungle.v2';
 export const TICK_MS = 100;
 export const RADIUS = 650;
 export const MAX_NEARBY = 32;

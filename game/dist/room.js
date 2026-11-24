@@ -238,6 +238,7 @@ export class ShopDoor {
     const angle = Math.max(-1.65, Math.min(1.65, contact));
     const change = angle - this.angle;
     if (change * side >= 0) return;
+    this.pushed=true;
     this.angle = angle;
     const impulse = Math.min(4, Math.abs(change) / dt);
     this.velocity = -side * Math.max(-side * this.velocity, impulse);

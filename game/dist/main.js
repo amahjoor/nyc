@@ -654,6 +654,7 @@ function updateFittingCamera(p,dt){
   chaseHeight=null;chaseEyeOffset=null;snapChase=true;
 }
 function streetTargets(){
+  if(onlineCity?.replica)return onlineCity.actors;
   return bikeTraffic ? sim.bystanders.concat(bikeTraffic.riders.filter(r=>!r.abandoned)) : sim.bystanders;
 }
 function alarmStreet(at,reach,chance,options={}){
@@ -676,6 +677,10 @@ function resolveMelee(event) {
   const target=action?.point && action.touched!==false ? action.target : null;
   if (target && !sim.player.reaction && !sim.ending) {
     const heavy=kick || action.heavy;
+    if(target.sceneId && onlineCity?.replica){
+      onlineLobby.contact(['strike',target.sceneId,angle,0,'']);sim.assault(target.x,target.z);
+      audio.effect(heavy?'heavyHit':'bodyHit',target,.62,17);return target;
+    }
     if (sim.police.strike(x,z,angle,heavy?1.5:1,y,low,target,action.timing.reaction)) {
       audio.effect(heavy?'heavyHit':'bodyHit',target,.62,17);
       alarmStreet(event,8,.75);
@@ -1183,11 +1188,21 @@ function switchPerspective(){
     updatePerspectiveButton();
   }
 }
-let onlineLobby=null;
+let onlineLobby=null, onlineCity=null, sharedExtras=[];
 async function openOnlineLobby(autoJoin = false) {
   if (!onlineLobby) {
     const {createLobbyUI}=await import('./lobby.js');
-    onlineLobby=createLobbyUI({scene,layers:[ROOM_LAYER,SUBWAY_LAYER],animate:animatePerson,announce,
+    const {createOnlineCity}=await import('./online-city.js');
+    const {capturePose}=await import('./online-avatar.js');
+    const {packCar}=await import('./shared-scene.js');
+    onlineCity=createOnlineCity(sim,crowd,gfx,()=>sharedExtras,day=>{weekday=day;clockWas=gfx.hours;},()=>({bikes:bikeTraffic,rooms:storefronts?.rooms,fronts:storefronts,policeScene}));
+    sim.streetObjects.onStrike=(hit,actor,vx,vz,vehicle)=>{
+      if(onlineCity.replica && (actor===sim.player || actor===sim.vehicle))
+        onlineLobby.contact(['prop',String(hit.body.id),vx,vz,[hit.nx,hit.nz,vehicle]]);
+    };
+    onlineLobby=createLobbyUI({scene,layers:[ROOM_LAYER,SUBWAY_LAYER],announce,getShop:()=>bodyShop,
+      city:onlineCity,sampleMotion:()=>({design:playerDesign,pose:capturePose(playerBody,sim.player),
+        ride:sim.player.mode==='drive' && sim.vehicle?packCar(sim.vehicle):null,awake:!paused&&!mapOpen&&!document.hidden,heat:sim.heat}),
       sample:()=>{
         if(!started || !sim)return null;
         const p=sim.player,car=sim.vehicle;
@@ -1680,8 +1695,8 @@ function shotFired(event) {
   const room=sim.room, view=room ? sim.doorway : null;
   const direction=event.sight?.direction ?? new THREE.Vector3(Math.sin(event.angle),0,Math.cos(event.angle));
   const muzzle=event.sight?.muzzle ?? anchor.clone().addScaledVector(direction,.35);
-  const people=(crowd?.people || []).filter(person=>!person.visit || roomLocal(person.visit.room,person.x,person.z).b<=0);
-  const officers=police.officers.concat(police.fieldOfficers);
+  const people=onlineCity?.replica ? onlineCity.actors : (crowd?.people || []).filter(person=>!person.visit || roomLocal(person.visit.room,person.x,person.z).b<=0);
+  const officers=onlineCity?.replica ? [] : police.officers.concat(police.fieldOfficers);
   const views=[...new Set([view,...(storefronts?.rooms || [])])].filter(Boolean);
   const cars=sim.cars.filter(car=>Math.hypot(car.x-event.x,car.z-event.z)<GUN.range+8);
   const trace=(start,ray,range,step)=>{
@@ -1722,6 +1737,10 @@ function shotFired(event) {
       const changed=pane.car ? strikeVehicleGlass(pane.car,pane.panel,pane.offset) :
         storefronts?.breakGlass(pane.view,pane.id);
       if(!changed)continue;
+      if(onlineCity?.replica){
+        if(pane.car)onlineLobby.contact(['window',String(pane.car.id),pane.panel,pane.offset,'']);
+        else onlineLobby.contact(['glass',String(pane.view.plan.place.id),0,0,pane.id]);
+      }
       const point=from.clone().addScaledVector(along,pane.distance);
       carSmoke?.impact(point.x,point.y,point.z,along.x,along.y,along.z,'glass');
       if(!pane.car || pane.panel===PANEL.front)audio.effect('glassBreak',point,.6,36);
@@ -1741,7 +1760,10 @@ function shotFired(event) {
   }else if(result.distance<GUN.range-.01){
     carSmoke?.impact(impact.x,impact.y,impact.z,ray.x,ray.y,ray.z,result.metal?'metal':'wall');
   }
-  if(result.officer){
+  if(result.actor?.sceneId && onlineCity?.replica){
+    onlineLobby.contact(['shot',result.actor.sceneId,ray.x,ray.z,zone]);
+    hitMark.kill=false;hitMark.until=sim.elapsed+.12;
+  }else if(result.officer){
     police.hitByShot(result.actor,zone);
     hitMark.kill=!(result.actor.health>0);hitMark.until=sim.elapsed+(hitMark.kill?.32:.12);
   }else if(result.actor){
@@ -1876,7 +1898,7 @@ function showPlayer(dt,p,floor,eyeView,riding) {
     guard: (p.guard || 0) > 0, aim: armed && (!eyeView || !striking) && gunRaised(), held, heldTime, seat,
   });
   // The phone can look back at this body even when the gameplay camera hides it.
-  if(!mesh.visible && !lensActive && !(eyeView && (p.reaction || traversing)))return;
+  if(!mesh.visible && !lensActive && !onlineLobby?.joined && !(eyeView && (p.reaction || traversing)))return;
   mesh.position.set(p.x,floor+(p.lift||0)+(riding?.25:0),p.z);mesh.rotation.set(0,p.angle,0);
   const payment=sim.shopping.payment;
   const carry=!p.reaction && p.mode==='walk' && !held && !take && !armed && !p.move && !p.swing ? (payment?payment.tender || 'cash':courierBag(sim.mission) || p.carry) : null;
@@ -2507,7 +2529,7 @@ function syncScene(dt,controls) {
   // lengths off. The player's car, a patrol, a car left standing in the road
   // and whatever traffic is close by each have a model of their own, with
   // wheels that turn and steer.
-  if (started && !cityView && !paused && !mapOpen && storefronts && crowd && (sim.elapsed>=nextShopDrive || nextShopDrive-sim.elapsed>2)) {
+  if (!onlineCity?.replica && started && !cityView && !paused && !mapOpen && storefronts && crowd && (sim.elapsed>=nextShopDrive || nextShopDrive-sim.elapsed>2)) {
     nextShopDrive=sim.elapsed+1;
     updateShoppingDrivers();
   }
@@ -2528,7 +2550,7 @@ function syncScene(dt,controls) {
   parkedCars?.update(batchedParked,null,camera.position);
   const extras=[], pedestrians=[];
   if(bikeTraffic){
-    bikeTraffic.update(p,dt,{visible:started&&!cityView&&!aloft&&!traveling,
+    bikeTraffic.update(p,dt,{networkBikes:onlineCity?.replica?.bikes,visible:started&&!cityView&&!aloft&&!traveling,
       player:p,cars:sim.cars,people:crowd?.people,junctions:sim.junctions,hours:gfx.hours,time:sim.elapsed,
       contactCar:(x,z,y)=>sim._nearCar(x,z,.30,null,y),
       blocked:(x,z,y)=>sim.isBlocked(x,z,.35,{baseHeight:y})});
@@ -2557,6 +2579,10 @@ function syncScene(dt,controls) {
     view.group.userData.syncGroceries?.(sim.shopping,sim.room?.place.id===view.plan.place.id || Math.hypot(p.x-view.plan.x,p.z-view.plan.z)<14);
     view.nearbyPeople=crowd?.nearbyPeople;
     view.player=p;
+    if(onlineCity?.replica && view.door.pushed){
+      onlineLobby.contact(['door',String(view.plan.place.id),view.door.angle,view.door.velocity,'']);
+    }
+    view.door.pushed=false;
     view.door.step(dt);view.group.userData.updateDoor();
     if(!mapOpen&&!paused&&!aerialView&&!cityView&&!viewOverride&&!traveling&&started){
       const gunfire=roomUnderFire(view,sim.elapsed);
@@ -2613,7 +2639,8 @@ function syncScene(dt,controls) {
     }
   }
   if(!modelled&&sim.seat&&!eyeView&&!playerBody)extras.push({x:p.x,y:playerFloor,z:p.z,heading:p.angle,sitting:true,seat:sim.seat,look:PLAYER_LOOK});
-  policeScene.drawDetails(started && !cityView && !aloft && !traveling, paused || mapOpen ? 0 : dt,
+  policeScene.drawSharedEquipment(onlineCity?.replica?.equipment, started && !cityView && !aloft && !traveling);
+  policeScene.drawDetails(!onlineCity?.replica && started && !cityView && !aloft && !traveling, paused || mapOpen ? 0 : dt,
     {ground:groundHeight,blocked:(x,z)=>sim.isBlocked(x,z,.33),people:crowd?.people || [],player:p,waterLevel:WATER_LEVEL,
       bystanders:sim.bystanders,time:sim.elapsed,incident:sim.heat>0 ? sim.police.lastKnown : null},extras,pedestrians,sim.police);
   avatar.visible=!atmTerminal?.active && (skating||(p.mode==='walk'||cycling||openRide)&&!modelled)&&!sim.seat&&!eyeView;avatar.position.set(p.x,playerFloor,p.z);avatar.rotation.y=p.angle;
@@ -2648,7 +2675,8 @@ function syncScene(dt,controls) {
       }
     } else i++;
   }
-  drawOfficers(dt,p,extras);
+  if(!onlineCity?.replica)drawOfficers(dt,p,extras);
+  else for(const model of officerModels.values())model.body.mesh.visible=false;
   if(cycling&&!modelled){
     avatar.position.x-=.28*Math.sin(p.angle);avatar.position.z-=.28*Math.cos(p.angle);avatar.position.y+=.1;
     avatar.userData.legs.forEach((leg,i)=>{leg.rotation.x=-.52+Math.sin(playerStride+i*Math.PI)*.3;});
@@ -2674,7 +2702,7 @@ function syncScene(dt,controls) {
       phoneHand.group.rotation.y+=p.angle;
     }
   }
-  const drawingPlayer=playerBody && (playerBody.mesh.visible || phoneCameraActive());
+  const drawingPlayer=playerBody && (playerBody.mesh.visible || phoneCameraActive() || onlineLobby?.joined);
   for(const car of sim.cars){
     if(!activeCars.has(car.id))continue;
     let mesh=carModels.get(car.id);
@@ -2722,7 +2750,9 @@ function syncScene(dt,controls) {
       struckSeen.set(car,impact);
       carSmoke?.burst(impact.x,(car.y||0)+.55,impact.z,impact.speed,impact);
     }
-    if(mesh.userData.update)mesh.userData.update(elapsed,car,sim.heat);
+    const lightClock=sim.onlineClock ?? elapsed;
+    const policeHeat=onlineCity?.replica ? Number(car.siren) : sim.heat;
+    if(mesh.userData.update)mesh.userData.update(lightClock,car,policeHeat);
     const driver=mesh.userData.detail?.driver;
     if(p.mode==='passenger' && car.id===p.vehicleId && drawingPlayer && driver){
       const body=playerBody.mesh;
@@ -2731,7 +2761,9 @@ function syncScene(dt,controls) {
       playerBody.bones[playerBody.rig.index.get('pelvis')].getWorldPosition(hipAt);
       body.position.add(driverSeat.sub(hipAt));
     }
-    if(car.controlled && driver && (eyeView || playerBody)){
+    if(car.onlineDriver && driver){
+      driver.visible=false;
+    }else if(car.controlled && driver && (eyeView || playerBody)){
       driver.visible=false;
       if(drawingPlayer){
         const body=playerBody.mesh;
@@ -2752,7 +2784,7 @@ function syncScene(dt,controls) {
     // Scene factories may expose lamp meshes for a lightweight police flash.
     if(car.type==='police')for(const [i,light] of (mesh.userData.lights||[]).entries()){
       light.visible=!car.destroyed;
-      if(light.material)light.material.emissiveIntensity=sim.heat>.1?(Math.sin(elapsed*14+i*Math.PI)>0?3:.1):.15;
+      if(light.material)light.material.emissiveIntensity=policeHeat>.1?(Math.sin(lightClock*14+i*Math.PI)>0?3:.1):.15;
     }
   }
   const gig=sim.mission;
@@ -2774,7 +2806,14 @@ function syncScene(dt,controls) {
         stride:cabin && !sitting && gig.stage!=='pickup'?.65:0,phase:elapsed*5});
     }
   }
-  crowd?.setExtras(extras,pedestrians);
+  if(onlineCity && !onlineCity.replica){
+    sharedExtras=extras.filter(actor=>actor.look!==PLAYER_LOOK);
+    // Close-up responding officers use individual rigs on the publisher.
+    for(const officer of [...sim.police.officers,...sim.police.downOfficers]){
+      if(officer.look && !sharedExtras.some(a=>a.contactActor===officer))sharedExtras.push({...officer,contactActor:officer,heading:officer.angle,clip:officer.reaction?.clip || (officer.aiming?'aim':undefined)});
+    }
+  }
+  crowd?.setExtras(onlineCity?.replica?onlineCity.actors:extras,onlineCity?.replica?onlineCity.actors:pedestrians);
   if(sim.mission.phase==='active'&&sim.mission.target){
     marker.visible=true;marker.position.set(sim.mission.target.x,groundHeight(sim.mission.target.x,sim.mission.target.z),sim.mission.target.z);markerDiamond.rotation.y=elapsed*.7;markerDiamond.position.y=5+Math.sin(elapsed*2)*.3;
   }else marker.visible=false;
@@ -3410,7 +3449,7 @@ function frame(now) {
   carSmoke?.update(paused||traveling?0:dt,smoking,renderer.domElement?.height||720,sim?.player);smoking.length=0;
   // Signals show what the simulation's traffic is obeying, on the same clock.
   signs.group.visible=!cityView||Boolean(viewOverride);
-  if(signs.group.visible)signs.update(sim.junctions,lit,sim.elapsed,streetscape?.walks(),sim.paintedCrossings);
+  if(signs.group.visible)signs.update(sim.junctions,lit,sim.onlineClock??sim.elapsed,streetscape?.walks(),sim.paintedCrossings);
   // How much traffic, and whose cabs, follows the hour and the neighbourhood.
   // It joins the streets where the camera is not looking.
   lifeTimer-=dt;
@@ -3422,7 +3461,7 @@ function frame(now) {
     const ahead=camera.getWorldDirection(crowdAhead),flat=Math.hypot(ahead.x,ahead.z)||1;
     // People out of the picture are not drawn. The phone's camera looks its own way, so while it is up they all are.
     if(phoneCameraActive())figures?.look(null);else{camera.updateMatrixWorld();figures?.look(camera);}
-    crowd.update(paused||mapOpen||traveling?0:dt,{walks:streetscape?.walks()||noStreetFurniture,focus:lit,forward:[ahead.x/flat,ahead.z/flat],hours:gfx.hours,weekday,time:sim.elapsed,junctions:sim.junctions,cars:sim.cars,player:sim.player,officers:sim.police.officers.concat(sim.police.downOfficers),enclosedSubway:subwayVisit?.enclosed && !aerialView && !cityView});
+    crowd.update(paused||mapOpen||traveling?0:dt,{replica:Boolean(onlineCity?.replica),walks:streetscape?.walks()||noStreetFurniture,focus:lit,forward:[ahead.x/flat,ahead.z/flat],hours:gfx.hours,weekday,time:sim.elapsed,junctions:sim.junctions,cars:sim.cars,player:sim.player,officers:sim.police.officers.concat(sim.police.downOfficers),enclosedSubway:subwayVisit?.enclosed && !aerialView && !cityView});
     for(const bump of crowd.bumps)audio.bump(bump.person,bump.pace,sim.elapsed);
     if(crowd.damage){
       sim.hurt(crowd.damage);
@@ -3478,9 +3517,13 @@ function frame(now) {
       const noticed=alarmStreet(sim.player,20,.65,{angle:sim.player.angle,calm:true,sight:person=>sim._hasSight(person,sim.player)});
       if(noticed&&focusedAim()&&sim.elapsed-brandished>8){brandished=sim.elapsed;sim.offence('brandish',{message:'Threatening someone with a pistol was reported.'});}
     }
-    sim.setWalkers(bikeTraffic?.riders.length?crowd.crossing.concat(bikeTraffic.riders.filter(r=>!r.abandoned)):crowd.crossing,crowd.people);
+    if(onlineCity?.replica)sim.setWalkers(onlineCity.actors.filter(actor=>actor.pedestrian),onlineCity.actors);
+    else {
+      const crossing=bikeTraffic?.riders.length?crowd.crossing.concat(bikeTraffic.riders.filter(r=>!r.abandoned)):crowd.crossing;
+      sim.setWalkers(onlineLobby?.walkers.length?crossing.concat(onlineLobby.walkers):crossing,crowd.people);
+    }
   }
-  policeScene.update(sim.police,elapsed,started&&!cityView);
+  policeScene.update(onlineCity?.replica?{sim,helicopter:onlineCity.air,shots:[]}:sim.police,elapsed,started&&!cityView);
   // Shop fronts take the names of the places the registers put behind them.
   // Whose front is whose is worked out again when the places, the buildings
   // or the streets around change, or the player has gone thirty metres.

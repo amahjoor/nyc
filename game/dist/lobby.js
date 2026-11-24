@@ -1,5 +1,6 @@
 import * as THREE from './vendor/three.module.min.js';
-import { createPerson } from './world.js';
+import { remoteCharacter } from './online-avatar.js';
+import { SCENE_INTERVAL } from './shared-scene.js';
 import { buildCar, createCarMaterial, wheelGeometry, WHEEL } from './vehicle-model.js';
 import { bikeGeometry } from './bikes.js';
 import { createSkateboard } from './skateboard.js';
@@ -8,11 +9,11 @@ import { PROTOCOL, TICK_MS, MAX_NEARBY, COLOURS, MODES, SIGNALS, RENDEZVOUS, SPR
 const vehicleTemplates = new Map();
 function model(mode, colour) {
   if (mode < 1 || mode > 3) {
-    const figure = createPerson(COLOURS[colour]);
+    const figure = new THREE.Group();
     if(mode===4) {
       const bike=new THREE.Mesh(bikeGeometry(true),new THREE.MeshStandardMaterial({vertexColors:true}));
       bike.name='Online bike';figure.add(bike);
-      figure.userData.legs.forEach(leg=>leg.rotation.x=-.55);
+
     } else if(mode===5) {
       const board=createSkateboard();board.visible=true;figure.add(board);
     }
@@ -42,15 +43,16 @@ function label(text){
   sprite.scale.set(2.2,.37,1);sprite.position.y=2.35;
   return sprite;
 }
-function createPeer(row,scene,layers){
+function createPeer(row,scene,layers,getShop){
   const [id,name,x,y,z,angle,mode,tint]=row;
   const group=new THREE.Group(), figure=model(mode,tint), tag=label(name);
   group.name='Online player '+id;group.add(figure,tag);
   group.traverse(object=>layers.forEach(layer=>object.layers.enable(layer)));
   group.position.set(x,y,z);figure.rotation.y=angle;scene.add(group);
-  return {group,figure,tag,mode,tint,name,x,y,z,angle,signal:-1,moving:false};
+  return {group,figure,tag,character:remoteCharacter(group,layers,getShop),mode,tint,name,x,y,z,angle,signal:-1,moving:false};
 }
 function removePeer(peer){
+  peer.character.dispose();
   peer.group.removeFromParent();
   peer.tag.material.map.dispose();peer.tag.material.dispose();
   // Car geometry and materials belong to the bounded shared template cache.
@@ -72,9 +74,12 @@ const validPeer = row => Array.isArray(row) && row.length===9 && Number.isSafeIn
   Number.isInteger(row[6]) && MODES[row[6]] && Number.isInteger(row[7]) && COLOURS[row[7]] &&
   Number.isInteger(row[8]) && row[8]>=-1 && row[8]<SIGNALS.length;
 
-export function createLobbyUI({scene,layers,sample,travel,route,showOnMap,announce,animate}){
+export function createLobbyUI({scene,layers,sample,travel,route,showOnMap,announce,getShop,city,sampleMotion}){
   const el=id=>document.getElementById('lobby-'+id);
   const peers=new Map(),dialog=el('dialog'),address=el('address');
+  const designs=new Map(), motion=new Map(), walkers=[];
+  let doorSentAt=-Infinity;
+  let id=0, host=0, seconds=0, serverTimeAt=0, publishedAt=-Infinity, lastDesign='', designAt=-Infinity;
   let socket=null, joined=false, me='',capacity=0,online=0,lastSent=-Infinity,gate=null,best='',lastList='',space=null;
   const suggestedAddress = location.protocol === 'https:' ? 'wss://' + location.host + '/lobby'
     : location.protocol === 'http:' ? 'ws://' + location.hostname + ':8787/lobby' : '';
@@ -94,10 +99,11 @@ export function createLobbyUI({scene,layers,sample,travel,route,showOnMap,announ
   }
   function clearPeers(){
     for(const p of peers.values())removePeer(p);
-    peers.clear();lastList='';showOnMap([]);
+    peers.clear();walkers.length=0;lastList='';showOnMap([]);
   }
   function reset(message){
     if(gate!==null)route(null,SPRINT[gate]);
+    serverTimeAt=0;city.disconnect();designs.clear();motion.clear();host=0;id=0;lastDesign='';designAt=publishedAt=-Infinity;
     clearPeers();joined=false;socket=null;gate=null;best='';space=null;
     el('status').textContent=message;el('near').textContent='';el('race').textContent='Start Broadway sprint';controls();
   }
@@ -121,13 +127,28 @@ export function createLobbyUI({scene,layers,sample,travel,route,showOnMap,announ
       let m;try{m=JSON.parse(event.data);}catch{return conn.close(1002,'Invalid lobby message');}
       if(!m || typeof m!=='object')return;
       if(m.type==='welcome' && typeof m.name==='string'){
-        clearTimeout(timeout);joined=true;me=m.name;assignedTint=(m.id-1)%COLOURS.length;capacity=m.capacity;online=1;lastSent=-Infinity;controls();
+        clearTimeout(timeout);joined=true;id=m.id;me=m.name;assignedTint=(m.id-1)%COLOURS.length;capacity=m.capacity;online=1;lastSent=-Infinity;controls();
         try{localStorage.setItem('cj-lobby-server',url.href);}catch{}
         el('status').textContent='Connected as '+me;
         if (closeOnWelcome && dialog.open) {
           dialog.close();
           announce('Online at Broadway & Spring · ' + me);
         }
+      }else if(joined && m.type==='appearance'){
+        designs.set(m.id,m.design);peers.get(m.id)?.character.dress(m.design);
+      }else if(joined && m.type==='city' && m.space===space){
+        if(m.host!==host){city.release(m.host===id);host=m.host;publishedAt=-Infinity;}
+        seconds=m.seconds;serverTimeAt=performance.now();
+        motion.clear();
+        for(const [peer,pose,ride] of m.motion)motion.set(peer,{pose,ride});
+        city.drivers(m.motion.flatMap(row=>row[2]?[row[2]]:[]));
+      }else if(joined && m.type==='contact' && host===id && m.space===space){
+        city.contact(m.event,m.source);
+      }else if(joined && m.type==='occupied'){
+        city.denyDrive(m.car);
+      }else if(joined && m.type==='scene' && m.space===space && m.host!==id){
+        if(host!==m.host){city.release();host=m.host;}
+        city.receive(m.frame);
       }else if(joined && m.type==='snapshot' && Array.isArray(m.near)){
         online=m.online;best=m.best?.ms?m.best.name+' · '+(m.best.ms/1000).toFixed(1)+' s':'';
         const active=new Set();
@@ -137,7 +158,8 @@ export function createLobbyUI({scene,layers,sample,travel,route,showOnMap,announ
           let p=peers.get(id);
           if(!p || p.mode!==mode || p.tint!==tint){
             if(p)removePeer(p);
-            p=createPeer(row,scene,layers);peers.set(id,p);
+            p=createPeer(row,scene,layers,getShop);peers.set(id,p);
+            if(designs.has(id))p.character.dress(designs.get(id));
           }
           p.moving=Math.hypot(x-p.x,z-p.z)>.03;
           if(Math.hypot(x-p.x,z-p.z)>16)p.group.position.set(x,y,z);
@@ -145,6 +167,9 @@ export function createLobbyUI({scene,layers,sample,travel,route,showOnMap,announ
           Object.assign(p,{x,y,z,angle,signal});active.add(id);
         }
         for(const [id,p] of peers)if(!active.has(id)){removePeer(p);peers.delete(id);}
+        for(const key of designs.keys())if(!active.has(key))designs.delete(key);
+        walkers.length=0;
+        for(const p of peers.values())if(p.mode===0 || p.mode>=4)walkers.push(p);
         showOnMap([...peers.values()].map(p=>({name:p.name,x:p.x,z:p.z,colour:'#'+COLOURS[p.tint].toString(16).padStart(6,'0')})));
         const summary=online+' / '+capacity+' online · '+me+(best?' · Best sprint '+best:'');
         if(el('status').textContent!==summary){el('status').textContent=summary;controls();}
@@ -187,7 +212,15 @@ export function createLobbyUI({scene,layers,sample,travel,route,showOnMap,announ
     }
     return true;
   }
-  return {async open(autoJoin = false) {
+  return {walkers,get joined(){return joined;},contact(event) {
+    if(!joined || host===id || socket?.readyState!==WebSocket.OPEN)return;
+    if(event[0]==='door'){
+      const now=performance.now();
+      if(now-doorSentAt<200)return;
+      doorSentAt=now;
+    }
+    socket.send(JSON.stringify(['contact',host,event]));
+  },async open(autoJoin = false) {
     dialog.showModal();
     el(joined?'meet':'join').focus();
     if (autoJoin) {
@@ -198,20 +231,30 @@ export function createLobbyUI({scene,layers,sample,travel,route,showOnMap,announ
     if(!joined)return;
     const local=sample();
     if(!local)return;
-    if(local.space!==space){clearPeers();space=local.space;}
+    if(local.space!==space){clearPeers();city.release();host=0;space=local.space;}
+    if(serverTimeAt)city.time(seconds+Math.max(0,now-serverTimeAt)/1000);
+    city.advance(dt);
     if(now-lastSent>=TICK_MS && socket.readyState===WebSocket.OPEN && socket.bufferedAmount<8192){
       lastSent=now;
       socket.send(JSON.stringify(['state',local.x,local.y,local.z,local.angle,MODES.indexOf(local.mode),space,assignedTint]));
+      const state=sampleMotion();
+      socket.send(JSON.stringify(['motion',state.pose,state.ride,state.awake,state.heat]));
+      if(state.design && state.design!==lastDesign && now-designAt>=600){
+        socket.send('["appearance",'+state.design+']');lastDesign=state.design;designAt=now;
+      }
+      if(host===id && now-publishedAt>=SCENE_INTERVAL){
+        publishedAt=now;socket.send(JSON.stringify(['scene',city.capture()]));
+      }
     }
     const f=1-Math.exp(-dt*17);
-    for(const p of peers.values()){
+    for(const [peerId,p] of peers){
       const pos=p.group.position;
       pos.x+=(p.x-pos.x)*f;pos.y+=(p.y-pos.y)*f;pos.z+=(p.z-pos.z)*f;
       const delta=p.angle-p.figure.rotation.y;p.figure.rotation.y+=Math.atan2(Math.sin(delta),Math.cos(delta))*f;
       p.group.visible=local.visible;
-      if(p.mode===0)animate(p.figure,p.moving,now/1000);
-      if(p.signal===0 && p.figure.userData.arms)p.figure.userData.arms[1].rotation.z=-2.35+Math.sin(now/180)*.25;
-      else if(p.figure.userData.arms)p.figure.userData.arms[1].rotation.z=0;
+      const state=motion.get(peerId);
+      p.figure.visible=!(p.mode>=1 && p.mode<=3 && state?.ride);
+      p.character.frame(state?.pose,p.figure.rotation.y,f,now);
     }
   }};
 }

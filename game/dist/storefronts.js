@@ -249,6 +249,7 @@ export function createStorefronts({ createCanvas = () => document.createElement(
     /** The fronts in the table, row 1 first. */
     get fronts() { return shown; },
     get rooms() { return rooms.values(); },
+    get brokenPanes() { return brokenGlass; },
     breakGlass(view,id) {
       const key = view.plan.place.id, broken = brokenGlass.get(key) ?? new Set();
       if (broken.has(id)) return false;
