@@ -697,13 +697,13 @@ function streetControls(allowPhone=false){
   return Boolean(started && bootReady && sim && !paused && !traveling && !cityView && !aerialView && !mapOpen &&
     !subwayVisit && !viewOverride && !switchShot.active && !sim.ending && !atmTerminal?.active && (allowPhone || !phone?.open) && !interaction?.open);
 }
-function selectWheel(armed){
-  wheelSelection=armed;
-  $('wheel-fists').setAttribute('aria-pressed',String(!armed));
-  $('wheel-pistol').setAttribute('aria-pressed',String(armed));
+function selectWheel(slot){
+  wheelSelection=slot;
+  $('wheel-fists').setAttribute('aria-pressed',String(slot===0));
+  $('wheel-pistol').setAttribute('aria-pressed',String(sim.weaponSlots[slot]==='pistol'));
 }
-function selectLoadout(armed){
-  if(streetControls() && sim.player.mode==='walk' && Boolean(sim.player.armed)!==armed)sim.draw();
+function selectLoadout(slot){
+  if(streetControls())sim.equipSlot(slot);
 }
 function meleeFocus(controls){
   const p=sim.player;
@@ -812,12 +812,18 @@ function action(name,event) {
     if(name==='pause')atmTerminal.close();
     return;
   }
+  if(name==='weaponSlot'){
+    if(!streetControls() || !sim.weaponSlots[event.slot])return;
+    if(wheelSelection===null)selectLoadout(event.slot);
+    else {wheelChanged=true;selectWheel(event.slot);}
+    return;
+  }
   if(name==='weaponOpen'){
     if(!streetControls() || sim.player.mode!=='walk' || sim.seat || sim.player.reaction || sim.player.move)return false;
     if(wheelSelection===null){
-      selectWheel(Boolean(sim.player.armed));wheelOpened=performance.now();wheelChanged=false;
-      $('wheel-fists').querySelector('kbd').textContent=event?.fromPad?'←':'1';
-      $('wheel-pistol').querySelector('kbd').textContent=event?.fromPad?'→':'6';
+      selectWheel(sim.equippedSlot);wheelOpened=performance.now();wheelChanged=false;
+      $('wheel-fists').querySelector('kbd').textContent=event?.fromPad?'←':'0';
+      $('wheel-pistol').querySelector('kbd').textContent=event?.fromPad?'→':String(sim.weaponSlots.indexOf('pistol'));
       $('weapon-wheel').hidden=false;
     }
     return true;
@@ -825,16 +831,16 @@ function action(name,event) {
   if(name==='weaponClose' || name==='weaponCommit' || name==='weaponCancel'){
     if(wheelSelection!==null && name==='weaponCommit')selectLoadout(wheelSelection);
     if(wheelSelection!==null && name==='weaponClose')
-      selectLoadout(!wheelChanged && performance.now()-wheelOpened<190 ? !sim.player.armed : wheelSelection);
+      selectLoadout(!wheelChanged && performance.now()-wheelOpened<190 ? (sim.player.armed?0:sim.lastWeaponSlot) : wheelSelection);
     wheelSelection=null;$('weapon-wheel').hidden=true;return;
   }
   if(wheelSelection!==null){
-    if(name==='wheelCycle'){wheelChanged=true;selectWheel(!wheelSelection);}
-    else if(['pistol','wheelPistol','unarmed','wheelUnarmed'].includes(name)){wheelChanged=true;selectWheel(name==='pistol'||name==='wheelPistol');}
+    if(name==='wheelCycle'){wheelChanged=true;selectWheel((wheelSelection+1)%sim.weaponSlots.length);}
+    else if(['pistol','wheelPistol','unarmed','wheelUnarmed'].includes(name)){wheelChanged=true;selectWheel(name==='pistol'||name==='wheelPistol'?sim.weaponSlots.indexOf('pistol'):0);}
     else if(name==='pause')action('weaponCancel');
     return;
   }
-  if(name==='unarmed' || name==='pistol'){selectLoadout(name==='pistol');return;}
+  if(name==='unarmed' || name==='pistol'){selectLoadout(name==='pistol'?sim.weaponSlots.indexOf('pistol'):0);return;}
   if(name==='psInteract'){
     if(subwayVisit)name='interact';
     else if(sim.player.mode!=='walk')name='vehicle';
@@ -1350,10 +1356,10 @@ canvas.addEventListener('wheel',event=>{
   if(event.ctrlKey || event.metaKey || event.altKey || !event.deltaY)return;
   if(wheelSelection===null && streetControls() && sim.player.mode==='walk' && !sim.seat){
     event.preventDefault();
-    if(performance.now()-lastWeaponScroll>=130){selectLoadout(!sim.player.armed);lastWeaponScroll=performance.now();}
+    if(performance.now()-lastWeaponScroll>=130){selectLoadout((sim.equippedSlot+Math.sign(event.deltaY)+sim.weaponSlots.length)%sim.weaponSlots.length);lastWeaponScroll=performance.now();}
     return;
   }
-  if(wheelSelection!==null){event.preventDefault();action(wheelSelection?'wheelUnarmed':'wheelPistol');return;}
+  if(wheelSelection!==null){event.preventDefault();action('wheelCycle');return;}
 },{passive:false});
 bindMapZoom(canvas,factor=>{
   if(cityView){
@@ -1474,6 +1480,7 @@ function restoreProgress() {
     const record=JSON.parse(localStorage.getItem(SAVE_KEY)||'null');
     if(record?.version===1){
       work.restore(record.work);
+      if(Array.isArray(record.weapons))for(const id of record.weapons)sim.acquireWeapon(id);
       sim.shopping.restore(record.shopping);
       if(record.purchases && typeof record.purchases==='object') sim.purchases=Object.fromEntries(Object.entries(record.purchases).filter(([sku,n])=>/^[a-z0-9-]+$/.test(sku) && Number.isSafeInteger(n) && n>0));
       if(Number.isFinite(record.cash)&&record.cash>=0)sim.cash=Math.min(record.cash,1e8);
@@ -1491,7 +1498,7 @@ function saveProgress(entryName) {
   const cab=sim.ownedCab;
   phoneBank.sync(sim.cash,gfx.clock,typeof entryName==='string'?entryName:undefined);
   if(started)phoneBank.sampleBalance(sim.cash,gfx.hours);
-  const value=JSON.stringify({version:1,cash:sim.cash,bank:phoneBank.record(),deliveries:sim.deliveries,shopping:sim.shopping.record(),purchases:sim.purchases,work:work.record,cab:cab?{mods:cab.mods||null,color:cab.resprays?cab.color:null}:null});
+  const value=JSON.stringify({version:1,cash:sim.cash,weapons:sim.weaponSlots.slice(1),bank:phoneBank.record(),deliveries:sim.deliveries,shopping:sim.shopping.record(),purchases:sim.purchases,work:work.record,cab:cab?{mods:cab.mods||null,color:cab.resprays?cab.color:null}:null});
   if(value===savedEarnings)return;
   savedEarnings=value;
   try{localStorage.setItem(SAVE_KEY,value);}catch{/* Earnings remain for the current session. */}

@@ -294,6 +294,9 @@ export class Simulation {
     this._graph = buildRoadGraph(city.roads || []);
     this._signalHints = typeof city.signalHints === 'function' ? city.signalHints : null;
     this._planJunctions();
+    this.weaponSlots = ['unarmed'];
+    this.acquireWeapon('pistol');
+    this.lastWeaponSlot = 1;
     this.player = { x: city.spawn.x, z: city.spawn.z, angle: city.spawn.angle || 0, speed: 0, mode: 'walk', board: null, vehicleId: null, velocityX: 0, velocityZ: 0, vy: 0, grounded: true, slide: 0, swing: 0, reaction:null, standing:null };
     this.spotted = false;
     this.threats = [];
@@ -1360,6 +1363,20 @@ export class Simulation {
 
   /** Take the pistol out or put it away (player-moves.js). */
   draw() { return toggleGun(this); }
+  acquireWeapon(id) {
+    if(typeof id!=='string' || !/^[a-z][a-z0-9-]*$/.test(id))return -1;
+    const owned=this.weaponSlots.indexOf(id);
+    return owned>=0?owned:this.weaponSlots.push(id)-1;
+  }
+  get equippedSlot() { return this.player.armed?this.lastWeaponSlot:0; }
+  equipSlot(slot) {
+    if(!Number.isInteger(slot) || !this.weaponSlots[slot])return false;
+    const p=this.player;
+    if(p.mode!=='walk' || p.reaction || this.seat || this.ending || p.move)return false;
+    if(Boolean(slot)!==Boolean(p.armed) && !this.draw())return false;
+    if(slot)this.lastWeaponSlot=slot;
+    return true;
+  }
   reload() { return reloadGun(this); }
 
   /** A kick on foot (player-moves.js): slower than a punch, and it lands harder. */

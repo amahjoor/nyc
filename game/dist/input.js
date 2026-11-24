@@ -26,7 +26,7 @@ export class Input {
     this.weaponControls = weaponControls;
     this.phoneButton = phoneButton;
     const actions = {
-      KeyF:'vehicle',KeyE:'interact',KeyR:'lightOrReload',KeyQ:'heavy',Digit1:'unarmed',Digit6:'pistol',
+      KeyF:'vehicle',KeyE:'interact',KeyR:'lightOrReload',KeyQ:'heavy',
       KeyV:'nextCamera',KeyP:'pause',Escape:'pause',KeyM:'interactionMenu',KeyH:'lights',ArrowUp:'phone',KeyZ:'status',
       KeyK:'skate',KeyG:'shop',KeyI:'inventory',F6:'view',
     };
@@ -45,6 +45,10 @@ export class Input {
           ['KeyW','KeyA','KeyS','KeyD'].includes(e.code)){
         this.resumeOnMovement=false;
         if(!document.pointerLockElement)this.requestLook();
+      }
+      if (!interfaceHandled && !e.repeat && this.context()==='walk' && !this.skating && /^Digit[0-9]$/.test(e.code)) {
+        action('weaponSlot', {slot:Number(e.code.slice(5))});
+        return;
       }
       if (!interfaceHandled && e.code==='KeyT' && this.context()==='walk' && weaponControls()) {
         e.preventDefault();

@@ -247,8 +247,8 @@ test('PC weapon and camera controls use GTA bindings and ignore legacy street sh
     target.emit('keydown',{code,target:{tagName:'INPUT'}});
   }
   assert.deepEqual(actions.splice(0),['shop','inventory','skate','view','grapple']);
-  press('KeyV');press('KeyR');press('Tab');press('Tab',false);press('Digit1');press('Digit6');
-  assert.deepEqual(actions,['nextCamera','lightOrReload','weaponOpen','weaponClose','unarmed','pistol']);
+  press('KeyV');press('KeyR');press('Tab');press('Tab',false);press('Digit0');press('Digit1');
+  assert.deepEqual(actions,['nextCamera','lightOrReload','weaponOpen','weaponClose','weaponSlot','weaponSlot']);
   input.context=()=>'drive';
   press('KeyX');assert.ok(input.sample(0,.02,false).duck);
   press('KeyX',false);assert.equal(input.sample(0,.02,false).duck,false);

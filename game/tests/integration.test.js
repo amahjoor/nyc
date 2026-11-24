@@ -1452,7 +1452,7 @@ test('equipping the pistol indoors starts a clerk handoff and the interact contr
     app.click('first-person-button');app.frames();
     app.face(Math.atan2(clerk.x-sim.player.x,clerk.z-sim.player.z)+.65);app.frames();
     const before=sim.cash;
-    app.key('Digit6');app.key('Digit6',false);assert.equal(sim.player.armed,true);
+    app.key('Digit1');app.key('Digit1',false);assert.equal(sim.player.armed,true);
     for(let i=0;i<200&&view.handoff?.phase!=='offered';i++)app.frames();
     assert.equal(view.handoff?.phase,'offered');
     assert.equal(sim.cash,before);assert.equal(sim.player.rounds,GUN.rounds);
@@ -2988,7 +2988,7 @@ test('the equipped pistol can be aimed, fired and reloaded through the on-foot c
     await app.until(()=>app.window.nycGame.playerBody);
     app.frames(20);
     const chase=app.camera();
-    press('Digit6');app.frames(1,0);
+    press('Digit1');app.frames(1,0);
     assert.ok(app.camera().position.distanceTo(chase.position)<.01,'drawing starts from the chase camera');
     app.frames(5);
     const drawing=app.camera();
@@ -3052,7 +3052,7 @@ test('the equipped pistol can be aimed, fired and reloaded through the on-foot c
     app.click('touch-fire');app.frames();assert.equal(p.rounds,rounds-1);
     app.click('touch-aim');app.frames(7);app.click('touch-reload');assert.ok(p.reloading>0);
     const shoulder=app.camera();
-    press('Digit1');app.frames(1,0);
+    press('Digit0');app.frames(1,0);
     assert.ok(app.camera().position.distanceTo(shoulder.position)<.01,'holstering starts from the shoulder camera');
     app.frames(5);
     const holstering=app.camera();
@@ -3427,9 +3427,9 @@ test('DualSense on PC selects its own prompts and uses the same melee and vehicl
     set(7,true);app.frames(12);assert.equal(target.grappled,true);
     press(2);assert.equal(target.grappled,false);assert.equal(sim.meleeAction.target,target);
     set(7,false);app.frames(40);assert.ok(target.hp<6);
-    app.key('Digit6');app.key('Digit6',false);const rounds=p.rounds;
+    app.key('Digit1');app.key('Digit1',false);const rounds=p.rounds;
     set(7,true);app.frames();set(7,false);app.frames();assert.equal(p.rounds,rounds-1);
-    press(2);assert.ok(p.reloading>0);app.key('Digit1');app.key('Digit1',false);
+    press(2);assert.ok(p.reloading>0);app.key('Digit0');app.key('Digit0',false);
     parkCab(sim);press(3);assert.equal(p.mode,'drive');
     press(1);const lamps=sim.vehicle.lampsOn;
     set(1,true);app.frames(32);assert.ok(p.duckAmount>.9);set(1,false);app.frames(24);
@@ -3487,9 +3487,13 @@ test('street inputs lock onto an opponent, dodge, select a weapon and return to 
     app.key('Space',false);app.window.dispatch('mouseup',{button:2});app.frames();
     assert.equal(p.meleeBlock,false);
     assert.equal(app.elements.get('melee-lock').hidden,true);
-    press('Digit6');press('Digit6');assert.equal(p.armed,true);
+    press('Digit2');assert.equal(Boolean(p.armed),false,'an empty slot leaves fists selected');
+    const slot=sim.acquireWeapon('test-sidearm');
+    assert.equal(slot,2);assert.equal(sim.acquireWeapon('test-sidearm'),slot);
+    press('Digit2');assert.equal(sim.equippedSlot,2);
+    press('Digit1');press('Digit1');assert.equal(sim.equippedSlot,1);
     app.key('Tab');assert.equal(app.elements.get('weapon-wheel').hidden,false);
-    press('Digit1');app.key('Tab',false);assert.equal(p.armed,false);
+    press('Digit0');app.key('Tab',false);assert.equal(p.armed,false);
     assert.equal(app.elements.get('weapon-wheel').hidden,true);
     app.wheel(120);assert.equal(p.armed,true);
     press('Tab');assert.equal(p.armed,false);
@@ -3660,12 +3664,12 @@ test('first person keeps the relaxed arms, tracks the posed eyes through turns, 
     drag(420,600);app.frames();
     assert.equal(body.mesh.rotation.y,player.angle);
     assert.ok(inView('hand_l') && inView('hand_r'),'looking down reveals both relaxed wrists');
-    app.key('Digit6');app.key('Digit6',false);app.frames();
+    app.key('Digit1');app.key('Digit1',false);app.frames();
     const pistol=body.mesh.getObjectByName('Held pistol');
     const prop=pistol.getWorldPosition(new THREE.Vector3()).project(camera);
     assert.ok(pistol.visible && Math.abs(prop.x)<1 && Math.abs(prop.y)<1 && Math.abs(prop.z)<1,
       'looking down reveals the lowered pistol in the right hand');
-    app.key('Digit1');app.key('Digit1',false);app.frames();
+    app.key('Digit0');app.key('Digit0',false);app.frames();
 
     const skin=body.meshes.find(m=>m.name==='skin/body'), full=skin.geometry.index.count;
     const countFor=cam=>{
