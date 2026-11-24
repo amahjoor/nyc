@@ -13,6 +13,9 @@ export function createInteraction({ $, onOpenChange }) {
     session = null;
     controls = [];
     panel.hidden = true;
+    $('street-talk').hidden=true;
+    $('street-history').replaceChildren();$('street-choices').replaceChildren();
+    $('street-compose').onsubmit=null;
     $('kitchen-worktop').hidden=true;
     $('work-slip').hidden=true;
     options.replaceChildren();
@@ -106,6 +109,7 @@ export function createInteraction({ $, onOpenChange }) {
   function openList(title, rows, onPick, { message = '', cash, available = () => true, index = 0, onClose, onRotate, onFocus, kitchen, slip } = {}) {
     if (!available()) { close(); return; }
     const opening = !session;
+    $('street-talk').hidden=true;
     session?.onClose?.();
     const current = { available, onClose, onRotate, kitchen, slip };
     paper.hidden=!slip;paper.style.transform='';paper.classList.remove('moving');
@@ -179,12 +183,75 @@ export function createInteraction({ $, onOpenChange }) {
     } };
   }
 
+  function openTalk(name,available,onClose) {
+    if (!openList(name,[],()=>{}, {available,onClose})) return;
+    const current=session, talk=$('street-talk'), field=$('street-line'), sendButton=$('street-send');
+    const choices=$('street-choices'), history=$('street-history'), status=$('street-reply-status');
+    talk.hidden=false;
+    current.chat=true;
+    field.value='';
+    let submit;
+    function send() {
+      const text=field.value.trim();
+      if(!text || current.busy || session!==current || !available()) return;
+      field.value='';
+      submit(text);
+    }
+    $('street-compose').onsubmit=e=>{e.preventDefault();send();};
+    current.send=send;
+    let partialLine=null;
+    return {close,partial(text) {
+      if(session!==current) return;
+      if(!partialLine){
+        partialLine=document.createElement('div');partialLine.className='street-npc';
+        const label=document.createElement('strong');label.textContent=name;
+        partialLine.append(label,document.createElement('span'));history.append(partialLine);
+      }
+      partialLine.lastElementChild.textContent=text;
+      status.textContent='';history.scrollTop=history.scrollHeight;
+    },render(rows,options,pending,onSend) {
+      partialLine=null;
+      if (session!==current) return;
+      submit=onSend;
+      const hadFocus=field===document.activeElement || choices.contains(document.activeElement) ||
+        sendButton===document.activeElement;
+      history.replaceChildren(...rows.map(row=>{
+        const line=document.createElement('div'), speaker=document.createElement('strong');
+        line.className=row.who==='me'?'street-player':'street-npc';
+        speaker.textContent=row.who==='me'?'You':name;
+        const words=document.createElement('span');words.textContent=row.text;
+        line.append(speaker,words);return line;
+      }));
+      history.scrollTop=history.scrollHeight;
+      status.textContent=pending?name+' is thinking…':'';
+      current.busy=pending; sendButton.disabled=pending;
+      const buttons=options.map(option=>{
+        const button=document.createElement('button');
+        button.type='button';button.textContent=option.name;
+        button.onclick=()=>{if(session===current && available())option.choose();};
+        return button;
+      });
+      choices.replaceChildren(...buttons);
+      controls=[...buttons,field,...(pending?[]:[sendButton]),leave];
+      for (const control of controls) control.onfocus=()=>{selected=controls.indexOf(control);};
+      if(hadFocus || document.activeElement===leave) {
+        if(field===document.activeElement || !buttons.length) focus(controls.indexOf(field));
+        else focus(0);
+      }
+    }};
+  }
+
   leave.addEventListener('focus', () => { selected = controls.indexOf(leave); });
   leave.addEventListener('click', close);
 
   function handleKey(event) {
     if (!session) return false;
     const key = event.key || event.code;
+    if (session.chat && document.activeElement===$('street-line')) {
+      if (event.isComposing) return true;
+      if (key==='Enter') { event.preventDefault();if(!event.repeat && !session.busy)session.send();return true; }
+      if (!['ArrowUp','ArrowDown','Tab','Escape'].includes(key)) return true;
+    }
     if (session.onRotate && (key === 'ArrowLeft' || key === 'ArrowRight')) {
       event.preventDefault(); session.onRotate(key === 'ArrowLeft' ? -.22 : .22); return true;
     }
@@ -199,5 +266,5 @@ export function createInteraction({ $, onOpenChange }) {
     }
     return true;
   }
-  return { get open() { return Boolean(session); }, openList, close, update, handleKey, focus:()=>{if(session)focus(selected);} };
+  return { get open() { return Boolean(session); }, openList, openTalk, close, update, handleKey, focus:()=>{if(session)focus(selected);} };
 }

@@ -26,7 +26,7 @@ body:has(.hud-status :is(.wanted:not([hidden]):not(.calm), .cash-display:not([hi
   border-bottom: 3px solid var(--brand-red);
 }
 .interaction h2 { margin: 0; font: 700 clamp(23px, 3vw, 32px)/1 var(--heading); overflow-wrap: anywhere; }
-#interaction-balance { flex: none; color: #cef1b5; font-variant-numeric: tabular-nums; }
+#interaction-balance { flex: none; white-space:pre-line; text-align:right; font-size:14px; color: #cef1b5; font-variant-numeric: tabular-nums; }
 .interaction p { margin: 0; padding: 11px 17px; font-size: 14px; border-bottom: 1px solid #ffffff26; }
 #interaction-options { min-height: 0; overflow-y: auto; overscroll-behavior: contain; }
 #interaction-options button {
@@ -116,3 +116,20 @@ body:has(.phone:not([hidden])) .interaction {
 #work-slip.moving { pointer-events:none; z-index:1; opacity:.86; }
 .interaction:has(#work-slip:not([hidden])[data-sorting="true"]) #interaction-options { display:grid; grid-template-columns:1fr 1fr; }
 #interaction-options button[data-drop] { border:1px solid #647579; min-height:50px; }
+
+.interaction:has(#street-talk:not([hidden])) { width:min(410px,calc(100vw - 24px)); }
+#street-talk { display:flex; flex-direction:column; gap:9px; overflow:auto; padding:12px 16px; }
+#street-talk[hidden] { display:none; }
+#street-history { overflow-y:auto; min-height:50px; max-height:32dvh; flex:1 1 auto; }
+#street-history > div { padding:3px 0 9px; line-height:1.35; }
+#street-history strong { display:block; font-size:12px; color:#e5cda9; }
+#street-history .street-player strong { color:#b5c8dc; }
+#street-reply-status { font-size:13px; color:#c8bdb3; }
+#street-reply-status:empty { display:none; }
+#street-choices { display:flex; flex-wrap:wrap; gap:6px; }
+#street-talk button,#street-line { font:inherit; color:inherit; }
+#street-talk button { cursor:pointer; background:#392e35; border:1px solid #786975; border-radius:4px; padding:7px 9px; }
+#street-choices button { text-align:left; font-size:14px; }
+#street-compose { display:flex; gap:6px; }
+#street-line { flex:1; min-width:0; background:#100f12; border:1px solid #786975; border-radius:4px; padding:8px; }
+#street-talk :focus-visible { outline:2px solid var(--brand-cream); outline-offset:-2px; }
