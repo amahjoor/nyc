@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Borough Cash · Concrete Jungle · Internal preview</title>
+<style>
+@font-face { font-family: Bitter; src: url("../../dist/assets/fonts/bitter-latin.woff2"); font-weight: 100 900; }
+* { box-sizing: border-box; }
+body { background: #192b29; color: #f7f0df; margin: 0; font: 16px/1.5 system-ui,sans-serif; }
+main { max-width: 34rem; margin: 7vh auto; padding: 1.75rem; }
+header { display: flex; align-items: center; gap: 1rem; padding-bottom: 1rem; border-bottom: 1px solid #54736b; }
+header img { width: 3rem; }
+h1, h2 { font-family: Bitter,Georgia,serif; line-height: 1.12; }
+h1 { font-size: clamp(2.8rem, 10vw, 4.2rem); margin: 2rem 0 1rem; }
+p { max-width: 40ch; } strong { color: #ffcd72; }
+button { font: inherit; font-weight: 700; padding: .7rem 1rem; border: 0; border-radius: .3rem; color: #102220; background: #ffcd72; cursor: pointer; }
+button.secondary { background: #d8dfd6; }
+button:focus-visible { outline: 3px solid white; outline-offset: 4px; }
+dialog { color: #172923; background: #f8f1e2; max-width: min(27rem,90vw); padding: 1.5rem; border: none; }
+dialog::backdrop { background: #091311c9; }
+small { color: #bfcfc4; }
+</style>
+<main>
+<header><img src="../../dist/assets/concrete-jungle.svg" alt=""><b>Concrete Jungle</b></header>
+<h1>Borough Cash</h1>
+<p>Add <strong>250 in-game dollars</strong> for clothing and eligible items.</p>
+<p><button id="offer">Review pack · US$1.99</button></p>
+<p id="result" role="status">Preview balance · $0</p>
+<small>Internal design preview. Actions here use test funds. Closing this page resets the balance.</small>
+<dialog id="confirmation" aria-labelledby="confirm-title">
+<h2 id="confirm-title">Add 250 in-game dollars?</h2>
+<p>Proposed total: <b>US$1.99</b>. In the released checkout, Steam Wallet will ask you to authorize payment.</p>
+<form method="dialog"><button class="secondary" value="cancel" autofocus>Cancel</button> <button value="approve">Simulate approval</button></form>
+</dialog>
+</main>
+<script>
+const confirmation = document.getElementById('confirmation');
+const result = document.getElementById('result');
+let balance = 0;
+document.getElementById('offer').addEventListener('click', () => {
+  confirmation.returnValue = '';
+  confirmation.showModal();
+});
+confirmation.addEventListener('close', () => {
+  if (confirmation.returnValue === 'approve') {
+    balance += 250;
+    result.textContent = '250 test dollars added. Preview balance · $' + balance;
+  } else {
+    result.textContent = 'Purchase canceled. Preview balance · $' + balance;
+  }
+});
+</script>
+</html>
