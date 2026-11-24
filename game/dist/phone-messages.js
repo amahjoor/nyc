@@ -1,3 +1,4 @@
+import { publicBuild } from './release-mode.js';
 import { messageWindow } from './phone-relationships.js';
 import { CALL_OUT, DELIVERY } from './garage.js';
 import { formatMoney } from './money.js';
@@ -6,6 +7,15 @@ const oldScriptedReply = row => row.who==='them' && (row.source==='scripted' || 
   /^(wait, what do you mean\?|i think i missed something\. what are you talking about\?|where for what\?)$/i.test(row.text));
 
 export async function requestContactReply(rows,context,signal) {
+  if (publicBuild) {
+    const {latest, choose} = conversation(rows);
+    const spot = context.nearby?.find(p => latest.includes(p.kind));
+    if (spot) return {text:`I'd try ${spot.name}. It's nearby.`, source:'scripted'};
+    const text = /where|what.*doing/.test(latest)
+      ? choose("Out for a walk. It's a good day to take the long way home.", "Just wandering the neighborhood.")
+      : choose("Hey! Good to hear from you.", "I'll catch up with you around the neighborhood.", "Talk soon. I've got a train to catch.");
+    return {text, source:'scripted'};
+  }
   const response = await fetch(context.contact ? './api/phone/contact' : './api/phone/maya',{
     method:'POST',headers:{'Content-Type':'application/json'},signal,
     body:JSON.stringify({rows:rows.slice(-messageWindow).filter(row=>!oldScriptedReply(row)).map(({who,text})=>({who,text})),context}),

@@ -1,3 +1,4 @@
+import { publicBuild } from './release-mode.js';
 import { GREEN_CAB } from './simulation.js';
 import { renderBank } from './phone-bank.js';
 import { createStockScreens } from './phone-stocks.js';
@@ -84,7 +85,9 @@ export function createPhone({ $, canUse = () => true, isClosed, places = () => [
   const handset = $('phone');
   const socialModel = generateContact ?? generateMaya ?? requestContactReply;
   let inboxPage=0;
-  const papers = ['earth', 'soho', 'tide', 'six-seven', 'charles'];
+  const papers = ['earth', 'soho', 'tide', 'six-seven'];
+  if (publicBuild) $('phone-wall-charles').hidden = true;
+  else papers.push('charles');
   const paperKey = 'nyc-phone-wallpaper', settingsKey = 'nyc-phone-preferences';
   const prefs = {dark:false, large:false, motion:false, clock:false};
   const focusHistory = new Map();
@@ -271,7 +274,7 @@ export function createPhone({ $, canUse = () => true, isClosed, places = () => [
       if(text && text.length<=240){
         const spot=nearby.find(item=>text.toLowerCase().includes(item.name.toLowerCase()));
         const model=typeof answer?.model==='string'?answer.model.slice(0,100):null;
-        const reply={text,source:'model',model,topic:spot?.kind||'chat'};
+        const reply={text,source:answer?.source==='scripted'?'scripted':'model',model,topic:spot?.kind||'chat'};
         if(spot)reply.placeId=spot.id;
         deliverReply(person,pending,reply,answer);
         return;

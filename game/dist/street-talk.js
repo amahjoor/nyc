@@ -1,3 +1,4 @@
+import { publicBuild } from './release-mode.js';
 import { recentContact, streetLines } from './street-reactions.js';
 import {asksForPlace,groundedTurn} from './street-intent.js';
 import {chatFrames} from './chat-stream.js';
@@ -18,7 +19,7 @@ const starters = ['How’s your day going?', 'What do you like about this block?
 let lastWarm=-Infinity;
 export function warmStreetModel() {
   const now=Date.now();
-  if(now-lastWarm<5_000) return;
+  if(publicBuild || now-lastWarm<5_000) return;
   lastWarm=now;
   fetch('./api/street/warm',{method:'POST',headers:{'Content-Type':'application/json'},body:'{}'}).catch(()=>{});
 }
@@ -73,6 +74,7 @@ function offlineTurn({name,story},facts,rows) {
 }
 
 export async function streetReply(identity,facts,rows,signal,onPartial,onSpeech) {
+  if(publicBuild)return groundedTurn(facts,rows.at(-1).text) || offlineTurn(identity,facts,rows);
   try {
     const response=await fetch('./api/street/chat',{method:'POST',headers:{'Content-Type':'application/json',Accept:'application/x-ndjson'},
       body:JSON.stringify({rows:rows.slice(-10),facts}),signal});

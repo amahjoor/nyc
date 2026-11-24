@@ -12,6 +12,12 @@ The [source index](#sources-and-reproducible-pipeline) lists the real datasets, 
 
 The [radio station planner](docs/radio.md) has the proposed custom stations, editable tracklists and live NYC-area radio links.
 
+## Release and multiplayer
+
+Open **Pause → Map → Online lobby** after spawning to meet other players, send signals, or race along Broadway. [Run a multiplayer server](lobby/README.md)
+
+The public build uses fictional business and wardrobe names. The local development server adds a comparison switch in Settings. [Business and wardrobe catalogs](docs/business-puns/) · [Brand and release research](docs/brand-parody-and-steam-release.md) · [Build the Steam candidates and browser client](steam/README.md)
+
 ## Play locally
 
 Requires Node.js 20+ to serve and test the project. There are no npm dependencies to install. The development server tells the browser when its copy of a file is still good, so a reload re-reads only what changed.
