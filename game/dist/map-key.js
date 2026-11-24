@@ -12,6 +12,19 @@ export class MapKey {
     this.setExpanded(!globalThis.matchMedia?.('(max-width:650px)').matches);
     listen(this.toggle, 'click', () => this.setExpanded(this.list.hidden));
     for (const category of MAP_CATEGORIES) this.addRow(category);
+    const filters = [
+      [map.transit.button, 'transit'],
+      [map.byId('game-map-bike-lanes'), 'bike-lanes'],
+      ...Array.from(this.rows.values(), row => [row.toggle, row.id]),
+    ];
+    for (const [button, id] of filters) {
+      if (!button) continue;
+      button.title = 'Right-click to show only this option. Right-click it again to show all.' + (button.title ? ' ' + button.title : '');
+      listen(button, 'contextmenu', event => {
+        event.preventDefault();
+        this.isolate(id);
+      });
+    }
   }
 
   setExpanded(expanded) {
@@ -64,6 +77,24 @@ export class MapKey {
     this.rows.set('place/' + id, row);
     this.refresh(row);
     return row;
+  }
+
+  isolate(id) {
+    const map = this.map;
+    const selected = new Set(map.placeKinds);
+    if (map.showBikeLanes) selected.add('bike-lanes');
+    // A transit journey keeps its route visible until arrival.
+    if (map.transit.active && (!map.transit.journey || id === 'transit')) selected.add('transit');
+    const showAll = selected.size === 1 && selected.has(id);
+    for (const row of this.rows.values()) {
+      this.enable(row, showAll || row.id === id);
+      this.refresh(row);
+    }
+    map.setBikeLanes(showAll || id === 'bike-lanes');
+    if (map.placeKinds.size && !map.placesLoaded) this.requestPlaces();
+    const transit = Boolean(map.transit.journey) || showAll || id === 'transit';
+    if (transit !== map.transit.active) map.transit.setActive(transit);
+    else map.draw();
   }
 
   enabled(row) {

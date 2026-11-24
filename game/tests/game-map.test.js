@@ -91,6 +91,33 @@ test('opening shows the local player neighborhood, not the whole city, and emits
   map.setOpen(false);assert.deepEqual(changes, [true, false]);assert.equal(byId('game-map').hidden, true);
 });
 
+test('right-click isolates a map option, switches the solo, then enables every option', t => {
+  const { map, byId } = fixture(t);
+  map.setOpen(true);
+  const coffee = map.key.rows.get('place/coffee').toggle;
+  const lanes = byId('game-map-bike-lanes'), transit = map.transit.button;
+  let prevented = 0;
+  const solo = button => button.fire('contextmenu', {preventDefault(){prevented++;}});
+  coffee.fire('click'); // Start with a mixed selection and a disabled target.
+  solo(coffee);
+  assert.deepEqual([...map.placeKinds], ['coffee']);
+  assert.equal(lanes.attributes.get('aria-pressed'), 'false');
+  assert.equal(coffee.attributes.get('aria-pressed'), 'true');
+  solo(lanes);
+  assert.equal(map.placeKinds.size, 0);
+  assert.equal(map.showBikeLanes, true);
+  solo(transit);
+  assert.equal(map.transit.active, true);
+  assert.equal(map.showBikeLanes, false);
+  solo(transit);
+  assert.equal(map.showBikeLanes, true);
+  for(const row of map.key.rows.values())assert.equal(row.toggle.attributes.get('aria-pressed'), 'true');
+  assert.equal(map.placeKinds.size, map.key.rows.size);
+  assert.equal(prevented, 4);
+  coffee.fire('click');
+  assert.equal(map.placeKinds.size, map.key.rows.size-1);
+});
+
 test('address search centers a named destination and ignores results after the map closes', async t => {
   let completeSearch;
   const { map, document, byId } = fixture(t, {

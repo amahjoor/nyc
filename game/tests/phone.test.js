@@ -30,7 +30,7 @@ function page() {
     if (!elements.has(id)) {
       const listeners = {}, attributes = {};
       elements.set(id, { id, hidden: false, disabled: false, textContent: '', value: '0', attributes, setAttribute: (name, value) => { attributes[name] = value; }, getAttribute: name => attributes[name],
-        addEventListener: (name, listener) => { (listeners[name] ||= []).push(listener); }, fire: name => (listeners[name] || []).forEach(listener => listener({})) });
+        addEventListener: (name, listener) => { (listeners[name] ||= []).push(listener); }, fire: (name,event={}) => (listeners[name] || []).forEach(listener => listener(event)) });
       const element=elements.get(id);
       if(id==='phone-map-pins' || id==='phone-met-contacts'){
         element.children=[];
@@ -90,6 +90,21 @@ test('every part of the phone the game fills in is on the page', () => {
   for (const category of CATEGORIES) assert.match(html, new RegExp(`id="phone-chip-${category.id}">${category.label}<`));
   assert.match(html, /<section id="phone" class="phone" hidden/);
   assert.match(html, /Open phone<\/span><kbd>↑ \/ MIDDLE CLICK OUTSIDE WEAPON AIM<\/kbd>/);
+});
+
+test('right-clicking a phone map category keeps the key open and toggles back to all places', () => {
+  const { $, click } = page();
+  const phone=createPhone({ $, places:around });
+  phone.toggle();click('phone-app-map');click('map-key-toggle');
+  const coffee=$('mobile-key-coffee');
+  let prevented=0;
+  for(const pressed of ['true','false']){
+    coffee.fire('contextmenu',{preventDefault(){prevented++;}});
+    assert.equal(coffee.getAttribute('aria-pressed'),pressed);
+    assert.equal($('map-key-options').hidden,false);
+  }
+  assert.equal($('mobile-key-all').getAttribute('aria-pressed'),'true');
+  assert.equal(prevented,2);
 });
 
 test('the phone opens on its home screen, lists what is nearby, and sends the player to a place', () => {

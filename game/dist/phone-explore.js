@@ -22,14 +22,23 @@ export function createPhoneExplore({$,click,worldMap,locations,openPlace,summary
     keyOpen=open;$('map-key-options').hidden=!open;$('map-key-toggle').setAttribute('aria-expanded',String(open));
   };
   click('map-key-toggle',()=>setKey(!keyOpen));
+  function selectFilter(id){
+    $('mobile-key-'+filter).setAttribute('aria-pressed','false');
+    filter=id;
+    const button=$('mobile-key-'+filter);
+    button.setAttribute('aria-pressed','true');
+    $('map-key-toggle').textContent=id==='all'?'Map key':'Map key · '+button.textContent;
+    refresh();
+  }
   for(const [id,kind] of Object.entries(icons)){
-    const button=$('mobile-key-'+id),label=button.textContent;
+    const button=$('mobile-key-'+id);
     if(kind)button.insertAdjacentHTML?.('afterbegin',blipSvg(blipOf(kind),blipColour(kind),18));
     button.setAttribute('aria-pressed',String(id===filter));
     click(button.id,()=>{
-      $('mobile-key-'+filter).setAttribute('aria-pressed','false');filter=id;
-      button.setAttribute('aria-pressed','true');$('map-key-toggle').textContent=id==='all'?'Map key':'Map key · '+label;
-      setKey(false);$('map-key-toggle').focus?.();refresh();
+      selectFilter(id);setKey(false);$('map-key-toggle').focus?.();
+    });
+    button.addEventListener('contextmenu',event=>{
+      event.preventDefault();selectFilter(id===filter?'all':id);
     });
   }
   const zoom=factor=>{span=clamp(span*factor,100,3600);refresh();};

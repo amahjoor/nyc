@@ -60,9 +60,7 @@ export class GameMap {
     this.showBikeLanes=true;
     const laneButton=byId('game-map-bike-lanes');
     if(laneButton)listen(laneButton,'click',()=>{
-      this.showBikeLanes=!this.showBikeLanes;
-      laneButton.setAttribute('aria-pressed',String(this.showBikeLanes));
-      this.dirty=true;this.draw();
+      this.setBikeLanes(!this.showBikeLanes);this.draw();
     });
     this.lookupAddress = lookupAddress;
     listen(byId('game-map-search'), 'submit', event => { event.preventDefault();return this.searchAddress(); });
@@ -215,6 +213,12 @@ export class GameMap {
   }
   recenter() { this.view.x = this.player.x;this.view.z = this.player.z;this.view.span = 1000;this.following = true;this.clampCenter();this.draw(); }
   showCity() { const b = this.city.bounds;this.view.x = (b.minX + b.maxX) / 2;this.view.z = (b.minZ + b.maxZ) / 2;this.view.span = this.fullSpan();this.following = false;this.dirty = true;this.draw(); }
+  setBikeLanes(enabled) {
+    this.showBikeLanes=enabled;
+    this.byId('game-map-bike-lanes').setAttribute('aria-pressed',String(enabled));
+    this.dirty=true;
+  }
+
   setOpen(open) {
     if (this.disposed || this.open === Boolean(open) || (!open && this.transit.journey)) return;
     this.open = Boolean(open);this.element.hidden = !this.open;
