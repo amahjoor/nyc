@@ -2581,7 +2581,7 @@ test('inventory shows icons for saved groceries, meals, legacy drinks and leftov
     assert.equal(apple.textContent,'🍎');
     assert.equal(thumb('Slice').textContent,'🍕');
     assert.equal(thumb('Coffee').textContent,'☕');
-    assert.equal(thumb('Cleared dish · Slice').textContent,'🍽️');
+    assert.equal(thumb('Used paper plate · Slice').textContent,'🍽️');
     assert.equal(thumb('Empty drink container · Coffee').textContent,'☕');
     assert.match(thumb('Empty drink container · Coffee').className,/\bempty-item\b/);
     assert.match(thumb('Empty bottle · Ridgeline spring water').className,/\bempty-item\b/);
@@ -2629,11 +2629,11 @@ test('Y and the touch toss button throw only the held empty and leave its model 
     const tosses=()=>scene.children.filter(obj=>obj.name==='Thrown container');
     bag.receive('meal-donuts-glazed-doughnut');app.key('KeyY');app.key('KeyY',false);
     assert.equal(tosses().length,0);assert.equal(bag.held,'meal-donuts-glazed-doughnut');
-    const id='empty-meal-donuts-glazed-doughnut';bag.receive(id);bag.receive(id);
+    const id='empty-togo-meal-donuts-glazed-doughnut';bag.receive(id);bag.receive(id);
     app.frames(5,60);assert.match(app.elements.get('use-item-hint').textContent,/Y to throw/);
     app.key('KeyY');app.key('KeyY',false);
     assert.equal(bag.held,null);assert.equal(bag.inventory[id],1);
-    const [wrapper]=tosses(),start=wrapper.position.clone();assert.equal(wrapper.userData.item,'plate-doughnut@0');
+    const [wrapper]=tosses(),start=wrapper.position.clone();assert.equal(wrapper.userData.item,'plate-togo-doughnut@0');
     app.frames(2,40);assert.ok(wrapper.position.y>start.y);
     app.frames(40,50);const landed=wrapper.position.clone();
     assert.ok(landed.y<start.y);assert.ok(Math.hypot(landed.x-start.x,landed.z-start.z)>.1);

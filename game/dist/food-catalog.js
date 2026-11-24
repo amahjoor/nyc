@@ -67,12 +67,19 @@ export function servingFor(item,dineIn=false){
 // Two is the full serving. Suffixes preserve the amount left, including old half servings.
 export const portionKey=(base,level)=>level===2?base:base+'@'+level;
 export const portionBase=key=>key?.split('@')[0];
-// Model keys also identify saved servings. A plate- prefix can represent paper service.
-const wrappedServings=new Set([
+// Service travels with the item. Sitting down later must not replate a packed meal.
+export const takeawayServing=item=>{
+  const base=servingFor(item);
+  return base?.startsWith('plate-')?base.replace('plate-','plate-togo-'):base;
+};
+const pastries=new Set([
   'doughnut','doughnut-chocolate','doughnut-sprinkle','doughnut-jelly','boston-cream',
   'croissant','muffin','cookie','bw-cookie','cupcake','butter-roll','pretzel','ice-cream-sandwich',
-].map(style=>'plate-'+style));
-export const isWrappedServing=key=>wrappedServings.has(portionBase(key));
+]);
+export const isPastry=style=>pastries.has(style);
+export const isWrappedServing=key=>key?.startsWith('plate-togo-') && isPastry(portionBase(key).slice(11));
+const sliceStyles=new Set(['pizza','pizza-pepperoni','pizza-white','pizza-sicilian','pizza-combo','small-plate']);
+export const isSliceServing=style=>sliceStyles.has(style);
 export function portionLevel(key){
   const suffix=key?.split('@')[1];
   if(suffix===undefined || suffix==='')return 2;

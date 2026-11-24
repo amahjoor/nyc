@@ -526,7 +526,8 @@ export class Simulation {
     if(street && !place)place=[{kind:'fruitstand'},{kind:'newsstand'}].find(stand=>menuFor(stand).some(row=>row.name===item.name));
     const id=place && foodId(place,item);
     if(id && pantryItem(id)){
-      this.shopping.receive(id);
+      if(street && id.startsWith('meal-'))this.shopping.receiveTakeaway(pantryItem(id));
+      else this.shopping.receive(id);
       this._say(`${item.name}. $${item.price.toFixed(2)}. Added to inventory.`);
     }else if (PEP[item.effect]) { this.pep = Math.max(this.pep || 0, PEP[item.effect]); this._say(`${item.name}. $${item.price.toFixed(2)}.`); }
     else if (item.effect === 'lottery') { const prize = scratch(this._random()); this.cash += prize; this._say(prize ? `Scratched it: $${prize}.` : 'Scratched it: nothing.'); }

@@ -41,7 +41,7 @@ test('buying is done indoors, costs what it says, and a coffee quickens the step
   for(let i=0;i<180&&sim.room;i++)sim.step({ moveX: Math.max(-1,Math.min(1,room.x-sim.player.x)),moveZ:1 },1/60);
   assert.equal(sim.room,null);
   const banana = menuFor(place('fruitstand'))[0], cash = sim.cash;
-  assert.equal(sim.buy(banana), false); assert.equal(sim.buy(banana, { street: true, place:place('fruitstand') }), true); assert.equal(sim.cash, cash - .5); assert.equal(sim.shopping.inventory['meal-fruitstand-banana'],1);
+  assert.equal(sim.buy(banana), false); assert.equal(sim.buy(banana, { street: true, place:place('fruitstand') }), true); assert.equal(sim.cash, cash - .5); assert.equal(sim.shopping.inventory['togo-meal-fruitstand-banana'],1);
   assert.ok(menuFor(place('newsstand')).some(item => item.name === 'Newspaper'));
   assert.ok(sim.enterRoom(room));
   const before = sim.cash; sim.buy(menuFor(place('bodega')).find(item => item.effect === 'lottery'));

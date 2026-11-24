@@ -178,7 +178,7 @@ export const small={
   naan:k=>{W.plate(k,12);W.leavings(k,{crumbs:[0xe6c98a],r:5});
     k.add(puck([[-9,0],[-6,-5],[2,-6.4],[8.6,-3],[9.4,1.4],[4,5.6],[-4,5.4]],.7,{edge:.3,dome:.2,bump:.4,freq:.6,seed:4,n:40}),{at:[0,.05,0],drape:.01,color:0xecd49a,gloss:.5,inside:C.crumb,whole:false,paint:[spots(0x7a4a1e,.24,.9,3),spots(0x3a2010,.07,1.8,5),mottle(.08,1.2)]});
     F.herbs(k,0,0,18,{r:6,size:.6,onFood:.6});k.sprinkle('cube',14,{r:5.6,color:[0xf3ead0],size:.24,onFood:.6});k.biteAngle=.2;k.biteAt=1;},
-  dosa:k=>{k.ware(lathe([[0,0],[13.6,0],[14,.5],[13.8,.7],[12.6,.4],[0,.4]],48),{color:0xb4b9bd,gloss:.6,paint:mottle(.06,1.5)});W.leavings(k,{crumbs:[0xd9a04a],smear:0xc9702a,r:6});
+  dosa:k=>{if(k.takeaway)W.carton(k,28,28);else k.ware(lathe([[0,0],[13.6,0],[14,.5],[13.8,.7],[12.6,.4],[0,.4]],48),{color:0xb4b9bd,gloss:.6,paint:mottle(.06,1.5)});W.leavings(k,{crumbs:[0xd9a04a],smear:0xc9702a,r:6});
     k.at(-1,3,.2,()=>k.drop(tube([[-12.4,0,0],[0,0,0],[12.4,0,0]],2.6,{sides:14,ry:1.9,taper:t=>.82+.18*Math.sin(t*Math.PI),steps:20,caps:false}),0,0,{color:0xdca34a,gloss:.4,inside:0xe9c84a,whole:false,paint:[spots(0x9a5e1e,.3,.8,2),spots(0xf1d08a,.25,1.6,5),mottle(.1,1.2)]}));
     for(const [x,c] of [[-6.4,0xf1eedc],[-1.6,0xb8401e],[3.2,0x4a7a2a]])sauceCup(k,x,-6.6,c,{r:2,h:1.6,cup:0xb4b9bd});
     const b=W.bowl(k,3.4,3.2,{x:8.4,z:-5.4,color:0xb4b9bd});if(k.level)W.fill(k,b,k.level===2?.85:.4,0xc9702a,{paint:spots(0xe9c84a,.2,2,1)});k.biteAngle=-.2;k.biteAt=1;},

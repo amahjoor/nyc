@@ -186,6 +186,20 @@ test('the use-item control takes a single table bite or finishes the same course
   }finally{view.group.userData.dispose();}
 });
 
+test('packing a partly eaten table order preserves its remaining bites and its check',()=>{
+  const {view,bag,tick,sitAt,seats,ui,ctx}=store('italian');
+  try{
+    sitAt(seats()[0]);openTableService(ctx);const ticket=bag.order;
+    tick(90,()=>ui.open);ui.pick('I am ready');ui.pick('Spaghetti pomodoro');if(ui.open)ui.pick('Nothing');
+    assert.ok(tick(300,()=>ticket.stage==='dining'));
+    const dish=ticket.items.find(d=>!d.drink),due=ticket.due();
+    ticket.consume(dish,false);tick(5,()=>!bag.eating);
+    openTableService(ctx);ui.pick('Pack spaghetti pomodoro to go');
+    assert.equal(bag.held,'partial-2-togo-meal-italian-spaghetti-pomodoro');
+    assert.equal(dish.state,'packed');assert.equal(ticket.due(),due);assert.equal(ticket.pack(dish),false);
+  }finally{view.group.userData.dispose();}
+});
+
 test('walking out on a served meal is reported by staff who see it; standing up before anything arrives only cancels',()=>{
   const fled=store('american');
   try{

@@ -98,7 +98,7 @@ export const bowls={
     if(share===1)for(let i=0;i<8;i++){const [x,z]=k.spot(0,0,r*.7);float(k,tube([[-.9,0,0],[.9,0,.2]],.06,{sides:4,curve:false}),x,z,y+.08,{color:0x4f8a34});}
   }}),
   'onion-soup':k=>{const d=W.bowl(k,6.6,6.4,{color:0x7a3a1e,inner:0xd9c9a8});k.cut=false;
-    for(const s of [-1,1])k.ware(blob({r:[1.3,.8,1.5],bump:0,detail:1}),{at:[s*7,4.4,0],color:0x7a3a1e,gloss:.72});
+    if(!k.takeaway)for(const s of [-1,1])k.ware(blob({r:[1.3,.8,1.5],bump:0,detail:1}),{at:[s*7,4.4,0],color:0x7a3a1e,gloss:.72});
     if(!k.level){W.fill(k,d,.06,0x6a3a16,{ware:true});return;}
     if(k.level===1){W.fill(k,d,.45,0x6a3a16,{paint:oil(0xb9843a,.25)});F.dollop(k,-1.6,.6,{r:2.4,h:.7,color:0xf1dc9a,paint:spots(0xb9772a,.3,1.6,1)});return;}
     const y=W.fill(k,d,.98,0xf1dc9a,{gloss:.55,dome:.7,paint:[spots(0xa9641e,.42,1.1,2),spots(0x5a2e0c,.14,1.9,5),mottle(.08,2)]});

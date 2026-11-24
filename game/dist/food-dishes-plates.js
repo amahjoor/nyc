@@ -115,7 +115,7 @@ export const plates={
     if(k.level){W.fill(k,b,k.level===2?.8:.4,0xc9902a,{gloss:.6,dome:.4,paint:[spots(0x3f6a2c,.4,1.5,2),spots(0xb8401e,.2,1.1,5),mottle(.1,2)]});
       if(k.level===2)for(let i=0;i<4;i++){const a=i*1.6;k.drop(blob({r:[1.2,.9,1],bump:.2,detail:1}),-4+Math.cos(a)*2.6,Math.sin(a)*2.6,{color:0x6a3a20,gloss:.5,whole:true});}}
     k.drop(blob({r:[4,3,3.6],bump:.05,freq:.5,seed:4,detail:3,flat:.14}),6.2,.4,{color:0xf3ecd8,gloss:.35,inside:0xf6f1e2,whole:false,paint:mottle(.03,.8)});k.biteAngle=0;k.biteAt=6.5;},
-  injera:k=>{k.ware(lathe([[0,0],[13.4,0],[13.8,.5],[13.6,.7],[12.6,.4],[0,.4]],48),{color:0xb4b9bd,gloss:.6,paint:mottle(.06,1.5)});W.leavings(k,{crumbs:[0xc9b08a],smear:0x9a2a16,r:7});
+  injera:k=>{if(k.takeaway)W.carton(k,28,28);else k.ware(lathe([[0,0],[13.4,0],[13.8,.5],[13.6,.7],[12.6,.4],[0,.4]],48),{color:0xb4b9bd,gloss:.6,paint:mottle(.06,1.5)});W.leavings(k,{crumbs:[0xc9b08a],smear:0x9a2a16,r:7});
     const seed=k.rand(9);
     k.add(sheet((u,v)=>{const a=u*TAU,d=v*13*(1+.02*Math.sin(a*9));return [Math.cos(a)*d,.1+.06*fbm(Math.cos(a)*d*2+seed,1,Math.sin(a)*d*2),Math.sin(a)*d];},48,10),{at:[0,.02,0],drape:.01,color:0xc9b08a,gloss:.18,inside:0xc9b08a,whole:false,paint:[spots(0xa9906a,.5,3.2,seed),mottle(.08,1.2)]});
     const heaps=[[0xa02a16,0x5a140a],[0xd9a82a,0x9a6a1a],[0x3f6a2c,0x2a4a1e],[0xc97a2a,0x8a4a14],[0xe6d9a8,0xc9b06a],[0x7a3a24,0x3e1a10]];
@@ -197,7 +197,7 @@ export const plates={
       for(let i=-2;i<=2;i++)k.add(sheet((u,v)=>[-12.4-v*1.8,.5,i*.9+(u-.5)*1.2*(1+v)],2,2),{color:shell,gloss:.6,whole:true});
     });
     W.ramekin(k,9.4,6.2,0xf3d77a,{r:2.3,full:k.level===2?1:.4});lemon(k,-9.6,6.2,.4);lemon(k,-7,7.2,1.2);k.biteAngle=.15;k.biteAt=1.5;},
-  oysters:k=>{k.ware(lathe([[0,0],[9.6,0],[12.4,2.2],[12.6,2.5],[12.2,2.5],[9.6,.6],[0,.6]],40),{color:0xb4b9bd,gloss:.6,paint:mottle(.06,1.4)});
+  oysters:k=>{if(k.takeaway)W.carton(k,26,26);else k.ware(lathe([[0,0],[9.6,0],[12.4,2.2],[12.6,2.5],[12.2,2.5],[9.6,.6],[0,.6]],40),{color:0xb4b9bd,gloss:.6,paint:mottle(.06,1.4)});
     k.ware(lathe([[11.8,2],[9,2.3],[6,2.5],[3,2.6],[0,2.6]],36,{bump:.05,freq:1.3}),{color:0xeef4f6,gloss:.7,paint:mottle(.08,2.6)});
     const n=k.level===2?6:k.level===1?3:0;
     for(let i=0;i<6;i++){const a=i*TAU/6+.2;k.at(Math.cos(a)*7.2,Math.sin(a)*7.2,-a+Math.PI/2,()=>{
@@ -213,7 +213,7 @@ export const plates={
     for(let i=0;i<n;i++){const [x,z]=k.spot(-1.4,.4,5,.9),r=k.rand(1,1.6);k.drop(lathe([[r,0],[r+.34,.2],[r+.34,.6],[r,.8],[r-.34,.6],[r-.34,.2],[r,0]],12,{bump:.12,freq:2,seed:i}),x,z,{rot:[k.rand(-.4,.4),0,k.rand(-.4,.4)],color:0xd9a84a,gloss:.25,paint:[mottle(.16,3),spots(0xa9702a,.28,2,i)],whole:true,roll:3,within:[-1.4,.4,5.6],settle:.6});}
     W.ramekin(k,7.2,-4.8,C.marinara,{r:2.4,full:k.level===2?1:.4});lemon(k,6.8,3.6,.3);k.cut=false;},
   moules:k=>{const pot=W.bowl(k,9.4,7,{color:0x23272a,inner:0x3a3f42,gloss:.6});k.cut=false;
-    for(const s of [-1,1])k.ware(tube([[s*9,5.6,-1.6],[s*11,5.9,0],[s*9,5.6,1.6]],.5,{sides:7,caps:false}),{color:0x23272a,gloss:.6});
+    if(!k.takeaway)for(const s of [-1,1])k.ware(tube([[s*9,5.6,-1.6],[s*11,5.9,0],[s*9,5.6,1.6]],.5,{sides:7,caps:false}),{color:0x23272a,gloss:.6});
     if(!k.level){W.fill(k,pot,.1,0xe6d9a8,{ware:true});return;}
     W.fill(k,pot,k.level===2?.62:.3,0xe6d9a8,{gloss:.85,paint:spots(0x5c9a34,.12,3,1)});
     const n=k.level===2?12:5;
@@ -236,6 +236,7 @@ export const plates={
     W.fill(k,d,.95,0xf1e2b4,{gloss:.3,dome:.9,paint:[toward(0xc98a36,(P,N,L)=>.75*smooth(.35,.75,.5+.5*Math.sin(L.x*2.4)*Math.cos(L.z*2.4))),mottle(.06,2)]});F.herbs(k,0,0,8,{r:5,size:.5,onFood:3});},
 };
 function stemGlass(k){
+  if(k.takeaway){W.bowl(k,7.5,6.5);return;}
   k.ware(lathe([[0,0],[4.6,0],[4.6,.2],[.9,.7],[.5,1.6],[.5,5],[1.2,5.6],[5.4,8.4],[7.4,10.4],[7.5,10.6],[7.3,10.6],[5.2,8.7],[1,6.2],[0,6.2]],32),{color:0xdcecea,opacity:.24,gloss:.95,shade:false});
   k.ware(lathe([[1,6.2],[5,8.6],[5.6,9.2],[3,9.4],[0,9.4]],28,{bump:.03,freq:1.5}),{color:0xeef4f6,gloss:.7});
   if(k.level)k.add(lathe([[2.6,9.4],[2.4,10.2],[1.4,10.4],[0,10.4]],20),{color:0xb23a2a,gloss:.7,paint:mottle(.1,2.5),whole:true,cast:false});

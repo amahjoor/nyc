@@ -1,5 +1,5 @@
 import { payFor, purchaseLimit } from './money.js';
-import { servingFor,portionKey,isWrappedServing } from './food-catalog.js';
+import { servingFor,portionKey,isWrappedServing,isPastry,isSliceServing,takeawayServing } from './food-catalog.js';
 import { groceries,groceryPrice } from './grocery-stock.js';
 import { carriedOrder,legacyDish,menuFor,PEP,plateStyle } from './menu.js';
 import { KIND } from './places.js';
@@ -19,18 +19,24 @@ export function pantryItem(id){
     if(source.startsWith('empty-') || source.startsWith('partial-'))return null;
     const food=pantryItem(source);if(!food || food.effect==='pantry')return null;
     const shape=groceries[source]?.shape,style=plateStyle(food.preparation||food.name);
-    const name=({bottle:'Empty bottle',can:'Empty can',pouch:'Empty snack bag',box:'Empty box',carton:'Empty carton',apple:'Apple core',orange:'Orange peel'})[shape] ||
-      ({banana:'Banana peel',oranges:'Empty fruit bag',cone:'Paper sleeve',popcorn:'Empty popcorn carton',chocolate:'Candy wrapper',chips:'Empty chip bag','doughnut-box':'Empty bakery box'})[style] ||
-      (isWrappedServing(heldFood(food))?'Empty paper wrapper':beverage(food)?'Empty drink container':'Cleared dish');
+    let name=({bottle:'Empty bottle',can:'Empty can',pouch:'Empty snack bag',box:'Empty box',carton:'Empty carton',apple:'Apple core',orange:'Orange peel'})[shape] ||
+      ({banana:'Banana peel',oranges:'Empty fruit bag',cone:'Paper sleeve',popcorn:'Empty popcorn carton',chocolate:'Candy wrapper',chips:'Empty chip bag','doughnut-box':'Empty bakery box'})[style];
+    if(!name){
+      if(isSliceServing(style))name='Used paper plate';
+      else if(isWrappedServing(heldFood(food)))name='Empty paper wrapper';
+      else if(beverage(food))name='Empty drink container';
+      else if(food.toGo)name=style==='pizza-margherita'?'Empty pizza box':'Empty takeout container';
+      else name='Cleared dish';
+    }
     return {id,name:name+' · '+food.name,source,effect:'empty'};
   }
   if(Object.hasOwn(groceries,id))return groceries[id];
   if(dishes.has(id))return dishes.get(id);
-  const match=/^meal-([a-z]+)-([a-z0-9-]+)$/.exec(id);
+  const match=/^(?:togo-)?meal-([a-z]+)-([a-z0-9-]+)$/.exec(id);
   if(!match || !Object.hasOwn(KIND,match[1]))return null;
   const menu=menuFor({kind:match[1]}),item=(/^\d+$/.test(match[2])?menu[Number(match[2])]:menu.find(row=>dishKey(row.name)===match[2])) || legacyDish(match[1],match[2]);
   if(!item || item.product || !preparedFood({kind:match[1]},item))return null;
-  const food={...item,id};dishes.set(id,food);return food;
+  const food={...item,id,toGo:id.startsWith('togo-')};dishes.set(id,food);return food;
 }
 const dishKey=name=>name.toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/-$/,'');
 export const preparedFood=(place,item)=>Boolean(carriedOrder(item));
@@ -45,7 +51,7 @@ const portionId=(item,remaining)=>remaining===0?'empty-'+item.id:remaining===ser
 export function heldFood(item){
   if(item.effect==='empty')return portionKey(heldFood(pantryItem(item.source)),0);
   if(item.remaining)return portionKey(heldFood(pantryItem(item.source)),servingLevel(item,item.remaining));
-  return groceries[item.id]?item.id:servingFor(item);
+  return groceries[item.id]?item.id:item.toGo?takeawayServing(item):servingFor(item);
 }
 
 export function diningTable(sim,view){
@@ -63,13 +69,32 @@ export class Shopping{
   }
   restore(record){
     if(!record || typeof record!=='object')return;
-    for(const [id,n] of Object.entries(record.inventory||{}))if(pantryItem(id) && Number.isSafeInteger(n) && n>0)this.inventory[id]=n;
+    // Before service was saved, pastries always came wrapped. For other dishes only
+    // the held unit had a takeaway flag, even when the inventory held several.
+    const packedCount=(id,count)=>{
+      if(record.serviceVersion || typeof id!=='string')return 0;
+      const item=pantryItem(id),source=item?.source?pantryItem(item.source):item;
+      if(!source?.id.startsWith('meal-'))return 0;
+      if(isPastry(plateStyle(source.preparation||source.name)))return count;
+      return record.wrapped && record.held===id?1:0;
+    };
+    const packedId=id=>id.replace('meal-','togo-meal-');
+    const savedId=id=>packedCount(id,1)?packedId(id):id;
+    const inventory=Object.create(null);
+    for(const [id,n] of Object.entries(record.inventory||{})){
+      if(!pantryItem(id) || !Number.isSafeInteger(n) || n<=0)continue;
+      const count=packedCount(id,n);
+      if(count)inventory[packedId(id)]=(inventory[packedId(id)]||0)+count;
+      if(n>count)inventory[id]=(inventory[id]||0)+n-count;
+    }
+    this.inventory=inventory;
+    const held=savedId(record.held);
     for(const [key,slots] of Object.entries(record.sold||{}))if(key.length<160 && !['__proto__','constructor','prototype'].includes(key) && Array.isArray(slots)){
       this.sold[key]=new Set(slots.filter(i=>Number.isInteger(i) && i>=0 && i<4096));
     }
-    if(this.inventory[record.held])this.sim.player.carry=record.wrapped===true?'takeout':heldFood(pantryItem(record.held));
-    this.held=this.inventory[record.held]?record.held:null;
-    const use=record.inUse,item=pantryItem(use?.id);
+    this.held=this.inventory[held]?held:null;
+    if(this.held)this.sim.player.carry=heldFood(pantryItem(held));
+    const use=record.inUse,item=pantryItem(savedId(use?.id));
     if(item && item.effect!=='empty' && item.effect!=='pantry' && Number.isFinite(use.progress)){
       if(use.finish===undefined){
         const progress=use.progress>=3.56?4:use.progress>=1.31?1.4:0;
@@ -79,7 +104,7 @@ export class Shopping{
     }
     this.revision++;
   }
-  record(){const e=this.eating;return {inUse:e && !e.onRemaining?{id:portionId(e.item,e.initial),progress:this.sim.elapsed-e.start,finish:e.finish}:null,inventory:this.inventory,held:this.held,wrapped:Boolean(this.held && this.sim.player.carry==='takeout'),sold:Object.fromEntries(Object.entries(this.sold).map(([id,set])=>[id,[...set]]))};}
+  record(){const e=this.eating;return {serviceVersion:1,inUse:e && !e.onRemaining?{id:portionId(e.item,e.initial),progress:this.sim.elapsed-e.start,finish:e.finish}:null,inventory:this.inventory,held:this.held,sold:Object.fromEntries(Object.entries(this.sold).map(([id,set])=>[id,[...set]]))};}
   missing(shop,index,visible=false){const visitor=this.reservations.get(shop)?.get(index);
     return this.sold[shop]?.has(index) || visitor && (!visible || visitor.collected) || (this.basket?.shop===shop && this.basket.units.some(s=>s.index===index)) ||
     (this.order?.shop===shop && this.order.slot?.index===index && (!visible || this.order.collected));}
@@ -192,8 +217,8 @@ export class Shopping{
     }
     else if(order.slot)this.transfer(order.shop,[order.slot]);
     else{
-      this.receive(order.food.id);
-      if((order.packed || toGo && !beverage(order.food)) && !isWrappedServing(heldFood(order.food)))sim.player.carry='takeout';
+      if(order.packed || toGo)this.receiveTakeaway(order.food);
+      else this.receive(order.food.id);
     }
     if(!unpaid && sale>0)order.sale?.(sim.room.place,sale,tender);
     order.paid=!unpaid;this.cancelOrder();
@@ -235,16 +260,18 @@ export class Shopping{
   }
   beginEating(item,view,progress=0,{finish=true,remaining=item.remaining||servingSize(item),onRemaining=null}={}){
     if(item.source)item=pantryItem(item.source);
-    const seatTable=diningTable(this.sim,view),table=seatTable && !groceries[item.id] && !view.claims.has(seatTable)?seatTable:null,drink=beverage(item);
+    const seatTable=diningTable(this.sim,view),table=seatTable && !item.toGo && !groceries[item.id] && !view.claims.has(seatTable)?seatTable:null,drink=beverage(item);
     const level=servingLevel(item,remaining), duration=drink?1.05:1.4;
-    const base=table && drink?servingFor(item,true):heldFood(item),handheld=isWrappedServing(base);
+    const style=plateStyle(item.preparation||item.name);
+    const lifted=!item.toGo && isPastry(style),base=lifted?'plate-hand-'+style:table && drink?servingFor(item,true):heldFood(item);
+    const handheld=Boolean(lifted || isWrappedServing(base));
     if(table){
       view.claims.set(table,this);
-      if(!drink && !handheld)view.group?.userData.mealAt?.(table,true,item,level);
+      if(!drink)view.group?.userData.mealAt?.(table,true,item,lifted?0:level);
     }
     const start=this.sim.elapsed-progress;
     const carry=table && !drink && !handheld?'fork':portionKey(base,level);
-    this.eating={item,base,style:plateStyle(item.preparation||item.name),level,start,duration,
+    this.eating={item,base,style,level,start,duration,
       until:start+duration*(finish?remaining:1),initial:remaining,remaining,finish,onRemaining,table,view,drink,handheld,carry,seat:this.sim.seat};
     this.sim.player.carry=carry;this.revision++;
   }
@@ -263,20 +290,24 @@ export class Shopping{
     this.eating=null;
     if(e.onRemaining?.(e.remaining,e)){
       if(this.sim.player.carry===e.carry)this.sim.player.carry=null;
-    }else if(e.table && !e.remaining && !e.handheld){
+    }else if(e.table && !e.remaining){
       const mug=e.drink?{...e.table,y:e.table.h,temporary:true}:null;
       if(mug)e.view.group?.userData.drinkAt?.(mug,'mug',true,e.item,0);
-      e.view.cleanups.push({table:e.table,mug,emptyCarry:portionKey(e.base,0),server:null,left:1.4});
+      e.view.cleanups.push({table:e.table,mug,emptyCarry:portionKey(servingFor(e.item,true),0),server:null,left:1.4});
       if(this.sim.player.carry===e.carry)this.sim.player.carry=null;
     }else{
       if(e.table){
-        if(!e.drink && !e.handheld)e.view.group?.userData.mealAt?.(e.table,false);
+        if(!e.drink)e.view.group?.userData.mealAt?.(e.table,false);
         e.view.claims.delete(e.table);
       }
       const id=portionId(e.item,e.remaining);this.inventory[id]=(this.inventory[id]||0)+1;
       if(this.sim.player.carry===e.carry)this.setHand(id);
     }
     this.revision++;
+  }
+  receiveTakeaway(food,remaining=servingSize(food)){
+    const packed=pantryItem('togo-'+food.id);
+    this.receive(portionId(packed,remaining));
   }
   heldEmpty(){
     const id=this.held;
@@ -302,8 +333,9 @@ export class Shopping{
     const e=this.eating;
     if(e){
       if(e.table && (e.seat!==sim.seat || sim.seat?.leaving || sim.room?.place.id!==e.view.plan.place.id)){
-        if(!e.drink && !e.handheld)e.view.group?.userData.mealAt?.(e.table,false);
-        e.view.claims.delete(e.table);e.table=null;e.base=heldFood(e.item);
+        if(!e.drink)e.view.group?.userData.mealAt?.(e.table,false);
+        e.view.claims.delete(e.table);e.table=null;
+        if(!e.handheld)e.base=heldFood(e.item);
         e.carry=sim.player.carry=portionKey(e.base,e.level);
       }
       const t=sim.elapsed-e.start;

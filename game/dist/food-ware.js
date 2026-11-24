@@ -21,6 +21,7 @@ export const basin=(path,profile)=>loft(profile.map(([s,y])=>path.map(([x,z])=>[
 const rimBand=(hex,r0,r1)=>toward(hex,(P,N,L)=>N.y>.2?smooth(r0-.12,r0,Math.hypot(L.x,L.z))*smooth(r1+.12,r1,Math.hypot(L.x,L.z)):0);
 /** A dinner plate of radius `r`: 12 for a main, 9 for a side or a pastry. */
 export function plate(k,r=12,{color=CHINA,band=null,gloss=.55}={}){
+  if(k.takeaway)return carton(k,r*2,r*1.9);
   const s=r/12,h=Math.sqrt(s);
   const profile=[[0,0],[6.8,0],[7.4,.14],[8.8,.5],[10.9,1.1],[11.9,1.52],[12,1.7],[11.86,1.8],[11.2,1.52],[10,1.1],[8.9,.74],[8.2,.54],[7.3,.45],[6.2,.42],[5,.42],[3.8,.42],[2.6,.42],[1.3,.42],[0,.42]];
   // The turn from the well up to the rim is shaded a little, or a lit plate reads as a white disc.
@@ -29,6 +30,7 @@ export function plate(k,r=12,{color=CHINA,band=null,gloss=.55}={}){
 }
 /** An oval platter. */
 export function platter(k,w=30,d=20,{color=CHINA,gloss=.74}={}){
+  if(k.takeaway)return carton(k,w,d);
   const profile=[[0,0],[.56,0],[.74,.5],[.99,1.5],[1,1.68],[.985,1.78],[.93,1.5],[.76,.72],[.66,.48],[.5,.42],[.36,.42],[.22,.42],[.1,.42],[0,.42]];
   k.ware(loft(profile.map(([sc,y])=>circle(w/2,48,d/2).map(([x,z])=>[x*sc,y,z*sc]))),{color,gloss});
 }
@@ -38,6 +40,13 @@ const BOWL_OUT=[[0,0],[.38,0],[.42,.04],[.62,.2],[.82,.48],[.95,.78],[1,.985],[.
  * `inner` glazes the inside another colour; `band` rings the outside.
  */
 export function bowl(k,r=8,h=6,{color=CHINA,inner=color,band=null,gloss=.74,x=0,z=0}={}){
+  if(k.takeaway){
+    // The fill and toppings use this same tapered interior at every portion level.
+    const floor=h*.1,width=y=>r*(.73+.24*Math.min(1,y/h));
+    k.ware(lathe([[0,0],[r*.73,0],[r,h],[r*1.02,h+.12],[r*.98,h+.2],
+      [width(floor),floor],[0,floor]],40),{at:[x,0,z],color:KRAFT,gloss:.16});
+    return {r,h,x,z,width,floor};
+  }
   const paint=[toward(inner,(P,N,L)=>Math.hypot(N.x,N.z)*Math.hypot(L.x,L.z)>0 && N.x*L.x+N.z*L.z<0 || N.y>.6 && L.y<h*.5?1:0)];
   if(band)paint.push(toward(band,(P,N,L)=>N.x*L.x+N.z*L.z>0?smooth(.70,.74,L.y/h)*smooth(.92,.88,L.y/h):0));
   k.ware(lathe([...BOWL_OUT,...BOWL_IN].map(([a,b])=>[a*r,b*h]),40),{at:[x,0,z],color,gloss,paint});
@@ -70,8 +79,13 @@ export function foilPan(k,r=9,h=4.2){
 }
 /** A rectangular tray with flared walls: foil, black plastic, or a paper boat. */
 export function tray(k,w=18,d=12,h=3.2,{color=FOIL,gloss=.6,flare=.14,corner=1.6,paint=mottle(.06,1.2),x=0,z=0,yaw=0}={}){
+  if(k.takeaway && color===RED){color=KRAFT;gloss=.18;}
   const a=1-flare,profile=[[0,0],[a*.94,0],[a,.06*h],[1,h],[1.035,h*1.01],[1.035,h*1.04],[.99,h*1.03],[.975,h*.97],[a*.975,.12],[a*.7,.1],[a*.4,.1],[0,.1]];
   k.ware(basin(rounded(w,d,corner),profile),{at:[x,0,z],rot:[0,yaw,0],color,gloss,paint});
+}
+/** Open paperboard carton with a folded lip around the opening. */
+export function carton(k,w,d,h=3.1){
+  tray(k,w,d,h,{color:KRAFT,corner:.65,flare:.10,gloss:.18});
 }
 /** A sheet of deli paper under the food, plain or checked. */
 export function deliPaper(k,w=20,d=20,{color=PAPER,check=null,yaw=.2,x=0,z=0,size=1.6,lift=.05,gloss=.25,crinkle=.1}={}){
@@ -90,6 +104,7 @@ export function deliPaper(k,w=20,d=20,{color=PAPER,check=null,yaw=.2,x=0,z=0,siz
 }
 /** A plank or a slate to serve on. */
 export function board(k,w=26,d=14,h=1.4,{color=WOOD,gloss=.3}={}){
+  if(k.takeaway)return carton(k,w,d);
   k.ware(brick(w,h,d,.3,{n:40}),{color,gloss,paint:(c,P)=>c.multiplyScalar(1+.10*sn(P.x*.3,P.y,P.z*2.6)+.05*sn(P.x*.9,1,P.z*7))});
 }
 /** A little pot of sauce. `full` is how much is left in it. */

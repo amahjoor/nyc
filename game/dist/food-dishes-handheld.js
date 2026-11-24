@@ -254,7 +254,11 @@ function sicilian(k){
   k.biteAngle=-1.4;k.biteAt=1.5;
 }
 function pie(k,{r=11.5}={}){
-  k.ware(lathe([[0,0],[r+1.2,0],[r+1.5,.25],[r+1.3,.4],[r+.6,.3],[0,.3]],48),{color:0x9da2a6,gloss:.6,paint:mottle(.08,1.5)});
+  if(k.takeaway){
+    const width=r*2+3;
+    W.carton(k,width,width,2.4);
+    k.ware(sheet((u,v)=>[(u-.5)*width,2.4+v*width*.86,-width*(.5+.50*v)],2,2),{color:W.KRAFT,gloss:.18,cast:false});
+  }else k.ware(lathe([[0,0],[r+1.2,0],[r+1.5,.25],[r+1.3,.4],[r+.6,.3],[0,.3]],48),{color:0x9da2a6,gloss:.6,paint:mottle(.08,1.5)});
   W.leavings(k,{crumbs:[0xdcae62,0xb9772c],smear:0xa62f1e,n:20,r:7});
   const seed=k.rand(9);
   k.add(lathe([[0,0],[r,0],[r+.1,.5],[r-.2,1.0],[r-1.1,1.1],[r-1.7,.6],[r-3,.5],[r-5,.5],[r-7.5,.5],[0,.5]],44,{bump:.035,freq:.5,seed}),{at:[0,.3,0],color:0xdcae62,gloss:.25,inside:C.crumb,whole:false,paint:[toward(0x8f531f,(P,N,L)=>smooth(r-2.2,r-.6,Math.hypot(L.x,L.z))*(.35+.5*fbm(P.x*.9,1,P.z*.9+4))),spots(0x3a2416,.07,1.9,seed),mottle(.08,1.2)]});
@@ -274,7 +278,8 @@ function calzone(k){
   k.biteAngle=.3;k.biteAt=1;
 }
 function garlicKnots(k){
-  W.paperPlate(k,10);W.leavings(k,{crumbs:[0xdcae62,0x4d8a2c],n:16,r:4});
+  if(k.takeaway)W.carton(k,20,17);else W.paperPlate(k,10);
+  W.leavings(k,{crumbs:[0xdcae62,0x4d8a2c],n:16,r:4});
   const n=k.level===1?3:5;
   for(let i=0;i<n;i++){
     const a=i*TAU/5+.4,x=Math.cos(a)*3.7-1.4,z=Math.sin(a)*3.7;

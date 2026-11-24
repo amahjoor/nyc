@@ -1,10 +1,10 @@
 import { groceries,groceryPrice } from './grocery-stock.js';
 import { pantryItem,diningTable,beverage,preparedFood,heldFood } from './shopping.js';
-import { isWrappedServing } from './food-catalog.js';
+import { isWrappedServing,isSliceServing } from './food-catalog.js';
 import { bowls } from './food-dishes-bowls.js';
 import { handheld } from './food-dishes-handheld.js';
 import { sweets } from './food-dishes-sweets.js';
-import { menuFor } from './menu.js';
+import { menuFor,plateStyle } from './menu.js';
 import { startCounterOrder } from './facility-visits.js';
 import { sharedShopPreview } from './shop-preview.js';
 import { openTableService } from './table-service.js';
@@ -84,8 +84,8 @@ const servingIcons=Object.fromEntries([
 function inventoryIcon(item,source){
   const model=heldFood(source);
   if(beverage(source))return servingIcons[model]||'🥤';
-  if(item.effect==='empty')return isWrappedServing(model)?'📄':'🍽️';
-  const dish=model?.startsWith('plate-')?model.slice(6):null;
+  if(item.effect==='empty')return isWrappedServing(model)?'📄':source.toGo && !isSliceServing(plateStyle(source.preparation||source.name))?'📦':'🍽️';
+  const dish=model?.startsWith('plate-')?model.slice(6).replace(/^togo-/,''):null;
   if(servingIcons[dish])return servingIcons[dish];
   if(Object.hasOwn(bowls,dish))return '🍲';
   if(Object.hasOwn(sweets,dish))return '🍰';
@@ -102,7 +102,7 @@ export function openInventory(ctx){
       if(!item || !(count>0))continue;
       const empty=item.effect==='empty', source=item.source?pantryItem(item.source):item;
       const product=groceries[source.id];
-      rows.push({name:item.name,note:'× '+count+(item.remaining?' · '+item.remaining+(beverage(item)?' sips':' bites')+' left':''),item,product,icon:product?null:inventoryIcon(item,source),empty});
+      rows.push({name:item.name,note:'× '+count+(source.toGo?' · To go':'')+(item.remaining?' · '+item.remaining+(beverage(item)?' sips':' bites')+' left':''),item,product,icon:product?null:inventoryIcon(item,source),empty});
     }
     if(bag.eating)rows.unshift({name:bag.eating.drink?'Stop drinking':'Stop eating',run:()=>{bag.clearEating();save();}});
     else if(bag.held)rows.push({name:'Put away held item',run:()=>{bag.setHand(null);save();}});
@@ -148,9 +148,9 @@ export function openFoodCounter(ctx){
       if(o.table && o.food)rows.push({name:'Pay and '+(beverage(o.food)?'take a sip':'take a bite'),note:money(o.price),run:()=>{
         if(bag.accept(o)){bag.consume(o.food.id,view,false);save(place.name);}
       }});
-      rows.push({name:o.table?'Pay and take away':'Pay and collect',note:money(o.price),run:()=>{if(bag.accept(o,Boolean(o.table)))save(place.name);}});
+      rows.push({name:o.table?'Pay and take away':o.pack && !o.packed?'Pay and eat here':'Pay and collect',note:money(o.price),run:()=>{if(bag.accept(o,Boolean(o.table)))save(place.name);}});
       if(!o.basket)rows.push({name:'Collect and pay later',note:money(o.price)+' due',run:()=>{if(bag.accept(o,Boolean(o.table),true))save(place.name);}});
-      if(o.pack && !o.table && !o.packed)rows.push({name:'Ask for a bag to go',run:o.pack});
+      if(o.pack && !o.table && !o.packed)rows.push({name:'Pack my order to go',run:o.pack});
     }
     rows.push({name:'Keep waiting',run:()=>{}},{name:'Cancel order',run:()=>bag.cancelOrder()});
     interaction.openList(o.label,rows,r=>r.run(),{cash:sim.cash,message:o.phase,available});return true;

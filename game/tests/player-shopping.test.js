@@ -144,9 +144,17 @@ test('a requested takeaway is packed by the server and opens as the same dish fr
   try{
     checkout();placeOrder(menuFor(room.place).find(i=>i.name==='Spaghetti pomodoro'));
     const o=bag.order;tick(90,()=>o.ready);o.pack();assert.equal(o.ready,false);tick(4,()=>o.ready);
-    assert.equal(o.employee.carry,'takeout');assert.ok(bag.accept(o));assert.equal(sim.player.carry,'takeout');
-    const saved=new Shopping(sim);saved.restore(JSON.parse(JSON.stringify(bag.record())));assert.equal(sim.player.carry,'takeout');
-    assert.ok(saved.consume(o.food.id));assert.equal(sim.player.carry,'plate-pasta');
+    assert.equal(o.employee.carry,'plate-togo-pasta');assert.ok(bag.accept(o));
+    const packed=bag.held;assert.equal(sim.player.carry,'plate-togo-pasta');
+    bag.receive(o.food.id);bag.setHand(packed);
+    const saved=sim.shopping=new Shopping(sim);saved.restore(JSON.parse(JSON.stringify(bag.record())));
+    assert.equal(saved.held,packed);assert.equal(sim.player.carry,'plate-togo-pasta');
+    assert.ok(saved.consume(packed,view,false));tick(2);
+    assert.equal(saved.held,'partial-2-'+packed);assert.equal(sim.player.carry,portionKey('plate-togo-pasta',4/3));
+    assert.ok(saved.consume(saved.held,view));tick(4);
+    assert.match(saved.heldEmpty().name,/takeout container/);
+    assert.equal(saved.tossEmpty(),'plate-togo-pasta@0');
+    saved.setHand(o.food.id);assert.equal(sim.player.carry,'plate-pasta');
   }finally{view.group.userData.dispose();}
 });
 
@@ -238,7 +246,7 @@ test('collecting counter food with no cash can cause a single reported walkout',
     checkout();assert.ok(placeOrder(menuFor(room.place).find(item=>item.effect==='meal')));
     const order=bag.order;tick(90,()=>order.ready);assert.ok(order.ready,order.phase);
     assert.equal(bag.accept(order),false);
-    assert.ok(bag.accept(order,true,true));assert.equal(bag.inventory[order.food.id],1);
+    assert.ok(bag.accept(order,true,true));assert.equal(bag.inventory['togo-'+order.food.id],1);
     assert.equal(bag.charges(room.place),order.price);assert.equal(sales.length,0);
     bag.witness=()=>true;
     bag.leave(view);sim.room=null;tick(12);bag.leave(view);
@@ -273,16 +281,37 @@ test('a doughnut is handed over in paper and eaten in the hand even at a dining 
     const item=menuFor(room.place).find(i=>i.name==='Glazed doughnut');
     assert.ok(placeOrder(item));const order=bag.order;tick(90,()=>order.ready);
     order.pack();tick(10,()=>order.ready);
-    assert.equal(order.employee.carry,'plate-doughnut');
-    assert.ok(bag.accept(order));assert.equal(sim.player.carry,'plate-doughnut');
+    assert.equal(order.employee.carry,'plate-togo-doughnut');
+    assert.ok(bag.accept(order));assert.equal(sim.player.carry,'plate-togo-doughnut');
     const id=bag.held;
     assert.ok(room.seats.find(s=>{go(s.a,s.b);sim.seat={x:sim.player.x,z:sim.player.z};return diningTable(sim,view);}));
-    assert.ok(bag.consume(id,view,false));assert.ok(bag.eating.table);
-    assert.equal(sim.player.carry,'plate-doughnut');tick(2);
+    assert.ok(bag.consume(id,view,false));assert.equal(bag.eating.table,null);
+    assert.equal(sim.player.carry,'plate-togo-doughnut');tick(2);
     assert.equal(bag.held,'partial-2-'+id);
     assert.ok(bag.consume(bag.held,view));tick(4);
-    assert.equal(sim.player.carry,'plate-doughnut@0');
+    assert.equal(sim.player.carry,'plate-togo-doughnut@0');
     assert.match(pantryItem(bag.held).name,/paper wrapper/);
     assert.equal(view.cleanups.length,0);
   }finally{view.group.userData.dispose();}
+});
+
+test('dine-in doughnuts lift off the plate and leave it on the table for staff',()=>{
+  const {bag,sim,room,view,tick,go}=store('donuts',7);
+  try{
+    assert.ok(room.seats.find(s=>{go(s.a,s.b);sim.seat={x:sim.player.x,z:sim.player.z};return diningTable(sim,view);}));
+    const id='meal-donuts-glazed-doughnut';
+    bag.receive(id);assert.equal(sim.player.carry,'plate-doughnut');
+    assert.ok(bag.consume(id,view));assert.equal(sim.player.carry,'plate-hand-doughnut');
+    const plate=view.group.children.find(c=>c.visible && c.name==='Served plate');
+    assert.equal(plate.userData.level,0);tick(4.4);
+    assert.equal(bag.held,null);assert.equal(view.cleanups[0].emptyCarry,'plate-doughnut@0');
+  }finally{view.group.userData.dispose();}
+});
+
+test('legacy bagged meals migrate one packed unit and retain the rest of the stack',()=>{
+  const sim={player:{},elapsed:0},bag=new Shopping(sim),id='meal-italian-spaghetti-pomodoro';
+  bag.restore({inventory:{[id]:2,'empty-meal-donuts-glazed-doughnut':1},held:id,wrapped:true});
+  assert.equal(bag.inventory[id],1);assert.equal(bag.inventory['togo-'+id],1);
+  assert.equal(sim.player.carry,'plate-togo-pasta');
+  bag.setHand('empty-togo-meal-donuts-glazed-doughnut');assert.equal(bag.tossEmpty(),'plate-togo-doughnut@0');
 });

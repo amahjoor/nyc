@@ -246,6 +246,12 @@ export function callServer(sim,view,{sale}={}) {
     sim._say((d.drink?'Drinking ':'Eating ')+lower(d.food.name)+'.');
     return true;
   };
+  o.pack=d=>{
+    if(bag.eating || !o.items.includes(d) || d.drink || d.state!=='table' || diningTable(sim,view)!==table)return false;
+    view.group?.userData.mealAt?.(table,false);
+    bag.receiveTakeaway(d.food,d.remaining??servingSize(d.food));
+    d.state='packed';return true;
+  };
   o.pay=rate=>{
     if(o.paid || o.stage!=='paying')return false;
     const due=o.due(), tip=Math.round(due*rate*100)/100;
@@ -390,6 +396,7 @@ function atTable(ctx,o) {
   if(here)for(const d of o.items.filter(d=>d.state==='table')){
     const name=lower(d.food.name),remaining=d.remaining||servingSize(d.food);
     rows.push({name:(d.drink?'Take a sip of ':'Take a bite of ')+name,note:remaining+(d.drink?' sips':' bites')+' left',run:()=>o.consume(d,false)});
+    if(!d.drink)rows.push({name:'Pack '+name+' to go',run:()=>{if(o.pack(d))ctx.save?.();}});
     if(remaining>1)rows.push({name:(d.drink?'Drink the ':'Eat the ')+name,note:'Finish the serving',run:()=>o.consume(d)});
   }
   if(o.stage==='dining' && here){
