@@ -28,6 +28,7 @@ export class Input {
     const actions = {
       KeyF:'vehicle',KeyE:'interact',KeyR:'lightOrReload',KeyQ:'heavy',Digit1:'unarmed',Digit6:'pistol',
       KeyV:'nextCamera',KeyP:'pause',Escape:'pause',KeyM:'interactionMenu',KeyH:'lights',ArrowUp:'phone',KeyZ:'status',
+      KeyK:'skate',KeyG:'shop',KeyI:'inventory',F6:'view',
     };
     window.addEventListener('keydown', e => {
       this.lastDevice='keyboard';
@@ -48,6 +49,7 @@ export class Input {
       // Sample held movement even while the phone owns shortcuts and app navigation.
       if (!e.repeat && e.code.startsWith('Shift') && this.shiftDown == null) this.shiftDown = e.timeStamp;
       if (!e.repeat) this.keys.add(e.code);
+      if(!interfaceHandled && !e.repeat && e.code==='KeyJ' && this.context()==='walk' && !this.skating)action('grapple');
       if(this.skating && !interfaceHandled && !e.repeat){
         if(e.code==='Space')this.spaceDown=e.timeStamp;
         if(this.skateKeys[e.code] && this.spaceDown!=null)this.spaceTrick=true;
@@ -98,7 +100,9 @@ export class Input {
       // Middle-click autoscroll can keep tracking the mouse after release.
       if (e.button===1) {
         e.preventDefault();
-        if(this.pointerLookEnabled && !browserModifier(e) && this.context()!=='menu')action('phone',e);
+        if(this.pointerLookEnabled && !browserModifier(e) && this.context()!=='menu') {
+          action(this.aiming ? 'shoulder' : 'phone',e);
+        }
         return;
       }
       if (!this.pointerLookEnabled || browserModifier(e) || this.context()!=='walk') return;

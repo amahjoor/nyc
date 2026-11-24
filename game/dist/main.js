@@ -1008,8 +1008,15 @@ function action(name,event) {
   }
   if(mapOpen)return;
   // Not from the title screen: there is no street to look at until the game has been entered.
-  if(name==='view') { if(started)setView(cityView?'street':aerialView?'city':'aerial');return; }
-  if(name==='time') { if(gfx){const preset=gfx.nextPreset();updateTimeButton();announce('Time of day: '+preset.label.toLowerCase()+', '+gfx.clock+'.');}return; }
+  if(name==='view' || name==='time'){
+    if(event?.code && (!started || !bootReady || paused || traveling || switchShot.active || phone?.open || sim.ending))return;
+    if(name==='view'){
+      if(started){event?.preventDefault?.();setView(cityView?'street':aerialView?'city':'aerial');}
+      return;
+    }
+    if(gfx){const preset=gfx.nextPreset();updateTimeButton();announce('Time of day: '+preset.label.toLowerCase()+', '+gfx.clock+'.');}
+    return;
+  }
   if(!started||paused||traveling||!bootReady||cityView)return;
   if(name==='driverSpeed'){
     if(sim.player.mode==='passenger' && !sim.ending)cityRides.toggleHurry();
@@ -3127,7 +3134,7 @@ function frame(now) {
       ? THREE.MathUtils.damp(sim.player.duckAmount||0,Number(Boolean(controls.duck)),15,dt) : 0;
     if(grabbedPerson){
       const p=sim.player,target=grabbedPerson;
-      if(!(menuGrapple || input.padGrapple) || !streetControls() || wheelSelection!==null || p.armed || p.mode!=='walk' || p.reaction || p.move ||
+      if(!(menuGrapple || input.padGrapple || input.keys.has('KeyJ')) || !streetControls() || wheelSelection!==null || p.armed || p.mode!=='walk' || p.reaction || p.move ||
          sim.room || sim.seat || target.reaction || target.dead || target.gone || target.state==='down' || Math.hypot(target.x-p.x,target.z-p.z)>1.05){
         target.grappled=false;grabbedPerson=null;
       }else{

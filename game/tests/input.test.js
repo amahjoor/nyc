@@ -237,10 +237,16 @@ test('only Up opens the phone and no arrow moves or steers the player',t=>{
 test('PC weapon and camera controls use GTA bindings and ignore legacy street shortcuts',t=>{
   const {input,target,actions}=movementInput(t);
   const press=(code,down=true)=>target.emit(down?'keydown':'keyup',{code,target:{tagName:'CANVAS'},preventDefault(){}});
-  for(const code of ['KeyB','KeyX','KeyL','KeyG','KeyI','KeyJ','KeyK','KeyN','KeyT','KeyU','F6','F7']){
+  for(const code of ['KeyB','KeyX','KeyL','KeyN','KeyT','KeyU','F7']){
     press(code);input.sample(0,.6);press(code,false);
   }
   assert.deepEqual(actions,[]);
+  for(const code of ['KeyG','KeyI','KeyK','F6','KeyJ']){
+    press(code);press(code,false);
+    target.emit('keydown',{code,repeat:true,target:{tagName:'CANVAS'}});
+    target.emit('keydown',{code,target:{tagName:'INPUT'}});
+  }
+  assert.deepEqual(actions.splice(0),['shop','inventory','skate','view','grapple']);
   press('KeyV');press('KeyR');press('Tab');press('Tab',false);press('Digit1');press('Digit6');
   assert.deepEqual(actions,['nextCamera','lightOrReload','weaponOpen','weaponClose','unarmed','pistol']);
   input.context=()=>'drive';
@@ -289,6 +295,10 @@ test('aim and fire use independent mouse buttons and controller trigger edges',t
   const {input,pad,actions,target}=movementInput(t,undefined,()=>equipped);
   target.emit('pointerdown',{button:2,pointerId:1,clientX:5,clientY:5});
   target.emit('mousedown',{button:2});
+  assert.equal(input.aiming,true);
+  target.emit('mousedown',{button:1,preventDefault(){}});
+  target.emit('mouseup',{button:1});
+  assert.deepEqual(actions.splice(0),['shoulder']);
   assert.equal(input.aiming,true);
   target.emit('mousedown',{button:0});target.emit('mouseup',{button:0});
   assert.equal(input.aiming,true);assert.deepEqual(actions,['fire']);
