@@ -356,7 +356,8 @@ export class Input {
     }
     return {
       skateTrick:pop?.name,charge:pop?.charge??load,load,manual,grab,pushFoot,
-      jog: Boolean(this.jogging || padJog), forward, turn, lift: Number(climb) - Number(descend), brake: false, handbrake, run,
+      duck:this.context()==='drive' && (has('KeyX') || ps5 && this.psControls.ducking),
+      jog: Boolean(this.jogging || padJog), forward, turn, lift: Math.max(-1,Math.min(1,Number(climb) - Number(descend)+padLift)), brake: false, handbrake, run,
       // The chase camera looks toward +Z at yaw zero. Its screen-right basis
       // is forward cross up = (-cos(yaw), 0, sin(yaw)), not world +X.
       moveX: Math.sin(cameraYaw) * walkForward - Math.cos(cameraYaw) * turn,

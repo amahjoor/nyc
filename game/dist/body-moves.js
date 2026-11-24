@@ -114,6 +114,8 @@ export function writeMovements(motion) {
   motion.define('strum',{seconds:.66,loop:true,base:'idle',keys:[
     [0,{upperarm_r:['z',64,'y',38],lowerarm_r:['y',58,'x',-13]}],
     [.33,{upperarm_r:['z',68,'y',27],lowerarm_r:['y',66,'x',12]}]]});
+  motion.define('driveDuck',{seconds:1,base:'drive',keys:[[0,{}],[1,{
+    '+spine_01':['x',27,'z',10],'+spine_02':['x',24],'+Head':['x',16]}]]});
   motion.define('seatBrace', { seconds: .5, keys: [[0, { pelvis: [0, -.09, -.035], '+spine_01': ['x', 21],
     '+thigh_l': ['x', -30], '+thigh_r': ['x', -30], '+calf_l': ['x', 42], '+calf_r': ['x', 42],
     '+foot_l': ['x', -12], '+foot_r': ['x', -12], '+upperarm_l': ['x', -18], '+upperarm_r': ['x', -18] }]] });

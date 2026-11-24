@@ -1732,7 +1732,7 @@ function showPlayer(dt,p,floor,eyeView,riding) {
     mesh.position.x-=Math.sin(p.angle)*back;
     mesh.position.z-=Math.cos(p.angle)*back;
   }
-  else if(driving)moves.sample(held,sim.elapsed,pose);
+  else if(driving)moves.sample(p.duckAmount>.01?'driveDuck':held,p.duckAmount||sim.elapsed,pose);
   else if(traversing){
     const phase=p.move.t/p.move.T;
     // Keep the gait clock advancing behind the move so the last frame can
