@@ -71,6 +71,9 @@ def main():
         icon = emblem.resize((256,256),Image.Resampling.LANCZOS)
         icon.save(OUT / 'client-icon.ico', sizes=[(16,16),(32,32),(48,48),(64,64),(128,128),(256,256)])
         icon.save(OUT / 'client-icon.png')
+        app_icon = Image.new('RGBA', (184,184), '#18322f')
+        app_icon.alpha_composite(emblem.resize(app_icon.size, Image.Resampling.LANCZOS))
+        app_icon.convert('RGB').save(OUT / 'app-icon.jpg', quality=94, subsampling=0)
         emblem.resize((1024,1024),Image.Resampling.LANCZOS).save(OUT / 'client-icon.icns')
 
 if __name__ == '__main__':
