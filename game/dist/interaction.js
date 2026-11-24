@@ -3,7 +3,7 @@ import { heatLine } from './kitchen-shift.js';
 import { formatMoney } from './money.js';
 
 /** In-world choices at a counter, boarding point or in conversation. */
-export function createInteraction({ $, onOpenChange }) {
+export function createInteraction({ $, onOpenChange, checking=()=>null }) {
   const panel = $('interaction'), options = $('interaction-options'), leave = $('interaction-close');
   let session = null, controls = [], selected = 0;
 
@@ -123,7 +123,8 @@ export function createInteraction({ $, onOpenChange }) {
     $('interaction-message').textContent = message;
     $('interaction-message').hidden = !message;
     $('interaction-balance').hidden = cash == null;
-    $('interaction-balance').textContent = cash == null ? '' : formatMoney(cash);
+    const bank=checking();
+    $('interaction-balance').textContent=cash==null?'':'Cash '+formatMoney(cash)+(bank==null?'':'\nChecking '+formatMoney(bank));
 
     const buttons = rows.map((row, i) => {
       const button = document.createElement('button');

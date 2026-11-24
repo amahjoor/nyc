@@ -32,7 +32,8 @@ export class HUD {
     clearTimeout(this.cashTimer);
     this.cashTimer = setTimeout(() => { cashDisplay.hidden = true; }, 4000);
   }
-  showStatus(balance, health = null) {
+  showStatus(balance, health = null, checking = 0) {
+    this.text('hud-checking',formatMoney(checking));
     this.text('cash', formatMoney(balance));
     this.cashRoll = null;
     this.revealCash();
@@ -41,7 +42,8 @@ export class HUD {
     clearTimeout(this.statusTimer);
     this.statusTimer = setTimeout(() => this.setRadarExpanded(false), 4000);
   }
-  showCashGain(cents, balance) {
+  showCashGain(cents, balance, checking = 0) {
+    this.text('hud-checking',formatMoney(checking));
     const now = performance.now(), to = Math.round(balance * 100);
     const from = this.cashRoll?.to === to - cents ? this.displayedCents : to - cents;
     this.cashRoll = globalThis.matchMedia?.('(prefers-reduced-motion: reduce)').matches ? null : { from, to, start: now };
@@ -107,6 +109,11 @@ export class HUD {
     $('touch-aim').setAttribute('aria-pressed',String(aiming));
     $('touch-reload').hidden=!equipped;
     $('touch-reload').disabled=Boolean(p.reloading>0 || !(p.rounds<GUN.rounds));
+    const checking=sim.bank?.checking ?? 0;
+    if(this.lastChecking!==undefined && (this.lastChecking!==checking || this.lastWallet!==sim.cash))this.revealCash();
+    this.lastWallet=sim.cash;
+    this.lastChecking=checking;
+    if(!$('cash-display').hidden)this.text('hud-checking',formatMoney(checking/100));
     this.updateCash(sim.cash);
     if (this.lastHealth !== null && sim.health !== this.lastHealth && !sim.ending) this.showHealth(sim.health);
     this.lastHealth = sim.health;

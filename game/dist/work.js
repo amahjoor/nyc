@@ -4,7 +4,7 @@ import { deskTicket } from './service-desk.js';
 import { salesCall } from './sales-calls.js';
 import { customerUsesCash, drawerBalance } from './shop-turnover.js';
 import { SHIFTS } from './shift-catalog.js';
-import { formatMoney } from './money.js';
+import { formatMoney, payFor } from './money.js';
 import { placeName } from './places.js';
 import { driverOffer, driverEligible, startDriverOffer, tripInstruction } from './driver-work.js';
 import { clothesFor } from './human-cast.js';
@@ -333,8 +333,8 @@ export class Work {
     const rows = [option(r.cart ? 'Buy six cups' : 'Open a coffee cart', r.cart ? '$12 supplies · capacity 12' : '$60 · six cups included', () => {
       const cost = r.cart ? 12 : 60;
       if (r.cups > 6) return this.board('Sell some coffee before restocking.');
-      if (this.sim.cash - (this.sim.rideHoldCents||0)/100 < cost) return this.board(`You need ${formatMoney(cost)} for that purchase.`);
-      this.sim.cash -= cost; r.cart = true; r.cups += 6; this.save('Coffee cart supplies'); this.coffee();
+      if (!payFor(this.sim,cost,'Coffee cart supplies')) return this.board(`You need ${formatMoney(cost)} for that purchase.`);
+      r.cart = true; r.cups += 6; this.save('Coffee cart supplies'); this.coffee();
     })];
     if (r.cart) rows.push(option('Offer coffee nearby', '$5 a cup', () => this.street()));
     this.list('Coffee cart', r.cart ? `${r.cups}/12 cups. Walk up to a pedestrian to make a sale.` : 'Start a sidewalk coffee business. Sell each cup for $5 to a different pedestrian.', rows);

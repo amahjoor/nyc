@@ -1,3 +1,4 @@
+import { payFor, paymentMethod } from './money.js';
 import { FARE, GATE_Z, clockTime, createSubwayJourney, fareStation } from './subway-service.js';
 import { JOIN, HALL, LIFT_TRAVEL, localFloor, localPoint, worldPoint, stationFrame, platformAt, streetPassage, passage, cabinCamera, trainLeg, turnBetween, clamp } from './subway-space.js';
 import { createSubwayRiders } from './subway-riders.js';
@@ -42,11 +43,10 @@ export function createSubwayVisit(table,entrance,now,{$,interaction,sim,pay,exit
   const panel=$('subway-status'), title=$('subway-location'), detail=$('subway-service'), prompt=$('subway-action');
   panel.hidden=false;
   function fare(go){
-    const cash=()=>sim.cash-(sim.rideHoldCents||0)/100;
-    const rows=[{name:'Tap to pay',note:'$'+FARE.toFixed(2),disabled:cash()<FARE}];
+    const rows=[{name:'Tap to pay',note:'$'+FARE.toFixed(2),disabled:!paymentMethod(sim,FARE)}];
     interaction.openList(j.station.name,rows,()=>{
-      if(cash()<FARE)return;
-      sim.cash-=FARE;go();pay();
+      if(!payFor(sim,FARE,'Subway fare'))return;
+      go();pay();
     },{cash:sim.cash,message:'Fare control · Jump while moving through the gate to hop it.'});
   }
   function chooseTrain(){

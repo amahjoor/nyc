@@ -1,3 +1,4 @@
+import { purchaseLimit } from './money.js';
 // Table service. A guest who sits at a table waves the server over, is asked
 // what they would like, orders, watches the kitchen make it, is served, eats,
 // and settles the check before leaving. One ticket stays open for the sitting.
@@ -232,9 +233,10 @@ export function callServer(sim,view,{sale}={}) {
     const due=o.due(), tip=Math.round(due*rate*100)/100;
     if(!bag.canPay(due+tip))return false;
     const [x,z]=roomPoint(room,table.a,table.b);
-    bag.payment={start:sim.elapsed,x,z};
-    sim.cash=Math.round((sim.cash-due-tip)*100)/100;sim.spent=(sim.spent||0)+due+tip;
-    o.sale?.(place,due);o.paid=true;o.tip=tip;
+    const tender=bag.pay(due+tip,place.name);
+    if(!tender)return false;
+    bag.payment={start:sim.elapsed,x,z,tender};
+    o.sale?.(place,due,tender);o.paid=true;o.tip=tip;
     sim._say('Paid '+money(due)+(tip?' and left '+money(tip):'')+'.',4);
     return true;
   };
@@ -336,8 +338,8 @@ function check(ctx,o) {
   const {sim,save}=ctx, place=o.room.place, due=o.due();
   const lines=o.items.filter(d=>d.price && d.state!=='ordered' && d.state!=='cooking' && d.state!=='pass').map(d=>d.item.name+' '+money(d.price)).join(' · ');
   const pay=rate=>()=>{if(o.pay(rate))save?.(place.name);};
-  const rows=[.2,.18,.15].map(rate=>({name:'Pay with a '+Math.round(rate*100)+'% tip',note:money(due*(1+rate)),disabled:sim.cash<due*(1+rate),run:pay(rate)}));
-  rows.push({name:'Pay, no tip',note:money(due),disabled:sim.cash<due,run:pay(0)},{name:'Not yet',run:()=>{}});
+  const rows=[.2,.18,.15].map(rate=>({name:'Pay with a '+Math.round(rate*100)+'% tip',note:money(due*(1+rate)),disabled:purchaseLimit(sim)<Math.round(due*(1+rate)*100)/100,run:pay(rate)}));
+  rows.push({name:'Pay, no tip',note:money(due),disabled:purchaseLimit(sim)<due,run:pay(0)},{name:'Not yet',run:()=>{}});
   listing(ctx,o,place.name+' · your check',lines+' · Total '+money(due),rows,{kind:'check'});
 }
 function atTable(ctx,o) {

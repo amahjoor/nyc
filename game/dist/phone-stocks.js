@@ -181,7 +181,7 @@ export function createStockScreens({$, click, activate, show, render, onTrade}) 
   }
 
   return (screen, now) => {
-    const time = Date.now(), cash = now.bank?.checking ?? 0;
+    const time = Date.now(), cash = now.availableChecking ?? now.bank?.checking ?? 0;
     if (screen === 'market') renderMarket(now, time, cash);
     else renderOrder(now, time, cash);
   };

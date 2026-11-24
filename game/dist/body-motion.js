@@ -220,7 +220,7 @@ function fitCarryingArm(rig, pose, item, liftDrink) {
 // The grip lies between wrist and knuckles. The cup centre sits one radius
 // inside the curled fingers, while the underside of the tray rests on the palm.
 export function gripOffsetFor(rig, kind) {
-  if(kind==='fork'||kind==='cash')return pinchOffset(rig);
+  if(kind==='fork'||kind==='cash'||kind==='card')return pinchOffset(rig);
   const knuckle = rig.bones[rig.index.get('middle_01_l')].t;
   kind=carryPose(kind);
   return [kind === 'cup' ? .046 : kind === 'tray' ? .014 : 0, knuckle[1]*.74, knuckle[2]*.74];

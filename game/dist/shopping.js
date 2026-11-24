@@ -1,3 +1,4 @@
+import { payFor, purchaseLimit } from './money.js';
 import { servingFor,portionKey } from './food-catalog.js';
 import { groceries,groceryPrice } from './grocery-stock.js';
 import { carriedOrder,legacyDish,menuFor,PEP,plateStyle } from './menu.js';
@@ -135,16 +136,20 @@ export class Shopping{
   payCharges(place){
     const due=this.charges(place);
     if(this.sim.room?.place.id!==place.id || this.eating || this.order || !due || !this.canPay(due))return false;
-    this.pay(due);this.settleCharges(place);
+    const tender=this.pay(due,place.name);
+    if(!tender)return false;
+    this.settleCharges(place,tender);
     if(!this.basket.units.length)this.basket=null;
     this.revision++;this.sim._say('Paid $'+due.toFixed(2)+'.',4);return true;
   }
-  pay(amount){
-    this.sim.cash=Math.round((this.sim.cash-amount)*100)/100;
+  pay(amount,merchant){
+    const tender=payFor(this.sim,amount,merchant || 'Store purchase');
+    if(!tender)return null;
     this.sim.spent=(this.sim.spent||0)+amount;
+    return tender;
   }
-  settleCharges(place){
-    for(const {price,sale} of this.basket.charges||[])sale?.(place,price);
+  settleCharges(place,tender){
+    for(const {price,sale} of this.basket.charges||[])sale?.(place,price,tender);
     this.basket.charges=[];
   }
   eatFromBasket(id,view,finish,sale){
@@ -161,7 +166,7 @@ export class Shopping{
     for(const s of units){this.inventory[s.id]=(this.inventory[s.id]||0)+1;removed.add(s.index);}
     this.setHand(units.at(-1).id);this.revision++;
   }
-  canPay(amount){if(this.sim.cash>=amount)return true;this.sim._say('You need $'+(amount-this.sim.cash).toFixed(2)+' more.');return false;}
+  canPay(amount){const limit=purchaseLimit(this.sim);if(limit>=amount)return true;this.sim._say('You need $'+(amount-limit).toFixed(2)+' more.');return false;}
   accept(order,toGo=false,unpaid=false){
     const sim=this.sim;
     if(this.eating || !order || this.order!==order || !order.ready || sim.room?.place.id!==order.shop || order.view.closed || order.view.handoff || sim.player.armed ||
@@ -169,16 +174,18 @@ export class Shopping{
     const near=order.table?diningTable(sim,order.view)===order.table:Math.hypot(sim.player.x-order.employee.x,sim.player.z-order.employee.z)<2.65;
     if(!near)return false;
     const [x,z]=order.table?roomPoint(sim.room,order.table.a,order.table.b):[order.employee.x,order.employee.z];
+    let tender;
     if(unpaid){
       if(!this.charge(sim.room.place,order.price,order.sale))return false;
     }else{
-      this.payment={start:sim.elapsed,x,z};
-      this.pay(order.price);
+      tender=this.pay(order.price,sim.room.place.name);
+      if(!tender)return false;
+      this.payment={start:sim.elapsed,x,z,tender};
     }
     let sale=order.price;
     if(order.basket){
       sale-=this.charges(sim.room.place);
-      this.settleCharges(sim.room.place);
+      this.settleCharges(sim.room.place,tender);
       this.transfer(order.shop,this.basket.units);
       if(this.basket.units.length>1){this.held=null;sim.player.carry='takeout';}
       this.basket=null;
@@ -188,7 +195,7 @@ export class Shopping{
       this.receive(order.food.id);
       if(order.packed || toGo && !beverage(order.food))sim.player.carry='takeout';
     }
-    if(!unpaid && sale>0)order.sale?.(sim.room.place,sale);
+    if(!unpaid && sale>0)order.sale?.(sim.room.place,sale,tender);
     order.paid=!unpaid;this.cancelOrder();
     sim._say('Received '+order.label+(unpaid?'. Payment due $':'. $')+order.price.toFixed(2)+'.',4);return true;
   }

@@ -1,3 +1,4 @@
+import { availableCents, paymentMethod, payFor } from './money.js';
 import { listingBySymbol, portfolio, sharePrice, restoreHoldings } from './market.js';
 import { hasDriver } from './vehicle-damage.js';
 import { vehicleTravelSpeed } from './vehicle-dynamics.js';
@@ -10,6 +11,7 @@ export const BANK_HISTORY_MINUTES = 360;
 export class PhoneBank {
   constructor() { this.restore(null, 0); }
   restore(record, cash) {
+    this.preferredPayment=record?.preferredPayment==='cash'?'cash':'card';
     this.history = [];
     this.clockMinute = null;
     if (Array.isArray(record?.history)) {
@@ -29,7 +31,7 @@ export class PhoneBank {
       Number.isSafeInteger(row.amount) && typeof row.clock === 'string').slice(0, 16) : [];
     this.last = cents(cash);
   }
-  record() { return { catalogVersion:2, checking:this.checking, entries:this.entries, holdings:this.holdings, realized:this.realized, history:this.history }; }
+  record() { return { catalogVersion:2, preferredPayment:this.preferredPayment, checking:this.checking, entries:this.entries, holdings:this.holdings, realized:this.realized, history:this.history }; }
   sampleBalance(cash, hours, now = Date.now()) {
     if (!Number.isFinite(hours) || !Number.isFinite(cash)) return;
     const clock = Math.floor(hours * 60);
@@ -76,7 +78,7 @@ export class PhoneBank {
     const buying=side==='buy';
     if(!Number.isSafeInteger(amount))return 'This order is too large.';
     if(buying && company.sellOnly)return 'Only sales are available for this legacy holding.';
-    if(buying && amount>this.checking)return 'Insufficient available checking balance.';
+    if(buying && amount>availableCents(sim,'card',this))return 'Insufficient available checking balance.';
     if(!buying && shares>position.shares)return 'You do not own that many shares.';
     this.sync(sim.cash,clock);
     if(buying)this.holdings[symbol]={shares:position.shares+shares,cost:position.cost+amount};
@@ -96,7 +98,7 @@ export class PhoneBank {
     if (!['deposit','withdraw'].includes(direction) || !/^\d+(?:\.\d{1,2})?$/.test(String(raw).trim())) return 'Enter an amount in dollars and cents.';
     const amount = cents(Number(raw)), deposit = direction === 'deposit';
     if (!Number.isSafeInteger(amount) || amount <= 0) return 'Enter an amount greater than zero.';
-    if (amount > (deposit ? cents(sim.cash)-(sim.rideHoldCents||0) : this.checking)) return deposit ? 'Not enough available cash on hand.' : 'Not enough money in checking.';
+    if (amount > availableCents(sim,deposit?'cash':'card',this)) return deposit ? 'Not enough available cash on hand.' : 'Not enough money in checking.';
     this.sync(sim.cash, clock);
     const delta = deposit ? amount : -amount;
     this.checking += delta;
@@ -214,7 +216,7 @@ export class CityRides {
     if((quote?.streetTrip || null)!==(this.choosing?this.trip:null))return 'Choose a destination for your current pickup.';
     if(this.trip && !this.choosing) return 'You already have a ride.';
     if(!quote || this.pickupChanged(quote)) return 'Updating the fare from your current location.';
-    if(s.cash<quote.fare) return 'Your cash balance is too low for this fare.';
+    if(!paymentMethod(s,quote.fare)) return 'Your checking and cash balances are too low for this fare.';
     if(s.mission.phase==='active') return 'Finish your active delivery before taking a ride.';
     if(this.choosing){
       const {planner,destination,distance,fare}=quote;
@@ -284,8 +286,16 @@ export class CityRides {
   }
   board() {
     if(!this.canBoard())return false;
-    const t=this.trip,s=this.sim,car=t.car,edge=t.stop.edge;
-    if(s.cash<t.fare || s.mission.phase==='active'){this.cancel('Ride canceled. Check your balance and active deliveries.');s._say(this.receipt);return false;}
+    const t=this.trip,s=this.sim;
+    if(!paymentMethod(s,t.fare) || s.mission.phase==='active'){this.cancel('Ride canceled. Check your balance and active deliveries.');s._say(this.receipt);return false;}
+    const error=this.startTrip(t);
+    if(error){this.cancel(error);s._say(error);return false;}
+    return true;
+  }
+  startTrip(t) {
+    const s=this.sim,car=t.car,edge=t.stop.edge;
+    const tender=paymentMethod(s,t.fare);
+    if(!tender)return 'Insufficient funds for this ride.';
     // Start where the driver actually stopped. If the route heads back along
     // this block, continue to its junction before making that turn.
     let route=t.planner.plan(car,t.destination,{startRoadId:edge.road.id});
@@ -302,9 +312,8 @@ export class CityRides {
     Object.assign(car,{passengerSeat:car.passengerSeat || nearestPassengerSeat(car,s.player),parked:false,_cruise:t.cruise,_wait:0,_turn:null});
     t.fastSpeed=roadFigures(vehicleHandling(car)).topSpeed*MPS_PER_MPH;
     t.phase='traveling';t.remaining=route.distance;t.lastProgress=s.elapsed;t.best=Infinity;
-    s.rideHoldCents=cents(t.fare);
-    Object.assign(s.player,{mode:'passenger',vehicleId:car.id,standing:null,move:null,armed:false,grounded:true});
-    s.updateGrounding();this.updatePassenger(t);
+    s.ridePaymentMethod=tender;s.rideHoldCents=cents(t.fare);
+    this.seatPassenger(car);this.updatePassenger(t);
     s._say('Riding with '+t.driver.name+'.',6);
     return '';
   }
@@ -353,11 +362,15 @@ export class CityRides {
       }
     }
     const arrived=!interrupted && !t.stopping;
-    s.rideHoldCents=0;this.trip=null;
-    const fraction=Math.min(1,Math.max(0,1-t.remaining/Math.max(1,t.tripDistance)));
+    const tender=s.ridePaymentMethod;
+    s.ridePaymentMethod=null;s.rideHoldCents=0;this.trip=null;
+    const fraction=Math.min(1,Math.max(0,1-t.remaining/Math.max(1,t.tripDistance || 0)));
     const fare=arrived?t.fare:!interrupted && t.requestedStop?Math.round(t.fare*fraction):0;
-    if(fare){s.cash=(cents(s.cash)-cents(fare))/100;this.paid();}
-    this.receipt=arrived?'Arrived at '+t.destination.name+' · $'+fare : fare?'Early drop-off · $'+fare:'Ride ended. No fare charged.';
+    this.receipt='Ride ended. No fare charged.';
+    if(fare && payFor(s,fare,'Ride fare',tender)){
+      this.paid();
+      this.receipt=(arrived?'Arrived at '+t.destination.name:'Early drop-off')+' · $'+fare;
+    }
     // Return the driver to local traffic once the passenger is clear of the door.
     const nearby=s._nearestEdge(car.x,car.z,car.angle);
     const next=!car.destroyed && car.burningSince==null && !car.driverEjected && nearby?.distance<12 ? nearby.edge : null;

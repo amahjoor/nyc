@@ -182,7 +182,7 @@ export function openFoodCounter(ctx){
     for(const item of menu)rows.push({item,name:item.name,product:groceries[item.product],note:(item.preparation?item.preparation+' · ':'')+money(item.price),run:()=>{
       if(item.product || preparedFood(place,item)){
         if(startCounterOrder(sim,view,{item,sale}))sim._say(table?'Your server has your order.':'Order placed. Collect here or take a seat.',5);
-      }else if(sim.buy(item)){sale(place,item.price);save(place.name);}
+      }else if(sim.buy(item,{sale}))save(place.name);
     }});
     if(near.length)rows.push({name:'Browse nearby shelf',run:shelves});
     const shift=atCounter && ctx.work?.counterShift(room);

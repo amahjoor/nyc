@@ -1,3 +1,4 @@
+import { purchaseLimit } from './money.js';
 import * as THREE from './vendor/three.module.min.js';
 import { createHumanMesh } from './human-mesh.js';
 import { showroomModel,disposeSample } from './showroom-models.js';
@@ -197,14 +198,13 @@ export function browseShop({$,sim,interaction,title,menu,available,order,getLook
         const result=purchaseStock(sim,shop,item,{unpaid,sale});
         if(!result)return rack(section,at);
         applyLook(item);tryOn(null);
-        if(result.paid)sale(shop,result.paid);
         save();
         rack(section,at,unpaid?'Payment due at the register.':item.slot==='hair'?'Done.':result.paid?'Bought, and on.':'Back on.');
       };
       if(ownsWearable(sim,item))return acquire(false);
       stay();tryOn(fittedLook(getLook(),item));
       interaction.openList(item.name,[
-        {name:item.slot==='hair'?'Pay for the cut':'Buy and wear',note:price(item),disabled:sim.cash<item.price,unpaid:false},
+        {name:item.slot==='hair'?'Pay for the cut':'Buy and wear',note:price(item),disabled:purchaseLimit(sim)<item.price,unpaid:false},
         {name:item.slot==='hair'?'Get the cut and pay later':'Wear it and pay at checkout',note:price(item)+' due',unpaid:true},
         {name:'Back to selection',back:true},
       ],choice=>choice.back?rack(section,at):acquire(choice.unpaid),{cash:sim.cash,available,onRotate:delta=>fitting(section.slot,delta),onClose:leave});
@@ -226,7 +226,7 @@ export function browseShop({$,sim,interaction,title,menu,available,order,getLook
   };
   const inspect=item=>{
     const matching=fittedLook(getLook(),item), owned=ownsWearable(sim,item);
-    const affordable=owned || sim.cash>=item.price;
+    const affordable=owned || purchaseLimit(sim)>=item.price;
     const options=[
       {name:owned?'Wear again':matching?(item.slot==='hair'?'Get this cut':'Buy and wear'):'Buy item',note:owned?'Owned':'$'+item.price.toFixed(2),disabled:true,action:'buy'},
       {name:'Next '+(item.slot==='hair'?'style':'item'),action:'next'},
@@ -234,7 +234,7 @@ export function browseShop({$,sim,interaction,title,menu,available,order,getLook
     ];
     if(!owned)options.push({name:'Take item and pay at checkout',note:price(item)+' due',action:'unpaid'});
     const count=sim.purchases?.[item.sku] || 0;
-    const message=!affordable?'You need $'+(item.price-sim.cash).toFixed(2)+' more.':count && !matching?'In your collection · '+count:'';
+    const message=!affordable?'You need $'+(item.price-purchaseLimit(sim)).toFixed(2)+' more.':count && !matching?'In your collection · '+count:'';
     let open=true;
     const panel=$('shop-preview'), status=$('mirror-status');
     const controls=interaction.openList(item.name,options,row=>{
@@ -244,7 +244,6 @@ export function browseShop({$,sim,interaction,title,menu,available,order,getLook
       const result=purchaseStock(sim,shop,item,{unpaid:row.action==='unpaid',sale});
       if(!result)return;
       if(matching)applyLook(item);
-      if(result.paid)sale(shop,result.paid);
       save();
       catalog(others.indexOf(item));
     },{cash:sim.cash,message,available,onRotate:delta=>mirror?.rotate(delta),onClose:()=>{

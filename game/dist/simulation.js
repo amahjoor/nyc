@@ -20,6 +20,7 @@ import { PEP, scratch,menuFor } from './menu.js';
 import { Police, MAX_STARS } from './police.js';
 import { vehicleHandling, repairCost, offersAt, PARTS, RESPRAY_PRICE, RESPRAYS, CALL_OUT, DELIVERY, WHEELS, WHEELS_PRICE, PLATES_PRICE } from './garage.js';
 import { plateFor } from './license-plates.js';
+import { availableCents, formatMoney, payFor, paymentMethod, purchaseLimit } from './money.js';
 
 // Simulation units are metres and seconds. A heading of zero points along +Z.
 // This module deliberately has no renderer or browser dependencies.
@@ -448,7 +449,7 @@ export class Simulation {
     if (this.police.watching(car)) {
       this.offence('redLight', { seen: true, message: 'A patrol saw you run that red light.' });
     } else if (junction.camera) {
-      const fine = Math.min(this.cash, CAMERA_FINE);
+      const fine = Math.min(availableCents(this,'cash')/100, CAMERA_FINE);
       this.cash -= fine;
       this.cameraFlash = { x: junction.x, z: junction.z, at: this.elapsed };
       this._say(fine ? `Red-light camera. Fine: $${fine}.` : 'Red-light camera.');
@@ -512,11 +513,13 @@ export class Simulation {
    * `street` at a stand on the sidewalk: `item` is a row of menuFor().
    * Returns whether it was bought.
    */
-  buy(item, { street = false, place = this.room?.place } = {}) {
+  buy(item, { street = false, place = this.room?.place, sale } = {}) {
     // Over a counter indoors, or at a stand on the sidewalk on foot.
     if (!item || !(this.room || (street && this.player.mode === 'walk'))) return false;
-    if (this.cash < item.price) { this._say(`${item.name} is $${item.price.toFixed(2)}. You have $${Math.floor(this.cash)}.`); return false; }
-    this.cash -= item.price; this.spent = (this.spent || 0) + item.price;
+    const tender=payFor(this,item.price,place?.name || item.name);
+    if (!tender) { this._say(`${item.name} is $${item.price.toFixed(2)}. You have $${Math.floor(purchaseLimit(this))}.`); return false; }
+    sale?.(place,item.price,tender);
+    this.spent = (this.spent || 0) + item.price;
     if(street && !place)place=[{kind:'fruitstand'},{kind:'newsstand'}].find(stand=>menuFor(stand).some(row=>row.name===item.name));
     const id=place && foodId(place,item);
     if(id && pantryItem(id)){
@@ -579,7 +582,7 @@ export class Simulation {
     const car = this.vehicle, offers = offersAt(kind);
     if (!car || !offers) { this._say('Drive a car into an auto shop first.'); return false; }
     if (vehicleTravelSpeed(car) > 1) { this._say('Stop the car first.'); return false; }
-    const pay = (price, done) => { if (this.cash < price) { this._say(`That is $${price}. You have $${Math.floor(this.cash)}.`); return false; } this.cash -= price; this._say(done); return true; };
+    const pay = (price, done) => { if (!payFor(this,price,'Auto shop · '+job)) { this._say(`That is $${price}. You have $${Math.floor(purchaseLimit(this))}.`); return false; } this._say(done); return true; };
     if (job === 'repair' && offers.repair) {
       const price = repairCost(carCondition(car));
       if (!price) { this._say('Nothing needs mending.'); return false; }
@@ -595,7 +598,7 @@ export class Simulation {
       car.resprays = (car.resprays || 0) + 1; return true;
     }
     if (job === 'plates' && offers.respray) {
-      if (this.cash < PLATES_PRICE) return pay(PLATES_PRICE, '');
+      if (!paymentMethod(this,PLATES_PRICE)) return pay(PLATES_PRICE, '');
       // The next set issued to this car: a new number on whichever plate a car of its kind is given.
       car.plates = (car.plates || 0) + 1;
       return pay(PLATES_PRICE, 'New plates: ' + plateFor(car).text + '. $' + PLATES_PRICE + '.');
@@ -629,8 +632,8 @@ export class Simulation {
     if (!quote) { this._say('The mechanic needs a car to come out to. Get in one first.'); return false; }
     const {car, condition, price} = quote;
     if (condition >= 100) { this._say('Nothing needs mending.'); return false; }
-    if (this.cash < price) { this._say(`The call-out and the repair come to $${price}. You have $${Math.floor(this.cash)}.`); return false; }
-    this.cash -= price; repairVehicle(car); this._say(`The mechanic came out and mended it. $${price}.`, 6); return true;
+    if (!payFor(this,price,'Roadside assistance')) { this._say(`The call-out and the repair come to $${price}. You have $${Math.floor(purchaseLimit(this))}.`); return false; }
+    repairVehicle(car); this._say(`The mechanic came out and mended it. $${price}.`, 6); return true;
   }
 
   /** Have the player's own cab brought to the nearest street. */
@@ -638,9 +641,10 @@ export class Simulation {
     const cab=this.ownedCab;
     if(cab.controlled){this._say('You are sitting in it.');return false;}
     if(this.cars.includes(cab) && distance(cab,this.player)<30){this._say('Your cab is right here.');return false;}
-    if(this.cash-this.rideHoldCents/100<DELIVERY){this._say(`Bringing it round is $${DELIVERY}.`);return false;}
+    if(!paymentMethod(this,DELIVERY)){this._say(`Bringing it round is $${DELIVERY}.`);return false;}
     const stop=this._pinTaxiPlacement(this.player);
     if(!stop){this._say('No free curb near you. Try the next block.');return false;}
+    if(!payFor(this,DELIVERY,'Cab delivery'))return false;
     Object.assign(cab,stop.point,{y:undefined,transportId:null,angle:stop.angle,parked:true,_edge:null,_loose:0});
     if(!this.cars.includes(cab))this.cars.push(cab);
     resetVehicleDynamics(cab);this.updateGrounding();

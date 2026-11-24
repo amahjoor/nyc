@@ -2,7 +2,7 @@ import { createATM } from './atm.js';
 import { createSportsCourts, addCourtPlaces } from './sports-courts.js';
 import { interactWithTrip, tripAction, courierBag } from './driver-work.js';
 import { renderStats, performanceName } from './vehicle-stats.js';
-import { formatMoney } from './money.js';
+import { availableCents, formatMoney, payFor, purchaseLimit } from './money.js';
 import { createDoorDebris, hasAlteredGlazing, vehicleShotContacts } from './vehicle-detail.js';
 import { PANEL, strikeVehicleGlass } from './vehicle-damage.js';
 import { updateChaseHeight } from './vehicle-presentation.js';
@@ -865,7 +865,7 @@ function action(name,event) {
   }
   if(name==='lightOrReload')name=sim.player.armed?'reload':'light';
   if(name==='status'){
-    if(started&&!paused&&!traveling&&bootReady&&!cityView&&!mapOpen&&!sim.ending)hud.showStatus(sim.cash,sim.health);
+    if(started&&!paused&&!traveling&&bootReady&&!cityView&&!mapOpen&&!sim.ending)hud.showStatus(sim.cash,sim.health,phoneBank.checking/100);
     return;
   }
   if($('pause-dialog').open&&!$('sources-dialog').open&&(name==='heavy'||name==='interact')){showPauseTab(pauseTab+(name==='interact'?1:-1),true);return;}
@@ -894,11 +894,11 @@ function action(name,event) {
   if(name==='shop' && sim.player.mode==='passenger')name='driverSpeed';
   if(name==='shop'&&(!started||paused||traveling||!bootReady||cityView||mapOpen))return;
   if(name==='inventory'){
-    if(started && bootReady && !paused && !traveling && !mapOpen && !cityView)openInventory({$,sim,interaction,sale:(place,amount)=>work.sale(place,amount),save:saveProgress});
+    if(started && bootReady && !paused && !traveling && !mapOpen && !cityView)openInventory({$,sim,interaction,sale:(place,amount,tender)=>work.sale(place,amount,tender),save:saveProgress});
     return;
   }
   if(name==='shop'&&sim.room) {
-    if(openFoodCounter({$,sim,interaction,work,sale:(place,amount)=>work.sale(place,amount),save:saveProgress}))return;
+    if(openFoodCounter({$,sim,interaction,work,sale:(place,amount,tender)=>work.sale(place,amount,tender),save:saveProgress}))return;
     // Indoors, at the counter: what the place sells.
     const menu=menuFor(sim.room.place);
     const boutique=menu.some(item=>item.sku);
@@ -910,7 +910,7 @@ function action(name,event) {
       const shop=sim.room.place;
       const available=()=>sim.room?.place===shop && (boutique || atShopCounter()) && !closedAfterIncident(shop) && !sim.doorway?.handoff && !sim.player.armed;
       const order=item=>{
-        if(available()&&sim.buy(item)){work.sale(shop,item.price);saveProgress(placeName(shop));}
+        if(available()&&sim.buy(item,{sale:(place,amount,tender)=>work.sale(place,amount,tender)}))saveProgress(placeName(shop));
       };
       if(boutique) {
         const getLook=()=>sessionAppearance || loadPerson();
@@ -931,7 +931,7 @@ function action(name,event) {
         const spot=shopSpot();
         if(spot?.changing)changeClothes({sim,interaction,available,getLook,wear:item=>{putOn(item);saveProgress(placeName(shop));},tryOn,fitting:fit,base:firstClothes});
         else browseShop({$,sim,interaction,title:sim.room.name,menu,available,order,getLook,grow:bodyShop,moves,start:spot?.sku||null,
-          tryOn,fitting:fit,applyLook:putOn,sale:(place,price)=>work.sale(place,price),save:()=>saveProgress(placeName(shop))});
+          tryOn,fitting:fit,applyLook:putOn,sale:(place,price,tender)=>work.sale(place,price,tender),save:()=>saveProgress(placeName(shop))});
       } else {
         const rows=menu.map(item=>({item,name:item.name.toUpperCase(),note:'$'+item.price.toFixed(2)}));
         interaction.openList(sim.room.name,rows,({item})=>order(item),{...foodPreviewOptions($),cash:sim.cash,available});
@@ -1026,7 +1026,8 @@ function action(name,event) {
     return;
   }
   if(name==='skate'){if(!mapOpen&&sim.toggleSkateboard()){input.skating=sim.player.mode==='skate';headAnchor=undefined;snapChase=true;}return;}
-  if(name==='cash'){hud.showStatus(sim.cash);return;}
+  if(name==='cash'){hud.showStatus(sim.cash,null,phoneBank.checking/100);return;}
+  if(name==='interact' && sim.player.mode==='bike' && event?.code==='KeyE' && !tripAction(sim) && !sim.canDropPaper()){action('horn');return;}
   if(name==='interact' && sim.player.mode==='drive' && event && !tripAction(sim) && !sim.canDropPaper()){action('horn');return;}
   if(['vehicle','interact','boardCab','takeCab'].includes(name)){
     const vehicleOnly=name!=='interact', resolving=name==='boardCab' || name==='takeCab';
@@ -1837,7 +1838,7 @@ function showPlayer(dt,p,floor,eyeView,riding) {
   }
   playerItems.begin();
   if(carry){
-    if(carry==='cash' && payment){
+    if(payment && (carry==='cash' || carry==='card')){
       const hand=playerBody.bones[playerBody.rig.index.get('hand_l')];
       hand.localToWorld(handStart.copy(cashPinch.fromArray(pinchOffset(playerBody.rig))));
       cashTarget.set(payment.x,floor+1.12,payment.z);
@@ -2440,7 +2441,7 @@ function syncScene(dt,controls) {
       const gunfire=roomUnderFire(view,sim.elapsed);
       if(gunfire && sim.shopping.order?.view===view)sim.shopping.cancelOrder();
       else stepCounterOrder(sim,view,dt);
-      if(view===sim.doorway && !interaction?.open && !phone?.open)promptTableService({$,sim,interaction,work,sale:(place,amount)=>work.sale(place,amount),save:saveProgress});
+      if(view===sim.doorway && !interaction?.open && !phone?.open)promptTableService({$,sim,interaction,work,sale:(place,amount,tender)=>work.sale(place,amount,tender),save:saveProgress});
       if(gunfire || !interaction?.open)updateClerk(view,sim,yaw,eyeView?headPitch:0,dt,work,{
         outside:actor=>crowd.fleeOntoStreet(actor),palm:actor=>crowd.palm(actor),firstPerson:eyeView,
         playerHand:()=>{
@@ -3205,7 +3206,7 @@ function frame(now) {
   syncScene(paused||traveling||cityView||mapOpen?0:dt,controls);if(!mapOpen)updateCamera(dt);updateWeaponHUD();
   if(fireRequested){fireRequested=false;fireFromView();}
   if(firstPersonActive() && phoneHand?.amount && !sim.ending)phoneHand.cameraGrip(camera,scene,$('phone').getBoundingClientRect(),innerWidth,innerHeight,renderer);
-  const handItem=firstPersonActive() && sim.player.mode==='walk' && !sim.player.armed && !sim.ending && !sim.player.swing && !sim.player.move && (sim.shopping.payment?'cash':courierBag(sim.mission) || sim.player.carry);
+  const handItem=firstPersonActive() && sim.player.mode==='walk' && !sim.player.armed && !sim.ending && !sim.player.swing && !sim.player.move && (sim.shopping.payment?sim.shopping.payment.tender || 'cash':courierBag(sim.mission) || sim.player.carry);
   if(handItem && !foodHand)foodHand=createFoodHand(camera,scene,HANDHELD_LAYER);
   const eating=mealMotion(handItem);
   const utensil=phoneHand?.amount && eating && handItem.startsWith('plate-') ? null : eating;
@@ -4024,7 +4025,7 @@ async function boot() {
   parkedCars=createParkedCars({capacity:PARKED_LIMIT+8,library:vehicleMeshes});scene.add(parkedCars.group);
   distantTraffic=createDistantTraffic({library:vehicleMeshes});scene.add(distantTraffic.group);
   let phoneControlBeforeMenu;
-  interaction=createInteraction({$,onOpenChange:open=>{
+  interaction=createInteraction({$,checking:()=>phoneBank.checking/100,onOpenChange:open=>{
     const handset=$('phone');
     if(open){
       phoneControlBeforeMenu=handset.contains(document.activeElement)?document.activeElement:null;
@@ -4143,8 +4144,8 @@ async function boot() {
     },
     onCapture:facing=>phoneLens.snapshot($('phone-lens'),facing),
     onTrade:(symbol,side,shares,price)=>{const error=phoneBank.trade(sim,symbol,side,shares,price,gfx.clock);if(!error)saveProgress();return error;},
-    onTransfer:(direction,amount)=>{const error=phoneBank.transfer(sim,direction,amount,gfx.clock);if(!error)saveProgress();return error;},isClosed:closedAfterIncident,places:()=>placeSource.near(sim.player.x,sim.player.z,700),
-    state:()=>({x:sim.player.x,z:sim.player.z,mapPin:gameMap?.pin,hours:gfx.hours,clock:gfx.clock,cash:sim.cash,availableCash:sim.cash-(sim.rideHoldCents||0)/100,jobActive:sim.mission.phase==='active',street:$('street-name').textContent,bank:phoneBank.record()}),
+    isClosed:closedAfterIncident,places:()=>placeSource.near(sim.player.x,sim.player.z,700),
+    state:()=>({x:sim.player.x,z:sim.player.z,mapPin:gameMap?.pin,hours:gfx.hours,clock:gfx.clock,cash:sim.cash,purchaseLimit:purchaseLimit(sim),availableChecking:availableCents(sim,'card'),jobActive:sim.mission.phase==='active',street:$('street-name').textContent,bank:phoneBank.record()}),
     onMechanic:()=>{if(sim.callMechanic())saveProgress('Roadside assistance');},mechanicQuote:()=>sim.mechanicQuote(),onCab:()=>{if(sim.summonCab())saveProgress('Cab delivery');},
     onDirections:place=>{const name=place.name||describePlace(place,gfx.hours).name;requestDirections({x:place.x,z:place.z}).then(found=>announce(found?'Directions to '+name+'. Follow the highlighted streets.':'No way to '+name+' along mapped streets.'));},
     onTransport:()=>phone.openList('Travel to a boarding point',BOARDINGS.map(stop=>({stop,name:TRANSPORT[stop.type].name,note:stop.place+' · '+stop.borough})),row=>travel(transportDestination(row.stop)),{app:'maps'}),
@@ -4207,7 +4208,7 @@ async function boot() {
   avatar=createPerson(0xd7774e,{courier:true});avatar.traverse(object=>{object.layers.enable(ROOM_LAYER);object.layers.enable(SUBWAY_LAYER);});scene.add(avatar);marker=createMissionMarker();policeScene=createPoliceScene(scene,(x,z)=>groundHeight(x,z));carSmoke=createCarSmoke(scene);doorDebris=createDoorDebris(scene);
   hud=new HUD(city);applyQuality();
   sim.onCashReceived=(cents,balance)=>{
-    hud.showCashGain(cents,balance);
+    hud.showCashGain(cents,balance,phoneBank.checking/100);
     audio.interfaceCue('cash');
   };
   gameMap=new GameMap({city,loadTransit:loadTransitNetwork,getPresets:cityPresets,searchLocal:findLocally,onPlacesWanted:loadPlaceNames,onPin:requestDirections,onCue:cue=>audio.interfaceCue(cue),onZoom:inward=>audio.sceneCue(inward?'zoomIn':'zoomOut',.42),

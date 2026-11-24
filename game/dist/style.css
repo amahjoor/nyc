@@ -31,6 +31,10 @@
 #hud.switch-shot + .hud-status,
 body:is(.ending-wasted,.ending-busted) .hud-status{visibility:hidden}
 .cash-display{display:grid;justify-items:end;gap:2px;text-shadow:0 2px 4px #000,0 0 10px #000b}
+.cash-display{grid-template-columns:auto auto;column-gap:14px;font-variant-numeric:tabular-nums}
+.cash-display>div{display:grid;justify-items:end;gap:3px}
+.cash-display #hud-checking{color:#c1e2ed}
+.cash-display #cash-gain{grid-column:1;grid-row:2}
 .cash-display span{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:1px}
 .cash-display strong{
   font:900 clamp(26px,3.4vw,42px)/.9 "Passion One",var(--heading);

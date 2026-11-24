@@ -18,7 +18,7 @@ export function gripForItem(id){
   const shape=groceries[id]?.shape;
   if(shape==='apple'||shape==='orange')return 'ball';
   if(id==='phone'||id?.startsWith('phone-'))return 'phone';
-  if(['fork','jewelBag','cash'].includes(id))return 'pinch';
+  if(['fork','jewelBag','cash','card'].includes(id))return 'pinch';
   if(id?.startsWith('plate-')||['box','pouch'].includes(shape)||['tray','takeout','dishes','shoebox','jewel','guitar','guitar-mahogany'].includes(id))return 'support';
   return 'wrap';
 }

@@ -44,6 +44,8 @@ function pieces(foodOnly){
     cylinder(.004,.004,.005,0,0,0,0xa48c64),
   ];
   return {...food,
+    card:[box(.086,.001,.054,.026,0,-.014,0x23486d),
+      box(.014,.0005,.011,.044,.0008,-.019,0xc4aa6e),box(.046,.0005,.002,.026,.0008,-.001,0xb5d5df)],
     cash:[box(.151,.0015,.065,.044,0,-.017,0x94a886),
       box(.132,.0004,.047,.044,.001,-.017,0xcbd1aa),
       cylinder(.013,.013,.0005,.044,.0014,-.017,0x72846d)],
@@ -155,7 +157,7 @@ export function createFoodHand(camera,scene,layer){
       lift=0;
     }
     group.position.set(-.102+.08*lift,-.12+.085*lift,-.42+.20*lift);
-    if(id==='cash'){
+    if(id==='cash' || id==='card'){
       group.position.z-=.18*payment;group.position.y+=.06*payment;
     }
     group.rotation.set(.02+(style==='support'?0:.46)*lift,.14,-.045);

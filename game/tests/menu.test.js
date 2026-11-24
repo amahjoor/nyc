@@ -29,7 +29,8 @@ test('buying is done indoors, costs what it says, and a coffee quickens the step
   assert.ok(sim.enterRoom(room)); sim.cash = 5;
   assert.equal(sim.buy(menuFor(place('italian')).at(-1)), false); assert.equal(sim.cash, 5, 'lunch is more than five dollars');
   assert.equal(sim.buy(coffee), true); assert.deepEqual([sim.cash, sim.shopping.inventory['meal-coffee-coffee'], sim.spent], [1.5, 1, 3.5]);
-  assert.ok(sim.shopping.consume('meal-coffee-coffee')); assert.equal(sim.pep,PEP.pep);
+  assert.ok(sim.shopping.consume('meal-coffee-coffee'));
+  sim.elapsed=sim.shopping.eating.until;sim.shopping.tick();assert.equal(sim.pep,PEP.pep);
   // Quicker on their feet for a minute and a half, then as before.
   const stride = () => { Object.assign(sim.player,{x:room.x+1.35,z:room.z-1.1}); sim.player.velocityX = sim.player.velocityZ = 0; for (let i = 0; i < 12; i++) sim.step({ moveX: 0, moveZ: -1 }, 1 / 60); return sim.room.b - 1.1; };
   const quick = stride(); sim.pep = 0;

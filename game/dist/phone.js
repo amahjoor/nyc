@@ -1,4 +1,5 @@
-import { renderBank, renderTransfer } from './phone-bank.js';
+import { GREEN_CAB } from './simulation.js';
+import { renderBank } from './phone-bank.js';
 import { createStockScreens } from './phone-stocks.js';
 import { formatClock } from './atmosphere.js';
 import { createThumbPress } from './phone-touch.js';
@@ -340,7 +341,7 @@ export function createPhone({ $, canUse = () => true, isClosed, places = () => [
     if(screen==='rides' && (!rides?.trip || rides.choosing) && (quote || quoting))return 'rides';
     if(screen==='list' && listing?.board && jobMenu)return 'list';
     if(screen==='list')return listing?.app==='maps' || listing?.app==='rides'?listing.app:listing?.onBack?'list':'home';
-    return ({order:'market',market:marketParent,wallpaper:'settings',place:placeParent,nearby:nearbyParent,contact:'contacts',transfer:'bank',thread:'messages',call:call?.from||'contact',gallery:'camera',photo:'gallery'})[screen] || 'home';
+    return ({order:'market',market:marketParent,wallpaper:'settings',place:placeParent,nearby:nearbyParent,contact:'contacts',thread:'messages',call:call?.from||'contact',gallery:'camera',photo:'gallery'})[screen] || 'home';
   }
   function back() {
     if(screen==='list' && listing?.board && jobMenu){
@@ -497,11 +498,12 @@ export function createPhone({ $, canUse = () => true, isClosed, places = () => [
     } else $('phone-ride-map').setAttribute('aria-label','Current pickup location');
     drawPhoneMap($('phone-ride-map'),{roads:roads(),center:now,trip,approach:rides?.approachPoints?.() || [],destination:selected?.destination});
     const at=trip?.car._edge?.road?.name;
-    $('phone-ride-summary').textContent=trip ? (trip.phase==='approaching'?'On the way'+(at?' · '+at:''):trip.phase==='waiting'?'Your driver is waiting '+formatDistance(Math.hypot(now.x-trip.car.x,now.z-trip.car.z))+' away. Board on foot.':(trip.stopping?'Pulling over':trip.car.rideHurry?'Driver is hurrying':'On trip')+' · '+formatDistance(trip.remaining)+' left')+' · '+formatMoney(trip.fare) :
-      rideMessage || (quote ? formatDistance(quote.distance)+' by road · '+formatMoney(quote.fare)+' upfront fare' : rides?.receipt || '');
-    $('phone-ride-request').hidden=!quote || Boolean(trip);
-    $('phone-ride-request').disabled=quoting || (quote && now.cash<quote.fare);
-    if(quote && !trip && now.cash<quote.fare)$('phone-ride-summary').textContent+=' · Insufficient funds';
+    $('phone-ride-summary').textContent=trip && !choosing ? (trip.phase==='approaching'?'On the way'+(at?' · '+at:''):trip.phase==='waiting'?'Your driver is waiting '+formatDistance(Math.hypot(now.x-trip.car.x,now.z-trip.car.z))+' away. Board on foot.':(trip.stopping?'Pulling over':trip.car.rideHurry?'Driver is hurrying':'On trip')+' · '+formatDistance(trip.remaining)+' left')+' · '+formatMoney(trip.fare) :
+      rideMessage || (quote ? formatDistance(quote.distance)+' by road · '+formatMoney(quote.fare)+' upfront fare' : choosing?'Where to?':rides?.receipt || '');
+    $('phone-ride-request').textContent=choosing?'Start ride':'Request pickup';
+    $('phone-ride-request').hidden=!quote || Boolean(trip && !choosing);
+    $('phone-ride-request').disabled=quoting || (quote && (now.purchaseLimit ?? now.cash)<quote.fare);
+    if(quote && (!trip || choosing) && (now.purchaseLimit ?? now.cash)<quote.fare)$('phone-ride-summary').textContent+=' · Insufficient funds';
     $('phone-ride-board').hidden=trip?.phase!=='waiting';
     $('phone-ride-board').disabled=!rides?.canBoard();
     $('phone-ride-cancel').hidden=(!quote && (!trip || choosing) && !quoting) || trip?.phase==='traveling';
@@ -546,7 +548,7 @@ export function createPhone({ $, canUse = () => true, isClosed, places = () => [
     const following=handset.getAttribute('data-navigation')==='keys' && focused?.closest?.('.phone-screen')?.id==='phone-'+screen;
     handset.hidden = !open;
     if (!open) return;
-    const app=({market:'stocks',order:'stocks',contact:'contacts',transfer:'bank',wallpaper:'settings',place:'maps',nearby:'maps',list:listing?.app || 'work',call:call?.from==='thread'?'messages':'contacts',thread:'messages',gallery:'camera',photo:'camera'})[screen] || screen;
+    const app=({market:'stocks',order:'stocks',contact:'contacts',wallpaper:'settings',place:'maps',nearby:'maps',list:listing?.app || 'work',call:call?.from==='thread'?'messages':'contacts',thread:'messages',gallery:'camera',photo:'camera'})[screen] || screen;
     handset.setAttribute('data-app',app);
     const waiting=unread();
     $('phone-messages-badge').hidden=waiting<1;
@@ -750,6 +752,10 @@ export function createPhone({ $, canUse = () => true, isClosed, places = () => [
   click('phone-map-nearby', () => { nearbyParent='maps';category='all';page = 0; $('phone-search').value='';show('nearby'); }); click('phone-app-contacts', () => { $('phone-contact-search').value='';show('contacts'); });
   click('phone-app-bank', () => show('bank'));
   const renderStocks=createStockScreens({$,click,activate,show,render,onTrade});
+  click('phone-bank-payment',()=>{
+    onPaymentPreference(state().bank?.preferredPayment==='cash'?'card':'cash');
+    render();
+  });
   click('phone-bank-invest',()=>{marketParent='bank';show('market');});
   click('phone-app-stocks',()=>{marketParent='home';show('market');});
   click('phone-bank-locate',()=>{

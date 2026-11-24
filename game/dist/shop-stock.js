@@ -91,7 +91,7 @@ export function ownsWearable(sim,item) {
 export function purchaseStock(sim, shop, item, {unpaid=false,sale}={}) {
   if (sim.room?.place !== shop || !fittingStock(shop).some(row=>row.sku===item.sku)) return null;
   if (ownsWearable(sim,item)) return {paid:0};
-  if (unpaid ? !sim.shopping.charge(shop,item.price,sale) : !sim.buy(item)) return null;
+  if (unpaid ? !sim.shopping.charge(shop,item.price,sale) : !sim.buy(item,{sale})) return null;
   if (item.slot !== 'hair') {
     sim.purchases ??= {};
     sim.purchases[item.sku]=(sim.purchases[item.sku] || 0) + 1;
