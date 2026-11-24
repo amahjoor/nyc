@@ -28,7 +28,7 @@ const HOUSES = [
   [/\brick owens\b/i, /Rick Owens/],
   [/\bmargiela\b/i, /Margiela/],
   [/\byohji\b/i, /Yohji/],
-  [/\b(issey|miyake)\b/i, /Miyake/],
+  [/\b(issey|miyake)\b/i, /Miyake|IM MEN/],
   [/\bjil sander\b/i, /Jil Sander/],
   [/\bprada\b/i, /Prada/],
   [/\bgucci\b/i, /Gucci/],
@@ -44,12 +44,30 @@ const HOUSES = [
   [/\balexander mcqueen\b/i, /McQueen/],
   [/\bvivienne westwood\b/i, /Westwood/],
   [/\bgivenchy\b/i, /Givenchy/],
+  [/\bchrome hearts\b/i, /Chrome Hearts/],
+  [/\bkapital\b/i, /Kapital/],
+  [/\bundercover\b/i, /Undercover/],
+  [/\bgaultier\b/i, /Gaultier/],
+  [/\bmiu miu\b/i, /Miu Miu/],
+  [/\b(y-3|adidas)\b/i, /Y-3/],
+  // What a house made with somebody else is sold by both.
+  [/\bnike\b/i, /Nike/],
+  [/\bnew balance\b/i, /New Balance/],
+  [/\btimberland\b/i, /Timberland/],
+  [/\bcarhartt\b/i, /Carhartt/],
+  [/\blevi'?s\b/i, /Levi's/],
+  [/\bcanada goose\b/i, /Canada Goose/],
+  [/\bbarbour\b/i, /Barbour/],
+  [/\bbrooks brothers\b/i, /Brooks Brothers/],
+  [/\blouis vuitton\b/i, /Louis Vuitton/],
+  [/\bpendleton\b/i, /Pendleton/],
+  [/\bschott\b/i, /Schott/],
   // Stores that carry many houses, and the ones they are known for.
   [/\bdover street\b/i, /Comme des Gar|Junya|Undercover|Raf Simons|Craig Green|Kapital|Number|Visvim|Chalayan|Westwood|McQueen|Gaultier|Balenciaga|Margiela|Sterling Ruby/],
-  [/\batelier new york\b/i, /Rick Owens|Poell|Guidi|Saberi|Julius|Demeulemeester|Yohji/],
-  [/\bopening ceremony\b/i, /Kapital|Visvim|Undercover|Number|BAPE|Raf Simons|Helmut Lang|Westwood/],
+  [/\batelier new york\b/i, /Rick Owens|Poell|Guidi|Saberi|Julius|Demeulemeester|Yohji|Chrome Hearts/],
+  [/\bopening ceremony\b/i, /Kapital|Visvim|Undercover|Number|BAPE|Raf Simons|Helmut Lang|Westwood|Gaultier|Miu Miu/],
   [/\bkith\b/i, /Visvim|BAPE|Stone Island|Supreme|C\.P\. Company/],
-  [/\b(barneys|bergdorf|saks)\b/i, /Dior|Gucci|Prada|Saint Laurent|Balenciaga|Givenchy|Jil Sander|McQueen|Rick Owens|Helmut Lang|Margiela|Yohji|Comme des Gar|Demeulemeester|Miyake/],
+  [/\b(barneys|bergdorf|saks)\b/i, /Dior|Gucci|Prada|Miu Miu|Saint Laurent|Balenciaga|Givenchy|Jil Sander|McQueen|Rick Owens|Helmut Lang|Margiela|Yohji|Comme des Gar|Demeulemeester|Miyake|Chrome Hearts/],
 ];
 // Shops that deal in what others have worn.
 // [shop, how many pieces, the dearest it would have]: a neighbourhood vintage shop has finds, not museum pieces.
@@ -57,7 +75,9 @@ const RESALE = [[/\breal\s?real\b/i, Infinity, Infinity], [/\b(tokio 7|what goes
 const SNEAKERS = /\b(flight club|stadium goods)\b/i;
 // Every other shop that sells clothes keeps a rail of the archive beside its own lines:
 // [how many pieces, which of them]. No two shops have quite the same rail.
-const RAILS = { clothes: [14, piece => piece.slot !== 'bag'], department: [28, () => true], shoes: [6, piece => piece.slot === 'shoes'], bags: [1, piece => piece.slot === 'bag'] };
+// (What is worn in the bag's place is not always a bag: the collection's hat, necklaces and rings are too. A bag shop keeps the bags.)
+const carried = piece => piece.slot === 'bag' && /pack|sack|tote|bag/.test(piece.bag);
+const RAILS = { clothes: [14, piece => piece.slot !== 'bag' || !carried(piece)], department: [28, () => true], shoes: [6, piece => piece.slot === 'shoes'], bags: [2, carried] };
 
 const hash = text => { let h = 2166136261; for (let i = 0; i < text.length; i++) { h ^= text.charCodeAt(i); h = Math.imul(h, 16777619); } return h >>> 0; };
 
@@ -72,7 +92,7 @@ export function archiveStock(place) {
   const name = typeof place === 'string' ? '' : place?.name || '', kind = typeof place === 'string' ? place : place?.kind;
   if (!name || !['clothes', 'department', 'shoes', 'secondhand', 'bags'].includes(kind)) return null;
   if (SNEAKERS.test(name)) {
-    const sneakers = ARCHIVE_PIECES.filter(piece => piece.slot === 'shoes' && /sneaker|dunk|trainer|geobasket|ramones/i.test(piece.name));
+    const sneakers = ARCHIVE_PIECES.filter(piece => piece.slot === 'shoes' && /sneaker|dunk|trainer|geobasket|ramones|bape sta|foamposite/i.test(piece.name));
     return sneakers.length ? { only: false, items: sneakers.map(archiveItem) } : null;
   }
   for (const [shop, makers] of HOUSES) if (shop.test(name)) {

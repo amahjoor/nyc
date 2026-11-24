@@ -95,6 +95,8 @@ test('a house sells its own, the resale market sells everything, and a corner vi
   assert.deepEqual(everything.map(item => item.archive), ARCHIVE_PIECES.map(piece => piece.n));
   const rick = fittingStock({ kind: 'clothes', name: 'RICK OWENS' });
   assert.ok(rick.length >= 8 && rick.every(item => item.name.startsWith('Rick Owens')));
+  assert.ok(fittingStock({ kind: 'clothes', name: 'CHROME HEARTS' }).every(item => item.name.startsWith('Chrome Hearts')));
+  assert.deepEqual(fittingStock({ kind: 'bags', name: 'BAG SHOP' }).filter(item => item.archive).map(item => item.slot), ['bag', 'bag']);
   const vintage = fittingStock({ kind: 'clothes', name: 'L TRAIN VINTAGE' });
   assert.ok(vintage.length === 12 && vintage.every(item => item.price <= 1500));
   assert.deepEqual(vintage, fittingStock({ kind: 'clothes', name: 'L TRAIN VINTAGE' }));
