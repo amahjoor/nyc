@@ -538,7 +538,9 @@ export class Simulation {
     if (!room || this.player.mode !== 'walk' || this.room || (this.doorway?.closed && this.doorway.plan.place.id === room.place?.id)) return false;
     at ??= roomLocal(room, this.player.x, this.player.z);
     if (Math.abs(at.a) > DOOR / 2 || Math.abs(at.b) > .8) return false;
-    this.room = { ...room, floor: this.doorway?.floor ?? room.floor ?? this.player.y ?? 0, a: at.a, b: at.b };
+    // A room plan uses floor for its material color. The occupied room needs an elevation.
+    const floor=this.doorway?.floor ?? (Number.isFinite(room.floor) ? room.floor : this.player.y ?? 0);
+    this.room = { ...room, floor, a: at.a, b: at.b };
     this.police.roomEntered();
     this._say(room.name, 3);
     return true;
