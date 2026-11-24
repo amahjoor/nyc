@@ -2,6 +2,7 @@ import http from 'node:http';
 import {readFile, stat} from 'node:fs/promises';
 import {resolve, extname, sep} from 'node:path';
 import {fileURLToPath} from 'node:url';
+import {handleStreetChat,warmStreetChat} from './street-chat.mjs';
 import {handleMayaChat} from './phone-chat.mjs';
 const root=fileURLToPath(new URL('../dist/',import.meta.url));
 const port=Number(process.env.PORT||5173);
@@ -9,10 +10,8 @@ const types={'.mjs':'text/javascript; charset=utf-8','.wasm':'application/wasm',
 http.createServer(async(req,res)=>{
   try{
     const pathname=decodeURIComponent(new URL(req.url,'http://localhost').pathname);
-    if(pathname==='/api/phone/maps'){
-      res.writeHead(200,{'Content-Type':'application/json','Cache-Control':'no-store'});
-      res.end(JSON.stringify({browserKey:process.env.GOOGLE_MAPS_BROWSER_KEY || ''}));return;
-    }
+    if(pathname==='/api/street/warm'){await warmStreetChat(req,res);return;}
+    if(pathname==='/api/street/chat'){await handleStreetChat(req,res);return;}
     if(pathname==='/api/phone/maya'){await handleMayaChat(req,res);return;}
     let path=resolve(root,'.'+pathname);
     if(path!==resolve(root)&&!path.startsWith(resolve(root)+sep)){res.writeHead(403);res.end('Forbidden');return;}
