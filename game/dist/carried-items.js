@@ -2,6 +2,7 @@
 import * as THREE from './vendor/three.module.min.js';
 
 import { prepTool } from './prep-tools.js';
+import { roomRayDistance } from './room.js';
 import { viewHand } from './view-hand.js';
 import { gripForItem } from './hand-poses.js';
 import { groceries } from './grocery-stock.js';
@@ -115,6 +116,47 @@ export function carriedItems(capacity,foodOnly=false) {
     },
     dispose() { for (const mesh of Object.values(batches).flat()) {mesh.dispose(); if(mesh.material!==printed && mesh.material!==bottle && mesh.material!==crockery){mesh.geometry.dispose();mesh.material.dispose();}} printed.dispose();bottle.dispose();crockery.dispose();group.removeFromParent(); },
   };
+}
+
+// Resting containers share the held models and stop simulating after landing.
+export function createContainerTosses(scene,roomLayer,groundAt,blocked){
+  const throws=[],materials=new Map(),up=new THREE.Vector3(0,1,0),down=new THREE.Vector3(0,-1,0);
+  function toss(key,origin,angle,room){
+    const base=portionBase(key),product=groceries[base];
+    const geometry=product?packageGeometry(base,false,0):servingGeometry(key);
+    const surface=product?(product.shape==='bottle'?'bottle':'printed'):'serving';
+    if(!materials.has(surface))materials.set(surface,product?packageMaterial(false,surface==='bottle'?'grocery-water':base):servingMaterial());
+    const mesh=new THREE.Mesh(geometry,materials.get(surface));
+    mesh.name='Thrown container';mesh.userData.item=key;
+    mesh.position.copy(origin);mesh.rotation.y=angle;mesh.layers.set(room?roomLayer:0);
+    if(throws.length>=16)throws.shift().mesh.removeFromParent();
+    throws.push({mesh,roomId:room?.place.id,forward:new THREE.Vector3(Math.sin(angle),0,Math.cos(angle)),speed:3.6,vy:2.2,resting:false});
+    scene.add(mesh);
+  }
+  function update(dt,room){
+    for(const t of throws){
+      const {mesh,forward}=t,p=mesh.position;
+      mesh.visible=t.roomId===room?.place.id;
+      if(t.resting || !mesh.visible || !dt)continue;
+      const step=t.speed*dt,x=p.x+forward.x*step,z=p.z+forward.z*step;
+      if(step && (room?roomRayDistance(room,p,forward,step)<step:blocked(x,p.y,z)))t.speed=0;
+      else p.set(x,p.y,z);
+      const rise=(t.vy-4.9*dt)*dt;t.vy-=9.8*dt;
+      const floor=room?room.floor:groundAt(p.x,p.z,p.y);
+      const travel=room?roomRayDistance(room,p,rise>0?up:down,Math.abs(rise)):Math.abs(rise);
+      if(rise<0 && (travel< -rise || p.y+rise<=floor+.002)){
+        // Bounds include the cup base or packet creases below its model origin.
+        mesh.rotation.x=0;
+        if(!mesh.geometry.boundingBox)mesh.geometry.computeBoundingBox();
+        p.y=Math.max(floor,p.y-travel)+.002-mesh.geometry.boundingBox.min.y;
+        t.resting=true;
+      }else{
+        p.y+=Math.sign(rise)*travel;mesh.rotation.x+=4*dt;
+        if(travel<rise)t.vy=0;
+      }
+    }
+  }
+  return {toss,update};
 }
 
 export function createFoodHand(camera,scene,layer){

@@ -28,7 +28,7 @@ export class Input {
     const actions = {
       KeyF:'vehicle',KeyE:'interact',KeyR:'lightOrReload',KeyQ:'heavy',
       KeyV:'nextCamera',KeyP:'pause',Escape:'pause',KeyM:'interactionMenu',KeyH:'lights',ArrowUp:'phone',KeyZ:'status',
-      KeyU:'useItem',KeyK:'skate',KeyG:'shop',KeyI:'inventory',F6:'view',
+      KeyU:'useItem',KeyY:'tossEmpty',KeyK:'skate',KeyG:'shop',KeyI:'inventory',F6:'view',
     };
     window.addEventListener('keydown', e => {
       this.lastDevice='keyboard';

@@ -61,7 +61,7 @@ import { createStreetLitter } from '../dist/street-litter.js';
 import { createStreetScans } from '../dist/street-scans.js';
 import { fittedLook, ownedWearables, wearing } from '../dist/shop-stock.js';
 import { castWalkStyle, patrolAppearance } from '../dist/human-cast.js';
-import { carriedItems,createFoodHand } from '../dist/carried-items.js';
+import { carriedItems,createFoodHand,createContainerTosses } from '../dist/carried-items.js';
 import { createHumanMesh } from '../dist/human-mesh.js';
 import { createMotion, createAnimator, fitPose, gripOffsetFor } from '../dist/body-motion.js';
 import { writeMovements } from '../dist/body-moves.js';
@@ -361,7 +361,7 @@ async function bootHarness({ stored = null, displayStored = null, unavailableSto
     updateChaseHeight, cabinSeatPoint, placeDriverCamera, createCityGround, worldToGeographic, atlasZoomFor, createRoadStream, nearestStreet, localDestinations, createCityNavigation,
     createStreetDetail:(manifest,options)=>createStreetDetail(manifest,{...options,now:()=>timestamp}),
     renderStats, performanceName, availableCents, formatMoney, payFor, purchaseLimit, vehicleHandling, createDoorDebris, hasAlteredGlazing, carCondition, createCarSmoke, createCentralPark, GUN, carTop, setCarShell, nearestShotActor, shotObstruction, traceShopShot, fitFallPose, shared,
-    fingerPose, pinchOffset, setHandSource, isOpen, setOpeningHours, roomPoint, roomLocal, crossesFixture, roomRayDistance, roomOccupants, roomUnderFire, seatApproach, seatEyeOffset, seatHeight, beginRegisterTake, updateClerk, registerAction, fleeShop, inviteCustomer, populateShop, roomOccupantHit, createHumanShop:(meta,options)=>createHumanShop(meta,{...options,base:'./human/'}), createHumanMesh, createMotion, createAnimator, fitPose, gripOffsetFor, writeMovements, createFigures, loadPerson, savePerson, foodPreviewOptions,openFoodCounter,openInventory,stepCounterOrder,promptTableService,browseShop, changeClothes, ownedWearables, wearing, createStreetLitter, createStreetScans, fittedLook, patrolAppearance, carriedItems,createFoodHand,
+    fingerPose, pinchOffset, setHandSource, isOpen, setOpeningHours, roomPoint, roomLocal, crossesFixture, roomRayDistance, roomOccupants, roomUnderFire, seatApproach, seatEyeOffset, seatHeight, beginRegisterTake, updateClerk, registerAction, fleeShop, inviteCustomer, populateShop, roomOccupantHit, createHumanShop:(meta,options)=>createHumanShop(meta,{...options,base:'./human/'}), createHumanMesh, createMotion, createAnimator, fitPose, gripOffsetFor, writeMovements, createFigures, loadPerson, savePerson, foodPreviewOptions,openFoodCounter,openInventory,stepCounterOrder,promptTableService,browseShop, changeClothes, ownedWearables, wearing, createStreetLitter, createStreetScans, fittedLook, patrolAppearance, carriedItems,createFoodHand,createContainerTosses,
     createSportsCourts, addCourtPlaces, createStatueOfLiberty, STATUE, castWalkStyle, Landscape, RoadPilot, AbortSignal, createGraphics, createStreetLife, createCityBirds, createWater, WATER_LEVEL, BOARDINGS, TRANSPORT, transportDestination, TransportFleet, createTransportScene, setVehicleLamps, OFFICER_LOOK, createPoliceScene, createCityLife, manhattanCore, createStreetSigns, createCrowd, dress, seeded, KIT, createStreetProps, createPlaceSource, placeName, joinPlaceSources, indexFootprints, solveFrontages, createStorefronts, createInteraction, createATM, CityRides, PhoneBank, createPhoneHand, createPhone, describePlace, createFleet, createVehicleMeshLibrary, designFor, createSwitchShot, createPickerFlight, createTileStore, offersAt, shopRows, planRoom, buildRoom, roomKind, hasRoom, doorBlips, plateFor, createDemographics, characterAt, createTransitNetwork, busJourney, clockTime, createBuses, createBusStops, createSheds, planSheds, createShedMesh, createDining, planDining, createDiningMesh, seatsOf, planStands, vendorOf, createStandMesh, createCollection, planTrash, createTrashMesh, aboveTheStreet, indexBikeLanes, createLaneMarkings, bikeLaneParking, createBikeTraffic, fitCyclist, PEDAL_PERIOD, createSkateboard, createBikeShare, planBikeDocks, createBikeDocks, menuFor, createSubway, createSubwayEntrances, SUBWAY_LAYER, FARE, indexKerbs, snapToKerb, formatDistance,
     // Bundled survey cells only: these tests stay offline.
     createStreetscape:options=>createStreetscape({...options,live:false,now:()=>timestamp}),
@@ -2618,6 +2618,30 @@ test('X uses the held serving by tap or hold and the touch action finishes the s
     app.key('KeyX');app.frames(85,60);app.key('KeyX',false);
     assert.equal(bag.held,'empty-meal-donuts-glazed-doughnut');
     assert.equal(bag.inventory['meal-coffee-coffee'],1);
+  }finally{app.close();}
+});
+
+test('Y and the touch toss button throw only the held empty and leave its model on the ground',async()=>{
+  const app=await bootHarness();
+  try{
+    app.click('start-button');app.click('view-button');app.frames();
+    const bag=app.simulation().shopping,scene=app.renderState().scene;
+    const tosses=()=>scene.children.filter(obj=>obj.name==='Thrown container');
+    bag.receive('meal-donuts-glazed-doughnut');app.key('KeyY');app.key('KeyY',false);
+    assert.equal(tosses().length,0);assert.equal(bag.held,'meal-donuts-glazed-doughnut');
+    const id='empty-meal-donuts-glazed-doughnut';bag.receive(id);bag.receive(id);
+    app.frames(5,60);assert.match(app.elements.get('use-item-hint').textContent,/Y to throw/);
+    app.key('KeyY');app.key('KeyY',false);
+    assert.equal(bag.held,null);assert.equal(bag.inventory[id],1);
+    const [wrapper]=tosses(),start=wrapper.position.clone();assert.equal(wrapper.userData.item,'plate-doughnut@0');
+    app.frames(2,40);assert.ok(wrapper.position.y>start.y);
+    app.frames(40,50);const landed=wrapper.position.clone();
+    assert.ok(landed.y<start.y);assert.ok(Math.hypot(landed.x-start.x,landed.z-start.z)>.1);
+    app.frames(5,50);assert.deepEqual(wrapper.position,landed);
+    bag.receive('empty-grocery-water');app.frames(5,50);
+    assert.equal(app.elements.get('touch-toss').hidden,false);app.click('touch-toss');
+    assert.equal(tosses()[1].userData.item,'grocery-water@0');assert.equal(bag.inventory['empty-grocery-water'],undefined);
+    app.frames(4,50);assert.equal(app.elements.get('touch-toss').hidden,true);
   }finally{app.close();}
 });
 

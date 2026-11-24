@@ -62,7 +62,7 @@ import { createMotion, createAnimator, fitPose, gripOffsetFor } from './body-mot
 import { writeMovements } from './body-moves.js';
 import { createFigures } from './people-figures.js';
 import { castWalkStyle, patrolAppearance } from './human-cast.js';
-import { carriedItems,createFoodHand } from './carried-items.js';
+import { carriedItems,createFoodHand,createContainerTosses } from './carried-items.js';
 import { createStreetProps } from './street-props.js';
 import { createPlaceSource, placeName, isOpen, setOpeningHours, joinPlaceSources, indexFootprints, solveFrontages } from './places.js';
 import { roomPoint, roomLocal, crossesFixture, roomRayDistance, roomUnderFire } from './room.js';
@@ -805,7 +805,7 @@ function enterSubwayOnFoot(controls){
   }
 }
 
-let usePress=null;
+let usePress=null,containerTosses=null;
 function canUseServing(){
   const p=sim?.player;
   return streetControls() && p.mode==='walk' && !p.armed && !p.move && !p.reaction && !p.swing &&
@@ -827,6 +827,20 @@ function action(name,event) {
   if(atmTerminal?.active){
     if(name==='pause')atmTerminal.close();
     return;
+  }
+  if(name==='tossEmpty'){
+    if(!canUseServing() || wheelSelection!==null)return;
+    const key=sim.shopping.tossEmpty();if(!key)return;
+    const p=sim.player,angle=p.angle;
+    const origin=new THREE.Vector3(p.x-.16*Math.cos(angle),p.y+(sim.seat ? .76 : 1.1),p.z+.16*Math.sin(angle));
+    if(playerBody?.mesh.visible){
+      const hand=playerBody.bones[playerBody.rig.index.get('hand_l')];
+      hand.localToWorld(origin.fromArray(gripOffsetFor(playerBody.rig,key)));
+    }
+    containerTosses??=createContainerTosses(scene,ROOM_LAYER,
+      (x,z,y)=>streetSurface(x,z,{mode:'walk',referenceHeight:y})?.elevation??groundHeight(x,z),
+      (x,y,z)=>sim.isBlocked(x,z,.04,{ignoreWater:true,baseHeight:y,height:.05}));
+    containerTosses.toss(key,origin,angle,sim.room);saveProgress();return;
   }
   if(name==='useItem'){
     usePress=null;
@@ -1444,6 +1458,7 @@ touchHorn.addEventListener('pointerdown',event=>{
 for(const type of ['pointerup','pointercancel','lostpointercapture'])
   touchHorn.addEventListener(type,event=>input.releaseHorn('pointer'+event.pointerId));
 touchHorn.addEventListener('click',event=>{if(!event.detail)action('horn');});
+$('touch-toss').addEventListener('click',()=>action('tossEmpty'));
 $('touch-use').addEventListener('pointerdown',event=>{if(event.button===0)action('useItem',event);});
 $('touch-use').addEventListener('click',event=>{if(event.detail===0)action('useItem');});
 $('touch-equip').addEventListener('click',()=>action('draw'));
@@ -3307,12 +3322,18 @@ function frame(now) {
   if(updateHUD){
     const canUse=canUseServing(), serving=canUse?sim.shopping.usableServing():null;
     $('touch-use').hidden=!serving && !(canUse && sim.shopping.eating);
-    $('use-item-hint').hidden=!serving;
+    const empty=canUse && wheelSelection===null?sim.shopping.heldEmpty():null;
+    $('touch-toss').hidden=!empty;
+    $('use-item-hint').hidden=!serving && !empty;
     if(serving){
       const verb=serving.drink?'Sip':'Bite';
       hud.text('touch-use',verb.toUpperCase());
       const key=matchMedia('(pointer:coarse)').matches?verb.toUpperCase():'X';
       hud.text('use-item-hint',serving.name+' · Tap '+key+' to '+verb.toLowerCase()+' · Hold to finish');
+    }
+    if(empty){
+      const control=matchMedia('(pointer:coarse)').matches?'TOSS':'Y';
+      hud.text('use-item-hint',empty.name+' · '+control+' to throw');
     }
     // Retain nearby streets if the optional citywide route download fails.
     if(!routePlanner&&gameMap.roads!==sim.city.roads)gameMap.setRoads(sim.city.roads);
@@ -3337,6 +3358,7 @@ function frame(now) {
   // Photographed things set out by the shop fronts: boards, planters, crates, bags at the kerb.
   (streetScans||=createStreetScans({scene})).update(fronts,sim.player,kerbIndex,groundHeight,started&&!cityView&&!aloft&&!subwayVisit&&!shotIsHigh());
   // What lies in the gutters, and is blown along them by passing cars.
+  containerTosses?.update(paused||traveling||cityView||mapOpen?0:dt,sim.room);
   (streetLitter||=createStreetLitter({scene})).update(paused||traveling?0:dt,sim.player,kerbIndex,groundHeight,sim.cars,started&&!cityView&&!aloft&&!sim.room&&!subwayVisit&&!shotIsHigh());
   // One crossing in four has a manhole breathing steam, a little way out from its middle: always the same ones.
   if(carSmoke&&started&&!paused&&!traveling&&!cityView&&!aloft&&!sim.room&&!subwayVisit)for(const junction of sim.junctions){

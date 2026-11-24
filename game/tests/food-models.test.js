@@ -1,5 +1,6 @@
 import test from 'node:test';
-import { Triangle,Vector3 } from '../dist/vendor/three.module.min.js';
+import { Scene,Triangle,Vector3 } from '../dist/vendor/three.module.min.js';
+import { createContainerTosses } from '../dist/carried-items.js';
 import { kitchen } from '../dist/food-kit.js';
 import { orangeBag } from '../dist/food-fruit.js';
 import { drink } from '../dist/food-drinks.js';
@@ -113,4 +114,17 @@ test('the same bottle shows four distinct liquid levels and keeps its label',()=
   }
   assert.ok(label[0].length>0);
   for(const printed of label.slice(1))assert.deepEqual(printed,label[0]);
+});
+
+test('a tossed wrapper stops at the shop wall and lands on the counter in that room',()=>{
+  const scene=new Scene(),tosses=createContainerTosses(scene,1,()=>0,()=>false);
+  const room={x:0,z:0,nx:0,nz:-1,tx:1,tz:0,width:5,depth:3,floor:10,place:{id:'bakery'},
+    things:[{solid:true,a:0,b:2.4,w:2,d:1.2,h:.8}]};
+  tosses.toss('plate-doughnut@0',new Vector3(0,11.2,1.6),0,room);
+  const wrapper=scene.children[0];
+  for(let i=0;i<120;i++)tosses.update(1/60,room);
+  assert.ok(wrapper.position.z>2.8 && wrapper.position.z<=3);
+  assert.ok(Math.abs(wrapper.position.y-10.8)<.02);
+  tosses.update(1/60,null);assert.equal(wrapper.visible,false);
+  tosses.update(1/60,room);assert.equal(wrapper.visible,true);
 });

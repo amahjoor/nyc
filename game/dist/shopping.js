@@ -278,6 +278,19 @@ export class Shopping{
     }
     this.revision++;
   }
+  heldEmpty(){
+    const id=this.held;
+    if(!id?.startsWith('empty-') || !this.inventory[id] || this.eating || this.payment)return null;
+    const item=pantryItem(id);
+    return item && this.sim.player.carry===heldFood(item)?item:null;
+  }
+  tossEmpty(){
+    const item=this.heldEmpty();
+    if(!item || !this.discard(item.id))return null;
+    // Only the unit in the hand is thrown when inventory contains a stack.
+    this.setHand(null);
+    return heldFood(item);
+  }
   discard(id){
     if(!this.inventory[id] || pantryItem(id)?.effect!=='empty')return false;
     if(--this.inventory[id]===0){delete this.inventory[id];if(this.held===id)this.setHand(null);}
