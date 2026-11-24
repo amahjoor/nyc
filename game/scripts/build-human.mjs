@@ -17,7 +17,7 @@
 //   dist/human/human.json   what is where in the other two, and the names
 //   dist/human/body.bin     the body: points, faces, weights, targets
 //   dist/human/parts.bin    what is worn: meshes and how they are tied on
-//   dist/human/archive/*.bin  the same for the later chapters of the archive collection, fetched as they are worn
+//   dist/human/archive/*.bin  the same for each later piece of the archive collection, fetched as it is worn
 //   dist/human/tex/*.webp   skins, cloth, hair, eyes
 //
 // usage: node scripts/build-human.mjs [--no-textures] [--refresh-wardrobe] [--out folder]
@@ -202,7 +202,7 @@ const bodyMeta = {
 const ONLY = flag('--only')?.split(',') || null;
 let FLOOR_Y = Infinity; for (const corner of skin.point) FLOOR_Y = Math.min(FLOOR_Y, positions[corner * 3 + 1]);
 const parts = createBin(), partList = [], textures = new Map();
-// Bins beside parts.bin, by name: what nobody needs until it is worn (a later chapter of the archive collection).
+// Bins beside parts.bin, by name: what nobody needs until it is worn (a later piece of the archive collection).
 const bins = new Map(), binPut = (name, array) => { if (!bins.has(name)) bins.set(name, createBin()); return bins.get(name).put(array); };
 /** A texture to be converted: returns the name it will have under dist/human/tex. */
 function texture(folder, file, { size = 1024, alpha = false, wardrobe = false, prefix = '' } = {}) {

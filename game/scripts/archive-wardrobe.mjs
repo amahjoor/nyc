@@ -14,7 +14,7 @@ const WANTED = process.env.ARCHIVE_ONLY?.split(',');
 // which the game fetches when one of its pieces is first put on: `bin` on a piece names it.
 const SHIPPED = 100;
 export const archivePieces = () => readdirSync(FOLDER).filter(name => name.endsWith('.json') && (!WANTED || WANTED.includes(name.slice(0, -5)))).sort()
-  .flatMap(name => JSON.parse(readFileSync(new URL(name, FOLDER), 'utf8')).map(piece => piece.n > SHIPPED ? { ...piece, bin: 'archive/' + name.slice(0, -5) } : piece)).sort((a, b) => a.n - b.n);
+  .flatMap(name => JSON.parse(readFileSync(new URL(name, FOLDER), 'utf8')).map(piece => piece.n > SHIPPED ? { ...piece, bin: 'archive/' + piece.id } : piece)).sort((a, b) => a.n - b.n);
 const linear = hex => hex.slice(1).match(/../g).map(v => { const c = parseInt(v, 16) / 255; return c <= .04045 ? c / 12.92 : ((c + .055) / 1.055) ** 2.4; });
 const index = values => { let most = 0; for (const v of values) if (v > most) most = v; return most < 65536 ? Uint16Array.from(values) : Uint32Array.from(values); };
 
