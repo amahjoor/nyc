@@ -53,12 +53,13 @@ def main():
     args = parser.parse_args()
     piper = args.piper_dir.resolve()
     manifest = """
+      import {reactionPhrases} from './dist/street-reactions.js';
       import {dialogue} from './dist/voice-lines.js';
       import {modelSpeakers, recordedSpeakers} from './dist/npc-voices.js';
-      console.log(JSON.stringify({dialogue, modelSpeakers, recorded:recordedSpeakers.length}));
+      console.log(JSON.stringify({dialogue, reactionPhrases, modelSpeakers, recorded:recordedSpeakers.length}));
     """
     roster = json.loads(subprocess.check_output(["node", "--input-type=module", "-e", manifest], cwd=ROOT))
-    lines = roster["dialogue"]
+    lines = list(dict.fromkeys(roster["dialogue"] + roster["reactionPhrases"]))
     output = subprocess.check_output([piper / "piper_phonemize", "-l", "en-us", "--espeak_data", piper / "espeak-ng-data"],
                                      input="\n".join(lines) + "\n", text=True)
     phones = {row["text"]: row["phoneme_ids"] for row in map(json.loads, output.splitlines())}

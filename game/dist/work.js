@@ -1,4 +1,5 @@
-import { encounter, savedConversations, streetIdentity, streetReply, talkToPerson } from './street-talk.js';
+import { streetLines } from './street-reactions.js';
+import { greetPerson, encounter, savedConversations, streetIdentity, streetReply, talkToPerson } from './street-talk.js';
 import { hasKitchen,kitchenRole,kitchenTicket,kitchenState,kitchenActions,trayReady,advanceKitchen } from './kitchen-shift.js';
 import { deskTicket } from './service-desk.js';
 import { salesCall } from './sales-calls.js';
@@ -345,8 +346,7 @@ export class Work {
     if (person) {
       rows.push(option('Say hello', '', () => {
         if(!this.canTalk(person))return this.sim._say('They have moved on.');
-        const replies=['I slept outside last night. It’s good to talk to someone.', 'Morning’s my favorite time on this block.', 'I’m looking for somewhere to stay tonight. How’s your day going?', 'Hey. Good to see a friendly face.'];
-        const line=person.resident ? replies[person.resident.id%replies.length] : 'Hey, how’s it going?';
+        const line=greetPerson(this,person);
         this.speak(person,line);
         this.street(line,person);
       }));
@@ -374,7 +374,7 @@ export class Work {
     if(!this.record.cups)return this.sim._say('Restock your coffee cart first.');
     const available=()=>this.canTalk(person) && !this.streetActions.sell.has(person) && this.record.cups>0;
     const milk=(person.resident?.id || 0)%2===0;
-    const order=milk?'A coffee with milk, please.':'Black coffee, please.';
+    const order=streetLines.choose(person,milk?'milkCoffee':'blackCoffee');
     this.speak(person,order);
     const serve=()=>this.streetMenu(person,'Coffee cart','One cup ready.',[
       option('Lid and hand over coffee','$5',()=>this.trade(person,'sell',after))
@@ -399,7 +399,7 @@ export class Work {
       person.state = 'flee'; person.mad = 5;
       report=this.sim.offence('pickpocket',{x:person.x,y:person.y,z:person.z,victim:person,message:'Wallet theft reported.'});
     }
-    const reply = action === 'steal' ? "Hey! That's my wallet!" : action === 'sell' ? 'Thanks for the coffee.' : amount ? 'Yeah, here you go.' : "Sorry, I don't have any change.";
+    const reply=streetLines.choose(person,action==='steal'?'theft':action==='sell'?'coffee':amount?'give':'decline');
     const entry=encounter(this.record.conversations,streetIdentity(person).key);
     entry.pastEncounter=action==='sell'?'The player sold you a coffee.':action==='steal'?'This player took your wallet.':
       amount?'You gave the player spare change.':'The player asked for change and you declined.';

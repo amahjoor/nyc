@@ -1,3 +1,4 @@
+import { reactionKind } from '../dist/street-reactions.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { interactWithTrip,courierBag } from '../dist/driver-work.js';
@@ -185,12 +186,12 @@ test('wallets vary within each look and the outfit being worn shifts the payout 
 test('a greeting opens an in-person reply and leaves the other conversation options available', () => {
   const f=fixture();
   f.work.street();f.choose('Say hello');
-  assert.equal(f.screen().message,'Hey, how’s it going?');
+  assert.equal(reactionKind(f.screen().message),'greet');
   f.person.resident={id:0};
   f.person.state='rest';
   f.work.street();f.choose('Say hello');
   assert.equal(f.screen().inPerson,true);
-  assert.match(f.screen().message,/slept outside/);
+  assert.equal(reactionKind(f.screen().message),'greet');
   assert.equal(f.sim.cash,0);
   f.choose('Ask for spare change');assert.equal(f.sim.cash,4);
 });

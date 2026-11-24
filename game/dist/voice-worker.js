@@ -71,7 +71,8 @@ self.onmessage = async ({data}) => {
     while (next) {
       const {ticket, text, speaker, phones} = next;
       next = null;
-      const pcm = await speak(session, phones ?? pronunciations[text], speaker);
+      const ids = phones ?? pronunciations[text] ?? text.split(/(?<=[.!?]) /).flatMap(part => pronunciations[part]);
+      const pcm = await speak(session, ids, speaker);
       self.postMessage({ticket, pcm}, [pcm.buffer]);
     }
   } catch {

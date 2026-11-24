@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync, statSync } from 'node:fs';
 import { modelSpeakers, npcVoice, recordedSpeakers } from '../dist/npc-voices.js';
+import { reactionPhrases, situations, ReactionLines, reactionKind } from '../dist/street-reactions.js';
 import { dialogue } from '../dist/voice-lines.js';
 import { patrolAppearance } from '../dist/human-cast.js';
 import { dress, seeded } from '../dist/crowd.js';
@@ -31,7 +32,7 @@ test('the street cast can draw all 904 model speakers and keeps each identity ac
 
 test('every speaker has a pre-rendered hello and every voiced line has a pronunciation', () => {
   const phonemes = readJson('voices/phonemes.json');
-  assert.deepEqual(Object.keys(phonemes), dialogue);
+  assert.deepEqual(Object.keys(phonemes), [...new Set([...dialogue,...reactionPhrases])]);
   for (const phones of Object.values(phonemes)) {
     assert.ok(phones.length > 2 && phones.every(Number.isInteger));
     assert.equal(phones[0], 1);
@@ -53,5 +54,40 @@ test('every speaker has a pre-rendered hello and every voiced line has a pronunc
     }
     const bytes = statSync(new URL(base + '.mp3', assets)).size;
     assert.ok(Math.abs(bytes / 5000 - end) < .25, '40 kbit/s bank duration matches its clip index');
+  }
+});
+
+test('every situation exhausts all exact responses and spaces out recurring openings across the crowd', () => {
+  const dealer = new ReactionLines();
+  const cast = [{}, {}, {}];
+  const unique = new Set();
+  const phones = readJson('voices/phonemes.json');
+  for (const [kind, {open, follow}] of Object.entries(situations)) {
+    const lines = new Set();
+    for (let round = 0; round <= follow.length; round++) {
+      const leads = new Set();
+      for (let i=0;i<open.length;i++) {
+        const text = dealer.choose(cast[i%3], kind);
+        const [lead, ...tail] = text.split(/(?<=[.!?]) /);
+        assert.equal(reactionKind(text), kind);
+        assert.ok(phones[lead] && tail.every(part=>phones[part]));
+        leads.add(lead); lines.add(text); unique.add(text);
+      }
+      assert.equal(leads.size, open.length);
+    }
+    assert.equal(lines.size, open.length * (follow.length+1));
+  }
+  assert.ok(unique.size >= 2000);
+});
+
+test('sidewalk temperament biases an opening while both personalities keep the full repertoire', () => {
+  const bold=new ReactionLines(()=>0), cautious=new ReactionLines(()=>0);
+  const direct={bold:true}, reserved={bold:false};
+  assert.match(bold.choose(direct,'shove'),/^You came straight through me!/);
+  assert.match(cautious.choose(reserved,'shove'),/^Ow, my shoulder!/);
+  for(const [dealer,actor] of [[bold,direct],[cautious,reserved]]) {
+    const cycle=new Set();
+    for(let i=0;i<situations.shove.open.length*(situations.shove.follow.length+1)-1;i++) cycle.add(dealer.choose(actor,'shove'));
+    assert.equal(cycle.size,209);
   }
 });
