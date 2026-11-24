@@ -1,12 +1,12 @@
-import * as guide from './place-guide.js';
+import { bundledContact, cityRecord, contactLinks, contactSources, mapsURL, resolveMapPlace } from './place-guide.js';
 import { worldToGeographic } from './city-ground.js';
 import { menuFor } from './menu.js';
-import { googlePlaceCard } from './place-google.js';
+import { placeReviews } from './place-reviews.js';
 
-export function createPlaceSheet({$,click,storage,roll,previewScene}) {
+export function createPlaceSheet({$,click,storage,roll,previewScene,onResolved}) {
   const document=$('phone-place').ownerDocument;
   const reviewKey='nyc-place-reviews', previews=new Map();
-  let place,branch,record,request,tab,photos=[],index=0,googleStarted=false,key,attachment;
+  let place,record,request,tab,photos=[],index=0,key,attachment,notes=[],loading=false;
   let reviews={};
   try {const saved=JSON.parse(storage?.getItem(reviewKey)||'{}');if(saved && typeof saved==='object')reviews=saved;}catch{}
   const element=id=>$('place-'+id);
@@ -19,29 +19,66 @@ export function createPlaceSheet({$,click,storage,roll,previewScene}) {
       if(img.getAttribute('src')!==item.src)img.setAttribute('src',item.src);
       img.alt=item.caption;
       element('caption').textContent=item.caption;
-      const credit=element('credit');credit.textContent=item.artist || '';
-      if(item.source)credit.setAttribute('href',item.source);else credit.removeAttribute('href');
-      const license=element('license');license.hidden=!item.license;license.textContent=item.license || '';
-      if(item.license)license.setAttribute('href',item.licenseUrl || item.source);
+      element('credit').textContent=item.credit;
     }
-    element('photo-count').textContent=photos.length?`${index+1} of ${photos.length}`:'No photos available';
+    element('photo-count').textContent=photos.length?`${index+1} of ${photos.length}`:loading?'Loading photos…':'No photos available';
     for(const id of ['photo-prev','photo-next'])element(id).disabled=photos.length<2;
   }
   element('photo').addEventListener('error',()=>{
     if(element('photo').getAttribute('src')!==photos[index]?.src)return;
-    photos.splice(index,1);index=Math.max(0,Math.min(index,photos.length-1));photo();
+    photos.splice(index,1);index=Math.max(0,Math.min(index,photos.length-1));photo();visitors();
   });
   function overview(){
-    const address=record?.address || branch?.address;
-    const {lat,lon}=worldToGeographic(place.x,place.z);
+    const address=record?.address,{lat,lon}=worldToGeographic(place.x,place.z);
+    element('address-label').textContent=address?'Address':'Map location';
     element('address').textContent=address || `${lat.toFixed(5)}° N, ${Math.abs(lon).toFixed(5)}° W`;
-    element('cuisine').textContent=record?.cuisine || '';
-    element('city-source').hidden=!record;
-    element('google-link').setAttribute('href',guide.mapsURL(place,address));
+    element('google-link').setAttribute('href',mapsURL(place,address));
+    const {number,tel,website}=contactLinks(record);
+    element('phone-row').hidden=!number;element('web-row').hidden=!website;
+    if(number){element('number').textContent=number;element('number').setAttribute('href',tel);}
+    if(website){element('website').textContent=website.hostname.replace(/^www\./,'');element('website').setAttribute('href',website.href);}
+    for(const field of ['cuisine','hours']){
+      element(field+'-row').hidden=!record?.[field];element(field).textContent=record?.[field] || '';
+    }
+    const sources=element('sources');sources.replaceChildren?.();
+    if(document)for(const id of record?.sources || []){
+      const [label,url]=id==='business'?['Business website',website?.href]:contactSources[id] || [];
+      if(!url)continue;
+      const a=document.createElement('a');
+      a.href=url;a.textContent=label;a.target='_blank';a.rel='noopener noreferrer';sources.append(a);
+    }
+  }
+  function visitors(){
+    const ratings=notes.map(n=>n.stars),own=Number(reviews[key]?.stars);
+    if(Number.isInteger(own) && own>=1 && own<=5)ratings.push(own);
+    const mean=(ratings.reduce((a,b)=>a+b,0)/ratings.length).toFixed(1);
+    element('rating').textContent=mean+' ★ · '+ratings.length;
+    element('summary-rating').textContent=mean+' ★ · '+ratings.length+' in-game reviews';
+    notes.forEach((note,i)=>{
+      const id='visitor-'+i;
+      $(id+'-name').textContent=note.author;$(id+'-stars').textContent='★'.repeat(note.stars)+'☆'.repeat(5-note.stars);
+      $(id+'-text').textContent=note.text;
+      const image=photos.find(p=>p.kind===note.subject);
+      $(id+'-open').hidden=!image;
+      if(image){
+        $(id+'-photo').setAttribute('src',image.src);$(id+'-photo').alt=image.caption;
+        $(id+'-open').setAttribute('aria-label','View photo · '+image.caption);
+      }
+    });
+  }
+  for(let i=0;i<3;i++)click('visitor-'+i+'-open',()=>{
+    const found=photos.findIndex(p=>p.kind===notes[i]?.subject);
+    if(found<0)return;index=found;changeTab('photos');$('phone-place').scrollTop=0;
+  });
+  function syncVisitPhoto(){
+    photos=photos.filter(item=>item.kind!=='visit');
+    const image=reviews[key]?.image;
+    if(image)photos.push({kind:'visit',caption:'Your visit',credit:'Phone camera',src:image});
+    index=Math.max(0,Math.min(index,photos.length-1));
   }
   function review(){
     const own=reviews[key];
-    element('own-review').hidden=!own;
+    if(notes.length)visitors();element('own-review').hidden=!own;
     element('write').textContent=own?'Edit your review':'Review your visit';
     if(own){
       element('own-stars').textContent='Your visit · '+'★'.repeat(own.stars);
@@ -50,73 +87,58 @@ export function createPlaceSheet({$,click,storage,roll,previewScene}) {
       if(own.image)element('own-photo').setAttribute('src',own.image);
     }
   }
-  async function publicReviews(){
-    if(googleStarted || !document?.defaultView)return;
-    googleStarted=true;
-    const active=request;
-    element('review-status').textContent='Loading public reviews…';
-    try {
-      const widget=await googlePlaceCard(place,active.signal);
-      if(active.signal.aborted)return;
-      if(widget){
-        widget.addEventListener('gmp-error',()=>{if(!active.signal.aborted)element('review-status').textContent='Open Google Maps below to see public reviews.';});
-        element('google-card').replaceChildren(widget);
-        element('review-status').textContent='';return;
-      }
-    }catch{}
-    if(!active.signal.aborted)element('review-status').textContent='Open Google Maps below to see public reviews.';
-  }
   function changeTab(next){
     tab=next;
     for(const name of ['overview','photos','reviews']){
       element(name).hidden=name!==tab;element('tab-'+name).setAttribute('aria-pressed',String(name===tab));
     }
     photo();
-    if(tab==='reviews'){review();publicReviews();}
+    if(tab==='reviews')review();
   }
   function close(){request?.abort();place=null;}
   async function open(next){
     close();place=next;request=new AbortController();
     const active=request;
     key=JSON.stringify([place.name,place.kind,place.x,place.z]);
-    branch=null;record=null;googleStarted=false;index=0;photos=[];
-    element('guide-review').hidden=true;
-    element('google-card').replaceChildren?.();element('editor').hidden=true;element('review-status').textContent='';
-    const stock=menuFor(place).slice(0,3);
-    element('game-stock').textContent=stock.length?'In game · '+stock.map(row=>row.name).join(' · '):'';
-    overview();changeTab('overview');
-    if(!document?.defaultView)return;
-    guide.cityRecord(next,active.signal).then(value=>{if(!active.signal.aborted){record=value;overview();}}).catch(()=>{});
-    guide.editorialReview?.(next).then(entry=>{
-      if(!entry || active.signal.aborted)return;
-      element('guide-quote').textContent=entry.quote;
-      element('guide-source').textContent='Wikivoyage contributors · '+entry.article.split('/').pop();
-      element('guide-source').setAttribute('href','https://en.wikivoyage.org/w/index.php?oldid='+entry.revision);
-      element('guide-review').hidden=false;
-    });
-    const featured=await guide.featuredBranch?.(next);
-    if(active.signal.aborted)return;
-    branch=featured;overview();
-    photos=[...(featured?.photos || [])];
-    if(!photos.length){
-      let rendered=previews.get(key);
-      if(!rendered){
-        try{
-          const context=previewScene?.(place);
-          if(context){
-            const {scenePhotos}=await import('./place-preview.js');
-            if(active.signal.aborted)return;
-            rendered=scenePhotos(context);
-            if(previews.size>=12)previews.delete(previews.keys().next().value);
-            if(rendered.length)previews.set(key,rendered);
-          }
-        }catch{}
-      }
-      photos=rendered?.slice() || [];
+    record=null;index=0;photos=[];loading=true;tab='overview';syncVisitPhoto();
+    element('editor').hidden=true;
+    if(document?.defaultView && String(next.id).startsWith('map/')){
+      notes=[];element('figure').hidden=true;element('visitor-reviews').hidden=true;
+      element('summary-rating').textContent='';element('game-stock').textContent='';
+      overview();changeTab('overview');
+      next=await resolveMapPlace(next,active.signal);
+      if(active.signal.aborted)return;
+      place=next;onResolved(next);
     }
-    const aerial=guide.aerialPhoto?.(place);
-    if(aerial)photos.push(aerial);
-    photo();
+    element('visitor-reviews').hidden=false;
+    const stock=menuFor(place),visits=placeReviews(place,stock);
+    notes=visits.notes;
+    element('game-stock').textContent=stock.length?'In game · '+stock.slice(0,3).map(row=>row.name).join(' · '):'';
+    overview();visitors();changeTab(tab);
+    if(!document?.defaultView)return;
+    (async()=>{
+      let value=await bundledContact(next);
+      if(active.signal.aborted)return;
+      if(!value)value=await cityRecord(next,active.signal);
+      if(!active.signal.aborted){record=value;overview();}
+    })().catch(()=>{});
+    try{
+      const context=previewScene?.(place);
+      if(!context)return;
+      const cacheKey=key+(context.front?'|street':'|preview');
+      let rendered=previews.get(cacheKey);
+      if(!rendered){
+        const {scenePhotos}=await import('./place-preview.js');
+        if(active.signal.aborted)return;
+        rendered=await scenePhotos(context,next,visits.featured,active.signal);
+        if(active.signal.aborted)return;
+        if(previews.size>=12)previews.delete(previews.keys().next().value);
+        if(rendered.length)previews.set(cacheKey,rendered);
+      }
+      photos=rendered.slice();
+    }catch(error){console.warn('Place photos unavailable',error);}
+    finally{if(!active.signal.aborted){loading=false;syncVisitPhoto();photo();visitors();}}
+
   }
   for(const tab of ['overview','photos','reviews'])click('place-tab-'+tab,()=>changeTab(tab));
   for(const [name,step] of [['prev',-1],['next',1]])click('place-photo-'+name,()=>{
@@ -140,7 +162,7 @@ export function createPlaceSheet({$,click,storage,roll,previewScene}) {
     if(!Number.isInteger(stars)||stars<1||stars>5)return;
     const updated={...reviews,[key]:{text,stars,image}};
     try {storage?.setItem(reviewKey,JSON.stringify(updated));}catch{element('save-status').textContent='Storage is full. Try a review without a photo.';return;}
-    reviews=updated;element('editor').hidden=true;review();
+    reviews=updated;syncVisitPhoto();photo();element('editor').hidden=true;review();
   });
   return {open,close};
 }

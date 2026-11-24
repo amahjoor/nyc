@@ -7,7 +7,7 @@ import { drawSign } from './storefronts.js';
 import { STANDS, createStandMesh } from './stands.js';
 import { servingFor } from './food-catalog.js';
 import { servingGeometry } from './serving-models.js';
-import { servingMaterial } from './food-surface.js';
+import { readyIngredientMap, servingMaterial } from './food-surface.js';
 import { packageGeometry, packageMaterial } from './grocery-models.js';
 import { showroomModel, disposeSample } from './showroom-models.js';
 
@@ -25,6 +25,8 @@ function previewSign(stage,place,width,high){
 
 export async function scenePhotos({renderer,scene,front,room,height=0},place,featured,signal){
   if(!renderer?.isWebGLRenderer || signal.aborted)return [];
+  const atlas=await readyIngredientMap();
+  if(signal.aborted)return [];
   const width=420,h=248,camera=new T.PerspectiveCamera(59,width/h,.015,400);
   const target=new T.WebGLRenderTarget(width,h,{colorSpace:T.SRGBColorSpace});
   const canvas=document.createElement('canvas');canvas.width=width;canvas.height=h;
@@ -76,6 +78,13 @@ export async function scenePhotos({renderer,scene,front,room,height=0},place,fea
       }else{
         if(room){
           stageBox(26,5,.6,'#827265',0,CEILING+2.5,-.28);
+          stageBox(26,.14,.32,'#b5a898',0,CEILING+1,.14);
+          for(let x=-11;x<=11;x+=2.25){
+            stageBox(1.18,1.8,.08,'#344452',x,CEILING+2.25,.06);
+            stageBox(1.42,.13,.3,'#b5a898',x,CEILING+1.32,.12);
+            stageBox(.055,1.8,.09,'#797c77',x,CEILING+2.25,.12);
+          }
+          for(let x=-8;x<=8;x+=1.6)stageBox(.014,.01,4,'#857e73',x,-.026,2);
           for(const side of [-1,1])stageBox(9,CEILING,.6,'#827265',side*(room.width+9)/2,CEILING/2,-.28);
         }else stageBox(.16,2.5,.16,'#464e50',0,1.25,0);
         release.push(previewSign(staged,place,room?.width || 4,room?CEILING+.36:2.5));
@@ -95,9 +104,10 @@ export async function scenePhotos({renderer,scene,front,room,height=0},place,fea
       const key=servingFor(featured,true),product=featured.product;
       const object=product?new T.Mesh(packageGeometry(product),packageMaterial(false,product)):
         key?new T.Mesh(servingGeometry(key),servingMaterial()):showroomModel(featured);
+      if((product || key) && !atlas)object.material.map=null;
       release.push(product || key?()=>object.material.dispose():()=>disposeSample(object));
       const table=room?.things.find(t=>t.shape==='table'),a=table?.a || 0,b=table?.b || 0;
-      const [x,z]=table?roomPoint(room,a,b):[0,0];
+      const [x,z]=room?roomPoint(room,a,table?b:1.5):[0,0];
       const bounds=new T.Box3().setFromObject(object),size=bounds.getSize(new T.Vector3()),center=bounds.getCenter(new T.Vector3());
       const surface=table?table.y+table.h:1.0;
       if(!table)stageBox(1.6,.09,1.4,'#90745b',x,surface-.045,z);
