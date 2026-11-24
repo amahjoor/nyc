@@ -1,8 +1,9 @@
+import { dualSense, PS5Controls } from './ps5-controls.js';
 import { flickStick } from './skate-tricks.js';
 
 const browserModifier = event => event.ctrlKey || event.metaKey || event.altKey;
 const textEntry = event => ['INPUT','TEXTAREA','SELECT'].includes(event.target.tagName);
-const CITY_VIEW_HOLD = .35;
+const CAB_TAKEOVER_HOLD = .5;
 
 /** Input is sampled each physics frame; one-shot actions run on key-down edges. */
 export class Input {
@@ -12,11 +13,12 @@ export class Input {
     this.touch = new Set();
     this.tapSprint=true;
     this.context=context;
+    this.controllerLayout='auto';this.ps5=false;this.psControls=new PS5Controls();
+    this.lastDevice='keyboard';
     this.stick={};this.skateKeys={Digit1:"kickflip",Digit2:"heelflip",Digit3:"shove",Digit4:"nollie",Digit5:"frontShove"};
     this.lookDelta = 0;
     this.lookVertical = 0;
     this.dragPointer = null;
-    this.viewHold = null;
     this._pointerLookEnabled = true;
     this.padButtons = [];
     this.action = action;
@@ -24,12 +26,10 @@ export class Input {
     this.phoneButton = phoneButton;
     const actions = {
       KeyF:'vehicle',KeyE:'interact',KeyR:'lightOrReload',KeyQ:'heavy',Digit1:'unarmed',Digit6:'pistol',
-      F7:'map',KeyV:'nextCamera',KeyP:'pause',Escape:'pause',KeyM:'interactionMenu',KeyH:'lights',ArrowUp:'phone',
-      KeyK:'skate',KeyN:'job',KeyZ:'status',KeyG:'shop',KeyI:'inventory',KeyT:'time',
-      // Shortcuts for this city's additional views and equipment.
-      KeyB:'perspective',KeyX:'draw',KeyL:'reload',
+      KeyV:'nextCamera',KeyP:'pause',Escape:'pause',KeyM:'interactionMenu',KeyH:'lights',ArrowUp:'phone',KeyZ:'status',
     };
     window.addEventListener('keydown', e => {
+      this.lastDevice='keyboard';
       if (e.code==='ControlLeft' && !e.repeat && !e.altKey && !e.metaKey && !textEntry(e) && this.context()==='walk'){
         this.stealthPending=true;return;
       }
@@ -37,18 +37,12 @@ export class Input {
       if (browserModifier(e)) return;
       const interfaceHandled = handleInterfaceKey(e);
       if (textEntry(e)) return;
-      if (e.code==='F6') {
-        if (!interfaceHandled)e.preventDefault?.();
-        if (!interfaceHandled && !e.repeat && this.viewHold===null) this.viewHold=0;
-        return;
-      }
       if (!interfaceHandled && e.code==='Tab' && this.context()==='walk') {
         if (!e.repeat && action('weaponOpen')!==false) { this.keyWheel=true;e.preventDefault(); }
         else if (this.keyWheel) e.preventDefault();
         return;
       }
       if (e.code === 'Space' && e.target.tagName === 'BUTTON' && !interfaceHandled) return;
-      if (e.code === 'F7')e.preventDefault?.();
       if (e.code === 'ArrowUp' || e.code === 'Space') e.preventDefault();
       // Sample held movement even while the phone owns shortcuts and app navigation.
       if (!e.repeat && e.code.startsWith('Shift') && this.shiftDown == null) this.shiftDown = e.timeStamp;
@@ -70,11 +64,6 @@ export class Input {
         this.stealthPending=false;if(!textEntry(e) && this.context()==='walk')action('stealth');
       }
       if(e.code==='Tab' && this.keyWheel){this.keyWheel=false;action('weaponClose');}
-      if (e.code==='F6') {
-        const tap=this.viewHold!==null;
-        this.viewHold=null;
-        if (tap && !browserModifier(e) && !textEntry(e)) action('viewToggle',e);
-      }
       if(e.code==='Space' && this.spaceDown!=null){
         if(this.skating && !this.spaceTrick)this.nextTrick={name:'ollie',charge:Math.min(1,(e.timeStamp-this.spaceDown)/380)};
         this.spaceDown=null;this.spaceTrick=false;
@@ -103,6 +92,7 @@ export class Input {
     // Pointer events describe the whole mouse. Mouse button events also fire
     // when the primary button is pressed while the secondary one is held.
     canvas.addEventListener('mousedown', e => {
+      this.lastDevice='keyboard';
       // Middle-click autoscroll can keep tracking the mouse after release.
       if (e.button===1) {
         e.preventDefault();
@@ -230,13 +220,12 @@ export class Input {
     this.releaseLook();
     if (this.keyWheel || this.padWheel) this.action('weaponCancel');
     this.keyWheel=this.padWheel=false;this.viewPress=null;this.padLookBack=false;
-    this.viewHold=null;
     this.stick={};this.nextTrick=null;this.spaceDown=null;this.spaceTrick=false;this.finger=null;this.skating=false;
     this.jogging=false;this.shiftDown=null;this.padPace=this.tapWindow=this.sprintWindow=0;this.padAim=false;
     this.keys.clear();this.touch.clear();
     for (const button of this.controlButtons) button.classList.remove('pressed');
   }
-  sample(cameraYaw, dt, onFoot = true, skating = false) {
+  sample(cameraYaw, dt, onFoot = true, skating = false, activity = null) {
     if(this.context()==='menu')this.releaseLook();
     if(this.cabPress && this.cabPress.source!=='pad')this.updateCabPress(true,dt);
     if(!skating){this.stick={};this.nextTrick=null;this.spaceDown=null;this.finger=null;this.spaceTrick=false;}
@@ -246,9 +235,12 @@ export class Input {
     // Arrows belong to the phone and map. WASD controls walking and vehicles.
     let forward = Number(has('KeyW') || this.touch.has('forward')) - Number(has('KeyS') || this.touch.has('back'));
     let turn = Number(has('KeyD') || this.touch.has('right')) - Number(has('KeyA') || this.touch.has('left'));
+    const aircraft=activity==='rotor' || activity==='plane';
+    const pitchInput=Number(has('Numpad5'))-Number(has('Numpad8'));
+    if(aircraft)turn=Math.max(-1,Math.min(1,turn+Number(has('Numpad6'))-Number(has('Numpad4'))));
+    if(activity==='rotor')forward=Number(this.touch.has('forward'))-Number(this.touch.has('back'))-pitchInput;
+    const keyboardThrottle=forward;
     let walkForward = forward, padJog=false;
-    let handbrake = has('Space') || this.touch.has('brake');
-    let run = has('ShiftLeft','ShiftRight') || this.touch.has('run');
     const cycling=this.context()==='bike';
     let handbrake=(cycling?has('KeyQ','KeyS'):has('Space')) || this.touch.has('brake');
     let run=(cycling?has('CapsLock'):has('ShiftLeft','ShiftRight')) || this.touch.has('run');
@@ -288,7 +280,7 @@ export class Input {
       const pressed=i=>Boolean(pad.buttons[i]?.pressed);
       const combat=walking && this.padAim && !this.weaponControls();
       forward = !walking && (accelerator || reverse) ? accelerator-reverse : walkForward;
-      if(cycling){
+      if(cycling && !ps5){
         forward=pressed(0) ? 1 : Number(has('KeyW') || this.touch.has('forward'));
         handbrake ||= accelerator>.1 || reverse>.1;
       }
@@ -301,49 +293,60 @@ export class Input {
         if(flick.trick)this.nextTrick={name:flick.trick,charge:flick.charge};
         load=flick.loading?flick.charge:0;manual=flick.manual;
         grab=reverse>.22?-1:accelerator>.22?1:0;
-      }else handbrake ||= driving ? pressed(5) : pressed(2);
-      climb ||= Boolean(pad.buttons[2]?.pressed);
-      descend ||= Boolean(pad.buttons[4]?.pressed);
-      const pace = (cycling || walking && !combat) && pressed(0);
-      if(cycling || this.tapSprint && onFoot){
-        this.tapWindow=Math.max(0,(this.tapWindow||0)-dt);
-        this.sprintWindow=Math.max(0,(this.sprintWindow||0)-dt);
-        if(pace && !this.padPace){
-          if(this.tapWindow>0)this.sprintWindow=.55;
-          this.tapWindow=.55;
-        }
-        padJog=pace || this.sprintWindow>0;
-        run ||= this.sprintWindow>0;
-      } else {
-        if(!pace && this.padPace>0 && this.padPace<.22)this.jogging=!this.jogging;
-        run ||= pace;
-      }
-      this.padPace=pace ? (this.padPace||0)+dt : 0;
-      if(!skating){this.lookDelta-=dead(pad.axes[2])*dt*2;this.lookVertical+=dead(pad.axes[3])*dt;}
-      // Keep the wheel's selection independent of the D-pad's world and menu actions.
-      const bindings={
-        0:combat?'heavy':null,1:walking ? (this.weaponControls()?'reload':'lightOrReload') : null,
-        3:skating?'skate':'vehicle',4:walking?'weaponOpen':null,5:walking?'cover':null,
-        7:walking?(this.weaponControls()?'fire':'fight'):null,9:'pause',
-        10:driving?'horn':walking?'stealth':null,12:'phone',13:'status',15:driving?'lights':'interact',
-      };
-      this.padLookBack=pressed(11);
-      for(let i=0;i<16;i++){
-        const down=i===7 ? accelerator>.25 || pressed(i) : pressed(i);
-        if(down && !this.padButtons[i]){
-          if((i===14 || i===15) && this.padWheel)this.action('wheelCycle');
-          else if(!this.phoneButton(i)){
-            if(i===8)this.viewPress=0;
-            else if(i===4 && walking)this.padWheel=this.action('weaponOpen')!==false;
-            else if(bindings[i])this.action(bindings[i],{fromPad:true});
+      }else if(!ps5)handbrake ||= driving ? pressed(5) : pressed(2);
+      if(ps5){
+        const psMode=mode==='menu' ? mode : activity || mode;
+        const ps=this.psControls.sample(this,pad,psMode,dt,-dead(pad.axes[1]),dead(pad.axes[0]),accelerator,reverse);
+        this.padGrapple=psMode==='walk' && !this.weaponControls() && Boolean(this.padButtons[7]);
+        if(ps.forward!=null)forward=ps.forward || keyboardThrottle;
+        if(ps.turn)turn=ps.turn;
+        padLift=ps.lift || 0;
+        handbrake ||= ps.jump || ps.handbrake;run ||= ps.run;padJog=ps.jog;
+        if(!skating && !this.padWheel){this.lookDelta-=dead(pad.axes[2])*dt*2;this.lookVertical+=dead(pad.axes[3])*dt;}
+      }else{
+        climb ||= Boolean(pad.buttons[2]?.pressed);
+        descend ||= Boolean(pad.buttons[4]?.pressed);
+        const pace = (cycling || walking && !combat) && pressed(0);
+        if(cycling || this.tapSprint && onFoot){
+          this.tapWindow=Math.max(0,(this.tapWindow||0)-dt);
+          this.sprintWindow=Math.max(0,(this.sprintWindow||0)-dt);
+          if(pace && !this.padPace){
+            if(this.tapWindow>0)this.sprintWindow=.55;
+            this.tapWindow=.55;
           }
+          padJog=pace || this.sprintWindow>0;
+          run ||= this.sprintWindow>0;
+        } else {
+          if(!pace && this.padPace>0 && this.padPace<.22)this.jogging=!this.jogging;
+          run ||= pace;
         }
-        if(i===8 && this.viewPress!=null){
-          if(!down){this.viewPress=null;this.action('nextCamera');}
-          else if((this.viewPress+=dt)>=.38){this.viewPress=null;this.action('interactionMenu');}
+        this.padPace=pace ? (this.padPace||0)+dt : 0;
+        if(!skating){this.lookDelta-=dead(pad.axes[2])*dt*2;this.lookVertical+=dead(pad.axes[3])*dt;}
+        // Keep the wheel's selection independent of the D-pad's world and menu actions.
+        const bindings={
+          0:combat?'heavy':null,1:walking ? (this.weaponControls()?'reload':'lightOrReload') : null,
+          3:skating?'skate':'vehicle',4:walking?'weaponOpen':null,5:walking?'cover':null,
+          7:walking?(this.weaponControls()?'fire':'fight'):null,9:'pause',
+          10:(driving || cycling)?'horn':walking?'stealth':null,12:'phone',13:'status',15:driving?'lights':'interact',
+        };
+        this.padLookBack=pressed(11);
+        for(let i=0;i<16;i++){
+          const down=i===7 ? accelerator>.25 || pressed(i) : pressed(i);
+          if(down && !this.padButtons[i]){
+            if((i===14 || i===15) && this.padWheel)this.action('wheelCycle');
+            else if(!this.phoneButton(i)){
+              if(i===8)this.viewPress=0;
+              else if(i===4 && walking)this.padWheel=this.action('weaponOpen')!==false;
+              else if(bindings[i])this.action(bindings[i],{fromPad:true});
+            }
+          }
+          if(i===8 && this.viewPress!=null){
+            if(!down){this.viewPress=null;this.action('nextCamera');}
+            else if((this.viewPress+=dt)>=.38){this.viewPress=null;this.action('interactionMenu');}
+          }
+          if(!down && i===4 && this.padWheel){this.padWheel=false;this.action('weaponClose');}
+          this.padButtons[i]=down;
         }
-        if(!down && i===4 && this.padWheel){this.padWheel=false;this.action('weaponClose');}
-        this.padButtons[i]=down;
       }
       if(this.cabPress?.source==='pad')this.updateCabPress(pressed(3),dt);
       if(this.padWheel && Math.abs(pad.axes[2]||0)>.45)this.action(pad.axes[2]>0?'wheelPistol':'wheelUnarmed');

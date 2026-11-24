@@ -530,15 +530,15 @@ const input=new Input(canvas, action, interfaceKey, weaponControls, index=>{
     if(key)interaction.handleKey({key,preventDefault(){}});
     return true;
   }
-  if(index===15 && sim?.player.mode==='drive' && (tripAction(sim) || sim.canDropPaper())){action('interact',{fromPad:true});return true;}
+  if(!input.ps5 && index===15 && sim?.player.mode==='drive' && (tripAction(sim) || sim.canDropPaper())){action('interact',{fromPad:true});return true;}
   if(index===15 && sim?.player.mode==='passenger'){action('driverSpeed');return true;}
   if(phone?.open){
     if(index===11){action('interact');return true;}
-    if(index===3){action(sim.room?'shop':'vehicle',{fromPad:true});return true;}
+    if(index===3){action(input.ps5?'psInteract':sim.room?'shop':'vehicle',{fromPad:true});return true;}
     return phone.handlePad(index);
   }
   if(cityView && !mapOpen && navigation?.handlePad(index))return true;
-  if(index===15 && streetControls() && !interactionPrompt() && (standHere || shopHere || sim?.room)){action('shop');return true;}
+  if(!input.ps5 && index===15 && streetControls() && !interactionPrompt() && (standHere || shopHere || sim?.room)){action('shop');return true;}
   return false;
 },()=>streetControls() ? sim.player.mode : 'menu');
 const cameraTarget=new THREE.Vector3(), desiredCamera=new THREE.Vector3(), cameraForward=new THREE.Vector3();
@@ -799,7 +799,12 @@ function action(name,event) {
   }
   if(name==='weaponOpen'){
     if(!streetControls() || sim.player.mode!=='walk' || sim.seat || sim.player.reaction || sim.player.move)return false;
-    if(wheelSelection===null){selectWheel(Boolean(sim.player.armed));wheelOpened=performance.now();wheelChanged=false;$('weapon-wheel').hidden=false;}
+    if(wheelSelection===null){
+      selectWheel(Boolean(sim.player.armed));wheelOpened=performance.now();wheelChanged=false;
+      $('wheel-fists').querySelector('kbd').textContent=event?.fromPad?'←':'1';
+      $('wheel-pistol').querySelector('kbd').textContent=event?.fromPad?'→':'6';
+      $('weapon-wheel').hidden=false;
+    }
     return true;
   }
   if(name==='weaponClose' || name==='weaponCancel'){
@@ -814,6 +819,23 @@ function action(name,event) {
     return;
   }
   if(name==='unarmed' || name==='pistol'){selectLoadout(name==='pistol');return;}
+  if(name==='psInteract'){
+    if(subwayVisit)name='interact';
+    else if(sim.player.mode!=='walk')name='vehicle';
+    else {
+      const hint=interactionPrompt();
+      name=hint?.key==='F'?'vehicle':!hint && (standHere || shopHere || sim.room)?'shop':'interact';
+    }
+  }
+  if(name==='tripInteract'){
+    if(tripAction(sim) || sim.canDropPaper())action('interact',event);
+    return;
+  }
+  if(name==='vehicleMenu'){
+    if(sim.player.mode==='drive' && streetControls())interaction.openList('Vehicle controls',[
+      {name:'Headlights',id:'lights'},{name:'Camera perspective',id:'nextCamera'}],row=>action(row.id));
+    return;
+  }
   if(name==='interactionMenu'){
     if(interaction?.open){interaction.close();return;}
     if(!streetControls(true))return;
@@ -1238,6 +1260,30 @@ interfaceSoundButton.addEventListener('click',()=>{
   showInterfaceSound();
   if(audio.interfaceEnabled)audio.interfaceCue('confirm');
   try{localStorage.setItem(INTERFACE_SOUND_KEY,audio.interfaceEnabled?'on':'off');}catch{}
+});
+const controllerLayouts=['auto','ps5','classic'];
+try{
+  const saved=localStorage.getItem('nyc.controller-layout');
+  if(controllerLayouts.includes(saved))input.controllerLayout=saved;
+}catch{}
+const layoutLabels=[...document.querySelectorAll('[data-ps5]')].map(node=>({node,classic:node.textContent}));
+let lastHelpLayout;
+function refreshControllerHelp(){
+  const ps5=input.controllerLayout==='ps5' || input.controllerLayout==='auto' && input.ps5;
+  const label=input.controllerLayout==='auto' && ps5?'AUTO · PS5':input.controllerLayout.toUpperCase();
+  if(lastHelpLayout===label)return;
+  lastHelpLayout=label;
+  $('controller-layout-value').textContent=label;
+  $('pad-help-heading').textContent=ps5?'PS5':'Controller';
+  $('controller-sprint').hidden=ps5;
+  for(const {node,classic} of layoutLabels)node.textContent=ps5?node.dataset.ps5:classic;
+}
+refreshControllerHelp();
+$('controller-layout').addEventListener('click',()=>{
+  input.clear();
+  input.controllerLayout=controllerLayouts[(controllerLayouts.indexOf(input.controllerLayout)+1)%controllerLayouts.length];
+  try{localStorage.setItem('nyc.controller-layout',input.controllerLayout);}catch{}
+  refreshControllerHelp();
 });
 const paceButton=$('controller-sprint');
 function showPaceButton(){$('sprint-value').textContent=input.tapSprint?'TAP':'HOLD';}

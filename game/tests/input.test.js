@@ -234,23 +234,18 @@ test('only Up opens the phone and no arrow moves or steers the player',t=>{
   assert.deepEqual(actions,['pause','phone']);
 });
 
-test('F6 taps toggle the character and aerial views, while a hold opens the city once',t=>{
+test('PC weapon and camera controls use GTA bindings and ignore legacy street shortcuts',t=>{
   const {input,target,actions}=movementInput(t);
-  const key={code:'F6',target:{tagName:'CANVAS'}};
-  target.emit('keydown',key);input.sample(0,.1);
+  const press=(code,down=true)=>target.emit(down?'keydown':'keyup',{code,target:{tagName:'CANVAS'},preventDefault(){}});
+  for(const code of ['KeyB','KeyX','KeyL','KeyG','KeyI','KeyJ','KeyK','KeyN','KeyT','KeyU','F6','F7']){
+    press(code);input.sample(0,.6);press(code,false);
+  }
   assert.deepEqual(actions,[]);
-  target.emit('keyup',key);
-  assert.deepEqual(actions,['viewToggle']);
-  target.emit('keydown',key);
-  input.sample(0,.2);input.sample(0,.2);
-  target.emit('keydown',{...key,repeat:true});input.sample(0,.5);
-  target.emit('keyup',key);
-  assert.deepEqual(actions,['viewToggle','viewCity']);
-  target.emit('keydown',key);target.emit('blur');input.sample(0,.5);target.emit('keyup',key);
-  target.emit('keydown',{...key,code:'KeyV'});
-  assert.deepEqual(actions,['viewToggle','viewCity','nextCamera']);
-  target.emit('keydown',{...key,code:'KeyR'});
-  assert.deepEqual(actions,['viewToggle','viewCity','nextCamera','lightOrReload']);
+  press('KeyV');press('KeyR');press('Tab');press('Tab',false);press('Digit1');press('Digit6');
+  assert.deepEqual(actions,['nextCamera','lightOrReload','weaponOpen','weaponClose','unarmed','pistol']);
+  input.context=()=>'drive';
+  press('KeyX');assert.ok(input.sample(0,.02,false).duck);
+  press('KeyX',false);assert.equal(input.sample(0,.02,false).duck,false);
 });
 
 test('focused phone buttons share movement with the game and search fields accept typing', t => {
@@ -391,9 +386,12 @@ test('captured mouse movement turns the camera, and Escape returns control to th
 });
 
 test('bicycle controls pedal with A, sprint on repeated presses and brake with either trigger',t=>{
-  const {input,pad}=movementInput(t);
+  const {input,pad,actions}=movementInput(t);
   input.context=()=>'bike';
   const sample=()=>input.sample(0,.1,false);
+  input.keys.add('ShiftLeft');input.keys.add('Space');
+  assert.equal(sample().run,false);assert.equal(sample().handbrake,false);
+  input.keys.clear();input.keys.add('CapsLock');assert.equal(sample().run,true);input.keys.clear();
   pad.buttons[0].pressed=true;assert.equal(sample().forward,1);
   pad.buttons[0].pressed=false;assert.equal(sample().forward,0);
   pad.buttons[0].pressed=true;assert.equal(sample().run,true);
@@ -402,4 +400,70 @@ test('bicycle controls pedal with A, sprint on repeated presses and brake with e
     pad.buttons[i].value=0;
   }
   input.keys.add('KeyQ');assert.equal(sample().handbrake,true);
+  pad.buttons[10].pressed=true;sample();sample();assert.deepEqual(actions,['horn']);
+});
+
+test('DualSense on PC resolves tap and hold once, gates actions by context and preserves PC keys',t=>{
+  let armed=false,mode='walk';
+  const {input,pad,actions,target}=movementInput(t,undefined,()=>armed);
+  input.context=()=>mode;
+  pad.id='Sony Interactive Entertainment DualSense Wireless Controller';pad.mapping='standard';
+  pad.buttons=Array.from({length:18},()=>({pressed:false,value:0}));
+  const sample=(dt=.02)=>input.sample(0,dt,mode==='walk');
+  const set=(i,value)=>Object.assign(pad.buttons[i],{pressed:!!value,value:Number(value)});
+  const tap=i=>{set(i,true);sample();set(i,false);sample();};
+  tap(2);assert.deepEqual(actions.splice(0),['fight']);
+  set(2,true);for(let i=0;i<8;i++)sample(.08);set(2,false);sample();
+  assert.deepEqual(actions.splice(0),['heavyMelee']);
+  set(2,true);sample();mode='menu';sample();mode='walk';set(2,false);sample();
+  assert.deepEqual(actions,[]);
+  set(0,true);assert.ok(sample().handbrake);set(0,false);sample();
+  pad.axes[1]=-1;tap(10);assert.equal(sample().jog,true);tap(10);assert.equal(sample().run,true);
+  pad.axes[1]=0;assert.equal(sample().run,false);
+  tap(17);tap(9);tap(1);assert.deepEqual(actions.splice(0),['map','pause','stealth']);
+  tap(7);assert.deepEqual(actions,[]);set(7,true);sample(.15);set(7,false);sample();
+  assert.deepEqual(actions.splice(0),['grapple']);
+  tap(4);assert.deepEqual(actions.splice(0),['draw']);
+  set(4,true);sample(.1);sample(.1);pad.axes[2]=1;sample();
+  pad.axes[2]=0;set(4,false);sample();
+  assert.deepEqual(actions.splice(0),['weaponOpen','wheelPistol','weaponCommit']);
+  set(13,true);sample(.2);sample(.2);set(13,false);sample();tap(13);
+  assert.deepEqual(actions.splice(0),['interactionMenu','status']);
+  armed=true;set(6,true);tap(14);tap(7);tap(2);set(6,false);
+  assert.deepEqual(actions.splice(0),['shoulder','fire','reload']);
+  mode='drive';tap(10);tap(1);set(0,true);assert.ok(sample().handbrake);set(0,false);set(7,true);
+  assert.equal(sample().forward,1);set(7,false);set(6,true);assert.equal(sample().forward,-1);
+  set(6,false);assert.deepEqual(actions.splice(0),['horn','lights']);
+  set(12,true);sample(.2);sample(.2);set(12,false);sample();tap(12);
+  assert.deepEqual(actions.splice(0),['tripInteract','phone']);
+  mode='bike';tap(10);assert.deepEqual(actions.splice(0),['horn']);
+  for(const code of ['KeyF','KeyR','KeyQ']){
+    target.emit('keydown',{code,target:{tagName:'CANVAS'},preventDefault(){}});
+    target.emit('keyup',{code,target:{tagName:'CANVAS'}});
+  }
+  assert.deepEqual(actions,['vehicle','lightOrReload','heavy']);
+});
+
+test('PS5 adapter override, disconnect during loadout and transport axes on a shared keyboard',t=>{
+  const {input,pad,actions}=movementInput(t);
+  input.controllerLayout='ps5';input.context=()=>'walk';
+  pad.id='generic';pad.buttons=Array.from({length:17},()=>({pressed:false,value:0}));
+  pad.buttons[8].pressed=true;input.sample(0,.05);pad.buttons[8].pressed=false;input.sample(0,.05);
+  assert.deepEqual(actions.splice(0),['map']);
+  pad.buttons[4].pressed=true;input.sample(0,.2);input.controllerLayout='classic';pad.buttons[4].pressed=false;input.sample(0,.01);
+  assert.deepEqual(actions.splice(0),['weaponOpen','weaponCancel']);
+  input.controllerLayout='ps5';input.context=()=>'transport';
+  const sample=kind=>input.sample(0,.02,false,false,kind);
+  pad.buttons[7].value=.8;pad.axes[1]=-.65;
+  assert.ok(sample('rotor').forward>.4);assert.equal(sample('rotor').lift,.8);
+  assert.equal(sample('plane').forward,.8);assert.ok(sample('plane').lift<-.4);
+  pad.buttons[7].value=0;pad.axes[1]=0;input.keys.add('KeyW');input.keys.add('Numpad8');
+  assert.equal(sample('rotor').lift,1);assert.equal(sample('rotor').forward,1);
+  input.keys.clear();input.context=()=>'bike';pad.buttons[7].value=.7;pad.buttons[0].pressed=true;
+  assert.equal(sample('bike').forward,.7);assert.ok(sample('bike').run);
+  pad.buttons[7].value=0;pad.buttons[0].pressed=false;pad.buttons[6].value=.7;
+  assert.ok(sample('bike').handbrake);
+  input.context=()=>'walk';pad.buttons[6].value=0;pad.buttons[5].pressed=true;
+  assert.equal(sample('swim').lift,-1);pad.buttons[5].pressed=false;pad.buttons[0].pressed=true;
+  assert.equal(sample('swim').lift,1);
 });
