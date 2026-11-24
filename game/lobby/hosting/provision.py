@@ -8,7 +8,7 @@ import shutil
 import subprocess
 
 NAME = 'concrete-jungle-lobby-nyc'
-REGION = 'nyc3'
+REGION = 'nyc1'
 SIZE = 's-1vcpu-1gb'
 HERE = Path(__file__).resolve().parent
 
@@ -17,7 +17,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--create', action='store_true', help='Apply the plan using the concrete-jungle doctl context')
     args = parser.parse_args()
-    print(f'{NAME}: NYC3, {SIZE}, Ubuntu 24.04, $6/month plus applicable transfer and taxes.', flush=True)
+    print(f'{NAME}: NYC1, {SIZE}, Ubuntu 24.04, $6/month plus applicable transfer and taxes.', flush=True)
     if not args.create:
         return
     key = Path.home() / '.ssh/id_ed25519_concrete_jungle'

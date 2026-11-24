@@ -1,6 +1,8 @@
 # NYC friends lobby
 
-The pilot uses one DigitalOcean Basic Droplet in NYC3, Ubuntu 24.04 x64, a single Node process and Caddy for HTTPS and WebSockets. The selected $6/month plan includes one shared vCPU, 1 GiB RAM, 25 GiB SSD and 1,000 GiB outbound transfer. Additional transfer is currently $0.01/GiB. Start with 16 players until tests on this host justify raising the limit. The Node process keeps the lobby in memory. A restart disconnects players and clears race records. [Droplet prices](https://www.digitalocean.com/pricing/droplets) · [Transfer billing](https://docs.digitalocean.com/products/droplets/details/pricing/)
+The pilot uses one DigitalOcean Basic Droplet in NYC1, Ubuntu 24.04 x64, a single Node process and Caddy for HTTPS and WebSockets. The selected $6/month plan includes one shared vCPU, 1 GiB RAM, 25 GiB SSD and 1,000 GiB outbound transfer. Additional transfer is currently $0.01/GiB. Start with 16 players until tests on this host justify raising the limit. The Node process keeps the lobby in memory. A restart disconnects players and clears race records. [Droplet prices](https://www.digitalocean.com/pricing/droplets) · [Transfer billing](https://docs.digitalocean.com/products/droplets/details/pricing/)
+
+The friends playtest runs at [Concrete Jungle NYC](https://concrete-jungle.159-65-216-109.sslip.io/). Share that link and choose **Play with friends** to meet at Broadway & Spring. On November 24, 2026, two separate desktop browser profiles joined over the public TLS endpoint, saw a nearby peer and started a Broadway sprint. The host caps the playtest at 16 concurrent players.
 
 ## Create and deploy
 
@@ -48,7 +50,7 @@ The pilot uses one DigitalOcean Basic Droplet in NYC3, Ubuntu 24.04 x64, a singl
    node game/lobby/hosting/probe.mjs "wss://$CJ_HOST/lobby"
    ```
 
-4. Visit the HTTPS root in a WebGL2 browser, select **Explore New York**, enter SoHo, then **Pause → Map → Online lobby → Join lobby**. Have a second person join from another network, meet at Broadway & Spring and exchange a signal. A successful WebSocket probe verifies the route and protocol. Record the two-player experience separately.
+4. Visit the HTTPS root in a WebGL2 browser, select **Play with friends** and wait for the street to appear. Open **Pause → Map → Online lobby** for the player list and sprint. Have a second person join from another network, meet at Broadway & Spring and exchange a signal. A successful WebSocket probe verifies the route and protocol. Record the two-player experience separately.
 
 ## Operate and scale
 
