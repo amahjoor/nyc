@@ -9,7 +9,7 @@ import { servingFor,portionKey } from './food-catalog.js';
 import { seatApproach, seatApproachEnd } from './seating.js';
 import { cookDish, workSteps, clearPlate, clearWare, passApproach, stepKitchenChores } from './kitchen-line.js';
 
-const serviceStyles={coffee:'cafe', diner:'restaurant',fine:'restaurant',sushi:'restaurant',steamtable:'restaurant',
+const serviceStyles={bar:'bar',club:'bar',coffee:'cafe', diner:'restaurant',fine:'restaurant',sushi:'restaurant',steamtable:'restaurant',
   pizza:'restaurant',takeout:'restaurant',halal:'restaurant',jewelry:'jeweler',shoes:'shoes',clothes:'apparel',tech:'phones',music:'music',gym:'gym',barber:'barber',salon:'barber'};
 export const serviceMode=room=>room.grocerySlots?'grocer':serviceStyles[room.style];
 const entrance={a:0,b:.5};
@@ -170,7 +170,7 @@ function* cafe(v) {
   yield walking(barista,barista.spot,'taking order');
   yield* tender(v,barista,'ordering and paying');pay(v);
   const machine=sample(v,'espresso')||sample(v,'blenders');
-  yield pause(barista,'making drink',2.65,machine);
+  yield* workSteps(v,barista,v.item,{label:'Barista'});
   const kind=servingFor(v.item,dineIn);
   barista.carry=kind;
   // Move both people along opposite sides of the bar to its pickup end.
@@ -391,8 +391,9 @@ function* retail(v,mode) {
     yield pause(person,mode==='phones'?'testing handset':'auditioning guitar',3,floorAt(view,worker),mode==='music'?'strum':'reach');
     person.carry=null;
   }
+  if(mode==='counter')yield* workSteps(v,worker,v.item);
   pay(v);done(v);
-  if(mode==='counter')person.carry='takeout';
+  if(mode==='counter')person.carry=servingFor(v.item)||'takeout';
   if(mode==='gym')yield* workout(v);
 }
 
@@ -407,7 +408,18 @@ function* itinerary(v) {
   const doorwayX=v.start.a*entrance.b/(entrance.b-v.start.b);
   const viaDoor=shopStairRoute(v.room,v.view.entry?.stairs,v.start) ?? (Math.abs(doorwayX)<DOOR/2-.25 ? [] : [out]);
   yield walking(v.person,entrance,'entering',[...viaDoor,entrance]);
-  if(v.mode==='cafe')yield* cafe(v);
+  if(v.mode==='bar'){
+    yield* queueAtCounter(v);
+    const bartender=yield* ask(v);
+    yield walking(bartender,bartender.spot,'taking bar order');
+    yield* tender(v,bartender,'ordering and paying');pay(v);
+    yield* workSteps(v,bartender,v.item,{label:'Bartender'});
+    bartender.carry=servingFor(v.item,true);
+    yield walking(bartender,bartender.spot,'serving at the bar');
+    yield pause(bartender,'handing over drink',.65,floorAt(v.view,v.person));
+    v.person.carry=bartender.carry;done(v);leaveQueue(v);
+  }
+  else if(v.mode==='cafe')yield* cafe(v);
   else if(v.mode==='restaurant')yield* restaurant(v);
   else if(v.mode==='jeweler')yield* jeweler(v);
   else if(v.mode==='grocer')yield* groceriesVisit(v);
@@ -461,6 +473,7 @@ export function reached(v,task,dt) {
 }
 // A guest who cannot get to where the visit needs them walks back out.
 function bail(v) {
+  clearWare(v);
   if(v.bailed){v.person.state='walk';v.person.shoppedUntil=(v.view.lastServiceTime||0)+90;v.detach();v.person.visit=null;return;}
   v.bailed=true;v.task=null;
   const {person}=v;
@@ -558,7 +571,7 @@ export function stepServiceJobs(view,time) {
 export function startFacilityVisit(view,person,start,sale,playerSeat,interrupt) {
   const v={person,start,view,room:view.plan,mode:serviceMode(view.plan),playerSeat,sale,phase:'entering',wait:0,path:[start],at:0,number:view.visitNumber++};
   v.item=view.menu[Math.floor(view.random()*view.menu.length)];
-  if(v.mode==='cafe'){
+  if(v.mode==='cafe' || v.mode==='bar'){
     const drinks=view.menu.filter(beverage);
     if(drinks.length)v.item=drinks[v.number%drinks.length];
   }

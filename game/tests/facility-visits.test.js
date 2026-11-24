@@ -42,7 +42,12 @@ function visits(kind,width=7,name=kind) {
           assert.ok(v.employee.carry==='jewel' && view.claims.get(v.display)===v);
           assert.ok(group.children.some(c=>c.name==='Solitaire on display' && !c.visible));
         }
-        if(v.phase==='making drink' && v.task)assert.ok(v.employee.machine && v.employee.serviceOwner===v);
+        if(v.employee?.preparation && !v.task?.point){
+          const work=v.employee.preparation;
+          assert.equal(v.employee.serviceOwner,v);
+          assert.equal(work.task,v.task);
+          assert.ok(Math.hypot(v.employee.x-work.x,v.employee.z-work.z)<.9);
+        }
         if(v.phase==='cutting hair' && v.task){
           assert.ok(p.sitting && v.seat.fixture.shape==='cuttingChair');
           assert.equal(v.employee.spot.role,'barber');
@@ -84,8 +89,18 @@ test('café makes paid orders for dine-in and takeaway guests on a shared counte
     const {phases,sales,actors}=visits('coffee',width);
     assert.equal(sales.length,3);
     assert.ok(phases.some(p=>p.has('queuing')));
+    assert.ok(phases.every(p=>[...p].some(text=>text.startsWith('Barista · '))));
     assert.ok(phases[0].has('drinking') && !phases[1].has('drinking'));
     assert.equal(actors[1].carry,servingFor('Iced coffee'));assert.equal(actors[0].carry,null);
+  }
+});
+test('bar patrons receive the drink a bartender prepared at their station',()=>{
+  const {phases,sales,actors}=visits('bar',7);
+  assert.equal(sales.length,3);
+  for(const [i,p] of phases.entries()){
+    assert.ok([...p].some(text=>text.startsWith('Bartender · ')));
+    assert.ok(p.has('handing over drink'));
+    assert.ok(actors[i].carry?.startsWith('drink-'));
   }
 });
 test('restaurant staff plate, serve and clear the table assigned to each paying guest',()=>{

@@ -241,11 +241,11 @@ export function updateClerk(view, sim, yaw, pitch, dt, work, {outside, palm, fir
     if (stepRoomInjury(view,actor,dt)) continue;
     if (!actor.escape && (gunfire || actor!==clerk && (event || armed && canNotice(view,p,actor)))) fleeShop(view,actor);
     if (actor.escape) stepEscape(view,actor,dt,outside,p);
-    else if (actor.machine && !actor.serviceOwner && !(event && actor===clerk)) {
+    else if (actor.machine && !actor.serviceOwner && !actor.chore && !actor.returning && !(event && actor===clerk)) {
       const [x,z]=roomPoint(room,actor.machine.a,actor.machine.b);
       actor.heading=Math.atan2(x-actor.x,z-actor.z);
-      actor.clip='reach';
-      actor.time=.45+.32*Math.sin(sim.elapsed*2.2);
+      actor.clip='idle';
+      actor.time=sim.elapsed;
     }
   }
   if (!till || !clerk) return;
