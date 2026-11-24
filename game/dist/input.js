@@ -73,6 +73,8 @@ export class Input {
       // Sample held movement even while the phone owns shortcuts and app navigation.
       if (!e.repeat && e.code.startsWith('Shift') && this.shiftDown == null) this.shiftDown = e.timeStamp;
       if (!e.repeat) this.keys.add(e.code);
+      // X doubles as duck in a vehicle, where sample() reads the held key.
+      if(!interfaceHandled && !e.repeat && e.code==='KeyX' && this.context()==='walk')action('useItem',e);
       if(!interfaceHandled && !e.repeat && e.code==='KeyJ' && this.context()==='walk' && !this.skating)action('grapple');
       if(this.skating && !interfaceHandled && !e.repeat){
         if(e.code==='Space')this.spaceDown=e.timeStamp;

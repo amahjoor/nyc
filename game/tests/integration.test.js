@@ -2594,13 +2594,13 @@ test('inventory shows icons for saved groceries, meals, legacy drinks and leftov
   }finally{app.close();}
 });
 
-test('tap U takes a sip and holding the touch action finishes only the held serving',async()=>{
+test('X uses the held serving by tap or hold and the touch action finishes the same item',async()=>{
   const app=await bootHarness({coarsePointer:true});
   try{
     app.click('start-button');app.click('view-button');app.frames();
     const bag=app.simulation().shopping;
     bag.receive('meal-coffee-coffee');bag.receive('meal-coffee-coffee');
-    app.key('KeyU');app.key('KeyU',false);
+    app.key('KeyX');app.key('KeyX',false);
     app.frames(25,60);
     assert.equal(bag.held,'partial-3-meal-coffee-coffee');
     const use=app.elements.get('touch-use');
@@ -2615,7 +2615,7 @@ test('tap U takes a sip and holding the touch action finishes only the held serv
     assert.equal(bag.eating,null);
     bag.receive('meal-donuts-glazed-doughnut');app.frames(4,60);
     assert.match(app.elements.get('use-item-hint').textContent,/bite/);
-    app.key('KeyU');app.frames(85,60);app.key('KeyU',false);
+    app.key('KeyX');app.frames(85,60);app.key('KeyX',false);
     assert.equal(bag.held,'empty-meal-donuts-glazed-doughnut');
     assert.equal(bag.inventory['meal-coffee-coffee'],1);
   }finally{app.close();}

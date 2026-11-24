@@ -814,7 +814,7 @@ function canUseServing(){
 function updateUsePress(){
   if(!usePress)return;
   const {meal,touch}=usePress;
-  const held=touch?input.touch.has('useItem'):input.keys.has('KeyU');
+  const held=touch?input.touch.has('useItem'):input.keys.has(usePress.key);
   if(!held || !canUseServing() || sim.shopping.eating!==meal){usePress=null;return;}
   if(performance.now()-usePress.start>=400){
     sim.shopping.finishServing(meal);usePress=null;saveProgress();
@@ -833,7 +833,7 @@ function action(name,event) {
     if(!canUseServing())return;
     const serving=sim.shopping.usableServing((place,amount,tender)=>work.sale(place,amount,tender));
     if(serving?.start()){
-      usePress={meal:sim.shopping.eating,touch:event?.pointerId!=null,start:performance.now()};saveProgress();
+      usePress={meal:sim.shopping.eating,touch:event?.pointerId!=null,key:event?.code,start:performance.now()};saveProgress();
     }
     return;
   }
@@ -3311,7 +3311,7 @@ function frame(now) {
     if(serving){
       const verb=serving.drink?'Sip':'Bite';
       hud.text('touch-use',verb.toUpperCase());
-      const key=matchMedia('(pointer:coarse)').matches?verb.toUpperCase():'U';
+      const key=matchMedia('(pointer:coarse)').matches?verb.toUpperCase():'X';
       hud.text('use-item-hint',serving.name+' · Tap '+key+' to '+verb.toLowerCase()+' · Hold to finish');
     }
     // Retain nearby streets if the optional citywide route download fails.

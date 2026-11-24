@@ -237,7 +237,7 @@ test('only Up opens the phone and no arrow moves or steers the player',t=>{
 test('PC weapon and camera controls use GTA bindings and ignore legacy street shortcuts',t=>{
   const {input,target,actions}=movementInput(t);
   const press=(code,down=true)=>target.emit(down?'keydown':'keyup',{code,target:{tagName:'CANVAS'},preventDefault(){}});
-  for(const code of ['KeyB','KeyX','KeyL','KeyN','KeyT','F7']){
+  for(const code of ['KeyB','KeyL','KeyN','KeyT','F7']){
     press(code);input.sample(0,.6);press(code,false);
   }
   assert.deepEqual(actions,[]);
@@ -249,8 +249,10 @@ test('PC weapon and camera controls use GTA bindings and ignore legacy street sh
   assert.deepEqual(actions.splice(0),['shop','inventory','skate','view','grapple']);
   press('KeyV');press('KeyR');press('Tab');press('Tab',false);press('Digit0');press('Digit1');
   assert.deepEqual(actions,['nextCamera','lightOrReload','weaponOpen','weaponClose','weaponSlot','weaponSlot']);
+  press('KeyX');press('KeyX',false);assert.equal(actions.pop(),'useItem');
+  const count=actions.length;
   input.context=()=>'drive';
-  press('KeyX');assert.ok(input.sample(0,.02,false).duck);
+  press('KeyX');assert.equal(actions.length,count);assert.ok(input.sample(0,.02,false).duck);
   press('KeyX',false);assert.equal(input.sample(0,.02,false).duck,false);
 });
 
