@@ -25,7 +25,7 @@ tar -czf output/steam/handoff/lobby-linux.tar.gz game/lobby/package.json game/lo
 (cd output/steam/handoff && sha256sum linux-x64.tar.gz lobby-linux.tar.gz > SHA256SUMS && sha256sum -c SHA256SUMS)
 ```
 
-On November 24, 2026, the Linux desktop test exercised SoHo spawn, WebGL2, a loopback lobby, the Broadway sprint and preference persistence. The machine ran Omarchy 4.0.6 on Wayland with a GTX 1660 and Core i7-7700K. The Valve container test used sniper 3.0.20261021.266025. The lobby archive installed on a clean temporary path and its health endpoint reported protocol v1 and capacity 512. This machine has no authenticated Steam client. The Steam download, overlay, cross-network session, minimum-spec measurement and physical Steam Deck playtest have separate results to collect. [Valve runtime used for this test](https://repo.steampowered.com/steamrt-images-sniper/snapshots/3.0.20261021.266025/)
+On November 24, 2026, the Linux desktop test exercised SoHo spawn, WebGL2, a loopback lobby, the Broadway sprint and preference persistence. The machine ran Omarchy 4.0.6 on Wayland with a GTX 1660 and Core i7-7700K. The Valve container test used sniper 3.0.20261021.266025. The lobby archive installed on a clean temporary path and its health endpoint reported protocol v1 and capacity 512. This machine has no authenticated Steam client. The native Steam download, overlay, minimum-spec measurement and physical Steam Deck playtest have separate results to collect. See the [NYC pilot](../lobby/hosting/README.md) for the live browser session. [Valve runtime used for this test](https://repo.steampowered.com/steamrt-images-sniper/snapshots/3.0.20261021.266025/)
 
 ## Operate the Linux lobby
 

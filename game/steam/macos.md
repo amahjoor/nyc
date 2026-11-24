@@ -1,6 +1,6 @@
 # Mac agent handoff
 
-Use a Mac with Xcode command-line tools, Git, Python 3.11+, Node 22.12+ and npm. In a fresh checkout, set `CJ_RELEASE_SHA` to the agreed commit and `CJ_MAC_BUNDLE_ID` to the publisher's reverse-DNS identifier. Set `CJ_LOBBY_URL` to the production WSS endpoint for the online candidate. Empty is valid for local QA. Run these commands from the repository root in Bash or zsh.
+Use a Mac with Xcode command-line tools, Git, Python 3.11+, Node 22.12+ and npm. In a fresh checkout, set `CJ_RELEASE_SHA` to the agreed commit and `CJ_MAC_BUNDLE_ID` to the publisher's reverse-DNS identifier. Set `CJ_LOBBY_URL` to the production WSS endpoint for the online candidate. Empty is valid for local QA. Run these commands from the repository root in Bash or zsh. For the friends playtest, use `wss://concrete-jungle.159-65-216-109.sslip.io/lobby`. On a fresh profile, select **Play with friends** and verify the game joins the NYC lobby at Broadway & Spring.
 
 ```sh
 set -eu

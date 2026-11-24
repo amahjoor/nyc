@@ -1,6 +1,6 @@
 # Steamworks submission packet
 
-The publisher can use the copy and media below to fill out the partner dashboard. The desktop candidate currently defaults to an empty lobby address. The online release needs a published endpoint, rebuilt depots and a successful Internet playtest. The local builds and native QA can proceed while the publisher recovers the Steam account. After recovery, complete Steam Direct onboarding, then use the partner checklist for the assigned AppID. [Valve review process](https://partner.steamgames.com/doc/store/review_process)
+The publisher can use the copy and media below to fill out the partner dashboard. The desktop builder accepts a lobby URL. The current friends-playtest packages use the [NYC pilot](../lobby/hosting/README.md). Confirm the publisher-controlled production address and native Internet playtests before Steam submission. The local builds and native QA can proceed while the publisher recovers the Steam account. After recovery, complete Steam Direct onboarding, then use the partner checklist for the assigned AppID. [Valve review process](https://partner.steamgames.com/doc/store/review_process)
 
 ## Store presence
 
@@ -57,7 +57,7 @@ Use after checking these steps on the actual submitted BuildID and production lo
 
 > Launch from your Steam library and select Explore New York. Search for SoHo, choose the destination and spawn. Walk with WASD. Open the map with M, change the zoom and return to the street. An Internet connection supplies detailed city geometry and aerial imagery.
 >
-> For multiplayer, open Pause → Map → Online lobby. Join the prefilled server. A second player can join on another supported desktop platform. Use Meet at Broadway & Spring, send a signal, then start the Broadway sprint to see the first checkpoint on the map. Characters, inventories and civilian traffic are local to each player.
+> For multiplayer, select Play with friends at the title screen. You will spawn at Broadway & Spring and join the prefilled lobby. From an existing session, use Pause → Map → Online lobby. A second player can join on another supported desktop platform. Use Meet at Broadway & Spring, send a signal, then start the Broadway sprint to see the first checkpoint on the map. Characters, inventories and civilian traffic are local to each player.
 >
 > Under Pause → Settings, change Interface sounds, choose Quit to desktop, then launch again to check the saved preference. No separate game account is required.
 
