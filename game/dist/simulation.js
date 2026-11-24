@@ -2065,7 +2065,7 @@ export class Simulation {
     if(launch)startTrick(board,pop.name,pop.charge);
     else if(!grounded)animateAir(board,input,dt);
     board.landing = Math.max(0, board.landing - 4*dt);
-    board.braking = grounded && input.forward < -.05 && p.speed > .1;
+    board.braking = grounded && !launch && (input.brake || input.forward < -.05) && p.speed > .1;
     const wasPushing=board.pushing;
     board.pushing = grounded && !launch && !board.manual && !board.load && input.forward > .05;
     const foot=input.pushFoot||1;
