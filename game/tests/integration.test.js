@@ -423,6 +423,7 @@ async function bootHarness({ stored = null, displayStored = null, unavailableSto
       gameMap: () => vm.runInContext('gameMap', context),
       camera: () => vm.runInContext('({position:camera.position.clone(),quaternion:camera.quaternion.clone(),yaw,near:camera.near,far:camera.far,fov:camera.fov})',context),
       renderState: () => vm.runInContext('({scene,localOrthophoto:ground.localOrthophoto,roofUniforms:world.orthoUniforms})',context),
+      parkedModels: () => vm.runInContext('sim.cars.filter(car=>car._kerb && carModels.has(car.id)).length',context),
       vehicleVisual() {
         const simulation=vm.runInContext('sim',context),mesh=vm.runInContext('carModels',context).get(simulation.player.vehicleId);
         assert.ok(mesh,'the controlled vehicle must have a production scene model');
@@ -876,15 +877,21 @@ test('street view builds surveyed SoHo street surfaces and shares source imagery
     assert.ok(scene.getObjectByName('Street lamps').count>10);
     // Cars stand at those kerbs: simulated like any other, drawn together.
     app.frames(2);
-    const parked=app.state().parkedCars,parkedGroup=scene.getObjectByName('Parked cars');
+    const parkedGroup=scene.getObjectByName('Parked cars');
+    const batchedBodies=()=>parkedGroup.children.filter(child=>/bodies$/.test(child.name)).reduce((sum,child)=>sum+child.count,0);
+    await app.until(()=>{
+      app.frames();
+      return batchedBodies()+app.parkedModels()===app.state().parkedCars;
+    },'streamed and articulated models cover every parked car');
+    const parked=app.state().parkedCars,individualParked=app.parkedModels(),batched=parked-individualParked;
     assert.ok(parked>20,`${parked} cars are parked around the SoHo spawn`);
-    assert.equal(parkedGroup.children.filter(child=>/bodies$/.test(child.name)).reduce((sum,child)=>sum+child.count,0),parked);
+    assert.equal(batchedBodies(),batched);
     // Four wheels a car: those close by in full, those down the street as plain rings.
     const fineTyres=parkedGroup.getObjectByName('Parked car tyres').count,plainTyres=parkedGroup.getObjectByName('Parked car tyres, far').count;
-    assert.equal(fineTyres+plainTyres,parked*4);assert.ok(fineTyres>0&&plainTyres>0,`${fineTyres} fine and ${plainTyres} plain tyres`);
+    assert.equal(fineTyres+plainTyres,batched*4);assert.ok(fineTyres>0&&plainTyres>0,`${fineTyres} fine and ${plainTyres} plain tyres`);
     assert.equal(parkedGroup.getObjectByName('Parked Cabin upholstery').count,fineTyres/4,'only the cars close by have their seats drawn');
     // Of the cars that move, those close by have a model of their own; the rest are drawn together too, out to where cars are drawn at all.
-    const models=scene.children.filter(child=>child.userData?.chassis).length,distant=scene.getObjectByName('Distant traffic');
+    const models=scene.children.filter(child=>child.userData?.chassis).length-individualParked,distant=scene.getObjectByName('Distant traffic');
     const together=distant.children.filter(child=>/bodies$/.test(child.name)&&child.visible).reduce((sum,child)=>sum+child.count,0);
     assert.ok(models>=1&&models+together<=app.state().cars-parked,`${models} models and ${together} drawn together, of ${app.state().cars-parked} that move`);
     assert.equal(distant.getObjectByName('Distant car tyres').count+distant.getObjectByName('Distant car tyres, far').count,together*4);
