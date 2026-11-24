@@ -297,7 +297,7 @@ export class Simulation {
     this.weaponSlots = ['unarmed'];
     this.acquireWeapon('pistol');
     this.lastWeaponSlot = 1;
-    this.player = { x: city.spawn.x, z: city.spawn.z, angle: city.spawn.angle || 0, speed: 0, mode: 'walk', board: null, vehicleId: null, velocityX: 0, velocityZ: 0, vy: 0, grounded: true, slide: 0, swing: 0, reaction:null, standing:null };
+    this.player = { x: city.spawn.x, z: city.spawn.z, angle: city.spawn.angle || 0, speed: 0, mode: 'walk', board: null, vehicleId: null, velocityX: 0, velocityZ: 0, vy: 0, grounded: true, duckAmount: 0, slide: 0, swing: 0, reaction:null, standing:null };
     this.spotted = false;
     this.threats = [];
     this.melee = false;
