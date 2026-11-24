@@ -1,5 +1,7 @@
 # Concrete Jungle Steam release candidate
 
+[Linux release and lobby](linux.md) · [Windows agent handoff](windows.md) · [Mac agent handoff](macos.md) · [Steamworks submission packet](submission.md)
+
 ## Build and play
 
 From the repository root, use Python 3.11+ and an internet connection for the first build.
@@ -8,13 +10,13 @@ From the repository root, use Python 3.11+ and an internet connection for the fi
 python3 game/steam/build.py
 ```
 
-The builder verifies Electron 45.4.1 x64 against pinned SHA-256 digests before extraction. For a single target, pass `--platform windows` or `--platform linux`. Each build also stages the browser client. Public packages lock in fictional business and wardrobe names, omit the original archive prints, downloaded chain logos, personal phone photographs and developer galleries, and retain asset credits and runtime license notices. Canonical source names remain in the underlying city and inventory data for identification and save compatibility.
+The builder verifies Electron 45.4.1 x64 against pinned SHA-256 digests before extraction. For a single target, pass `--platform windows` or `--platform linux`. Windows and Linux builds also stage the browser client. Use `--platform macos` to stage the shared app directly for a Mac agent. Public packages lock in fictional business and wardrobe names, omit the original archive prints, downloaded chain logos, personal phone photographs and developer galleries, and retain asset credits and runtime license notices. Canonical source names remain in the underlying city and inventory data for identification and save compatibility.
 
 | Target | Launch or serve |
 | --- | --- |
 | Windows x64 | `output/steam/depots/windows/ConcreteJungle.exe` |
 | Linux x64 | `output/steam/depots/linux/concrete-jungle` |
-| macOS Intel / Apple silicon | After staging Windows or Linux, run `sh game/steam/build-mac.sh`. Find the resulting app bundles under `output/steam/macos/`. |
+| macOS Intel / Apple silicon | Run `python3 game/steam/build.py --platform macos`, then `sh game/steam/build-mac.sh universal` on a Mac. Find the resulting app bundles under `output/steam/macos/`. |
 | Browser | Serve `output/steam/web/` over HTTPS, or HTTP on localhost for testing |
 
 The entire depot directory is the install. Launch from a normal user account. Saves use the persistent application profile on desktop and the site origin on the web. An internet connection supplies detailed city geometry and orthophotos. The desktop client uses authored text replies and local speech synthesis. The development server can use a separate language model service.
@@ -53,7 +55,7 @@ Stop for a slice, try on clothes, or clock in for a shift. In a shared lobby you
 
 **Draft feature selections:** Single-player, online multiplayer, English interface. Describe desktop and browser cross-play in the detailed description. The public lobby address and account-side features should match the build Valve receives. Measure minimum system requirements on actual target hardware.
 
-**Store assets.** The four store capsules and the library capsule, logo and hero are in [artwork](artwork/). Use `header.png` for both store and library header. The client icon is included in PNG and ICO. The artwork reuses the game's tree emblem, Bitter typeface and mapped SoHo streets. To re-render, use `artwork.py` with Pillow, woff2_decompress and rsvg-convert. The [screenshots](screenshots/) come from live gameplay at 1920 × 1080. [Valve store artwork](https://partner.steamgames.com/doc/store/assets/standard) · [Valve library artwork](https://partner.steamgames.com/doc/store/assets/libraryassets)
+**Store assets.** The four store capsules and the library capsule, logo and hero are in [artwork](artwork/). Use `header.png` for both store and library header. The community icon is a 184 × 184 JPEG. The client icon is included in PNG, ICO and ICNS. The [gameplay trailer](gameplay-trailer.mp4) was captured in the packaged Linux game. The artwork reuses the game's tree emblem, Bitter typeface and mapped SoHo streets. To re-render, use `artwork.py` with Pillow, woff2_decompress and rsvg-convert. The [screenshots](screenshots/) come from live gameplay at 1920 × 1080. [Valve store artwork](https://partner.steamgames.com/doc/store/assets/standard) · [Valve library artwork](https://partner.steamgames.com/doc/store/assets/libraryassets)
 
 ## Platform verification
 
@@ -64,4 +66,4 @@ A packaged Linux desktop client and a Chromium web client joined the same dedica
 - **Title and rights.** A separate game already uses *Concrete Jungle* on Steam. Review the title, published screenshots, distinctive outfits, storefront appearance, real vehicle designs and badges, public-agency marks, voices, photos and data redistribution terms for the intended territories. The [legal research](../docs/brand-parody-and-steam-release.md) records the distinction between changing names and clearing artwork. [Existing Steam title](https://store.steampowered.com/app/400160/Concrete_Jungle/)
 - **Content survey.** Inspect the actual build for weapons, violence, death, robbery, substances, and online interactions. Document player-facing generated assets, including shop imagery, and distinguish prerecorded synthetic speech from speech synthesized during play. The production build uses authored text conversations. Complete the survey using the shipped implementation and your production records. [Valve content survey](https://partner.steamgames.com/doc/gettingstarted/contentsurvey)
 - **Online operation.** Select a public server, configure TLS and publish its address in the build. Verify cross-play over different internet connections and reboot/reconnect behavior. Review privacy disclosures for server IP handling and any host or proxy logs. The included dedicated service runs in memory.
-- **Store and build review.** The publisher supplies partner identity, tax and bank details, Steam Direct payment, AppID, depot IDs, support contact, price and release territories. Submit the store page and a private build for Valve review. Valve publishes onboarding and Coming Soon timing requirements. [Steam Direct](https://partner.steamgames.com/steamdirect) · [Valve review process](https://partner.steamgames.com/doc/store/review_process)
+- **Store and build review.** The publisher supplies partner identity, tax and bank details, Steam Direct payment, AppID, depot IDs, support contact, price and release territories. Submit the store page first, then submit the candidate build on the unreleased app’s default branch for Valve review. Valve publishes onboarding and Coming Soon timing requirements. [Steam Direct](https://partner.steamgames.com/steamdirect) · [Valve review process](https://partner.steamgames.com/doc/store/review_process)
