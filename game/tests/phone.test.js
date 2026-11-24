@@ -2,8 +2,11 @@ import test from 'node:test';
 import {createThumbPress} from '../dist/phone-touch.js';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import { Readable } from 'node:stream';
+import { EventEmitter } from 'node:events';
 import { KIND } from '../dist/places.js';
 import { createPhone, listPlaces, describePlace, formatDistance, CATEGORIES, ROWS } from '../dist/phone.js';
+import { handleMayaChat } from '../scripts/phone-chat.mjs';
 
 const html = readFileSync(new URL('../dist/index.html', import.meta.url), 'utf8');
 const place = (name, kind, x, z, extra = {}) => ({ id: name, kind, group: KIND[kind].group, name, x, z, bin: 0, area: 0, grade: '', ...extra });
@@ -206,8 +209,25 @@ test('bank transfers preserve total funds, reject invalid amounts and restore sa
   assert.deepEqual(restored.entries.map(row=>row.amount),[500,-215,1025]);
 });
 
+test('the preferred tender covers a purchase in full or falls back without splitting balances',async()=>{
+  const {PhoneBank}=await import('../dist/phone-services.js');
+  const {payFor}=await import('../dist/money.js');
+  const bank=new PhoneBank(),sim={cash:10,bank,bankClock:()=>'Noon'};
+  bank.restore({checking:425},sim.cash);
+  assert.equal(payFor(sim,1.25,'Lunch'),'card');
+  assert.deepEqual([sim.cash,bank.checking],[10,300]);
+  assert.equal(payFor(sim,7,'Shop'),'cash');
+  assert.equal(payFor(sim,6,'Shop'),null);
+  bank.preferredPayment='cash';
+  assert.equal(payFor(sim,1,'Coffee'),'cash');
+  assert.equal(payFor(sim,3,'Train'),'card');
+  assert.deepEqual([sim.cash,bank.checking],[2,0]);
+  const saved=new PhoneBank();saved.restore(bank.record(),sim.cash);
+  assert.equal(saved.preferredPayment,'cash');
+});
+
 test('D Ride passengers follow the dispatched driver, can hurry or stop early, and settle on drop-off', async()=>{
-  const {CityRides}=await import('../dist/phone-services.js');
+  const {CityRides,PhoneBank}=await import('../dist/phone-services.js');
   const {Simulation}=await import('../dist/simulation.js');
   for(const [side,rear,early] of [[-1,false,true],[-1,true,false],[1,true,true]]){
     const street={id:'test-road',kind:'street',name:'Broadway',width:10,oneway:true,points:[[-240,8],[250,8]]};
@@ -218,6 +238,12 @@ test('D Ride passengers follow the dispatched driver, can hurry or stop early, a
     const rides=new CityRides(sim,{planner:()=>planner,paid:()=>paid++});
     const quote=await rides.quote({name:'Midtown',x:230,z:8});
     sim.cash=1;assert.match(rides.request(quote),/balance/);sim.cash=60;
+    const byCard=side===1;
+    if(byCard){
+      sim.bank=new PhoneBank();sim.bank.restore(null,sim.cash);
+      assert.equal(sim.bank.transfer(sim,'deposit','60','Noon'),'');
+    }
+    const balance=()=>byCard?sim.bank.checking/100:sim.cash;
     assert.equal(rides.request(quote),'');rides.cancel();assert.equal(sim.cars.length,0);
     assert.equal(rides.request(quote),'');
     const trip=rides.trip,car=trip.car, start=car.x;
@@ -229,8 +255,13 @@ test('D Ride passengers follow the dispatched driver, can hurry or stop early, a
       z:car.z-side*1.4*Math.sin(car.angle)+along*Math.cos(car.angle)});
     assert.ok(rides.board());assert.equal(rides.board(),false);assert.equal(sim.player.vehicleId,car.id);
     assert.equal(car.passengerSeat.side,side);assert.equal(car.passengerSeat.along<0,rear);
+    if(byCard){
+      assert.equal(sim.ridePaymentMethod,'card');
+      assert.ok(sim.bank.transfer(sim,'withdraw','60','Noon'));
+      sim.bank.preferredPayment='cash';
+    }
     for(let i=0;i<80;i++)step();
-    assert.equal(sim.player.mode,'passenger');assert.equal(sim.player.x,car.x);assert.equal(sim.cash,60);
+    assert.equal(sim.player.mode,'passenger');assert.equal(sim.player.x,car.x);assert.equal(balance(),60);
     assert.equal(car.rideDriver,trip.driver);assert.ok(car.x>4 && car.x<200);
     const normal=car.speed;
     rides.toggleHurry();for(let i=0;i<45;i++)step();
@@ -239,7 +270,8 @@ test('D Ride passengers follow the dispatched driver, can hurry or stop early, a
     for(let i=0;i<2200 && rides.trip;i++)step();
     assert.equal(rides.trip,null);assert.equal(sim.player.mode,'walk');assert.equal(sim.rideHoldCents,0);
     if(early)assert.ok(sim.player.x<170);else assert.ok(Math.abs(sim.player.x-230)<10);
-    if(early)assert.ok(sim.cash<60 && sim.cash>60-quote.fare);else assert.equal(sim.cash,60-quote.fare);
+    if(early)assert.ok(balance()<60 && balance()>60-quote.fare);else assert.equal(balance(),60-quote.fare);
+    if(byCard){assert.equal(sim.cash,0);assert.equal(sim.bank.entries[0].name,'Ride fare');}
     const dx=sim.player.x-car.x, dz=sim.player.z-car.z;
     assert.equal(Math.sign(dx*Math.cos(car.angle)-dz*Math.sin(car.angle)),side);
     if(rear)assert.ok(dx*Math.sin(car.angle)+dz*Math.cos(car.angle)<-.5);
@@ -299,13 +331,16 @@ test('thumb presses land at the pointer or focused button and cancel cleanly whe
   const handset={getBoundingClientRect:()=>({left:10,top:20,width:200,height:400}),ownerDocument:{defaultView:{
     getComputedStyle:()=>({transform:layer.style.transform,opacity:'1'})}}};
   const button={setAttribute(){},removeAttribute(){},getBoundingClientRect:()=>({left:40,top:100,right:140,bottom:140,width:100,height:40})};
-  const hand=createThumbPress(handset,layer,(x,y)=>taps.push([x,y]),()=>false);
+  const hand=createThumbPress(handset,layer,(x,y)=>{taps.push([x,y]);return 160;},()=>false);
   hand.reach(button,{type:'pointerdown',clientX:50,clientY:108});
   hand.press(button,null,()=>actions.push('open'));
   hand.press(button,null,()=>actions.push('duplicate'));
   assert.deepEqual(taps,[[.2,.22]]);
   assert.deepEqual(actions,[]);
-  t.mock.timers.tick(86);
+  t.mock.timers.tick(100);
+  assert.equal(pose['data-pose'],'reach');
+  assert.deepEqual(actions,[]);
+  t.mock.timers.tick(61);
   assert.equal(pose['data-pose'],'press');
   t.mock.timers.tick(60);
   assert.deepEqual(actions,['open']);
@@ -459,54 +494,47 @@ test('messages keep the mechanic thread, and a call can start from it',()=>{
   assert.equal(again.$('phone-thread-log').children[1].children[1].textContent,'How much?');
 });
 
-test('texts use nearby places and a delayed message arrives after closing or restoring the phone',()=>{
-  const storage=memory();
-  let x=0;
-  const now=()=>({clock:'3:10 PM',hours:15,x,z:0});
-  const places=()=>[...around(),place('ANOTHER PIZZA', 'pizza', 230, 0)];
-  const ui=page(), phone=createPhone({$:ui.$,storage,places,state:now});
+test('Maya receives nearby places and can reply after the phone is closed or restored',async()=>{
+  const storage=memory(), requests=[];
+  let x=15;
+  const state=()=>({clock:'3:10 PM',hours:15,x,z:0});
+  const places=()=>[...around(),place('ANOTHER PIZZA','pizza',230,0)];
+  const generateMaya=async (rows,context)=>{
+    requests.push({rows,context});
+    const spot=context.nearby[0];
+    return {text:`try ${spot.name}. it's ${spot.distance} from you`};
+  };
+  const options={storage,places,state,generateMaya};
+  const ui=page(), phone=createPhone({$:ui.$,...options});
   phone.setOpen(true);ui.click('phone-app-messages');ui.click('phone-inbox-1');
   assert.equal(ui.$('phone-title').textContent,'Maya');
   ui.$('phone-thread-draft').value='anywhere for pizza';
   ui.click('phone-thread-send');
   assert.equal(ui.$('phone-thread-typing').hidden,false);
   phone.setOpen(false);
-  const restoredUI=page(), restored=createPhone({$:restoredUI.$,storage,places,state:now});
-  restored.update(2);restored.setOpen(true);restoredUI.click('phone-app-messages');
+  const restoredUI=page(), restored=createPhone({$:restoredUI.$,...options});
+  restored.update(2);
+  await new Promise(resolve=>setImmediate(resolve));
+  restored.setOpen(true);restoredUI.click('phone-app-messages');
   assert.equal(restoredUI.$('phone-inbox-0-name').textContent,'Maya');
   assert.equal(restoredUI.$('phone-inbox-0').getAttribute('data-unread'),'true');
   assert.match(restoredUI.$('phone-inbox-0-note').textContent,/RAYS/i);
   x=200;
   restoredUI.click('phone-inbox-0');restoredUI.$('phone-thread-draft').value='where';
   restoredUI.click('phone-thread-send');restored.update(4);
+  await new Promise(resolve=>setImmediate(resolve));
+  assert.equal(requests[1].context.nearby[0].name,'RAYS');
+  assert.equal(requests[1].context.nearby[0].distance,'330 ft');
   const message=index=>restoredUI.$('phone-thread-log').children[index].children[1].textContent;
   assert.match(message(4),/RAYS.*330 ft/i);
   assert.notEqual(message(4),message(2));
-  restoredUI.$('phone-thread-draft').value='actually where can i get coffee';
-  restoredUI.click('phone-thread-send');restored.update(7);
-  assert.match(message(6),/THUMA/i);
-  restoredUI.$('phone-thread-draft').value='wya';
-  restoredUI.click('phone-thread-send');restored.update(9);
-  assert.match(message(8),/in brooklyn/i);
-  restoredUI.$('phone-thread-draft').value='where';
-  restoredUI.click('phone-thread-send');restored.update(11);
-  assert.equal(message(10),'where for what?');
-  restoredUI.$('phone-thread-draft').value='not hungry anymore';
-  restoredUI.click('phone-thread-send');restored.update(13);
-  assert.match(message(12),/^(all good|fair enough)$/);
-  restoredUI.$('phone-thread-draft').value='wanna grab pizza later?';
-  restoredUI.click('phone-thread-send');restored.update(15);
-  assert.match(message(14),/be down later/);
-  restoredUI.$('phone-thread-draft').value='im at work';
-  restoredUI.click('phone-thread-send');restored.update(17);
-  assert.equal(message(16),'what time are you off?');
 });
 
-test('a long text thread opens at the latest message and stays put while reading back',()=>{
+test('a long text thread opens at the latest message and stays put while reading back',async()=>{
   const {$,click}=page(), storage=memory();
   const rows=Array.from({length:16},(_,i)=>({who:i%2?'me':'them',text:'Text '+i}));
   storage.setItem('nyc-phone-messages',JSON.stringify({maya:{rows,seen:rows.length},mechanic:{seen:1}}));
-  const phone=createPhone({$,storage});
+  const phone=createPhone({$,storage,generateMaya:async ()=>'hey you'});
   phone.setOpen(true);click('phone-app-messages');click('phone-inbox-1');
   const history=$('phone-thread-scroll'), log=$('phone-thread-log');
   assert.equal(history.scrollTop,history.scrollHeight-history.clientHeight);
@@ -517,6 +545,7 @@ test('a long text thread opens at the latest message and stays put while reading
   assert.equal(history.scrollTop,history.scrollHeight-history.clientHeight);
   history.scrollTop=60;
   phone.update(2);
+  await new Promise(resolve=>setImmediate(resolve));
   assert.equal(log.children.length,18);
   assert.equal(history.scrollTop,60);
   assert.equal($('phone-messages-badge').hidden,false);
@@ -545,15 +574,96 @@ test('Maya uses the recent transcript and game context for local generation and 
   assert.equal(requests[0].signal.aborted,true);
   assert.equal(requests[1].rows.at(-1).text,'Actually I caught it.');
   requests[0].resolve('take the next one');
-  requests[1].resolve('nice, did you get a seat?');
+  requests[1].resolve({text:'nice, did you get a seat?',model:'qwen3.5:2b-q4_K_M'});
   await new Promise(resolve=>setImmediate(resolve));
   assert.equal(text(),'nice, did you get a seat?');
+  assert.equal(log.children.at(-1).attributes['data-reply-source'],'model');
+  assert.match(log.children.at(-1).title,/qwen3.5:2b-q4_K_M/);
   assert.equal(log.children.length,4);
   assert.equal($('phone-thread-typing').hidden,true);
   send('not hungry anymore',7);
   requests[2].resolve('');
   await new Promise(resolve=>setImmediate(resolve));
-  assert.match(text(),/^(all good|fair enough)$/);
+  assert.equal(text(),'not hungry anymore');
+  assert.equal(log.children.length,5);
+  assert.equal($('phone-thread-typing').hidden,true);
+  assert.equal($('phone-thread-reply-error').hidden,false);
+});
+
+test('an unavailable Maya model preserves the text and retry resumes the saved conversation',async()=>{
+  const storage=memory(), ui=page();
+  const phone=createPhone({$:ui.$,storage,generateMaya:async()=>{throw new Error('Model offline');}});
+  phone.setOpen(true);ui.click('phone-app-messages');ui.click('phone-inbox-1');
+  ui.$('phone-thread-draft').value='how ar eyou';
+  ui.click('phone-thread-send');phone.update(2);
+  await new Promise(resolve=>setImmediate(resolve));
+  assert.equal(ui.$('phone-thread-reply-error').hidden,false);
+  assert.equal(ui.$('phone-thread-log').children.length,2);
+
+  const requests=[], restoredUI=page();
+  const restored=createPhone({$:restoredUI.$,storage,generateMaya:async rows=>{
+    requests.push(rows.map(row=>row.text));
+    return {text:"i'm good, just taking it easy. you?",model:'local-test'};
+  }});
+  restored.update(2);
+  restored.setOpen(true);restoredUI.click('phone-app-messages');restoredUI.click('phone-inbox-0');
+  const log=restoredUI.$('phone-thread-log');
+  assert.equal(requests.length,0);
+  assert.equal(restoredUI.$('phone-thread-reply-error').hidden,false);
+  restoredUI.click('phone-thread-retry');restoredUI.click('phone-thread-retry');
+  assert.equal(restoredUI.$('phone-thread-typing').hidden,false);
+  assert.equal(restoredUI.$('phone-thread-reply-error').hidden,true);
+  await new Promise(resolve=>setImmediate(resolve));
+  assert.deepEqual(requests,[['hey you still in the city?','how ar eyou']]);
+  assert.equal(log.children.length,3);
+  assert.equal(log.children.at(-1).attributes['data-reply-source'],'model');
+  assert.equal(restoredUI.$('phone-thread-typing').hidden,true);
+});
+
+test('the phone tries its own Maya endpoint on non-localhost game URLs',async t=>{
+  const {$,click}=page(), storage=memory();
+  $('phone').ownerDocument={defaultView:{location:{protocol:'https:',hostname:'game.example'},addEventListener(){}}};
+  storage.setItem('nyc-phone-messages',JSON.stringify({maya:{rows:[
+    {who:'me',text:'wanna hang'},
+    {who:'them',text:'wait, what do you mean?'},
+    {who:'them',text:'i’m in brooklyn rn. where’d you end up?',source:'scripted'},
+  ]}}));
+  const fetch=t.mock.method(globalThis,'fetch',async ()=>({
+    ok:true,json:async ()=>({text:'hey you',model:'local-test'}),
+  }));
+  const phone=createPhone({$,storage,state:()=>({hours:1})});
+  phone.setOpen(true);click('phone-app-messages');click('phone-inbox-1');
+  $('phone-thread-draft').value='hey';
+  click('phone-thread-send');phone.update(2);
+  await new Promise(resolve=>setImmediate(resolve));
+  assert.equal(fetch.mock.calls[0].arguments[0],'./api/phone/maya');
+  assert.deepEqual(JSON.parse(fetch.mock.calls[0].arguments[1].body).rows,[
+    {who:'me',text:'wanna hang'},{who:'me',text:'hey'},
+  ]);
+  assert.equal($('phone-thread-log').children.at(-1).title,'Local model · local-test');
+});
+
+test('Maya sends texts as distinct conversation turns and reports the model that replied',async t=>{
+  const rows = [
+    {who:'me',text:'wanna hang'},
+    {who:'them',text:'maybe later. what part of town are you in?'},
+    {who:'me',text:'mulberry st'},
+  ];
+  let payload, response;
+  t.mock.method(globalThis,'fetch',async (_url,options)=>{
+    payload=JSON.parse(options.body);
+    return {ok:true,json:async()=>({model:'local-test',message:{content:'oh nice, you gonna be there long?'}})};
+  });
+  const req = Readable.from([Buffer.from(JSON.stringify({rows,context:{street:'Mulberry St'}}))]);
+  Object.assign(req,{method:'POST',headers:{'content-type':'application/json'}});
+  const res = new EventEmitter();
+  res.writeHead = status => {res.statusCode=status;};
+  res.end = body => {response=JSON.parse(body);};
+  await handleMayaChat(req,res);
+  assert.equal(res.statusCode,200);
+  assert.match(payload.messages[0].content,/Mulberry St/);
+  assert.deepEqual(payload.messages.slice(1),rows.map(row=>({role:row.who==='me'?'user':'assistant',content:row.text})));
+  assert.deepEqual(response,{text:'oh nice, you gonna be there long?',model:'local-test'});
 });
 
 test('the camera stores a street photo and a selfie, and deleting one leaves the other',async()=>{
@@ -623,16 +733,25 @@ test('third-person phone controls act immediately without reaching for the scree
   assert.equal(actions,1);assert.equal(touch.phase,'idle');
 });
 
-test('Maps pins open their own place and return to the map, and galleries match the branch',async()=>{
-  const {matchBranch,mapsURL}=await import('../dist/place-guide.js');
-  const catalog=JSON.parse(readFileSync(new URL('../dist/assets/phone/places/guide.json',import.meta.url)));
+test('Maps pins open their branch, with stable visitor reviews and branch-specific contact details',async()=>{
+  const {matchBranch,mapsURL,contactLinks}=await import('../dist/place-guide.js');
+  const {placeReviews}=await import('../dist/place-reviews.js');
+  const {menuFor}=await import('../dist/menu.js');
   const katz=place("KATZ'S DELICATESSEN",'kosher',1197,111);
   const other=place(katz.name,'kosher',1521,3633);
-  assert.equal(matchBranch(katz,catalog).photos.length,3);
+  const catalog=JSON.parse(readFileSync(new URL('../dist/map-contacts/0_0.json',import.meta.url)));
+  const branch=matchBranch(katz,catalog);
+  assert.match(branch.address,/205.*HOUSTON/i);
+  assert.equal(contactLinks(branch).website.hostname,'katzsdelicatessen.com');
   assert.equal(matchBranch(other,catalog),null);
-  assert.equal(matchBranch({...katz,name:''},catalog),null);
-  const url=new URL(mapsURL(katz,matchBranch(katz,catalog).address));
-  assert.match(url.searchParams.get('query'),/205 East Houston/);
+  assert.equal(contactLinks({website:'javascript:alert(1)',phone:'0000000000'}).website,undefined);
+  assert.equal(contactLinks({phone:'0000000000'}).tel,'');
+  assert.match(new URL(mapsURL(katz,branch.address)).searchParams.get('query'),/205.*HOUSTON/i);
+  const menu=menuFor(katz),reviews=placeReviews(katz,menu);
+  assert.deepEqual(placeReviews({...katz,id:'citywide'},menu),reviews);
+  assert.notDeepEqual(placeReviews(other,menu).notes,reviews.notes);
+  assert.equal(new Set(reviews.notes.map(n=>n.author)).size,3);
+  assert.ok(menu.includes(reviews.featured));
   const ui=page(),phone=createPhone({$:ui.$,places:()=>[katz,other],state:()=>({x:1195,z:112,hours:12})});
   phone.toggle();ui.click('phone-app-map');ui.click('map-pin-0');
   assert.equal(ui.$('phone-place-name').textContent,katz.name);
@@ -681,4 +800,21 @@ test('index details lead to a tracking fund or a searchable member list, and leg
   ui.click('phone-index-1');ui.click('phone-index-fund');
   assert.equal(ui.$('phone-order-symbol').textContent,'SPY');ui.click('phone-order-buy');
   assert.equal(bank.holdings.SPY.shares,1);assert.equal(sim.cash,20);
+});
+
+test('death and arrest take carried cash and a capped, cent-rounded checking fee', async()=>{
+  const {PhoneBank}=await import('../dist/phone-services.js');
+  for(const [checking,fee] of [[0,0],[1,0],[150,2],[10000,100],[900000,2500]]){
+    for(const kind of ['wasted','busted']){
+      const bank=new PhoneBank();
+      bank.restore({checking,holdings:{F:{shares:2,cost:1700}}},80);
+      assert.equal(bank.recordEndingLoss(kind,82.75,'Noon'),fee);
+      bank.sync(0,'Noon');
+      const restored=new PhoneBank();restored.restore(JSON.parse(JSON.stringify(bank.record())),0);
+      assert.equal(restored.checking,checking-fee);
+      assert.deepEqual(restored.holdings,{F:{shares:2,cost:1700}});
+      assert.deepEqual(restored.entries.filter(e=>e.account==='Cash').map(e=>e.amount),[-8275,275]);
+      assert.deepEqual(restored.entries.filter(e=>e.account==='Checking').map(e=>e.amount),fee?[-fee]:[]);
+    }
+  }
 });
