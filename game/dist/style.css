@@ -69,7 +69,6 @@ body:has(.cash-display:not([hidden])) .mission-panel { top:var(--money-clearance
   gap:4px;
   color:#ff94ad;
 }
-.health-heart { display:block; flex:none; }
 .health-track {
   position:relative;
   display:block;
@@ -249,17 +248,20 @@ body:has(.cash-display:not([hidden])) .mission-panel { top:var(--money-clearance
 }
 .game-wordmark {
   margin: 0;
-  color: var(--brand-cream);
-  font: 900 1rem/1 var(--display);
-  letter-spacing: -.025em;
-  white-space: nowrap;
 }
-.game-wordmark span { display: block; }
+.game-wordmark svg {
+  display: block;
+  width: 100%;
+  height: auto;
+  fill: var(--brand-cream);
+  font-family: var(--display);
+  font-weight: 900;
+  letter-spacing: 0;
+}
 .intro-title {
+  width: clamp(180px, min(63vw, 95vh), 750px);
+  max-width: 100%;
   margin-bottom: clamp(26px, 5vh, 46px);
-  font-size: clamp(38px, min(15vw, 20vh), 160px);
-  line-height: .94;
-  text-shadow: 0 .035em .18em #10090c66;
 }
 .start-button {
   display: inline-flex;
@@ -430,7 +432,7 @@ body:has(.cash-display:not([hidden])) .mission-panel { top:var(--money-clearance
   .stream-status { left: 15px; }
 }
 @media (max-height: 470px) {
-  .intro-title { margin-bottom: 18px; font-size: min(14vw, 16dvh); }
+  .intro-title { width: min(80dvh, 370px); margin-bottom: 18px; }
 }
 @media (prefers-reduced-motion: reduce) {
   .start-button { transition: none; }
@@ -531,9 +533,7 @@ body.ending-wasted #hud, body.ending-wasted #mission-panel, body.ending-wasted #
 
 .pause-head { display: flex; justify-content: space-between; align-items: flex-end; gap: 14px; margin-bottom: 8px; }
 .pause-brand {
-  font-size: clamp(18px, min(4.6vw, 6vh), 48px);
-  line-height: .96;
-  text-shadow: 0 2px 10px #0008;
+  width: clamp(85px, min(24vw, 30vh), 230px);
 }
 .pause-status { display: grid; justify-items: end; gap: 3px; font-family: var(--heading); font-weight: 700; text-transform: uppercase; text-shadow: 0 2px 6px #000; }
 .pause-status strong { font-size: clamp(18px, 2.7vh, 26px); letter-spacing: .03em; }
