@@ -2214,7 +2214,7 @@ export class Simulation {
     const aiming = Number.isFinite(input.aimYaw);
     const running = input.run && !aiming;
     if(input.run || jumping || player.water || player.swing>0)player.stealth=false;
-    const topSpeed = player.water ? 1.75 : player.stealth ? WALK_SPEED*.62 : (aiming ? WALK_SPEED : running ? RUN_SPEED : input.jog ? JOG_SPEED : WALK_SPEED) * (this.pep > 0 ? 1.15 : 1);
+    const topSpeed = player.water ? (running ? 2.45 : 1.75) : player.stealth ? WALK_SPEED*.62 : (aiming ? WALK_SPEED : running ? RUN_SPEED : input.jog ? JOG_SPEED : WALK_SPEED) * (this.pep > 0 ? 1.15 : 1);
     const desiredX = input.moveX / divisor * topSpeed;
     const desiredZ = input.moveZ / divisor * topSpeed;
     const air = player.grounded === false;
