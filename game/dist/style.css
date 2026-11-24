@@ -68,15 +68,14 @@ body:has(.cash-display:not([hidden])) .mission-panel { top:var(--money-clearance
   align-items:center;
   gap:4px;
   color:#ff94ad;
-  filter:drop-shadow(0 1px 1px #20131bc9);
 }
 .health-heart { display:block; flex:none; }
 .health-track {
   position:relative;
   display:block;
   width:clamp(90px,9vw,152px);
-  height:6px;
-  box-shadow:0 0 0 1px #251820ad;
+  height:10px;
+  border:1px solid #251820;
   background:#261e25ce;
   border-radius:2px;
   overflow:hidden;
@@ -94,9 +93,12 @@ body:has(.cash-display:not([hidden])) .mission-panel { top:var(--money-clearance
   width:100%;
   height:100%;
   border:0;
+  padding:0;
   background:transparent;
   color:inherit;
 }
+/* Chromium's native meter grid reserves space above and below the fill. */
+.health-display meter::-webkit-meter-inner-element { display:grid; height:100%; grid-template-rows:0 1fr 0; }
 .health-display meter::-webkit-meter-bar { height:100%; border:0; border-radius:0; background:transparent; }
 .health-display meter::-webkit-meter-optimum-value { background:currentColor; transition:width .18s ease-out; }
 .health-display meter::-moz-meter-bar { background:currentColor; transition:width .18s ease-out; }
