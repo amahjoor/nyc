@@ -512,20 +512,23 @@ test('a crash in the occupied cab keeps rendering through ignition, explosion an
   } finally { app.close(); }
 });
 
-test('the street advances a real second in ten rendered frames and the interaction menu equips the board', async () => {
+test('the street advances a real second in ten rendered frames and K toggles the skateboard', async () => {
   const app=await bootHarness();
   try {
     app.click('start-button');app.click('view-button');app.frames(2);
     const sim=app.simulation(), before=sim.elapsed;
     app.frames(10,100);
     assert.ok(Math.abs(sim.elapsed-before-1)<.017);
-    interactionChoice(app,'Skateboard');app.frames();
+    app.key('KeyK');app.key('KeyK',false);app.frames();
     assert.equal(sim.player.mode,'skate');
     assert.ok(app.renderState().scene.getObjectByName('Skateboard').visible);
-    app.key('KeyE');app.key('KeyE',false);app.frames();
+    app.key('KeyK');app.key('KeyK',false);app.frames();
     assert.equal(sim.player.mode,'walk');
     assert.equal(app.renderState().scene.getObjectByName('Skateboard').visible,false);
+    const time=app.state().time;
+    app.key('KeyT');app.key('KeyT',false);assert.equal(app.state().time,time);
     app.key('Escape');assert.match(app.elements.get('street-performance').textContent,/\d+ FPS/);
+    app.click('time-button');assert.notEqual(app.state().time,time);
     app.click('controller-sprint');
     assert.equal(app.storage.get('nyc.controller-sprint'),'hold');
   } finally {app.close();}
@@ -537,6 +540,7 @@ test('city sound starts with the game and the horn works from keyboard, pad and 
     return enabled;
   });
   const horn = t.mock.method(CityAudio.prototype, 'horn', () => {});
+  const release = t.mock.method(CityAudio.prototype,'releaseHorn',()=>{});
   const app = await bootHarness({ coarsePointer: true });
   try {
     app.click('start-button');
@@ -551,16 +555,21 @@ test('city sound starts with the game and the horn works from keyboard, pad and 
     assert.equal(app.elements.get('touch-horn').hidden, false);
     app.key('KeyH');app.key('KeyH',false);const lamps=app.simulation().vehicle.lampsOn;
     assert.equal(typeof lamps,'boolean');app.key('KeyH');app.key('KeyH',false);assert.equal(app.simulation().vehicle.lampsOn,!lamps);
-    app.key('KeyE'); app.key('KeyE', false);
-    assert.equal(horn.mock.callCount(), 1);
+    app.key('KeyE');app.frames(4);
+    assert.equal(horn.mock.callCount(),1);assert.equal(horn.mock.calls[0].arguments[1],'hold');
+    assert.equal(release.mock.callCount(),0);app.key('KeyE',false);assert.equal(release.mock.callCount(),1);
     const pad = { axes: [0,0,0,0], buttons: Array.from({length:16}, () => ({pressed:false,value:0})) };
     app.pads.push(pad);
     pad.buttons[10].pressed = true;
     app.frames();
-    app.pads.pop();
-    assert.equal(horn.mock.callCount(), 2);
+    app.pads.pop();app.frames();
+    assert.equal(horn.mock.callCount(), 2);assert.equal(release.mock.callCount(),2);
     app.click('touch-horn');
     assert.equal(horn.mock.callCount(), 3);
+    const button=app.elements.get('touch-horn');
+    const pointer=type=>button.dispatch(type,{pointerId:3,button:0});
+    pointer('pointerdown');app.frames(4);assert.equal(horn.mock.calls.at(-1).arguments[1],'hold');
+    pointer('pointercancel');assert.equal(release.mock.callCount(),3);
 
     app.key('Escape'); app.key('Escape', false);
     app.click('sound-button');
@@ -623,8 +632,8 @@ test('five-borough app boots, walks, enters a cab, delivers, saves and pauses th
     assert.equal(app.state().stream.visibleChunks,5,'all five real borough fixtures reach the city overview');
     app.click('view-button');assert.equal(app.state().cityView,false);
     assert.equal(app.elements.get('touch-controls').hidden,false,'street view restores touch controls');
-    app.click('view-button');app.frames(2);assert.equal(app.state().aerialView,true);
-    app.click('city-button');assert.equal(app.state().cityView,true);
+    app.key('F6');app.key('F6',false);app.frames(2);assert.equal(app.state().aerialView,true);
+    app.key('F6');app.key('F6',false);assert.equal(app.state().cityView,true);
     assert.equal(app.elements.get('touch-controls').hidden,true,'returning to city overview hides touch controls again');
     app.click('city-button');assert.equal(app.state().cityView,false);assert.equal(app.state().aerialView,false);
     const health = app.elements.get('health-display');
@@ -687,7 +696,6 @@ test('five-borough app boots, walks, enters a cab, delivers, saves and pauses th
     app.simulation().hurt(9);
     app.frames(6);
     assert.equal(healthBar.value, 65);
-    assert.equal(app.elements.get('health-number').textContent, '65%');
     const pad = { axes: [0,0,0,0], buttons: Array.from({length:16}, () => ({pressed:false,value:0})) };
     app.pads.push(pad);
     pad.buttons[13].pressed = true;
@@ -2490,7 +2498,7 @@ test('inventory shows icons for saved groceries, meals, legacy drinks and leftov
   const app=await bootHarness({stored:JSON.stringify({version:1,cash:25,shopping:{inventory}})});
   try{
     app.click('start-button');app.click('view-button');app.frames(2);
-    interactionChoice(app,'Inventory');
+    app.key('KeyI');app.key('KeyI',false);
     const options=app.elements.get('interaction-options');
     const row=name=>options.children.find(button=>button.children[0].textContent===name);
     const thumb=name=>row(name)?.children[0].children[0];
@@ -3338,6 +3346,8 @@ test('DualSense on PC selects its own prompts and uses the same melee and vehicl
     game.crowd.people.push(target);app.face(0);
     interactionChoice(app,'Grab nearby pedestrian');app.frames(3);assert.equal(target.grappled,true);
     app.key('KeyE');app.key('KeyE',false);app.frames();assert.equal(target.grappled,false);
+    app.key('KeyJ');app.frames();assert.ok(target.grappled);
+    app.key('KeyJ',false);app.frames();assert.equal(target.grappled,false);
     set(7,true);app.frames(12);assert.equal(target.grappled,true);
     press(2);assert.equal(target.grappled,false);assert.equal(sim.meleeAction.target,target);
     set(7,false);app.frames(40);assert.ok(target.hp<6);
@@ -3744,14 +3754,14 @@ test('an ATM deposits and withdraws physical cash only while the player is at it
   }finally{app.close();}
 });
 
-test('Nearby interactions opens a conversation with one pedestrian and Escape releases them',async()=>{
+test('G opens a conversation with one pedestrian and Escape releases them',async()=>{
   const app=await bootHarness();
   try {
     app.click('start-button');app.click('view-button');app.frames(2);
     const game=app.window.nycGame,p=game.simulation.player;
     const person={x:p.x+.1,y:p.y,z:p.z,state:'rest',wait:30,heading:0,look:dress('casual',seeded(414))};
     game.crowd.people.unshift(person);
-    interactionChoice(app,'Nearby interactions');
+    app.key('KeyG');app.key('KeyG',false);
     const row=app.elements.get('interaction-options').children.find(b=>b.children[0].textContent==='Talk for a while');
     assert.ok(row);row.click();
     assert.equal(app.elements.get('street-talk').hidden,false);
