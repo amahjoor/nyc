@@ -1022,11 +1022,8 @@ export class Police {
     this.arrest = rate ? this.arrest + dt * rate / BUST : Math.max(0, this.arrest - dt);
     if (this.arrest < 1) return;
     const stars = this.stars;
-    sim.end('busted', stars > 2 ? 'They got you.' : 'You are under arrest.', () => {
-      const fine = Math.min(sim.cash, 80 * stars);
-      sim.cash -= fine;
-      sim.recoverAt('courthouse', `Busted. Fined $${fine}.`);
-    });
+    sim.end('busted', stars > 2 ? 'They got you.' : 'You are under arrest.',
+      loss => sim.recoverAt('courthouse', 'Busted. ' + loss));
   }
 
   _standDown() {

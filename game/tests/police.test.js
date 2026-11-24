@@ -247,7 +247,7 @@ test('patrols drive to the player, the crew get out, and standing still is an ar
   assert.ok(officers >= 2, 'its crew got out');
   assert.ok(took > 0, 'and made the arrest');
   assert.equal(sim.heat, 0); assert.equal(sim.police.state, 'clear'); assert.equal(sim.police.officers.length, 0);
-  assert.ok(sim.cash < 500 && sim.cash >= 500 - 80 * 3, `fined: $${500 - sim.cash}`);
+  assert.equal(sim.cash, 0, 'arrest takes all carried cash');
 });
 
 test('at three stars the officers open fire and a helicopter comes', () => {
@@ -495,20 +495,21 @@ test('a death or an arrest is watched before what follows it', () => {
   const sim = alone(new Simulation(grid())); sim.cars = []; sim.endingSeconds = 1; sim.cash = 500;
   sim.hurt(500, 'police');
   advance(sim, .1);
-  assert.equal(sim.ending.kind, 'wasted'); assert.equal(sim.health, 0); assert.equal(sim.cash, 500, 'the bill comes after');
+  assert.equal(sim.ending.kind, 'wasted'); assert.equal(sim.health, 0); assert.equal(sim.cash, 0); assert.match(sim.ending.line, /Lost \$500 in cash/);
   const at = { x: sim.player.x, z: sim.player.z };
   advance(sim, .5, { moveX: 1, moveZ: 1, run: true });
   assert.ok(Math.hypot(sim.player.x - at.x, sim.player.z - at.z) < .2, 'nobody is at the controls');
   assert.equal(sim.fight(), false); assert.equal(sim.interact(), false);
   advance(sim, .6);
-  assert.equal(sim.ending, null); assert.equal(sim.health, 100); assert.equal(sim.cash, 460);
+  assert.equal(sim.ending, null); assert.equal(sim.health, 100); assert.equal(sim.cash, 0);
   // Arrested.
+  sim.cash = 127.45;
   sim.heat = 1; sim.police.report(); sim.police.arrest = .99;
   sim.police.officers.push({ id: 'o', carId: null, x: sim.player.x + 1, z: sim.player.z, y: 0, angle: 0, speed: 0, health: 100, phase: 0, stride: 0, fire: 9, sees: true, aiming: false, returning: false, goal: null, side: 1, dodge: 0 });
   advance(sim, .2);
-  assert.equal(sim.ending?.kind, 'busted'); assert.equal(sim.cash, 460);
+  assert.equal(sim.ending?.kind, 'busted'); assert.equal(sim.cash, 0); assert.match(sim.ending.line, /seized \$127.45 in cash/);
   advance(sim, 1.1);
-  assert.equal(sim.ending, null); assert.equal(sim.heat, 0); assert.equal(sim.cash, 380);
+  assert.equal(sim.ending, null); assert.equal(sim.heat, 0); assert.equal(sim.cash, 0);
 });
 
 test('a car driven into is dented and shoved off its line, and its driver goes on after a while', () => {

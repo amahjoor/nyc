@@ -272,11 +272,13 @@ export class Simulation {
     }
   }
 
-  constructor(city, { onRecovery, onTripPaid, onVehicleContact, onPedestrianBump } = {}) {
+  constructor(city, { bank, bankClock, onRecovery, onEndingLoss, onTripPaid, onVehicleContact, onPedestrianBump } = {}) {
     this.city = city;
     this.onVehicleContact = onVehicleContact;
     this.onPedestrianBump = onPedestrianBump;
     this.onRecovery = onRecovery;
+    this.bank=bank;this.bankClock=bankClock;
+    this.onEndingLoss = onEndingLoss;
     this.onTripPaid = onTripPaid;
     this.moveEvents=[];
     this.bystanders = [];
@@ -1860,11 +1862,8 @@ export class Simulation {
     if (this.health <= 0 && !this.ending) {
       const cause = this._downed || 'wreck';
       const reason = { fire: 'Caught in a vehicle fire.', fight: 'You got knocked out.', police: 'Shot by the police.', fall: 'That fall put you down.', traffic: 'You were run down.' };
-      this.end('wasted', cause === 'wreck' ? 'Your car was wrecked.' : reason[cause] || 'You were injured.', () => {
-        const charge = Math.min(this.cash, cause === 'wreck' ? 75 : 40);
-        this.cash -= charge;
-        this.recoverAt('hospital', cause === 'wreck' ? `Your car was wrecked. Repairs cost $${charge}.` : `${reason[cause] || 'You were injured.'} Hospital bill $${charge}.`);
-      });
+      const line = cause === 'wreck' ? 'Your car was wrecked.' : reason[cause] || 'You were injured.';
+      this.end('wasted', line, loss => this.recoverAt('hospital', line + ' ' + loss));
     }
   }
 
@@ -1876,8 +1875,14 @@ export class Simulation {
    */
   end(kind, line, finish) {
     if (this.ending) return;
-    if (!(this.endingSeconds > 0)) { finish(); return; }
-    this.ending = { kind, line, t: 0, T: this.endingSeconds, finish };
+    const carried = this.cash;
+    this.cash = 0;
+    // Settle once, before the cinematic or the asynchronous journey to the facility.
+    const feeCents = this.onEndingLoss?.(kind, carried) ?? 0;
+    let loss = carried > 0 ? (kind === 'busted' ? 'Police seized ' : 'Lost ') + formatMoney(carried) + ' in cash.' : 'Wallet was empty.';
+    if (feeCents) loss += ' Paid a ' + formatMoney(feeCents / 100) + ' fee from checking.';
+    if (!(this.endingSeconds > 0)) { finish(loss); return; }
+    this.ending = { kind, line:line + ' ' + loss, t:0, T:this.endingSeconds, finish:() => finish(loss) };
     if (this.player.move) { this.player.move = null; this.player.lift = 0; }
   }
 

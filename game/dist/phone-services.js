@@ -51,6 +51,18 @@ export class PhoneBank {
     this.entries.unshift({name, amount, clock, account});
     this.entries.length = Math.min(this.entries.length, 16);
   }
+  recordEndingLoss(kind, carried, clock) {
+    // Account for any wallet activity since the last save before recording its loss.
+    this.sync(carried, clock);
+    const arrested = kind === 'busted';
+    this.sync(0, clock, arrested ? 'Cash seized on arrest' : 'Cash lost on death');
+    const fee = Math.min(2500, Math.round(this.checking / 100));
+    if (fee > 0) {
+      this.checking -= fee;
+      this.addEntry(arrested ? 'Booking fee' : 'Hospital fee', -fee, clock);
+    }
+    return fee;
+  }
   trade(sim, symbol, side, raw, quoted, clock, now=Date.now()) {
     const company=listingBySymbol.get(symbol);
     const shares=Number(raw);
