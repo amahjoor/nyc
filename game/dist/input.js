@@ -39,6 +39,13 @@ export class Input {
       if (browserModifier(e)) return;
       const interfaceHandled = handleInterfaceKey(e);
       if (textEntry(e)) return;
+      // Escape or a controller can close a menu without giving the browser
+      // a capture gesture. A fresh movement key can finish that resume.
+      if(this.resumeOnMovement && !e.repeat && !interfaceHandled && this.context()!=='menu' &&
+          ['KeyW','KeyA','KeyS','KeyD'].includes(e.code)){
+        this.resumeOnMovement=false;
+        if(!document.pointerLockElement)this.requestLook();
+      }
       if (!interfaceHandled && e.code==='Tab' && this.context()==='walk') {
         if (!e.repeat && action('weaponOpen')!==false) { this.keyWheel=true;e.preventDefault(); }
         else if (this.keyWheel) e.preventDefault();
@@ -143,8 +150,10 @@ export class Input {
       // A click punches. A drag is the camera, and it should not swing.
       if (!this._pointerLookEnabled || !press || (e.button??0)!==0 || browserModifier(e)) return;
       if (Math.hypot(e.clientX - press.x, e.clientY - press.y) < 7) {
-        if(e.pointerType==='mouse' && this.context()!=='menu') canvas.requestPointerLock?.()?.catch?.(()=>{});
-        this.action('fight');
+        if(e.pointerType==='mouse' && this.context()!=='menu' && canvas.requestPointerLock){
+          // A click to capture (or retry a denied capture) only resumes mouse look.
+          this.requestLook();
+        }else this.action('fight');
       }
     });
     document.addEventListener('mousemove',e=>{
@@ -161,7 +170,12 @@ export class Input {
       this.captured=captured;
       this.releasingLook=false;
       this.cancelPointer();
-      if(releasedByUser && this.context()!=='menu')this.action('pause');
+      if(captured){
+        this.usedMouseLook=true;this.resumeOnMovement=false;
+        if(this.context()==='menu')this.releaseLook();
+      }else if(releasedByUser && this.context()!=='menu')this.action('pause');
+      else if(this.resumeAfterUnlock)this.resumeLook();
+      this.resumeAfterUnlock=false;
     });
     for (const event of ['pointercancel','lostpointercapture']) canvas.addEventListener(event, e => {
       if (e.pointerId===this.dragPointer) this.cancelPointer();
@@ -206,7 +220,21 @@ export class Input {
     this.lookVertical = 0;
     if (pointer!==null && this.canvas.hasPointerCapture?.(pointer)) this.canvas.releasePointerCapture(pointer);
   }
+  requestLook() {
+    this.canvas.requestPointerLock?.()?.catch?.(()=>{});
+  }
+  resumeLook() {
+    if(!this.usedMouseLook)return;
+    // Closing the phone can open the map in the same click. Wait for the
+    // destination UI before requesting capture with this gesture.
+    queueMicrotask(()=>{
+      if(this.context()==='menu' || !this.pointerLookEnabled || document.hidden || document.hasFocus?.()===false)return;
+      if(this.releasingLook){this.resumeAfterUnlock=true;return;}
+      if(!document.pointerLockElement){this.resumeOnMovement=true;this.requestLook();}
+    });
+  }
   releaseLook() {
+    this.resumeOnMovement=false;
     if(document.pointerLockElement!==this.canvas || this.releasingLook)return;
     this.releasingLook=true;
     document.exitPointerLock?.();

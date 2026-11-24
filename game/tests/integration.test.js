@@ -2064,6 +2064,33 @@ test('Prospect Lake arrival retains real building collisions while slower park d
   }finally{app.releaseLandscape();await app.until(()=>!app.state().traveling);app.close();}
 });
 
+test('putting away the phone and resuming from pause restore captured mouse look',async()=>{
+  const app=await bootHarness();
+  try{
+    const canvas=app.elements.get('world'),doc=app.document;
+    const lock=element=>{doc.pointerLockElement=element;doc.dispatch('pointerlockchange');};
+    canvas.requestPointerLock=()=>lock(canvas);
+    doc.exitPointerLock=()=>lock(null);
+    app.click('start-button');app.click('view-button');app.frames();
+    app.key('ArrowUp');app.click('phone-close');await Promise.resolve();
+    assert.ok(!doc.pointerLockElement,'drag-look players retain a free cursor');
+    lock(canvas);
+    app.key('ArrowUp');
+    assert.equal(doc.pointerLockElement,null);
+    app.click('phone-close');await Promise.resolve();
+    assert.equal(doc.pointerLockElement,canvas);
+    lock(null); // Browser Escape releases the lock and opens pause.
+    assert.equal(app.state().paused,true);
+    app.click('resume-button');await Promise.resolve();
+    assert.equal(doc.pointerLockElement,canvas);
+    assert.equal(app.state().paused,false);
+    app.key('KeyP');app.click('open-map-button');await Promise.resolve();
+    assert.equal(doc.pointerLockElement,null,'the map still owns the cursor');
+    app.click('game-map-close');await Promise.resolve();
+    assert.equal(doc.pointerLockElement,canvas);
+  }finally{app.close();}
+});
+
 test('slow street frames select Performance and the quality button can restore Balanced',async()=>{
   const app=await bootHarness();
   try{

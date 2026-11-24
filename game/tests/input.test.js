@@ -420,6 +420,32 @@ test('captured mouse movement turns the camera, and Escape returns control to th
   assert.deepEqual(actions,['fight','pause']);
 });
 
+test('a fresh movement key retries capture when unpausing without a browser gesture',async t=>{
+  const {input,target,actions,document}=movementInput(t);
+  document.pointerLockElement=target;target.emit('pointerlockchange');
+  document.exitPointerLock=()=>{document.pointerLockElement=null;target.emit('pointerlockchange');};
+  input.releaseLook();
+  let attempts=0;
+  target.requestPointerLock=()=>{if(++attempts===1)return Promise.reject(new Error('Gesture required'));
+    document.pointerLockElement=target;target.emit('pointerlockchange');};
+  input.resumeLook();await Promise.resolve();
+  target.emit('keydown',{code:'KeyW',target:{tagName:'CANVAS'}});
+  assert.equal(attempts,2);
+  assert.equal(document.pointerLockElement,target);
+  assert.deepEqual(actions,[]);
+});
+
+test('a mouse click to regain capture never punches, even when the browser denies the request', async t=>{
+  const {target,actions}=movementInput(t);
+  let attempts=0;
+  target.requestPointerLock=()=>{attempts++;return Promise.reject(new Error('Gesture required'));};
+  const mouse={pointerId:1,pointerType:'mouse',button:0,clientX:8,clientY:12};
+  target.emit('pointerdown',mouse);target.emit('mousedown',mouse);target.emit('pointerup',mouse);
+  await Promise.resolve();
+  assert.equal(attempts,1);
+  assert.deepEqual(actions,[]);
+});
+
 test('bicycle controls pedal with A, sprint on repeated presses and brake with either trigger',t=>{
   const {input,pad,actions}=movementInput(t);
   input.context=()=>'bike';

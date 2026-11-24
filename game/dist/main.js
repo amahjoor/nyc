@@ -1148,7 +1148,7 @@ function togglePause(force) {
     $('pause-dialog').showModal();
     drawPausePreview();
   }
-  if(!paused&&$('pause-dialog').open){$('pause-dialog').close();closeCharacter();}
+  if(!paused&&$('pause-dialog').open){$('pause-dialog').close();closeCharacter();input.resumeLook();}
 }
 
 const PAUSE_TABS=['map','player','settings','controls','about'];
@@ -4023,12 +4023,13 @@ async function boot() {
   interaction=createInteraction({$,checking:()=>phoneBank.checking/100,onOpenChange:open=>{
     const handset=$('phone');
     if(open){
+      input.releaseLook();
       phoneControlBeforeMenu=handset.contains(document.activeElement)?document.activeElement:null;
     }else if(phone?.open){
       if(handset.contains(document.activeElement))return;
       if(phoneControlBeforeMenu && !phoneControlBeforeMenu.disabled && !phoneControlBeforeMenu.closest('[hidden]'))phoneControlBeforeMenu.focus();
       else phone.focus();
-    }else canvas.focus();
+    }else {canvas.focus();input.resumeLook();}
   }});
   work=new Work({sim,speak:(person,line,phones,signal)=>audio.reply(person,line,phones,signal),
     openTalk:(...args)=>{warmStreetModel();return interaction.openTalk(...args);},streetName:()=>$('street-name').textContent,
@@ -4132,7 +4133,7 @@ async function boot() {
       input.clear();
       document.body?.classList.toggle('atm-active',open);
       if(open){phone?.setOpen(false);atmTerminal.frame(camera,innerWidth,innerHeight);}
-      else canvas.focus();
+      else {canvas.focus();input.resumeLook();}
     },
   });
   phone=createPhone({$,streetMemory:key=>work.record.conversations.find(entry=>entry.key===key),canUse:()=>!atmTerminal.active && !sim.ending && !traveling,rides:cityRides,showTap:firstPersonActive,onTap:(x,y,instant)=>phoneHand.tap(x,y,instant),onSound:cue=>audio.interfaceCue(cue),roads:()=>sim.city.roads,destinations:()=>roadIndex.places.filter(place=>Math.hypot(place.x-sim.player.x,place.z-sim.player.z)>50),searchCity:findLocally,
@@ -4154,7 +4155,7 @@ async function boot() {
     onDirections:place=>{const name=place.name||describePlace(place,gfx.hours).name;requestDirections({x:place.x,z:place.z}).then(found=>announce(found?'Directions to '+name+'. Follow the highlighted streets.':'No way to '+name+' along mapped streets.'));},
     onTransport:()=>phone.openList('Travel to a boarding point',BOARDINGS.map(stop=>({stop,name:TRANSPORT[stop.type].name,note:stop.place+' · '+stop.borough})),row=>travel(transportDestination(row.stop)),{app:'maps'}),
     onWork:()=>work.board(),onDrive:()=>work.driving('driver','rides'),onMap:()=>action('map'),
-    onOpenChange:open=>{$('mission-panel').classList.toggle('behind-phone',open);if(!open){if(interaction?.open)interaction.focus();else canvas.focus();}}});
+    onOpenChange:open=>{$('mission-panel').classList.toggle('behind-phone',open);if(open)input.releaseLook();else if(interaction?.open)interaction.focus();else {canvas.focus();input.resumeLook();}}});
   loadData('street-life.json').then(data=>{cityLife=createCityLife(data);props.setData(data);sim.setActiveCity({signalHints});}).catch(()=>{});
   world=createCityStream(cityIndex,{scene,onCollisionChange:applyBuildings,onStatus:updateStreaming,heightAt:terrainHeight,store:createTileStore()});
   ground=createCityGround({scene,renderer,stairOpenings,onStatus:status=>{if(status.failures)$('imagery-status').textContent='Some aerial tiles are unavailable. NYC imagery will retry as you explore; surveyed geometry loads separately.';}});
@@ -4217,7 +4218,7 @@ async function boot() {
   };
   gameMap=new GameMap({city,loadTransit:loadTransitNetwork,getPresets:cityPresets,searchLocal:findLocally,onPlacesWanted:loadPlaceNames,onPin:requestDirections,onCue:cue=>audio.interfaceCue(cue),onZoom:inward=>audio.sceneCue(inward?'zoomIn':'zoomOut',.42),
     onSpawn:pin=>travel({...pin,exact:true}),
-    onOpenChange:open=>{if(open)interaction?.close();mapOpen=open;input.clear();input.lookDelta=0;input.lookVertical=0;if(!open)canvas.focus();markDoors();}});
+    onOpenChange:open=>{if(open)interaction?.close();mapOpen=open;input.clear();input.lookDelta=0;input.lookVertical=0;if(!open){canvas.focus();input.resumeLook();}markDoors();}});
   hud.attachMap(gameMap);
   afterCityUp.then(()=>loadData('bike-lanes.json')).then(async data=>{
     const lanes=await indexBikeLanes(data);
