@@ -46,6 +46,14 @@ export class Input {
         this.resumeOnMovement=false;
         if(!document.pointerLockElement)this.requestLook();
       }
+      if (!interfaceHandled && e.code==='KeyT' && this.context()==='walk' && weaponControls()) {
+        e.preventDefault();
+        if (!e.repeat) {
+          this.aimToggled=!this.aimToggled;
+          if (this.aimToggled && !document.pointerLockElement) this.requestLook();
+        }
+        return;
+      }
       if (!interfaceHandled && e.code==='Tab' && this.context()==='walk') {
         if (!e.repeat && action('weaponOpen')!==false) { this.keyWheel=true;e.preventDefault(); }
         else if (this.keyWheel) e.preventDefault();
@@ -150,7 +158,8 @@ export class Input {
       // A click punches. A drag is the camera, and it should not swing.
       if (!this._pointerLookEnabled || !press || (e.button??0)!==0 || browserModifier(e)) return;
       if (Math.hypot(e.clientX - press.x, e.clientY - press.y) < 7) {
-        if(e.pointerType==='mouse' && this.context()!=='menu' && canvas.requestPointerLock){
+        if(this.aimToggled && weaponControls())this.action('fire');
+        else if(e.pointerType==='mouse' && this.context()!=='menu' && canvas.requestPointerLock){
           // A click to capture (or retry a denied capture) only resumes mouse look.
           this.requestLook();
         }else this.action('fight');
@@ -198,7 +207,7 @@ export class Input {
   }
   get lookingBack() { return this.keys.has('KeyC') || this.padLookBack; }
   get focusing() { return Boolean(this.mouseAim || this.padAim); }
-  get aiming() { return this.weaponControls() && Boolean(this.mouseAim || this.padAim || this.touch.has('aim')); }
+  get aiming() { return this.weaponControls() && Boolean(this.mouseAim || this.padAim || this.aimToggled); }
   get dragging() { return this.dragPointer!==null; }
   get pointerLookEnabled() { return this._pointerLookEnabled; }
   set pointerLookEnabled(enabled) {
@@ -270,7 +279,7 @@ export class Input {
     this.keyWheel=this.padWheel=false;this.viewPress=null;this.padLookBack=false;
     this.stick={};this.nextTrick=null;this.spaceDown=null;this.spaceTrick=false;this.finger=null;this.skating=false;
     this.jogging=false;this.shiftDown=null;this.padPace=this.tapWindow=this.sprintWindow=0;this.padAim=false;
-    this.keys.clear();this.touch.clear();
+    this.keys.clear();this.touch.clear();this.aimToggled=false;
     for (const button of this.controlButtons) button.classList.remove('pressed');
   }
   sample(cameraYaw, dt, onFoot = true, skating = false, activity = null) {

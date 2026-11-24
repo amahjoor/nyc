@@ -317,6 +317,24 @@ test('aim and fire use independent mouse buttons and controller trigger edges',t
   assert.deepEqual(actions,['fire','fire','reload']);
 });
 
+test('T toggles pistol aim and a single primary click fires without holding a second button',t=>{
+  let armed=true;
+  const {input,target,actions,document}=movementInput(t,undefined,()=>armed);
+  const key=(extra={})=>target.emit('keydown',{code:'KeyT',target:{tagName:'CANVAS'},...extra});
+  key();key({repeat:true});
+  assert.equal(input.aiming,true);
+  const click={pointerType:'mouse',pointerId:1,clientX:10,clientY:10,button:0};
+  for(const captured of [false,true]){
+    document.pointerLockElement=captured?target:null;
+    for(const event of ['pointerdown','mousedown','pointerup'])target.emit(event,click);
+  }
+  assert.deepEqual(actions,['fire','fire']);
+  key();assert.equal(input.aiming,false);
+  key({target:{tagName:'INPUT'}});assert.equal(input.aiming,false);
+  armed=false;key();armed=true;assert.equal(input.aiming,false);
+  key();input.clear();assert.equal(input.aiming,false);
+});
+
 test('play surface consumes held keys and repeats while leaving native editing and shortcuts available',t=>{
   const {input,target,actions}=movementInput(t);
   function press(code,key,tagName,options={}){

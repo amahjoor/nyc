@@ -1412,7 +1412,7 @@ touchHorn.addEventListener('click',event=>{if(!event.detail)action('horn');});
 $('touch-equip').addEventListener('click',()=>action('draw'));
 $('touch-aim').addEventListener('click',()=>{
   if(!weaponControls())return;
-  if(input.touch.has('aim'))input.touch.delete('aim');else input.touch.add('aim');
+  input.aimToggled=!input.aimToggled;
 });
 $('touch-fire').addEventListener('click',()=>action('fire'));
 $('touch-reload').addEventListener('click',()=>action('reload'));
@@ -1703,7 +1703,7 @@ function updateWeaponHUD(){
   const aiming=focusedAim();
   const eyeView=firstPersonActive(), restrained=eyeView && sim.police?.arrest>.2;
   const controls=weaponControls() && !restrained, ready=controls;
-  if(!ready)input.touch.delete('aim');
+  if(!ready)input.aimToggled=false;
   const p=sim.player, reloading=p.reloading>0, raised=gunRaised();
   $('aim-dot').hidden=!ready || reloading || eyeView && !raised;
   $('aim-dot').classList.toggle('focused',aiming);
