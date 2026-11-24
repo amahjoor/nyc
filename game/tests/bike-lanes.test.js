@@ -101,3 +101,22 @@ test('a rider bicycle blocks the walker, transfers once, and keeps its frame whe
   assert.ok(sim.interact());assert.equal(p.mode,'walk');assert.ok(sim.interact());assert.equal(p.mode,'bike');
   assert.equal(displaced.length,1);
 });
+
+test('a cyclist rings for a lingering walker in the lane and gives them time to move',async()=>{
+  const {createBikeTraffic}=await import('../dist/bike-traffic.js');
+  const {seeded}=await import('../dist/crowd.js');
+  const index=await indexBikeLanes({lines:[['protected',13,0,0,0,2000]],links:[[0,1,0,0]]});
+  const bells=[],focus={x:25,z:80},ctx={visible:true};
+  const traffic=createBikeTraffic({index,heightAt:()=>0,capacity:1,random:seeded(7),
+    appearance:()=>({}),onBell:r=>bells.push(r.id)});
+  traffic.update(focus,0,ctx);
+  const r=traffic.riders[0];
+  const advance=n=>{for(let i=0;i<n;i++)traffic.update(focus,.1,ctx);};
+  Object.assign(r,{d:45,x:0,z:45,heading:0,speed:2});
+  ctx.player={x:0,z:49,y:7,mode:'walk'};advance(20);
+  assert.deepEqual(bells,[]);
+  ctx.player={x:0,z:r.z+3,y:0,mode:'walk'};advance(6);
+  assert.deepEqual(bells,[]);
+  advance(35);assert.deepEqual(bells,[r.id]);
+  ctx.player.x+=4;advance(90);assert.deepEqual(bells,[r.id]);
+});

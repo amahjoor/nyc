@@ -116,13 +116,14 @@ function findWalk(walks, focus, forward) {
   return choice;
 }
 
-export function createCityBirds({scene, heightAt, openWater, onTakeoff}) {
+export function createCityBirds({scene, heightAt, openWater, onTakeoff, onCall}) {
   const group = new THREE.Group();
   group.name = 'City birds'; group.visible = false; scene.add(group);
   const material = new THREE.MeshStandardMaterial({vertexColors:true, roughness:.86, side:THREE.DoubleSide});
   const pigeons = createFlock(group, false, 5, material), gulls = createFlock(group, true, 3, material);
   let time = 0, nextSearch = 0, source = null, walk = null, shore = null;
   let from = 0, to = 0, flightStart = -Infinity, duration = 1;
+  let nextCoo = 3, nextGull = 7;
   let searchX = Infinity, searchZ = Infinity;
 
   return {
@@ -174,7 +175,12 @@ export function createCityBirds({scene, heightAt, openWater, onTakeoff}) {
           const offset = Math.min(walk.depth ?? 1.2, .64 + .48 * ((i*3)%5)/4);
           const x = at.x - offset*at.nx, z = at.z - offset*at.nz;
           const yaw = Math.atan2(at.tx,at.tz) + (to<from ? Math.PI : 0) + (1-flight)*1.5*Math.sin(phase*.4);
-          pigeons.pose(i,x,heightAt(x,z)+.1+arc*(2.6+.18*i),z,yaw,0,flight,
+          const y = heightAt(x,z)+.1+arc*(2.6+.18*i);
+          if (i === 2 && dt > 0 && time >= nextCoo && time > flightStart + duration + 1.5) {
+            onCall?.('pigeon', {x,y,z});
+            nextCoo = time + 9 + Math.random()*17;
+          }
+          pigeons.pose(i,x,y,z,yaw,0,flight,
             .94*Math.sin(phase+time*23), (1-flight)*Math.pow(Math.max(0,Math.sin(phase*2)),4));
         }
         pigeons.flush();
@@ -184,7 +190,12 @@ export function createCityBirds({scene, heightAt, openWater, onTakeoff}) {
         for (let i = 0; i < gulls.count; i++) {
           const a = time*(.23+.013*i) + i*2.24, rx = 14+1.5*i, rz = 9+i;
           const beating = Math.max(0,Math.sin(time*.7+i));
-          gulls.pose(i, shore.x+rx*Math.cos(a), 9+i*2+.9*Math.sin(a*2), shore.z+rz*Math.sin(a),
+          const x = shore.x+rx*Math.cos(a), y = 9+i*2+.9*Math.sin(a*2), z = shore.z+rz*Math.sin(a);
+          if (i === 1 && dt > 0 && time >= nextGull) {
+            onCall?.('gull', {x,y,z});
+            nextGull = time + 15 + Math.random()*22;
+          }
+          gulls.pose(i,x,y,z,
             Math.atan2(-rx*Math.sin(a),rz*Math.cos(a)), -.22,1,.1+beating*.64*Math.sin(time*8+i),0);
         }
         gulls.flush();

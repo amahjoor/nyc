@@ -33,3 +33,17 @@ test('pigeons flush and settle along the loaded sidewalk, gulls stay by water', 
   birds.update(.1, {...frame, visible:false}); assert.equal(birds.group.visible, false);
   birds.dispose(); assert.equal(scene.children.length, 0);
 });
+
+test('stationary listeners hear grounded pigeons and offshore gulls at their own positions', () => {
+  const calls=[];
+  const birds=createCityBirds({scene:new THREE.Scene(),heightAt:()=>2,openWater:x=>x>200,
+    onCall:(family,at)=>calls.push({family,at})});
+  const walk={points:[[0,0],[0,80]],lengths:[0,80],normals:[[1,0]],length:80,depth:1};
+  const frame={focus:{x:-1,y:2,z:22},forward:{x:0,z:1},walks:[walk],visible:true};
+  birds.update(4,frame);
+  assert.deepEqual(calls.map(c=>c.family),['pigeon']);assert.ok(calls[0].at.z>30);
+  birds.update(35,{...frame,visible:false});birds.update(0,frame);assert.equal(calls.length,1);
+  birds.update(8,{...frame,walks:[],focus:{x:300,y:0,z:22}});
+  assert.equal(calls.at(-1).family,'gull');assert.ok(calls.at(-1).at.y>8);
+  birds.dispose();
+});

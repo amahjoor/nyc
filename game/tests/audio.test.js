@@ -401,3 +401,17 @@ test('new speakers switch from a packed hello to their own model voice and disca
   await tick();
   assert.equal(world.voice.name, 'line14-' + world.speakerFor(actor).fallback);
 });
+
+test('street recordings follow a turning listener and a traffic bell leaves the player bell available', async t => {
+  const audio=useAudio(t);await audio.setEnabled(true);
+  const {world,ctx}=audio, player={x:0,y:0,z:0,mode:'bike',speed:0};
+  const sim={player,cars:[]};
+  world.bells={buffer:{},regions:{'bikeBell.street.0':[0,1.6],'bikeBell.street.1':[2,1.3]}};
+  world.update(sim,0,true);
+  const rider={id:1,x:4,y:0,z:0};
+  await audio.bikeBell(rider);await audio.bikeBell(player,true);await audio.bikeBell(player,true);
+  assert.deepEqual(ctx.clips.filter(c=>c.buffer===world.bells.buffer).map(c=>c.offset),[2,0]);
+  const [{voice}]=world.streetTails.values();assert.ok(voice.pan.pan.value<0);
+  ctx.currentTime=.15;world.update(sim,.15,true,{yaw:Math.PI});assert.ok(voice.pan.pan.value>0);
+  world.update(sim,.2,false);assert.equal(world.streetTails.size,0);
+});

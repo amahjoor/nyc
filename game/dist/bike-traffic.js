@@ -75,11 +75,14 @@ function intersectionLimit(r,context,dt) {
 
 function riderLimit(r,context,riders,dx,dz) {
   let limit=Infinity;
-  function yieldTo(other,width,spacing){
+  let pedestrianLimit=Infinity;
+  function yieldTo(other,width,spacing,pedestrian=false){
     if(!other || other===r || Math.abs(r.y-(other.y??0))>1.8)return;
     const x=other.x-r.x,z=other.z-r.z,along=x*dx+z*dz;
     if(along<=0 || along>18 || Math.abs(x*dz-z*dx)>width)return;
-    limit=Math.min(limit,Math.max(0,along-spacing)*1.15);
+    const target=Math.max(0,along-spacing)*1.15;
+    limit=Math.min(limit,target);
+    if(pedestrian)pedestrianLimit=Math.min(pedestrianLimit,target);
   }
   for(const other of riders)yieldTo(other,.86,2.35);
   for(const car of context.cars||[]){
@@ -92,8 +95,9 @@ function riderLimit(r,context,riders,dx,dz) {
     const t=-cross/lateral,at=gap+t*(vx*dx+vz*dz);
     if(t>0 && t<2.2 && at>0 && Math.abs(at-r.speed*t)<3.8)limit=Math.min(limit,Math.max(0,at-3.4)*.62);
   }
-  for(const person of context.people||[])yieldTo(person,.83,1.4);
-  yieldTo(context.player,.88,1.6);
+  for(const person of context.people||[])yieldTo(person,.83,1.4,!person.gone && !person.cycling);
+  yieldTo(context.player,.88,1.6,!context.player?.mode || context.player.mode==='walk');
+  r.waitingForWalker=pedestrianLimit<r.cruise && pedestrianLimit<=limit;
   return limit;
 }
 
@@ -109,7 +113,7 @@ function nearestAlong(lane,focus) {
   return d;
 }
 
-export function createBikeTraffic({scene,index,heightAt,appearance,onDisplaced,onCrash,capacity=14,random=Math.random}) {
+export function createBikeTraffic({scene,index,heightAt,appearance,onDisplaced,onCrash,onBell,capacity=14,random=Math.random}) {
   const riders=[],bicycles=[],figures=[],matrix=new THREE.Object3D(),meshes=[];
   const parts=createBikeParts(scene,capacity);
   const paint=new THREE.MeshStandardMaterial({vertexColors:true,roughness:.55,metalness:.26});
@@ -186,8 +190,15 @@ export function createBikeTraffic({scene,index,heightAt,appearance,onDisplaced,o
       r.obstructed=floor==null || Math.abs(floor-r.y)>2.5 || ctx.blocked?.(probe.x,probe.z,floor);
       r.surfaceCheck=.3;
     }
-    const desired=Math.min(r.obstructed?0:r.cruise,intersectionLimit(r,ctx,dt),riderLimit(r,ctx,riders,direction.dx,direction.dz),
+    const pathLimit=Math.min(r.obstructed?0:r.cruise,intersectionLimit(r,ctx,dt),
       r.next===null?Math.max(0,endDistance-.55)*1.5:Infinity);
+    const trafficLimit=riderLimit(r,ctx,riders,direction.dx,direction.dz);
+    const desired=Math.min(pathLimit,trafficLimit);
+    r.bellCooldown=Math.max(0,(r.bellCooldown||0)-dt);
+    r.blockedTime=r.waitingForWalker && trafficLimit<pathLimit ? (r.blockedTime||0)+dt : 0;
+    if(r.blockedTime>1+(r.id%4)*.15 && !r.bellCooldown){
+      onBell?.(r);r.bellCooldown=7+r.id%5;
+    }
     r.speed+=Math.max(-4.6*dt,Math.min(1.55*dt,desired-r.speed));
     let travel=r.speed*dt;
     for(let steps=0;travel>0 && steps<4;steps++){

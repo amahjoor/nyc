@@ -91,3 +91,19 @@ tatianafeudal — CC BY 3.0: https://freesound.org/s/542258/
 Patrol siren loops (sirens.flac), trimmed, crossfaded and level-matched:
 Stationary US police wail — conleec, CC0, https://freesound.org/s/159753/
 Whelen Yelp, recorded directly from the siren unit — Jefflix, CC0, https://freesound.org/s/157866/
+
+Street recordings and bicycle bells
+The accompanying street-sources.tsv lists each recording or pack selection, its creator, source, media URL and license. Clips were trimmed, mixed to mono and level-matched. The ambience edits have crossfaded loop seams. Original licenses apply to the edited recordings.
+
+Broadway approaching Times Square — Piotrek Zyla. Manhattan traffic by the New York Public Library — Carlo Patrao, CC BY 3.0. Late-night Bedford-Stuyvesant and wind in foliage — radio aporee contributors. Individual source and license links are in street-sources.tsv.
+https://archive.org/details/aporee_63737_73417
+https://archive.org/details/aporee_56098_64138
+https://archive.org/details/aporee_19153_22239
+https://archive.org/details/aporee_21474_24981
+
+Footsteps on different surfaces — edited by congusbongus, CC BY 3.0.
+Boots, grass and wood derive from swuing. Tile also uses ceberation. Metal derives from Eelke. Water uses EminYILDIRIM and swuing. Gravel uses Ali_6868’s CC0 Gravel Footsteps.
+https://opengameart.org/content/footsteps-on-different-surfaces
+https://freesound.org/s/38873/ · https://freesound.org/s/38874/ · https://freesound.org/s/38876/
+https://freesound.org/s/235524/ · https://freesound.org/s/462598/ · https://freesound.org/s/608663/ · https://freesound.org/people/Ali_6868/packs/21608/
+https://creativecommons.org/licenses/by/3.0/

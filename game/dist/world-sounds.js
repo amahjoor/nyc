@@ -17,6 +17,7 @@ export class WorldSounds {
     this.background = context.createGain();
     this.background.connect(output);
     this.transients = new Set();
+    this.streetTails = new Map();
     this.loops = new Map();
     this.cars = new WeakMap();
     this.sirens = new WeakMap();
@@ -48,29 +49,40 @@ export class WorldSounds {
     return { regions, buffer };
   }
   async load(detail = false) {
-    const key = detail ? 'loadingDetail' : 'loading';
-    if ((detail ? this.detailBuffer : this.buffer) || this[key]) return;
+    const street = detail === 'street';
+    const key = street ? 'loadingStreet' : detail ? 'loadingDetail' : 'loading';
+    if ((street ? this.streetBank : detail ? this.detailBuffer : this.buffer) || this[key]) return;
     this[key] = true;
     try {
-      const { regions, buffer } = await this.readBank(
-        detail ? 'detail.json' : 'regions.json',
-        detail ? 'detail.flac' : 'world.flac',
-      );
+      const file = street ? 'street' : detail ? 'detail' : 'world';
+      const bank = await this.readBank(detail ? file + '.json' : 'regions.json', file + (street ? '.mp3' : '.flac'));
       if (detail) {
-        for (const name of Object.keys(regions)) {
+        for (const name of Object.keys(bank.regions)) {
           const family = name.split('.')[0];
           if (!this.variants.has(family)) this.variants.set(family, []);
           this.variants.get(family).push(name);
         }
-        this.detailRegions = regions;
-        this.detailBuffer = buffer;
+      }
+      if (street) this.streetBank = bank;
+      else if (detail) {
+        this.detailRegions = bank.regions;
+        this.detailBuffer = bank.buffer;
       } else {
-        this.regions = regions;
-        this.buffer = buffer;
+        this.regions = bank.regions;
+        this.buffer = bank.buffer;
       }
     } finally {
       this[key] = false;
     }
+  }
+  loadBells() {
+    if (!this.bellLoad) {
+      this.bellLoad = this.readBank('bells.json', 'bells.flac').then(bank => {
+        this.bells = bank;
+        return bank;
+      }).catch(error => { this.bellLoad = null; throw error; });
+    }
+    return this.bellLoad;
   }
   position(actor, range, exterior = false) {
     const p = this.listener;
@@ -86,6 +98,7 @@ export class WorldSounds {
     };
   }
   source(name, repeating, level, side, rate, cutoff, bank, phase, direction) {
+    if (!bank && this.streetBank?.regions[name]) bank = this.streetBank;
     const detail = this.detailRegions?.[name];
     const region = bank?.regions[name] || detail || this.regions?.[name];
     if (!region || level <= 0.0001) return;
@@ -112,6 +125,7 @@ export class WorldSounds {
     source.connect(filter).connect(gain);
     source.onended = () => {
       this.transients.delete(source);
+      this.streetTails.delete(source);
       source.disconnect();
       filter.disconnect();
       gain.disconnect();
@@ -129,12 +143,16 @@ export class WorldSounds {
       this.transients.add(source);
       source.start(c.currentTime, start, length);
     }
-    return { source, filter, gain, pan, spatial, name };
+    return { source, filter, gain, pan, spatial, name, length };
   }
   play(name, actor, volume, range, rate = 1, exterior = false, bank) {
     if (!this.playing) return;
     const at = this.position(actor, range, exterior);
-    return this.source(name, false, volume * at.gain, at.pan, rate, at.cutoff, bank);
+    const voice = this.source(name, false, volume * at.gain, at.pan, rate, at.cutoff, bank);
+    if (exterior && actor && voice?.length > .55) {
+      this.streetTails.set(voice.source, {voice, actor, volume, range});
+    }
+    return voice;
   }
   variation(family, fallback) {
     const clips = this.variants.get(family);
@@ -406,9 +424,9 @@ export class WorldSounds {
     const board = this.playing && p.mode === 'skate' ? p.board : null;
     if (board && this.board === board) {
       if (this.boardGround && !p.grounded && board.trick)
-        this.play('deckPop', p, 0.53, 12, 1.08 + Math.random() * 0.1);
+        this.play(this.variation('deckPop','deckPop'), p, 0.53, 12, 1.08 + Math.random() * 0.1);
       if (!this.boardGround && p.grounded && !board.grind)
-        this.play('deckLand', p, limit(0.26 - this.boardVy * 0.07, 0.3, 0.85), 12, 0.95 + Math.random() * 0.1);
+        this.play(this.variation('deckLand','deckLand'), p, limit(0.26 - this.boardVy * 0.07, 0.3, 0.85), 12, 0.95 + Math.random() * 0.1);
     }
     this.board = board;
     this.boardGround = p.grounded || Boolean(board?.grind);
@@ -431,6 +449,58 @@ export class WorldSounds {
         limit(0.56 + speed * 0.1, 0.6, 1.65),
       );
     }
+  }
+  streetLife(sim, {hours, daylight, altitude}) {
+    const p = sim.player, now = this.c.currentTime;
+    // The contact map contains only currently loaded street trees, park trunks and scaffold posts.
+    if (!(now < this.nextStreetScan)) {
+      this.nextStreetScan = now + 1;
+      this.canopy = this.scaffold = null;
+      let treeRange = 36, workRange = 48;
+      for (const [group, bodies] of sim.streetObjects?.groups || []) {
+        const shed = group === 'shedPost';
+        if (!shed && group !== 'tree' && !group.startsWith('park-trees')) continue;
+        for (const body of bodies) {
+          if (body.pose) continue;
+          const d = distance(body, p);
+          if (shed && d < workRange) {
+            workRange = d;
+            this.scaffold = {x:body.x, y:body.y + body.height, z:body.z};
+          } else if (!shed && d < treeRange) {
+            treeRange = d;
+            this.canopy = {x:body.x, y:body.y + Math.min(7,body.height || 4), z:body.z};
+          }
+        }
+      }
+    }
+    if (this.streetBank && this.scaffold && hours >= 8 && hours < 17 && !(now < this.nextWork)) {
+      this.effect('worksite', this.scaffold, .39, 54, true);
+      this.nextWork = now + 12 + Math.random() * 21;
+    }
+    if (this.canopy) {
+      this.loop('leaves', 'leaves.street.0', this.canopy, .18, 36, 1, true);
+      if (this.streetBank && daylight && !(now < this.nextSparrow)) {
+        this.effect('sparrow', this.canopy, .33, 37, true);
+        this.nextSparrow = now + 10 + Math.random() * 19;
+      }
+    }
+    const street = Math.max(0, 1 - Math.max(0, altitude - 3) / 40);
+    const plaza = limit(1 - Math.hypot(p.x - 1305, p.z + 3764) / 245, 0, 1);
+    const traffic = this.trafficLevel || 0;
+    const late = hours < 5 || hours >= 23;
+    const at = {gain:this.streetLevel * street, cutoff:Math.min(5500,this.streetCutoff), pan:0};
+    this.mixLoop('plazaBed', 'plaza.street.0', at, plaza * (late ? .10 : .28), 1);
+    const cityLevel = (1 - plaza) * (late ? .07 + .10*traffic : .23*traffic);
+    this.mixLoop('streetBed', late ? 'nightStreet.street.0' : 'avenue.street.0', at, cityLevel, 1);
+    // A passing rider carries the sound with them, even when the listener is still.
+    let closest = null, near = 22;
+    for (const r of sim.bikeTraffic?.riders || []) {
+      if (r.abandoned || r.crash || r.speed < .65) continue;
+      const d = distance(r,p);
+      if (d < near) { closest = r; near = d; }
+    }
+    if (closest) this.loop('passingBike', 'bikeHub', closest, .24 * Math.min(1,closest.speed / 4),
+      22, limit(.66 + closest.speed * .09,.72,1.55), true);
   }
   pedestrianSteps(people, now) {
     // A few individual pairs of feet can be distinguished over the crowd bed.
@@ -601,8 +671,11 @@ export class WorldSounds {
       const observed = this.cars.get(car);
       const old = observed && this.c.currentTime - observed.seen < 0.45 ? observed : null,
         open = (car.doorOpen || 0) > 0.035;
-      if (old && old.open !== open && !car.destroyed)
-        this.play(open ? 'unlatch' : 'latch', car, 0.85, 38, 1, car.id !== p.vehicleId);
+      if (old && old.open !== open && !car.destroyed) {
+        const outside = car.id !== p.vehicleId;
+        const door = open ? 'unlatch' : 'latch';
+        this.play(outside ? door : this.variation(open ? 'cabDoorOpen' : 'cabDoorClose', door), car, .85, 38, 1, outside);
+      }
       const driving = Boolean(car.controlled || (p.vehicleId != null && car.id === p.vehicleId));
       const electric = car.identity?.performance?.fuel === 'E';
       const gear = Math.min(6, Math.floor(speed / 8));
@@ -727,7 +800,7 @@ export class WorldSounds {
         this.loop(actor, 'sizzle', actor, 0.55 * level, 15);
     }
   }
-  update(sim, time, playing, { yaw = 0, pitch = 0, people = [], throttle = 0, pedaling = false, footing, stepCount } = {}) {
+  update(sim, time, playing, { yaw = 0, pitch = 0, people = [], throttle = 0, pedaling = false, footing, stepCount, hours = 12, daylight = true, altitude = 0 } = {}) {
     this.listener = sim.player;
     this.yaw = yaw;
     this.pitch = pitch;
@@ -781,10 +854,17 @@ export class WorldSounds {
       this.lastDuck = duck;
     }
     if (playing) {
+      for (const {voice,actor,volume,range} of this.streetTails.values()) {
+        const at = this.position(actor, range, true);
+        voice.pan?.pan.setTargetAtTime(at.pan, this.c.currentTime, .07);
+        voice.filter.frequency.setTargetAtTime(at.cutoff, this.c.currentTime, .09);
+        voice.gain.gain.setTargetAtTime(volume * at.gain, this.c.currentTime, .08);
+      }
       const water = p.water || sim.transport?.active?.spec.kind === 'boat' ? 1 : this.shoreLevel;
       if (!enclosed && water > 0) this.loop('shore', 'shore', null, 0.34 * water, 1);
       const journey = sim.subway?.journey;
       if (journey?.aboard && journey.phase === 'running') this.loop('train', 'subway', null, 0.48, 1);
+      if (!enclosed && !underwater) this.streetLife(sim, {hours, daylight, altitude});
       this.streetVoices(sim, people, enclosed);
       if (!enclosed) this.pedestrianSteps(people, this.c.currentTime);
       this.wheels(p, pedaling);
@@ -801,6 +881,7 @@ export class WorldSounds {
         this.doorView = null;
         for (const source of this.transients) source.stop();
         this.transients.clear();
+        this.streetTails.clear();
       }
       this.voice = null;
     }

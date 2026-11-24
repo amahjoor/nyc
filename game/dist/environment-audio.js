@@ -1,28 +1,5 @@
 const unit = value => Math.max(0, Math.min(1, value));
 
-// Several offset downstrokes, each with a soft rush and a short feather snap.
-export function renderWingbeats(context) {
-  const rate = 24000, duration = .82;
-  const buffer = context.createBuffer(1, Math.ceil(rate * duration), rate);
-  const samples = buffer.getChannelData(0);
-  let seed = 17309, air = 0, low = 0;
-  for (let i = 0; i < samples.length; i++) {
-    const t = i / rate;
-    seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0;
-    air += (seed / 2147483648 - 1 - air) * .46;
-    low += (air - low) * .085;
-    let pulse = 0;
-    for (const delay of WING_DELAYS) {
-      const age = t - delay;
-      if (age < 0 || age > .13) continue;
-      pulse += (1 - Math.exp(-age * 300)) * Math.exp(-age * 35);
-    }
-    samples[i] = (air - low) * pulse * Math.min(1, (duration - t) * 35);
-  }
-  return buffer;
-}
-const WING_DELAYS = [.004, .054, .136, .207, .263, .359, .423, .516, .592, .703];
-
 function whiteNoise(context) {
   const buffer = context.createBuffer(1, context.sampleRate * 3, context.sampleRate);
   const samples = buffer.getChannelData(0);

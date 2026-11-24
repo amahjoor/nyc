@@ -1,5 +1,5 @@
 import { WorldSounds } from './world-sounds.js';
-import { EnvironmentAudio, renderWingbeats } from './environment-audio.js';
+import { EnvironmentAudio } from './environment-audio.js';
 import { renderSceneCue } from './scene-audio.js';
 
 // A filtered noise strike gives the switch its snap. Two quickly damped
@@ -111,6 +111,8 @@ export class CityAudio {
       if (this.soundRequest !== request) return this.enabled;
       if (!this.master) this.init();
       this.enabled = true;
+      this.world.loadBells().catch(() => {});
+      this.world.synthesis.warm();
       this.master.gain.setTargetAtTime(.35, context.currentTime, .1);
       return true;
     } catch {
@@ -293,11 +295,13 @@ export class CityAudio {
     }
     if (police && police.shotsFired !== this.shotsHeard) { if (playing && this.shotsHeard !== undefined) this.gunshot(); this.shotsHeard = police.shotsFired; }
     this.environment.update(sim, time, playing, surroundings);
-    if (this.enabled && (!this.world.buffer || !this.world.detailBuffer) && now >= (this.retrySamples || 0)) {
+    if (this.enabled && (!this.world.buffer || !this.world.detailBuffer || !this.world.streetBank) && now >= (this.retrySamples || 0)) {
       this.retrySamples = now + 5;
       this.world.load().catch(() => {});
       this.world.load(true).catch(() => {});
+      this.world.load('street').catch(() => {});
     }
+    this.world.trafficLevel = this.environment.trafficLevel;
     this.world.shoreLevel = this.environment.waterLevel || 0;
     this.world.update(sim, time, playing, surroundings);
   }
@@ -314,13 +318,20 @@ export class CityAudio {
   horn(car) {
     if (this.enabled) this.world?.horn(car);
   }
-  wingbeats(at) {
+  async bikeBell(actor, player = false) {
     if (!this.enabled || !this.world?.playing) return;
-    if (!this.wingBank) {
-      const buffer = renderWingbeats(this.ctx);
-      this.wingBank = {buffer, regions:{wingbeats:[0, buffer.duration]}};
-    }
-    this.world.play('wingbeats', at, .65, 16, .95 + Math.random() * .1, true, this.wingBank);
+    const now = this.ctx.currentTime;
+    const key = player ? 'nextPlayerBell' : 'nextTrafficBell';
+    if (now < this[key] || (!player && this.world.position(actor,42,true).gain < .015)) return;
+    this[key] = now + (player ? .28 : 1.4);
+    const bank = this.world.bells || await this.world.loadBells().catch(() => null);
+    if (!bank || !this.enabled || !this.world.playing || this.ctx.currentTime - now > .7 || (player && actor.mode !== 'bike')) return;
+    const clips = Object.keys(bank.regions);
+    const clip = clips[(actor.id || 0) % clips.length] || clips[0];
+    this.world.play(clip, actor, player ? .72 : .8, 42, .985 + Math.random()*.03, !player, bank);
+  }
+  wingbeats(at) {
+    this.effect('wings', at, .58, 20, true);
   }
   bump(person, pace) {
     if (this.enabled) this.world?.bump(person, pace);

@@ -1538,7 +1538,7 @@ export class Simulation {
         }
         this.bike = {id:bike.id,x:bike.x,y:bike.y,z:bike.z,angle:bike.angle,personal:bike.personal};
         Object.assign(player, { mode: 'bike', x: bike.x, y: bike.y, z: bike.z, angle: bike.angle, speed: 0, velocityX: 0, velocityZ: 0, vy: 0, slide: 0, swing: 0, reaction:null, standing:null });
-        this._say('W pedal · A / D steer · S or Space brake · F get off');
+        this._say('W pedal · A / D steer · S or Space brake · E ring bell · F get off');
         return true;
       }
       if (!car) { this._say('Move closer to a taxi or parked car.'); return false; }

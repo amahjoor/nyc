@@ -1103,6 +1103,7 @@ function action(name,event) {
     const car=sim.vehicle;
     car.lampsOn=!(car.lampsOn ?? (gfx.state.lightsOn>.4));
   }
+  if(name==='horn' && sim.player.mode==='bike')audio.bikeBell(sim.player,true);
   if(name==='horn' && sim.player.mode==='drive' && !sim.vehicle?.destroyed)audio.horn(sim.vehicle);
 }
 function switchPerspective(){
@@ -4018,7 +4019,7 @@ async function boot() {
   sim.peopleReact=true;sim.endingSeconds=2;
   sim.transport=new TransportFleet(sim,{isLand:(x,z)=>water.isLand(x,z)&&!landscape?.waterAt(x,z),isNavigable:water.isNavigable,waterLevel:WATER_LEVEL});
   transportScene=createTransportScene(scene,sim.transport,createPerson);
-  cityBirds=createCityBirds({scene,heightAt:groundHeight,openWater:water.isNavigable,onTakeoff:at=>audio.wingbeats(at)});
+  cityBirds=createCityBirds({scene,heightAt:groundHeight,openWater:water.isNavigable,onTakeoff:at=>audio.wingbeats(at),onCall:(family,at)=>audio.effect(family,at,family==='gull'?.48:.4,family==='gull'?105:31,true)});
   streetLife=createStreetLife({scene,renderer,physics:sim.streetObjects,getLamps:()=>streetscape?.lamps()||noStreetFurniture,getTrees:()=>streetscape?.trees()||noStreetFurniture});
   parkedCars=createParkedCars({capacity:PARKED_LIMIT+8,library:vehicleMeshes});scene.add(parkedCars.group);
   distantTraffic=createDistantTraffic({library:vehicleMeshes});scene.add(distantTraffic.group);
@@ -4225,7 +4226,7 @@ async function boot() {
     };
     cycleRoutes=lanes;parkedAt=null;
     bikeLanes=createLaneMarkings(scene,lanes,laneHeight);
-    sim.bikeTraffic=bikeTraffic=createBikeTraffic({scene,index:lanes,heightAt:laneHeight,
+    sim.bikeTraffic=bikeTraffic=createBikeTraffic({scene,index:lanes,heightAt:laneHeight,onBell:r=>audio.bikeBell(r),
       onCrash:(r,car)=>{
         audio.vehicleContact('cyclist',car,r,Math.abs(car.speed));
         alarmStreet(r,14,.9);

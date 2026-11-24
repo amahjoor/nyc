@@ -93,7 +93,8 @@ export class HUD {
     $('touch-skate').hidden=Boolean(p.water || sim.subway || sim.room || sim.seat || sim.ending || !skating && p.mode!=='walk');
     $('touch-run').hidden=p.mode!=='walk' || Boolean(sim.seat || p.water);
     this.text('touch-skate',skating?'STEP OFF':'BOARD');
-    $('touch-horn').hidden=!driving || Boolean(sim.ending || sim.vehicle?.destroyed);
+    $('touch-horn').hidden=!(cycling || driving) || Boolean(sim.ending || driving && sim.vehicle?.destroyed);
+    this.text('touch-horn',cycling?'BELL':'HORN');
     this.text('touch-brake',skating?'POP / FLICK':p.mode==='walk'?'JUMP':'BRAKE');
     $('touch-climb').hidden=$('touch-descend').hidden=!flying&&!p.water;
     this.text('touch-climb',p.water?'SURFACE':'CLIMB');this.text('touch-descend',p.water?'DIVE':'DESCEND');
