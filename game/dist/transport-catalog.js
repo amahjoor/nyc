@@ -3,7 +3,7 @@
 import { airports } from './airport-data.js';
 
 export const TRANSPORT = {
-  helicopter: { name: 'Tour helicopter', kind: 'rotor', speed: 62, accel: 8, turn: 1.1, radius: 4.8, view: 17, eye: [1.9, 1.15], controls: 'Space climb · Shift descend · W / S move · A / D turn' },
+  helicopter: { name: 'Tour helicopter', kind: 'rotor', speed: 62, accel: 8, turn: 1.1, radius: 4.8, view: 17, eye: [1.9, 1.15], controls: 'W / S climb or descend · Numpad 8 / 5 move · A / D turn' },
   jet: { name: 'Passenger jet', kind: 'plane', speed: 135, accel: 8, lift: 41, turn: .38, radius: 13, view: 56, eye: [4.1, 11], controls: 'W throttle · Space climb above 80 kt · Shift descend · S brake' },
   turboprop: { name: 'Commuter plane', kind: 'plane', speed: 92, accel: 7, lift: 30, turn: .55, radius: 7.4, view: 32, eye: [2.6, 4.3], controls: 'W throttle · Space climb above 59 kt · Shift descend · S brake' },
   seaplane: { name: 'Floatplane', kind: 'plane', floats: true, speed: 70, accel: 5.8, lift: 22, turn: .68, radius: 4.6, view: 21, eye: [2.35, 1.4], controls: 'W throttle · Space climb above 43 kt · Shift descend onto water · S brake' },
