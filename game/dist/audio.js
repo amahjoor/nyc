@@ -1,3 +1,4 @@
+import { noteContact } from './street-reactions.js';
 import { WorldSounds } from './world-sounds.js';
 import { EnvironmentAudio } from './environment-audio.js';
 import { renderSceneCue } from './scene-audio.js';
@@ -100,6 +101,7 @@ export class CityAudio {
     const request = this.soundRequest = Symbol();
     if (!enabled) {
       this.enabled = false;
+      this.world?.releaseHorn();
       if (this.sceneVoice) this.sceneVoice.source.stop();
       this.sceneVoice = null;
       this.master?.gain.setTargetAtTime(0, this.ctx.currentTime, .045);
@@ -112,6 +114,7 @@ export class CityAudio {
       if (!this.master) this.init();
       this.enabled = true;
       this.world.loadBells().catch(() => {});
+      this.world.loadRideSounds().catch(() => {});
       this.world.synthesis.warm();
       this.master.gain.setTargetAtTime(.35, context.currentTime, .1);
       return true;
@@ -295,11 +298,12 @@ export class CityAudio {
     }
     if (police && police.shotsFired !== this.shotsHeard) { if (playing && this.shotsHeard !== undefined) this.gunshot(); this.shotsHeard = police.shotsFired; }
     this.environment.update(sim, time, playing, surroundings);
-    if (this.enabled && (!this.world.buffer || !this.world.detailBuffer || !this.world.streetBank) && now >= (this.retrySamples || 0)) {
+    if (this.enabled && (!this.world.buffer || !this.world.detailBuffer || !this.world.streetBank || !this.world.rideBank) && now >= (this.retrySamples || 0)) {
       this.retrySamples = now + 5;
       this.world.load().catch(() => {});
       this.world.load(true).catch(() => {});
       this.world.load('street').catch(() => {});
+      this.world.loadRideSounds().catch(() => {});
     }
     this.world.trafficLevel = this.environment.trafficLevel;
     this.world.shoreLevel = this.environment.waterLevel || 0;
@@ -315,8 +319,11 @@ export class CityAudio {
     crack.connect(gain); rumble.connect(gain); gain.connect(this.master);
     crack.start(now,0,.65); rumble.start(now); rumble.stop(now+.86);
   }
-  horn(car) {
-    if (this.enabled) this.world?.horn(car);
+  horn(car, gesture) {
+    if (this.enabled) this.world?.horn(car, gesture);
+  }
+  releaseHorn() {
+    this.world?.releaseHorn(true);
   }
   async bikeBell(actor, player = false) {
     if (!this.enabled || !this.world?.playing) return;
@@ -333,8 +340,9 @@ export class CityAudio {
   wingbeats(at) {
     this.effect('wings', at, .58, 20, true);
   }
-  bump(person, pace) {
-    if (this.enabled) this.world?.bump(person, pace);
+  bump(person, pace, time = this.ctx?.currentTime ?? 0) {
+    const situation = noteContact(person, pace, time);
+    if (situation && this.enabled) this.world?.bump(person, pace, situation);
   }
   vehicleContact(kind, car, other, speed) {
     if (this.enabled) this.world?.vehicleContact(kind, car, other, speed);

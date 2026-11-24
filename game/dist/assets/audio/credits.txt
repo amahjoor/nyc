@@ -107,3 +107,9 @@ https://opengameart.org/content/footsteps-on-different-surfaces
 https://freesound.org/s/38873/ · https://freesound.org/s/38874/ · https://freesound.org/s/38876/
 https://freesound.org/s/235524/ · https://freesound.org/s/462598/ · https://freesound.org/s/608663/ · https://freesound.org/people/Ali_6868/packs/21608/
 https://creativecommons.org/licenses/by/3.0/
+
+Skateboard and vehicle horn recordings
+ride-sources.tsv lists the recordist, license and source of each field recording used in ride.flac. Sound files were obtained from FSD50K (Fonseca et al.). Horn edits isolate the attack and a phase-matched sustain for arbitrary press lengths. Skateboard edits isolate wheel runs, pops, landings, rail contacts and shoe Foley. The bus air horn reuses the Daniel Lucas recording credited above.
+https://zenodo.org/records/4060432
+https://creativecommons.org/licenses/by/3.0/
+Driving layers in ride.flac use filtered and crossfaded excerpts of the Camry, Trans Am, Citroën diesel, Nissan Leaf, rolling tire, gravel spin and Golf braking recordings listed in ride-sources.tsv.

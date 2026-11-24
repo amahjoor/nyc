@@ -11,6 +11,7 @@ export class Input {
     this.canvas = canvas;
     this.keys = new Set();
     this.touch = new Set();
+    this.hornInputs = new Set();
     this.tapSprint=true;
     this.context=context;
     this.controllerLayout='auto';this.ps5=false;this.psControls=new PS5Controls();
@@ -56,6 +57,7 @@ export class Input {
     });
     window.addEventListener('keyup', e => {
       this.keys.delete(e.code);
+      if(e.code==='KeyE')this.releaseHorn('keyboard');
       if(e.code==='KeyF' && this.cabPress?.source==='keyboard'){
         if(textEntry(e) || browserModifier(e))this.cabPress=null;
         else this.updateCabPress(false,0,e.timeStamp);
@@ -214,7 +216,16 @@ export class Input {
     this.cabPress=null;
     this.action(held>=CAB_TAKEOVER_HOLD?'takeCab':'boardCab',{car:press.car});
   }
+  pressHorn(source) {
+    const first = this.hornInputs.size === 0;
+    this.hornInputs.add(source);
+    return first;
+  }
+  releaseHorn(source) {
+    if (this.hornInputs.delete(source) && !this.hornInputs.size) this.action('hornRelease');
+  }
   clear() {
+    for (const source of this.hornInputs) this.releaseHorn(source);
     this.cabPress=null;
     this.psControls.reset();this.cancelPointer();this.stealthPending=false;
     this.releaseLook();
@@ -227,6 +238,7 @@ export class Input {
   }
   sample(cameraYaw, dt, onFoot = true, skating = false, activity = null) {
     if(this.context()==='menu')this.releaseLook();
+    if(this.hornInputs.size && this.context()!=='drive')for(const source of this.hornInputs)this.releaseHorn(source);
     if(this.cabPress && this.cabPress.source!=='pad')this.updateCabPress(true,dt);
     if(!skating){this.stick={};this.nextTrick=null;this.spaceDown=null;this.finger=null;this.spaceTrick=false;}
     this.skating=skating;this.sampledMode=skating?'skate':onFoot?'walk':'drive';
@@ -259,6 +271,7 @@ export class Input {
     const ps5=this.controllerLayout==='ps5' || this.controllerLayout==='auto' && dualSense(pad);
     const device=pad ? [pad.index,pad.id,ps5].join('/') : null;
     if(device!==this.padDevice){
+      this.releaseHorn('pad');
       if(this.cabPress?.source==='pad')this.cabPress=null;
       if(this.padWheel)this.action('weaponCancel');
       this.padWheel=false;this.padButtons=[];this.viewPress=null;this.psControls.reset();
@@ -351,6 +364,7 @@ export class Input {
       if(this.cabPress?.source==='pad')this.updateCabPress(pressed(3),dt);
       if(this.padWheel && Math.abs(pad.axes[2]||0)>.45)this.action(pad.axes[2]>0?'wheelPistol':'wheelUnarmed');
     } else {if(this.padWheel)this.action('weaponCancel');this.padWheel=false;this.viewPress=null;this.padLookBack=false;this.padButtons=[];this.stick={};this.padPace=this.tapWindow=this.sprintWindow=0;}
+    if(!this.padButtons[10])this.releaseHorn('pad');
     if (!cycling && (!onFoot || Math.hypot(walkForward, turn) < .01)) {this.jogging=false;this.tapWindow=this.sprintWindow=0;}
     const pop=this.nextTrick;this.nextTrick=null;
     if(skating){

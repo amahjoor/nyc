@@ -415,3 +415,152 @@ test('street recordings follow a turning listener and a traffic bell leaves the 
   ctx.currentTime=.15;world.update(sim,.15,true,{yaw:Math.PI});assert.ok(voice.pan.pan.value>0);
   world.update(sim,.2,false);assert.equal(world.streetTails.size,0);
 });
+
+test('model-matched horns sustain until release and NPC taps have independent envelopes', async t => {
+  const audio=useAudio(t);await audio.setEnabled(true);
+  const {world,ctx}=audio, car={id:8,shape:'sedan',identity:{make:'Toyota',model:'Corolla',year:2010},x:0,y:0,z:0};
+  const sim={player:{mode:'drive',vehicleId:8,x:0,y:0,z:0,speed:0},cars:[car],vehicle:car};
+  const regions=JSON.parse(readFileSync(new URL('../dist/assets/audio/ride.json',import.meta.url)));
+  world.rideBank={buffer:{},regions};
+  world.update(sim,0,true);
+  audio.horn(car,'hold');audio.horn(car,'hold');
+  assert.equal(world.heldHorn.voice.name,'corolla');
+  assert.equal(world.heldHorn.voice.source.loop,true);
+  ctx.currentTime=3;world.update(sim,3,true);assert.equal(world.heldHorn.car,car);
+  const before=ctx.clips.length;
+  audio.horn({...car,x:5,identity:{make:'Dodge',model:'Charger'}},'courteous');
+  assert.deepEqual(ctx.clips.slice(before).map(c=>[c.time,c.offset]),[[3,regions.charger[0]],[3.25,regions.charger[0]]]);
+  assert.equal(world.heldHorn.car,car);
+  audio.releaseHorn();assert.equal(world.heldHorn,null);
+  audio.horn(car,'hold');world.update(sim,3.1,false);assert.equal(world.heldHorn,null);
+});
+
+test('board contacts follow the push animation, terrain, rail and landing', async t=>{
+  const audio=useAudio(t);await audio.setEnabled(true);
+  const {world,ctx}=audio, board={phase:.10,pushing:true,pushFoot:1};
+  const p={x:0,z:0,y:0,mode:'skate',grounded:true,speed:4,board};
+  const regions=JSON.parse(readFileSync(new URL('../dist/assets/audio/ride.json',import.meta.url)));
+  world.rideBank={buffer:{},regions};
+  for(const [family,key] of [['shoePush','shoePush.0'],['wheelLand','wheelLand.0'],['flipPop','flipPop.0']])
+    world.variants.set(family,[key]);
+  let surface='road';const sim={player:p,cars:[]};
+  const tick=()=>{ctx.currentTime+=.11;world.update(sim,ctx.currentTime,true,{boardSurface:()=>surface});};
+  const count=key=>ctx.clips.filter(c=>c.buffer===world.rideBank.buffer && c.offset===regions[key][0]).length;
+  tick();assert.equal(world.loops.get('board').name,'boardAsphalt');
+  board.phase=.28;tick();board.phase=.39;tick();assert.equal(count('shoePush.0'),1);
+  surface='deck';board.braking=true;board.pushing=false;tick();assert.equal(world.loops.get('board').name,'boardWood');assert.ok(world.loops.has('shoeBrake'));
+  p.grounded=false;board.trick='kickflip';tick();assert.equal(count('flipPop.0'),1);assert.equal(world.loops.has('board'),false);assert.equal(world.loops.has('shoeBrake'),false);
+  board.grind={};tick();tick();assert.equal(count('railOn'),1);assert.equal(world.loops.get('board').name,'boardRail');
+  board.grind=null;board.trick=null;tick();p.vy=-4;tick();p.grounded=true;tick();assert.equal(count('wheelLand.0'),1);
+});
+
+test('driving separates engine load, rolling tires and braking, including passing electric traffic', async t => {
+  const audio = useAudio(t);
+  await audio.setEnabled(true);
+  const {world, ctx} = audio;
+  const index = name => JSON.parse(readFileSync(new URL('../dist/assets/audio/' + name + '.json', import.meta.url)));
+  world.buffer = {};
+  world.regions = index('regions');
+  world.rideBank = {buffer:{}, regions:index('ride')};
+  const car = {id:1, controlled:true, x:0, z:0, speed:0, identity:{performance:{fuel:'G', hp:160}}};
+  const p = {mode:'drive', vehicleId:1, x:0, z:0, speed:0};
+  const sim = {player:p, vehicle:car, cars:[car]};
+  let surface = 'hard';
+  const tick = (speed, throttle = 0, braking = false) => {
+    car.speed = speed;
+    ctx.currentTime += .1;
+    world.update(sim, ctx.currentTime, true, {throttle, braking, footing:() => surface});
+  };
+  const voice = key => world.loops.get(key + '1');
+  tick(0);
+  assert.ok(voice('motor') && !voice('tread'));
+  for (let i=1; i<=12; i++) tick(i, 1);
+  assert.equal(voice('drive').name, 'petrolPull');
+  const pull = voice('drive').gain.gain.value;
+  const rolling = voice('tread');
+  for (let i=0; i<6; i++) tick(12);
+  assert.ok(voice('drive').gain.gain.value < pull / 10);
+  assert.equal(voice('tread'), rolling);
+  tick(11, -1);
+  assert.equal(voice('brake').name, 'brakeFriction');
+  surface = 'dirt'; tick(10, 1, true);
+  assert.equal(voice('tread').name, 'looseTread');
+  assert.ok(!voice('brake'));
+  car.grounded = false; tick(10);
+  assert.ok(!voice('tread'));
+  car.grounded = true; surface = 'hard';
+  car.identity.performance.hp = 390; tick(10, 1);
+  assert.equal(voice('drive').name, 'sportPull');
+  car.identity.performance.fuel = 'D'; tick(-4, -1);
+  assert.equal(voice('drive').name, 'dieselPull');
+  car.controlled = false; p.mode = 'walk'; p.vehicleId = null; sim.vehicle = null;
+  car.identity.performance.fuel = 'E';
+  car.x = -3; tick(14); car.x = -1; tick(14);
+  assert.equal(voice('drive').name, 'electricDrive');
+  assert.ok(!voice('motor'));
+  const approach = voice('tread').source.playbackRate.value;
+  const left = voice('tread').pan.pan.value;
+  car.x = 3; tick(14);
+  assert.ok(voice('tread').source.playbackRate.value < approach);
+  assert.ok(voice('tread').pan.pan.value * left < 0);
+  car.parked = true; tick(0);
+  assert.ok(!voice('drive') && !voice('tread'));
+});
+
+test('nearby pedestrians exchange the two matching lines and abandon a delayed reply when separated', async t => {
+  const audio=useAudio(t);
+  await audio.setEnabled(true);
+  const {world,ctx}=audio;
+  const jobs=[];
+  world.synthesis={warm(){},render(id,text){return new Promise(resolve=>jobs.push({text,resolve}));}};
+  const a={x:1,z:0,state:'wait'}, b={x:2,z:0,state:'rest'};
+  const p={x:0,z:0,mode:'walk'};
+  const sim={player:p,cars:[]};
+  function tick(time){ctx.currentTime=time;world.update(sim,time,true,{people:[a,b]});}
+  async function playJob(){jobs.at(-1).resolve(new Float32Array(22050));await new Promise(r=>setImmediate(r));}
+  tick(1);
+  const first=world.exchange.lines;
+  assert.equal(jobs.at(-1).text,first[0]);
+  await playJob();assert.equal(world.talker,a);
+  tick(2.4);assert.equal(jobs.at(-1).text,first[1]);
+  await playJob();assert.equal(world.talker,b);
+  tick(7);tick(50);
+  assert.notDeepEqual(world.exchange.lines,first);
+  await playJob();tick(51.4);assert.equal(world.pendingSpeech.actor,b);
+  b.x=12;tick(51.6);await playJob();
+  assert.equal(world.exchange,null);assert.equal(world.talker,a);
+});
+
+test('a danger interrupts an overheard opening and the same continuous scare only speaks once', async t => {
+  const audio=useAudio(t);await audio.setEnabled(true);
+  const {world,ctx}=audio;
+  world.synthesis={warm(){},async render(){return new Float32Array(22050);}};
+  const people=[{x:1,z:0,state:'rest'},{x:2,z:0,state:'wait'},{x:3,z:0,state:'walk'}];
+  const sim={player:{x:0,z:0,mode:'walk'},cars:[]};
+  async function tick(time){ctx.currentTime=time;world.update(sim,time,true,{people});await new Promise(r=>setImmediate(r));}
+  await tick(1);assert.equal(world.talker,people[0]);
+  people[2].state='cower';people[2].held=true;
+  await tick(1.2);assert.equal(world.exchange,null);assert.equal(world.talker,people[2]);
+  const first=world.voice;
+  for(let i=1;i<=180;i++) await tick(1.2+i*.1);
+  assert.equal(world.voice,first);
+});
+
+test('a walker notices prolonged footsteps behind them, but a stationary neighbor can wait beside them', async t => {
+  const audio=useAudio(t);await audio.setEnabled(true);
+  const {world,ctx}=audio;
+  const lines=[];
+  world.synthesis={warm(){}};
+  world.say=(actor,line)=>lines.push({actor,line});
+  const p={x:0,z:-2,mode:'walk',velocityZ:0};
+  const person={x:0,z:0,state:'walk',heading:0,walkSpeed:1.2};
+  const sim={player:p,cars:[]};
+  const tick=()=>{ctx.currentTime+=.1;world.update(sim,ctx.currentTime,true,{people:[person]});};
+  for(let i=0;i<60;i++)tick();
+  assert.equal(lines.length,0);
+  p.velocityZ=1.2;
+  for(let i=0;i<65;i++){p.z+=.12;person.z+=.12;tick();}
+  assert.equal(lines.length,1);assert.equal(lines[0].actor,person);
+  const {reactionKind}=await import('../dist/street-reactions.js');
+  assert.equal(reactionKind(lines[0].line),'followed');
+});

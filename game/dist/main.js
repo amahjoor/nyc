@@ -408,6 +408,12 @@ function streetSurface(x,z,options) {
   return step!=null && step>=(ground?.elevation??-Infinity)
     ? {elevation:step,normal:{x:0,y:1,z:0},kind:'shop-step'} : ground;
 }
+function audibleBoardSurface(p) {
+  const pier=water?.waterfront.deckAt(p.x,p.z);
+  if(pier && Math.abs(p.y-pier.y)<.5)return 'deck';
+  const paving=streetscape?.surfaceAt(p.x,p.z);
+  return paving || audibleFooting(p);
+}
 function audibleFooting(person) {
   if (streetscape?.surfaceAt(person.x, person.z) === 'road' || person.y > terrainHeight(person.x,person.z) + 2.2) return 'hard';
   for (const park of centralPark?.parks || []) {
@@ -796,6 +802,7 @@ function enterSubwayOnFoot(controls){
 }
 
 function action(name,event) {
+  if(name==='hornRelease'){audio.releaseHorn();return;}
   if(!sim)return;
   if(atmTerminal?.active){
     if(name==='pause')atmTerminal.close();
@@ -1015,7 +1022,7 @@ function action(name,event) {
   if(name==='skate'){if(!mapOpen&&sim.toggleSkateboard()){input.skating=sim.player.mode==='skate';headAnchor=undefined;snapChase=true;}return;}
   if(name==='cash'){hud.showStatus(sim.cash,null,phoneBank.checking/100);return;}
   if(name==='interact' && sim.player.mode==='bike' && event?.code==='KeyE' && !tripAction(sim) && !sim.canDropPaper()){action('horn');return;}
-  if(name==='interact' && sim.player.mode==='drive' && event && !tripAction(sim) && !sim.canDropPaper()){action('horn');return;}
+  if(name==='interact' && sim.player.mode==='drive' && event && !tripAction(sim) && !sim.canDropPaper()){action('horn',event);return;}
   if(['vehicle','interact','boardCab','takeCab'].includes(name)){
     const vehicleOnly=name!=='interact', resolving=name==='boardCab' || name==='takeCab';
     if(vehicleOnly && (sim.room || sim.seat))return;
@@ -1095,7 +1102,10 @@ function action(name,event) {
     car.lampsOn=!(car.lampsOn ?? (gfx.state.lightsOn>.4));
   }
   if(name==='horn' && sim.player.mode==='bike')audio.bikeBell(sim.player,true);
-  if(name==='horn' && sim.player.mode==='drive' && !sim.vehicle?.destroyed)audio.horn(sim.vehicle);
+  if(name==='horn' && sim.player.mode==='drive' && !sim.vehicle?.destroyed){
+    const source=event?.code==='KeyE' ? 'keyboard' : event?.fromPad ? 'pad' : event?.pointerId!=null ? 'pointer'+event.pointerId : null;
+    if(!source || input.pressHorn(source))audio.horn(sim.vehicle,source?'hold':'tap');
+  }
 }
 function switchPerspective(){
   if(!started||traveling||!bootReady||mapOpen)return;
@@ -1371,7 +1381,15 @@ touchEnter.addEventListener('click',event=>{
   const key=currentInteractPrompt?.key;
   action(key==='CLICK'?'fight':key==='F'?'vehicle':'interact');
 });
-$('touch-horn').addEventListener('click',()=>action('horn'));
+const touchHorn=$('touch-horn');
+touchHorn.addEventListener('pointerdown',event=>{
+  if(event.button!==0)return;
+  touchHorn.setPointerCapture?.(event.pointerId);
+  action('horn',event);
+});
+for(const type of ['pointerup','pointercancel','lostpointercapture'])
+  touchHorn.addEventListener(type,event=>input.releaseHorn('pointer'+event.pointerId));
+touchHorn.addEventListener('click',event=>{if(!event.detail)action('horn');});
 $('touch-equip').addEventListener('click',()=>action('draw'));
 $('touch-aim').addEventListener('click',()=>{
   if(!weaponControls())return;
@@ -3218,8 +3236,8 @@ function frame(now) {
   if(bootReady&&started&&!traveling&&!cityView)refreshParkedCars();
   camera.getWorldDirection(trafficAhead);
   audio.update(sim,elapsed,started&&!paused&&!traveling&&!cityView&&!mapOpen&&!switchShot.active,{
-    altitude:playerAltitude,hours:gfx.hours,daylight:gfx.state.sunElevation>-2,throttle:Math.abs(controls.forward||0),pedaling:controls.forward>.05 && !controls.brake && !controls.handbrake,
-    yaw:Math.atan2(trafficAhead.x,trafficAhead.z),pitch:Math.asin(clamp(trafficAhead.y,-1,1)),people:crowd?.people,stepCount:playerBody && animator ? Math.floor(animator.strideCycle * 2) : undefined,shore:audibleShore,footing:audibleFooting,
+    altitude:playerAltitude,hours:gfx.hours,daylight:gfx.state.sunElevation>-2,throttle:controls.forward||0,braking:Boolean(controls.brake||controls.handbrake),pedaling:controls.forward>.05 && !controls.brake && !controls.handbrake,
+    yaw:Math.atan2(trafficAhead.x,trafficAhead.z),pitch:Math.asin(clamp(trafficAhead.y,-1,1)),people:crowd?.people,stepCount:playerBody && animator ? Math.floor(animator.strideCycle * 2) : undefined,shore:audibleShore,footing:audibleFooting,boardSurface:audibleBoardSurface,
   });
   hudTime+=dt;const updateHUD=hudTime>.075;
   if(updateHUD){
@@ -3272,7 +3290,7 @@ function frame(now) {
     // People out of the picture are not drawn. The phone's camera looks its own way, so while it is up they all are.
     if(phoneCameraActive())figures?.look(null);else{camera.updateMatrixWorld();figures?.look(camera);}
     crowd.update(paused||mapOpen||traveling?0:dt,{walks:streetscape?.walks()||noStreetFurniture,focus:lit,forward:[ahead.x/flat,ahead.z/flat],hours:gfx.hours,weekday,time:sim.elapsed,junctions:sim.junctions,cars:sim.cars,player:sim.player,officers:sim.police.officers.concat(sim.police.downOfficers),enclosedSubway:subwayVisit?.enclosed && !aerialView && !cityView});
-    for(const bump of crowd.bumps)audio.bump(bump.person,bump.pace);
+    for(const bump of crowd.bumps)audio.bump(bump.person,bump.pace,sim.elapsed);
     if(crowd.damage){
       sim.hurt(crowd.damage);
       if(crowd.counterblow)sim.pushPlayer(crowd.counterblow.vx,crowd.counterblow.vz,{fall:sim.health<30,clip:crowd.counterblow.clip || 'hitChest'});
@@ -3303,7 +3321,7 @@ function frame(now) {
       else if(event.kind==='driverHorn'){
         const dx=event.x-sim.player.x,dz=event.z-sim.player.z;
         const hornDistance=Math.hypot(dx,(event.y||0)-(sim.player.y||0),dz);
-        if(hornDistance<=60 && sim.elapsed-event.at<1)audio.horn(event.car || event);
+        if(hornDistance<=60 && sim.elapsed-event.at<1)audio.horn(event.car || event,event.gesture);
       }
       else if(event.kind==='driverConfronts'){
         const actor=crowd.fleeOntoStreet({...event,look:driverAppearance(event.car)});
@@ -3934,7 +3952,7 @@ async function boot() {
   // Sky, sun, haze and the screen-space finish share one time of day.
   gfx=createGraphics({renderer,scene,camera});
   sim=new Simulation(city,{bank:phoneBank,bankClock:()=>gfx.clock,onVehicleContact:(kind,car,other,speed)=>audio.vehicleContact(kind,car,other,speed),
-    onPedestrianBump:(person,pace)=>audio.bump(person,pace),onTripPaid:saveProgress,
+    onPedestrianBump:(person,pace)=>audio.bump(person,pace,sim.elapsed),onTripPaid:saveProgress,
     onEndingLoss:(kind,carried)=>{
       atmTerminal?.close();
       const fee=phoneBank.recordEndingLoss(kind,carried,gfx.clock);

@@ -1,3 +1,5 @@
+import { exchanges, pedestrianSituation, reactionKind, situations, streetLines } from './street-reactions.js';
+import { vehicleHorn, hornGestures } from './vehicle-horns.js';
 import { dialogue } from './voice-lines.js';
 import { npcVoice, modelSpeakers, recordedSpeakers } from './npc-voices.js';
 import { VoiceSynthesis } from './voice-synthesis.js';
@@ -25,7 +27,7 @@ export class WorldSounds {
     this.kitchenTasks = new WeakMap();
     this.contacts = new WeakMap();
     this.speakers = new WeakMap();
-    this.bumpTimes = new WeakMap();
+    this.observations = new WeakMap();
     this.voiceBanks = new Map();
     this.voiceLoads = new Map();
     this.voiceRetries = new Map();
@@ -75,6 +77,20 @@ export class WorldSounds {
       this[key] = false;
     }
   }
+  loadRideSounds() {
+    if (!this.rideLoad) {
+      this.rideLoad = this.readBank('ride.json', 'ride.flac').then(bank => {
+        this.rideBank = bank;
+        for (const name of Object.keys(bank.regions)) {
+          if (!name.includes('.')) continue;
+          const family = name.split('.')[0];
+          if (!this.variants.has(family)) this.variants.set(family, []);
+          this.variants.get(family).push(name);
+        }
+      }).catch(error => { this.rideLoad = null; throw error; });
+    }
+    return this.rideLoad;
+  }
   loadBells() {
     if (!this.bellLoad) {
       this.bellLoad = this.readBank('bells.json', 'bells.flac').then(bank => {
@@ -97,7 +113,8 @@ export class WorldSounds {
       pan: (0.88 * ((actor.z - p.z) * Math.sin(this.yaw) - (actor.x - p.x) * Math.cos(this.yaw))) / Math.max(2, d),
     };
   }
-  source(name, repeating, level, side, rate, cutoff, bank, phase, direction) {
+  source(name, repeating, level, side, rate, cutoff, bank, phase, direction, note) {
+    if (!bank && this.rideBank?.regions[name]) bank = this.rideBank;
     if (!bank && this.streetBank?.regions[name]) bank = this.streetBank;
     const detail = this.detailRegions?.[name];
     const region = bank?.regions[name] || detail || this.regions?.[name];
@@ -133,7 +150,17 @@ export class WorldSounds {
       spatial?.disconnect();
     };
     const [start, length] = region;
-    if (repeating) {
+    if (note) {
+      source.loop = true;
+      source.loopStart = start + region[2];
+      source.loopEnd = start + region[3];
+      this.transients.add(source);
+      source.start(note.at, start);
+      if (note.duration != null) {
+        gain.gain.setTargetAtTime(0, note.at + note.duration, .019);
+        source.stop(note.at + note.duration + .09);
+      }
+    } else if (repeating) {
       source.loop = true;
       source.loopStart = start;
       source.loopEnd = start + length;
@@ -219,7 +246,7 @@ export class WorldSounds {
     }
     if (speed > 4 && distance(site, this.listener) < 17) {
       this.impactUntil = now + 0.26;
-      this.witnessSite = { x: site.x, y: site.y, z: site.z, victim: other, time: now };
+      this.witnessSite = { x: site.x, y: site.y, z: site.z, victim: other, situation: person ? 'injured' : 'crash', time: now };
     }
   }
   loop(key, name, actor, volume, range, rate = 1, exterior = false) {
@@ -276,30 +303,31 @@ export class WorldSounds {
     }
     return this.voiceLoads.get(id);
   }
-  bump(actor, speed) {
-    if (!this.playing || !actor || actor.out || !(speed > 1.2)) return;
-    const now = this.c.currentTime,
-      previous = this.bumpTimes.get(actor) ?? -Infinity;
-    if (now - previous < 1.3) return;
-    this.bumpTimes.set(actor, now);
+  bump(actor, speed, situation) {
+    if (!this.playing || !actor || actor.out) return;
+    const now = this.c.currentTime;
     this.effect('cloth', actor, Math.min(0.3, 0.09 + speed * 0.025), 8);
-    if (now < (this.nextBump || 0) || (this.voice && now < this.voiceEnd) || this.pendingSpeech?.deliberate)
-      return;
-    const first = now - previous < 25 ? 31 : speed >= 4 ? 26 : 21;
-    const last = this.speakerFor(actor).line;
-    let line = first + Math.floor(Math.random() * 5);
-    if (line === last) line = first + ((line - first + 1) % 5);
+    if (actor.talkingTo || now < (this.nextBump || 0) || now < this.voiceEnd || this.pendingSpeech?.deliberate) return;
     this.nextBump = now + 1.4;
-    this.say(actor, line, true);
+    this.say(actor, streetLines.choose(actor, situation), true);
   }
   say(actor, line, deliberate = false, phones, signal) {
-    if (!this.playing || !actor || !this.listener || signal?.aborted) return;
+    if (!this.playing || !actor || actor.dead || actor.out || actor.gone || !this.listener || signal?.aborted) return;
+    const script = !phones && reactionKind(line);
+    if (script) {
+      this.synthesis.warm();
+      if (this.synthesis.failed) {
+        const choices = situations[script].fallback;
+        line = choices[Math.floor(Math.random() * choices.length)];
+      }
+    }
+    const scripted = typeof line === 'string' && Boolean(script);
     if (phones) {
       const ids=phones;
       if (this.synthesis.failed || typeof line!=='string' ||
           !Array.isArray(ids) || ids.length>2048 || ids[0]!==1 || ids.at(-1)!==2 ||
           !ids.every(id=>Number.isInteger(id) && id>=0 && id<256)) return;
-    } else {
+    } else if (!scripted) {
       if (typeof line === 'string') line = dialogue.indexOf(line);
       if (!Number.isInteger(line) || !dialogue[line]) return;
     }
@@ -310,19 +338,19 @@ export class WorldSounds {
     if (!deliberate && this.pendingSpeech?.deliberate) return;
     if (speaker.voice >= recordedSpeakers.length) this.synthesis.warm();
     const id = this.synthesis.failed && speaker.voice >= recordedSpeakers.length ? speaker.fallback : speaker.voice;
-    const name = (phones ? 'conversation-' : 'line') + line + '-' + id;
+    const name = (phones || scripted ? 'conversation-' : 'line') + line + '-' + id;
     const extended = id >= recordedSpeakers.length;
     const greetingPack = 'hello/' + Math.floor((id - recordedSpeakers.length) / 32);
     const greeting = extended && line === 0 && this.c.currentTime >= (this.voiceRetries.get(greetingPack) || 0);
-    const synthesize = Boolean(phones) || (extended && !greeting);
+    const synthesize = scripted || Boolean(phones) || (extended && !greeting);
     const bankKey = greeting ? greetingPack : id;
     const bank = synthesize ? this.spokenLines.get(name) : this.voiceBanks.get(bankKey);
-    if (!bank && (phones || extended || (id >= 2 && this.c.currentTime >= (this.voiceRetries.get(id) || 0)))) {
+    if (!bank && (scripted || phones || extended || (id >= 2 && this.c.currentTime >= (this.voiceRetries.get(id) || 0)))) {
       const pending = this.pendingSpeech;
       if (pending && (!deliberate || (pending.actor === actor && pending.line === line && pending.deliberate))) return;
       const request = this.pendingSpeech = {actor, line, deliberate, time: this.c.currentTime};
       const ready = synthesize
-        ? this.synthesis.render(modelSpeakers[id], phones ? line : dialogue[line], phones)
+        ? this.synthesis.render(modelSpeakers[id], phones || scripted ? line : dialogue[line], phones)
         : this.loadVoice(bankKey, greeting ? 'mp3' : 'flac');
       const cancel=()=>{if(this.pendingSpeech===request)this.pendingSpeech=null;};
       signal?.addEventListener('abort',cancel,{once:true});
@@ -336,7 +364,9 @@ export class WorldSounds {
           this.spokenLines.set(name, {buffer, regions: {[name]: [0, buffer.duration]}});
           if (this.spokenLines.size > 32) this.spokenLines.delete(this.spokenLines.keys().next().value);
         }
-        if (this.playing && !actor.gone && (deliberate || this.c.currentTime - request.time < 1.5)) {
+        if ((!synthesize || pcm || this.synthesis.failed) && this.playing && !actor.gone &&
+            (!scripted || (!actor.talkingTo || deliberate) && distance(actor,this.listener) < (deliberate ? 12 : 28)) &&
+            (deliberate || this.c.currentTime - request.time < 2.5)) {
           this.say(actor, line, deliberate, phones, signal);
         }
       });
@@ -365,12 +395,61 @@ export class WorldSounds {
       voice.source.stop(this.c.currentTime+.06);this.voiceEnd=this.c.currentTime;this.nextVoice=this.voiceEnd;
     },{once:true});
     this.voiceEnd = this.c.currentTime + (bank?.regions || this.regions)[clip][1] / speaker.rate;
-    this.nextVoice = this.voiceEnd + 3;
+    const firstTurn = this.exchange?.a === actor && this.exchange.lines[0] === line;
+    this.nextVoice = this.voiceEnd + (firstTurn ? .28 : 3);
     speaker.last = this.c.currentTime;
   }
-  horn(car) {
-    const big = heavy(car);
-    this.play(big ? 'truckHorn' : 'horn', car, 0.85, 95, big ? 0.91 : car?.shape === 'hatch' ? 1.15 : 1, true);
+  horn(car, gesture = 'tap') {
+    if (!car || !this.playing) return;
+    if (gesture === 'hold') {
+      if (this.heldHorn?.car === car) return;
+      this.releaseHorn();
+    }
+    let bank = this.rideBank;
+    let {name,rate} = vehicleHorn(car);
+    if (!bank && this.buffer) {
+      name = heavy(car) ? 'truckHorn' : 'horn';
+      const clip = this.regions[name];
+      if (gesture === 'tap') {
+        this.play(name,car,.85,95,1,true);
+        return;
+      }
+      const loop = name === 'truckHorn' ? [.129,.192] : [.075,.226];
+      bank = {buffer:this.buffer, regions:{[name]:[...clip,...loop]}};
+      rate = 1;
+    }
+    if (!bank) {
+      const request = {car,time:this.c.currentTime};
+      if (gesture === 'hold') this.heldHorn = request;
+      this.loadRideSounds().then(() => {
+        if (!this.playing) return;
+        if (gesture === 'hold' && this.heldHorn !== request) {
+          if (request.tapped && this.listener.mode === 'drive' && this.listener.vehicleId === car.id &&
+              this.c.currentTime-request.time < .35) this.horn(car,'tap');
+          return;
+        }
+        if (gesture === 'hold') this.heldHorn = null;
+        if (gesture === 'hold' || this.c.currentTime-request.time < .4) this.horn(car,gesture);
+      }).catch(() => { if (this.heldHorn === request) this.heldHorn = null; });
+      return;
+    }
+    const at = this.position(car,95,true);
+    if (at.gain < .002) return;
+    const now = this.c.currentTime;
+    for (const [delay,duration] of gesture === 'hold' ? [[0,null]] : hornGestures[gesture] || hornGestures.tap) {
+      const voice = this.source(name,false,.85*at.gain,at.pan,rate,at.cutoff,bank,
+        null,null,{at:now+delay,duration});
+      if (gesture === 'hold' && voice) this.heldHorn = {car,voice,time:now};
+    }
+  }
+  releaseHorn(tapped = false) {
+    const held = this.heldHorn;
+    if (held) held.tapped = tapped;
+    this.heldHorn = null;
+    if (!held?.voice) return;
+    const end = Math.max(this.c.currentTime,held.time+.065);
+    held.voice.gain.gain.setTargetAtTime(0,end,.018);
+    held.voice.source.stop(end+.085);
   }
   feet(sim, time, stepCount) {
     const p = sim.player,
@@ -423,22 +502,50 @@ export class WorldSounds {
   boardContact(p) {
     const board = this.playing && p.mode === 'skate' ? p.board : null;
     if (board && this.board === board) {
-      if (this.boardGround && !p.grounded && board.trick)
-        this.play(this.variation('deckPop','deckPop'), p, 0.53, 12, 1.08 + Math.random() * 0.1);
-      if (!this.boardGround && p.grounded && !board.grind)
-        this.play(this.variation('deckLand','deckLand'), p, limit(0.26 - this.boardVy * 0.07, 0.3, 0.85), 12, 0.95 + Math.random() * 0.1);
+      const grinding = Boolean(board.grind);
+      if (this.boardGround && !p.grounded && !grinding && board.trick) {
+        const family = ['kickflip','heelflip'].includes(board.trick) ? 'flipPop' : 'olliePop';
+        this.play(this.variation(family) || 'deckPop',p,.53,12,.97+Math.random()*.06);
+      }
+      if (!this.boardGround && p.grounded && !grinding) {
+        const impact = limit(.27-this.boardVy*.08,.29,.90);
+        this.play(this.variation('wheelLand') || 'deckLand',p,impact,12,1.04-impact*.12);
+      }
+      if (grinding && !this.boardGrinding) this.play('railOn',p,.58,12);
+      if (this.boardManual && !board.manual && p.grounded && !grinding)
+        this.play('wheelSet',p,.28,10);
+      // The pushing sole reaches the pavement at 27% of the animated stroke.
+      const nextStroke = !this.boardPushing || board.phase < this.boardPhase || board.pushFoot !== this.boardFoot;
+      if (board.pushing && p.grounded && !grinding && board.phase >= .27 && (nextStroke || this.boardPhase < .27)) {
+        this.play(this.variation('shoePush'),p,.27+Math.min(.08,(p.speed||0)*.01),10,.96+Math.random()*.08);
+      }
+    } else if (!board && this.board && this.playing && p.reaction) {
+      this.play(this.variation('wheelLand') || 'deckLand',p,.65,15,.89);
     }
     this.board = board;
     this.boardGround = p.grounded || Boolean(board?.grind);
+    this.boardGrinding = Boolean(board?.grind);
+    this.boardManual = board?.manual;
+    this.boardPhase = board?.phase;
+    this.boardFoot = board?.pushFoot;
+    this.boardPushing = board?.pushing;
     this.boardVy = p.vy || 0;
   }
-  wheels(p, pedaling) {
+  wheels(p, pedaling, boardSurface) {
     const speed = Math.abs(p.speed);
     if (speed < 0.35) return;
     const volume = limit(speed / 5, 0, 1);
     if (p.mode === 'skate' && (p.grounded || p.board?.grind)) {
-      const sample = p.board?.grind ? 'deckScrape' : 'deckRoll';
-      this.loop('board', sample, p, 0.5 * volume, 12, limit(0.66 + speed * 0.085, 0.65, 1.65));
+      const board = p.board || {}, surface = boardSurface?.(p) || 'concrete';
+      const soft = ['grass','dirt','woodland'].includes(surface);
+      const roll = board.grind ? 'boardRail' : surface === 'deck' ? 'boardWood' :
+        surface === 'road' || soft || surface === 'rock' ? 'boardAsphalt' : 'boardConcrete';
+      const name = this.rideBank ? roll : board.grind ? 'deckScrape' : 'deckRoll';
+      const gain = volume * (soft ? .18 : board.manual ? .31 : .47);
+      const at = {pan:0,gain:1,cutoff:soft ? 1350 : 5800 + Math.min(speed,10)*850};
+      this.mixLoop('board',name,at,gain,limit(.68+speed*.076,.68,1.47));
+      if (board.braking && p.grounded && !board.grind)
+        this.loop('shoeBrake','boardBrake',p,.36*volume,10,.84+volume*.23);
     } else if (p.mode === 'bike') {
       this.loop(
         'bike',
@@ -541,43 +648,104 @@ export class WorldSounds {
     const p = sim.player;
     let count = 0,
       nearest = null;
-    let witness = null,
-      nearMiss = null;
-    const incident = this.witnessSite;
+    let witness = null, candidate = null, companion = null, bystander = null;
+    const incident = this.witnessSite, now = this.c.currentTime;
+    let conversing = false, unsafe = false;
+    const offer = (actor, kind, priority, d) => {
+      if (!candidate || priority > candidate.priority || priority === candidate.priority && d < candidate.d)
+        candidate = {actor, kind, priority, d};
+    };
     for (const person of people) {
-      if (enclosed || person.gone || person.out || person.state === 'down') continue;
+      if (enclosed || person.gone || person.dead || person.out || person.state === 'down') continue;
       const d = distance(person, p);
-      if (d < 18) {
-        count += 1 - d / 18;
-        if (!nearest || d < distance(nearest, p)) nearest = person;
+      if (d >= 18) continue;
+      count += 1 - d / 18;
+      if (!nearest || d < distance(nearest, p)) nearest = person;
+      if (person.talkingTo) { conversing = true; continue; }
+      const last = this.observations.get(person);
+      const dt = last ? now - last.time : Infinity;
+      // Close behind, both walking in the same direction, for several seconds.
+      // Waiting at a light or briefly overtaking someone shouldn't trigger it.
+      const dx = p.x - person.x, dz = p.z - person.z, heading = person.heading || 0;
+      const fx = Math.sin(heading), fz = Math.cos(heading);
+      const following = p.mode === 'walk' && person.state === 'walk' && d < 3.4 &&
+        dx * fx + dz * fz < -.55 && Math.abs(dx * fz - dz * fx) < 1.2 &&
+        (p.velocityX || 0) * fx + (p.velocityZ || 0) * fz > .65 && person.walkSpeed > .65;
+      const seconds = following && dt < .45 ? (last.follow || 0) + dt : 0;
+      const kind = pedestrianSituation(person) || (seconds > 5 ? 'followed' : null);
+      if (kind && kind !== 'followed') unsafe = true;
+      const fresh = !last || last.kind !== kind || dt >= .45;
+      const since = fresh ? now : last.since;
+      const used = !fresh && last.used;
+      this.observations.set(person, {time:now, kind, since, used, follow:seconds});
+      const speaker = this.speakers.get(person);
+      const quiet = now - (speaker?.last ?? -Infinity) >= 17;
+      const justChatting = this.exchange && (person === this.exchange.a || person === this.exchange.b);
+      if (kind && !used && now - since < 1.4 && d < 15 && (quiet || justChatting))
+        offer(person, kind, kind === 'followed' ? 1 : kind === 'flee' ? 2 : 3, d);
+      if (incident && person !== incident.victim && distance(person, incident) < 11 &&
+          (!witness || distance(person, incident) < distance(witness, incident))) witness = person;
+      if (!kind && !this.exchange && now >= (this.nextExchange ?? 0) && d < 8 && (person.state === 'wait' || person.state === 'rest')) {
+        if (!bystander) bystander = person;
+        else if (!companion && Math.abs((person.y||0)-(bystander.y||0)) < .8 && distance(person,bystander) < 2.7) companion = person;
       }
-      if (d < 12 && person.state === 'fight') this.say(person, 5 + (this.speakerCount % 2));
-      if (d < 16 && person.scare > 2.45 && (!nearMiss || d < distance(nearMiss, p))) nearMiss = person;
-      if (
-        incident &&
-        d < 18 &&
-        person !== incident.victim &&
-        distance(person, incident) < 11 &&
-        (!witness || distance(person, incident) < distance(witness, incident))
-      )
-        witness = person;
     }
     if (nearest && p.mode === 'walk') this.synthesis.warm();
-    if (incident && this.c.currentTime - incident.time >= 0.28) {
-      if (witness && this.c.currentTime - incident.time < 1.4) this.say(witness, Math.random() < 0.5 ? 18 : 19);
+    if (incident && now - incident.time >= .28) {
+      if (witness && now - incident.time < 1.4) offer(witness, incident.situation, 4, distance(witness,p));
       this.witnessSite = null;
-    } else if (!incident && nearMiss) this.say(nearMiss, [15, 16, 17, 20][Math.floor(Math.random() * 4)]);
-    if (count > 1) this.loop('people', 'crowd', nearest, Math.min(0.3, count * 0.045), 28, 1, true);
+    }
     for (const officer of sim.police?.officers || []) {
-      if (
-        !enclosed &&
-        sim.police.state === 'chase' &&
-        officer.sees &&
-        !officer.returning &&
-        !officer.reaction &&
-        distance(officer, p) < 23
-      )
-        this.say(officer, officer.cuffing || officer.aiming ? 8 : 7);
+      const d = distance(officer,p);
+      if (!enclosed && sim.police.state === 'chase' && officer.sees && !officer.returning &&
+          !officer.reaction && !officer.dead && d < 23 && now - this.speakerFor(officer).last >= 17)
+        offer(officer, officer.cuffing || officer.aiming ? 'arrest' : 'chase', 5, d);
+    }
+    if (count > 1) this.loop('people', 'crowd', nearest, Math.min(.3, count * .045), 28, 1, true);
+    const pair = this.exchange;
+    if (pair) {
+      const present = actor => this.observations.get(actor)?.time === now && !pedestrianSituation(actor) &&
+        !actor.talkingTo && ['rest','wait'].includes(actor.state) && distance(actor,p) < 9;
+      if (conversing || enclosed || unsafe || candidate || p.mode !== 'walk' || now >= pair.until ||
+          !present(pair.a) || !present(pair.b) || distance(pair.a,pair.b) >= 3) {
+        const belongs = (actor, line) => (actor === pair.a && line === pair.lines[0]) ||
+          (actor === pair.b && line === pair.lines[1]);
+        if (this.pendingSpeech && belongs(this.pendingSpeech.actor,this.pendingSpeech.line)) this.pendingSpeech = null;
+        if ((candidate || conversing) && this.talker && belongs(this.talker,this.speakers.get(this.talker)?.line)) {
+          if (this.voice && now < this.voiceEnd) {
+            this.voice.gain.gain.setTargetAtTime(0,now,.025);
+            this.voice.source.stop(now+.1);
+          }
+          this.nextVoice = this.voiceEnd = now;
+        }
+        this.exchange = null;
+      }
+    }
+    if (conversing || now < this.nextVoice || this.pendingSpeech) return;
+    if (candidate) {
+      const seen = this.observations.get(candidate.actor);
+      if (seen) seen.used = true;
+      const speaker = this.speakerFor(candidate.actor);
+      if (pair && (candidate.actor === pair.a && speaker.line === pair.lines[0] ||
+                   candidate.actor === pair.b && speaker.line === pair.lines[1])) speaker.last = -Infinity;
+      if (now - speaker.last >= 17) this.say(candidate.actor, streetLines.choose(candidate.actor, candidate.kind));
+      return;
+    }
+    if (unsafe || enclosed || p.mode !== 'walk' || this.synthesis.failed) return;
+    if (this.exchange) {
+      if (!pair.answering && this.speakers.get(pair.a)?.line === pair.lines[0]) {
+        pair.answering = true;
+        this.say(pair.b, pair.lines[1]);
+      } else this.exchange = null;
+    } else if (companion && now >= (this.nextExchange ?? 0) &&
+        [bystander,companion].every(actor => now - this.speakerFor(actor).last >= 17) &&
+        (!sim._hasSight || sim._hasSight(bystander,companion))) {
+      this.exchangeDeck ??= [];
+      if (!this.exchangeDeck.length) this.exchangeDeck.push(...exchanges);
+      const [lines] = this.exchangeDeck.splice(Math.floor(Math.random()*this.exchangeDeck.length),1);
+      this.exchange = {a:bystander,b:companion,lines,until:now+12};
+      this.nextExchange = now + 24 + Math.random()*14;
+      this.say(bystander, lines[0]);
     }
   }
   patrolSiren(sim, car) {
@@ -658,7 +826,7 @@ export class WorldSounds {
       pan?.pan.setTargetAtTime(this.position(bounce, 450).pan, now, .09);
     }
   }
-  vehicles(sim, throttle = 0) {
+  vehicles(sim, throttle, braking) {
     const p = sim.player;
     const engines = [];
     for (const car of sim.cars) {
@@ -678,7 +846,18 @@ export class WorldSounds {
       }
       const driving = Boolean(car.controlled || (p.vehicleId != null && car.id === p.vehicleId));
       const electric = car.identity?.performance?.fuel === 'E';
-      const gear = Math.min(6, Math.floor(speed / 8));
+      const atWheel = driving && p.mode === 'drive';
+      const dt = old ? this.c.currentTime - old.seen : 0;
+      const acceleration = dt > 0 ? (speed - old.speed) / dt : 0;
+      const slowing = atWheel ? braking || throttle * car.speed < 0 : acceleration < -1.8;
+      const demand = atWheel ? (slowing ? 0 : Math.abs(throttle)) : limit(acceleration / 3.5, 0, 1);
+      const load = old ? old.load + (demand - old.load) * (1 - Math.exp(-dt * 8)) : demand;
+      // A separate downshift threshold prevents chatter near an upshift speed.
+      const gearStep = 7.5;
+      let gear = old?.gear ?? Math.min(5, Math.floor(speed / gearStep));
+      if (car.speed <= 0) gear = 0;
+      else if (speed > (gear + 1) * gearStep + load * 3) gear = Math.min(5, gear + 1);
+      else if (speed < gear * gearStep - 2) gear = Math.max(0, gear - 1);
       const glass = car.brokenGlass | car.shotGlass;
       let shifted = old?.shifted ?? -Infinity;
       if (old && glass & ~old.glass) this.effect('glassBreak', car, 0.68, 42, !driving);
@@ -688,7 +867,7 @@ export class WorldSounds {
         this.effect(heavy(car) ? 'heavyOff' : 'motorOff', car, 0.48, 28);
       if (
         old?.driving &&
-        driving &&
+        atWheel &&
         gear !== old.gear &&
         !electric &&
         car.speed > 0 &&
@@ -701,6 +880,8 @@ export class WorldSounds {
         this.loop('reverse' + car.id, 'reverse.0', car, 0.47, 50, 1, true);
       this.cars.set(car, {
         seen: this.c.currentTime,
+        load,
+        distance: d,
         open,
         speed,
         driving,
@@ -723,34 +904,51 @@ export class WorldSounds {
           true,
         );
       }
-      if (car.destroyed || car.burningSince != null || car.identity?.performance?.fuel === 'E') continue;
+      if (car.destroyed || car.burningSince != null) continue;
       if (!driving && (car.parked || (speed < 1 && !car._edge && !car.hired))) continue;
-      engines.push({ car, speed, d, gear, driving, previousSpeed: old?.speed ?? speed });
+      const radial = dt > 0 && !driving ? (d - old.distance) / dt : 0;
+      const doppler = 343 / (343 + limit(radial, -45, 45));
+      engines.push({ car, speed, d, gear, driving, electric, load, slowing, acceleration, doppler });
     }
     engines.sort((a, b) => Number(b.driving) - Number(a.driving) || a.d - b.d);
-    for (const { car, speed, d, gear, driving, previousSpeed } of engines.slice(0, 8)) {
-      const revs = gear === 6 ? 1 + speed * 0.009 : 0.84 + (speed - gear * 8) * 0.092 + gear * 0.048;
-      const load = driving ? limit(throttle, 0, 1) : limit((speed - previousSpeed) * 2, 0, 1);
-      const simulated = driving || car._loose > 0;
-      const vx = simulated ? car.velocityX || 0 : Math.sin(car.angle || 0) * car.speed;
-      const vz = simulated ? car.velocityZ || 0 : Math.cos(car.angle || 0) * car.speed;
-      const radial =
-        ((car.x - p.x) * (vx - (p.velocityX || 0)) + (car.z - p.z) * (vz - (p.velocityZ || 0))) / Math.max(d, 1);
-      this.loop(
-        'motor' + car.id,
-        driving && this.detailBuffer
-          ? heavy(car)
-            ? 'heavyCab.0'
-            : 'motorCab.0'
-          : heavy(car)
-            ? 'largeMotor'
-            : 'motor',
-        car,
-        (driving ? 0.49 : speed < 1 ? 0.17 : 0.33) * (1 + load * 0.42),
-        55,
-        (revs + load * 0.14) * limit(343 / (343 + radial), 0.89, 1.13),
-        !driving,
-      );
+    for (const { car, speed, gear, driving, electric, load, slowing, acceleration, doppler } of engines.slice(0, 8)) {
+      const performance = car.identity?.performance;
+      const outside = !driving;
+      const at = this.position(car, 55, outside);
+      if (driving) at.pan = 0;
+      const revs = .83 + limit(speed - gear * 7.5, -2, 13) * .073 + gear * .035 + load * .19;
+      if (!electric) {
+        const idle = driving && this.detailBuffer ? (heavy(car) ? 'heavyCab.0' : 'motorCab.0')
+          : heavy(car) ? 'largeMotor' : 'motor';
+        this.mixLoop('motor' + car.id, idle, at, (driving ? .43 : speed < 1 ? .17 : .30) * (1 + load * .17), revs * doppler);
+      }
+      if (!this.rideBank) continue;
+      if (electric) {
+        this.mixLoop('drive' + car.id, 'electricDrive', at, limit(speed / 7, 0, 1) * (.14 + .09 * load),
+          (.75 + Math.min(speed, 40) * .023) * doppler);
+      } else {
+        const sporty = performance?.hp >= 300 || (car.shape === 'coupe' && !performance?.hp);
+        const pull = performance?.fuel === 'D' ? 'dieselPull' : sporty ? 'sportPull' : 'petrolPull';
+        this.mixLoop('drive' + car.id, pull, at, load * (driving ? .39 : .30), revs * doppler);
+      }
+      if (car.grounded === false || speed < .45) continue;
+      const surface = driving || car._loose > 0 ? this.footing?.(car) : 'hard';
+      const loose = ['dirt', 'grass', 'woodland', 'gravel'].includes(surface);
+      const road = this.position(car, 48, outside);
+      if (driving) {
+        road.pan = 0;
+        road.cutoff = Math.min(road.cutoff, this.streetCutoff);
+      }
+      const roadLevel = Math.min(1, speed / 24) ** .74 * (driving ? .38 : .53);
+      this.mixLoop('tread' + car.id, loose ? 'looseTread' : 'roadTread', road, roadLevel,
+        (.78 + Math.min(speed, 40) * .018) * doppler);
+      // Ordinary stops leave just the diminishing tread noise. Hard braking on
+      // pavement brings in a separate contact sound while the wheels slow.
+      if (slowing && !loose && speed > 2) {
+        const pressure = limit((-acceleration - 2) / 6, 0, 1);
+        this.mixLoop('brake' + car.id, 'brakeFriction', road, .24 * pressure * Math.min(1, speed / 9),
+          (.81 + Math.min(speed, 30) * .012) * doppler);
+      }
     }
   }
   interiors(sim) {
@@ -788,7 +986,8 @@ export class WorldSounds {
       else if (actor.clip === 'chop') this.loop(actor, 'chop', actor, 0.54 * level, 13);
       else if (
         actor.clip === 'reach' &&
-        (station === 'espresso' || (owner?.phase === 'making drink' && owner.task?.face?.shape === 'espresso'))
+        (actor.preparation ? ['steam','steamFoam','extract'].includes(actor.preparation.action) :
+          station === 'espresso' || (owner?.phase === 'making drink' && owner.task?.face?.shape === 'espresso'))
       )
         this.loop(actor, 'espresso', actor, 0.51 * level, 17);
       else if (
@@ -800,7 +999,7 @@ export class WorldSounds {
         this.loop(actor, 'sizzle', actor, 0.55 * level, 15);
     }
   }
-  update(sim, time, playing, { yaw = 0, pitch = 0, people = [], throttle = 0, pedaling = false, footing, stepCount, hours = 12, daylight = true, altitude = 0 } = {}) {
+  update(sim, time, playing, { yaw = 0, pitch = 0, people = [], throttle = 0, braking = false, pedaling = false, footing, boardSurface, stepCount, hours = 12, daylight = true, altitude = 0 } = {}) {
     this.listener = sim.player;
     this.yaw = yaw;
     this.pitch = pitch;
@@ -833,6 +1032,8 @@ export class WorldSounds {
           ? 0.62 + cabinOpen * 0.32
           : 1;
     this.feet(sim, time, stepCount);
+    if (this.heldHorn && (!playing || p.mode !== 'drive' || sim.vehicle !== this.heldHorn.car ||
+        sim.vehicle?.destroyed || sim.ending)) this.releaseHorn();
     this.boardContact(p);
     if (playing && this.voice && this.voiceEnd > this.c.currentTime) {
       const at = this.position(this.talker, this.voiceRange, this.voiceOutside);
@@ -867,8 +1068,8 @@ export class WorldSounds {
       if (!enclosed && !underwater) this.streetLife(sim, {hours, daylight, altitude});
       this.streetVoices(sim, people, enclosed);
       if (!enclosed) this.pedestrianSteps(people, this.c.currentTime);
-      this.wheels(p, pedaling);
-      this.vehicles(sim, throttle);
+      this.wheels(p, pedaling, boardSurface);
+      this.vehicles(sim, throttle, braking);
       this.interiors(sim);
     } else {
       if (this.wasPlaying) {
@@ -877,6 +1078,7 @@ export class WorldSounds {
         this.contacts = new WeakMap();
         this.pendingSpeech = null;
         this.witnessSite = null;
+        this.exchange = null;
         this.impactUntil = 0;
         this.doorView = null;
         for (const source of this.transients) source.stop();
