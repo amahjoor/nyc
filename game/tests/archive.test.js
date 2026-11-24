@@ -17,8 +17,8 @@ const recipes = readdirSync(new URL('../data/archive-collection/', import.meta.u
 const parts = new Map(manifest.parts.map(part => [part.kind + '/' + part.id, part]));
 const partOf = piece => parts.get((piece.slot === 'shoes' ? 'shoes/' : 'garment/') + piece.id);
 
-test('the collection is the hundred pieces of the list, each with a maker, a season and a price', () => {
-  assert.deepEqual(ARCHIVE_PIECES.map(piece => piece.n), Array.from({ length: 100 }, (_, i) => i + 1));
+test('the collection is the five hundred pieces of the two lists, each with a maker, a season and a price', () => {
+  assert.deepEqual(ARCHIVE_PIECES.map(piece => piece.n), Array.from({ length: 500 }, (_, i) => i + 1));
   assert.equal(new Set(ARCHIVE.map(piece => piece.id)).size, ARCHIVE.length);
   for (const piece of ARCHIVE_PIECES) {
     assert.match(piece.id, /^[a-z][a-z0-9-]{1,46}[a-z]$/, piece.id);
@@ -39,6 +39,29 @@ test('every piece that is worn has its mesh, its two pictures and its own colour
     assert.ok(part.ownColour, piece.id);
     for (const map of [part.map, part.normal]) assert.ok(existsSync(new URL('tex/' + map, assets)), piece.id + ' ' + map);
     if (piece.with) assert.ok(ARCHIVE.find(other => other.id === piece.with)?.part, piece.id + ' is sold with a piece that is not a part');
+    // The first hundred ship in parts.bin; a later chapter has a bin of its own.
+    assert.equal(Boolean(part.bin), piece.n > 100, piece.id + ' bin');
+    if (part.bin) assert.ok(existsSync(new URL(part.bin + '.bin', assets)), piece.id + ' ' + part.bin);
+  }
+});
+
+test('a piece of a later chapter is fetched when it is first worn, and what stands in the bag\'s place has a builder', async () => {
+  const binary = name => Uint8Array.from(readFileSync(new URL(name, assets))).buffer, fetched = [];
+  const rig = JSON.parse(readFileSync(new URL('../dist/motion.json', import.meta.url)));
+  const human = createHuman(manifest, binary('body.bin'), binary('parts.bin'), rig, async name => { fetched.push(name); return binary(name + '.bin'); });
+  const top = ARCHIVE_PIECES.find(piece => piece.n > 100 && piece.slot === 'top'), shoes = ARCHIVE_PIECES.find(piece => piece.n > 100 && piece.slot === 'shoes');
+  const design = tidyPerson({ ...DEFAULT_PERSON, top: top.id, shoes: shoes.id }), dressed = lookOf(design, human);
+  assert.ok(dressed.wear.includes('garment/' + top.id) && human.has('garment/' + top.id));
+  // Until its bin has come, the piece is left off rather than built wrong.
+  assert.ok(!human.build({ ...design, wear: dressed.wear }, { detail: 'close' }).pieces.some(piece => piece.id === top.id));
+  await human.ready(dressed.wear); await human.ready(dressed.wear);
+  assert.deepEqual(fetched.sort(), [...new Set([partOf(top).bin, partOf(shoes).bin])].sort());
+  const made = human.build({ ...design, wear: dressed.wear }, { detail: 'close' });
+  for (const id of [top.id, shoes.id]) { const piece = made.pieces.find(p => p.id === id); assert.ok(piece, id); for (const v of piece.position) assert.ok(Number.isFinite(v), id); }
+  const { ARCHIVE_ACCESSORIES } = await import('../dist/archive-accessories.js');
+  for (const piece of ARCHIVE_PIECES.filter(piece => piece.slot === 'bag')) {
+    assert.equal(tidyPerson({ ...DEFAULT_PERSON, bag: piece.bag }).bag, piece.bag, piece.id);
+    assert.ok(piece.bag === 'nylon backpack' || typeof ARCHIVE_ACCESSORIES[piece.bag] === 'function', piece.id + ' has no builder');
   }
 });
 
