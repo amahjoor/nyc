@@ -1,6 +1,6 @@
 # Real businesses, brand parody, and a Steam release
 
-U.S. research notes for *I Heart NYC*, November 24, 2026. The examples below are design options. Legal clearance depends on the actual assets, their context, and where the game ships.
+U.S. research notes for *Concrete Jungle*, November 24, 2026. The examples below are design options. Legal clearance depends on the actual assets, their context, and where the game ships.
 
 ## Can players recognize the joke?
 
@@ -33,6 +33,6 @@ For example, the archive lists Dior Homme waxed denim and a Number (N)ine Mickey
 ## What to take into release review
 
 1. **Capture each featured use.** For each proposed pun, collect the street sign, interior, phone card, associated mission or purchasable item, and any store-page screenshot. Record what is factual, what was invented, and who supplied the artwork. These are the materials a U.S. games/IP lawyer can use to assess a close call.
-2. **Check the game title separately.** New York State licenses its I LOVE NY marks. Review the actual *I Heart NYC* wordmark and Steam capsule before commissioning final artwork. The state's licensing page establishes its policy for its marks. Whether this game's design falls within those rights requires its own assessment. [New York State licensing information](https://www.iloveny.com/licensee-info/)
+2. **Review the game title before publication.** ColePowered Games released a game called *Concrete Jungle* on Steam in 2015. Review the exact title match before commissioning Steam capsule art or announcing the release. Earlier research on New York State's I LOVE NY marks concerned the former *I Heart NYC* name and heart wordmark. [Existing Steam listing](https://store.steampowered.com/app/400160/Concrete_Jungle/) · [New York State licensing information](https://www.iloveny.com/licensee-info/)
 3. **Inspect the packaged build.** The storefront renderer can load optional chain logos downloaded outside Git. Check the files actually packaged and the marks drawn in code. Test the desktop build on a clean machine, including what happens when the local NPC chat service is unavailable. [Chain signs and logos](../README.md#chain-signs-and-logos) · [Local game server](../scripts/serve.mjs)
 4. **Prepare the Steam submission.** Valve reviews the store page and build and requires rights to distributed content. Its published onboarding terms currently list a US$100 fee per game, a 21-day wait after payment for the first few releases, and at least two weeks with a public Coming Soon page. Recheck timing when setting a date. The content survey asks about mature content, player-facing AI-generated assets, and safeguards for live-generated content such as NPC dialogue. [Steam Direct](https://partner.steamgames.com/steamdirect) · [Content survey](https://partner.steamgames.com/doc/gettingstarted/contentsurvey)

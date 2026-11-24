@@ -11,7 +11,7 @@ SCANS = [('asphalt_04', 'asphalt', 2048), ('concrete_floor_02', 'concrete', 1024
 
 
 def download(url):
-    request = Request(url, headers={'User-Agent': 'I Heart NYC city material builder'})
+    request = Request(url, headers={'User-Agent': 'Concrete Jungle city material builder'})
     with urlopen(request, timeout=90) as response:
         return response.read()
 

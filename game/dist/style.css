@@ -252,25 +252,13 @@ body:has(.cash-display:not([hidden])) .mission-panel { top:var(--money-clearance
   letter-spacing: -.025em;
   white-space: nowrap;
 }
-.wordmark-lead { display: flex; align-items: center; gap: .19em; }
-.wordmark-heart {
-  display: block;
-  color: var(--brand-red);
-  font: 400 .91em/1 "DejaVu Sans", "Segoe UI Symbol", sans-serif;
-  letter-spacing: 0;
-  transform: translateY(-.065em) rotate(-9deg) scale(1.24);
-}
-.wordmark-n { margin-inline-end: .031em; }
+.game-wordmark span { display: block; }
 .intro-title {
-  display: grid;
-  gap: .025em;
   margin-bottom: clamp(26px, 5vh, 46px);
-  font-size: clamp(78px, min(15vw, 26vh), 218px);
-  line-height: .84;
+  font-size: clamp(38px, min(15vw, 20vh), 160px);
+  line-height: .94;
   text-shadow: 0 .035em .18em #10090c66;
 }
-.intro-title .wordmark-lead { font-size: .64em; letter-spacing: -.035em; }
-.intro-title .wordmark-city { margin-left: -.031em; }
 .start-button {
   display: inline-flex;
   min-width: min(232px, 100%);
@@ -440,8 +428,7 @@ body:has(.cash-display:not([hidden])) .mission-panel { top:var(--money-clearance
   .stream-status { left: 15px; }
 }
 @media (max-height: 470px) {
-  .intro-title { width: min(52dvh, 210px); margin-bottom: 18px; }
-  .intro-title span { font-size: min(18dvh, 76px); }
+  .intro-title { margin-bottom: 18px; font-size: min(14vw, 16dvh); }
 }
 @media (prefers-reduced-motion: reduce) {
   .start-button { transition: none; }
@@ -542,10 +529,8 @@ body.ending-wasted #hud, body.ending-wasted #mission-panel, body.ending-wasted #
 
 .pause-head { display: flex; justify-content: space-between; align-items: flex-end; gap: 14px; margin-bottom: 8px; }
 .pause-brand {
-  display: flex;
-  align-items: center;
-  gap: .22em;
-  font-size: clamp(25px, min(5.7vw, 8vh), 66px);
+  font-size: clamp(18px, min(4.6vw, 6vh), 48px);
+  line-height: .96;
   text-shadow: 0 2px 10px #0008;
 }
 .pause-status { display: grid; justify-items: end; gap: 3px; font-family: var(--heading); font-weight: 700; text-transform: uppercase; text-shadow: 0 2px 6px #000; }
