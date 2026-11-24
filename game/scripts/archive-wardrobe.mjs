@@ -1,6 +1,6 @@
 // The archive collection as parts of the figure: each piece of data/archive-collection.json cut
 // (garment-shells.mjs), painted (garment-paint.mjs) and written where human.js reads what is worn.
-import { readFileSync, readdirSync, writeFileSync } from 'node:fs';
+import { existsSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { join } from 'node:path';
 import { createTailor, cutOf } from './garment-shells.mjs';
@@ -10,8 +10,8 @@ import { paintGarment, streetPictures } from './garment-paint.mjs';
 const FOLDER = new URL('../data/archive-collection/', import.meta.url);
 // ARCHIVE_ONLY=footwear,01-grails builds just those chapters, to look at them without the rest.
 const WANTED = process.env.ARCHIVE_ONLY?.split(',');
-// The first hundred ship with the figure, in parts.bin. A later chapter has a bin of its own (dist/human/archive/<chapter>.bin),
-// which the game fetches when one of its pieces is first put on: `bin` on a piece names it.
+// The first hundred ship with the figure, in parts.bin. Each later piece has a bin of its own (dist/human/archive/<id>.bin),
+// which the game fetches when the piece is first put on, by the player or by somebody on the street: `bin` on a piece names it.
 const SHIPPED = 100;
 export const archivePieces = () => readdirSync(FOLDER).filter(name => name.endsWith('.json') && (!WANTED || WANTED.includes(name.slice(0, -5)))).sort()
   .flatMap(name => JSON.parse(readFileSync(new URL(name, FOLDER), 'utf8')).map(piece => piece.n > SHIPPED ? { ...piece, bin: 'archive/' + piece.id } : piece)).sort((a, b) => a.n - b.n);
@@ -107,9 +107,13 @@ export function writeCatalog(file = fileURLToPath(new URL('../dist/archive-colle
   return rows.length;
 }
 if (process.argv[1] === fileURLToPath(import.meta.url) && process.argv[2] === 'catalog') console.log(writeCatalog() + ' pieces in the catalog');
-// `street`: make the street copies of the pictures already painted, without painting them again.
+// `street`: make the street copies of the pictures already painted, without painting them again. Only what the street
+// looks wear (dist/archive-looks.js) is drawn at that distance, so only those pieces, and what is worn under them, get copies.
 if (process.argv[1] === fileURLToPath(import.meta.url) && process.argv[2] === 'street') {
-  const folder = fileURLToPath(new URL('../dist/human/tex/archive/', import.meta.url)), colours = readdirSync(folder).filter(name => name.endsWith('.webp') && !name.endsWith('-n.webp'));
-  for (const name of colours) streetPictures(join(folder, name), join(folder, name.replace('.webp', '-n.webp')));
-  console.log(colours.length + ' pieces have street pictures');
+  const folder = fileURLToPath(new URL('../dist/human/tex/archive/', import.meta.url));
+  const looks = readFileSync(new URL('../dist/archive-looks.js', import.meta.url), 'utf8'), worn = new Set(looks.match(/'[a-z][a-z0-9-]+'/g).map(text => text.slice(1, -1)));
+  const names = archivePieces().filter(piece => worn.has(piece.id) && piece.slot !== 'bag').flatMap(piece => piece.under ? [piece.id, piece.id + '2'] : [piece.id]);
+  let made = 0;
+  for (const name of names) { if (existsSync(join(folder, 'street', name + '.webp')) && !process.argv.includes('--all')) continue; streetPictures(join(folder, name + '.webp'), join(folder, name + '-n.webp')); made++; }
+  console.log(names.length + ' pieces are worn on the street; ' + made + ' street pictures made');
 }
