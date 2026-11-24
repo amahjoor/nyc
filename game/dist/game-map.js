@@ -83,7 +83,7 @@ export class GameMap {
     this.placeKinds = new Set(MAP_CATEGORIES.map(category => category.id));
     this.placeBadges = [];
     this.doors = [];this.hours = 12;this.doorQuarter = null;this.doorsApart = new Map();
-    this.searchMatches = [];
+    this.searchMatches = [];this.onlinePlayers=[];
     this.key = new MapKey(this, listen, onPlacesWanted);
     this.showBikeLanes=true;
     const laneButton=byId('game-map-bike-lanes');
@@ -607,6 +607,12 @@ export class GameMap {
     }
     this.pin = null;this.route = null;this.progress = null;this.transit.refresh();this.onPin(null);this.setStatus('');this.updateControls();this.dirty = true;this.draw();this.canvas.focus();
   }
+  setOnlinePlayers(players) {
+    const previous=this.onlinePlayers;
+    if(players.length===previous.length && players.every((p,i)=>
+      p.name===previous[i].name && p.x===previous[i].x && p.z===previous[i].z && p.colour===previous[i].colour))return;
+    this.onlinePlayers=players;this.dirty=true;
+  }
   setRoute(route) { this.route = route?.ok === false ? null : route;this.progress = null;this.dirty = true;this.updateDirections();this.draw(); }
   setRouteProgress(progress) { this.progress = progress;this.updateDirections(); }
   setGuidance(progress) { this.setRouteProgress(progress); }
@@ -757,6 +763,14 @@ export class GameMap {
       } else if (px < -12 || py < -12 || px > view.width + 12 || py > view.height + 12) return;
       draw(px, py);
     };
+    for(const peer of this.onlinePlayers)mark(peer.x,peer.z,(x,y)=>{
+      context.fillStyle=peer.colour;context.strokeStyle='#16242a';context.lineWidth=2;
+      context.beginPath();context.arc(x,y,mini?4:5,0,Math.PI*2);context.fill();context.stroke();
+      if(!mini && view.span<1300){
+        context.font='bold 12px sans-serif';context.textAlign='left';context.fillStyle='#fff4de';
+        context.fillText(peer.name,x+8,y+4);
+      }
+    },false);
     if ((this.sim?.heat || 0) > 0) {
       const police = this.sim.police, searching = police?.state === 'search', beat = Math.sin((this.sim.elapsed || 0) * 6) > 0;
       // Metres to pixels, and which way a heading points on the screen.

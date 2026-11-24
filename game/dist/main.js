@@ -824,6 +824,7 @@ function updateUsePress(){
 function action(name,event) {
   if(name==='hornRelease'){audio.releaseHorn();return;}
   if(!sim)return;
+  if($('lobby-dialog')?.open){if(name==='pause'){event?.preventDefault?.();$('lobby-dialog').close();}return;}
   if(atmTerminal?.active){
     if(name==='pause')atmTerminal.close();
     return;
@@ -1181,6 +1182,29 @@ function switchPerspective(){
     updatePerspectiveButton();
   }
 }
+let onlineLobby=null;
+$('lobby-open')?.addEventListener('click',async()=>{
+  if (!onlineLobby) {
+    const {createLobbyUI}=await import('./lobby.js');
+    onlineLobby=createLobbyUI({scene,layers:[ROOM_LAYER,SUBWAY_LAYER],animate:animatePerson,announce,
+      sample:()=>{
+        if(!started || !sim)return null;
+        const p=sim.player,car=sim.vehicle;
+        const mode=p.mode==='drive' ? (car?.type==='taxi'?'taxi':car?.type==='police'?'police':'sedan')
+          : ['bike','skate'].includes(p.mode)?p.mode:'walk';
+        const space=traveling?'travel':subwayVisit?'subway/'+subwayVisit.journey.stop:sim.room?'room/'+sim.room.place.id:'street';
+        return {x:p.x,y:p.y||0,z:p.z,angle:Math.atan2(Math.sin(p.angle),Math.cos(p.angle)),mode,space,
+          visible:!traveling&&!cityView};
+      },
+      showOnMap:players=>gameMap.setOnlinePlayers(players),
+      travel:point=>{togglePause(false);void travel(point);},
+      route:(point,previous)=>{
+        if(point)gameMap.setPin(point);
+        else if(gameMap.pin?.x===previous.x && gameMap.pin.z===previous.z && gameMap.pin.name===previous.name)gameMap.clearPin();
+      }});
+  }
+  if(!$('lobby-dialog').open)onlineLobby.open();
+});
 function togglePause(force) {
   if(!started)return;
   paused=force??!paused;
@@ -1281,6 +1305,7 @@ function movePauseFocus(step){
   items[at<0?(step>0?0:items.length-1):(at+step+items.length)%items.length].focus();
 }
 function pausePad(index){
+  if($('lobby-dialog')?.open)return onlineLobby.pad(index);
   if($('sources-dialog').open){if(index===1)$('sources-dialog').close();return index!==9;}
   if(index===4||index===5)showPauseTab(pauseTab+(index===5?1:-1),true);
   else if(index===12||index===13)movePauseFocus(index===13?1:-1);
@@ -3192,6 +3217,7 @@ function frame(now) {
   const frameSeconds=Math.min(.25,elapsedSeconds);
   const dt=frameSeconds*(sim?.ending ? .36 : 1);lastFrame=now;
   frameCalm.note(elapsedSeconds);
+  onlineLobby?.frame(now,frameSeconds);
   updateUsePress();
   if(openingVeiled)showOpening(now);
   if(sim)sim.paintedCrossings=streetscape?.paintedCrossings(sim.junctions);

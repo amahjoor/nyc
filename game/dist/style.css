@@ -636,3 +636,10 @@ body.ending-wasted #hud, body.ending-wasted #mission-panel, body.ending-wasted #
 .weapon-wheel button { flex: 1; min-width: 0; border: 0; border-radius: 0; background: transparent; color: white; }
 .weapon-wheel button[aria-pressed="true"] { background: #48778a; }
 .weapon-wheel kbd { display: block; margin: .4rem auto; width: fit-content; }
+
+#lobby-dialog { width:min(32rem,92vw); padding:1.7rem; }
+#lobby-dialog label { display:block; margin:1rem 0 .4rem; }
+#lobby-address { width:100%; padding:.65rem; }
+.lobby-buttons { display:flex; flex-wrap:wrap; gap:.55rem; margin:.75rem 0; }
+.lobby-buttons :is(button,select) { padding:.5rem .8rem; }
+#lobby-status,#lobby-near { overflow-wrap:anywhere; }
