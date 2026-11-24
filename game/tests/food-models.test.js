@@ -2,6 +2,7 @@ import test from 'node:test';
 import { Triangle,Vector3 } from '../dist/vendor/three.module.min.js';
 import { kitchen } from '../dist/food-kit.js';
 import { orangeBag } from '../dist/food-fruit.js';
+import { drink } from '../dist/food-drinks.js';
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import { KINDS } from '../dist/places.js';
@@ -63,4 +64,53 @@ test('orange bag net clears the fruit in both filled states',()=>{
       assert.ok(clearance>=radius,`bag level ${level} penetrates the orange at ${orange.cx}, ${orange.cz}`);
     }
   }
+});
+
+test('each sip lowers wine inside the same glass',()=>{
+  const glass=[],surface=[];
+  for(const amount of [1,.75,.5,.25,0]){
+    const bench=kitchen('drink-red-wine',amount?2:0,amount);
+    drink(bench,'red-wine');
+    glass.push(bench.parts.filter(part=>part.ware).map(part=>part.pos));
+    surface.push(bench.parts.find(part=>!part.ware)?.top||0);
+  }
+  for(let i=1;i<surface.length;i++){
+    assert.deepEqual(glass[i],glass[0]);
+    assert.ok(surface[i]<surface[i-1]);
+  }
+});
+
+test('successive bites cut into the same doughnut without moving what is untouched',()=>{
+  let edge=Infinity,back;
+  for(const level of [2,4/3,2/3]){
+    const {position}=servingGeometry(portionKey('plate-doughnut',level)).attributes;
+    let left=Infinity,right=-Infinity;
+    for(let i=0;i<position.count;i++){
+      if(position.getY(i)<.015)continue;
+      left=Math.min(left,position.getX(i));
+      right=Math.max(right,position.getX(i));
+    }
+    back??=left;
+    assert.equal(left,back);
+    assert.ok(Number.isFinite(right) && right<edge);
+    edge=right;
+  }
+});
+
+test('the same bottle shows four distinct liquid levels and keeps its label',()=>{
+  let last=Infinity;
+  const label=[];
+  for(const level of [2,1.5,1,.5,0]){
+    const {position,color,uv}=packageGeometry('grocery-water',false,level).attributes;
+    let height=0;
+    const printed=[];
+    for(let i=0;i<position.count;i++){
+      if(Math.abs(color.getW(i)-.68)<.01)height=Math.max(height,position.getY(i));
+      if(uv.getX(i)!==uv.getX(0)||uv.getY(i)!==uv.getY(0))printed.push(position.getX(i),position.getY(i),position.getZ(i));
+    }
+    assert.ok(height<last);
+    last=height;label.push(printed);
+  }
+  assert.ok(label[0].length>0);
+  for(const printed of label.slice(1))assert.deepEqual(printed,label[0]);
 });

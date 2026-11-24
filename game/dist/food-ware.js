@@ -1,6 +1,6 @@
 // What food is served on and in: china, paper, foil, wood, and the bits beside it.
 import * as T from './vendor/three.module.min.js';
-import { lathe,loft,sheet,tube,puck,brick,circle,blob,TAU,fbm,sn,mottle,toward,smooth } from './food-kit.js';
+import { lathe,loft,sheet,tube,puck,brick,circle,blob,TAU,fbm,sn,mottle,toward,smooth,volumeHeight } from './food-kit.js';
 
 export const CHINA=0xdfd8ca,PAPER=0xf1eee6,FOIL=0x9aa0a6,KRAFT=0xb4905f,WOOD=0x94633a,STEEL=0xb4b9bd,BLACK=0x2b2a2a,RED=0xb9382c;
 
@@ -49,9 +49,11 @@ export function bowl(k,r=8,h=6,{color=CHINA,inner=color,band=null,gloss=.74,x=0,
 }
 /** Fill a bowl to a share of its depth. Returns the height of the surface. */
 export function fill(k,dish,share,color,{gloss=.8,paint=null,ware=false,dome=0}={}){
-  const y=dish.floor+(dish.h*.86-dish.floor)*share,r=dish.width(y)*.985;
+  const full=dish.floor+(dish.h*.86-dish.floor)*share;
+  const y=ware?full:volumeHeight(dish.floor,full,dish.width,k.amount),r=dish.width(y)*.985;
+  if(!ware)dome*=Math.sqrt(k.amount);
   const rings=[[r,y],[r*.95,y+.03]];for(let i=1;i<=9;i++){const t=1-i/9;rings.push([r*.9*t,y+.04+dome*(1-t*t)]);}
-  k.add(lathe(rings,36),{at:[dish.x,0,dish.z],color,gloss,paint,ware,whole:true});
+  k.add(lathe(rings,36),{at:[dish.x,0,dish.z],color,gloss,paint,ware,whole:true,proportioned:true});
   return y+.04;
 }
 /** A white paper plate, as a slice comes on. */
@@ -73,13 +75,7 @@ export function tray(k,w=18,d=12,h=3.2,{color=FOIL,gloss=.6,flare=.14,corner=1.6
 }
 /** A sheet of deli paper under the food, plain or checked. */
 export function deliPaper(k,w=20,d=20,{color=PAPER,check=null,yaw=.2,x=0,z=0,size=1.6,lift=.05,gloss=.25,crinkle=.1}={}){
-  if(!k.level){
-    // Finished with, it is balled up.
-    let ball=blob({r:[w*.17,w*.12,w*.15],bump:.34,freq:.55,seed:w,detail:2,flat:.1}).toNonIndexed();ball.computeVertexNormals();
-    const other=check&&new T.Color(check);
-    k.ware(ball,{at:[x,k.top(x,z)+w*.1,z],rot:[0,yaw,0],color,gloss,flat:true,paint:check?(c,P)=>{if((Math.floor(P.x/size+100)+Math.floor(P.y/size+100)+Math.floor(P.z/size+100))%2)c.copy(other);}:mottle(.1,1.2)});
-    return;
-  }
+  if(!k.level)crinkle=Math.max(crinkle,.34);
   const cs=Math.cos(yaw),sn_=Math.sin(yaw),n=check?Math.round(w/size):12,nd=check?Math.round(d/size):12;
   let g=sheet((u,v)=>{
     const lx=(u-.5)*w,lz=(v-.5)*d,px=x+lx*cs+lz*sn_,pz=z-lx*sn_+lz*cs;
@@ -142,8 +138,9 @@ export function leavings(k,{crumbs=0xc99c58,smear=null,r=5.5,n=22}={}){
   if(k.level)return;
   k.sprinkle('shard',n,{r,color:[crumbs].flat(),size:.36,ware:true,flat:true,bias:.8});
   if(smear!==null){
-    const path=[[-r*.6,-r*.2],[-r*.1,r*.25],[r*.5,.2],[r*.7,-r*.35]].map(([x,z])=>[x,k.top(x,z)+.05,z]);
-    k.ware(tube(path,1.2,{sides:6,ry:.07,taper:t=>.5+Math.sin(t*Math.PI)*.8}),{color:smear,gloss:.75,cast:false,paint:mottle(.2,1.5)});
+    const path=[[-r*.38,-r*.16],[-r*.14,r*.07],[r*.14,.16],[r*.23,-r*.16]].map(([x,z])=>[x,k.top(x,z)+.045,z]);
+    k.ware(tube(path,.62,{sides:6,ry:.028,taper:t=>.15+Math.sin(t*Math.PI)*.85}),
+      {color:smear,opacity:.48,gloss:.7,cast:false,shade:false,paint:mottle(.28,2.2)});
   }
 }
 export { blob,puck };

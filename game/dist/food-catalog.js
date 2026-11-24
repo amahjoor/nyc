@@ -64,7 +64,12 @@ export function servingFor(item,dineIn=false){
   if(drink==='coffee')return dineIn?'mug':'cup';
   return drink?'drink-'+drink:null;
 }
-// A serving is full, part eaten (@1) or finished (@0).
+// Two is the full serving. Suffixes preserve the amount left, including old half servings.
 export const portionKey=(base,level)=>level===2?base:base+'@'+level;
 export const portionBase=key=>key?.split('@')[0];
-export const portionLevel=key=>key?.endsWith('@0')?0:key?.endsWith('@1')?1:2;
+export function portionLevel(key){
+  const suffix=key?.split('@')[1];
+  if(suffix===undefined || suffix==='')return 2;
+  const level=Number(suffix);
+  return Number.isFinite(level) && level>=0 && level<=2?level:2;
+}

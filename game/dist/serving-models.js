@@ -1,5 +1,5 @@
 // A serving by its key, as one mesh: `plate-<dish>`, `drink-<drink>`, or the
-// house `cup` and `mug` of coffee, with `@1` part eaten and `@0` finished.
+// house `cup` and `mug` of coffee, with a suffix for the amount left.
 import { kitchen,bake } from './food-kit.js';
 import { dishes } from './food-dishes.js';
 import { drink,drinkIds } from './food-drinks.js';
@@ -14,10 +14,10 @@ export function isServing(key){
 }
 export function servingGeometry(key){
   if(cache.has(key))return cache.get(key);
-  const base=portionBase(key),bench=kitchen(base,portionLevel(key)),dish=dishOf(base);
+  const base=portionBase(key),level=portionLevel(key),bench=kitchen(base,level>0?2:0,level/2),dish=dishOf(base);
   if(dish){
     if(!dishes[dish])throw Error('Missing dish geometry: '+dish);
     dishes[dish](bench);
   }else drink(bench,drinkOf(base));
-  const made=bake(bench);cache.set(key,made);return made;
+  const made=bake(bench,{progressive:Boolean(dish)});cache.set(key,made);return made;
 }

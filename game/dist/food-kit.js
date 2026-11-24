@@ -7,6 +7,19 @@ import { PLAIN_UV } from './food-surface.js';
 export const TAU=Math.PI*2;
 export const clamp=(v,a=0,b=1)=>v<a?a:v>b?b:v;
 export const smooth=(a,b,v)=>{const t=clamp((v-a)/(b-a));return t*t*(3-2*t);};
+/** Find the surface for a fraction of a tapered vessel's filled volume. */
+export function volumeHeight(bottom,top,width,fraction){
+  if(fraction<=0)return bottom;
+  if(fraction>=1)return top;
+  const slices=24,dy=(top-bottom)/slices;
+  const volume=Array.from({length:slices},(_,i)=>width(bottom+(i+.5)*dy)**2);
+  let left=volume.reduce((sum,area)=>sum+area,0)*fraction;
+  for(const [i,area] of volume.entries()){
+    if(left<=area && area>0)return bottom+(i+left/area)*dy;
+    left-=area;
+  }
+  return top;
+}
 export function rng(seed){
   let a=seed>>>0||1;
   return ()=>{a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return ((t^t>>>14)>>>0)/4294967296;};
@@ -230,14 +243,14 @@ function facing(pos,idx){
   return nor;
 }
 
-/** A clean bench for one serving at one stage of being eaten: 2 full, 1 partly, 0 finished. */
-export function kitchen(key,level=2){
+/** Parts are laid out from the same recipe seed at each amount. */
+export function kitchen(key,level=2,amount=level/2){
   const R=rng(hashString(key)),parts=[],field=heightField();
   const P=new T.Vector3(),N=new T.Vector3(),L=new T.Vector3(),m4=new T.Matrix4(),m3=new T.Matrix3(),quat=new T.Quaternion(),euler=new T.Euler(),size=new T.Vector3(),c=new T.Color(),base=new T.Color();
   let frame=null;
   const local=(x,z)=>frame?P.set(x,0,z).applyMatrix4(frame):P.set(x,0,z);
   const k={
-    key,level,parts,
+    key,level,amount,parts,bites:true,
     /** Whether a part-eaten serving is cut through, and where. Dishes that are eaten some other way turn it off. */
     cut:true,biteAngle:.32,biteAt:.4,
     rand:(a=1,b)=>b===undefined?R()*a:a+R()*(b-a),
@@ -325,7 +338,8 @@ export function kitchen(key,level=2){
         if(draped)N.set(draped[i*3],draped[i*3+1],draped[i*3+2]);
         else N.fromBufferAttribute(gn,i).applyMatrix3(m3).normalize();
         nor[i*3]=N.x;nor[i*3+1]=N.y;nor[i*3+2]=N.z;
-        c.copy(base);
+        if(o.vertexColors)c.fromBufferAttribute(g.attributes.color,i).multiply(base);
+        else c.copy(base);
         if(paints.length){
           // Faceted pieces can take one colour a face, from the middle of it.
           const f=o.flat?i-i%3:i,m=o.flat?3:1;P.set(0,0,0);L.set(0,0,0);
@@ -336,7 +350,8 @@ export function kitchen(key,level=2){
       }
       const idx=g.index?g.index.array:null,count=idx?idx.length:n;
       const reach=Math.max(maxX-minX,maxZ-minZ,maxY-minY);
-      const part={pos,nor,col,uv:o.printed&&g.attributes.uv,idx,count,ware,opacity,gloss:o.gloss??.2,inside:o.inside??null,whole:o.whole??reach<2.6,cx,cz,top:maxY,bottom:minY,shade:o.shade!==false};
+      const part={pos,nor,col,uv:o.printed&&g.attributes.uv,idx,count,ware,opacity,gloss:o.gloss??.2,inside:o.inside??null,whole:o.whole??reach<2.6,
+        cx,cz,minX,maxX,minZ,maxZ,top:maxY,bottom:minY,shade:o.shade!==false,proportioned:Boolean(o.proportioned)};
       if(opacity===1 && o.cast!==false)field.mesh(pos,idx,count);
       parts.push(part);return part;
     },
@@ -373,7 +388,7 @@ const STEPS=[[.5,1],[1.2,.75],[2.4,.5]];
 /** Keep the near side of a part cut by the bite, closing the cut with what it is like inside. */
 function bitten(part,plane,insideOf){
   const {pos,nor,col,idx,count}=part,out={pos:[],nor:[],col:[]},cuts=[];
-  const side=i=>plane.nx*pos[i*3]+plane.nz*pos[i*3+2]-plane.d;
+  const side=i=>biteSide(plane,pos[i*3],pos[i*3+2]);
   const vert=i=>[pos[i*3],pos[i*3+1],pos[i*3+2],nor[i*3],nor[i*3+1],nor[i*3+2],col[i*3],col[i*3+1],col[i*3+2]];
   const put=v=>{out.pos.push(v[0],v[1],v[2]);out.nor.push(v[3],v[4],v[5]);out.col.push(v[6],v[7],v[8]);};
   for(let i=0;i<count;i+=3){
@@ -413,12 +428,56 @@ function bitten(part,plane,insideOf){
   return {...part,pos:Float32Array.from(out.pos),nor:Float32Array.from(out.nor),col:Float32Array.from(out.col),idx:null,count:out.pos.length/3};
 }
 
+function biteSide({nx,nz,d,curve=0,centre=0},x,z){
+  const across=-nz*x+nx*z-centre;
+  return nx*x+nz*z-d+curve*(Math.max(0,1-(across/4)**2)+.16*Math.cos(across*3.1));
+}
+
+// Trim a progressively deeper edge of the original serving. Little toppings
+// and pieces can be lifted away whole, and larger pieces show their interior.
+function bitePlane(k){
+  const nx=Math.cos(k.biteAngle),nz=Math.sin(k.biteAngle);
+  const food=k.parts.filter(p=>!p.ware && !p.proportioned);
+  let near=Infinity,far=-Infinity,minAcross=Infinity,maxAcross=-Infinity;
+  for(const part of food){
+    for(let i=0;i<part.pos.length;i+=3){
+      const x=part.pos[i],z=part.pos[i+2],along=nx*x+nz*z,across=-nz*x+nx*z;
+      near=Math.min(near,along);far=Math.max(far,along);
+      minAcross=Math.min(minAcross,across);maxAcross=Math.max(maxAcross,across);
+    }
+  }
+  if(!(far>near))return null;
+  const span=far-near,centre=(minAcross+maxAcross)/2;
+  const curve=k.cut?Math.min(1.35,span*.09):0,plane={nx,nz,d:0,centre,span,curve};
+
+  // A third of a tapered slice occupies more length at the tip than at the crust.
+  // Estimate how much food sits along the cut instead of using equal distances.
+  const bands=new Float64Array(72),first=near-curve*.16,step=(far+curve*1.16-first)/bands.length;
+  for(const {pos,idx,count} of food){
+    for(let i=0;i<count;i+=3){
+      const a=(idx?idx[i]:i)*3,b=(idx?idx[i+1]:i+1)*3,c=(idx?idx[i+2]:i+2)*3;
+      const x=pos[b]-pos[a],y=pos[b+1]-pos[a+1],z=pos[b+2]-pos[a+2];
+      const u=pos[c]-pos[a],v=pos[c+1]-pos[a+1],w=pos[c+2]-pos[a+2];
+      const at=biteSide(plane,(pos[a]+pos[b]+pos[c])/3,(pos[a+2]+pos[b+2]+pos[c+2])/3);
+      const band=clamp(Math.floor((at-first)/step),0,bands.length-1);
+      bands[band]+=Math.hypot(y*w-z*v,z*u-x*w,x*v-y*u);
+    }
+  }
+  let left=bands.reduce((sum,area)=>sum+area,0)*k.amount;
+  for(const [i,area] of bands.entries()){
+    if(left<=area && area>0){plane.d=first+(i+left/area)*step;return plane;}
+    left-=area;
+  }
+  return null;
+}
+
 /**
  * Weld the bench into one mesh in metres: position, normal, colour (with alpha
  * where there is glass), gloss, and the uv of the plain patch of the surface atlas.
  */
-export function bake(k){
-  const plane=k.level===1 && k.cut?{nx:Math.cos(k.biteAngle),nz:Math.sin(k.biteAngle),d:k.biteAt}:null;
+export function bake(k,{progressive=false}={}){
+  const plane=progressive?(k.bites && k.amount>0 && k.amount<1?bitePlane(k):null):
+    k.level===1 && k.cut?{nx:Math.cos(k.biteAngle),nz:Math.sin(k.biteAngle),d:k.biteAt}:null;
   const crumb=new T.Color(0xf1dfb6),tone=new T.Color();
   const insideOf=part=>{
     if(part.inside!==null)return tone.set(part.inside).clone();
@@ -427,8 +486,14 @@ export function bake(k){
   };
   const kept=[];
   for(const part of k.parts){
-    if(!plane || part.ware){kept.push(part);continue;}
-    if(part.whole){if(plane.nx*part.cx+plane.nz*part.cz<=plane.d)kept.push(part);continue;}
+    if(!plane || part.ware || part.proportioned){kept.push(part);continue;}
+    const {nx,nz,d,curve=0,span=Infinity}=plane;
+    const [loX,hiX]=nx<0?[part.maxX,part.minX]:[part.minX,part.maxX];
+    const [loZ,hiZ]=nz<0?[part.maxZ,part.minZ]:[part.minZ,part.maxZ];
+    const lo=nx*loX+nz*loZ,hi=nx*hiX+nz*hiZ;
+    if(part.whole && hi-lo<span*.58){if(biteSide(plane,part.cx,part.cz)<=0)kept.push(part);continue;}
+    if(hi+curve*1.16<=d){kept.push(part);continue;}
+    if(lo-curve*.16>d)continue;
     const rest=bitten(part,plane,insideOf);if(rest.count)kept.push(rest);
   }
   const field=heightField();

@@ -15,11 +15,17 @@ export function packageMaterial(street=false,id){
 export function packageGeometry(id,shelf=false,level=2){
   const distant=shelf==='window',key=distant?id+'-window':shelf?id+'-shelf':id+'@'+level;
   if(shapes.has(key))return shapes.get(key);
-  const item=groceries[id];
+  const item=groceries[id],amount=shelf?1:level/2;
   if(!shelf && (item.shape==='can' || id==='grocery-chips')){
-    const bench=kitchen(key,level);
+    const bench=kitchen(id,level>0?2:0,amount);
     if(item.shape==='can')sodaCan(bench,item.tile);else chipBag(bench);
     const geometry=bake(bench);shapes.set(key,geometry);return geometry;
+  }
+  if(item.shape==='apple' && amount>0 && amount<1){
+    const bench=kitchen(id,2,amount);
+    bench.biteAngle=1.1;
+    bench.add(packageGeometry(id),{scale:100,vertexColors:true,inside:0xead6a1,whole:false});
+    const geometry=bake(bench,{progressive:true});shapes.set(key,geometry);return geometry;
   }
   const pos=[],uv=[],color=[];
   const clearBottle=item.shape==='bottle' && !shelf;let opacity=1;
@@ -56,17 +62,28 @@ export function packageGeometry(id,shelf=false,level=2){
     quad([a,y,k],[a,y,f],[a,top,f],[a,top,k],tint);
     quad([a,y,k],[b,y,k],[b,y,f],[a,y,f],tint);
   }
-  if(item.shape==='apple' && level<2){
-    const mid=level===0?.010:.025;
-    lathe([[.003,.004],[.005,.021],[.014,.023],[.023,mid],[.050,mid*.86],[.063,.024],[.072,.017],[.071,.004]],'#ead6a1');
+  if(item.shape==='apple' && amount===0){
+    lathe([[.003,.004],[.005,.021],[.014,.023],[.023,.010],[.050,.0086],[.063,.024],[.072,.017],[.071,.004]],'#ead6a1');
     lathe([[.064,.021],[.071,.017],[.072,.003]],item.color);lathe([[.067,.002],[.084,.0018],[.085,0]],'#635137');
-    if(!level)rect(.009,.031,.003,.003,.006,.002,'#775638');
-  }else if(item.shape==='orange' && level<2){
+    rect(.009,.031,.003,.003,.006,.002,'#775638');
+  }else if(item.shape==='orange' && amount<1){
     for(let l=0;l<5;l++)for(let j=0;j<6;j++){
       const point=(side,k)=>{const v=k/6,a=l*1.257+side*(.55-.43*v),r=.012+v*.034;return [r*Math.sin(a),.004+.037*v*v,r*Math.cos(a)];};
       quad(point(-1,j),point(1,j),point(1,j+1),point(-1,j+1),j%2?'#e7a146':'#f0ac4e');
     }
-    if(level===1)lathe([[.004,.009],[.014,.022],[.029,.020],[.035,.004]],'#eca349',13);
+    // Open the peel once, then remove wedges from the same segmented fruit.
+    for(let n=0;n<Math.ceil(8*amount);n++){
+      const center=n*Math.PI/4-.9;
+      const point=(u,v)=>{
+        const a=center+(u-.5)*.72,p=v*Math.PI,r=.034*Math.sin(p);
+        return [Math.sin(a)*r,.038-.034*Math.cos(p),Math.cos(a)*r];
+      };
+      for(let j=0;j<8;j++){
+        for(let i=0;i<4;i++)quad(point(i/4,j/8),point((i+1)/4,j/8),point((i+1)/4,(j+1)/8),point(i/4,(j+1)/8),'#ed9a35');
+        const y=.038-.034*Math.cos(j/8*Math.PI),nextY=.038-.034*Math.cos((j+1)/8*Math.PI);
+        for(const edge of [0,1])quad([0,y,0],point(edge,j/8),point(edge,(j+1)/8),[0,nextY,0],'#f2ae55');
+      }
+    }
   }else if(distant){
     if(item.shape==='bottle'){
       lathe([[0,.030],[.17,.032],[.20,.015],[.22,.014],[.22,0]],'#b7d9e4',6);band(.033,.061,.08,3);
@@ -109,8 +126,8 @@ export function packageGeometry(id,shelf=false,level=2){
     const rings=[[0,.023],[.003,.030],[.008,.032],[.017,.033],[.022,.030]];
     for(let y=.027;y<.155;y+=shelf?.046:.012)rings.push([y,.032],[y+.004,.031],[y+.008,.0325]);
     rings.push([.170,.031],[.179,.028],[.192,.018],[.200,.013],[.212,.013]);
-    if(clearBottle && level){
-      const line=level===2?.172:.089;
+    if(clearBottle && amount>0){
+      const line=.014+.158*amount;
       opacity=.68;lathe([[.007,.026],[line-.005,.030],[line,.029],[line,0]],'#9bc9d4',32);
       opacity=.84;lathe([[line-.001,.029],[line+.001,.030],[line+.002,.029]],'#edf6f5',32);opacity=1;
     }
@@ -128,20 +145,21 @@ export function packageGeometry(id,shelf=false,level=2){
     rect(0,.119,level===2?-.002:-.008,.011,level===2?.002:.004,.017,'#a7afa9');
     rect(0,.1195,.011,.012,.001,.009,level===2?'#acb0a9':'#393c38');
   }else if(item.shape==='pouch'){
-    const w=.147,h=level===0?.18:.205;
+    const w=.147,h=.205;
     // Each foil face bows outward at the belly and pinches flat at the heat seals.
     for(const back of [false,true]){
       const point=(i,j)=>{
         const u=i/8,v=j/6,bulge=Math.sin(Math.PI*u)*Math.sin(Math.PI*v);
         return [(u-.5)*w*(.92+.09*Math.sin(v*Math.PI)),.006+v*(h-.012),
-          (back?-1:1)*(.003+(.006+.0135*level)*bulge+.003*Math.sin(i*2.5+j)*bulge+(level===1?.019*v*v*Math.sin(Math.PI*u):0))];
+          (back?-1:1)*(.003+(.006+.027*amount)*bulge+.003*Math.sin(i*2.5+j)*bulge+(amount<1?.019*v*v*Math.sin(Math.PI*u):0))];
       };
       for(let j=0;j<6;j++)for(let i=0;i<8;i++)quad(point(i,j),point(i+1,j),point(i+1,j+1),point(i,j+1),back?item.color:'#ffffff',!back,i/8,(i+1)/8,j/6,(j+1)/6);
     }
     for(const y of (level===2?[0,h-.008]:[0])){rect(0,y,0,w,.008,.009,item.color);for(let k=-6;k<=6;k++)rect(k*.0108,y+.001,.005,.0015,.006,.001,'#bca67c');}
-    if(level===1){
-      for(let i=-2;i<=2;i++){
-        const x=i*.019,up=h-.013+Math.sin(i)*.003,z=.004*Math.cos(i);
+    if(amount>0 && amount<1){
+      const count=Math.ceil(amount*6);
+      for(let i=-2;i<count-2;i++){
+        const x=i*.019,up=.018+(h-.034)*amount+Math.sin(i)*.003,z=.004*Math.cos(i);
         if(item.id==='grocery-pretzels'){
           // A single baked rope crosses its belly and loops back through two ears.
           const path=[[-.50,-.64],[.42,.29],[.48,.56],[.32,.78],[.05,.71],[-.59,.02],[-.57,-.30],[-.31,-.59],[.08,-.67],[.51,-.48],[.60,-.19],[.49,.09],[-.11,.68],[-.36,.76],[-.54,.61],[-.52,.36],[.43,-.65]];
@@ -163,17 +181,19 @@ export function packageGeometry(id,shelf=false,level=2){
     }
   }else{
     const carton=item.shape==='carton',w=carton?.072:.144,h=carton?.147:.212,d=carton?.071:.055;
-    if(level===2 || carton)rect(0,0,0,w,h,d,item.color);
+    if(amount===1)rect(0,0,0,w,h,d,item.color);
     else{
       rect(0,0,0,w,.002,d,item.color);
       for(const side of [-1,1]){
         rect(0,0,side*d/2,w,h,.0015,item.color);
         rect(side*w/2,0,0,.0015,h,d,item.color);
-        quad([-w/2,h,side*d/2],[w/2,h,side*d/2],[w/2,h+.015,side*(d/2+.012)],[-w/2,h+.015,side*(d/2+.012)],'#c6a477');
+        if(!carton)quad([-w/2,h,side*d/2],[w/2,h,side*d/2],[w/2,h+.015,side*(d/2+.012)],[-w/2,h+.015,side*(d/2+.012)],'#c6a477');
       }
-      if(level===1){
-        rect(0,h*.48,0,w-.003,.002,d-.003,'#b89161');
-        for(let i=0;i<30;i++)rect(((i%10)-4.5)*.013,h*.5+.001*Math.sin(i),((i%3)-1)*.016,.009,.004,.006,'#cfa36a');
+      if(amount>0){
+        const height=h*(.10+.82*amount);
+        const fill=carton?(id==='grocery-milk'?'#f2ecdc':'#eea330'):'#b89161';
+        rect(0,height,0,w-.003,.002,d-.003,fill);
+        if(!carton)for(let i=0;i<30;i++)rect(((i%10)-4.5)*.013,height+.004+.001*Math.sin(i),((i%3)-1)*.016,.009,.004,.006,'#cfa36a');
       }
     }
     quad([-w/2,0,d/2+.0002],[w/2,0,d/2+.0002],[w/2,h,d/2+.0002],[-w/2,h,d/2+.0002],'#ffffff',true);
@@ -186,22 +206,7 @@ export function packageGeometry(id,shelf=false,level=2){
       for(const s of [-1,1])quad([l,h,s*d/2],[r,h,s*d/2],[r,peak,s*(level===2?.002:.014)],[l,peak,s*(level===2?.002:.014)],'#eee9d8');
       for(const x of [l,r])quad([x,h,-d/2],[x,h,d/2],[x,peak,.002],[x,peak,-.002],item.color);
       if(level===2)rect(0,peak,0,w,.009,.0045,item.color);
-      else rect(0,h+.001,0,w*.78,.001,.030,level?'#d8b485':'#756e5e');
     }else if(level===2)rect(0,h*.975,0,w*.986,.002,d*1.03,'#ded5bd');
-  }
-  if(clearBottle && level===0){
-    // An uncapped PET bottle flexes where the hand grips the lower ribs.
-    for(let i=0;i<pos.length;i+=3){
-      const crease=Math.exp(-(((pos[i+1]-.045)/.023)**2));
-      pos[i+2]*=1-.34*crease;pos[i]+=.004*crease;
-    }
-  }
-  if(!shelf && level<2 && ['carton','box'].includes(item.shape)){
-    const top=item.shape==='carton'?.175:.212;
-    for(let i=0;i<pos.length;i+=3){
-      const y=pos[i+1]/top,crease=Math.sin(Math.PI*y);
-      pos[i+2]*=1-(level?.15:.53)*crease;pos[i+1]*=level?.99:.86;pos[i]+=(level?.001:.006)*crease;
-    }
   }
   const g=new T.BufferGeometry();g.setAttribute('position',new T.Float32BufferAttribute(pos,3));g.setAttribute('color',new T.Float32BufferAttribute(color,clearBottle?4:3));g.setAttribute('uv',new T.Float32BufferAttribute(uv,2));g.computeVertexNormals();
   // Smooth circumference while preserving the shoulders and horizontal moulded creases.

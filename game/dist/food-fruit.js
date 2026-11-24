@@ -6,7 +6,8 @@ const rind=toward(0x91a13b,(P,N,L)=>.55*smooth(5.5,8,L.x)+.25*smooth(-6.4,-8,L.x
 
 export function banana(k){
   k.cut=false;
-  if(k.level===2){
+  k.bites=false;
+  if(k.amount===1){
     k.add(tube(bananaPath,1.88,{sides:18,ry:1.73,steps:32,section:a=>1+.046*Math.cos(a*TAU*5)+.027*Math.cos(a*TAU*2),
       taper:t=>.28+.72*Math.sin(Math.PI*t)**.50}),{color:0xf4d54a,gloss:.37,whole:true,
       paint:[rind,toward(0xe7af29,(P,N)=>.55*smooth(.4,-.72,N.y)),spots(0x874f28,.08,4,7),mottle(.065,2.1)]});
@@ -16,8 +17,10 @@ export function banana(k){
     return;
   }
   const base=[-3.9,1.45,2.45];
-  if(k.level===1){
-    const fruit=bananaPath.slice(0,5);
+  if(k.amount>0){
+    const stop=(bananaPath.length-1)*k.amount,index=Math.floor(stop);
+    const fruit=bananaPath.slice(0,index+1);
+    if(stop>index)fruit.push(bananaPath[index].map((coord,i)=>coord+(bananaPath[index+1][i]-coord)*(stop-index)));
     k.add(tube(fruit,1.55,{sides:16,ry:1.43,steps:20,taper:t=>.49+.51*smooth(0,.35,t)*(1-.06*t)}),{
       at:[0,-.02,-.18],color:0xf4e3b4,gloss:.34,paint:[mottle(.06,2.9),toward(0xe3c884,(P,N,L)=>.48*smooth(.6,.95,L.y/2.6))],whole:true});
   }
@@ -38,15 +41,15 @@ export function banana(k){
 
 export function orangeBag(k){
   k.cut=false;
-  const fruit=k.level===2?[[-3.05,3.25,-3.05],[3.05,3.25,-3.05],[-3.05,3.25,3.05],[3.05,3.25,3.05],[0,7.55,0]]:
-    k.level===1?[[-3.06,3.18,0],[3.06,3.18,0]]:[];
+  k.bites=false;
+  const fruit=[[-3.05,3.25,-3.05],[3.05,3.25,-3.05],[-3.05,3.25,3.05],[3.05,3.25,3.05],[0,7.55,0]].slice(0,Math.floor(5*k.amount));
   const radius=3.02;
   for(const [i,at] of fruit.entries()){
     k.add(blob({r:radius,bump:.017,freq:2.2,seed:i,detail:3}),{at,color:i%2?0xf28e24:0xeb821a,gloss:.38,
       paint:[mottle(.105,5.2),spots(0xd57819,.27,6.2,i)],whole:true});
     k.add(blob({r:[.21,.09,.2],bump:.08,detail:1}),{at:[at[0]-.08,at[1]+radius-.015,at[2]],color:0x67803b,gloss:.25,whole:true,cast:false});
   }
-  const end=k.level===2?12.4:k.level===1?8.4:2.5;
+  const end=fruit.length===5?12.4:fruit.length?8.4:2.5;
   const envelope=(a,y)=>{
     const cs=Math.cos(a),sn=Math.sin(a);
     if(!fruit.length)return (.25+4.15*Math.sin(Math.PI*(y/end)**.8)**1.55)*(1+.22*Math.cos(a*2+.4));

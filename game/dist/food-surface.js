@@ -2,7 +2,7 @@
 // how wet each part is: sauce and glazed china shine, bread and paper do not.
 import * as T from './vendor/three.module.min.js';
 
-let atlas;
+let atlas,ready;
 // Grocery print shares one atlas with prepared servings, including room displays.
 export const PLAIN_UV=[.995,.5];
 export function printUV(tile,u,v){
@@ -11,11 +11,15 @@ export function printUV(tile,u,v){
 
 export function ingredientMap(){
   if(!atlas && typeof document!=='undefined'){
-    atlas=new T.TextureLoader().load(new URL('./assets/grocery-labels.jpg',import.meta.url).href);
+    let finish;
+    ready=new Promise(resolve=>{finish=resolve;});
+    atlas=new T.TextureLoader().load(new URL('./assets/grocery-labels.jpg',import.meta.url).href,finish,undefined,()=>finish(null));
     atlas.colorSpace=T.SRGBColorSpace;atlas.anisotropy=8;
   }
   return atlas||null;
 }
+// A gallery still is captured once, so its printed surfaces must finish loading first.
+export function readyIngredientMap(){ingredientMap();return ready || Promise.resolve(null);}
 export function servingMaterial(){
   const material=new T.MeshStandardMaterial({map:ingredientMap(),vertexColors:true,roughness:.7,side:T.DoubleSide,transparent:true});
   material.onBeforeCompile=shader=>{
