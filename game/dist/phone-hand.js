@@ -2,6 +2,7 @@ import * as THREE from './vendor/three.module.min.js';
 
 import { viewHand } from './view-hand.js';
 
+const glassDepth=.006;
 const screenNormal=new THREE.Vector3(0,0,1), screenUp=new THREE.Vector3(0,1,0);
 const gripRotation=new THREE.Quaternion(.5,-.5,-.5,-.5).premultiply(
   new THREE.Quaternion().setFromAxisAngle(screenNormal,-.65));
@@ -42,8 +43,7 @@ export function createScreenGrip(hand){
     palm.quaternion.premultiply(turn.setFromAxisAngle(screenNormal,.53*THREE.MathUtils.smoothstep(y,-.030,.065)));
     palm.position.set(0,0,0);
     root.quaternion.copy(rest[0]);middle.quaternion.copy(rest[1]);end.quaternion.copy(rest[2]);
-    const glass=.006;
-    tip.set(x,y,glass+.007+hover);
+    tip.set(x,y,glassDepth+.007+hover);
     // Slide up the long edge first, leaving the thumb free to cross the width.
     knuckle.set(.051,THREE.MathUtils.clamp(-.044,y-.030,y+.030),tip.z);
     // Keep a little bend in reserve. Moving the wrist only by the excess
@@ -84,7 +84,7 @@ export function createScreenGrip(hand){
       const weight=Math.max(0,1-(p.z-lowest)/.002);
       sum+=weight;cx+=weight*p.x;cy+=weight*p.y;
     }
-    if(sum)palm.position.add(vertex.set(x-cx/sum,y-cy/sum,glass+hover-lowest));
+    if(sum)palm.position.add(vertex.set(x-cx/sum,y-cy/sum,glassDepth+hover-lowest));
     return true;
   };
 }
@@ -116,6 +116,37 @@ export function createPhoneHand(roomLayer, viewLayer, handset) {
     hand.pose('phone');
     grip.quaternion.copy(gripRotation);grip.position.set(-.023,-.043,-.025);
   }
+  const caseSize={value:new THREE.Vector2()},pixelsPerMeter={value:new THREE.Vector2()},cornerRadius={value:0};
+  const glassInView={value:glassDepth-lens.position.z-.0001}; // Allow contact at the surface.
+  const overlayMaterials=[];
+  function maskHand(root){
+    for(const material of overlayMaterials)material.dispose();
+    overlayMaterials.length=0;
+    root.traverse(part=>{
+      if(!part.isSkinnedMesh)return;
+      const source=part.material,material=source.clone();
+      // Only skin influenced by the opposing thumb can reach around the rim.
+      // The sleeve shares the skeleton but always belongs behind the handset.
+      const joints=part===root?part.skeleton.bones.flatMap((bone,i)=>bone.name.startsWith('thumb_')?[i]:[]):[];
+      const weights=joints.map(i=>`dot(skinWeight,vec4(equal(skinIndex,vec4(${i}.0))))`).join('+') || '0.0';
+      const varying='varying vec3 phonePosition; varying float phoneThumb;\n';
+      material.onBeforeCompile=(shader,renderer)=>{
+        source.onBeforeCompile(shader,renderer);
+        Object.assign(shader.uniforms,{caseSize,pixelsPerMeter,cornerRadius,glassInView});
+        shader.vertexShader=varying+shader.vertexShader.replace('#include <project_vertex>',
+          `#include <project_vertex>\nphonePosition=mvPosition.xyz;phoneThumb=${weights};`);
+        shader.fragmentShader=varying+'uniform vec2 caseSize,pixelsPerMeter; uniform float cornerRadius,glassInView;\n'+
+          shader.fragmentShader.replace('#include <clipping_planes_fragment>',`
+            #include <clipping_planes_fragment>
+            vec2 corner=abs(phonePosition.xy)*pixelsPerMeter-caseSize*.5+cornerRadius;
+            float edge=length(max(corner,vec2(0.)))+min(max(corner.x,corner.y),0.)-cornerRadius;
+            if(edge<=0. && (phoneThumb<.5 || phonePosition.z<glassInView))discard;
+          `);
+      };
+      material.customProgramCacheKey=()=>source.customProgramCacheKey()+'/phone-case/'+joints.join(',');
+      overlayMaterials.push(material);part.material=material;
+    });
+  }
   function drawContact(renderer,rect){
     if(!renderer?.isWebGLRenderer || !overlayHand.pose('phone'))return false;
     if(!overlay){
@@ -123,23 +154,23 @@ export function createPhoneHand(roomLayer, viewLayer, handset) {
       if(!canvas?.getContext)return false;
       overlay=new THREE.WebGLRenderer({canvas,alpha:true,antialias:true});
       overlay.setClearColor(0,0);
-      // Depth-only glass lets the DOM display show through while occluding
-      // whatever is physically behind it, including the supporting fingertips.
-      const outline=new THREE.Shape();
-      outline.absarc(.029,.063,.009,0,Math.PI/2);
-      outline.absarc(-.029,.063,.009,Math.PI/2,Math.PI);
-      outline.absarc(-.029,-.063,.009,Math.PI,Math.PI*1.5);
-      outline.absarc(.029,-.063,.009,Math.PI*1.5,2*Math.PI);
-      outline.closePath();
-      const cover=new THREE.Mesh(new THREE.ShapeGeometry(outline),new THREE.MeshBasicMaterial({colorWrite:false}));
-      cover.position.z=.0059;cover.renderOrder=-1;stage.add(cover);
       stage.add(new THREE.HemisphereLight(0xfff4e8,0xa19791,1.65));
       const light=new THREE.DirectionalLight(0xfff1e2,2);
       light.position.set(-2,3,4);stage.add(light);
     }
     const mesh=overlayHand.group.children[0],w=Math.round(rect.width*3),h=Math.round(rect.height*.30/.144);
-    const state=[w,h,bend,shownX,shownY,Boolean(mesh.material.map?.image?.width)].join('/');
+    // The absolutely positioned canvas is sized against the padding box. The
+    // case also includes the border; resolve its rounded outline in CSS pixels.
+    const width=handset.clientWidth,height=handset.clientHeight;
+    const state=[w,h,width,height,bend,shownX,shownY,Boolean(mesh.material.map?.image?.width)].join('/');
+    if(mesh!==drawnMesh)maskHand(mesh);
     if(state===drawn && mesh===drawnMesh)return true;
+    if(caseSize.value.x!==handset.offsetWidth || caseSize.value.y!==handset.offsetHeight){
+      caseSize.value.set(handset.offsetWidth,handset.offsetHeight);
+      pixelsPerMeter.value.set(width/.076,height/.144);
+      const css=handset.ownerDocument.defaultView.getComputedStyle(handset);
+      cornerRadius.value=Math.min(parseFloat(css.borderTopLeftRadius),caseSize.value.x/2,caseSize.value.y/2);
+    }
     drawn=state;drawnMesh=mesh;
     if(overlay.domElement.width!==w || overlay.domElement.height!==h)overlay.setSize(w,h,false);
     const weight=bend*bend*(3-2*bend);
@@ -158,7 +189,7 @@ export function createPhoneHand(roomLayer, viewLayer, handset) {
   }
   return {
     group, get amount(){return amount;}, get tapBend(){return bend;},
-    contactPoint(out){return phone.localToWorld(out.set(tapX*.076,tapY*.144,.006));},
+    contactPoint(out){return phone.localToWorld(out.set(tapX*.076,tapY*.144,glassDepth));},
     advance(dt,open,pressing=false,firstPerson=false){
       handset?.classList?.toggle('held-in-view',firstPerson && open);
       if(bend===0){shownX=tapX;shownY=tapY;}
