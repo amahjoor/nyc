@@ -1,3 +1,4 @@
+import { RENDEZVOUS } from './lobby-protocol.js';
 import { createATM } from './atm.js';
 import { createSportsCourts, addCourtPlaces } from './sports-courts.js';
 import { interactWithTrip, tripAction, courierBag } from './driver-work.js';
@@ -148,7 +149,7 @@ function showOpening(now){
   $('startup-art').classList.add('is-leaving');
   // Loading ends here, with the city coming up out of the black: the bar fills as it does, and only then is the way in offered.
   startupPhase(1,'City ready');$('startup-progress').value=1;
-  setTimeout(()=>{$('startup-loading').hidden=true;$('start-button').hidden=false;},450);
+  setTimeout(()=>{$('startup-loading').hidden=true;$('start-button').hidden=false;$('start-online').hidden=false;},450);
   // The fade done, the canvas goes back to the stylesheet's own transitions.
   setTimeout(()=>{canvas.style.transition='';canvas.style.opacity='';$('startup-art').hidden=true;},1300);
 }
@@ -1183,7 +1184,7 @@ function switchPerspective(){
   }
 }
 let onlineLobby=null;
-$('lobby-open')?.addEventListener('click',async()=>{
+async function openOnlineLobby(autoJoin = false) {
   if (!onlineLobby) {
     const {createLobbyUI}=await import('./lobby.js');
     onlineLobby=createLobbyUI({scene,layers:[ROOM_LAYER,SUBWAY_LAYER],animate:animatePerson,announce,
@@ -1203,8 +1204,9 @@ $('lobby-open')?.addEventListener('click',async()=>{
         else if(gameMap.pin?.x===previous.x && gameMap.pin.z===previous.z && gameMap.pin.name===previous.name)gameMap.clearPin();
       }});
   }
-  if(!$('lobby-dialog').open)onlineLobby.open();
-});
+  if (!$('lobby-dialog').open) await onlineLobby.open(autoJoin);
+}
+$('lobby-open')?.addEventListener('click', () => openOnlineLobby());
 function togglePause(force) {
   if(!started)return;
   paused=force??!paused;
@@ -1326,6 +1328,11 @@ $('start-button').addEventListener('click',()=>{
   warmStreetModel();
   started=true;paused=false;$('intro').hidden=true;setView('city');
   canvas.focus();
+});
+$('start-online').addEventListener('click', async () => {
+  if (!bootReady || started) return;
+  $('start-button').click();
+  if (await travel(RENDEZVOUS)) await openOnlineLobby(true);
 });
 $('startup-retry').addEventListener('click',()=>window.location.reload());
 const citySoundButton=$('sound-button');

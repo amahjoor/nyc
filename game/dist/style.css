@@ -284,6 +284,12 @@ body:has(.cash-display:not([hidden])) .mission-panel { top:var(--money-clearance
   transform: translateY(-2px);
   box-shadow: 0 6px 24px #0a0206aa;
 }
+#start-online {
+  margin-top: 8px;
+  color: var(--brand-cream);
+  background: var(--brand-ink);
+}
+#start-online .start-arrow { background: var(--brand-cream); color: var(--brand-ink); }
 .start-button:active:enabled { transform: translateY(0); }
 .start-arrow {
   display: grid;

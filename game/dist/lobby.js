@@ -76,11 +76,18 @@ export function createLobbyUI({scene,layers,sample,travel,route,showOnMap,announ
   const el=id=>document.getElementById('lobby-'+id);
   const peers=new Map(),dialog=el('dialog'),address=el('address');
   let socket=null, joined=false, me='',capacity=0,online=0,lastSent=-Infinity,gate=null,best='',lastList='',space=null;
-  let defaultAddress='',assignedTint=0;
-  try{address.value=localStorage.getItem('cj-lobby-server')||'';}catch{}
-  fetch('./lobby-config.json').then(r=>r.json()).then(data=>{
-    defaultAddress=data.url || (location.protocol==='https:'?'wss://'+location.host+'/lobby':location.protocol==='http:'?'ws://'+location.hostname+':8787/lobby':'');if(!address.value)address.value=defaultAddress;
-  }).catch(()=>{});
+  const suggestedAddress = location.protocol === 'https:' ? 'wss://' + location.host + '/lobby'
+    : location.protocol === 'http:' ? 'ws://' + location.hostname + ':8787/lobby' : '';
+  let defaultAddress = suggestedAddress, assignedTint = 0;
+  let savedAddress = '';
+  try { savedAddress = localStorage.getItem('cj-lobby-server') || ''; } catch {}
+  address.value = savedAddress || suggestedAddress;
+  const configReady = fetch('./lobby-config.json').then(r => r.json()).then(data => {
+    if (data.url) {
+      defaultAddress = data.url;
+      if (!savedAddress && address.value === suggestedAddress) address.value = defaultAddress;
+    }
+  }).catch(() => {});
   function controls(){
     el('join').disabled=!!socket;address.disabled=!!socket;el('leave').hidden=!socket;
     el('actions').hidden=!joined;el('badge').textContent=joined?online+' ONLINE':'OFFLINE';
@@ -98,7 +105,7 @@ export function createLobbyUI({scene,layers,sample,travel,route,showOnMap,announ
     const previous=socket;
     reset('Offline');previous?.close(1000,'Left lobby');
   }
-  function join(){
+  function join(closeOnWelcome = false){
     if(socket)return;
     let url;
     try{
@@ -117,6 +124,10 @@ export function createLobbyUI({scene,layers,sample,travel,route,showOnMap,announ
         clearTimeout(timeout);joined=true;me=m.name;assignedTint=(m.id-1)%COLOURS.length;capacity=m.capacity;online=1;lastSent=-Infinity;controls();
         try{localStorage.setItem('cj-lobby-server',url.href);}catch{}
         el('status').textContent='Connected as '+me;
+        if (closeOnWelcome && dialog.open) {
+          dialog.close();
+          announce('Online at Broadway & Spring · ' + me);
+        }
       }else if(joined && m.type==='snapshot' && Array.isArray(m.near)){
         online=m.online;best=m.best?.ms?m.best.name+' · '+(m.best.ms/1000).toFixed(1)+' s':'';
         const active=new Set();
@@ -154,7 +165,7 @@ export function createLobbyUI({scene,layers,sample,travel,route,showOnMap,announ
     conn.onerror=()=>{if(conn===socket)el('status').textContent='Could not reach the lobby.';};
     conn.onclose=()=>{clearTimeout(timeout);if(conn===socket)reset('Disconnected. Check the server address or rejoin.');};
   }
-  el('join').onclick=join;el('leave').onclick=leave;
+  el('join').onclick=()=>join();el('leave').onclick=leave;
   el('meet').onclick=()=>{dialog.close();travel(RENDEZVOUS);};
   el('race').onclick=()=>{if(joined)socket.send(JSON.stringify([gate===null?'sprint':'cancel']));};
   el('signal').onclick=()=>{if(joined)socket.send(JSON.stringify(['signal',Number(el('message').value)]));};
@@ -176,7 +187,14 @@ export function createLobbyUI({scene,layers,sample,travel,route,showOnMap,announ
     }
     return true;
   }
-  return {open(){dialog.showModal();el(joined?'meet':'join').focus();},pad,frame(now,dt){
+  return {async open(autoJoin = false) {
+    dialog.showModal();
+    el(joined?'meet':'join').focus();
+    if (autoJoin) {
+      await configReady;
+      if (dialog.open && address.value && !socket) join(true);
+    }
+  },pad,frame(now,dt){
     if(!joined)return;
     const local=sample();
     if(!local)return;
