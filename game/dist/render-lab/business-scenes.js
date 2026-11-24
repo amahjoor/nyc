@@ -11,11 +11,13 @@ import { carriedItems } from '../carried-items.js';
 const studies=[
   {id:'cafe',name:'Café pickup',kind:'coffee',venue:'Café',stages:[
     ['handoff','Drink handoff','handing over drink','pair'],['order','Paying at the counter','ordering and paying','pair'],
-    ['brew','Preparing the drink','making drink','work'],['collect','Collecting a drink','picking up drink','work'],
+    ['brew','Preparing the drink','Barista · ','work'],['collect','Collecting a drink','picking up drink','work'],
     ['sit','Drinking at a table','drinking','table']]},
+  {id:'bar',name:'Bar service',kind:'bar',venue:'Bar',stages:[
+    ['prepare','Preparing a drink','Bartender · ','work'],['serve','Serving at the bar','handing over drink','pair']]},
   {id:'restaurant',name:'Restaurant table service',kind:'italian',venue:'Italian restaurant',stages:[
     ['serve','Serving a plate','setting down plate','pair'],['order','Taking the order','taking table order','pair'],
-    ['kitchen','In the kitchen','preparing plate','work'],['dine','Eating at the table','eating','table'],
+    ['kitchen','In the kitchen','Chef · ','work'],['dine','Eating at the table','eating','table'],
     ['check','Settling the check','settling check','pair']]},
   {id:'jeweler',name:'Jewelry consultation',kind:'jewelry',venue:'Jewelry store',stages:[
     ['show','Presenting a ring','showing ring','pair'],['browse','Browsing rings','looking at rings','display'],
@@ -40,7 +42,7 @@ function replay(plan,group,phase){
       if(!visit)continue;
       entered.add(p);
       visit.step(p,dt,time);
-      if(visit.phase!==phase||!visit.task)continue;
+      if(!visit.task || (phase.endsWith(' · ')?!visit.phase.startsWith(phase)||!visit.employee?.preparation:visit.phase!==phase))continue;
       const seconds=(elapsed.get(visit.task)||0)+dt;
       elapsed.set(visit.task,seconds);
       if(seconds>=.30){
@@ -109,6 +111,7 @@ export function sceneEntries({makePlan,actorObject,owned,dispose}){
           const clip=actor.clip||(actor.spot?.treadmill?'jog':'idle');
           const person=await actorObject(actor,clip,true);
           people.push(person);group.add(person);
+          for(const part of person.userData.prepProps||[])held.add(part.tool,part.point,actor.heading||0,part.rotation,null,part.size);
           if(actor.carry)held.add(actor.carry,person.userData.carryPoint,actor.heading||0);
         }
         // Empty instance batches have no meaningful bounds for an inspector.

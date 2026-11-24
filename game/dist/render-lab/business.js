@@ -11,6 +11,7 @@ import { createHumanShop } from '../human-shop.js';
 import { createHumanMesh } from '../human-mesh.js';
 import { DEFAULT_PERSON } from '../human-designs.js';
 import { createMotion, fitPose, gripOffsetFor } from '../body-motion.js';
+import { fitPrepHands } from '../prep-motion.js';
 import { writeMovements } from '../body-moves.js';
 import { seatClip } from '../seating.js';
 import { sceneEntries } from './business-scenes.js';
@@ -117,14 +118,17 @@ export async function avatar(designFor,clip='idle',item=null,isolated=false,acto
   const design=await designFor(grow),built=await grow(design,'close'),body=createHumanMesh(built,built.look);
   const object=body.mesh;
   try{
-    body.pose(fitPose(moves,body.rig,moves.sample(clip,actor?.time??.36),undefined,actor?.seat,actor?.carry));
+    const pose=fitPose(moves,body.rig,moves.sample(actor?.preparation?'idle':clip,actor?.time??.36),undefined,actor?.seat,actor?.carry);
     if(actor){
       object.position.set(actor.x,actor.y||actor.lift||0,actor.z);
       object.rotation.y=actor.heading||0;
-      if(actor.carry){
+      object.updateMatrix();
+      if(actor.preparation)object.userData.prepProps=fitPrepHands(body.rig,pose,actor.preparation,object.matrix);
+    }
+    body.pose(pose);
+    if(actor?.carry){
         const palm=body.bones[body.rig.index.get('hand_l')];
         object.userData.carryPoint=palm.localToWorld(new T.Vector3(...gripOffsetFor(body.rig,actor.carry)));
-      }
     }
     object.updateMatrixWorld(true);
     if(isolated){
