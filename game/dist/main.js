@@ -70,6 +70,7 @@ import { seatApproach, seatEyeOffset, seatHeight } from './seating.js';
 import { beginRegisterTake, updateClerk, registerAction } from './register.js';
 import { fleeShop, inviteCustomer, populateShop, roomOccupantHit } from './shop-life.js';
 import { createStorefronts } from './storefronts.js';
+import { warmStreetModel } from './street-talk.js';
 import { Work } from './work.js';
 import { createInteraction } from './interaction.js';
 import { CityRides, PhoneBank } from './phone-services.js';
@@ -500,7 +501,8 @@ document.addEventListener('change',event=>{
 },true);
 const canvas=$('world');
 function interfaceKey(event){
-  if(interaction?.open && event.code==='KeyM'){
+  if(atmTerminal?.active)return atmTerminal.key(event);
+  if(interaction?.open && event.code==='KeyM' && event.target?.id!=='street-line'){
     if(!event.repeat)interaction.close();
     return true;
   }
@@ -3886,8 +3888,20 @@ async function boot() {
       else phone.focus();
     }else canvas.focus();
   }});
-  work=new Work({sim,speak:(person,line)=>audio.reply(person,line),phone:()=>phone,meet:(title,message,rows,available,kitchen,slip)=>{
-    interaction.openList(title,rows,row=>row.choose(),{message,available,kitchen,slip});
+  work=new Work({sim,speak:(person,line,phones,signal)=>audio.reply(person,line,phones,signal),
+    openTalk:(...args)=>{warmStreetModel();return interaction.openTalk(...args);},streetName:()=>$('street-name').textContent,
+    canTalk:person=>sim.player.mode==='walk' && !sim.player.armed && !sim.room && !person.gone && !person.reaction &&
+      ['walk','rest','wait'].includes(person.state) && Math.hypot(person.x-sim.player.x,person.z-sim.player.z,(person.y||0)-(sim.player.y||0))<5 &&
+      crowd?.people.includes(person),
+    talkPlace:(person,request='')=>{
+      const spots=(placeSource?.near(person.x,person.z,250)||[]).filter(p=>shopOpen(p))
+        .sort((a,b)=>Math.hypot(a.x-person.x,a.z-person.z)-Math.hypot(b.x-person.x,b.z-person.z));
+      const category=/pizza|slice/i.test(request)?p=>p.kind==='pizza':/coffee|caf[eé]/i.test(request)?p=>p.group==='cafe':
+        /eat|food|restaurant|lunch|dinner|breakfast/i.test(request)?p=>['dining','food','cafe'].includes(p.group):null;
+      const spot=category?spots.find(category):spots[0];
+      return spot && {name:placeName(spot),x:spot.x,z:spot.z};
+    },phone:()=>phone,meet:(title,message,rows,available,kitchen,slip,onClose)=>{
+    interaction.openList(title,rows,row=>row.choose(),{message,available,kitchen,slip,onClose});
   },fronts:()=>fronts,hours:()=>gfx.hours,save:saveProgress,passengerTrip:()=>cityRides?.trip,
     guide:site=>{gameMap.setOpen(true);gameMap.showCity();gameMap.setPin(site);},
     pedestrian:()=>sim.player.mode==='walk'&&!sim.room&&!sim.player.armed?crowd?.closest(sim.player.x,sim.player.z,4,true):null,

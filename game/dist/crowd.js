@@ -1490,7 +1490,12 @@ export function createCrowd({ scene = null, life, boroughs = [], heightAt = () =
           combat(person, dt, player, others);
           if (person.state === 'fight' || person.state === 'down') threats.push({ x: person.x, z: person.z, kind: person.state === 'down' ? 'down' : 'fight' });
         } else {
-          if (person.driverCar) walkShoppingDriver(person,dt,context.time,others);
+          if (person.talkingTo && ['walk','rest','wait'].includes(person.state)) {
+            const target=person.talkingTo;
+            const angle=Math.atan2(target.x-person.x,target.z-person.z);
+            person.heading+=Math.atan2(Math.sin(angle-person.heading),Math.cos(angle-person.heading))*(1-Math.exp(-dt*8));
+            person.age+=dt;
+          } else if (person.driverCar) walkShoppingDriver(person,dt,context.time,others);
           else if (network) step(person, dt, context, others);
           if (person.gone) continue;
         }

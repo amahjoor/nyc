@@ -100,6 +100,15 @@
       <canvas id="shop-mirror" aria-label="Rotatable three-dimensional preview"></canvas>
       <div class="mirror-controls"><button type="button" id="mirror-left" aria-label="Rotate left">↶</button><button id="mirror-farther" type="button" aria-label="Zoom out">−</button><span id="mirror-status" role="status"></span><button type="button" id="mirror-closer" aria-label="Zoom in">+</button><button type="button" id="mirror-right" aria-label="Rotate right">↷</button></div>
     </div>
+    <div id="street-talk" hidden>
+      <div id="street-history" role="log" aria-label="Conversation"></div>
+      <div id="street-reply-status" role="status"></div>
+      <div id="street-choices"></div>
+      <form id="street-compose">
+        <input id="street-line" type="text" maxlength="240" autocomplete="off" aria-label="Your reply" placeholder="Say something…">
+        <button id="street-send" type="submit">Say it</button>
+      </form>
+    </div>
     <div id="interaction-options"></div>
     <footer><span>↑ ↓ Choose · Enter Select</span><button type="button" id="interaction-close">Esc · Leave</button></footer>
   </section>

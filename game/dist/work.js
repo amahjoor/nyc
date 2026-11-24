@@ -1,3 +1,4 @@
+import { encounter, savedConversations, streetIdentity, streetReply, talkToPerson } from './street-talk.js';
 import { hasKitchen,kitchenRole,kitchenTicket,kitchenState,kitchenActions,trayReady,advanceKitchen } from './kitchen-shift.js';
 import { deskTicket } from './service-desk.js';
 import { salesCall } from './sales-calls.js';
@@ -52,8 +53,8 @@ function ledger(shift) {
 }
 
 export class Work {
-  constructor({ sim, phone, meet, fronts, hours, guide, pedestrian, counter, save, speak = () => {}, passengerTrip = () => null, random = Math.random, now = Date.now }) {
-    Object.assign(this, { sim, phone, meet, fronts, hours, guide, pedestrian, counter, save, speak, passengerTrip, random, now });
+  constructor({ sim, phone, meet, fronts, hours, guide, pedestrian, counter, save, speak = () => {}, openTalk, talkReply = streetReply, talkPlace = () => null, streetName = () => '', canTalk = person => pedestrian() === person, passengerTrip = () => null, random = Math.random, now = Date.now }) {
+    Object.assign(this, { sim, phone, meet, fronts, hours, guide, pedestrian, counter, save, speak, openTalk, talkReply, talkPlace, streetName, canTalk, passengerTrip, random, now });
     this.offerSerial=Math.floor(random()*900);this.offers={};
     this.streetActions = { ask: new WeakSet(), sell: new WeakSet(), steal: new WeakSet() };
     this.restore();
@@ -62,6 +63,7 @@ export class Work {
   restore(record = {}) {
     record = record || {};
     this.record = { shifts: count(record.shifts, 1e7), cart: record.cart === true, cups: 0, shift: null, tills: {}, sales: {}, closures: {}, tradingDay:count(record.tradingDay,1e8), businessMinute:count(record.businessMinute,1439), turnover:{} };
+    this.record.conversations = savedConversations(record.conversations);
     if (this.record.cart) this.record.cups = count(record.cups, 12);
     this.record.booked = Object.hasOwn(EMPLOYERS, record.booked ?? '') ? record.booked : null;
     const s = record.shift;
@@ -338,17 +340,17 @@ export class Work {
     this.list('Coffee cart', r.cart ? `${r.cups}/12 cups. Walk up to a pedestrian to make a sale.` : 'Start a sidewalk coffee business. Sell each cup for $5 to a different pedestrian.', rows);
   }
 
-  street(message='') {
-    const person = this.pedestrian();
+  street(message='', person=this.pedestrian()) {
     const rows = [];
     if (person) {
       rows.push(option('Say hello', '', () => {
-        if(this.pedestrian()!==person)return this.sim._say('They have moved on.');
+        if(!this.canTalk(person))return this.sim._say('They have moved on.');
         const replies=['I slept outside last night. It’s good to talk to someone.', 'Morning’s my favorite time on this block.', 'I’m looking for somewhere to stay tonight. How’s your day going?', 'Hey. Good to see a friendly face.'];
         const line=person.resident ? replies[person.resident.id%replies.length] : 'Hey, how’s it going?';
         this.speak(person,line);
-        this.street(line);
+        this.street(line,person);
       }));
+      if(this.openTalk) rows.push(option('Talk for a while', '', () => talkToPerson(this,person)));
       const action = (kind, name, note, choose) => {
         const disabled = this.streetActions[kind].has(person);
         return { ...option(name, disabled ? completedStreetAction[kind] : note, choose), disabled };
@@ -357,28 +359,34 @@ export class Work {
       if (this.record.cart) rows.push(action('sell', 'Sell a coffee', `$5 · ${this.record.cups} cups left`, () => this.pourCoffee(person)));
       rows.push(action('steal', 'Steal wallet', 'A witness may report it.', () => this.trade(person, 'steal')));
     }
-    if (!rows.length) return this.board('Walk up to a pedestrian and press G.');
-    this.meet('Passerby', message, rows, () => this.pedestrian() === person);
+    if (!rows.length) return this.board('Walk up to a pedestrian and press E.');
+    this.streetMenu(person,'Passerby',message,rows);
   }
 
-  pourCoffee(person){
+  streetMenu(person,title,message,rows,available=()=>this.canTalk(person)) {
+    if (!available()) return;
+    this.meet(title,message,rows,available,null,null,()=>{delete person.talkingTo;});
+    if (this.openTalk) person.talkingTo=this.sim.player;
+  }
+
+  pourCoffee(person,after){
     if(this.streetActions.sell.has(person))return this.sim._say(completedStreetAction.sell);
     if(!this.record.cups)return this.sim._say('Restock your coffee cart first.');
-    const available=()=>this.pedestrian()===person && !this.streetActions.sell.has(person) && this.record.cups>0;
+    const available=()=>this.canTalk(person) && !this.streetActions.sell.has(person) && this.record.cups>0;
     const milk=(person.resident?.id || 0)%2===0;
     const order=milk?'A coffee with milk, please.':'Black coffee, please.';
     this.speak(person,order);
-    const serve=()=>this.meet('Coffee cart','One cup ready.',[
-      option('Lid and hand over coffee','$5',()=>this.trade(person,'sell'))
+    const serve=()=>this.streetMenu(person,'Coffee cart','One cup ready.',[
+      option('Lid and hand over coffee','$5',()=>this.trade(person,'sell',after))
     ],available);
-    this.meet('Coffee cart',order,[option('Pour hot coffee','Fill a paper cup',()=>{
+    this.streetMenu(person,'Coffee cart',order,[option('Pour hot coffee','Fill a paper cup',()=>{
       if(!available())return;
-      this.meet('Coffee cart',order,[option(milk?'Add a splash of milk':'Leave it black','',serve)],available);
+      this.streetMenu(person,'Coffee cart',order,[option(milk?'Add a splash of milk':'Leave it black','',serve)],available);
     })],available);
   }
 
-  trade(person, action) {
-    if (!person || this.pedestrian() !== person) return this.sim._say('They have moved on.');
+  trade(person, action, after) {
+    if (!person || !this.canTalk(person)) return this.sim._say('They have moved on.');
     const completed = this.streetActions[action];
     if (completed.has(person)) return this.sim._say(completedStreetAction[action]);
     if (action === 'sell' && (!this.record.cart || this.record.cups < 1)) return this.sim._say('Restock your coffee cart first.');
@@ -392,12 +400,16 @@ export class Work {
       report=this.sim.offence('pickpocket',{x:person.x,y:person.y,z:person.z,victim:person,message:'Wallet theft reported.'});
     }
     const reply = action === 'steal' ? "Hey! That's my wallet!" : action === 'sell' ? 'Thanks for the coffee.' : amount ? 'Yeah, here you go.' : "Sorry, I don't have any change.";
+    const entry=encounter(this.record.conversations,streetIdentity(person).key);
+    entry.pastEncounter=action==='sell'?'The player sold you a coffee.':action==='steal'?'This player took your wallet.':
+      amount?'You gave the player spare change.':'The player asked for change and you declined.';
     this.speak(person, reply);
     if (action === 'ask' && amount) this.sim.moveEvents?.push({kind:'spareChange', x:person.x, y:person.y, z:person.z});
     this.sim.cash += amount; this.save(action==='sell'?'Coffee sale':undefined);
     const theftNotice=report==='called'?' A witness is calling police.':report==='seen'?' Police saw the theft.':'';
     const theft=amount?`Wallet +${formatMoney(amount)}.`:'The wallet had no cash.';
     this.sim._say(action === 'steal' ? theft+theftNotice : action === 'sell' ? 'Coffee sold. +$5.' : amount ? `They gave you $${amount}.` : 'They shake their head and keep walking.');
+    after?.(reply);
   }
 
   advanceShopClock(weekday,hours) {
