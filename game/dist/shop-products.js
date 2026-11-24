@@ -103,7 +103,7 @@ export function espressoStation(t, w, d) {
   for (const side of [-1,1]) {
     const x = center + side * body * .23;
     t.disc(x, d * .19, .033, .038, .259, '#8b9698');
-    t.rodV(x, face, .12, .009, .27, '#302d2c');
+    if(side>0)t.rodV(x, face, .12, .009, .27, '#302d2c');
     for (let i = -1; i <= 1; i++) t.drum(x + i * .025, face + .046, .013, .008, .357, '#e8d8af');
     chinaCup(t, x, -.015, .424);
     chinaCup(t, x, -.015, .466);

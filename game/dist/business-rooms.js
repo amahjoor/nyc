@@ -267,7 +267,7 @@ function coffee(r, prop) {
   prop('register',bar,short?end-.27:Math.min(end-.53,machine+.77),.38,.36,.38,'#41494a',{y:top+.035,solid:false});
   r.add(r.half-.26,1.48,.45,1.72,.065,'#967556',.94);
   for (let b=.98;b<Math.min(r.depth-.42,2.18);b+=.81) r.seat(r.half-.81,b,1,0,.28,'#59665c',.36,.36,.73);
-  for (let b=3.2;b<r.depth-.73;b+=1.88) {
+  for (let b=3.2;b<r.depth-.73;b+=2.10) {
     const a=r.half-.69;
     r.add(a,b,.78,.64,.74,'#ad8967',0,true,'table');
     for(const side of [-1,1]) r.seat(a,b+side*.62,0,-side,0,'#51645c');

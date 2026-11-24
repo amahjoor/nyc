@@ -142,7 +142,7 @@ function nightlife(r, prop) {
   prop('serviceDesk', bar, middle, .60, length, 1.04, timber, { face: [1, 0], trim: accent, top: '#554941' });
   r.staff(bar - .60, middle, 1, 0);
   r.people.at(-1).role = 'cashier';
-  prop('draftTaps', bar, middle, .32, .63, .44, accent, { face: [1, 0], y: 1.04, solid: false });
+  prop('draftTaps', bar, middle, .32, .63, .44, accent, { face: [-1, 0], y: 1.04, solid: false });
   for (let b = start + .75; b + .70 <= end; b += 1.85)
     prop('bottleShelf', -r.half + .16, b, .28, 1.44, .39, timber, { y: 1.48, face: [1, 0], solid: false });
   if (!club) {
