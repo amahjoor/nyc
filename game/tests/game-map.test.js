@@ -168,6 +168,25 @@ test('typing and submitting island names pin their surveyed arrival points offli
   assert.equal(lookups, 0);
 });
 
+test('trackpad scroll and pinch respond to small deltas and reverse at the same anchor', t => {
+  const {map,canvas}=fixture(t);map.setOpen(true);
+  const at={clientX:490,clientY:320};
+  const scroll=(deltaY,ctrlKey=false)=>canvas.fire('wheel',{...at,deltaY,ctrlKey});
+  const start=map.view.span;
+  scroll(-10);
+  assert.ok(map.view.span<start*.94 && map.view.span>start*.9);
+  scroll(10);assert.ok(Math.abs(map.view.span-start)<1e-8);
+  scroll(-10,true);assert.ok(map.view.span<start*.85);
+  scroll(10,true);
+  canvas.fire('gesturestart',{...at,scale:1});
+  canvas.fire('gesturechange',{...at,scale:1.5});
+  scroll(-10,true); // A browser reporting both should apply the pinch once.
+  canvas.fire('gesturechange',{...at,scale:2});
+  assert.ok(Math.abs(map.view.span-start/2)<1e-8);
+  canvas.fire('gestureend',at);
+  scroll(10);assert.ok(map.view.span>start/2);
+});
+
 test('wheel zoom keeps its cursor anchor, has bounds, and full city includes every borough extent', t => {
   const { map, canvas, city } = fixture(t);map.setOpen(true);
   const anchor = { x: 650, y: 240 }, before = mapScreenToWorld(anchor, map.getState().view);

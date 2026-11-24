@@ -16,6 +16,34 @@ const resultName = place => [place.name, place.what, place.detail, place.borough
 const searchMarkerRadius = 5;
 const placeBadgeSize = 22;
 
+// Trackpads send many small pixel deltas. Limit large wheel notches separately
+// so a brisk scroll stays controllable. Safari pinch events use cumulative scale.
+export function bindMapZoom(surface, zoom, listen=(el,type,fn,options)=>el.addEventListener(type,fn,options), enabled=()=>true) {
+  let pinchScale=null;
+  const on=(type,fn)=>listen(surface,type,fn,{passive:false});
+  on('wheel',event=>{
+    if(!enabled() || event.metaKey || event.altKey || !event.deltaY)return;
+    event.preventDefault();
+    if(pinchScale!==null)return;
+    const unit=event.deltaMode===1?16:event.deltaMode===2?(surface.clientHeight||800):1;
+    const step=event.deltaY*unit*(event.ctrlKey ? .022 : .007);
+    zoom(Math.exp(clamp(step,-.6,.6)),event);
+  });
+  on('gesturestart',event=>{
+    if(!enabled())return;
+    event.preventDefault();pinchScale=event.scale||1;
+  });
+  on('gesturechange',event=>{
+    if(pinchScale===null || !enabled() || !(event.scale>0))return;
+    event.preventDefault();
+    zoom(pinchScale/event.scale,event);pinchScale=event.scale;
+  });
+  on('gestureend',event=>{
+    if(pinchScale!==null)event.preventDefault();
+    pinchScale=null;
+  });
+}
+
 export function mapWorldToScreen(point, view) {
   const scale = view.width / view.span;
   return { x: (point.x - view.x) * scale + view.width / 2, y: (point.z - view.z) * scale + view.height / 2 };
@@ -75,10 +103,10 @@ export class GameMap {
     listen(byId('game-map-recenter'), 'click', () => this.recenter());
     listen(byId('game-map-city'), 'click', () => this.showCity());
     listen(byId('game-map-spawn'), 'click', () => this.spawnAtPin());
-    listen(this.canvas, 'wheel', event => {
-      event.preventDefault();event.stopPropagation();
-      this.zoom(Math.exp(clamp(event.deltaY * (event.deltaMode === 1 ? 16 : event.deltaMode === 2 ? this.view.height : 1), -500, 500) * .0015), this.pointerPoint(event));
-    }, { passive: false });
+    bindMapZoom(this.canvas,(factor,event)=>{
+      const anchor=Number.isFinite(event.clientX)&&Number.isFinite(event.clientY)?this.pointerPoint(event):undefined;
+      this.zoom(factor,anchor);
+    },listen);
     listen(this.canvas, 'pointerdown', event => this.pointerDown(event));
     listen(this.canvas, 'pointermove', event => this.pointerMove(event));
     listen(this.canvas, 'pointerup', event => this.pointerUp(event));

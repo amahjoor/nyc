@@ -32,7 +32,7 @@ import { createStatueOfLiberty, STATUE } from './liberty.js';
 import { RoadPilot } from './road-pilot.js';
 import { createRoadStream, nearestStreet, localDestinations } from './road-stream.js';
 import { createCityNavigation } from './city-navigation.js';
-import { GameMap } from './game-map.js';
+import { GameMap, bindMapZoom } from './game-map.js';
 import { createRoutePlanner } from './route-planner.js';
 import { createStreetIndex, createPlaceIndex, matchPresets, searchLocal, title } from './local-search.js';
 import { createPlaceLayer } from './map-places.js';
@@ -1197,11 +1197,9 @@ window.addEventListener('message',event=>{
 });
 let previewSpan=1400;
 function drawPausePreview(){if(!$('pause-map').hidden)gameMap?.drawPreview($('pause-map-canvas'),previewSpan);}
-$('open-map-button').addEventListener('wheel',event=>{
-  event.preventDefault();
-  previewSpan=clamp(previewSpan*Math.exp(clamp(event.deltaY,-300,300)*.002),300,16000);
-  drawPausePreview();
-},{passive:false});
+bindMapZoom($('open-map-button'),factor=>{
+  previewSpan=clamp(previewSpan*factor,300,16000);drawPausePreview();
+});
 function pauseClock(){return (WEEKDAYS[weekday]||'')+' '+(gfx?.clock||'');}
 function refreshPauseMenu(){
   $('pause-place').textContent=$('district-name').textContent;
@@ -1356,9 +1354,15 @@ canvas.addEventListener('wheel',event=>{
     return;
   }
   if(wheelSelection!==null){event.preventDefault();action(wheelSelection?'wheelUnarmed':'wheelPistol');return;}
-  if(cityView){event.preventDefault();pickerFlight.cancel();const next=clamp(cityZoom*Math.exp(event.deltaY*.001),.07,1.8);if(next!==cityZoom)audio.sceneCue(next<cityZoom?'zoomIn':'zoomOut',.4);cityZoom=next;}
-  else if(aerialView&&started&&!paused){event.preventDefault();zoomAerial(Math.exp(clamp(event.deltaY*(event.deltaMode===1?16:1),-500,500)*.0015));}
 },{passive:false});
+bindMapZoom(canvas,factor=>{
+  if(cityView){
+    pickerFlight.cancel();
+    const next=clamp(cityZoom*factor,.07,1.8);
+    if(next!==cityZoom)audio.sceneCue(next<cityZoom?'zoomIn':'zoomOut',.4);
+    cityZoom=next;
+  }else zoomAerial(factor);
+},undefined,()=>wheelSelection===null && !paused && (cityView || aerialView && started));
 // Plus and minus do the same from the keyboard.
 window.addEventListener('keydown',event=>{
   if(!aerialView||!started||paused||mapOpen||phone?.open||event.ctrlKey||event.metaKey||event.altKey||event.target?.closest?.('input,textarea,select'))return;

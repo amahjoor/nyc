@@ -36,7 +36,7 @@ import { createStreetDetail } from '../dist/street-detail.js';
 import { Landscape } from '../dist/landscape.js';
 import { createCentralPark } from '../dist/central-park.js';
 import { RoadPilot } from '../dist/road-pilot.js';
-import { GameMap } from '../dist/game-map.js';
+import { GameMap, bindMapZoom } from '../dist/game-map.js';
 import { createRoutePlanner } from '../dist/route-planner.js';
 import { createStreetIndex, createPlaceIndex, matchPresets, searchLocal, title } from '../dist/local-search.js';
 import { createPlaceLayer } from '../dist/map-places.js';
@@ -352,7 +352,7 @@ async function bootHarness({ stored = null, displayStored = null, unavailableSto
     ...globals, performance:{now:()=>timestamp},
     THREE: { ...THREE, WebGLRenderer: RendererStub },
     vehicleName,
-    interactWithTrip,tripAction,courierBag,createCar, createParkedCars, createDistantTraffic, createPerson, updateCarVisuals, Simulation, TRAFFIC_SIGHT, Input, HUD, CityAudio, GameMap, Work, warmStreetModel, createStreetIndex, createPlaceIndex, matchPresets, searchLocal, title, createPlaceLayer, createRoutePlanner,
+    interactWithTrip,tripAction,courierBag,createCar, createParkedCars, createDistantTraffic, createPerson, updateCarVisuals, Simulation, TRAFFIC_SIGHT, Input, HUD, CityAudio, GameMap, bindMapZoom, Work, warmStreetModel, createStreetIndex, createPlaceIndex, matchPresets, searchLocal, title, createPlaceLayer, createRoutePlanner,
     lotsReady:async()=>false,lots:()=>null,
     createCityStream:(fullIndex,options)=>{
       assert.equal(fullIndex.stats.buildingFeatures,index.stats.buildingFeatures);

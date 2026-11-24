@@ -2,7 +2,7 @@ import { blipColour, blipOf, blipSvg } from './map-blips.js';
 import { geographicToWorld, NYC_BBOX } from './city-ground.js';
 import { categoryOf } from './map-places.js';
 import { KIND, placeName } from './places.js';
-import { mapWorldToScreen } from './game-map.js';
+import { bindMapZoom, mapWorldToScreen } from './game-map.js';
 
 const clamp=(v,min,max)=>Math.max(min,Math.min(max,v));
 const min=geographicToWorld(NYC_BBOX[0],NYC_BBOX[3]),max=geographicToWorld(NYC_BBOX[2],NYC_BBOX[1]);
@@ -75,7 +75,8 @@ export function createPhoneExplore({$,click,worldMap,locations,openPlace,summary
   for(const type of ['pointerup','pointercancel','lostpointercapture'])surface.addEventListener(type,end);
   surface.ownerDocument?.addEventListener('pointerup',end);
   surface.addEventListener('click',e=>{if(dragged && e.detail){e.stopImmediatePropagation();dragged=false;}},true);
-  surface.addEventListener('wheel',e=>{e.preventDefault();zoom(e.deltaY>0?1.25:.8);},{passive:false});
+  // Two touch pointers already zoom around their midpoint.
+  bindMapZoom(surface,zoom,undefined,()=>pointers.size<2);
   function updatePins(places,view,cellSize){
     const visible=new Map(),groups=new Map();
     for(const [key,place] of places){
