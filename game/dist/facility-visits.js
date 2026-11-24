@@ -31,7 +31,7 @@ export function* ask(v, role='server') {
     yield pause(v.person,'waiting for staff',.22,null,'idle');
     // Nobody waits on one busy member of staff while a colleague stands free.
     if((waited+=.22)<ASK_PATIENCE || employee.escape || employee.gone)continue;
-    const free=employees(v).find(a=>a!==employee && !a.serviceOwner && !a.requests?.length && (role==='cook')===KITCHEN_ROLES.includes(a.spot.role));
+    const free=employees(v).find(a=>a!==employee && !a.serviceOwner && !a.requests?.length && KITCHEN_ROLES.includes(role)===KITCHEN_ROLES.includes(a.spot.role));
     waited=0;
     if(!free)continue;
     employee.requests=employee.requests.filter(req=>req!==v);
@@ -170,15 +170,15 @@ function* cafe(v) {
   yield walking(barista,barista.spot,'taking order');
   yield* tender(v,barista,'ordering and paying');pay(v);
   const machine=sample(v,'espresso')||sample(v,'blenders');
-  yield* workSteps(v,barista,v.item,{label:'Barista'});
-  const kind=servingFor(v.item,dineIn);
-  barista.carry=kind;
-  // Move both people along opposite sides of the bar to its pickup end.
   const pickup=v.room.things.find(t=>t.more?.pickup)||machine||barista.spot;
   const counter=v.room.things.find(t=>t.solid && t.a===machine?.a && t.d>1);
   const a=counter?.a ?? barista.spot.a;
+  yield walking(person,{a:a+.78,b:pickup.b},'waiting at pickup');
+  leaveQueue(v);
+  yield* workSteps(v,barista,v.item,{label:'Barista'});
+  const kind=servingFor(v.item,dineIn);
+  barista.carry=kind;
   yield walking(barista,{a:a-.73,b:pickup.b},'bringing drink to pickup');
-  yield walking(person,{a:a+.78,b:pickup.b},'collecting drink');
   facePoint(view,person,floorAt(view,barista));
   yield pause(barista,'handing over drink',.65,floorAt(view,person));
   if(pickup.more?.pickup){
@@ -187,7 +187,7 @@ function* cafe(v) {
     yield pause(person,'picking up drink',.65,pickup);
     view.group?.userData.drinkAt?.(pickup,kind,false);v.drink=null;
   }
-  person.carry=kind;done(v);leaveQueue(v);
+  person.carry=kind;done(v);
   if(dineIn) {
     yield* sit(v);
     const duration=6+view.random()*4;

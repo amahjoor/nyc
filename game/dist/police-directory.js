@@ -13,7 +13,7 @@ const list = el('units'), search = el('query'), group = el('group'), canvas = el
 for (const name of new Set(POLICE_UNITS.map(unit => unit.bureau))) group.add(new Option(name,name));
 let selected, token = 0, stage, redraw = () => {}, yaw = .38;
 const posts = {street:'street beats', community:'community visits', precinct:'precinct visits', school:'school entrances',
-  park:'park beats', road:'roadside duties', housing:'residential visits', case:'incident follow-up', air:'heliports',
+  park:'park beats', parking:'kerbside parking checks', junction:'busy signalized junctions', road:'roadside duties', housing:'residential visits', case:'incident follow-up', air:'heliports',
   water:'harbor launches', waterfront:'waterfront visits', subway:'subway entrances'};
 const searchNames = {esu:'SWAT tactical rescue',crc:'counterterrorism',k9:'K-9 K9 police dog', 'transit-canine':'K-9 K9 police dog',mounted:'horseback',scuba:'divers',highway:'motorcycle'};
 function renderList() {

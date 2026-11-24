@@ -42,8 +42,10 @@ body:is(.ending-wasted,.ending-busted) .hud-status{visibility:hidden}
   paint-order:stroke fill;
   -webkit-text-stroke:2px #151817;
 }
-.cash-display>div { display:flex; align-items:baseline; gap:8px; }
-.cash-display span { font-size:11px; letter-spacing:.08em; text-transform:uppercase; }
+.cash-display>div { display:flex; align-items:center; gap:.23em; }
+.cash-display svg { width:.68em; height:.68em; filter:drop-shadow(0 1px 1px #101310); }
+.hud-bank-icon { color:#ca9cff; }
+.hud-wallet-icon { color:#86df81; }
 .cash-display strong { font-weight:inherit; }
 #cash { color:#c6e6b1; }
 #cash-gain { color:#86df81; font-size:.78em; transition:opacity .35s ease-out; }
@@ -64,24 +66,44 @@ body:has(.cash-display:not([hidden])) .mission-panel { top:var(--money-clearance
   left:max(clamp(15px,3vw,32px),env(safe-area-inset-left));
   display:flex;
   align-items:center;
-  gap:5px;
-  color:#ff9eb2;
-  filter:drop-shadow(0 1px 1px #151119);
+  gap:4px;
+  color:#ff94ad;
+  filter:drop-shadow(0 1px 1px #20131bc9);
 }
-.health-heart { font:16px/1 Arial,sans-serif; }
+.health-heart { display:block; flex:none; }
+.health-track {
+  position:relative;
+  display:block;
+  width:clamp(90px,9vw,152px);
+  height:6px;
+  box-shadow:0 0 0 1px #251820ad;
+  background:#261e25ce;
+  border-radius:2px;
+  overflow:hidden;
+}
+.health-track::after {
+  content:"";
+  position:absolute;
+  inset:0 auto 0 50%;
+  width:1px;
+  background:#fff4f3ce;
+}
 .health-display meter {
   appearance:none;
   display:block;
-  width:clamp(84px,10vw,132px);
-  height:5px;
+  width:100%;
+  height:100%;
   border:0;
-  border-radius:2px;
-  background:#29262ad9;
-  overflow:hidden;
+  background:transparent;
+  color:inherit;
 }
 .health-display meter::-webkit-meter-bar { height:100%; border:0; border-radius:0; background:transparent; }
-.health-display meter::-webkit-meter-optimum-value { background:#ff9eb2; }
-.health-display meter::-moz-meter-bar { background:#ff9eb2; }
+.health-display meter::-webkit-meter-optimum-value { background:currentColor; transition:width .18s ease-out; }
+.health-display meter::-moz-meter-bar { background:currentColor; transition:width .18s ease-out; }
+@media(prefers-reduced-motion:reduce){
+  .health-display meter::-webkit-meter-optimum-value { transition:none; }
+  .health-display meter::-moz-meter-bar { transition:none; }
+}
 /* The street map is a sibling of the HUD so it also opens from city view. */
 .game-map{position:fixed;inset:0;z-index:30;background:#121b20f5;display:flex;flex-direction:column;gap:10px;padding:12px;color:var(--paper)}
 .game-map-toolbar{display:flex;align-items:center;justify-content:space-between;gap:12px}
@@ -116,12 +138,12 @@ body:has(.cash-display:not([hidden])) .mission-panel { top:var(--money-clearance
 /* What the shop front the player is standing at is. */
 .place-hint{display:inline-block;margin:0 auto 12px;padding:8px 12px;background:#161c1ee6;border:1px solid #ffffff30;border-bottom:2px solid var(--brand-red);font-size:9px;letter-spacing:1.2px}
 .place-hint[hidden]{display:none}
-#vehicle-title{position:fixed;z-index:3;right:max(22px,3vw,env(safe-area-inset-right));bottom:max(32px,4vh,env(safe-area-inset-bottom));max-width:min(620px,40vw);color:var(--brand-cream);font:400 clamp(27px,4.3vw,58px)/1.08 Yellowtail,"Brush Script MT",cursive;text-align:right;overflow-wrap:anywhere;text-shadow:0 2px 2px #20171a,0 3px 12px #000b;pointer-events:none;transition:opacity .5s ease}
-#vehicle-title:not([hidden]){animation:vehicle-title-in .24s ease-out}
-#vehicle-title.leaving{opacity:0}
-@keyframes vehicle-title-in{from{opacity:0;transform:translateY(5px)}to{opacity:1;transform:translateY(0)}}
-@media(max-width:600px){#vehicle-title{max-width:64vw}}
-@media(prefers-reduced-motion:reduce){#vehicle-title:not([hidden]){animation:none}}
+#entry-title{position:fixed;z-index:3;right:max(22px,3vw,env(safe-area-inset-right));bottom:max(32px,4vh,env(safe-area-inset-bottom));max-width:min(620px,40vw);color:var(--brand-cream);font:400 clamp(27px,4.3vw,58px)/1.08 Yellowtail,"Brush Script MT",cursive;text-align:right;overflow-wrap:anywhere;text-shadow:0 2px 2px #20171a,0 3px 12px #000b;pointer-events:none;transition:opacity .5s ease}
+#entry-title:not([hidden]){animation:entry-title-in .24s ease-out}
+#entry-title.leaving{opacity:0}
+@keyframes entry-title-in{from{opacity:0;transform:translateY(5px)}to{opacity:1;transform:translateY(0)}}
+@media(max-width:600px){#entry-title{max-width:64vw}}
+@media(prefers-reduced-motion:reduce){#entry-title:not([hidden]){animation:none}}
 /* A quieter screen: the options fold into a menu, and the cards shrink to what is in use. */
 .top-actions{position:relative}.top-actions[hidden]{display:none}
 .more-actions{position:absolute;top:calc(100% + 8px);right:0;display:flex;flex-direction:column;gap:5px;min-width:190px;padding:8px;background:#151a1df2;border:1px solid #ffffff26;border-top:2px solid var(--brand-red);z-index:8}

@@ -239,8 +239,8 @@ export function passApproach(view,portion,actor) {
  * stations its recipe names and sets it on the pass. Returns the portion
  * waiting there (null where the room has no pass and the cook still holds it).
  */
-export function* cookDish(v,item,{onFire}={}) {
-  const cook=yield* ask(v,'cook');
+export function* cookDish(v,item,{onFire,role='cook'}={}) {
+  const cook=yield* ask(v,role);
   if(!cook)return null;
   onFire?.(cook);
   yield* workSteps(v,cook,item);

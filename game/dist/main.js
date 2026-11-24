@@ -464,6 +464,8 @@ function defaultCityPresets(){
 let chaseHeight=null, chaseEyeOffset=null;
 let seatedEyeStart=null;
 let firstPerson=false, headAnchor, headTurn=0, headPitch=0, snapChase=false, ownBody=false;
+const LOOK_BACK_SECONDS=.36;
+let lookBackProgress=0;
 let shoulderActive=false, shoulderPitch=0, shoulderFocus=0, fireRequested=false;
 let shoulderCamera=false, shoulderBlend=null, eyeFocus=0;
 const eyeGoal=new THREE.Vector3();
@@ -954,7 +956,10 @@ function action(name,event) {
   }
   if(name==='shop') {
     if(shopHere&&sim.vehicle)openGarage(shopHere);
-    else if(work.pedestrian()){warmStreetModel();work.street();}
+    else {
+      const person=work.pedestrian();
+      if(person){if(!person.post)warmStreetModel();work.street('',person);}
+    }
     return;
   }
   if(name==='phone') { if(started&&!paused&&!traveling&&bootReady&&!cityView&&!mapOpen)phone?.toggle(event?.fromPad || event?.code || event?.detail===0 ? 'keys' : 'pointer');return; }
@@ -2696,6 +2701,12 @@ function updateFirstPerson(look,vertical,dt){
     headAnchor=anchor;
   }
   if(paused||traveling||ending){look=0;vertical=0;}
+  if(ending || sim.seat)lookBackProgress=0;
+  else if(!paused && !traveling){
+    const step=dt/LOOK_BACK_SECONDS;
+    lookBackProgress=clamp(lookBackProgress+(input.lookingBack?step:-step),0,1);
+  }
+  const lookBackTurn=Math.PI*THREE.MathUtils.smoothstep(lookBackProgress,0,1);
   headPitch=clamp(headPitch+vertical,driving?-.9:-1.4,driving?1.05:p.mode==='walk' && !sim.seat?Math.PI/2:1.4);
   const posedEnding=ending && ownBody && playerBody?.mesh.visible;
   if(posedEnding){
@@ -2707,12 +2718,12 @@ function updateFirstPerson(look,vertical,dt){
   }else if(driving){
     headTurn=clamp(headTurn+look,-2.8,2.8);
     yaw=p.angle+headTurn;
-    placeDriverCamera(camera,carModels.get(p.vehicleId),headTurn,headPitch,p.mode==='passenger' && cityRides?.trip?.car.passengerSeat,p.duckAmount);
+    placeDriverCamera(camera,carModels.get(p.vehicleId),headTurn+lookBackTurn,headPitch,p.mode==='passenger' && cityRides?.trip?.car.passengerSeat,p.duckAmount);
   }else if(ride){
     const [height,forward]=ride.spec.eye;
     headTurn=clamp(headTurn+look,-2.2,2.2);yaw=p.angle+headTurn;
     camera.position.set(p.x+Math.sin(p.angle)*forward,p.y+height,p.z+Math.cos(p.angle)*forward);
-    camera.rotation.set(-headPitch-ride.pitch,Math.PI+yaw,-ride.roll*.5,'YXZ');
+    camera.rotation.set(-headPitch-ride.pitch,Math.PI+yaw+lookBackTurn,-ride.roll*.5,'YXZ');
   }else{
     if(p.mode==='bike'||p.mode==='skate'||sim.seat){headTurn=clamp(headTurn+look,-1.95,1.95);yaw=p.angle+headTurn;}
     else{yaw+=look;if(!p.reaction && !p.move && !(p.swing>0 && sim.meleeAction?.target) && !ending)p.angle=yaw;}
@@ -2772,7 +2783,7 @@ function updateFirstPerson(look,vertical,dt){
         sightPitch+=Math.max(0,dip-headPitch)*weight;
       }
     }
-    camera.rotation.set(-sightPitch+fall*.3,Math.PI+yaw,p.mode==='skate' ? -.24*p.board.lean : 0,'YXZ');
+    camera.rotation.set(-sightPitch+fall*.3,Math.PI+yaw+lookBackTurn,p.mode==='skate' ? -.24*p.board.lean : 0,'YXZ');
   }
   if(ending && !posedEnding){
     const bow=THREE.MathUtils.smoothstep(ending.t/ending.T,0,.55);
@@ -2780,10 +2791,7 @@ function updateFirstPerson(look,vertical,dt){
     camera.rotateX(-bow*.24);
     if(ending.kind==='wasted')camera.rotateZ(bow*.16);
   }
-  if(input.lookingBack && !ending && !sim.seat){
-    if(p.mode==='walk')walkingLookBackYaw=yaw;
-    camera.rotateY(Math.PI);
-  }
+  if(lookBackProgress>0 && p.mode==='walk')walkingLookBackYaw=yaw;
   const aimZoom=!ending && !(sim.police?.arrest>.2) && focusedAim();
   eyeFocus=ending?0:THREE.MathUtils.damp(eyeFocus,Number(aimZoom),15,dt);
   camera.near=.07;camera.fov=THREE.MathUtils.lerp(70,54,eyeFocus);camera.updateProjectionMatrix();
@@ -2856,7 +2864,7 @@ function updateCamera(dt) {
     // Carry the previous view with the player while the camera moves to its new position.
     shoulderBlend={time:0,offset:camera.position.clone().sub(blendOrigin.set(p.x,p.y,p.z)),rotation:camera.quaternion.clone(),fov:camera.fov};
   }
-  if(!firstPersonActive())eyeFocus=0;
+  if(!firstPersonActive()){eyeFocus=0;lookBackProgress=0;}
   // Indoors the room is drawn, and the street with it: it is there to be seen through the doorway and the windows.
   camera.layers.set(0);
   if(indoorView)camera.layers.enable(ROOM_LAYER);
@@ -3105,20 +3113,22 @@ function updateTouchAction(refresh){
   hud.text('touch-enter',transitAction||currentInteractPrompt?.touch||(p.mode==='walk'?'ENTER':'EXIT'));
 }
 
-let occupiedCarId=null, vehicleTitleUntil=0;
-function updateVehicleTitle(){
-  const p=sim.player, id=(p.mode==='drive'||p.mode==='passenger')?p.vehicleId:null;
-  const title=$('vehicle-title');
-  if(id!==occupiedCarId){
-    occupiedCarId=id;
-    vehicleTitleUntil=sim.elapsed+4;
+let lastEntry=null, entryTitleUntil=0;
+function updateEntryTitle(){
+  const p=sim.player;
+  const room=p.mode==='walk'?sim.room:null;
+  const carId=(p.mode==='drive'||p.mode==='passenger')?p.vehicleId:null;
+  const entry=room??carId;
+  if(entry!==lastEntry){
+    lastEntry=entry;
+    entryTitleUntil=sim.elapsed+4;
   }
-  const left=vehicleTitleUntil-sim.elapsed;
-  const show=id&&left>0&&started&&!cityView&&!paused&&!mapOpen&&!traveling&&!switchShot.active&&!sim.ending&&!phone?.open&&!interaction?.open;
-  const car=show?sim.cars.find(candidate=>candidate.id===id):null;
-  title.hidden=!car;
-  if(!car)return;
-  hud.text('vehicle-title',vehicleName(car.identity));
+  const title=$('entry-title'), left=entryTitleUntil-sim.elapsed;
+  const show=entry!=null&&left>0&&started&&!cityView&&!paused&&!mapOpen&&!traveling&&!switchShot.active&&!sim.ending&&!phone?.open&&!interaction?.open;
+  const name=show?(room?room.name:vehicleName(sim.cars.find(car=>car.id===carId)?.identity)):'';
+  title.hidden=!name;
+  if(!name)return;
+  hud.text('entry-title',name);
   title.classList.toggle('leaving',left<.55);
 }
 
@@ -3316,7 +3326,7 @@ function frame(now) {
       if(hit.speed>3.5)carSmoke?.burst(hit.x,(hit.person?.y||0)+.8,hit.z,hit.speed*.5);
       if(!hit.player)continue;
       sim.brush(hit.speed>3.5?.82:.95);
-      if(hit.speed>3.5){alarmStreet(hit.person,14,.9);sim.offence(hit.dead?'killing':'runDown',{x:hit.x,y:hit.person.y,z:hit.z,message:hit.dead?'You ran somebody over. Somebody saw.':'You ran somebody down.'});}
+      if(hit.speed>3.5){alarmStreet(hit.person,14,.9);sim.offence(hit.dead?'killing':'runDown',{collision:true,x:hit.x,y:hit.person.y,z:hit.z,message:hit.dead?'You ran somebody over. Somebody saw.':'You ran somebody down.'});}
     }
     if(sim.moveEvents?.length)for(const event of sim.moveEvents.splice(0)){
       if(event.kind==='bystanderHit'){
@@ -3421,10 +3431,11 @@ function frame(now) {
     if(started && !cityView && !traveling){
       if(walks!==kerbsFor){kerbsFor=walks;kerbIndex=indexKerbs(walks);}
       policeScene.plan({focus:lit,fronts,entrances:subwayStairs?.entrances,walks,kerbs:kerbIndex,park:centralPark?.manifest,parkRegions:landscape?.index?.regions,
+        roads:sim.city.roads,cars:sim.cars,junctions:sim.junctions,cases:sim.police.cases,time:sim.elapsed,ground:groundHeight,
+        incident:sim.heat>0 ? sim.police.lastKnown : null,
         boardings:BOARDINGS,isWater:(x,z)=>water?.isNavigable(x,z),
         blocked:(x,z)=>sim.isBlocked(x,z,.40),lotAt:(x,z)=>lots()?.at(x,z)});
     }
-    // Standing at a shop front, the player is told what it is.
     let facing=null;
     // On foot that is any front within a few steps; in a car, an auto shop it has stopped outside.
     const driving=sim.player.mode==='drive',onFoot=sim.player.mode==='walk',reach=driving?14:7;
@@ -3451,39 +3462,34 @@ function frame(now) {
       if(open&&!sim.player.armed&&!(vendor.absentUntil>sim.elapsed)&&!(vendor.downUntil>sim.elapsed)&&Math.hypot(vendor.x-sim.player.x,vendor.z-sim.player.z)<3.2){standHere=vendor.stand;break;}
     }
     if(stairHere||stopHere||standHere)facing=null;
-    $('place-hint').hidden=(!facing&&!stairHere&&!stopHere&&!standHere)||Boolean(sim.room);
-    if(standHere)$('place-hint').textContent=placeName(standHere.place);
-    if(stopHere)$('place-hint').textContent=stopHere.stop.name+' · '+stopHere.stop.lines.slice(0,5).join(' ');
-    if(stairHere)$('place-hint').textContent=stairHere.station.name.toUpperCase()+' · '+stairHere.station.routes+(stairHere.entry===false?' · EXIT ONLY':'');
+    let hint='';
+    if(standHere)hint=placeName(standHere.place);
+    if(stopHere)hint=stopHere.stop.name+' · '+stopHere.stop.lines.slice(0,5).join(' ');
+    if(stairHere)hint=stairHere.station.name.toUpperCase()+' · '+stairHere.station.routes+(stairHere.entry===false?' · EXIT ONLY':'');
     if(started && !subwayVisit && !sim.room && !facing && !stairHere && !stopHere && !standHere && !cityView && !mapOpen){
-      const name=policeScene.identify(sim.player,sim.police.officers);
-      if(name){$('place-hint').hidden=false;$('place-hint').textContent=name;}
+      hint=policeScene.identify(sim.player,sim.police.officers)||'';
     }
     shopHere=null;doorHere=null;
-    // Indoors, within reach of whoever is serving.
     counterHere=atShopCounter();
     if(sim.room){
-      const visit=sim.doorway?.visitor?.visit;
-      const hints=[sim.room.name];
-      if(visit?.phase)hints.push(visit.phase[0].toUpperCase()+visit.phase.slice(1));
-      else if(visit?.wait>0)hints.push('Customer ordering '+visit.item.name.toLowerCase());
       const phase=sim.doorway?.handoff?.phase;
-      if(sim.doorway?.take)hints.push('Taking the cash');
-      else if(sim.doorway?.closed)hints.push('Temporarily closed');
-      else if(phase==='giving')hints.push('The clerk reaches across the counter');
-      else if(phase==='startled')hints.push('The clerk raises their hands');
-      else if(phase==='opening')hints.push('The clerk is opening the drawer');
-      else if(phase==='offered')hints.push('The clerk is holding out the cash');
-      else if(!phase && !sim.player.armed && sim.shopping.order)hints.push(sim.shopping.order.phase);
-      else if(!phase && !sim.player.armed && sim.room.grocerySlots && sim.shopping.basket)hints.push('Unpaid $'+sim.shopping.total(sim.room.place).toFixed(2));
-      $('place-hint').hidden=false;$('place-hint').textContent=hints.join(' · ');
+      if(sim.doorway?.take)hint='Taking the cash';
+      else if(sim.doorway?.closed)hint='Temporarily closed';
+      else if(phase==='giving')hint='The clerk reaches across the counter';
+      else if(phase==='startled')hint='The clerk raises their hands';
+      else if(phase==='opening')hint='The clerk is opening the drawer';
+      else if(phase==='offered')hint='The clerk is holding out the cash';
+      else if(!phase && !sim.player.armed && sim.shopping.order)hint=sim.shopping.order.phase;
+      else if(!phase && !sim.player.armed && sim.room.grocerySlots && sim.shopping.basket)hint='Unpaid $'+sim.shopping.total(sim.room.place).toFixed(2);
     }
-    if(facing){
-      const about=describePlace(facing.front.place,gfx.hours,closedAfterIncident),open=about.status==='OPEN';
-      if(driving&&open&&Math.abs(sim.player.speed)<1)shopHere=facing.front.place;
-      if(onFoot&&open&&facing.out<3.5&&roomKind(facing.front.place))doorHere=facing.front;
-      $('place-hint').textContent=[about.name,about.kind===about.name?'':about.kind,about.grade,about.status].filter(Boolean).join(' · ');
+    if(facing && driving){
+      const about=describePlace(facing.front.place,gfx.hours,closedAfterIncident);
+      if(about.status==='OPEN'&&Math.abs(sim.player.speed)<1)shopHere=facing.front.place;
+      hint=[about.name,about.kind===about.name?'':about.kind,about.grade,about.status].filter(Boolean).join(' · ');
     }
+    if(facing && onFoot && facing.out<3.5 && roomKind(facing.front.place) && shopOpen(facing.front.place))doorHere=facing.front;
+    hud.text('place-hint',hint);
+    $('place-hint').hidden=!hint;
   }
   $('touch-shop').hidden=!(sim.room || standHere || shopHere) || Boolean(interaction?.open);
   gfx.indoors=camera.layers.isEnabled(ROOM_LAYER);
@@ -3515,7 +3521,7 @@ function frame(now) {
   interaction?.update(paused||cityView||mapOpen||traveling?0:dt);
   phone?.update(elapsed);
   updateTouchAction(updateHUD);
-  updateVehicleTitle();
+  updateEntryTitle();
   // A red-light camera's flash: the frame blows out for a tenth of a second.
   const flashed=sim.cameraFlash&&sim.elapsed-sim.cameraFlash.at<.11;
   if(flashed!==cameraFlashing){cameraFlashing=flashed;$('world').style.filter=flashed?'brightness(2.2)':'';}
@@ -4027,8 +4033,9 @@ async function boot() {
   work=new Work({sim,speak:(person,line,phones,signal)=>audio.reply(person,line,phones,signal),
     openTalk:(...args)=>{warmStreetModel();return interaction.openTalk(...args);},streetName:()=>$('street-name').textContent,
     canTalk:person=>sim.player.mode==='walk' && !sim.player.armed && !sim.room && !person.gone && !person.reaction &&
-      ['walk','rest','wait'].includes(person.state) && Math.hypot(person.x-sim.player.x,person.z-sim.player.z,(person.y||0)-(sim.player.y||0))<5 &&
-      crowd?.people.includes(person),
+      Math.hypot(person.x-sim.player.x,person.z-sim.player.z,(person.y||0)-(sim.player.y||0))<5 &&
+      (person.post?.unit ? !sim.heat && !subwayVisit && policeScene.isPosted(person) && sim._hasSight(sim.player,person) :
+        ['walk','rest','wait'].includes(person.state) && crowd?.people.includes(person)),
     talkPlace:(person,request='')=>{
       const spots=(placeSource?.near(person.x,person.z,250)||[]).filter(p=>shopOpen(p))
         .sort((a,b)=>Math.hypot(a.x-person.x,a.z-person.z)-Math.hypot(b.x-person.x,b.z-person.z));
@@ -4040,7 +4047,14 @@ async function boot() {
     interaction.openList(title,rows,row=>row.choose(),{message,available,kitchen,slip,onClose});
   },fronts:()=>fronts,hours:()=>gfx.hours,save:saveProgress,passengerTrip:()=>cityRides?.trip,
     guide:site=>{gameMap.setOpen(true);gameMap.showCity();gameMap.setPin(site);},
-    pedestrian:()=>sim.player.mode==='walk'&&!sim.room&&!sim.player.armed?crowd?.closest(sim.player.x,sim.player.z,4,true):null,
+    pedestrian:()=>{
+      const p=sim.player;
+      if(p.mode!=='walk' || sim.room || p.armed)return null;
+      const walker=crowd?.closest(p.x,p.z,4,true);
+      const reach=walker ? Math.hypot(walker.x-p.x,walker.z-p.z) : 4;
+      const posted=!sim.heat && !subwayVisit && policeScene.postedNear(p,reach);
+      return posted && sim._hasSight(p,posted) ? posted : walker;
+    },
     counter:()=>registerAction(sim)?sim.room.place:null});
   restoreProgress();yaw=sim.player.angle;
   signs=createStreetSigns({scene,physics:sim.streetObjects,heightAt:groundHeight,raised:(x,z)=>{const offset=streetscape?.offsetAt(x,z);return offset ? offset>.1 : null;}});

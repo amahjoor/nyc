@@ -7,6 +7,7 @@ import { deskTicket } from '../dist/service-desk.js';
 import { Simulation } from '../dist/simulation.js';
 import { Work, EMPLOYERS } from '../dist/work.js';
 import { archiveForMember, OFFICERS } from '../dist/human-cast.js';
+import { UNIT } from '../dist/police-units.js';
 
 function fixture() {
   const sim = new Simulation({
@@ -27,6 +28,21 @@ function fixture() {
   return { work, sim, person, shop, choose, called, screen: () => screen, guided: () => guided,
     leaveCounter() { atCounter = false; }, restock() { now += 600001; } };
 }
+
+test('asking posted staff about their duty uses the assignment and rechecks availability',()=>{
+  const f=fixture(), spoken=[];
+  f.person.post={unit:UNIT.scene,caseId:'scene-4'};
+  f.work.speak=(person,line)=>spoken.push(line);
+  f.work.street();
+  assert.equal(f.screen().title,'Crime Scene Unit');
+  assert.deepEqual(f.screen().rows.map(r=>r.name),['Say hello','What are you working on?']);
+  f.choose('What are you working on?');
+  assert.match(f.screen().message,/evidence/);
+  assert.equal(spoken[0],f.screen().message);
+  f.work.canTalk=()=>false;
+  f.choose('Say hello');
+  assert.equal(spoken.length,1);
+});
 
 for(const job of ['kitchen','pizza','barista','bakery'])test(job+' cooks, portions and hands over four saved customer orders',()=>{
   const f=fixture(),site=EMPLOYERS[job];

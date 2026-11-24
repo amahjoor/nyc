@@ -32,6 +32,30 @@ function patrolAt(sim, x, z, angle = 0) {
   return car;
 }
 
+test('only received reports open cases, anchored to the original scene after pursuit',()=>{
+  const sim=alone(new Simulation(grid({roads:[]}))), police=sim.police;
+  const at={x:120,z:140};
+  assert.equal(sim.offence('killing',at),null);
+  sim.offence('gunfire',{...at,seen:true});
+  assert.deepEqual(police.cases,[]);
+  assert.equal(sim.offence('killing',{...at,witnessReport:true}),'called');
+  assert.equal(police.cases.length,0);
+  sim.elapsed=10;
+  police.update(.1);
+  assert.equal(police.cases.length,1);
+  assert.deepEqual(police.cases[0].units,['scene','homicide']);
+  assert.equal(police.cases[0].x,at.x);
+  sim.offence('killing',{...at,x:at.x+2,seen:true});
+  assert.equal(police.cases.length,1);
+  sim.offence('killing',{...at,collision:true,seen:true});
+  assert.deepEqual(police.cases[1].units,['collision']);
+  police.clear();
+  assert.equal(police.cases.length,2);
+  sim.elapsed=251;
+  police.update(.1);
+  assert.deepEqual(police.cases,[]);
+});
+
 function shopFixture(things = []) {
   const sim = alone(new Simulation(grid({roads:[],buildings:[box(6,45,10,10)]})));
   const plan = {place:{id:'shop',kind:'bodega'},name:'Shop',x:6,z:50,nx:-1,nz:0,tx:0,tz:1,width:10,depth:10,things};

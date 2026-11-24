@@ -343,6 +343,28 @@ export class Work {
 
   street(message='', person=this.pedestrian()) {
     const rows = [];
+    if(person?.post?.unit){
+      const unit=person.post.unit;
+      const answers={
+        'traffic-agents':'I’m checking the parked cars on this block. Is that your car?',
+        'traffic-ops':'I’m helping drivers through this light. Wait for the walk signal before you cross.',
+        scene:'I’m documenting where we found the evidence. Could you leave this patch of pavement clear?',
+        homicide:'I’m speaking to people who were here before patrol arrived. Did you see what happened?',
+        collision:'I’m recording where the collision happened. Please give me room to work.',
+        robbery:'I’m following up on a robbery report. I’m looking for people who were here at the time.',
+        major:'We’re following up on the bank robbery. The staff and witnesses can help us piece it together.',
+        auto:'A driver reported a carjacking here. I’m taking down the vehicle description.'
+      };
+      const reply=line=>{
+        if(!this.canTalk(person))return;
+        this.speak(person,line);
+        this.street(line,person);
+      };
+      rows.push(option('Say hello','',()=>reply(person.post.caseId?'Hello. Please give us a little room here.':'Hi there. Can I help you?')),
+        option('What are you working on?','',()=>reply(answers[unit.id] || 'My assignment today? '+unit.duty)));
+      this.streetMenu(person,unit.name,message,rows);
+      return;
+    }
     if (person) {
       rows.push(option('Say hello', '', () => {
         if(!this.canTalk(person))return this.sim._say('They have moved on.');

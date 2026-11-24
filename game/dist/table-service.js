@@ -118,7 +118,18 @@ export function callServer(sim,view,{sale}={}) {
     say(server,voice.sent,4);
     yield pause(server,name+' writes down your order',1.2,playerAt(),'talk');
     const front=items.filter(d=>d.drink || frontOfHouse(d.item,place.kind)), dishes=items.filter(d=>!front.includes(d));
-    // Drinks and anything from the case come from whoever is serving, before the food.
+    const cook=view.actors.find(a=>['cook','deliCook'].includes(a.spot.role) && !a.gone && !a.escape && a!==server);
+    if(dishes.length){
+      const pass=passApproach(view,null,server);
+      if(pass)yield walking(server,pass,name+' takes your order to the kitchen');
+      yield pause(server,name+' calls it in: '+dishes.map(d=>lower(d.food.name)).join(', '),1.3,cook?floorAt(view,cook):null,'talk');
+    }
+    // A separate cook can start the entrée while the server works the drink ticket.
+    if(cook && dishes.length && front.length){
+      const dish=dishes[0], line={view,room,person:sim.player,dish};
+      line.script=cookDish(line,dish.item,{role:cook.spot.role,onFire:()=>{dish.state='cooking';}});
+      o.line=line;
+    }
     for(const d of front){
       d.state='cooking';
       yield* workSteps(o,server,d.item,{label:name});
@@ -128,13 +139,19 @@ export function callServer(sim,view,{sale}={}) {
       else say(server,voice.enjoy,3);
     }
     if(dishes.length){
-      const pass=passApproach(view,null,server), cook=view.actors.find(a=>['cook','deliCook'].includes(a.spot.role) && !a.gone);
-      if(pass)yield walking(server,pass,name+' takes your order to the kitchen');
-      yield pause(server,name+' calls it in: '+dishes.map(d=>lower(d.food.name)).join(', '),1.3,cook?floorAt(view,cook):null,'talk');
       done(o);
       for(const d of dishes){
-        d.state='cooking';
-        const portion=yield* cookDish(o,d.item);
+        let portion;
+        if(o.line?.dish===d){
+          while(!o.line.ready)yield idle();
+          portion=o.line.portion;
+          // If the pass was full, the cook is still holding the plate.
+          if(portion?.held){o.employee=portion.held;o.employee.serviceOwner=o;}
+          o.line=null;
+        }else{
+          d.state='cooking';
+          portion=yield* cookDish(o,d.item,{role:cook?.spot.role});
+        }
         d.state='pass';d.portion=portion?.held?null:portion;
         if(portion?.held)server=portion.held;
         else{
@@ -253,6 +270,14 @@ export function callServer(sim,view,{sale}={}) {
     if(bag.eating?.table===table && o.items.some(d=>d.state==='eating'))bag.clearEating();
     if(!o.paid && o.due())bag.charge(place,o.due(),o.sale);
     clearWare(o);
+    if(o.line){
+      const line=o.line;
+      clearWare(line);
+      if(line.portion && !line.portion.held)clearPlate(line,line.portion);
+      if(line.request)line.request.requests=line.request.requests.filter(req=>req!==line);
+      if(line.employee?.serviceOwner===line)done(line);
+      o.line=null;
+    }
     for(const d of o.items){
       if(d.portion){clearPlate(o,d.portion);d.portion=null;}
       if(d.state==='table'){
@@ -269,24 +294,36 @@ export function callServer(sim,view,{sale}={}) {
     if(o.employee?.serviceOwner===o)done(o);
   };
   o.step=dt=>{
-    if(sim.room?.place.id!==o.shop || view.handoff || view.closed || sim.player.armed || sim.ending || o.employee?.escape || o.employee?.gone){bag.cancelOrder();return;}
+    if(sim.room?.place.id!==o.shop || view.handoff || view.closed || sim.player.armed || sim.ending || o.employee?.escape || o.employee?.gone ||
+      o.line?.employee?.escape || o.line?.employee?.gone || o.line?.request?.escape || o.line?.request?.gone){bag.cancelOrder();return;}
     if(!view.claims.has(table))view.claims.set(table,o);
     const here=diningTable(sim,view)===table;
     o.away=here?0:o.away+dt;
     if(o.away>25 && !o.due()){bag.cancelOrder();sim._say('You left your table, so the order was cancelled.',5);return;}
+    const line=o.line;
+    if(line && !line.ready){
+      if(!line.task){
+        const next=line.script.next();
+        if(next.done){line.portion=next.value;line.ready=true;line.dish.state='pass';}
+        else {line.task=next.value;line.phase=line.task.phase;}
+      }
+      if(line.task && advanceTask(line,line.task,dt))line.task=null;
+    }
     const task=o.task??=o.script.next().value;
     if(!task){bag.cancelOrder();return;}
     if(task.phase)o.phase=task.phase==='waiting for staff'?(o.stage==='fired'?'The kitchen has your ticket':o.phase):task.phase;
-    if(task.point){if(!reached(o,task,dt))return;}
-    else{
-      if(task.actor!==sim.player){
-        if(task.face)facePoint(view,task.actor,task.face);
-        task.actor.clip=task.clip;task.actor.stride=0;task.actor.time=(task.actor.time||0)+dt;
-      }
-      task.time-=dt;if(task.time>0)return;
-    }
-    o.task=null;
+    if(line && !line.ready && line.phase!=='waiting for staff')o.phase=line.phase;
+    if(advanceTask(o,task,dt))o.task=null;
   };
+  function advanceTask(owner,task,dt){
+    if(task.point)return reached(owner,task,dt);
+    if(task.actor!==sim.player){
+      if(task.face)facePoint(view,task.actor,task.face);
+      task.actor.clip=task.clip;task.actor.stride=0;task.actor.time=(task.actor.time||0)+dt;
+    }
+    task.time-=dt;
+    return task.time<=0;
+  }
   bag.order=o;bag.revision++;
   return true;
 }

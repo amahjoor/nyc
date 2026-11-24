@@ -2,39 +2,64 @@ import { UNIT, POLICE_UNITS, unitHash } from './police-units.js';
 import { patrolAppearance } from './human-cast.js';
 import { snapToKerb } from './street-props.js';
 import { walkTowards } from './pedestrian-motion.js';
+import { phaseAt } from './signal-plan.js';
 
 const byPost=POLICE_UNITS.reduce((groups,u)=>{(groups[u.post] ||= []).push(u);return groups;},{});
-const rank={water:1,air:1,park:2,precinct:2,school:3,waterfront:3,subway:4,housing:5,community:6,road:7,street:8};
+const rank={case:0,water:1,air:1,junction:2,park:2,precinct:2,school:3,waterfront:3,subway:4,housing:5,community:6,parking:7,road:7,street:8};
 const routines={
   patrol:['idle','talk'], talk:['talk','idle'], brief:['talk','idle'], inspect:['crouch','reach'],
   interview:['talk','reach'], direct:['reach','idle'], dog:['idle','idle'], horse:['horseRide'],
-  motor:['motorRide'], boat:['idle','idle'], flight:['idle','idle'],
+  motor:['motorRide'], boat:['idle','idle'], flight:['idle','idle'], parking:['reach','idle'],
 };
 
 /** Pick accessible posts on the streamed map. Nothing here is a real deployment schedule. */
 export function planPolicePosts({focus,fronts=[],entrances=[],walks=[],boardings=[],kerbs,park,parkRegions=[],
+  cars=[],junctions=[],cases=[],time=0,incident=null,ground,roads=[],previousJunction,
   isWater=()=>false,blocked=()=>false,lotAt=()=>null}) {
   if(!kerbs || !walks.length)return [];
   const candidates=[];
-  const add=(id,post,x,z,tx,tz,reach,unitId=null)=>{
+  const add=(id,post,x,z,tx,tz,reach,unitId=null,details={})=>{
     const gap=Math.hypot(x-focus.x,z-focus.z);
     if(gap>144)return;
     const hash=unitHash(id), pool=byPost[post], unit=UNIT[unitId] || pool[hash%pool.length];
-    candidates.push({id,post,unit,x,z,tx,tz,reach,hash,gap});
+    candidates.push({id,post,unit,x,z,tx,tz,reach,hash,gap,...details});
   };
-  function land(id,post,x,z,unitId=null) {
+  function land(id,post,x,z,unitId=null,{offsets,y,...details}={}) {
     if(Math.hypot(x-focus.x,z-focus.z)>165)return;
     const e=snapToKerb(kerbs,x,z,35);
     if(!e)return;
     // Leave the subway stairs and their railings clear. Try both ends when a
     // doorway, tree, or other fixture occupies the first landing.
-    const offsets=post==='subway' ? [6,-6] : [0,3,-3];
-    for(const offset of offsets){
+    for(const offset of offsets || (post==='subway' ? [6,-6] : [0,3,-3])){
       if(Math.abs(offset)>e.room)continue;
       const px=e.x-e.nx*1.35+e.tx*offset,pz=e.z-e.nz*1.35+e.tz*offset;
-      if(blocked(px,pz))continue;
-      add(id,post,px,pz,e.tx,e.tz,Math.min(post==='subway'?2:4.5,(e.room-Math.abs(offset))*.65),unitId);
+      if(blocked(px,pz) || (ground && Number.isFinite(y) && Math.abs(ground(px,pz)-y)>3))continue;
+      add(id,post,px,pz,e.tx,e.tz,Math.min(post==='subway'?2:4.5,(e.room-Math.abs(offset))*.65),unitId,details);
       break;
+    }
+  }
+  for(const c of cases){
+    if(time-c.reported<20 || time-c.reported>240 || (incident && Math.hypot(c.x-incident.x,c.z-incident.z)<65))continue;
+    c.units.forEach((unit,i)=>land(c.id+'-'+unit,'case',c.x,c.z,unit,{
+      caseId:c.id, y:c.y, offsets:i ? [4,-4] : [0,2,-2], reach:0, target:c
+    }));
+  }
+  const localCars=cars.filter(car=>!car.destroyed && Math.hypot(car.x-focus.x,car.z-focus.z)<180);
+  for(const j of junctions){
+    if(j.plan.control!=='signal' || Math.hypot(j.x-focus.x,j.z-focus.z)>144)continue;
+    const traffic=localCars.filter(car=>!car.parked && Math.hypot(car.x-j.x,car.z-j.z)<28);
+    const until=traffic.length>=3 ? time+45 : previousJunction?.junction.id===j.id ? previousJunction.until : 0;
+    if(until>time)land('junction-'+j.id,'junction',j.x,j.z,'traffic-ops',{junction:j,until});
+  }
+  for(const car of localCars){
+    if(car.parked && car._kerb && !car.controlled && unitHash(car.id)%8===0)
+      land('parking-'+car.id,'parking',car.x,car.z,'traffic-agents',{y:car.y,target:car,reach:1.8});
+  }
+  for(const road of roads){
+    if(!['motorway','trunk','expressway'].includes(road.kind))continue;
+    for(let i=1;i<road.points.length;i++){
+      const [a,b]=[road.points[i-1],road.points[i]];
+      land('highway-'+a.join(',')+'-'+b.join(','),'road',(a[0]+b[0])/2,(a[1]+b[1])/2,'highway');
     }
   }
   for(const f of fronts){
@@ -71,7 +96,6 @@ export function planPolicePosts({focus,fronts=[],entrances=[],walks=[],boardings
     if(!inPark && (!backupBeat || hash<backupBeat.hash))backupBeat={id,x,z,hash};
     if(inPark)land(id,'park',x,z);
     else if(hash%5===0 && (use===2||use===3))land(id,'housing',x,z);
-    else if(hash%11===0)land(id,'road',x,z);
     else if(hash%17===0)land(id,'street',x,z);
   }
   if(backupBeat && !candidates.some(c=>c.post==='street')){
@@ -81,7 +105,10 @@ export function planPolicePosts({focus,fronts=[],entrances=[],walks=[],boardings
   const posts=[];
   for(const candidate of candidates){
     if(posts.length>=6)break;
-    if(posts.some(o=>o.post===candidate.post || Math.hypot(o.x-candidate.x,o.z-candidate.z)<12))continue;
+    if(posts.some(o=>{
+      const sameScene=o.caseId && o.caseId===candidate.caseId;
+      return (!sameScene && o.post===candidate.post) || Math.hypot(o.x-candidate.x,o.z-candidate.z)<(sameScene?1.5:12);
+    }))continue;
     posts.push(candidate);
   }
   return posts;
@@ -123,10 +150,18 @@ export function createPoliceDetails(){
         if(incident && Math.hypot(incident.x-a.x,incident.z-a.z)<28){
           clip=p.unit.sworn?'talk':'cower';
           if(!rider)a.heading=Math.atan2(incident.x-a.x,incident.z-a.z);
+        } else if(a.talkingTo){
+          a.heading=Math.atan2(a.talkingTo.x-a.x,a.talkingTo.z-a.z);
+          clip='talk';
+        } else if(p.junction){
+          const {plan}=p.junction, phase=phaseAt(plan,time).name;
+          a.heading=plan.axis+(phase.endsWith('1')?Math.PI/2:0);
+          clip=phase.startsWith('green')?'reach':'idle';
         } else if(a.pause>0 || staticPost){
           a.pause-=dt;
           if(staticPost && a.pause<=0){a.visits++;a.pause=4;}
           clip=clips[a.visits%clips.length];
+          if(p.target)a.heading=Math.atan2(p.target.x-a.x,p.target.z-a.z);
           if(job==='talk'||job==='interview'){
             const listener=people.find(o=>Math.abs(o.y-a.y)<1.5 && Math.hypot(o.x-a.x,o.z-a.z)<3);
             if(listener)a.heading=Math.atan2(listener.x-a.x,listener.z-a.z);

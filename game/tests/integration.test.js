@@ -1229,7 +1229,14 @@ test('looking behind preserves walking, strafing and diagonal sprint direction t
         for(const key of keys)app.key(key);
         app.frames(7);
         const before=heading(), course=new THREE.Vector3(p.velocityX,0,p.velocityZ).normalize();
-        app.key('KeyC');app.frames(16);
+        app.key('KeyC');
+        let sideView;
+        if(firstPerson){
+          app.frames(11);
+          sideView=heading();
+          assert.ok(Math.abs(sideView.dot(before))<.3,'the head turns past the shoulder');
+        }
+        app.frames(16);
         assert.ok(heading().dot(before)<-.94,'C shows the street behind the walker');
         const checkCourse=()=>{
           const from={x:p.x,z:p.z};app.frames(3);
@@ -1237,6 +1244,12 @@ test('looking behind preserves walking, strafing and diagonal sprint direction t
           assert.ok(travel.length()>.02 && travel.normalize().dot(course)>.97,keys.join('+')+' keeps its heading');
         };
         checkCourse();app.key('KeyC',false);checkCourse();
+        if(firstPerson){
+          assert.ok(heading().dot(before)<-.9,'the return begins from the rear view');
+          app.frames(8);
+          assert.ok(heading().dot(sideView)>.95,'the head returns over the same shoulder');
+          app.frames(12);
+        }
         assert.ok(heading().dot(before)>.94,'releasing C restores the forward view');
         for(const key of keys)app.key(key,false);
       }
@@ -1339,10 +1352,16 @@ test('a shop visit keeps the same room and occupants on both sides of its swingi
     const at=(a,b)=>roomPoint(plan,a,b);
     const [x,z]=at(0,-.65);Object.assign(sim.player,{x,z,y:floor,mode:'walk',velocityX:0,velocityZ:0});
     app.click('first-person-button');app.face(Math.atan2(-plan.nx,-plan.nz));app.frames();
+    const title=app.elements.get('entry-title');
+    assert.equal(title.hidden,true);
     app.key('KeyW');
     for(let i=0;i<45&&!sim.room;i++)app.frames();
     app.key('KeyW',false);
     assert.ok(sim.room);assert.ok(view.door.angle>.3);app.frames();
+    assert.equal(title.hidden,false);
+    assert.equal(title.textContent,'Test Café');
+    app.frames(19,250);
+    assert.equal(title.hidden,true);
     app.click('first-person-button');app.frames();
     assert.equal(scene.getObjectByName('Inside '+sim.room.name),room);
     assert.strictEqual(sim.doorway.actors,actors);
@@ -1400,6 +1419,11 @@ test('a shop visit keeps the same room and occupants on both sides of its swingi
     assert.equal(sim.room,null);
     assert.strictEqual(room.parent,scene);assert.strictEqual(app.window.nycGame.storefronts.get(plan.place.id).actors,actors);
     assert.ok(camera.layers.isEnabled(0)&&!camera.layers.isEnabled(1));assert.equal(shared.uNycRoom.value.w,0);
+    app.face(Math.atan2(-plan.nx,-plan.nz));app.key('KeyW');
+    for(let i=0;i<60&&!sim.room;i++)app.frames();
+    app.key('KeyW',false);
+    assert.ok(sim.room);assert.equal(title.hidden,false);
+    assert.equal(title.textContent,'Test Café');
   }finally{app.close();}
 });
 
@@ -2544,6 +2568,10 @@ test('the interaction menu opens the shop’s fitting catalog from the sales flo
     const sim=app.simulation(),cash=sim.cash,{x,z}=sim.player;
     const place={id:'old-navy',name:'Old Navy',kind:'clothes'};
     assert.ok(sim.enterRoom({name:place.name,place,x,z,nx:1,nz:0,tx:0,tz:1,width:6,depth:9,things:[],staff:[{a:1.7,b:7.6}]}));
+    app.frames(3,250);
+    assert.equal(app.elements.get('entry-title').textContent,place.name);
+    assert.equal(app.elements.get('place-hint').hidden,true);
+    assert.equal(app.elements.get('place-hint').textContent,'');
     interactionChoice(app,'Nearby interactions');
     assert.equal(app.elements.get('interaction').hidden,false);
     assert.equal(app.elements.get('interaction-title').textContent,'Old Navy');
@@ -2669,7 +2697,7 @@ test('street controls have no passive action overlays and briefly identify an en
     const sim=app.simulation(), cab=parkCab(sim), p=sim.player;
     sim.cars=[cab];sim.bikeTraffic=null;sim.dockedBikes=[];
     app.face(Math.atan2(cab.x-p.x,cab.z-p.z));app.frames(8);
-    const title=app.elements.get('vehicle-title');
+    const title=app.elements.get('entry-title');
     assert.equal(app.elements.has('world-interact-prompt'),false);
     assert.equal(app.elements.has('interact-prompt'),false);
     assert.equal(title.hidden,true);

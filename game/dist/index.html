@@ -19,7 +19,7 @@
 <body>
   <div id="melee-lock" hidden aria-hidden="true"></div>
   <div id="aim-dot" hidden aria-hidden="true"></div>
-  <div id="vehicle-title" hidden role="status"></div>
+  <div id="entry-title" hidden role="status"></div>
   <canvas id="world" tabindex="-1" aria-label="Playable 3D New York City, all five boroughs"></canvas>
   <section id="atm-screen" role="dialog" aria-modal="true" aria-label="ATM touchscreen" hidden>
     <header><strong id="atm-bank"></strong><button id="atm-exit">Finish</button></header>
@@ -104,13 +104,29 @@
     </section>
     <div class="center-hud"><div id="route-guide" class="route-guide" hidden><span class="route-label">DIRECTIONS</span><span id="route-instruction"></span></div><div id="toast" class="toast" role="status"></div><div id="place-hint" class="place-hint" hidden></div><button type="button" id="ride-speed" class="interact-prompt" hidden><kbd>D-pad →</kbd><span id="ride-speed-label">ASK DRIVER TO HURRY</span></button></div>
     <div id="health-display" class="health-display" hidden>
-      <span class="health-heart" aria-hidden="true">♥&#xFE0E;</span>
-      <meter id="health-bar" aria-label="Health" min="0" max="100" value="100"></meter>
+      <svg class="health-heart" aria-hidden="true" width="15" height="14" viewBox="0 0 24 22">
+        <path fill="currentColor" d="M12 20.4 3.3 12C-2.3 6.4 1.6.8 6.4.8c2.4 0 4.3 1.3 5.6 3.2C13.3 2.1 15.2.8 17.6.8c4.8 0 8.7 5.6 3.1 11.2Z"/>
+      </svg>
+      <span class="health-track"><meter id="health-bar" aria-label="Health" min="0" max="100" value="100"></meter></span>
     </div>
   </div>
   <div class="hud-status">
     <div id="wanted" class="wanted calm" hidden aria-label="Police attention"><span id="wanted-stars">☆☆☆☆☆</span><span id="wanted-label">KEEP IT CLEAN</span><span id="wanted-evade-track"><span id="wanted-evade"></span></span></div>
-    <div id="cash-display" class="cash-display" hidden><div><span>Cash</span><strong id="cash">$0</strong></div><div><span>Checking</span><strong id="hud-checking">$0</strong></div><output id="cash-gain" aria-label="Cash received" hidden></output></div>
+    <div id="cash-display" class="cash-display" hidden>
+      <div>
+        <svg class="hud-bank-icon" role="img" aria-label="Checking" viewBox="0 0 24 24">
+          <path fill="currentColor" d="M12 2 1 8v2h22V8zM4 11h3v8H4zm6.5 0h3v8h-3zm6.5 0h3v8h-3zM2 20h20v3H2z"/>
+        </svg>
+        <strong id="hud-checking">$0</strong>
+      </div>
+      <div>
+        <svg class="hud-wallet-icon" role="img" aria-label="Cash" viewBox="0 0 24 24">
+          <path fill="currentColor" d="M3 5.5 17 2v3H5l-1 .5V7h16a2 2 0 0 1 2 2v2h-6a4 4 0 0 0 0 8h6v1a2 2 0 0 1-2 2H4a3 3 0 0 1-3-3V8a3 3 0 0 1 2-2.5zM16 13h7v4h-7a2 2 0 0 1 0-4z"/>
+        </svg>
+        <strong id="cash">$0</strong>
+      </div>
+      <output id="cash-gain" aria-label="Cash received" hidden></output>
+    </div>
     <div id="weapon-status" hidden></div>
   </div>
   <section id="subway-status" hidden aria-label="Subway journey"><strong id="subway-location"></strong><span id="subway-service"></span><span id="subway-action"></span></section>

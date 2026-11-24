@@ -64,6 +64,43 @@ test('handlers keep their progress as the map streams, and suspend their round d
   assert.equal(actor.time,time);
 });
 
+test('reported deaths get a stable two-person follow-up after patrol clears the area',()=>{
+  const c={id:'death',units:['scene','homicide'],x:22,z:2,y:0,reported:10};
+  const sites=options=>planPolicePosts({...context,cases:[c],time:36,...options}).filter(p=>p.caseId);
+  assert.deepEqual(sites({time:29}),[]);
+  assert.deepEqual(sites({incident:{x:25,z:3}}),[]);
+  assert.deepEqual(sites({time:251}),[]);
+  assert.deepEqual(sites({ground:()=>20}),[]);
+  const staff=sites({incident:{x:110,z:0}});
+  assert.deepEqual(staff.map(p=>p.unit.id).sort(),['homicide','scene']);
+  assert.ok(Math.hypot(staff[0].x-staff[1].x,staff[0].z-staff[1].z)>=1.5);
+  assert.deepEqual(staff.map(p=>p.id),sites({}).map(p=>p.id));
+});
+
+test('parking and junction staff need street activity, and the signal officer uses the live green phase',()=>{
+  const j={id:'corner',x:24,z:0,plan:{control:'signal',axis:0,cycle:30,offset:0,lead:[0,0],green:[10,10],exclusive:0}};
+  const parked={id:'8',_kerb:true,parked:true,x:-40,z:0};
+  const input={...context,junctions:[j],cars:[parked,{x:23,z:0},{x:28,z:-5}],time:3};
+  assert.deepEqual(planPolicePosts(input).filter(p=>['parking','junction'].includes(p.post)).map(p=>p.unit.id),['traffic-agents']);
+  const scene=createPoliceScene(new THREE.Scene());
+  scene.plan(input);
+  input.cars.push({x:24,z:4});
+  scene.plan({...input,time:8});
+  const director=scene.details.actors.find(a=>a.unit==='traffic-ops');
+  assert.ok(director);
+  const ctx={ground:()=>0,blocked:()=>false};
+  scene.details.step(.1,{...ctx,time:8});
+  assert.equal(director.clip,'reach');
+  scene.details.step(.1,{...ctx,time:12});
+  assert.equal(director.clip,'idle');
+  scene.details.step(.1,{...ctx,time:18});
+  assert.equal(director.heading,Math.PI/2);
+  scene.plan({...input,cars:[],time:26});
+  assert.ok(scene.details.actors.includes(director));
+  scene.plan({...input,cars:[],time:60});
+  assert.ok(!scene.details.actors.some(a=>['traffic-ops','traffic-agents'].includes(a.unit)));
+});
+
 test('the canine and the horse have articulated walk frames in metres',async()=>{
   for(const kind of ['dog','horse']){
     const geometry=animalGeometry(JSON.parse(await readFile(new URL('../dist/assets/police/'+kind+'.json',import.meta.url))));

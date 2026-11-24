@@ -93,6 +93,7 @@ export class Police {
     this._rng = 0x9e3779b9;
     this._serial = 0;
     this.shotsFired = 0;
+    this.cases = [];
     this.clear();
   }
 
@@ -164,7 +165,7 @@ export class Police {
     }
     if(entrance && (localResponse || !this.sim.room) && !this.sim.subway?.belowStreet){
       for(const actor of this.fieldOfficers){
-        if(!this._assigned(actor) || actor.post?.unit.activity==='boat' || distance(actor,entrance)>WATCH ||
+        if(!this._assigned(actor) || (actor.post?.unit.activity==='boat' || actor.post?.post==='case') || distance(actor,entrance)>WATCH ||
            (Number.isFinite(entrance.y) && !trafficAtHeight(actor,entrance.y)) || !this.sim._hasSight(actor,entrance))continue;
         this._respondFromPost(actor);
       }
@@ -235,7 +236,7 @@ export class Police {
    * Returns how the incident was noticed, or null.
    */
   offence(kind, { x, y, z, message = '', seen = false, witnessReport = false, victim = null,
-    severity = 1, identified = true, localResponse = Boolean(this.sim.room), roomView } = {}) {
+    severity = 1, identified = true, collision = false, localResponse = Boolean(this.sim.room), roomView } = {}) {
     const sim = this.sim, spec = OFFENCES[kind], player = sim.player;
     if (!spec) throw new Error(`no such offence: ${kind}`);
     const location = localResponse && sim.room ? sim.room : player;
@@ -243,7 +244,7 @@ export class Police {
     const height=Number.isFinite(y)?y:location.floor??player.y;
     if(Number.isFinite(height))at.y=height;
     const view = localResponse ? roomView ?? this._activeRoom() : null;
-    const record={kind,at,message,localResponse,severity,known:identified?this._ride():null,view};
+    const record={kind,at,collision,belowStreet:Boolean(sim.subway?.belowStreet),message,localResponse,severity,known:identified?this._ride():null,view};
     const queued=kind==='gunfire'?this.calls.findIndex(call=>call.kind===kind&&distance(call.at,at)<25):-1;
     const seenInside = view && view === this._activeRoom() && this.officers.some(officer => officer.room === view && !officer.reaction &&
       distance(officer,at) < WATCH && roomHasSight(view,officer,sim.player));
@@ -270,7 +271,7 @@ export class Police {
     return 'called';
   }
 
-  _charge({kind,at,message,localResponse,severity,known,view}, direct = false) {
+  _charge({kind,at,collision,belowStreet,message,localResponse,severity,known,view}, direct = false) {
     const sim=this.sim, spec=OFFENCES[kind];
     const amount=spec.heat*clamp(severity,0,3);
     if(spec.minor && !this.stars){
@@ -288,6 +289,20 @@ export class Police {
       if(kind==='officerDown')this.fallen++;
       const cap=this.ceiling(kind);
       if(sim.heat<cap)sim.heat=Math.min(cap,sim.heat+amount);
+    }
+    // The follow-up stays at the reported location when the pursuit moves away.
+    let units;
+    if (kind==='killing' || kind==='officerDown') units=collision ? ['collision'] : ['scene','homicide'];
+    if (kind==='robbery') units=[view?.plan?.place?.kind==='bank' ? 'major' : 'robbery'];
+    if (kind==='carjack') units=['auto'];
+    if (units && !belowStreet) {
+      const site=view?.plan || at;
+      const previous=this.cases.find(c=>c.units[0]===units[0] && distance(c,site)<16);
+      if (previous) previous.reported=sim.elapsed;
+      else {
+        if (this.cases.length>=12) this.cases.shift();
+        this.cases.push({id:'case-'+ ++this._serial,x:site.x,z:site.z,y:view?.floor ?? at.y,units,reported:sim.elapsed});
+      }
     }
     sim._timeSinceCrime = 0;
     this.report(at,localResponse,!spec.minor,known,view);
@@ -324,6 +339,7 @@ export class Police {
       if(sim.elapsed-officer.downAt>12) this.downOfficers.splice(i,1);
       else this._stepReaction(officer,dt);
     }
+    if (this.cases.some(c=>sim.elapsed-c.reported>240)) this.cases=this.cases.filter(c=>sim.elapsed-c.reported<=240);
     if (this.calls.length) this._answer();
     if (!(sim.heat > 0)) {
       sim.heat = 0; sim.spotted = false;
@@ -399,7 +415,7 @@ export class Police {
     for (const actor of this.fieldOfficers) {
       if(!sees({...actor,angle:actor.heading}))continue;
       // Harbor crews keep shore units updated from their boat.
-      if(actor.post?.unit.activity==='boat')seen=true;
+      if(actor.post?.unit.activity==='boat' || actor.post?.post==='case')seen=true;
       else this._respondFromPost(actor);
     }
     for (const car of sim.cars) {
@@ -906,11 +922,11 @@ export class Police {
     const vz=rolling ? car.velocityZ : Math.cos(car.angle)*car.speed;
     officer.health-=speed*7;
     receiveImpulse(officer,vx*.65,vz*.65,{fall:true,lift:Math.min(4.5,speed*.21),rest:officer.health<=0 ? Infinity : .65});
-    if(officer.health<=0) this._down(officer, 'You ran down an officer.', car.controlled ? 1.5 : 0);
+    if(officer.health<=0) this._down(officer, 'You ran down an officer.', car.controlled ? 1.5 : 0, true);
     else if(car.controlled) this.offence('hitOfficer',{x:officer.x,z:officer.z,message:'You hit an officer with the car.'});
   }
 
-  _down(officer, message, heat) {
+  _down(officer, message, heat, collision = false) {
     const car = this.sim.cars.find(other => other.id === officer.carId) || null;
     this.officers.splice(this.officers.indexOf(officer), 1);
     if(!officer.reaction?.fall) receiveImpulse(officer,0,0,{fall:true,rest:Infinity});
@@ -926,7 +942,7 @@ export class Police {
         else { car._crewOut = false; this._rebind(car); }
       }
     }
-    if (heat) this.offence('officerDown', { x: officer.x, z: officer.z, message });
+    if (heat) this.offence('officerDown', { x: officer.x, y:officer.y, z: officer.z, message, collision });
   }
 
   meleeTarget(x,z,angle,y=this.sim.player.y) {

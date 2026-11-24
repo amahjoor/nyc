@@ -16,6 +16,16 @@ export function createPoliceScene(scene, heightAt = () => 0) {
   scene.add(field);
   let previousPlan;
   const visibleActors=[], deployedIds=new Set();
+  function nearestFacing(player,actors,reach){
+    let nearest=null;
+    for(const actor of actors){
+      const dx=actor.x-player.x,dz=actor.z-player.z,d=Math.hypot(dx,dz);
+      if(d>=reach || Math.abs(player.y-actor.y)>2.5 ||
+        (d>1.4 && dx*Math.sin(player.angle)+dz*Math.cos(player.angle)<d*.3))continue;
+      nearest=actor;reach=d;
+    }
+    return nearest;
+  }
   const helicopter = createPoliceHelicopter(); helicopter.visible = false; scene.add(helicopter);
   // The searchlight. What it lights is lit through the city's light map (the
   // caller passes `spots` on to it), so the street, the cars and the people
@@ -63,9 +73,11 @@ export function createPoliceScene(scene, heightAt = () => 0) {
       const last = previousPlan;
       if (last && last.fronts === context.fronts && last.kerbs === context.kerbs &&
           last.entrances === context.entrances && last.park === context.park && last.parkRegions === context.parkRegions &&
+          last.junctions===context.junctions && Math.floor((last.time||0)/5)===Math.floor((context.time||0)/5) &&
           Math.hypot(context.focus.x - last.x, context.focus.z - last.z) < 15) return;
       previousPlan = { ...context, x:context.focus.x, z:context.focus.z };
-      details.set(planPolicePosts(context));
+      const previousJunction=details.actors.find(a=>a.post.junction)?.post;
+      details.set(planPolicePosts({...context,previousJunction}));
       for (const [id, entry] of equipment) {
         if (details.actors.some(actor => actor.id === id && actor.unit === entry.unit)) continue;
         if (entry.model) field.remove(entry.model);
@@ -103,16 +115,15 @@ export function createPoliceScene(scene, heightAt = () => 0) {
         else context.bystanders?.push(actor);
       }
     },
+    postedNear(player,reach=4){
+      return nearestFacing(player,visibleActors,reach);
+    },
+    isPosted(actor){
+      return visibleActors.includes(actor);
+    },
     identify(player, officers) {
-      let label = null, closest = 5;
-      for (const actor of [...visibleActors, ...officers]) {
-        const dx = actor.x-player.x, dz = actor.z-player.z, distance = Math.hypot(dx,dz);
-        if (distance >= closest || Math.abs(player.y-actor.y) > 2.5 ||
-            (distance > 1.4 && dx*Math.sin(player.angle)+dz*Math.cos(player.angle) < distance*.3)) continue;
-        closest = distance;
-        label = (UNIT[actor.unit] || UNIT.patrol).name;
-      }
-      return label;
+      const actor=nearestFacing(player,[...visibleActors,...officers],5);
+      return actor ? (UNIT[actor.unit] || UNIT.patrol).name : null;
     },
     /** What the searchlight is lighting now, for the light map: [] or one { x, z, y, radius, glow }. */
     spots,

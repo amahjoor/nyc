@@ -542,7 +542,6 @@ export class Simulation {
     const floor=this.doorway?.floor ?? (Number.isFinite(room.floor) ? room.floor : this.player.y ?? 0);
     this.room = { ...room, floor, a: at.a, b: at.b };
     this.police.roomEntered();
-    this._say(room.name, 3);
     return true;
   }
 
