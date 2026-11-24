@@ -12,6 +12,7 @@ export { TIME_PRESETS, formatClock };
 /** Half-width in metres of each sun shadow cascade, nearest first. */
 export const CASCADE_EXTENTS = [48, 190, 900];
 export const QUALITY = {
+  lite: { pixelRatio: .75, samples: 0, shadowSizes: [512, 512, 256], occlusion: false, shafts: false, bloomLevels: 0 },
   performance: { pixelRatio: 1, samples: 0, shadowSizes: [1024, 1024, 512], occlusion: false, shafts: false, bloomLevels: 3 },
   balanced: { pixelRatio: 1.15, samples: 4, shadowSizes: [2048, 2048, 1024], occlusion: true, shafts: true, bloomLevels: 5 },
   high: { pixelRatio: 1.65, samples: 4, shadowSizes: [4096, 2048, 2048], occlusion: true, shafts: true, bloomLevels: 6 },
@@ -102,7 +103,7 @@ export class Graphics {
       const size = q.shadowSizes[i];
       if (light.shadow.mapSize.x !== size) { light.shadow.map?.dispose(); light.shadow.map = null; light.shadow.mapSize.set(size, size); }
     });
-    if (this.post) { this.post.setSamples(q.samples); Object.assign(this.post.settings, { occlusion: q.occlusion, shafts: q.shafts, bloomLevels: q.bloomLevels }); }
+    this.post?.setQuality(q);
   }
   get pixelRatioLimit() { return QUALITY[this.quality].pixelRatio; }
 
@@ -176,6 +177,13 @@ export class Graphics {
       // From high above, a map's whole reach is a patch of the picture and nothing in it is seen to move: all three
       // are then redrawn only now and then. A map keeps the placing it was last drawn with, so it stays true meanwhile.
       const far = height > 700;
+      if (!far && this.quality === 'lite') {
+        // Stagger street shadow draws so each frame updates at most one existing map.
+        light.shadow.autoUpdate = false;
+        const stride = 2 ** (i + 1);
+        light.shadow.needsUpdate = !light.shadow.map || this.frame % stride === stride / 2 - 1;
+        return;
+      }
       light.shadow.autoUpdate = i === 0 && !far;
       if (i === 0 && far) light.shadow.needsUpdate = this.frame % 16 === 3;
       if (i === 1) light.shadow.needsUpdate = far ? this.frame % 16 === 7 : this.frame % 2 === 0;

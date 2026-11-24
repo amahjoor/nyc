@@ -4,6 +4,7 @@ import * as THREE from '../dist/vendor/three.module.min.js';
 import { shared, CASCADES, installShaderChunks, shareUniforms, shareSceneUniforms, replaceChunk, noisePixels, NYC_COMMON_GLSL } from '../dist/gfx-common.js';
 import { createGraphics, CASCADE_EXTENTS, QUALITY, TIME_PRESETS } from '../dist/gfx.js';
 import { skyState } from '../dist/atmosphere.js';
+import { PostPipeline } from '../dist/post.js';
 import { Sky } from '../dist/sky.js';
 
 // A renderer with no GL context: the graphics layer must still run its logic.
@@ -147,9 +148,49 @@ test('the sky copies one lighting state into its dome and marks what must be red
   sky.dispose();
 });
 
+test('Lite keeps the scene and color finish while dropping the five Performance bloom passes',()=>{
+  const {scene,camera,renderer}=setup();
+  renderer.getDrawingBufferSize=size=>size.set(1280,720);
+  renderer.setRenderTarget=()=>{};
+  const post=new PostPipeline(renderer);
+  for(const quality of ['performance','lite','balanced']){
+    post.setQuality(QUALITY[quality]);
+    renderer.rendered=0;
+    post.render(scene,camera);
+    const {bloom,occlusion,shafts}=post.targets;
+    assert.equal(bloom.length,QUALITY[quality].bloomLevels);
+    assert.equal(Boolean(occlusion),QUALITY[quality].occlusion);
+    assert.equal(Boolean(shafts),QUALITY[quality].shafts);
+    if(quality==='performance')assert.equal(renderer.rendered,7);
+    if(quality==='lite')assert.equal(renderer.rendered,2);
+  }
+  post.dispose();
+});
+
+test('Lite draws each street shadow map immediately then staggers its updates',()=>{
+  const {graphics}=setup({quality:'lite'});
+  graphics.setShadows(true,true);graphics.update(0);
+  const lights=graphics.cascades;
+  for(const light of lights){
+    assert.equal(light.shadow.needsUpdate,true);
+    light.shadow.map=new THREE.WebGLRenderTarget(1,1);
+  }
+  const updates=[0,0,0];
+  for(let frame=0;frame<8;frame++){
+    graphics.update(1/60);
+    assert.ok(lights.filter(light=>light.shadow.needsUpdate).length<=1);
+    lights.forEach((light,i)=>{if(light.shadow.needsUpdate)updates[i]++;});
+  }
+  assert.deepEqual(updates,[4,2,1]);
+  assert.equal(graphics.pixelRatioLimit,.75);
+  graphics.setQuality('performance');graphics.update(0);
+  assert.equal(lights[0].shadow.autoUpdate,true);
+  graphics.dispose();
+});
+
 test('named times of day are ordered and the quality tiers are complete', () => {
   assert.ok(TIME_PRESETS.length >= 5);
-  for (const tier of Object.values(QUALITY)) { assert.equal(tier.shadowSizes.length, CASCADES); assert.ok(tier.pixelRatio >= 1 && tier.samples >= 0 && tier.bloomLevels > 0); }
+  for (const tier of Object.values(QUALITY)) { assert.equal(tier.shadowSizes.length, CASCADES); assert.ok(tier.pixelRatio > 0 && tier.samples >= 0 && tier.bloomLevels >= 0); }
   assert.deepEqual([...CASCADE_EXTENTS].sort((a, b) => a - b), CASCADE_EXTENTS, 'cascades widen outward');
 });
 

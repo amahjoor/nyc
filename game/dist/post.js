@@ -252,10 +252,10 @@ export class PostPipeline {
     scene.texture.name = 'Scene radiance';
     const halfWidth = Math.max(1, width >> 1), halfHeight = Math.max(1, height >> 1);
     const small = () => new THREE.WebGLRenderTarget(halfWidth, halfHeight, { ...linear, type: THREE.UnsignedByteType, format: THREE.RGBAFormat });
-    const occlusion = small(), occlusionSwap = small();
-    const shafts = new THREE.WebGLRenderTarget(halfWidth, halfHeight, { ...linear, type: THREE.HalfFloatType, format: THREE.RGBAFormat });
+    const occlusion = this.settings.occlusion ? small() : null, occlusionSwap = occlusion ? small() : null;
+    const shafts = this.settings.shafts ? new THREE.WebGLRenderTarget(halfWidth, halfHeight, { ...linear, type: THREE.HalfFloatType, format: THREE.RGBAFormat }) : null;
     const bloom = [];
-    for (let level = 0, w = halfWidth, h = halfHeight; level < BLOOM_LEVELS && w >= 2 && h >= 2; level++, w = Math.max(1, w >> 1), h = Math.max(1, h >> 1)) {
+    for (let level = 0, w = halfWidth, h = halfHeight; level < this.settings.bloomLevels && w >= 2 && h >= 2; level++, w = Math.max(1, w >> 1), h = Math.max(1, h >> 1)) {
       bloom.push(new THREE.WebGLRenderTarget(w, h, { ...linear, type: THREE.HalfFloatType, format: THREE.RGBAFormat }));
     }
     this.targets = { scene, occlusion, occlusionSwap, shafts, bloom };
@@ -266,13 +266,16 @@ export class PostPipeline {
     if (!this.targets) return;
     const { scene, occlusion, occlusionSwap, shafts, bloom } = this.targets;
     scene.depthTexture?.dispose();
-    for (const target of [scene, occlusion, occlusionSwap, shafts, ...bloom]) target.dispose();
+    for (const target of [scene, occlusion, occlusionSwap, shafts, ...bloom]) target?.dispose();
     this.targets = null;
   }
 
-  setSamples(samples) {
-    if (samples === this.samples) return;
-    this.samples = samples; this._release();
+  setQuality({ samples, occlusion, shafts, bloomLevels }) {
+    const old = this.settings;
+    if (this.samples === samples && old.occlusion === occlusion && old.shafts === shafts && old.bloomLevels === bloomLevels) return;
+    this.samples = samples;
+    this.settings = { occlusion, shafts, bloomLevels };
+    this._release();
   }
 
   /**

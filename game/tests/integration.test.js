@@ -2091,7 +2091,7 @@ test('putting away the phone and resuming from pause restore captured mouse look
   }finally{app.close();}
 });
 
-test('slow street frames select Performance and the quality button can restore Balanced',async()=>{
+test('slow street frames step down through Performance to Lite and the quality button restores detail',async()=>{
   const app=await bootHarness();
   try{
     app.click('start-button');app.click('view-button');app.frames();
@@ -2100,7 +2100,13 @@ test('slow street frames select Performance and the quality button can restore B
     assert.equal(label.textContent,'BALANCED');
     app.frames(52,100);
     assert.equal(label.textContent,'PERFORMANCE');
-    assert.equal(JSON.parse(app.storage.get('nyc-after-hours-display-v1')).quality,'performance');
+    app.frames(52,100);
+    assert.equal(label.textContent,'LITE');
+    assert.equal(JSON.parse(app.storage.get('nyc-after-hours-display-v1')).quality,'lite');
+    app.frames(52,100);
+    assert.equal(label.textContent,'LITE');
+    app.click('quality-button');
+    assert.equal(label.textContent,'PERFORMANCE');
     app.click('quality-button');
     assert.equal(label.textContent,'BALANCED');
   }finally{app.close();}

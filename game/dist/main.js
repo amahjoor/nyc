@@ -111,7 +111,7 @@ const SAVE_KEY = 'nyc-after-hours-v1';
 const DISPLAY_KEY = 'nyc-after-hours-display-v1';
 let sim, city, renderer, scene, camera, world, hud, avatar, marker, markerDiamond, navigation, gfx, policeScene;
 let started=false, paused=false, farCamera=false, aerialView=false, aerialTracking=false, savedEarnings='';
-const graphicsTiers=['performance','balanced','high'];
+const graphicsTiers=['lite','performance','balanced','high'];
 let graphicsQuality='balanced';
 let shadowsEnabled=true;
 let cityIndex, roadIndex, roadStream, ground, streetDetail, bootReady=false, traveling=false;
@@ -3543,7 +3543,7 @@ function frame(now) {
   if(started && !paused && !mapOpen && !cityView && !traveling && !document.hidden && elapsedSeconds>0){
     sampledSeconds+=elapsedSeconds;sampledFrames++;
     if(sampledSeconds>=1){recentFrameMs=1000*sampledSeconds/sampledFrames;sampledSeconds=sampledFrames=0;}
-    if(graphicsQuality!=='performance'){
+    if(graphicsQuality!==graphicsTiers[0]){
       // One long load or a return from a background tab must not decide the tier.
       const sample=Math.min(.1,elapsedSeconds);
       qualityTimer+=sample;
@@ -4009,7 +4009,7 @@ async function boot() {
     image.onload=()=>water.setContext(image,manifest);
     image.src=manifest.url;
   }).catch(()=>{});
-  gfx.passes.push((renderer,scene,camera)=>water.renderMirror(renderer,scene,camera,{enabled:graphicsQuality!=='performance'&&!gfx.indoors&&(Boolean(viewOverride)||!cityView),scale:graphicsQuality==='high'?.75:.5}));
+  gfx.passes.push((renderer,scene,camera)=>water.renderMirror(renderer,scene,camera,{enabled:(graphicsQuality==='balanced'||graphicsQuality==='high')&&!gfx.indoors&&(Boolean(viewOverride)||!cityView),scale:graphicsQuality==='high'?.75:.5}));
   sim.moves=true;
   // The crowd answers for itself when a car hits it, and a death or an arrest is watched before what follows.
   sim.peopleReact=true;sim.endingSeconds=2;
