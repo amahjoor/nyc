@@ -1441,6 +1441,11 @@ window.addEventListener('keydown',event=>{
 $('sources-button').addEventListener('click',()=>{input.clear();$('sources-dialog').showModal();});
 $('pause-dialog').addEventListener('cancel',e=>{e.preventDefault();togglePause(false);});
 $('resume-button').addEventListener('click',()=>togglePause(false));
+if (window.location?.protocol === 'concrete:') {
+  const quit = $('quit-game');
+  quit.hidden = false;
+  quit.addEventListener('click', () => window.close());
+}
 $('recover-button').addEventListener('click',()=>{togglePause(false);action('recover');});
 $('inventory-button').addEventListener('click',fromMenu(()=>action('inventory')));
 $('map-button').addEventListener('click',()=>action('map'));
