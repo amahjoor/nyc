@@ -1,3 +1,4 @@
+import { atmGlass } from './atm.js';
 // Equipment drawn into the room's shared mesh. Dimensions are in the fixture's
 // own frame, with +v facing the customer and heights measured from its foot.
 const steel = '#989fa2', chrome = '#c7cdcb', rubber = '#26282a', alloy = '#52585a';
@@ -14,7 +15,8 @@ export const BUSINESS_FIXTURES = {
     }
     t.box(0, 0, w, d, .12, h - .12, enamel);
     t.plate(0, face + .005, w * .75, .37, h - .59, '#222d32');
-    t.plate(0, face + .009, w * .65, .28, h - .545, '#8ec4c5', true);
+    const glass=atmGlass('cashMachine',w,d,h);
+    t.plate(0, glass.depth, glass.width, glass.height, glass.bottom, '#8ec4c5', true);
     t.plate(-w * .07, face + .012, w * .39, .032, h - .36, '#35585e');
     for (let i = 0; i < 3; i++) t.plate((i - 1) * w * .19, face + .014, w * .15, .05, h - .49, '#e6f1df');
     t.box(0, d * .14, w - .09, d * .69, .055, .9, '#bbc3bf');

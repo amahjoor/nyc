@@ -12,6 +12,7 @@
   <link rel="stylesheet" href="fonts.css">
   <link rel="stylesheet" href="style.css">
   <link rel="stylesheet" href="phone.css">
+  <link rel="stylesheet" href="atm.css">
   <link rel="stylesheet" href="interaction.css">
   <link rel="stylesheet" href="./vehicle-stats.css">
 </head>
@@ -21,6 +22,36 @@
   <div id="world-interact-prompt" class="interact-prompt" hidden><kbd>E</kbd><span></span></div>
   <div id="vehicle-title" hidden role="status"></div>
   <canvas id="world" tabindex="-1" aria-label="Playable 3D New York City, all five boroughs"></canvas>
+  <section id="atm-screen" role="dialog" aria-modal="true" aria-label="ATM touchscreen" hidden>
+    <header><strong id="atm-bank"></strong><button id="atm-exit">Finish</button></header>
+    <div id="atm-home">
+      <h2>Your accounts</h2>
+      <div class="atm-balances"><div>Checking<strong id="atm-checking"></strong></div><div>Cash on hand<strong id="atm-cash"></strong></div></div>
+      <div class="atm-actions"><button id="atm-deposit">Deposit cash</button><button id="atm-withdraw">Withdraw cash</button></div>
+    </div>
+    <div id="atm-entry" hidden>
+      <label for="atm-amount" id="atm-label"></label>
+      <div class="atm-entry-row"><input id="atm-amount" type="text" inputmode="decimal" autocomplete="off" placeholder="0.00" aria-describedby="atm-available"><button id="atm-keypad">Keypad</button><span id="atm-available"></span></div>
+      <div class="atm-presets"><button id="atm-20">$20</button><button id="atm-100">$100</button><button id="atm-all">All available</button></div>
+      <p id="atm-error" role="alert"></p>
+      <div class="atm-actions"><button id="atm-back">Back</button><button id="atm-confirm"></button></div>
+    </div>
+    <div id="atm-digits" hidden>
+      <div class="atm-pad-total"><span>Amount</span><output id="atm-draft"></output></div>
+      <div class="atm-pad-keys" role="group" aria-label="Numeric keypad">
+        <button id="atm-digit-1">1</button><button id="atm-digit-2">2</button><button id="atm-digit-3">3</button>
+        <button id="atm-digit-4">4</button><button id="atm-digit-5">5</button><button id="atm-digit-6">6</button>
+        <button id="atm-digit-7">7</button><button id="atm-digit-8">8</button><button id="atm-digit-9">9</button>
+        <button id="atm-decimal" aria-label="Decimal point">.</button><button id="atm-digit-0">0</button><button id="atm-delete" aria-label="Delete last digit">⌫</button>
+      </div>
+      <button id="atm-accept">Use amount</button>
+    </div>
+    <div id="atm-receipt" hidden>
+      <h2>Transaction complete</h2>
+      <p id="atm-result" role="status"></p><p id="atm-remaining"></p>
+      <button id="atm-again">Another transaction</button>
+    </div>
+  </section>
   <div id="ending" class="ending" hidden role="status" aria-live="assertive"><span id="ending-word"></span><span id="ending-line"></span></div>
   <div class="film-grain" aria-hidden="true"></div>
   <header class="topbar">
@@ -398,18 +429,6 @@
         </section>
         <p id="phone-order-position"></p>
         <p class="stock-caption">Simulated prices update every 30 seconds.</p>
-      </div>
-      <div id="phone-transfer" class="phone-screen bank-screen" hidden>
-        <div class="bank-route">
-          <div><small>From</small><strong id="phone-bank-from"></strong><span id="phone-bank-from-balance"></span></div>
-          <button id="phone-bank-direction" value="deposit" aria-label="Swap deposit and withdrawal accounts">Swap</button>
-          <div><small>To</small><strong id="phone-bank-to"></strong><span id="phone-bank-to-balance"></span></div>
-        </div>
-        <label for="phone-bank-amount">Amount</label>
-        <div class="bank-amount"><span aria-hidden="true">$</span><input id="phone-bank-amount" type="number" min="0.01" step="0.01" inputmode="decimal" placeholder="0.00" aria-label="Amount in dollars"></div>
-        <div class="bank-presets" role="group" aria-label="Choose an amount"><button id="phone-atm-20" value="20">$20</button><button id="phone-atm-100" value="100">$100</button><button id="phone-atm-all">All available</button></div>
-        <button id="phone-bank-confirm" class="bank-action">Deposit cash</button>
-        <p id="phone-bank-message" role="status"></p>
       </div>
       <div id="phone-maps" class="phone-screen" hidden>
         <div class="maps-explore"><canvas id="phone-map-preview" width="510" height="344" aria-label="Map around your current location"></canvas>

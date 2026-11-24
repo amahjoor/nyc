@@ -56,8 +56,8 @@ export function listPlaces(places, { category = 'all', query = '', x = 0, z = 0,
  * the places within reach. The live state supplies the clock, location and
  * wallet and checking balances. App actions go back to the game.
  */
-export function createPhone({ $, isClosed, places = () => [], state = () => ({}), onDirections = () => {}, onTransport = () => {}, onWork = () => {}, onDrive = () => {}, onMap = () => {}, onOpenChange = () => {}, onTap = () => {}, onSound = () => {}, showTap = () => true, onMechanic = () => {}, mechanicQuote = () => null, onCab = () => {}, searchMapPlaces, previewScene, onCapture = () => '', onTransfer = () => '', onTrade = () => '', generateMaya, rides, roads = () => [], storage, destinations = () => [], searchCity = async () => [] } = {}) {
-  const titles = {home:'Home', nearby:'Nearby', place:'Place', contacts:'Contacts', contact:'Contact', messages:'Messages', thread:'Message', call:'Call', camera:'Camera', gallery:'Gallery', photo:'Photo', bank:'Bank', transfer:'ATM', market:'Stocks', order:'Stock detail', list:'Work', maps:'Maps', rides:'D Ride', settings:'Settings', wallpaper:'Wallpaper'};
+export function createPhone({ $, canUse = () => true, isClosed, places = () => [], state = () => ({}), onDirections = () => {}, onTransport = () => {}, onWork = () => {}, onDrive = () => {}, onMap = () => {}, onOpenChange = () => {}, onTap = () => {}, onSound = () => {}, showTap = () => true, onMechanic = () => {}, mechanicQuote = () => null, onCab = () => {}, searchMapPlaces, worldMap, loadMapPlaces, previewScene, onCapture = () => '', onTrade = () => '', onPaymentPreference = () => {}, generateMaya, rides, roads = () => [], storage, destinations = () => [], searchCity = async () => [] } = {}) {
+  const titles = {home:'Home', nearby:'Nearby', place:'Place', contacts:'Contacts', contact:'Contact', messages:'Messages', thread:'Message', call:'Call', camera:'Camera', gallery:'Gallery', photo:'Photo', bank:'Bank', market:'Stocks', order:'Stock detail', list:'Work', maps:'Maps', rides:'D Ride', settings:'Settings', wallpaper:'Wallpaper'};
   // Contacts is the address book. Calls start from a person, or from their
   // texts. Messages is the inbox. There is no keypad: these are the only numbers.
   const contacts = [
@@ -73,7 +73,7 @@ export function createPhone({ $, isClosed, places = () => [], state = () => ({})
   let messageClock=0, messageSerial=0;
   let call=null, facing='rear', photos=[], photoSerial=0, shot=null;
   let renderedThread=null, renderedMessage=null;
-  let marketParent='bank', nearbyParent='maps', atmAvailable=null;
+  let marketParent='bank', nearbyParent='maps';
   let sector='All sectors', jobSort='Featured', boardPage=0, jobMenu=null, jobOptions=[];
   const jobOptionCount=9;
   const jobSorts=['Featured','Nearest','Highest pay'];
@@ -298,7 +298,6 @@ export function createPhone({ $, isClosed, places = () => [], state = () => ({})
   }
   function show(next,backward=false) {
     const previous=screen;
-    if(previous==='transfer' && next!=='transfer')atmAvailable=null;
     if(previous==='place' && next!=='place')placeSheet.close();
     if(next==='nearby')searchMap();
     if(previous==='call' && next!=='call')call=null;
@@ -700,7 +699,6 @@ export function createPhone({ $, isClosed, places = () => [], state = () => ({})
     next = Boolean(next);
     if (next === open) return;
     touch.cancel();viewRevision++;
-    if(!next)atmAvailable=null;
     if(!next && screen==='place')placeSheet.close();
     open = next; stopSearch(); quoteRevision++; quoting=false;
     if(open && navigation)handset.setAttribute('data-navigation',navigation);
@@ -753,22 +751,8 @@ export function createPhone({ $, isClosed, places = () => [], state = () => ({})
   click('phone-bank-locate',()=>{
     nearbyParent='bank';category='banks';page=0;$('phone-search').value='';show('nearby');
   });
-  click('phone-bank-direction',()=>{
-    const direction=$('phone-bank-direction');
-    direction.value=direction.value==='deposit'?'withdraw':'deposit';
-    $('phone-bank-message').textContent='';
-    render();
-  });
-  $('phone-bank-amount').addEventListener('input',()=>{ $('phone-bank-message').textContent=''; });
-  for(const preset of ['20','100','all'])click('phone-atm-'+preset,()=>{
-    $('phone-bank-amount').value=$('phone-atm-'+preset).value;
-    $('phone-bank-message').textContent='';
-  });
-  click('phone-bank-confirm',()=>{
-    if(!atmAvailable?.()){setOpen(false);return;}
-    const error=onTransfer($('phone-bank-direction').value,$('phone-bank-amount').value);
-    if(error)$('phone-bank-message').textContent=error;else show('bank'); });
-  click('phone-app-rides',()=>{quote=null;rideMessage='';$('phone-ride-search').value='';show('rides');findDestination();});
+  function openRidePicker(){setOpen(true);quote=null;rideMessage='';$('phone-ride-search').value='';show('rides');findDestination();}
+  click('phone-app-rides',openRidePicker);
   $('phone-ride-search').addEventListener('input',()=>{
     stopSearch(); quoteRevision++; quote=null; quoting=false; destinationRows=[];
     rideMessage='Searching…';render();
@@ -848,20 +832,11 @@ export function createPhone({ $, isClosed, places = () => [], state = () => ({})
     get pressPhase() { return touch.phase; },
     get screen() { return screen; },
     get facing() { return facing; },
-    setOpen, handleKey, handlePad, focus:()=>focusScreen(true), toggle: navigation => setOpen(!open,navigation),
-    openATM(available) {
-      if(!available())return;
-      setOpen(true);
-      atmAvailable=available;
-      $('phone-bank-direction').value='deposit';
-      $('phone-bank-amount').value='';$('phone-bank-message').textContent='';
-      show('transfer');
-    },
+    setOpen, openRidePicker, handleKey, handlePad, focus:()=>focusScreen(true), toggle: navigation => setOpen(!open,navigation),
     /** Show a list to choose from: `rows` of { name, note }; `onPick(row)` is told which. */
     openList(title, rows, onPick, { message = '', keepOpen = false, app = 'work', board = false, refresh = null, onBack = null } = {}) { if(screen==='list' && listing?.board)boardPage=listPage; listing = { title, rows, onPick, message, keepOpen, app, board, refresh, onBack }; listPage = board ? boardPage : 0; setOpen(true); show('list'); },
     /** Keep the clock, the cash and the distances current while the phone is out. `time` is in seconds. */
     update(time = 0) {
-      if(open && screen==='transfer' && !atmAvailable?.())setOpen(false);
       receiveReplies(time);
       if(!open)return;
       if(screen==='call' && call){

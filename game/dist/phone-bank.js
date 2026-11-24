@@ -48,6 +48,7 @@ export function renderBank($, now) {
   const invested = portfolio(now.bank?.holdings || {}).value;
   const total = Math.round(cash * 100) + checking + invested;
   $('phone-bank-total').textContent = money(total);
+  $('phone-bank-preference').textContent=now.bank?.preferredPayment==='cash'?'Cash first':'Debit card first';
   $('phone-bank-balance').textContent = money(checking);
   $('phone-bank-cash').textContent = formatMoney(cash);
   $('phone-bank-invested').textContent = money(invested);
@@ -64,19 +65,4 @@ export function renderBank($, now) {
     $(id + '-time').textContent = [entry.account, entry.clock].filter(Boolean).join(' · ');
     $(id + '-amount').textContent = (entry.amount > 0 ? '+' : '−') + money(Math.abs(entry.amount));
   }
-}
-
-export function renderTransfer($, now) {
-  const deposit = $('phone-bank-direction').value === 'deposit';
-  const cash = formatMoney(now.availableCash ?? now.cash ?? 0) + ' available';
-  const checking = money(now.bank?.checking ?? 0) + ' available';
-  $('phone-bank-from').textContent = deposit ? 'Cash on hand' : 'Checking';
-  $('phone-bank-to').textContent = deposit ? 'Checking' : 'Cash on hand';
-  $('phone-bank-from-balance').textContent = deposit ? cash : checking;
-  $('phone-bank-to-balance').textContent = deposit ? checking : cash;
-  const available = deposit ? Math.round((now.availableCash ?? now.cash ?? 0) * 100) : now.bank?.checking ?? 0;
-  for (const amount of [20, 100]) $('phone-atm-' + amount).disabled = available < amount * 100;
-  $('phone-atm-all').value = (available / 100).toFixed(2);
-  $('phone-atm-all').disabled = available < 1;
-  $('phone-bank-confirm').textContent = deposit ? 'Deposit cash' : 'Withdraw cash';
 }

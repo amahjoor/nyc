@@ -1,3 +1,4 @@
+import { createATM } from './atm.js';
 import { createSportsCourts, addCourtPlaces } from './sports-courts.js';
 import { interactWithTrip, tripAction, courierBag } from './driver-work.js';
 import { renderStats, performanceName } from './vehicle-stats.js';
@@ -236,7 +237,7 @@ const phoneBank=new PhoneBank();
 let cityRides=null, phoneHand=null, phoneLens=null;
 const lensEye=new THREE.Vector3();
 const phonePalm=new THREE.Vector3(), phoneTarget=new THREE.Vector3();
-let phone=null, interaction=null, work=null, roadDestinations=[], placeDestinations=[], shopHere=null;
+let atmTerminal=null, phone=null, interaction=null, work=null, roadDestinations=[], placeDestinations=[], shopHere=null;
 // The front the player is standing at if it has a room to go into, and the room they are in.
 // The player and shop staff as the crowd's modelled figures, once those have loaded: where in their stride the player is.
 let playerStride=0, strideClock=0;
@@ -512,7 +513,13 @@ function interfaceKey(event){
 const input=new Input(canvas, action, interfaceKey, weaponControls, index=>{
   pointerNavigation=false;
   if($('pause-dialog').open)return pausePad(index);
-  if(mapOpen && index===8){action('map');return true;}
+  if(atmTerminal?.active)return atmTerminal.pad(index);
+  if(input.ps5 && index===9 && (phone?.open || interaction?.open || mapOpen)){
+    phone?.setOpen(false);interaction?.close();if(mapOpen)gameMap.setOpen(false);
+    action('pause');return true;
+  }
+  if(input.ps5 && index===input.psControls.mapButton){action('map');return true;}
+  if(mapOpen && (index===8 || index===17)){action('map');return true;}
   if (mapOpen && (index === 14 || index === 15)) {
     if(gameMap.key.stepTarget(index === 14 ? -1 : 1))audio.interfaceCue('select');
     return true;
@@ -544,7 +551,7 @@ const zoomAerial=factor=>{const next=clamp(aerialZoomGoal*factor,AERIAL_ZOOM_MIN
 const chaseLookAhead=new THREE.Vector3(), desiredLookAhead=new THREE.Vector3();
 
 function announce(text) { if(sim){sim.notice=text;sim.noticeTime=4;} }
-function firstPersonActive(){return started&&firstPerson&&!aerialView&&!cityView&&!viewOverride&&!switchShot.active&&!fitting;}
+function firstPersonActive(){return started&&firstPerson&&!aerialView&&!cityView&&!viewOverride&&!switchShot.active&&!fitting&&!atmTerminal?.active;}
 function phoneCameraActive(){return phone?.open && phone.screen==='camera';}
 // Trying clothes on in a shop. `tryOnLook` is the design the player's body is drawn with while a piece is being looked
 // at (their own with that piece in it), or null. `fitting` is the camera's part in it, `{slot, turn, fresh}`: which part
@@ -673,7 +680,7 @@ function resolveMelee(event) {
 let lockedPerson=null, queuedStrike=null, wheelSelection=null, wheelOpened=0, wheelChanged=false;
 function streetControls(){
   return Boolean(started && bootReady && sim && !paused && !traveling && !cityView && !aerialView && !mapOpen &&
-    !subwayVisit && !viewOverride && !switchShot.active && !sim.ending && !phone?.open && !interaction?.open);
+    !subwayVisit && !viewOverride && !switchShot.active && !sim.ending && !atmTerminal?.active && (allowPhone || !phone?.open) && !interaction?.open);
 }
 function selectWheel(armed){
   wheelSelection=armed;
@@ -711,7 +718,7 @@ function meleeFocus(controls){
   }
 }
 function weaponControls(){
-  return Boolean(!subwayVisit && started && bootReady && sim?.player.armed && sim.player.mode==='walk' && !sim.player.move && !sim.player.reaction && !sim.seat && !sim.doorway?.take && !sim.ending && !paused && !traveling && !cityView && !aerialView && !viewOverride && !switchShot.active && !mapOpen && !phone?.open && !interaction?.open);
+  return Boolean(!subwayVisit && started && bootReady && sim?.player.armed && sim.player.mode==='walk' && !sim.player.move && !sim.player.reaction && !sim.seat && !sim.doorway?.take && !sim.ending && !paused && !traveling && !cityView && !aerialView && !viewOverride && !switchShot.active && !mapOpen && !atmTerminal?.active && !phone?.open && !interaction?.open);
 }
 function focusedAim(){return input.aiming && !sim.seat;}
 // The pistol is pointed only while it is being aimed, and for a moment around each shot. The rest of the time it is carried
@@ -785,6 +792,10 @@ function enterSubwayOnFoot(controls){
 
 function action(name,event) {
   if(!sim)return;
+  if(atmTerminal?.active){
+    if(name==='pause')atmTerminal.close();
+    return;
+  }
   if(name==='weaponOpen'){
     if(!streetControls() || sim.player.mode!=='walk' || sim.seat || sim.player.reaction || sim.player.move)return false;
     if(wheelSelection===null){selectWheel(Boolean(sim.player.armed));wheelOpened=performance.now();wheelChanged=false;$('weapon-wheel').hidden=false;}
@@ -979,7 +990,7 @@ function action(name,event) {
         openBusDepartures(stopHere);return;
       }
       const atm=nearbyATM();
-      if(atm){phone.openATM(()=>nearbyATM()===atm);return;}
+      if(atm){atmTerminal.open(sim.room,atm);return;}
       if(beginRegisterTake(sim,work))return;
       const seat=nearestSeat();
       if(seat&&sim.sit(seat))return;
@@ -1599,7 +1610,7 @@ function showPlayer(dt,p,floor,eyeView,riding) {
     (striking || p.armed || !(courierBag(sim.mission) || p.carry));
   ownBody=eyeView && p.mode==='walk' && Boolean(ending || arrest>.2 || visibleOnFoot);
   playerBody.setFirstPerson(ownBody ? camera : null);
-  mesh.visible=Boolean(ownBody || ((p.mode==='walk'||skating||riding||driving)&&!eyeView));
+  mesh.visible=!atmTerminal?.active && Boolean(ownBody || ((p.mode==='walk'||skating||riding||driving)&&!eyeView));
   // What the simulation has just begun is begun here too: a swing, a kick, a vault, a hand to a car door.
   const take=sim.room && !sim.seat && sim.doorway?.take;
   if(p.swing>0 && (sim.meleeAction!==playerSeen.action || p.swing>playerSeen.swing+.1))animator.punch(Math.abs(p.speed)>1.2,p.swingClip);
@@ -2358,7 +2369,7 @@ function syncScene(dt,controls) {
   policeScene.drawDetails(started && !cityView && !aloft && !traveling, paused || mapOpen ? 0 : dt,
     {ground:groundHeight,blocked:(x,z)=>sim.isBlocked(x,z,.33),people:crowd?.people || [],player:p,waterLevel:WATER_LEVEL,
       bystanders:sim.bystanders,time:sim.elapsed,incident:sim.heat>0 ? sim.police.lastKnown : null},extras,pedestrians,sim.police);
-  avatar.visible=(skating||(p.mode==='walk'||cycling||openRide)&&!modelled)&&!sim.seat&&!eyeView;avatar.position.set(p.x,playerFloor,p.z);avatar.rotation.y=p.angle;
+  avatar.visible=!atmTerminal?.active && (skating||(p.mode==='walk'||cycling||openRide)&&!modelled)&&!sim.seat&&!eyeView;avatar.position.set(p.x,playerFloor,p.z);avatar.rotation.y=p.angle;
   animatePerson(avatar,Math.abs(p.speed)>.1,elapsed,Math.abs(p.speed)/3);
   const take=sim.room && !sim.seat && sim.doorway?.take;
   if(avatar.visible && avatar.userData.arms?.[1]){
@@ -2704,6 +2715,11 @@ function updateCamera(dt) {
     shared.uNycRoomEdges.value.set(room.tx,room.tz,
       room.returns?.find(edge=>edge.side===-1)?.length||0,room.returns?.find(edge=>edge.side===1)?.length||0);
   }else shared.uNycRoom.value.w=0;
+  if(atmTerminal?.active){
+    input.lookDelta=0;input.lookVertical=0;
+    atmTerminal.frame(camera,innerWidth,innerHeight);
+    return;
+  }
   if(viewOverride){
     // A fixed camera for photographs and visual checks. Play continues.
     const v=viewOverride;chaseHeight=null;chaseEyeOffset=null;input.lookDelta=0;input.lookVertical=0;
@@ -2916,29 +2932,11 @@ function interactionPrompt() {
   if(sim.seat)return hint('STAND',null,0,'STAND');
   if(p.mode==='walk'&&!sim.room&&!stairHere&&stopHere)return hint('BUS DEPARTURES',stopHere,2.3,'BUS');
   if(sim.doorway?.take)return null;
-  const atm=nearbyATM();
-  if(atm){
-    const [x,z]=roomPoint(sim.room,atm.a,atm.b);
-    return hint('USE ATM',{x,z,y:sim.room.floor},1.5,'ATM');
-  }
-  const register=registerAction(sim);
-  if(register){
-    const {cashPoint,floor}=sim.doorway;
-    const till=sim.room.register;
-    const [x,z]=register==='collect'?[cashPoint.x,cashPoint.z]:roomPoint(sim.room,till.a,till.b);
-    const y=floor+(register==='collect'?cashPoint.y:till.up);
-    return hint(register==='collect'?'COLLECT CASH':'TAKE TILL CASH',{x,y,z},.42,'TAKE');
-  }
-  const seat=nearestSeat();
-  if(seat)return hint('SIT',seat,seatHeight(seat)+.6,'SIT');
-  if(sim.room){
-    const view=sim.doorway;
-    return view&&Math.hypot(sim.room.a,sim.room.b)<1.6
-      ? hint('OPEN DOOR',{x:sim.room.x,z:sim.room.z,y:view.floor},1.9,'OPEN') : null;
-  }
-  if(ride)return vehicleHint(transportExitLabel(ride),null,0,'EXIT');
-  if(p.mode==='bike')return vehicleHint('GET OFF BIKE',null,0,'EXIT');
-  if(p.mode==='drive')return vehicleHint(sim.vehicle&&vehicleTravelSpeed(sim.vehicle)>4?'BAIL OUT':'EXIT VEHICLE',null,0,'EXIT');
+  if(nearbyATM())return interact('ATM');
+  if(registerAction(sim))return interact('TAKE');
+  if(nearestSeat())return interact('SIT');
+  if(sim.room)return sim.doorway && Math.hypot(sim.room.a,sim.room.b)<1.6?interact('OPEN'):null;
+  if(sim.transport.active || p.mode==='bike' || p.mode==='drive')return vehicle('EXIT');
   if(p.mode!=='walk')return null;
   const boarding=sim.transport.nearby();
   if(boarding)return vehicleHint('BOARD '+boarding.spec.name.toUpperCase(),boarding.entrance,1.35,'BOARD');
@@ -3016,10 +3014,22 @@ function frame(now) {
   if(started){
     // Keep polling controller button edges while paused so Start can resume.
     // An action inside sample() may change paused during this same frame.
-    // Walking follows the view currently on screen, including the aerial view
-    // and camera smoothing, rather than an intended chase-camera angle.
-    camera.getWorldDirection(cameraForward);
-    controls=input.sample(Math.atan2(cameraForward.x,cameraForward.z),dt,sim.player.mode==='walk'&&!paused&&!mapOpen,sim.player.mode==='skate'&&!paused&&!mapOpen&&!cityView&&!traveling&&!interaction?.open);
+    controls=input.sample(walkingControlYaw(),dt,sim.player.mode==='walk'&&!paused&&!mapOpen,sim.player.mode==='skate'&&!paused&&!mapOpen&&!cityView&&!traveling&&!interaction?.open,sim.transport.active?.spec.kind || (sim.player.water?'swim':null));
+    if(atmTerminal?.active)controls={forward:0,turn:0,brake:false,run:false,moveX:0,moveZ:0};
+    refreshControllerHelp();
+    sim.player.duckAmount=sim.player.mode==='drive'
+      ? THREE.MathUtils.damp(sim.player.duckAmount||0,Number(Boolean(controls.duck)),15,dt) : 0;
+    if(grabbedPerson){
+      const p=sim.player,target=grabbedPerson;
+      if(!(menuGrapple || input.padGrapple) || !streetControls() || wheelSelection!==null || p.armed || p.mode!=='walk' || p.reaction || p.move ||
+         sim.room || sim.seat || target.reaction || target.dead || target.gone || target.state==='down' || Math.hypot(target.x-p.x,target.z-p.z)>1.05){
+        target.grappled=false;grabbedPerson=null;
+      }else{
+        p.angle=Math.atan2(target.x-p.x,target.z-p.z);target.heading=p.angle+Math.PI;
+        const approach=Math.min(.8,Math.max(0,Math.hypot(target.x-p.x,target.z-p.z)-.56)*4);
+        controls={moveX:Math.sin(p.angle)*approach,moveZ:Math.cos(p.angle)*approach};p.guard=.2;
+      }
+    }
     if(wheelSelection!==null){
       if(!streetControls() || sim.player.mode!=='walk')action('weaponCancel');
       input.lookDelta=input.lookVertical=0;controls={};
@@ -3048,6 +3058,7 @@ function frame(now) {
       if(!subwayVisit)selectDoorway();
       enterSubwayOnFoot(controls);sim.step(controls,dt);cityRides?.update();elapsed+=dt;
     }
+    atmTerminal?.check();
     showEnding();
   }else{elapsed+=dt;introTime+=dt;}
   if(landscapeDirty){
@@ -3847,6 +3858,12 @@ async function boot() {
   gfx=createGraphics({renderer,scene,camera});
   sim=new Simulation(city,{onVehicleContact:(kind,car,other,speed)=>audio.vehicleContact(kind,car,other,speed),
     onPedestrianBump:(person,pace)=>audio.bump(person,pace),onTripPaid:saveProgress,
+    onEndingLoss:(kind,carried)=>{
+      atmTerminal?.close();
+      const fee=phoneBank.recordEndingLoss(kind,carried,gfx.clock);
+      saveProgress();
+      return fee;
+    },
     onRecovery:recovery=>travel({x:sim.player.x,z:sim.player.z},recovery)});
   subwayStairs=createSubwayEntrances({scene,physics:sim.streetObjects,heightAt:groundHeight,
     kerbAt:(x,z)=>kerbIndex&&snapToKerb(kerbIndex,x,z,12)});
@@ -3969,7 +3986,24 @@ async function boot() {
   phoneHand.tone('#'+PLAYER_LOOK.skin.toString(16).padStart(6,'0'));
   cityRides=new CityRides(sim,{planner:()=>plannerReady,paid:()=>saveProgress('Ride fare')});
   phoneLens=createPhoneLens();
-  phone=createPhone({$,rides:cityRides,showTap:firstPersonActive,onTap:(x,y,instant)=>phoneHand.tap(x,y,instant),onSound:cue=>audio.interfaceCue(cue),roads:()=>sim.city.roads,destinations:()=>roadIndex.places.filter(place=>Math.hypot(place.x-sim.player.x,place.z-sim.player.z)>50),searchCity:findLocally,
+  atmTerminal=createATM({$,balances:()=>({
+    cash:Math.round(sim.cash*100),availableCash:availableCents(sim,'cash'),checking:phoneBank.checking,availableChecking:availableCents(sim,'card'),
+  }),available:machine=>!paused && !traveling && !cityView && !mapOpen && !aerialView && !viewOverride &&
+    !switchShot.active && !interaction?.open && nearbyATM()===machine,
+    transfer:(direction,amount)=>{
+      const error=phoneBank.transfer(sim,direction,amount,gfx.clock);
+      if(!error)saveProgress();
+      return error;
+    },
+    onChange:open=>{
+      input.clear();
+      document.body?.classList.toggle('atm-active',open);
+      if(open){phone?.setOpen(false);atmTerminal.frame(camera,innerWidth,innerHeight);}
+      else canvas.focus();
+    },
+  });
+  phone=createPhone({$,canUse:()=>!atmTerminal.active && !sim.ending && !traveling,rides:cityRides,showTap:firstPersonActive,onTap:(x,y,instant)=>phoneHand.tap(x,y,instant),onSound:cue=>audio.interfaceCue(cue),roads:()=>sim.city.roads,destinations:()=>roadIndex.places.filter(place=>Math.hypot(place.x-sim.player.x,place.z-sim.player.z)>50),searchCity:findLocally,
+    worldMap:()=>gameMap,loadMapPlaces:loadPlaceNames,
     searchMapPlaces:async query=>{
       await loadPlaceNames();
       return placeIndex?.search(query,{near:sim.player,limit:40,listings:true}) || [];

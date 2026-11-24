@@ -1,3 +1,4 @@
+import { atmGlass } from './atm.js';
 // The lobby, fittings and signs share one draw call. Atlas coordinates below
 // are in pixels and the geometry is in metres in the storefront's local frame.
 import * as THREE from './vendor/three.module.min.js';
@@ -231,7 +232,8 @@ export function buildBankFinish(room,y) {
       for(let i=0;i<count;i++) face(-w/2+.045+i*leaf,-w/2+.04+(i+1)*leaf,d/2-.029,.115,t.h-.085,
         [wood[0]+i*46,wood[1]+8,174,358],'#eee6db');
     } else if(t.shape==='branchATM') {
-      face(-w*.325,w*.325,d/2-.05,1.09,1.44,display);
+      const glass=atmGlass(t.shape,w,d,t.h);
+      face(-glass.width/2,glass.width/2,glass.depth,glass.bottom,glass.bottom+glass.height,display);
       face(-w*.43,w*.43,d/2-.002,t.h-.208,t.h-.039,header);
     }
   }

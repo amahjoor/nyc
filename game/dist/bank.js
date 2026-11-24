@@ -1,3 +1,4 @@
+import { atmGlass } from './atm.js';
 // Public-facing branch fittings, scaled to the surveyed storefront.
 import { brandKey, placeName } from './places.js';
 
@@ -72,7 +73,8 @@ export const BANK_FIXTURES = {
     t.box(0,f-.08,w,.15,.20,h-.22,ink);
     t.box(0,f-.032,w-.12,.044,.017,h-.235,'#f4f0dd',true);
     t.box(0,f-.095,w*.76,.079,.47,1.03,charcoal);
-    t.plate(0,f-.053,w*.65,.35,1.09,'#35759a',true);
+    const glass=atmGlass('branchATM',w,d,h);
+    t.plate(0,glass.depth-.003,glass.width,glass.height,glass.bottom,'#35759a',true);
     t.box(0,f-.055,w*.81,.19,.06,.96,'#929b9c');
     t.box(-.12,f-.008,.22,.13,.02,1.023,'#5b6262');
     for(let row=0;row<4;row++)for(let col=0;col<3;col++)
