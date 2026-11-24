@@ -217,20 +217,25 @@
       </div>
       <div id="phone-place" class="phone-screen phone-place" hidden>
         <figure id="place-figure" class="place-figure" hidden>
-          <img id="place-photo" alt=""><figcaption><span id="place-caption"></span><small id="place-credit"></small></figcaption>
+          <div class="place-photo-frame"><img id="place-photo" alt="">
+            <div id="place-photo-controls" hidden>
+              <button id="place-photo-prev" aria-label="Previous photo"><span aria-hidden="true">‹</span></button>
+              <button id="place-photo-next" aria-label="Next photo"><span aria-hidden="true">›</span></button>
+            </div>
+          </div>
+          <figcaption><span id="place-caption"></span><span id="place-photo-count" role="status"></span></figcaption>
         </figure>
         <span id="phone-place-kind" class="section-letter"></span><b id="phone-place-name"></b>
         <p id="phone-place-note" aria-label="In-game distance and status"></p>
         <button id="phone-directions" class="phone-action">Get directions</button>
-        <nav class="place-tabs" aria-label="Place details"><button id="place-tab-overview">Overview</button><button id="place-tab-photos">Photos</button><button id="place-tab-reviews">Reviews</button></nav>
+        <nav class="place-tabs" aria-label="Place details"><button id="place-tab-overview">Overview</button><button id="place-tab-reviews">Reviews</button></nav>
         <div id="place-overview"><p id="place-summary-rating"></p><dl class="place-details">
           <div><dt id="place-address-label">Address</dt><dd id="place-address"></dd></div>
           <div id="place-phone-row" hidden><dt>Phone</dt><dd><a id="place-number"></a></dd></div>
           <div id="place-web-row" hidden><dt>Website</dt><dd><a id="place-website" target="_blank" rel="noopener noreferrer"></a></dd></div>
           <div id="place-hours-row" hidden><dt>Listed hours</dt><dd id="place-hours"></dd></div>
           <div id="place-cuisine-row" hidden><dt>Cuisine</dt><dd id="place-cuisine"></dd></div>
-        </dl><p id="place-sources"></p><p id="place-game-stock"></p></div>
-        <div id="place-photos" hidden><div class="place-pager"><button id="place-photo-prev" aria-label="Previous photo">‹</button><span id="place-photo-count" role="status"></span><button id="place-photo-next" aria-label="Next photo">›</button></div></div>
+        </dl></div>
         <div id="place-reviews" hidden>
           <div class="place-review-heading"><strong>In-game reviews</strong><span id="place-rating"></span></div>
           <div id="place-visitor-reviews">
@@ -244,7 +249,6 @@
           <label>Your review<textarea id="place-draft" maxlength="600" rows="3"></textarea></label>
           <label>Camera roll<select id="place-attachment"></select></label><button id="place-save" class="phone-action">Save on this phone</button><span id="place-save-status" role="status"></span></div>
         </div>
-        <a id="place-google-link" class="place-link" target="_blank" rel="noopener noreferrer">View on Google Maps ↗</a>
       </div>
       <div id="phone-contacts" class="phone-screen" hidden>
         <input id="phone-contact-search" class="phone-search" type="search" placeholder="Search contacts" aria-label="Search contacts" autocomplete="off">

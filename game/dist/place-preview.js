@@ -33,7 +33,7 @@ export async function scenePhotos({renderer,scene,front,room,height=0},place,fea
   const ctx=canvas.getContext('2d'),frame=ctx.createImageData(width,h),pixels=new Uint8Array(frame.data.length);
   const photos=[],release=[];
   const nextFrame=()=>new Promise(resolve=>requestAnimationFrame(resolve));
-  function shoot(subject,kind,caption,credit){
+  function shoot(subject,kind,caption){
     const old=renderer.getRenderTarget(),face=renderer.getActiveCubeFace(),mip=renderer.getActiveMipmapLevel();
     const shadows=renderer.shadowMap.autoUpdate,xr=renderer.xr.enabled;
     try{
@@ -46,7 +46,7 @@ export async function scenePhotos({renderer,scene,front,room,height=0},place,fea
     const stride=width*4;
     for(let y=0;y<h;y++)frame.data.set(pixels.subarray(y*stride,(y+1)*stride),(h-1-y)*stride);
     ctx.putImageData(frame,0,0);
-    photos.push({kind,caption,credit,src:canvas.toDataURL('image/jpeg',.82)});
+    photos.push({kind,caption,src:canvas.toDataURL('image/jpeg',.82)});
   }
   const staged=new T.Scene();staged.background=new T.Color(0xbbcbd0);
   staged.add(new T.HemisphereLight(0xfff6e6,0x968b81,1.65));
@@ -68,7 +68,7 @@ export async function scenePhotos({renderer,scene,front,room,height=0},place,fea
     if(loaded){
       const distance=Math.min(11,Math.max(6,front.width*.82));
       camera.position.set(front.x+front.nx*distance,height+2,front.z+front.nz*distance);
-      camera.lookAt(front.x,height+1.7,front.z);shoot(scene,'front','Street entrance','In-game photo');
+      camera.lookAt(front.x,height+1.7,front.z);shoot(scene,'front','Street entrance');
     }else{
       stageBox(40,.14,19,'#adaaa1',0,-.1,0);
       const stand=STANDS[place.kind];
@@ -91,13 +91,13 @@ export async function scenePhotos({renderer,scene,front,room,height=0},place,fea
       }
       camera.position.set(stand?1.25:1.65,stand?1.7:2.1,stand?3.8:(room?.width || 5)*.94);
       camera.lookAt(0,stand?1.2:room?2.05:2,0);
-      shoot(staged,'front',stand?'Sidewalk stand':room?'Storefront':'Location sign','In-game model preview');
+      shoot(staged,'front',stand?'Sidewalk stand':room?'Storefront':'Location sign');
     }
     await nextFrame();if(signal.aborted)return [];
     if(room){
       const [x,z]=roomPoint(room,-room.width*.17,.75),[tx,tz]=roomPoint(room,.2,room.depth*.68);
       camera.position.set(x,1.55,z);camera.lookAt(tx,1.25,tz);
-      shoot(staged,'inside','Inside',loaded?'In-game interior':'In-game model preview');
+      shoot(staged,'inside','Inside');
     }
     if(featured){
       await nextFrame();if(signal.aborted)return [];
@@ -116,12 +116,12 @@ export async function scenePhotos({renderer,scene,front,room,height=0},place,fea
       const radius=Math.max(size.x,size.y,size.z,.03),aim=surface+size.y*.5;
       const tx=table?front.tx:1,tz=table?front.tz:0,nx=table?front.nx:0,nz=table?front.nz:1;
       camera.position.set(x+(.38*tx+1.16*nx)*radius,aim+radius*(key?.startsWith('plate-')?.86:.43),z+(.38*tz+1.16*nz)*radius);
-      camera.lookAt(x,aim,z);shoot(staged,'product',featured.name,'In-game item');
+      camera.lookAt(x,aim,z);shoot(staged,'product',featured.name);
     }else if(room?.seats?.length){
       const seat=room.seats[0],[x,z]=roomPoint(room,seat.a,seat.b);
       const [cx,cz]=roomPoint(room,seat.a*.55,Math.max(.55,seat.b-1.5));
       camera.position.set(cx,1.48,cz);camera.lookAt(x,.78,z);
-      shoot(staged,'detail',place.kind==='barber'?'Barber station':'Seating','In-game interior');
+      shoot(staged,'detail',place.kind==='barber'?'Barber station':'Seating');
     }
     return photos;
   }finally{
