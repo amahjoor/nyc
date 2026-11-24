@@ -239,6 +239,7 @@ export function callServer(sim,view,{sale}={}) {
       d.state=remaining && meal.table?'table':'eaten';
       if(d.state!=='table')return false;
       if(d.drink)view.group?.userData.drinkAt?.(d.spot,'mug',true,d.food,meal.level);
+      else if(meal.handheld)view.group?.userData.mealAt?.(table,true,d.food,meal.level);
       view.claims.set(table,o);
       return true;
     }});

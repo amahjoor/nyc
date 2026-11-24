@@ -4,7 +4,7 @@ import { planRoom,buildRoom } from '../dist/interiors.js';
 import { populateShop } from '../dist/shop-life.js';
 import { startCounterOrder,stepCounterOrder,stepServiceJobs } from '../dist/facility-visits.js';
 import { menuFor } from '../dist/menu.js';
-import { Shopping,diningTable } from '../dist/shopping.js';
+import { Shopping,diningTable,pantryItem } from '../dist/shopping.js';
 import { roomPoint,ShopDoor } from '../dist/room.js';
 import { groceries } from '../dist/grocery-stock.js';
 import { fittingStock,purchaseStock } from '../dist/shop-stock.js';
@@ -264,4 +264,25 @@ test('clothing and haircut services can be taken before checkout',()=>{
       assert.equal(sim.cash,0);assert.deepEqual(sales,[item.price]);
     }finally{view.group.userData.dispose();}
   }
+});
+
+test('a doughnut is handed over in paper and eaten in the hand even at a dining table',()=>{
+  const {bag,sim,room,view,tick,go,placeOrder,checkout}=store('donuts',7);
+  try{
+    checkout();
+    const item=menuFor(room.place).find(i=>i.name==='Glazed doughnut');
+    assert.ok(placeOrder(item));const order=bag.order;tick(90,()=>order.ready);
+    order.pack();tick(10,()=>order.ready);
+    assert.equal(order.employee.carry,'plate-doughnut');
+    assert.ok(bag.accept(order));assert.equal(sim.player.carry,'plate-doughnut');
+    const id=bag.held;
+    assert.ok(room.seats.find(s=>{go(s.a,s.b);sim.seat={x:sim.player.x,z:sim.player.z};return diningTable(sim,view);}));
+    assert.ok(bag.consume(id,view,false));assert.ok(bag.eating.table);
+    assert.equal(sim.player.carry,'plate-doughnut');tick(2);
+    assert.equal(bag.held,'partial-2-'+id);
+    assert.ok(bag.consume(bag.held,view));tick(4);
+    assert.equal(sim.player.carry,'plate-doughnut@0');
+    assert.match(pantryItem(bag.held).name,/paper wrapper/);
+    assert.equal(view.cleanups.length,0);
+  }finally{view.group.userData.dispose();}
 });

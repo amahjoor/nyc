@@ -189,8 +189,8 @@ export function carryPose(kind){
   kind=kind?.split('@')[0];
   if(kind?.startsWith('drink-'))return 'cup';
   if(kind==='fork')return 'fork';
-  if(kind?.startsWith('grocery-'))return gripForItem(kind)==='support'?'tray':'cup';
-  if(kind?.startsWith('plate-') || ['tray','jewel','shoebox','guitar','guitar-mahogany','takeout','dishes'].includes(kind)) return 'tray';
+  if(kind?.startsWith('grocery-') || kind?.startsWith('plate-'))return gripForItem(kind)==='support'?'tray':'cup';
+  if(['tray','jewel','shoebox','guitar','guitar-mahogany','takeout','dishes'].includes(kind)) return 'tray';
   if(['cup','mug','jewelBag','phone','phone-rose'].includes(kind)) return 'cup';
   return null;
 }

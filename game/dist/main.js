@@ -1872,7 +1872,7 @@ function showPlayer(dt,p,floor,eyeView,riding) {
     pose.pelvis[1]-=.085;
   }
   const eating=mealMotion(carry),lift=eating?.lift||0;
-  const eatingPlate=eating && carry.startsWith('plate-');
+  const eatingPlate=eating && !eating.handheld && carry.startsWith('plate-');
   fitPose(moves,playerBody.rig,pose,playerFitted,seat,carry,eatingPlate && !phoneHand?.amount?0:lift);
   if(p.mode==='bike')fitCyclist(playerBody.rig,playerFitted,bikePedal*2*Math.PI/PEDAL_PERIOD,p.speed<.18);
   if(p.reaction?.fall && !ending)fitFallPose(playerBody.rig,playerFitted,p.reaction,p.angle);
@@ -2207,7 +2207,7 @@ function mealMotion(item){
   if(!meal || meal.carry!==item)return null;
   const phase=Math.max(0,sim.elapsed-meal.start)%meal.duration/meal.duration;
   const travel=phase<.55?clamp((phase-.12)/.43,0,1):clamp((1-phase)/.36,0,1);
-  return {lift:travel*travel*(3-2*travel),loaded:phase>=.12 && phase<.58,color:biteColors[meal.style]??0xbf905f};
+  return {handheld:meal.handheld,lift:travel*travel*(3-2*travel),loaded:phase>=.12 && phase<.58,color:biteColors[meal.style]??0xbf905f};
 }
 function paymentReach(payment){
   return Math.sin(Math.PI*clamp((sim.elapsed-payment.start)/.72,0,1));

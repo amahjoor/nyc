@@ -3,6 +3,8 @@
 import { qaxis, qmul, qinv, qrot } from './body.js';
 import { groceries } from './grocery-stock.js';
 
+import { isWrappedServing } from './food-catalog.js';
+
 const digits=['index','middle','ring','pinky','thumb'];
 const poses={
   wrap:[[38,61,32],[47,67,38],[53,73,40],[58,78,43],[14,25,15]],
@@ -16,7 +18,7 @@ const poses={
 export function gripForItem(id){
   id=id?.split('@')[0];
   const shape=groceries[id]?.shape;
-  if(shape==='apple'||shape==='orange')return 'ball';
+  if(isWrappedServing(id) || shape==='apple'||shape==='orange')return 'ball';
   if(id==='phone'||id?.startsWith('phone-'))return 'phone';
   if(['fork','jewelBag','cash','card'].includes(id))return 'pinch';
   if(id?.startsWith('plate-')||['box','pouch'].includes(shape)||['tray','takeout','dishes','shoebox','jewel','guitar','guitar-mahogany'].includes(id))return 'support';

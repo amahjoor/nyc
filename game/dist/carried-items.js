@@ -150,7 +150,7 @@ export function createFoodHand(camera,scene,layer){
       else if(thin)hand.group.position.set(-.007,.006,.004);
       else hand.group.position.set(-.040,-.004,-.014);
     }
-    bite.visible=Boolean(eating && id.startsWith('plate-'));
+    bite.visible=Boolean(eating && style==='support' && id.startsWith('plate-'));
     morsel.visible=Boolean(eating?.loaded && (bite.visible || id==='fork'));
     if(morsel.visible){
       const parent=bite.visible?fork:group;

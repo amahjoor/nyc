@@ -1,5 +1,6 @@
 import { groceries,groceryPrice } from './grocery-stock.js';
 import { pantryItem,diningTable,beverage,preparedFood,heldFood } from './shopping.js';
+import { isWrappedServing } from './food-catalog.js';
 import { bowls } from './food-dishes-bowls.js';
 import { handheld } from './food-dishes-handheld.js';
 import { sweets } from './food-dishes-sweets.js';
@@ -83,7 +84,7 @@ const servingIcons=Object.fromEntries([
 function inventoryIcon(item,source){
   const model=heldFood(source);
   if(beverage(source))return servingIcons[model]||'🥤';
-  if(item.effect==='empty')return '🍽️';
+  if(item.effect==='empty')return isWrappedServing(model)?'📄':'🍽️';
   const dish=model?.startsWith('plate-')?model.slice(6):null;
   if(servingIcons[dish])return servingIcons[dish];
   if(Object.hasOwn(bowls,dish))return '🍲';

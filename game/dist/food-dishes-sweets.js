@@ -4,9 +4,20 @@ import { chipBag } from './food-packaging.js';
 import { blob,lathe,puck,tube,sheet,brick,circle,TAU,fbm,sn,smooth,mottle,toward,browned,pale,spots,outward,upward } from './food-kit.js';
 import * as W from './food-ware.js';
 import * as F from './food-parts.js';
+import { isWrappedServing } from './food-catalog.js';
 const C=F.C;
 const count=(k,full,part)=>k.level===2?full:k.level===1?part:0;
-const small=(k,r=9,crumbs=[C.bun,C.crumb],smear=null)=>{W.plate(k,r);W.leavings(k,{crumbs,smear,r:r*.45,n:18});};
+const small=(k,r=9,crumbs=[C.bun,C.crumb],smear=null)=>{
+  if(isWrappedServing(k.key)){
+    W.deliPaper(k,1.55*r,1.45*r,{color:0xd8b990,yaw:0});
+    // Fold one end over the pastry. The pocket collapses when the food is gone.
+    k.ware(sheet((u,v)=>[
+      -r*.77+r*.50*v,(k.level?3.3:1.0)*Math.sin(v*Math.PI*.65)+.22+.15*Math.cos(u*17),
+      (u-.5)*1.44*r,
+    ],10,5),{color:0xe3caa5,gloss:.18,cast:false});
+  }else W.plate(k,r);
+  W.leavings(k,{crumbs,smear,r:r*.45,n:18});
+};
 const sugar=(k,x,z,r,n=60,onFood=.6)=>k.sprinkle('cube',n,{x,z,r,color:[0xfdfbf6],size:.13,onFood,gloss:.2});
 
 function ringProfile(R,a,b,t0=-Math.PI/2,span=TAU,n=16){return Array.from({length:n+1},(_,i)=>{const t=t0+span*i/n;return [R+a*Math.cos(t),b+b*Math.sin(t)];});}

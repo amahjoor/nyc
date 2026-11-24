@@ -5,7 +5,7 @@ import { DOOR, roomPoint, roomLocal, roomUnderFire } from './room.js';
 import { floorAt, facePoint, followRoute, peopleInRoom, roomSeatStep, shopAisle, walkingPose } from './room-walk.js';
 import { shopStairRoute } from './shop-entrance.js';
 import { clearTravel, hasStandingRoom } from './pedestrian-motion.js';
-import { servingFor,portionKey } from './food-catalog.js';
+import { servingFor,portionKey,isWrappedServing } from './food-catalog.js';
 import { seatApproach, seatApproachEnd } from './seating.js';
 import { cookDish, workSteps, clearPlate, clearWare, passApproach, stepKitchenChores } from './kitchen-line.js';
 
@@ -237,15 +237,18 @@ function* restaurant(v) {
   }
   clearPortion(v);server.carry=servingFor(v.item,true);
   yield walking(server,side,'serving table');yield pause(server,'setting down plate',.65,table);
-  v.view.group?.userData.mealAt?.(table,true,v.item);
+  const serving=servingFor(v.item,true),wrapped=isWrappedServing(serving);
+  if(!wrapped)v.view.group?.userData.mealAt?.(table,true,v.item);
   done(v);
   v.person.carry='fork';
   const duration=8+v.view.random()*5;
   for(const level of [2,1,0]){
-    if(level<2)v.view.group?.userData.mealRemaining?.(table,v.item,level);
+    if(wrapped)v.person.carry=portionKey(serving,level);
+    else if(level<2)v.view.group?.userData.mealRemaining?.(table,v.item,level);
     yield pause(v.person,'eating',duration*(level===0?.10:.45),table,'idle');
   }
   v.person.carry=null;
+  if(wrapped)v.view.group?.userData.mealAt?.(table,true,v.item,0);
   server=yield* ask(v);
   yield walking(server,side,'bringing check');
   yield pause(server,'settling check',1.2,v.spot,'talk');pay(v);
@@ -712,7 +715,7 @@ export function startCounterOrder(sim,view,{item,basket=false,sale}){
     o.ready=false;o.task=null;
     o.script=(function*(){
       yield pause(o.employee,'Packing your order to go',1.4,room.register,'pickUp');
-      o.employee.carry='takeout';o.packed=true;o.ready=true;o.phase='Your takeaway is ready';
+      o.employee.carry=isWrappedServing(carry)?carry:'takeout';o.packed=true;o.ready=true;o.phase='Your takeaway is ready';
       sim._say('Your takeaway is ready.',5);
     })();
   };

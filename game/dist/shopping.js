@@ -1,5 +1,5 @@
 import { payFor, purchaseLimit } from './money.js';
-import { servingFor,portionKey } from './food-catalog.js';
+import { servingFor,portionKey,isWrappedServing } from './food-catalog.js';
 import { groceries,groceryPrice } from './grocery-stock.js';
 import { carriedOrder,legacyDish,menuFor,PEP,plateStyle } from './menu.js';
 import { KIND } from './places.js';
@@ -21,7 +21,7 @@ export function pantryItem(id){
     const shape=groceries[source]?.shape,style=plateStyle(food.preparation||food.name);
     const name=({bottle:'Empty bottle',can:'Empty can',pouch:'Empty snack bag',box:'Empty box',carton:'Empty carton',apple:'Apple core',orange:'Orange peel'})[shape] ||
       ({banana:'Banana peel',oranges:'Empty fruit bag',cone:'Paper sleeve',popcorn:'Empty popcorn carton',chocolate:'Candy wrapper',chips:'Empty chip bag','doughnut-box':'Empty bakery box'})[style] ||
-      (beverage(food)?'Empty drink container':'Cleared dish');
+      (isWrappedServing(heldFood(food))?'Empty paper wrapper':beverage(food)?'Empty drink container':'Cleared dish');
     return {id,name:name+' · '+food.name,source,effect:'empty'};
   }
   if(Object.hasOwn(groceries,id))return groceries[id];
@@ -193,7 +193,7 @@ export class Shopping{
     else if(order.slot)this.transfer(order.shop,[order.slot]);
     else{
       this.receive(order.food.id);
-      if(order.packed || toGo && !beverage(order.food))sim.player.carry='takeout';
+      if((order.packed || toGo && !beverage(order.food)) && !isWrappedServing(heldFood(order.food)))sim.player.carry='takeout';
     }
     if(!unpaid && sale>0)order.sale?.(sim.room.place,sale,tender);
     order.paid=!unpaid;this.cancelOrder();
@@ -237,20 +237,21 @@ export class Shopping{
     if(item.source)item=pantryItem(item.source);
     const seatTable=diningTable(this.sim,view),table=seatTable && !groceries[item.id] && !view.claims.has(seatTable)?seatTable:null,drink=beverage(item);
     const level=servingLevel(item,remaining), duration=drink?1.05:1.4;
+    const base=table && drink?servingFor(item,true):heldFood(item),handheld=isWrappedServing(base);
     if(table){
       view.claims.set(table,this);
-      if(!drink)view.group?.userData.mealAt?.(table,true,item,level);
+      if(!drink && !handheld)view.group?.userData.mealAt?.(table,true,item,level);
     }
-    const base=table && drink?servingFor(item,true):heldFood(item),start=this.sim.elapsed-progress;
-    const carry=table && !drink?'fork':portionKey(base,level);
+    const start=this.sim.elapsed-progress;
+    const carry=table && !drink && !handheld?'fork':portionKey(base,level);
     this.eating={item,base,style:plateStyle(item.preparation||item.name),level,start,duration,
-      until:start+duration*(finish?remaining:1),initial:remaining,remaining,finish,onRemaining,table,view,drink,carry,seat:this.sim.seat};
+      until:start+duration*(finish?remaining:1),initial:remaining,remaining,finish,onRemaining,table,view,drink,handheld,carry,seat:this.sim.seat};
     this.sim.player.carry=carry;this.revision++;
   }
   portion(e,level){
     if(e.level===level)return;
     e.level=level;
-    if(e.table && !e.drink)e.view.group?.userData.mealRemaining?.(e.table,e.item,level);
+    if(e.table && !e.drink && !e.handheld)e.view.group?.userData.mealRemaining?.(e.table,e.item,level);
     else{
       const next=portionKey(e.base,level);
       if(this.sim.player.carry===e.carry)this.sim.player.carry=next;
@@ -262,14 +263,14 @@ export class Shopping{
     this.eating=null;
     if(e.onRemaining?.(e.remaining,e)){
       if(this.sim.player.carry===e.carry)this.sim.player.carry=null;
-    }else if(e.table && !e.remaining){
+    }else if(e.table && !e.remaining && !e.handheld){
       const mug=e.drink?{...e.table,y:e.table.h,temporary:true}:null;
       if(mug)e.view.group?.userData.drinkAt?.(mug,'mug',true,e.item,0);
       e.view.cleanups.push({table:e.table,mug,emptyCarry:portionKey(e.base,0),server:null,left:1.4});
       if(this.sim.player.carry===e.carry)this.sim.player.carry=null;
     }else{
       if(e.table){
-        if(!e.drink)e.view.group?.userData.mealAt?.(e.table,false);
+        if(!e.drink && !e.handheld)e.view.group?.userData.mealAt?.(e.table,false);
         e.view.claims.delete(e.table);
       }
       const id=portionId(e.item,e.remaining);this.inventory[id]=(this.inventory[id]||0)+1;
@@ -288,7 +289,7 @@ export class Shopping{
     const e=this.eating;
     if(e){
       if(e.table && (e.seat!==sim.seat || sim.seat?.leaving || sim.room?.place.id!==e.view.plan.place.id)){
-        if(!e.drink)e.view.group?.userData.mealAt?.(e.table,false);
+        if(!e.drink && !e.handheld)e.view.group?.userData.mealAt?.(e.table,false);
         e.view.claims.delete(e.table);e.table=null;e.base=heldFood(e.item);
         e.carry=sim.player.carry=portionKey(e.base,e.level);
       }
