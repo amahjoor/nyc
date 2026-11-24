@@ -1,0 +1,3786 @@
+[
+ {
+  "n": 481,
+  "id": "balenciaga-lego-shoes",
+  "designer": "Balenciaga by Nicolas Ghesquière",
+  "name": "Lego Shoes",
+  "season": "FW2007",
+  "price": 4500,
+  "slot": "shoes",
+  "colour": "#f1efe9",
+  "finish": {
+   "roughness": 0.25
+  },
+  "pack": "shoes01",
+  "source": "toigo_ankle_boots_male",
+  "shape": [
+   {
+    "op": "platform",
+    "height": 0.1
+   },
+   {
+    "op": "arch",
+    "depth": 0.075,
+    "from": 0.3,
+    "to": 0.6
+   },
+   {
+    "op": "toe",
+    "square": 0.6
+   }
+  ],
+  "note": "Moulded plastic blocks in primary colours, stacked into a strapped high heel.",
+  "paint": [
+   {
+    "step": "fabric",
+    "type": "rubber"
+   },
+   {
+    "step": "panel",
+    "colour": "#c2261c",
+    "where": {
+     "ft": [
+      -1,
+      0.28
+     ],
+     "h": [
+      -1,
+      0.12
+     ]
+    }
+   },
+   {
+    "step": "panel",
+    "colour": "#e3b21c",
+    "where": {
+     "ft": [
+      0.6,
+      1.2
+     ],
+     "h": [
+      -1,
+      0.03
+     ]
+    }
+   },
+   {
+    "step": "panel",
+    "colour": "#1f5fbf",
+    "where": {
+     "ft": [
+      0.55,
+      1.2
+     ],
+     "h": [
+      0.1,
+      0.16
+     ]
+    }
+   },
+   {
+    "step": "panel",
+    "colour": "#17171a",
+    "where": {
+     "ft": [
+      0.2,
+      0.55
+     ],
+     "h": [
+      0.1,
+      0.2
+     ]
+    }
+   },
+   {
+    "step": "panel",
+    "colour": "#e3b21c",
+    "where": {
+     "ft": [
+      -1,
+      0.3
+     ],
+     "h": [
+      0.12,
+      0.2
+     ]
+    }
+   },
+   {
+    "step": "panel",
+    "colour": "#c2261c",
+    "where": {
+     "h": [
+      0.2,
+      0.24
+     ]
+    }
+   },
+   {
+    "step": "panel",
+    "colour": "#1f5fbf",
+    "where": {
+     "h": [
+      0.24,
+      1
+     ]
+    }
+   },
+   {
+    "step": "line",
+    "frame": "shaft",
+    "pts": [
+     [
+      -1,
+      0.1
+     ],
+     [
+      1,
+      0.1
+     ]
+    ],
+    "style": "groove",
+    "width": 0.003,
+    "depth": 0.002
+   },
+   {
+    "step": "line",
+    "frame": "shaft",
+    "pts": [
+     [
+      -1,
+      0.16
+     ],
+     [
+      1,
+      0.16
+     ]
+    ],
+    "style": "groove",
+    "width": 0.003,
+    "depth": 0.002
+   },
+   {
+    "step": "line",
+    "frame": "shaft",
+    "pts": [
+     [
+      -1,
+      0.2
+     ],
+     [
+      1,
+      0.2
+     ]
+    ],
+    "style": "groove",
+    "width": 0.003,
+    "depth": 0.002
+   },
+   {
+    "step": "line",
+    "frame": "shaft",
+    "pts": [
+     [
+      -1,
+      0.24
+     ],
+     [
+      1,
+      0.24
+     ]
+    ],
+    "style": "groove",
+    "width": 0.003,
+    "depth": 0.002
+   },
+   {
+    "step": "line",
+    "frame": "vamp",
+    "pts": [
+     [
+      -0.05,
+      0.2
+     ],
+     [
+      0.05,
+      0.2
+     ]
+    ],
+    "style": "strap",
+    "width": 0.02,
+    "colour": "#17171a"
+   },
+   {
+    "step": "rect",
+    "frame": "vamp",
+    "at": [
+     0,
+     0.2
+    ],
+    "size": [
+     0.026,
+     0.022
+    ],
+    "style": "buckle",
+    "colour": "#c9cacd"
+   }
+  ]
+ },
+ {
+  "n": 482,
+  "id": "balenciaga-robot-leggings",
+  "designer": "Balenciaga by Nicolas Ghesquière",
+  "name": "Robot Leggings",
+  "season": "SS2007",
+  "price": 60000,
+  "slot": "bottom",
+  "colour": "#c9a23a",
+  "finish": {
+   "roughness": 0.22,
+   "metalness": 0.9
+  },
+  "cut": {
+   "like": "slim",
+   "ease": {
+    "waist": 0.002,
+    "seat": 0.0072,
+    "thigh": 0.0072,
+    "knee": 0.0072,
+    "hem": 0.0108
+   },
+   "rise": "waist-0.08",
+   "hem": "ankle+0.0",
+   "overBoot": false
+  },
+  "note": "Articulated gold-plated metal leggings: hinged plates down the front of each leg, black jersey behind. A handful were made.",
+  "paint": [
+   {
+    "step": "fabric",
+    "type": "satin"
+   },
+   {
+    "step": "line",
+    "frame": "legs",
+    "pts": [
+     [
+      -0.3,
+      0.18
+     ],
+     [
+      0.3,
+      0.18
+     ]
+    ],
+    "style": "groove",
+    "width": 0.006,
+    "depth": 0.003
+   },
+   {
+    "step": "line",
+    "frame": "legs",
+    "pts": [
+     [
+      -0.3,
+      0.192
+     ],
+     [
+      0.3,
+      0.192
+     ]
+    ],
+    "style": "ridge",
+    "width": 0.004,
+    "colour": "#8a6a1c"
+   },
+   {
+    "step": "line",
+    "frame": "legs",
+    "pts": [
+     [
+      -0.3,
+      0.3
+     ],
+     [
+      0.3,
+      0.3
+     ]
+    ],
+    "style": "groove",
+    "width": 0.006,
+    "depth": 0.003
+   },
+   {
+    "step": "line",
+    "frame": "legs",
+    "pts": [
+     [
+      -0.3,
+      0.312
+     ],
+     [
+      0.3,
+      0.312
+     ]
+    ],
+    "style": "ridge",
+    "width": 0.004,
+    "colour": "#8a6a1c"
+   },
+   {
+    "step": "line",
+    "frame": "legs",
+    "pts": [
+     [
+      -0.3,
+      0.42
+     ],
+     [
+      0.3,
+      0.42
+     ]
+    ],
+    "style": "groove",
+    "width": 0.006,
+    "depth": 0.003
+   },
+   {
+    "step": "line",
+    "frame": "legs",
+    "pts": [
+     [
+      -0.3,
+      0.432
+     ],
+     [
+      0.3,
+      0.432
+     ]
+    ],
+    "style": "ridge",
+    "width": 0.004,
+    "colour": "#8a6a1c"
+   },
+   {
+    "step": "line",
+    "frame": "legs",
+    "pts": [
+     [
+      -0.3,
+      0.56
+     ],
+     [
+      0.3,
+      0.56
+     ]
+    ],
+    "style": "groove",
+    "width": 0.006,
+    "depth": 0.003
+   },
+   {
+    "step": "line",
+    "frame": "legs",
+    "pts": [
+     [
+      -0.3,
+      0.5720000000000001
+     ],
+     [
+      0.3,
+      0.5720000000000001
+     ]
+    ],
+    "style": "ridge",
+    "width": 0.004,
+    "colour": "#8a6a1c"
+   },
+   {
+    "step": "line",
+    "frame": "legs",
+    "pts": [
+     [
+      -0.3,
+      0.7
+     ],
+     [
+      0.3,
+      0.7
+     ]
+    ],
+    "style": "groove",
+    "width": 0.006,
+    "depth": 0.003
+   },
+   {
+    "step": "line",
+    "frame": "legs",
+    "pts": [
+     [
+      -0.3,
+      0.712
+     ],
+     [
+      0.3,
+      0.712
+     ]
+    ],
+    "style": "ridge",
+    "width": 0.004,
+    "colour": "#8a6a1c"
+   },
+   {
+    "step": "line",
+    "frame": "legs",
+    "pts": [
+     [
+      -0.3,
+      0.84
+     ],
+     [
+      0.3,
+      0.84
+     ]
+    ],
+    "style": "groove",
+    "width": 0.006,
+    "depth": 0.003
+   },
+   {
+    "step": "line",
+    "frame": "legs",
+    "pts": [
+     [
+      -0.3,
+      0.852
+     ],
+     [
+      0.3,
+      0.852
+     ]
+    ],
+    "style": "ridge",
+    "width": 0.004,
+    "colour": "#8a6a1c"
+   },
+   {
+    "step": "line",
+    "frame": "legs",
+    "pts": [
+     [
+      -0.3,
+      0.95
+     ],
+     [
+      0.3,
+      0.95
+     ]
+    ],
+    "style": "groove",
+    "width": 0.006,
+    "depth": 0.003
+   },
+   {
+    "step": "line",
+    "frame": "legs",
+    "pts": [
+     [
+      -0.3,
+      0.962
+     ],
+     [
+      0.3,
+      0.962
+     ]
+    ],
+    "style": "ridge",
+    "width": 0.004,
+    "colour": "#8a6a1c"
+   },
+   {
+    "step": "dots",
+    "frame": "legs",
+    "pts": [
+     [
+      -0.03,
+      0.24
+     ]
+    ],
+    "r": 0.006,
+    "style": "stud",
+    "colour": "#e8d48a"
+   },
+   {
+    "step": "dots",
+    "frame": "legs",
+    "pts": [
+     [
+      0.03,
+      0.24
+     ]
+    ],
+    "r": 0.006,
+    "style": "stud",
+    "colour": "#e8d48a"
+   },
+   {
+    "step": "dots",
+    "frame": "legs",
+    "pts": [
+     [
+      -0.03,
+      0.49
+     ]
+    ],
+    "r": 0.006,
+    "style": "stud",
+    "colour": "#e8d48a"
+   },
+   {
+    "step": "dots",
+    "frame": "legs",
+    "pts": [
+     [
+      0.03,
+      0.49
+     ]
+    ],
+    "r": 0.006,
+    "style": "stud",
+    "colour": "#e8d48a"
+   },
+   {
+    "step": "dots",
+    "frame": "legs",
+    "pts": [
+     [
+      -0.03,
+      0.63
+     ]
+    ],
+    "r": 0.006,
+    "style": "stud",
+    "colour": "#e8d48a"
+   },
+   {
+    "step": "dots",
+    "frame": "legs",
+    "pts": [
+     [
+      0.03,
+      0.63
+     ]
+    ],
+    "r": 0.006,
+    "style": "stud",
+    "colour": "#e8d48a"
+   },
+   {
+    "step": "dots",
+    "frame": "legs",
+    "pts": [
+     [
+      -0.03,
+      0.9
+     ]
+    ],
+    "r": 0.006,
+    "style": "stud",
+    "colour": "#e8d48a"
+   },
+   {
+    "step": "dots",
+    "frame": "legs",
+    "pts": [
+     [
+      0.03,
+      0.9
+     ]
+    ],
+    "r": 0.006,
+    "style": "stud",
+    "colour": "#e8d48a"
+   },
+   {
+    "step": "line",
+    "frame": "legs",
+    "pts": [
+     [
+      0,
+      0.0
+     ],
+     [
+      0,
+      1.05
+     ]
+    ],
+    "style": "ridge",
+    "width": 0.008,
+    "colour": "#e8d48a"
+   },
+   {
+    "step": "panel",
+    "colour": "#17171a",
+    "where": {
+     "zone": "legs",
+     "ang": [
+      2.4,
+      3.2
+     ]
+    }
+   },
+   {
+    "step": "panel",
+    "colour": "#17171a",
+    "where": {
+     "zone": "legs",
+     "ang": [
+      -3.2,
+      -2.4
+     ]
+    }
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      -0.4,
+      "top-0.03"
+     ],
+     [
+      0.4,
+      "top-0.03"
+     ]
+    ],
+    "style": "seam",
+    "colour": "#3a3a3e",
+    "width": 0.002
+   },
+   {
+    "step": "line",
+    "frame": "back",
+    "pts": [
+     [
+      -0.4,
+      "top-0.03"
+     ],
+     [
+      0.4,
+      "top-0.03"
+     ]
+    ],
+    "style": "seam",
+    "colour": "#3a3a3e",
+    "width": 0.002
+   }
+  ]
+ },
+ {
+  "n": 483,
+  "id": "balenciaga-motorcycle-city-bag",
+  "designer": "Balenciaga by Nicolas Ghesquière",
+  "name": "Motorcycle City Bag",
+  "season": "2001",
+  "price": 1200,
+  "slot": "bag",
+  "bag": "city bag",
+  "colour": "#23201e",
+  "note": "Slouching black lambskin with brass studs and tassels, carried from the shoulder. Not a cut garment: it is built in dist/archive-accessories.js and worn in the bag's place."
+ },
+ {
+  "n": 484,
+  "id": "balenciaga-arena-leather-jacket",
+  "designer": "Balenciaga by Nicolas Ghesquière",
+  "name": "Arena Leather Jacket",
+  "season": "2000s",
+  "price": 1400,
+  "slot": "top",
+  "colour": "#23201e",
+  "finish": {
+   "roughness": 0.5
+  },
+  "cut": {
+   "like": "biker",
+   "ease": {
+    "shoulder": 0.0068,
+    "chest": 0.0153,
+    "waist": 0.0187,
+    "hip": 0.0187,
+    "sleeve": 0.0084,
+    "cuff": 0.0065
+   },
+   "hem": "hip+0.07",
+   "neck": {
+    "v": 0.1,
+    "width": 0.07
+   },
+   "add": [
+    {
+     "type": "collar",
+     "style": "fold",
+     "height": 0.06,
+     "flare": 0.03,
+     "points": 0.9
+    }
+   ]
+  },
+  "under": {
+   "colour": "#1b1b1d",
+   "cut": {
+    "like": "tank",
+    "overWaist": false,
+    "hem": "hip+0.06",
+    "armhole": 0.22,
+    "neck": {
+     "depth": 0.035,
+     "round": 0.075
+    },
+    "ease": {
+     "shoulder": 0.002,
+     "chest": 0.004,
+     "waist": 0.004,
+     "hip": 0.004
+    }
+   },
+   "paint": [
+    {
+     "step": "fabric",
+     "type": "jersey"
+    }
+   ]
+  },
+  "note": "The motorcycle jacket in the bag line's distressed lambskin, with its brass hardware.",
+  "paint": [
+   {
+    "step": "fabric",
+    "type": "leather"
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0.11,
+      "hem"
+     ],
+     [
+      0.105,
+      "waist+0.08"
+     ],
+     [
+      0.09,
+      "chest+0.05"
+     ]
+    ],
+    "style": "seam",
+    "width": 0.0025,
+    "mirror": true
+   },
+   {
+    "step": "line",
+    "frame": "back",
+    "pts": [
+     [
+      -0.2,
+      "chest+0.06"
+     ],
+     [
+      0.2,
+      "chest+0.06"
+     ]
+    ],
+    "style": "seam",
+    "width": 0.0025
+   },
+   {
+    "step": "line",
+    "frame": "back",
+    "pts": [
+     [
+      0.09,
+      "hem"
+     ],
+     [
+      0.085,
+      "chest+0.06"
+     ]
+    ],
+    "style": "seam",
+    "width": 0.0025,
+    "mirror": true
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0.04,
+      "chest+0.13"
+     ],
+     [
+      0.105,
+      "chest+0.075"
+     ],
+     [
+      0.05,
+      "chest+0.02"
+     ]
+    ],
+    "style": "seam",
+    "width": 0.0028
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      -0.04,
+      "chest+0.13"
+     ],
+     [
+      -0.095,
+      "chest+0.075"
+     ],
+     [
+      0,
+      "waist+0.1"
+     ]
+    ],
+    "style": "seam",
+    "width": 0.0028
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      -0.022,
+      "hem"
+     ],
+     [
+      -0.005,
+      "waist+0.06"
+     ],
+     [
+      0.05,
+      "chest+0.02"
+     ]
+    ],
+    "style": "zip",
+    "width": 0.006,
+    "colour": "#a8915a",
+    "colour2": "#1a1a1c"
+   },
+   {
+    "step": "rect",
+    "frame": "front",
+    "at": [
+     0.135,
+     "waist+0.045"
+    ],
+    "size": [
+     0.1,
+     0.01
+    ],
+    "style": "zip",
+    "rot": 78,
+    "colour": "#a8915a",
+    "mirror": true
+   },
+   {
+    "step": "rect",
+    "frame": "front",
+    "at": [
+     -0.09,
+     "chest-0.035"
+    ],
+    "size": [
+     0.095,
+     0.01
+    ],
+    "style": "zip",
+    "rot": -24,
+    "colour": "#a8915a"
+   },
+   {
+    "step": "rect",
+    "frame": "front",
+    "at": [
+     0.065,
+     "hem+0.06"
+    ],
+    "size": [
+     0.055,
+     0.045
+    ],
+    "style": "flap",
+    "flap": 1,
+    "snap": true,
+    "stitch": "#2c2c2f"
+   },
+   {
+    "step": "dots",
+    "frame": "front",
+    "pts": [
+     [
+      0.092,
+      "chest+0.078"
+     ],
+     [
+      -0.082,
+      "chest+0.078"
+     ]
+    ],
+    "r": 0.0055,
+    "style": "snap",
+    "colour": "#a8915a"
+   },
+   {
+    "step": "line",
+    "frame": "sleeves",
+    "pts": [
+     [
+      -0.035,
+      0.8
+     ],
+     [
+      -0.035,
+      1.12
+     ]
+    ],
+    "style": "zip",
+    "width": 0.0045,
+    "colour": "#a8915a",
+    "colour2": "#1a1a1c"
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0.1,
+      "shoulder-0.01"
+     ],
+     [
+      0.17,
+      "shoulder-0.03"
+     ]
+    ],
+    "style": "twin",
+    "gap": 0.012,
+    "width": 0.002,
+    "colour": "#3a3632",
+    "mirror": true
+   },
+   {
+    "step": "distress",
+    "type": "crackle",
+    "amount": 0.35,
+    "colour": "#4a4540"
+   },
+   {
+    "step": "distress",
+    "type": "crumple",
+    "amount": 0.22
+   },
+   {
+    "step": "distress",
+    "type": "edges",
+    "amount": 0.35,
+    "colour": "#5c5650"
+   }
+  ]
+ },
+ {
+  "n": 485,
+  "id": "balenciaga-triple-s-sneakers",
+  "designer": "Balenciaga by Demna",
+  "name": "Triple S Sneakers",
+  "season": "2017",
+  "price": 700,
+  "slot": "shoes",
+  "colour": "#b9b3a3",
+  "finish": {
+   "roughness": 0.7
+  },
+  "pack": "shoes01",
+  "source": "toigo_ankle_boots_female",
+  "shape": [
+   {
+    "op": "platform",
+    "height": 0.05,
+    "from": 0.02
+   },
+   {
+    "op": "wide",
+    "by": 0.2
+   },
+   {
+    "op": "toe",
+    "bulb": 0.35
+   }
+  ],
+  "note": "Three soles stacked under a dad shoe, sold pre-dirtied.",
+  "paint": [
+   {
+    "step": "fabric",
+    "type": "leather"
+   },
+   {
+    "step": "fabric",
+    "type": "mesh",
+    "colour": "#8a8678",
+    "where": {
+     "ft": [
+      0.3,
+      0.8
+     ],
+     "h": [
+      0.07,
+      0.13
+     ]
+    }
+   },
+   {
+    "step": "panel",
+    "colour": "#8a8678",
+    "where": {
+     "ft": [
+      0.3,
+      0.8
+     ],
+     "h": [
+      0.07,
+      0.13
+     ]
+    },
+    "amount": 0.85
+   },
+   {
+    "step": "panel",
+    "colour": "#e3ddc8",
+    "where": {
+     "h": [
+      -1,
+      0.066
+     ]
+    }
+   },
+   {
+    "step": "line",
+    "frame": "shaft",
+    "pts": [
+     [
+      -1,
+      0.02
+     ],
+     [
+      1,
+      0.02
+     ]
+    ],
+    "style": "groove",
+    "width": 0.004,
+    "depth": 0.0022
+   },
+   {
+    "step": "line",
+    "frame": "shaft",
+    "pts": [
+     [
+      -1,
+      0.034
+     ],
+     [
+      1,
+      0.034
+     ]
+    ],
+    "style": "groove",
+    "width": 0.004,
+    "depth": 0.0022
+   },
+   {
+    "step": "line",
+    "frame": "shaft",
+    "pts": [
+     [
+      -1,
+      0.05
+     ],
+     [
+      1,
+      0.05
+     ]
+    ],
+    "style": "groove",
+    "width": 0.004,
+    "depth": 0.0022
+   },
+   {
+    "step": "panel",
+    "colour": "#c9c2a8",
+    "where": {
+     "h": [
+      0.034,
+      0.05
+     ]
+    }
+   },
+   {
+    "step": "panel",
+    "colour": "#77736a",
+    "where": {
+     "h": [
+      -1,
+      0.012
+     ]
+    }
+   },
+   {
+    "step": "panel",
+    "colour": "#d9d3c0",
+    "where": {
+     "ft": [
+      0.8,
+      1.2
+     ],
+     "h": [
+      0.066,
+      0.11
+     ]
+    }
+   },
+   {
+    "step": "panel",
+    "colour": "#77736a",
+    "where": {
+     "ft": [
+      -1,
+      0.2
+     ],
+     "h": [
+      0.066,
+      0.2
+     ]
+    }
+   },
+   {
+    "step": "line",
+    "frame": "sides",
+    "pts": [
+     [
+      0.04,
+      0.09
+     ],
+     [
+      0.12,
+      0.14
+     ],
+     [
+      0.22,
+      0.085
+     ]
+    ],
+    "style": "ridge",
+    "width": 0.005,
+    "colour": "#77736a"
+   },
+   {
+    "step": "line",
+    "frame": "sides",
+    "pts": [
+     [
+      0.07,
+      0.07
+     ],
+     [
+      0.14,
+      0.11
+     ],
+     [
+      0.2,
+      0.075
+     ]
+    ],
+    "style": "ridge",
+    "width": 0.004,
+    "colour": "#d9d3c0"
+   },
+   {
+    "step": "laces",
+    "frame": "vamp",
+    "from": [
+     0,
+     0.12
+    ],
+    "to": [
+     0,
+     0.2
+    ],
+    "rows": 6,
+    "width": 0.034,
+    "colour": "#e3ddc8",
+    "thick": 0.004
+   },
+   {
+    "step": "distress",
+    "type": "grime",
+    "amount": 0.3
+   }
+  ]
+ },
+ {
+  "n": 486,
+  "id": "balenciaga-speed-trainers",
+  "designer": "Balenciaga by Demna",
+  "name": "Speed Trainers",
+  "season": "2016",
+  "price": 450,
+  "slot": "shoes",
+  "colour": "#17171a",
+  "finish": {
+   "roughness": 0.85
+  },
+  "pack": "shoes01",
+  "source": "toigo_ankle_boots_male",
+  "shape": [
+   {
+    "op": "platform",
+    "height": 0.026
+   },
+   {
+    "op": "wide",
+    "by": 0.05,
+    "below": 0.05
+   },
+   {
+    "op": "shaft",
+    "add": 0.06,
+    "from": 0.08
+   }
+  ],
+  "note": "A knitted sock on a white runner's sole.",
+  "paint": [
+   {
+    "step": "fabric",
+    "type": "knit",
+    "gauge": 0.0022
+   },
+   {
+    "step": "rib",
+    "where": {
+     "h": [
+      0.2,
+      1
+     ]
+    },
+    "gauge": 0.003,
+    "depth": 0.0005
+   },
+   {
+    "step": "panel",
+    "colour": "#f1efe9",
+    "where": {
+     "h": [
+      -1,
+      0.04
+     ]
+    }
+   },
+   {
+    "step": "line",
+    "frame": "shaft",
+    "pts": [
+     [
+      -1,
+      0.02
+     ],
+     [
+      1,
+      0.02
+     ]
+    ],
+    "style": "groove",
+    "width": 0.003,
+    "depth": 0.0015
+   },
+   {
+    "step": "panel",
+    "colour": "#17171a",
+    "where": {
+     "ft": [
+      0.3,
+      0.62
+     ],
+     "h": [
+      -1,
+      0.014
+     ]
+    }
+   },
+   {
+    "step": "rect",
+    "frame": "outer",
+    "at": [
+     0.14,
+     0.11
+    ],
+    "size": [
+     0.07,
+     0.012
+    ],
+    "style": "fill",
+    "colour": "#e8e5dc",
+    "opacity": 0.9
+   }
+  ]
+ },
+ {
+  "n": 487,
+  "id": "balenciaga-track-sneakers",
+  "designer": "Balenciaga by Demna",
+  "name": "Track Sneakers",
+  "season": "2018",
+  "price": 650,
+  "slot": "shoes",
+  "colour": "#e8e5dc",
+  "finish": {
+   "roughness": 0.6
+  },
+  "pack": "shoes01",
+  "source": "toigo_ankle_boots_female",
+  "shape": [
+   {
+    "op": "platform",
+    "height": 0.038,
+    "from": 0.02
+   },
+   {
+    "op": "wide",
+    "by": 0.14
+   },
+   {
+    "op": "toe",
+    "bulb": 0.3
+   }
+  ],
+  "note": "A hiking shoe's cage of overlays on a layered sole.",
+  "paint": [
+   {
+    "step": "fabric",
+    "type": "nylon"
+   },
+   {
+    "step": "panel",
+    "colour": "#f1efe9",
+    "where": {
+     "h": [
+      -1,
+      0.052
+     ]
+    }
+   },
+   {
+    "step": "line",
+    "frame": "shaft",
+    "pts": [
+     [
+      -1,
+      0.018
+     ],
+     [
+      1,
+      0.018
+     ]
+    ],
+    "style": "groove",
+    "width": 0.004,
+    "depth": 0.0022
+   },
+   {
+    "step": "line",
+    "frame": "shaft",
+    "pts": [
+     [
+      -1,
+      0.034
+     ],
+     [
+      1,
+      0.034
+     ]
+    ],
+    "style": "groove",
+    "width": 0.004,
+    "depth": 0.0022
+   },
+   {
+    "step": "panel",
+    "colour": "#d9661f",
+    "where": {
+     "ft": [
+      -1,
+      0.35
+     ],
+     "h": [
+      0.018,
+      0.034
+     ]
+    }
+   },
+   {
+    "step": "panel",
+    "colour": "#19191b",
+    "where": {
+     "h": [
+      -1,
+      0.01
+     ]
+    }
+   },
+   {
+    "step": "line",
+    "frame": "sides",
+    "pts": [
+     [
+      0.03,
+      0.07
+     ],
+     [
+      0.1,
+      0.13
+     ],
+     [
+      0.2,
+      0.07
+     ]
+    ],
+    "style": "tape",
+    "width": 0.008,
+    "colour": "#8a8b8e",
+    "raise": 0.0006
+   },
+   {
+    "step": "line",
+    "frame": "sides",
+    "pts": [
+     [
+      0.06,
+      0.06
+     ],
+     [
+      0.13,
+      0.11
+     ],
+     [
+      0.23,
+      0.06
+     ]
+    ],
+    "style": "tape",
+    "width": 0.008,
+    "colour": "#19191b",
+    "raise": 0.0006
+   },
+   {
+    "step": "line",
+    "frame": "sides",
+    "pts": [
+     [
+      0.02,
+      0.11
+     ],
+     [
+      0.09,
+      0.16
+     ]
+    ],
+    "style": "tape",
+    "width": 0.008,
+    "colour": "#d9661f",
+    "raise": 0.0006
+   },
+   {
+    "step": "line",
+    "frame": "sides",
+    "pts": [
+     [
+      0.12,
+      0.14
+     ],
+     [
+      0.2,
+      0.1
+     ]
+    ],
+    "style": "tape",
+    "width": 0.008,
+    "colour": "#8a8b8e",
+    "raise": 0.0006
+   },
+   {
+    "step": "panel",
+    "colour": "#c9c9cc",
+    "where": {
+     "ft": [
+      0.8,
+      1.2
+     ],
+     "h": [
+      0.052,
+      0.1
+     ]
+    }
+   },
+   {
+    "step": "panel",
+    "colour": "#19191b",
+    "where": {
+     "ft": [
+      -1,
+      0.16
+     ],
+     "h": [
+      0.052,
+      0.2
+     ]
+    }
+   },
+   {
+    "step": "laces",
+    "frame": "vamp",
+    "from": [
+     0,
+     0.12
+    ],
+    "to": [
+     0,
+     0.2
+    ],
+    "rows": 6,
+    "width": 0.034,
+    "colour": "#19191b",
+    "thick": 0.004
+   }
+  ]
+ },
+ {
+  "n": 488,
+  "id": "balenciaga-defender-sneakers",
+  "designer": "Balenciaga by Demna",
+  "name": "Defender Sneakers",
+  "season": "2022",
+  "price": 950,
+  "slot": "shoes",
+  "colour": "#17171a",
+  "finish": {
+   "roughness": 0.55
+  },
+  "pack": "shoes01",
+  "source": "toigo_ankle_boots_female",
+  "shape": [
+   {
+    "op": "platform",
+    "height": 0.06,
+    "from": 0.02
+   },
+   {
+    "op": "wide",
+    "by": 0.34,
+    "long": 0.4
+   },
+   {
+    "op": "toe",
+    "bulb": 0.5
+   }
+  ],
+  "note": "A trainer set in a tractor tyre.",
+  "paint": [
+   {
+    "step": "fabric",
+    "type": "nylon"
+   },
+   {
+    "step": "panel",
+    "colour": "#141416",
+    "where": {
+     "h": [
+      -1,
+      0.08
+     ]
+    }
+   },
+   {
+    "step": "fabric",
+    "type": "rubber",
+    "where": {
+     "h": [
+      -1,
+      0.08
+     ]
+    }
+   },
+   {
+    "step": "rib",
+    "where": {
+     "h": [
+      -1,
+      0.08
+     ]
+    },
+    "gauge": 0.014,
+    "depth": 0.003,
+    "colour": "#0c0c0d"
+   },
+   {
+    "step": "line",
+    "frame": "shaft",
+    "pts": [
+     [
+      -1,
+      0.04
+     ],
+     [
+      1,
+      0.04
+     ]
+    ],
+    "style": "groove",
+    "width": 0.006,
+    "depth": 0.003
+   },
+   {
+    "step": "panel",
+    "colour": "#1e1e21",
+    "where": {
+     "ft": [
+      0.8,
+      1.2
+     ],
+     "h": [
+      0.08,
+      0.12
+     ]
+    }
+   },
+   {
+    "step": "laces",
+    "frame": "vamp",
+    "from": [
+     0,
+     0.13
+    ],
+    "to": [
+     0,
+     0.21
+    ],
+    "rows": 6,
+    "width": 0.034,
+    "colour": "#2a2a2d",
+    "thick": 0.004
+   },
+   {
+    "step": "distress",
+    "type": "grime",
+    "amount": 0.2
+   }
+  ]
+ },
+ {
+  "n": 489,
+  "id": "balenciaga-steroid-boots",
+  "designer": "Balenciaga by Demna",
+  "name": "Steroid Boots",
+  "season": "2023",
+  "price": 1100,
+  "slot": "shoes",
+  "colour": "#17171a",
+  "finish": {
+   "roughness": 0.3
+  },
+  "pack": "shoes01",
+  "source": "toigo_ankle_boots_male",
+  "shape": [
+   {
+    "op": "wide",
+    "by": 0.4,
+    "long": 0.5
+   },
+   {
+    "op": "toe",
+    "bulb": 1.0,
+    "from": 0.5
+   },
+   {
+    "op": "platform",
+    "height": 0.03
+   },
+   {
+    "op": "shaft",
+    "add": 0.04,
+    "from": 0.1,
+    "flare": 0.3
+   }
+  ],
+  "note": "A moulded foam boot inflated to three sizes too big.",
+  "paint": [
+   {
+    "step": "fabric",
+    "type": "rubber"
+   },
+   {
+    "step": "panel",
+    "colour": "#101012",
+    "where": {
+     "h": [
+      -1,
+      0.03
+     ]
+    }
+   },
+   {
+    "step": "line",
+    "frame": "shaft",
+    "pts": [
+     [
+      -1,
+      0.033
+     ],
+     [
+      1,
+      0.033
+     ]
+    ],
+    "style": "groove",
+    "width": 0.003
+   },
+   {
+    "step": "line",
+    "frame": "shaft",
+    "pts": [
+     [
+      -1,
+      0.2
+     ],
+     [
+      1,
+      0.2
+     ]
+    ],
+    "style": "groove",
+    "width": 0.004
+   },
+   {
+    "step": "rect",
+    "frame": "outer",
+    "at": [
+     0.1,
+     0.16
+    ],
+    "size": [
+     0.05,
+     0.012
+    ],
+    "style": "fill",
+    "colour": "#3a3a3e"
+   }
+  ]
+ },
+ {
+  "n": 490,
+  "id": "balenciaga-cargo-sneakers",
+  "designer": "Balenciaga by Demna",
+  "name": "Cargo Sneakers",
+  "season": "2023",
+  "price": 1200,
+  "slot": "shoes",
+  "colour": "#77705c",
+  "finish": {
+   "roughness": 0.75
+  },
+  "pack": "shoes01",
+  "source": "toigo_ankle_boots_female",
+  "shape": [
+   {
+    "op": "platform",
+    "height": 0.045,
+    "from": 0.02
+   },
+   {
+    "op": "wide",
+    "by": 0.24
+   },
+   {
+    "op": "toe",
+    "bulb": 0.4
+   }
+  ],
+  "note": "A bulbous runner with a cargo pocket on its side, sold worn.",
+  "paint": [
+   {
+    "step": "fabric",
+    "type": "nylon"
+   },
+   {
+    "step": "fabric",
+    "type": "mesh",
+    "colour": "#5c5646",
+    "where": {
+     "ft": [
+      0.3,
+      0.8
+     ],
+     "h": [
+      0.065,
+      0.13
+     ]
+    }
+   },
+   {
+    "step": "panel",
+    "colour": "#5c5646",
+    "where": {
+     "ft": [
+      0.3,
+      0.8
+     ],
+     "h": [
+      0.065,
+      0.13
+     ]
+    },
+    "amount": 0.85
+   },
+   {
+    "step": "panel",
+    "colour": "#b9b3a0",
+    "where": {
+     "h": [
+      -1,
+      0.06
+     ]
+    }
+   },
+   {
+    "step": "line",
+    "frame": "shaft",
+    "pts": [
+     [
+      -1,
+      0.02
+     ],
+     [
+      1,
+      0.02
+     ]
+    ],
+    "style": "groove",
+    "width": 0.004,
+    "depth": 0.0022
+   },
+   {
+    "step": "line",
+    "frame": "shaft",
+    "pts": [
+     [
+      -1,
+      0.04
+     ],
+     [
+      1,
+      0.04
+     ]
+    ],
+    "style": "groove",
+    "width": 0.004,
+    "depth": 0.0022
+   },
+   {
+    "step": "panel",
+    "colour": "#3a362c",
+    "where": {
+     "h": [
+      -1,
+      0.012
+     ]
+    }
+   },
+   {
+    "step": "panel",
+    "colour": "#8a8472",
+    "where": {
+     "ft": [
+      0.8,
+      1.2
+     ],
+     "h": [
+      0.06,
+      0.1
+     ]
+    }
+   },
+   {
+    "step": "panel",
+    "colour": "#3a362c",
+    "where": {
+     "ft": [
+      -1,
+      0.2
+     ],
+     "h": [
+      0.06,
+      0.2
+     ]
+    }
+   },
+   {
+    "step": "rect",
+    "frame": "outer",
+    "at": [
+     0.13,
+     0.11
+    ],
+    "size": [
+     0.07,
+     0.05
+    ],
+    "style": "flap",
+    "flap": 0.4,
+    "stitch": "#3a362c",
+    "snap": true,
+    "raise": 0.003
+   },
+   {
+    "step": "laces",
+    "frame": "vamp",
+    "from": [
+     0,
+     0.12
+    ],
+    "to": [
+     0,
+     0.2
+    ],
+    "rows": 6,
+    "width": 0.034,
+    "colour": "#b9b3a0",
+    "thick": 0.004
+   },
+   {
+    "step": "distress",
+    "type": "grime",
+    "amount": 0.35
+   }
+  ]
+ },
+ {
+  "n": 491,
+  "id": "ysl-l-zero-one-leather-biker-jacket",
+  "designer": "Saint Laurent by Hedi Slimane",
+  "name": "L01 Leather Biker Jacket",
+  "season": "FW2013",
+  "price": 3200,
+  "slot": "top",
+  "colour": "#1c1c1e",
+  "finish": {
+   "roughness": 0.36
+  },
+  "cut": {
+   "like": "biker",
+   "ease": {
+    "shoulder": 0.0066,
+    "chest": 0.0148,
+    "waist": 0.018,
+    "hip": 0.018,
+    "sleeve": 0.0083,
+    "cuff": 0.0064
+   },
+   "hem": "hip+0.06",
+   "waist": 0.03,
+   "neck": {
+    "v": 0.1,
+    "width": 0.07
+   },
+   "add": [
+    {
+     "type": "collar",
+     "style": "fold",
+     "height": 0.065,
+     "flare": 0.035,
+     "points": 1
+    }
+   ]
+  },
+  "under": {
+   "colour": "#e8e5dc",
+   "cut": {
+    "like": "tank",
+    "overWaist": false,
+    "hem": "hip+0.07",
+    "armhole": 0.22,
+    "neck": {
+     "depth": 0.035,
+     "round": 0.075
+    },
+    "ease": {
+     "shoulder": 0.002,
+     "chest": 0.004,
+     "waist": 0.004,
+     "hip": 0.004
+    }
+   },
+   "paint": [
+    {
+     "step": "fabric",
+     "type": "jersey"
+    }
+   ]
+  },
+  "paint": [
+   {
+    "step": "fabric",
+    "type": "leather"
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0.11,
+      "hem"
+     ],
+     [
+      0.105,
+      "waist+0.08"
+     ],
+     [
+      0.09,
+      "chest+0.05"
+     ]
+    ],
+    "style": "seam",
+    "width": 0.0025,
+    "mirror": true
+   },
+   {
+    "step": "line",
+    "frame": "back",
+    "pts": [
+     [
+      -0.2,
+      "chest+0.06"
+     ],
+     [
+      0.2,
+      "chest+0.06"
+     ]
+    ],
+    "style": "seam",
+    "width": 0.0025
+   },
+   {
+    "step": "line",
+    "frame": "back",
+    "pts": [
+     [
+      0.09,
+      "hem"
+     ],
+     [
+      0.085,
+      "chest+0.06"
+     ]
+    ],
+    "style": "seam",
+    "width": 0.0025,
+    "mirror": true
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0.04,
+      "chest+0.13"
+     ],
+     [
+      0.105,
+      "chest+0.075"
+     ],
+     [
+      0.05,
+      "chest+0.02"
+     ]
+    ],
+    "style": "seam",
+    "width": 0.0028
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      -0.04,
+      "chest+0.13"
+     ],
+     [
+      -0.095,
+      "chest+0.075"
+     ],
+     [
+      0,
+      "waist+0.1"
+     ]
+    ],
+    "style": "seam",
+    "width": 0.0028
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      -0.022,
+      "hem"
+     ],
+     [
+      -0.005,
+      "waist+0.06"
+     ],
+     [
+      0.05,
+      "chest+0.02"
+     ]
+    ],
+    "style": "zip",
+    "width": 0.006,
+    "colour": "#c9cacd",
+    "colour2": "#1a1a1c"
+   },
+   {
+    "step": "rect",
+    "frame": "front",
+    "at": [
+     0.135,
+     "waist+0.045"
+    ],
+    "size": [
+     0.1,
+     0.01
+    ],
+    "style": "zip",
+    "rot": 78,
+    "colour": "#c9cacd",
+    "mirror": true
+   },
+   {
+    "step": "rect",
+    "frame": "front",
+    "at": [
+     -0.09,
+     "chest-0.035"
+    ],
+    "size": [
+     0.095,
+     0.01
+    ],
+    "style": "zip",
+    "rot": -24,
+    "colour": "#c9cacd"
+   },
+   {
+    "step": "rect",
+    "frame": "front",
+    "at": [
+     0.065,
+     "hem+0.06"
+    ],
+    "size": [
+     0.055,
+     0.045
+    ],
+    "style": "flap",
+    "flap": 1,
+    "snap": true,
+    "stitch": "#2c2c2f"
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0.1,
+      "shoulder-0.012"
+     ],
+     [
+      0.165,
+      "shoulder-0.03"
+     ]
+    ],
+    "style": "twin",
+    "gap": 0.02,
+    "width": 0.002,
+    "colour": "#3a3a3f",
+    "mirror": true
+   },
+   {
+    "step": "dots",
+    "frame": "front",
+    "pts": [
+     [
+      0.108,
+      "shoulder-0.013"
+     ]
+    ],
+    "r": 0.0055,
+    "style": "snap",
+    "colour": "#c9cacd",
+    "mirror": true
+   },
+   {
+    "step": "dots",
+    "frame": "front",
+    "pts": [
+     [
+      0.092,
+      "chest+0.078"
+     ],
+     [
+      -0.082,
+      "chest+0.078"
+     ]
+    ],
+    "r": 0.0055,
+    "style": "snap",
+    "colour": "#c9cacd"
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      -0.4,
+      "hem+0.03"
+     ],
+     [
+      0.4,
+      "hem+0.03"
+     ]
+    ],
+    "style": "strap",
+    "width": 0.03,
+    "colour": "#141416"
+   },
+   {
+    "step": "line",
+    "frame": "back",
+    "pts": [
+     [
+      -0.4,
+      "hem+0.03"
+     ],
+     [
+      0.4,
+      "hem+0.03"
+     ]
+    ],
+    "style": "strap",
+    "width": 0.03,
+    "colour": "#141416"
+   },
+   {
+    "step": "rect",
+    "frame": "front",
+    "at": [
+     0.07,
+     "hem+0.03"
+    ],
+    "size": [
+     0.045,
+     0.042
+    ],
+    "style": "buckle",
+    "colour": "#c9cacd"
+   },
+   {
+    "step": "line",
+    "frame": "sleeves",
+    "pts": [
+     [
+      -0.035,
+      0.8
+     ],
+     [
+      -0.035,
+      1.12
+     ]
+    ],
+    "style": "zip",
+    "width": 0.0045,
+    "colour": "#c9cacd",
+    "colour2": "#1a1a1c"
+   },
+   {
+    "step": "distress",
+    "type": "crumple",
+    "amount": 0.1
+   }
+  ]
+ },
+ {
+  "n": 492,
+  "id": "ysl-teddy-jacket",
+  "designer": "Saint Laurent by Hedi Slimane",
+  "name": "Teddy Jacket",
+  "season": "SS2014",
+  "price": 1500,
+  "slot": "top",
+  "colour": "#17171a",
+  "finish": {
+   "roughness": 0.95
+  },
+  "cut": {
+   "like": "bomber",
+   "ease": {
+    "shoulder": 0.0102,
+    "chest": 0.0298,
+    "waist": 0.0595,
+    "hip": 0.0595,
+    "sleeve": 0.0205,
+    "cuff": 0.0168
+   },
+   "hem": "hip+0.05",
+   "cinch": 0.2,
+   "rib": 0.055,
+   "cuffCinch": 0.25,
+   "add": [
+    {
+     "type": "collar",
+     "height": 0.035,
+     "flare": 0.006
+    }
+   ]
+  },
+  "note": "The varsity jacket: black wool body, white leather sleeves and trim.",
+  "paint": [
+   {
+    "step": "fabric",
+    "type": "wool"
+   },
+   {
+    "step": "fabric",
+    "type": "leather",
+    "colour": "#e8e5dc",
+    "where": {
+     "zone": "sleeves"
+    }
+   },
+   {
+    "step": "rib",
+    "where": {
+     "zone": "body",
+     "h": [
+      "hem",
+      "hem+0.055"
+     ]
+    },
+    "gauge": 0.006,
+    "colour": "#17171a"
+   },
+   {
+    "step": "rib",
+    "where": {
+     "zone": "sleeves",
+     "s": [
+      0.9,
+      1.3
+     ]
+    },
+    "gauge": 0.006,
+    "colour": "#17171a"
+   },
+   {
+    "step": "rib",
+    "where": {
+     "zone": "collar"
+    },
+    "gauge": 0.006,
+    "colour": "#17171a"
+   },
+   {
+    "step": "rib",
+    "where": {
+     "zone": "body",
+     "h": [
+      "hem+0.014",
+      "hem+0.026"
+     ]
+    },
+    "gauge": 0.006,
+    "colour": "#e8e5dc"
+   },
+   {
+    "step": "rib",
+    "where": {
+     "zone": "sleeves",
+     "s": [
+      0.93,
+      0.95
+     ]
+    },
+    "gauge": 0.006,
+    "colour": "#e8e5dc"
+   },
+   {
+    "step": "rib",
+    "where": {
+     "zone": "collar",
+     "h": [
+      "top-0.012",
+      "top-0.004"
+     ]
+    },
+    "gauge": 0.006,
+    "colour": "#e8e5dc"
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0.016,
+      "hem+0.055"
+     ],
+     [
+      0.016,
+      "top"
+     ]
+    ],
+    "style": "seam"
+   },
+   {
+    "step": "dots",
+    "frame": "front",
+    "from": [
+     0,
+     "hem+0.07"
+    ],
+    "to": [
+     0,
+     "neck-0.04"
+    ],
+    "count": 5,
+    "r": 0.0075,
+    "style": "snap",
+    "colour": "#e8e5dc"
+   },
+   {
+    "step": "rect",
+    "frame": "front",
+    "at": [
+     0.12,
+     "waist-0.02"
+    ],
+    "size": [
+     0.13,
+     0.014
+    ],
+    "style": "welt",
+    "rot": 22,
+    "mirror": true,
+    "colour": "#e8e5dc"
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0.105,
+      "waist+0.03"
+     ],
+     [
+      0.14,
+      "waist-0.07"
+     ]
+    ],
+    "style": "ridge",
+    "width": 0.004,
+    "colour": "#e8e5dc",
+    "mirror": true
+   }
+  ]
+ },
+ {
+  "n": 493,
+  "id": "ysl-distressed-d-zero-two-jeans",
+  "designer": "Saint Laurent by Hedi Slimane",
+  "name": "Distressed D02 Jeans",
+  "season": "FW2013",
+  "price": 600,
+  "slot": "bottom",
+  "colour": "#1e1e21",
+  "finish": {
+   "roughness": 0.85
+  },
+  "cut": {
+   "like": "slim",
+   "ease": {
+    "waist": 0.002,
+    "seat": 0.0068,
+    "thigh": 0.0068,
+    "knee": 0.0068,
+    "hem": 0.0102
+   },
+   "rise": "waist-0.1"
+  },
+  "note": "Skinny black denim, blown out at both knees.",
+  "paint": [
+   {
+    "step": "fabric",
+    "type": "denim",
+    "colour2": "#4a4a52"
+   },
+   {
+    "step": "line",
+    "frame": "legs",
+    "pts": [
+     [
+      0,
+      -0.3
+     ],
+     [
+      0,
+      1.05
+     ]
+    ],
+    "style": "twin",
+    "colour": "#3a3a40",
+    "width": 0.0011,
+    "gap": 0.006
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      -0.4,
+      "top-0.04"
+     ],
+     [
+      0.4,
+      "top-0.04"
+     ]
+    ],
+    "style": "twin",
+    "colour": "#3a3a40",
+    "width": 0.0011,
+    "gap": 0.034
+   },
+   {
+    "step": "line",
+    "frame": "back",
+    "pts": [
+     [
+      -0.4,
+      "top-0.04"
+     ],
+     [
+      0.4,
+      "top-0.04"
+     ]
+    ],
+    "style": "twin",
+    "colour": "#3a3a40",
+    "width": 0.0011,
+    "gap": 0.034
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0.0,
+      "top-0.04"
+     ],
+     [
+      0.004,
+      "top-0.1"
+     ],
+     [
+      0.03,
+      "top-0.17"
+     ],
+     [
+      0.0,
+      "top-0.19"
+     ]
+    ],
+    "style": "twin",
+    "colour": "#3a3a40",
+    "width": 0.0011
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0.06,
+      "top-0.045"
+     ],
+     [
+      0.09,
+      "top-0.11"
+     ],
+     [
+      0.17,
+      "top-0.12"
+     ]
+    ],
+    "style": "twin",
+    "colour": "#3a3a40",
+    "width": 0.0011,
+    "mirror": true
+   },
+   {
+    "step": "dots",
+    "frame": "front",
+    "pts": [
+     [
+      0,
+      "top-0.02"
+     ]
+    ],
+    "r": 0.008,
+    "style": "stud",
+    "colour": "#77736a"
+   },
+   {
+    "step": "dots",
+    "frame": "front",
+    "pts": [
+     [
+      0.062,
+      "top-0.05"
+     ],
+     [
+      0.168,
+      "top-0.118"
+     ]
+    ],
+    "r": 0.0035,
+    "style": "stud",
+    "colour": "#8a7a5a",
+    "mirror": true
+   },
+   {
+    "step": "line",
+    "frame": "back",
+    "pts": [
+     [
+      -0.3,
+      "top-0.075"
+     ],
+     [
+      0,
+      "top-0.115"
+     ],
+     [
+      0.3,
+      "top-0.075"
+     ]
+    ],
+    "style": "twin",
+    "colour": "#3a3a40",
+    "width": 0.0011
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      -0.4,
+      "hem+0.014"
+     ],
+     [
+      0.4,
+      "hem+0.014"
+     ]
+    ],
+    "style": "stitch",
+    "colour": "#3a3a40",
+    "width": 0.0011
+   },
+   {
+    "step": "line",
+    "frame": "back",
+    "pts": [
+     [
+      -0.4,
+      "hem+0.014"
+     ],
+     [
+      0.4,
+      "hem+0.014"
+     ]
+    ],
+    "style": "stitch",
+    "colour": "#3a3a40",
+    "width": 0.0011
+   },
+   {
+    "step": "rect",
+    "frame": "back",
+    "at": [
+     0.088,
+     "top-0.2"
+    ],
+    "size": [
+     0.125,
+     0.135
+    ],
+    "style": "pocket",
+    "stitch": "#3a3a40",
+    "mirror": true,
+    "round": 0.012
+   },
+   {
+    "step": "rect",
+    "frame": "front",
+    "at": [
+     0.085,
+     "knee+0.02"
+    ],
+    "size": [
+     0.09,
+     0.05
+    ],
+    "style": "hole",
+    "colour": "#b9b6ae"
+   },
+   {
+    "step": "rect",
+    "frame": "front",
+    "at": [
+     -0.085,
+     "knee+0.03"
+    ],
+    "size": [
+     0.085,
+     0.045
+    ],
+    "style": "hole",
+    "colour": "#b9b6ae"
+   },
+   {
+    "step": "rect",
+    "frame": "front",
+    "at": [
+     0.08,
+     "thigh+0.02"
+    ],
+    "size": [
+     0.06,
+     0.02
+    ],
+    "style": "hole",
+    "colour": "#b9b6ae"
+   },
+   {
+    "step": "distress",
+    "type": "wash",
+    "amount": 0.2
+   },
+   {
+    "step": "distress",
+    "type": "fade",
+    "amount": 0.45,
+    "frame": "front",
+    "at": [
+     0.09,
+     "thigh+0.02"
+    ],
+    "size": [
+     0.12,
+     0.3
+    ],
+    "mirror": true
+   },
+   {
+    "step": "distress",
+    "type": "folds",
+    "freq": 32,
+    "depth": 0.0025,
+    "where": {
+     "zone": "legs",
+     "s": [
+      0.7,
+      1.1
+     ]
+    }
+   }
+  ]
+ },
+ {
+  "n": 494,
+  "id": "ysl-santiag-boots",
+  "designer": "Saint Laurent by Hedi Slimane",
+  "name": "Santiag Boots",
+  "season": "SS2015",
+  "price": 900,
+  "slot": "shoes",
+  "colour": "#161617",
+  "finish": {
+   "roughness": 0.38
+  },
+  "pack": "shoes01",
+  "source": "culturalibre_heroine_boots_3",
+  "shape": [
+   {
+    "op": "platform",
+    "height": 0.036
+   },
+   {
+    "op": "arch",
+    "depth": 0.028,
+    "from": 0.34,
+    "to": 0.62
+   },
+   {
+    "op": "toe",
+    "point": 0.6
+   },
+   {
+    "op": "shaft",
+    "add": 0.0,
+    "flare": 0.12
+   }
+  ],
+  "note": "Western boots on a slanted stacked heel.",
+  "paint": [
+   {
+    "step": "fabric",
+    "type": "leather"
+   },
+   {
+    "step": "panel",
+    "colour": "#2a2018",
+    "where": {
+     "h": [
+      -1,
+      0.006
+     ]
+    }
+   },
+   {
+    "step": "panel",
+    "colour": "#3a2a1e",
+    "where": {
+     "ft": [
+      -1,
+      0.32
+     ],
+     "h": [
+      -1,
+      0.04
+     ]
+    }
+   },
+   {
+    "step": "pattern",
+    "type": "stripes",
+    "colours": [
+     "#241a12"
+    ],
+    "period": 0.006,
+    "width": 0.0012,
+    "where": {
+     "ft": [
+      -1,
+      0.32
+     ],
+     "h": [
+      -1,
+      0.04
+     ]
+    }
+   },
+   {
+    "step": "line",
+    "frame": "sides",
+    "pts": [
+     [
+      0.04,
+      0.14
+     ],
+     [
+      0.1,
+      0.3
+     ],
+     [
+      0.16,
+      0.14
+     ]
+    ],
+    "style": "stitch",
+    "colour": "#55555a",
+    "width": 0.0012
+   },
+   {
+    "step": "line",
+    "frame": "sides",
+    "pts": [
+     [
+      0.04,
+      0.15200000000000002
+     ],
+     [
+      0.1,
+      0.29
+     ],
+     [
+      0.16,
+      0.15200000000000002
+     ]
+    ],
+    "style": "stitch",
+    "colour": "#55555a",
+    "width": 0.0012
+   },
+   {
+    "step": "line",
+    "frame": "sides",
+    "pts": [
+     [
+      0.04,
+      0.164
+     ],
+     [
+      0.1,
+      0.27999999999999997
+     ],
+     [
+      0.16,
+      0.164
+     ]
+    ],
+    "style": "stitch",
+    "colour": "#55555a",
+    "width": 0.0012
+   },
+   {
+    "step": "line",
+    "frame": "vamp",
+    "pts": [
+     [
+      -0.035,
+      0.2
+     ],
+     [
+      0,
+      0.23
+     ],
+     [
+      0.035,
+      0.2
+     ]
+    ],
+    "style": "twin",
+    "colour": "#55555a",
+    "gap": 0.004
+   },
+   {
+    "step": "line",
+    "frame": "sides",
+    "pts": [
+     [
+      0,
+      0.1
+     ],
+     [
+      0,
+      0.34
+     ]
+    ],
+    "style": "seam"
+   },
+   {
+    "step": "rect",
+    "frame": "heel",
+    "at": [
+     0,
+     0.33
+    ],
+    "size": [
+     0.014,
+     0.03
+    ],
+    "style": "patch",
+    "colour": "#0f0f10"
+   }
+  ]
+ },
+ {
+  "n": 495,
+  "id": "ysl-leopard-print-coat",
+  "designer": "Saint Laurent by Hedi Slimane",
+  "name": "Leopard-Print Coat",
+  "season": "FW2014",
+  "price": 3800,
+  "slot": "top",
+  "colour": "#c99a52",
+  "finish": {
+   "roughness": 0.9
+  },
+  "cut": {
+   "like": "coat",
+   "ease": {
+    "shoulder": 0.0076,
+    "chest": 0.0238,
+    "waist": 0.0333,
+    "hip": 0.0333,
+    "sleeve": 0.0137,
+    "cuff": 0.0137
+   },
+   "hem": "thigh+0.0",
+   "flare": 0.03,
+   "neck": {
+    "v": 0.2,
+    "width": 0.07,
+    "depth": 0.03
+   },
+   "add": [
+    {
+     "type": "collar",
+     "style": "fold",
+     "height": 0.07,
+     "gap": 0.03,
+     "points": 0.7
+    }
+   ]
+  },
+  "under": {
+   "colour": "#17171a",
+   "cut": {
+    "like": "tee",
+    "hem": "hip+0.03",
+    "overWaist": false,
+    "ease": {
+     "shoulder": 0.004,
+     "chest": 0.01,
+     "waist": 0.016,
+     "hip": 0.016,
+     "sleeve": 0.012,
+     "cuff": 0.014
+    }
+   },
+   "paint": [
+    {
+     "step": "fabric",
+     "type": "jersey"
+    }
+   ]
+  },
+  "paint": [
+   {
+    "step": "fabric",
+    "type": "fur",
+    "scale": 0.6
+   },
+   {
+    "step": "pattern",
+    "type": "leopard",
+    "colours": [
+     "#17171a",
+     "#7a4a1c"
+    ],
+    "scale": 1.3
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0.014,
+      "neck-0.235"
+     ],
+     [
+      0.085,
+      "chest+0.085"
+     ],
+     [
+      0.07,
+      "shoulder+0.005"
+     ]
+    ],
+    "style": "groove",
+    "width": 0.002,
+    "mirror": true
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0.085,
+      "chest+0.085"
+     ],
+     [
+      0.062,
+      "chest+0.105"
+     ]
+    ],
+    "style": "groove",
+    "width": 0.002,
+    "mirror": true
+   },
+   {
+    "step": "line",
+    "frame": "front",
+    "pts": [
+     [
+      0.014,
+      "neck-0.2"
+     ],
+     [
+      0.014,
+      "hem"
+     ]
+    ],
+    "style": "seam"
+   },
+   {
+    "step": "dots",
+    "frame": "front",
+    "pts": [
+     [
+      0,
+      "waist-0.06+0"
+     ],
+     [
+      0,
+      "waist-0.06+0.09"
+     ],
+     [
+      0,
+      "waist-0.06+0.18"
+     ]
+    ],
+    "r": 0.011,
+    "style": "button",
+    "colour": "#17171a"
+   },
+   {
+    "step": "rect",
+    "frame": "front",
+    "at": [
+     0.13,
+     "hip-0.02"
+    ],
+    "size": [
+     0.15,
+     0.014
+    ],
+    "style": "welt",
+    "rot": 70,
+    "mirror": true
+   },
+   {
+    "step": "line",
+    "frame": "back",
+    "pts": [
+     [
+      0,
+      "hem"
+     ],
+     [
+      0,
+      "hip-0.05"
+     ]
+    ],
+    "style": "groove",
+    "width": 0.002
+   },
+   {
+    "step": "line",
+    "frame": "back",
+    "pts": [
+     [
+      -0.25,
+      "shoulder-0.05"
+     ],
+     [
+      0.25,
+      "shoulder-0.05"
+     ]
+    ],
+    "style": "seam",
+    "width": 0.0015
+   }
+  ]
+ },
+ {
+  "n": 496,
+  "id": "givenchy-shark-print-sweatshirt",
+  "designer": "Givenchy by Riccardo Tisci",
+  "name": "Shark-Print Sweatshirt",
+  "season": "FW2012",
+  "price": 700,
+  "slot": "top",
+  "colour": "#17171a",
+  "finish": {
+   "roughness": 0.88
+  },
+  "cut": {
+   "like": "sweatshirt",
+   "ease": {
+    "shoulder": 0.0125,
+    "chest": 0.0438,
+    "waist": 0.0688,
+    "hip": 0.0688,
+    "sleeve": 0.02,
+    "cuff": 0.0156
+   },
+   "hem": "hip-0.03",
+   "shoulderDrop": 0.02
+  },
+  "note": "A great white's open jaws across the chest.",
+  "paint": [
+   {
+    "step": "fabric",
+    "type": "jersey"
+   },
+   {
+    "step": "print",
+    "frame": "front",
+    "art": "givenchy-shark-print",
+    "at": [
+     0,
+     "chest-0.03"
+    ],
+    "width": 0.36
+   },
+   {
+    "step": "line",
+    "frame": "sleeves",
+    "pts": [
+     [
+      -0.3,
+      0.5
+     ],
+     [
+      0.3,
+      0.5
+     ]
+    ],
+    "style": "tape",
+    "width": 0.02,
+    "colour": "#e8e5dc"
+   },
+   {
+    "step": "rib",
+    "where": {
+     "zone": "body",
+     "h": [
+      "hem",
+      "hem+0.06"
+     ]
+    },
+    "gauge": 0.005,
+    "colour": "#17171a"
+   },
+   {
+    "step": "rib",
+    "where": {
+     "zone": "sleeves",
+     "s": [
+      0.88,
+      1.3
+     ]
+    },
+    "gauge": 0.005,
+    "colour": "#17171a"
+   },
+   {
+    "step": "rib",
+    "where": {
+     "zone": "collar"
+    },
+    "gauge": 0.005,
+    "colour": "#17171a"
+   },
+   {
+    "step": "distress",
+    "type": "shade",
+    "amount": 0.5
+   }
+  ]
+ },
+ {
+  "n": 497,
+  "id": "givenchy-birds-of-paradise-sweatshirt",
+  "designer": "Givenchy by Riccardo Tisci",
+  "name": "Birds of Paradise Sweatshirt",
+  "season": "SS2012",
+  "price": 900,
+  "slot": "top",
+  "colour": "#17171a",
+  "finish": {
+   "roughness": 0.88
+  },
+  "cut": {
+   "like": "sweatshirt",
+   "ease": {
+    "shoulder": 0.0125,
+    "chest": 0.0438,
+    "waist": 0.0688,
+    "hip": 0.0688,
+    "sleeve": 0.02,
+    "cuff": 0.0156
+   },
+   "hem": "hip-0.03",
+   "shoulderDrop": 0.02
+  },
+  "note": "A band of bird-of-paradise flowers round the chest and arms.",
+  "paint": [
+   {
+    "step": "fabric",
+    "type": "jersey"
+   },
+   {
+    "step": "print",
+    "frame": "front",
+    "art": "givenchy-birds-of-paradise-band",
+    "at": [
+     0,
+     "chest-0.02"
+    ],
+    "width": 0.5
+   },
+   {
+    "step": "print",
+    "frame": "back",
+    "art": "givenchy-birds-of-paradise-band",
+    "at": [
+     0,
+     "chest-0.02"
+    ],
+    "width": 0.5
+   },
+   {
+    "step": "print",
+    "frame": "sleeves",
+    "art": "givenchy-birds-of-paradise-band",
+    "at": [
+     0,
+     0.45
+    ],
+    "width": 0.3
+   },
+   {
+    "step": "rib",
+    "where": {
+     "zone": "body",
+     "h": [
+      "hem",
+      "hem+0.06"
+     ]
+    },
+    "gauge": 0.005,
+    "colour": "#17171a"
+   },
+   {
+    "step": "rib",
+    "where": {
+     "zone": "sleeves",
+     "s": [
+      0.88,
+      1.3
+     ]
+    },
+    "gauge": 0.005,
+    "colour": "#17171a"
+   },
+   {
+    "step": "rib",
+    "where": {
+     "zone": "collar"
+    },
+    "gauge": 0.005,
+    "colour": "#17171a"
+   },
+   {
+    "step": "distress",
+    "type": "shade",
+    "amount": 0.5
+   }
+  ]
+ },
+ {
+  "n": 498,
+  "id": "givenchy-doberman-graphic-sweatshirt",
+  "designer": "Givenchy by Riccardo Tisci",
+  "name": "Doberman Graphic Sweatshirt",
+  "season": "FW2013",
+  "price": 650,
+  "slot": "top",
+  "colour": "#17171a",
+  "finish": {
+   "roughness": 0.88
+  },
+  "cut": {
+   "like": "sweatshirt",
+   "ease": {
+    "shoulder": 0.0125,
+    "chest": 0.0438,
+    "waist": 0.0688,
+    "hip": 0.0688,
+    "sleeve": 0.02,
+    "cuff": 0.0156
+   },
+   "hem": "hip-0.03",
+   "shoulderDrop": 0.02
+  },
+  "paint": [
+   {
+    "step": "fabric",
+    "type": "jersey"
+   },
+   {
+    "step": "print",
+    "frame": "front",
+    "art": "givenchy-doberman-print",
+    "at": [
+     0,
+     "chest-0.03"
+    ],
+    "width": 0.26
+   },
+   {
+    "step": "rib",
+    "where": {
+     "zone": "body",
+     "h": [
+      "hem",
+      "hem+0.06"
+     ]
+    },
+    "gauge": 0.005,
+    "colour": "#17171a"
+   },
+   {
+    "step": "rib",
+    "where": {
+     "zone": "sleeves",
+     "s": [
+      0.88,
+      1.3
+     ]
+    },
+    "gauge": 0.005,
+    "colour": "#17171a"
+   },
+   {
+    "step": "rib",
+    "where": {
+     "zone": "collar"
+    },
+    "gauge": 0.005,
+    "colour": "#17171a"
+   },
+   {
+    "step": "distress",
+    "type": "shade",
+    "amount": 0.5
+   }
+  ]
+ },
+ {
+  "n": 499,
+  "id": "givenchy-madonna-print-sweatshirt",
+  "designer": "Givenchy by Riccardo Tisci",
+  "name": "Madonna-Print Sweatshirt",
+  "season": "FW2013",
+  "price": 800,
+  "slot": "top",
+  "colour": "#17171a",
+  "finish": {
+   "roughness": 0.88
+  },
+  "cut": {
+   "like": "sweatshirt",
+   "ease": {
+    "shoulder": 0.0125,
+    "chest": 0.0438,
+    "waist": 0.0688,
+    "hip": 0.0688,
+    "sleeve": 0.02,
+    "cuff": 0.0156
+   },
+   "hem": "hip-0.03",
+   "shoulderDrop": 0.02
+  },
+  "note": "A haloed figure in blue after a devotional painting, drawn fresh.",
+  "paint": [
+   {
+    "step": "fabric",
+    "type": "jersey"
+   },
+   {
+    "step": "print",
+    "frame": "front",
+    "art": "givenchy-madonna-print",
+    "at": [
+     0,
+     "chest-0.04"
+    ],
+    "width": 0.27
+   },
+   {
+    "step": "panel",
+    "colour": "#7a1418",
+    "where": {
+     "zone": "sleeves",
+     "s": [
+      0.3,
+      0.5
+     ]
+    }
+   },
+   {
+    "step": "rib",
+    "where": {
+     "zone": "body",
+     "h": [
+      "hem",
+      "hem+0.06"
+     ]
+    },
+    "gauge": 0.005,
+    "colour": "#17171a"
+   },
+   {
+    "step": "rib",
+    "where": {
+     "zone": "sleeves",
+     "s": [
+      0.88,
+      1.3
+     ]
+    },
+    "gauge": 0.005,
+    "colour": "#17171a"
+   },
+   {
+    "step": "rib",
+    "where": {
+     "zone": "collar"
+    },
+    "gauge": 0.005,
+    "colour": "#17171a"
+   },
+   {
+    "step": "distress",
+    "type": "shade",
+    "amount": 0.5
+   }
+  ]
+ },
+ {
+  "n": 500,
+  "id": "givenchy-star-collar-sweatshirt",
+  "designer": "Givenchy by Riccardo Tisci",
+  "name": "Star-Collar Sweatshirt",
+  "season": "FW2012",
+  "price": 550,
+  "slot": "top",
+  "colour": "#17171a",
+  "finish": {
+   "roughness": 0.88
+  },
+  "cut": {
+   "like": "sweatshirt",
+   "ease": {
+    "shoulder": 0.0125,
+    "chest": 0.0438,
+    "waist": 0.0688,
+    "hip": 0.0688,
+    "sleeve": 0.02,
+    "cuff": 0.0156
+   },
+   "hem": "hip-0.03",
+   "shoulderDrop": 0.02
+  },
+  "note": "Stars ring the neckline; a red band with a star on each arm.",
+  "paint": [
+   {
+    "step": "fabric",
+    "type": "jersey"
+   },
+   {
+    "step": "print",
+    "frame": "front",
+    "art": "givenchy-star",
+    "at": [
+     -0.1,
+     "collar-0.062"
+    ],
+    "width": 0.032
+   },
+   {
+    "step": "print",
+    "frame": "front",
+    "art": "givenchy-star",
+    "at": [
+     -0.05,
+     "collar-0.051"
+    ],
+    "width": 0.032
+   },
+   {
+    "step": "print",
+    "frame": "front",
+    "art": "givenchy-star",
+    "at": [
+     0,
+     "collar-0.04"
+    ],
+    "width": 0.032
+   },
+   {
+    "step": "print",
+    "frame": "front",
+    "art": "givenchy-star",
+    "at": [
+     0.05,
+     "collar-0.051"
+    ],
+    "width": 0.032
+   },
+   {
+    "step": "print",
+    "frame": "front",
+    "art": "givenchy-star",
+    "at": [
+     0.1,
+     "collar-0.062"
+    ],
+    "width": 0.032
+   },
+   {
+    "step": "print",
+    "frame": "back",
+    "art": "givenchy-star",
+    "at": [
+     -0.1,
+     "collar-0.05"
+    ],
+    "width": 0.032
+   },
+   {
+    "step": "print",
+    "frame": "back",
+    "art": "givenchy-star",
+    "at": [
+     -0.05,
+     "collar-0.04"
+    ],
+    "width": 0.032
+   },
+   {
+    "step": "print",
+    "frame": "back",
+    "art": "givenchy-star",
+    "at": [
+     0,
+     "collar-0.03"
+    ],
+    "width": 0.032
+   },
+   {
+    "step": "print",
+    "frame": "back",
+    "art": "givenchy-star",
+    "at": [
+     0.05,
+     "collar-0.04"
+    ],
+    "width": 0.032
+   },
+   {
+    "step": "print",
+    "frame": "back",
+    "art": "givenchy-star",
+    "at": [
+     0.1,
+     "collar-0.05"
+    ],
+    "width": 0.032
+   },
+   {
+    "step": "line",
+    "frame": "sleeves",
+    "pts": [
+     [
+      -0.3,
+      0.3
+     ],
+     [
+      0.3,
+      0.3
+     ]
+    ],
+    "style": "tape",
+    "width": 0.03,
+    "colour": "#b3261e"
+   },
+   {
+    "step": "print",
+    "frame": "sleeves",
+    "art": "givenchy-star",
+    "at": [
+     0,
+     0.3
+    ],
+    "width": 0.028
+   },
+   {
+    "step": "rib",
+    "where": {
+     "zone": "body",
+     "h": [
+      "hem",
+      "hem+0.06"
+     ]
+    },
+    "gauge": 0.005,
+    "colour": "#17171a"
+   },
+   {
+    "step": "rib",
+    "where": {
+     "zone": "sleeves",
+     "s": [
+      0.88,
+      1.3
+     ]
+    },
+    "gauge": 0.005,
+    "colour": "#17171a"
+   },
+   {
+    "step": "rib",
+    "where": {
+     "zone": "collar"
+    },
+    "gauge": 0.005,
+    "colour": "#17171a"
+   },
+   {
+    "step": "distress",
+    "type": "shade",
+    "amount": 0.5
+   }
+  ]
+ }
+]

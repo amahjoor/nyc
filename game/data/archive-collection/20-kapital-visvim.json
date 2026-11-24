@@ -3597,6 +3597,184 @@
   ]
  },
  {
+  "n": 398,
+  "id": "visvim-christo-sandals",
+  "designer": "Visvim",
+  "name": "Christo Sandals",
+  "season": "2003 onward",
+  "price": 350,
+  "slot": "shoes",
+  "colour": "#19191b",
+  "finish": {
+   "roughness": 0.8
+  },
+  "pack": "shoes01",
+  "source": "toigo_ankle_boots_female",
+  "shape": [
+   {
+    "op": "platform",
+    "height": 0.022
+   },
+   {
+    "op": "wide",
+    "by": 0.06
+   }
+  ],
+  "note": "Webbing sandals on a moulded footbed, shown over ecru socks: the sock is part of the piece.",
+  "paint": [
+   {
+    "step": "fabric",
+    "type": "nylon"
+   },
+   {
+    "step": "panel",
+    "colour": "#d9d3c0",
+    "where": {
+     "h": [
+      0.036,
+      1
+     ]
+    }
+   },
+   {
+    "step": "rib",
+    "where": {
+     "h": [
+      0.036,
+      1
+     ]
+    },
+    "gauge": 0.003,
+    "depth": 0.0004
+   },
+   {
+    "step": "panel",
+    "colour": "#19191b",
+    "where": {
+     "h": [
+      -1,
+      0.036
+     ]
+    }
+   },
+   {
+    "step": "line",
+    "frame": "shaft",
+    "pts": [
+     [
+      -1,
+      0.014
+     ],
+     [
+      1,
+      0.014
+     ]
+    ],
+    "style": "groove",
+    "width": 0.002
+   },
+   {
+    "step": "line",
+    "frame": "vamp",
+    "pts": [
+     [
+      -0.06,
+      0.2
+     ],
+     [
+      0.06,
+      0.2
+     ]
+    ],
+    "style": "strap",
+    "width": 0.024,
+    "colour": "#19191b"
+   },
+   {
+    "step": "line",
+    "frame": "vamp",
+    "pts": [
+     [
+      -0.06,
+      0.14
+     ],
+     [
+      0.06,
+      0.14
+     ]
+    ],
+    "style": "strap",
+    "width": 0.024,
+    "colour": "#19191b"
+   },
+   {
+    "step": "line",
+    "frame": "sides",
+    "pts": [
+     [
+      0.0,
+      0.1
+     ],
+     [
+      0.07,
+      0.1
+     ]
+    ],
+    "style": "strap",
+    "width": 0.022,
+    "colour": "#19191b"
+   },
+   {
+    "step": "line",
+    "frame": "sides",
+    "pts": [
+     [
+      0.03,
+      0.1
+     ],
+     [
+      0.03,
+      0.04
+     ]
+    ],
+    "style": "strap",
+    "width": 0.02,
+    "colour": "#19191b"
+   },
+   {
+    "step": "line",
+    "frame": "sides",
+    "pts": [
+     [
+      0.06,
+      0.04
+     ],
+     [
+      0.2,
+      0.06
+     ]
+    ],
+    "style": "strap",
+    "width": 0.012,
+    "colour": "#19191b"
+   },
+   {
+    "step": "rect",
+    "frame": "vamp",
+    "at": [
+     0,
+     0.14
+    ],
+    "size": [
+     0.03,
+     0.02
+    ],
+    "style": "buckle",
+    "colour": "#8a8b8e"
+   }
+  ]
+ },
+ {
   "n": 399,
   "id": "visvim-sanjuro-kimono-jacket",
   "designer": "Visvim",

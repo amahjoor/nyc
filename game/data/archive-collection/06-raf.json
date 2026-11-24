@@ -3425,5 +3425,17 @@
     "amount": 0.5
    }
   ]
+ },
+ {
+  "n": 120,
+  "id": "raf-eastpak-oversized-backpack",
+  "designer": "Raf Simons × Eastpak",
+  "name": "Oversized Backpack",
+  "season": "2008",
+  "price": 650,
+  "slot": "bag",
+  "bag": "eastpak backpack",
+  "colour": "#1f2433",
+  "note": "An outsized top-loader in navy nylon with a suede base. Not a cut garment: it is built in dist/archive-accessories.js and worn in the bag's place."
  }
 ]

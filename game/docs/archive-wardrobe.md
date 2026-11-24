@@ -1,11 +1,13 @@
 # Archive wardrobe
 
-The archive collection is one hundred pieces of archival fashion, each cut and painted from a recipe. A recipe is plain data: how the garment is cut, and what is laid on its cloth. The build turns it into a mesh that fits every body in the game and a picture of its surface.
+The archive collection is five hundred pieces of archival fashion, each cut and painted from a recipe. A recipe is plain data: how the garment is cut, and what is laid on its cloth. The build turns it into a mesh that fits every body in the game and a picture of its surface.
 
-- Recipes: [`data/archive-collection/`](../data/archive-collection/), one file per chapter of the list, each an array of pieces.
+- Recipes: [`data/archive-collection/`](../data/archive-collection/), one file per chapter, each an array of pieces. `01` to `05`, `footwear` and `accessories` are the first hundred; `06` to `25` are pieces 101 to 500, twenty to a chapter, a house or a group of houses each, with their shoes and accessories among them.
 - Drawings for prints and patches: [`data/archive-prints/`](../data/archive-prints/), one SVG each.
 - The tailor: [`scripts/garment-shells.mjs`](../scripts/garment-shells.mjs). The painter: [`scripts/garment-paint.mjs`](../scripts/garment-paint.mjs).
 - `node scripts/build-human.mjs` builds everything into `dist/human/`.
+
+The first hundred ship with the figure, in `dist/human/parts.bin`. Each later chapter has a bin of its own, `dist/human/archive/<chapter>.bin`, which the game fetches when one of its pieces is first put on (`human.ready(wear)` in [`dist/human.js`](../dist/human.js)): a piece numbered above 100 is given its chapter's `bin` by the build, and nothing in a recipe says so.
 
 ## A piece
 
@@ -22,10 +24,10 @@ The archive collection is one hundred pieces of archival fashion, each cut and p
 | Field | Meaning |
 | --- | --- |
 | `n` | Its number in the list. |
-| `id` | Lower case and hyphens, at most 48 characters, never ending in a digit. Starts with the designer: `raf-`, `hl-`, `dior-`, `nn-`, `uc-`, `ro-`, `mmm-`, `yohji-`, `cdg-`, `junya-`, `issey-`, `ccp-`, `guidi-`, `ad-`, `julius-`, `bbs-`, `jpg-`, `vw-`, `mcq-`, `chalayan-`, `jil-`, `ysl-`, `gucci-`, `prada-`, `si-`, `cp-`, `kapital-`, `visvim-`, `bape-`, `supreme-`, `givenchy-`, `balenciaga-`, `cg-`. |
+| `id` | Lower case and hyphens, at most 48 characters, never ending in a digit. Starts with the designer: `raf-`, `hl-`, `dior-`, `nn-`, `uc-`, `ro-`, `mmm-`, `yohji-`, `cdg-`, `junya-`, `issey-`, `ccp-`, `guidi-`, `ad-`, `julius-`, `bbs-`, `jpg-`, `vw-`, `mcq-`, `chalayan-`, `jil-`, `ysl-`, `gucci-`, `prada-`, `si-`, `cp-`, `kapital-`, `visvim-`, `bape-`, `supreme-`, `givenchy-`, `balenciaga-`, `cg-`, `miumiu-`, `ch-` (Chrome Hearts). |
 | `designer`, `name`, `season` | As shown in the game. `season` is the corrected one. |
 | `price` | US dollars: what an original in good condition sells for now. |
-| `slot` | `top`, `bottom` or `shoes`. A coat, a vest and a dress are tops. |
+| `slot` | `top`, `bottom`, `shoes` or `bag`. A coat, a vest and a dress are tops. A `bag` is anything worn in the bag's place (below). |
 | `colour` | The main cloth's colour. The player's dye starts from it. |
 | `finish` | How it takes the light: `roughness` (0.35 patent leather, 0.45 leather and waxed cotton, 0.6 nylon, 0.85 cotton, 0.95 wool) and `metalness` (0 for cloth, 0.5 to 0.8 for reflective or metallic cloth). |
 | `cut` | How it is cut (below). |
@@ -78,7 +80,7 @@ Start from the fit the garment is `like` and change what differs.
 | `hemCurve` | How much lower at centre front and back than at the sides (a shirt tail). | 0.04 |
 | `hemSlant` | How much lower toward the wearer's left, per 0.2 m (an asymmetric hem). | 0.05 |
 | `sleeve` | Where the sleeve ends: 0 none, 0.3 short, 0.55 elbow, 0.78 three-quarter, 1 wrist. | |
-| `armhole` | For sleeveless tops, how far onto the shoulder the cloth reaches: 0.2 a narrow strap, 0.32 a vest, 0.45 a cap. | |
+| `armhole` | For sleeveless tops, how far onto the shoulder the cloth reaches: 0.2 a narrow strap, 0.32 a vest, 0.45 a cap. A garment with a skirt cannot go below 0.2. | |
 | `neck` | `{ y, depth, v, width, round }`: `y` raises or lowers the neckline, `depth` is how much lower in front, `v` how deep a V goes below that and `width` how wide the V is at the top, `round` how wide the opening is. | crew `depth` 0.03, scoop `depth` 0.09, V `v` 0.12, blazer `v` 0.22, boat `round` 0.11 |
 | `ease` | How far the cloth stands off the body at the `shoulder`, `chest`, `waist`, `hip`, `hem`, `sleeve` and `cuff`. | tee 0.02, sweatshirt 0.04 to 0.055, oversized 0.06 to 0.1; sleeves 0.01 to 0.03 |
 | `hang` | 0 follows the body, 1 hangs plumb from the chest. | 0.5 tee, 1 coat |
@@ -196,7 +198,7 @@ Steps that draw a thing (`line`, `rect`, `dots`, `print`, `laces`) place it in a
 
 One SVG per graphic, named for its piece: `raf-riot-portrait.svg`. Draw on a transparent ground unless the graphic is itself a patch. Any `viewBox`; the step's `width` sets its size on the garment. Fonts on the build machine: Liberation Sans, Liberation Serif, Liberation Mono, Nimbus Sans, Nimbus Sans Narrow, Nimbus Roman, C059 (a Century). Filters (`feGaussianBlur`), gradients and patterns work. Text under about 6 mm tall on the garment will not read.
 
-## Shoes and the bag
+## Shoes, bags and what else is worn
 
 A shoe is not cut: it is one of the wardrobe's boots or shoes, reshaped and painted. Its recipe names the mesh (`pack`, `source`) in place of a `cut`, and may `shape` it.
 
@@ -215,11 +217,11 @@ A shoe is not cut: it is one of the wardrobe's boots or shoes, reshaped and pain
 | `toe` `{ square, point, bulb, split, from }` | Squares, points, swells or cleaves the toe. |
 | `tongue` `{ up, out }` | Stands the tongue of a high top above its collar. |
 
-The foot stays flat in the game, so a heel is a platform with its arch cut out.
+The foot stays flat in the game, so a heel is a platform with its arch cut out. A shoe hides the foot inside it, so nothing of its upper can be cut away: a flat, a pump or a sandal is painted with the sock it is shown with (the Tabi flats, the Christo sandals).
 
 Paint works as on a garment, with a shoe's own measures: `h` is metres above the ground, `ft` is the share of its length from the heel (0) to the toe (1), `fx` is metres toward the outside of the foot and `afx` the same either way, and `face` picks a side (`outer`, `inner`, `side`, `front`, `back`, `top`). Frames: `sides`, `outer`, `inner` and `shaft` are `[metres from the heel, height]`; `toe` and `heel` are `[toward the outside, height]`; `vamp` is `[toward the outside, metres from the heel]`, seen from above. `laces` draws lacing between two points of a frame. `cut` removes cloth where its `where` says, or under an `arch: [from, to, height]`, on a piece marked `"clear": true`.
 
-The nylon backpack is not a mesh from a recipe. It is listed in [`accessories.json`](../data/archive-collection/accessories.json) with a `bag` name and built in [`dist/human-accessories.js`](../dist/human-accessories.js).
+What is neither cut nor a shoe is not a mesh from a recipe: the bags, the Buffalo hat, the antler headpiece, the necklaces and the rings. Each is an entry with `"slot": "bag"` and a `bag` name and no `cut` or `paint`, and is built from plain shapes on the wearer's own measurements: the nylon backpack in [`dist/human-accessories.js`](../dist/human-accessories.js), the rest in [`dist/archive-accessories.js`](../dist/archive-accessories.js), under that name. They are worn in the bag's place, one at a time. A new one needs its builder there and its entry here; the wardrobe takes its name from the catalogue.
 
 ## Looking at a piece
 
@@ -234,3 +236,9 @@ $lab/lab.sh sheet 3 $lab/shots-3/all.jpg id-one,id-two,id-three               # 
 ```
 
 `build` without ids paints every piece in the file (about ten seconds each).
+
+Shoes are not cut by the bench: they are built by `node scripts/build-human.mjs --out <bench folder> --only <ids>` (with `ARCHIVE_ONLY=<chapters>` to leave the rest out). A long tight dress worn over trousers lets them through: give it `hang` near 1 and room at the hip and hem.
+
+## Writing many pieces
+
+Chapters `06` to `25` were written by scripts, a chapter each, from a small library of constructors and kits (the seams and pockets a trucker jacket has, a hoodie's pouch and cords, a five-pocket jean). They are kept with the bench, not here: `gen.py` and `ch06.py` to `ch25.py`, `shoes.py` and `acc.py` in the bench folder. Running one rewrites its pieces in the chapter file and its drawings in `data/archive-prints/`; the JSON is what the build reads. These four hundred were designed from knowledge of the garments, not from photographs laid beside each render as the first hundred were, and their prices are estimates.

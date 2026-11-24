@@ -1,5 +1,257 @@
 [
  {
+  "n": 441,
+  "id": "ad-back-lace-boots-ivory",
+  "designer": "Ann Demeulemeester",
+  "name": "Back-Lace Combat Boots (Ivory)",
+  "season": "SS2010",
+  "price": 900,
+  "slot": "shoes",
+  "colour": "#e3ddcc",
+  "finish": {
+   "roughness": 0.42
+  },
+  "pack": "shoes01",
+  "source": "culturalibre_heroine_boots_3",
+  "shape": [
+   {
+    "op": "platform",
+    "height": 0.014
+   },
+   {
+    "op": "arch",
+    "depth": 0.009,
+    "from": 0.36,
+    "to": 0.6
+   },
+   {
+    "op": "toe",
+    "point": 0.3
+   }
+  ],
+  "note": "The ivory pair, laced up the back; the black pair is earlier in the list.",
+  "paint": [
+   {
+    "step": "fabric",
+    "type": "leather"
+   },
+   {
+    "step": "panel",
+    "colour": "#c9c2ae",
+    "where": {
+     "h": [
+      -1,
+      0.024
+     ]
+    }
+   },
+   {
+    "step": "line",
+    "frame": "shaft",
+    "pts": [
+     [
+      -1,
+      0.027
+     ],
+     [
+      1,
+      0.027
+     ]
+    ],
+    "style": "stitch",
+    "colour": "#8a8472",
+    "width": 0.0012
+   },
+   {
+    "step": "laces",
+    "frame": "heel",
+    "from": [
+     0,
+     0.06
+    ],
+    "to": [
+     0,
+     0.3
+    ],
+    "rows": 10,
+    "width": 0.03,
+    "colour": "#d9d3c0",
+    "eyelets": "#a8a290"
+   },
+   {
+    "step": "distress",
+    "type": "crumple",
+    "depth": 0.0012,
+    "freq": 34,
+    "where": {
+     "h": [
+      0.06,
+      0.16
+     ]
+    }
+   },
+   {
+    "step": "distress",
+    "type": "edges",
+    "amount": 0.3,
+    "colour": "#a8a290"
+   }
+  ]
+ },
+ {
+  "n": 442,
+  "id": "ad-triple-lace-boots",
+  "designer": "Ann Demeulemeester",
+  "name": "Triple-Lace Boots",
+  "season": "FW2008",
+  "price": 1000,
+  "slot": "shoes",
+  "colour": "#161617",
+  "finish": {
+   "roughness": 0.42
+  },
+  "pack": "shoes01",
+  "source": "culturalibre_heroine_boots_3",
+  "shape": [
+   {
+    "op": "platform",
+    "height": 0.014
+   },
+   {
+    "op": "arch",
+    "depth": 0.009,
+    "from": 0.36,
+    "to": 0.6
+   },
+   {
+    "op": "toe",
+    "point": 0.3
+   }
+  ],
+  "note": "Three rows of lacing up the front.",
+  "paint": [
+   {
+    "step": "fabric",
+    "type": "leather"
+   },
+   {
+    "step": "panel",
+    "colour": "#0e0d0c",
+    "where": {
+     "h": [
+      -1,
+      0.024
+     ]
+    }
+   },
+   {
+    "step": "line",
+    "frame": "shaft",
+    "pts": [
+     [
+      -1,
+      0.027
+     ],
+     [
+      1,
+      0.027
+     ]
+    ],
+    "style": "stitch",
+    "colour": "#6a6258",
+    "width": 0.0012
+   },
+   {
+    "step": "laces",
+    "frame": "vamp",
+    "from": [
+     0,
+     0.13
+    ],
+    "to": [
+     0,
+     0.2
+    ],
+    "rows": 4,
+    "width": 0.03,
+    "colour": "#1c1c1e",
+    "eyelets": "#77777a"
+   },
+   {
+    "step": "laces",
+    "frame": "toe",
+    "from": [
+     0,
+     0.075
+    ],
+    "to": [
+     0,
+     0.3
+    ],
+    "rows": 11,
+    "width": 0.03,
+    "colour": "#1c1c1e",
+    "eyelets": "#77777a"
+   },
+   {
+    "step": "laces",
+    "frame": "toe",
+    "from": [
+     0.035,
+     0.09
+    ],
+    "to": [
+     0.035,
+     0.3
+    ],
+    "rows": 10,
+    "width": 0.022,
+    "colour": "#1c1c1e",
+    "eyelets": "#77777a"
+   },
+   {
+    "step": "laces",
+    "frame": "toe",
+    "from": [
+     -0.035,
+     0.09
+    ],
+    "to": [
+     -0.035,
+     0.3
+    ],
+    "rows": 10,
+    "width": 0.022,
+    "colour": "#1c1c1e",
+    "eyelets": "#77777a"
+   },
+   {
+    "step": "distress",
+    "type": "crumple",
+    "depth": 0.0012,
+    "freq": 34,
+    "where": {
+     "h": [
+      0.06,
+      0.16
+     ]
+    }
+   }
+  ]
+ },
+ {
+  "n": 443,
+  "id": "ad-feather-necklace",
+  "designer": "Ann Demeulemeester",
+  "name": "Feather Necklace",
+  "season": "2000s",
+  "price": 450,
+  "slot": "bag",
+  "bag": "feather necklace",
+  "colour": "#17171a",
+  "note": "One long black feather on a leather cord. Not a cut garment: it is built in dist/archive-accessories.js and worn in the bag's place."
+ },
+ {
   "n": 444,
   "id": "ad-leather-waistcoat",
   "designer": "Ann Demeulemeester",
@@ -13,12 +265,6 @@
   },
   "cut": {
    "like": "vest",
-   "ease": {
-    "shoulder": 0.012,
-    "chest": 0.021,
-    "waist": 0.027,
-    "hip": 0.027
-   },
    "hem": "hip+0.0",
    "armhole": 0.3,
    "hemCurve": -0.0,
@@ -32,12 +278,16 @@
    "colour": "#e8e5dc",
    "cut": {
     "like": "shirt",
-    "hem": "hip+0.03",
+    "hem": "hip+0.04",
     "hemCurve": 0,
     "overWaist": false,
     "ease": {
-     "sleeve": 0.016,
-     "cuff": 0.012
+     "shoulder": 0.003,
+     "chest": 0.006,
+     "waist": 0.008,
+     "hip": 0.008,
+     "sleeve": 0.014,
+     "cuff": 0.011
     }
    },
    "paint": [
@@ -864,6 +1114,139 @@
   ]
  },
  {
+  "n": 449,
+  "id": "ccp-prosthetic-leather-boots",
+  "designer": "Carol Christian Poell",
+  "name": "Prosthetic Leather Boots",
+  "season": "FW2005",
+  "price": 1700,
+  "slot": "shoes",
+  "colour": "#3a302a",
+  "finish": {
+   "roughness": 0.5
+  },
+  "pack": "shoes01",
+  "source": "toigo_ankle_boots_male",
+  "shape": [
+   {
+    "op": "shaft",
+    "add": 0.05,
+    "from": 0.08
+   },
+   {
+    "op": "platform",
+    "height": 0.012
+   },
+   {
+    "op": "arch",
+    "depth": 0.006,
+    "from": 0.36,
+    "to": 0.6
+   },
+   {
+    "op": "toe",
+    "point": 0.3
+   }
+  ],
+  "note": "Object-dyed horsehide with the steel plate at the instep, without the rubber drip of the pair earlier in the list.",
+  "paint": [
+   {
+    "step": "fabric",
+    "type": "leather"
+   },
+   {
+    "step": "distress",
+    "type": "wash",
+    "amount": 0.35,
+    "colour": "#5c4f44"
+   },
+   {
+    "step": "distress",
+    "type": "crumple",
+    "depth": 0.0016,
+    "freq": 34
+   },
+   {
+    "step": "panel",
+    "colour": "#1a1512",
+    "where": {
+     "h": [
+      -1,
+      0.02
+     ]
+    }
+   },
+   {
+    "step": "line",
+    "frame": "shaft",
+    "pts": [
+     [
+      -1,
+      0.023
+     ],
+     [
+      1,
+      0.023
+     ]
+    ],
+    "style": "stitch",
+    "colour": "#6a6258",
+    "width": 0.0012
+   },
+   {
+    "step": "rect",
+    "frame": "vamp",
+    "at": [
+     0,
+     0.262
+    ],
+    "size": [
+     0.05,
+     0.03
+    ],
+    "style": "patch",
+    "colour": "#8d8c87",
+    "stitch": false,
+    "round": 0.012,
+    "raise": 0.0015
+   },
+   {
+    "step": "dots",
+    "frame": "vamp",
+    "pts": [
+     [
+      -0.018,
+      0.262
+     ],
+     [
+      0.018,
+      0.262
+     ]
+    ],
+    "r": 0.003,
+    "style": "stud",
+    "colour": "#5a5955"
+   },
+   {
+    "step": "line",
+    "frame": "inner",
+    "pts": [
+     [
+      0.11,
+      0.04
+     ],
+     [
+      0.1,
+      0.2
+     ]
+    ],
+    "style": "zip",
+    "width": 0.003,
+    "colour": "#8a8a8d"
+   }
+  ]
+ },
+ {
   "n": 450,
   "id": "ccp-scarstitch-trousers",
   "designer": "Carol Christian Poell",
@@ -1274,6 +1657,90 @@
     "type": "edges",
     "amount": 0.3,
     "colour": "#4a4642"
+   }
+  ]
+ },
+ {
+  "n": 452,
+  "id": "ccp-drip-sneakers",
+  "designer": "Carol Christian Poell",
+  "name": "Drip Sneakers",
+  "season": "SS2010",
+  "price": 1300,
+  "slot": "shoes",
+  "colour": "#b9b3a6",
+  "finish": {
+   "roughness": 0.55
+  },
+  "pack": "shoes01",
+  "source": "toigo_ankle_boots_female",
+  "shape": [
+   {
+    "op": "platform",
+    "height": 0.014
+   },
+   {
+    "op": "wide",
+    "by": 0.04
+   }
+  ],
+  "note": "Low horsehide trainers dipped sole-down in rubber, which runs up the sides in drips.",
+  "paint": [
+   {
+    "step": "fabric",
+    "type": "leather"
+   },
+   {
+    "step": "distress",
+    "type": "wash",
+    "amount": 0.3,
+    "colour": "#8a8478"
+   },
+   {
+    "step": "laces",
+    "frame": "vamp",
+    "from": [
+     0,
+     0.105
+    ],
+    "to": [
+     0,
+     0.175
+    ],
+    "rows": 5,
+    "width": 0.03,
+    "colour": "#a8a296",
+    "thick": 0.004,
+    "eyelets": "#77736a"
+   },
+   {
+    "step": "panel",
+    "colour": "#a8a296",
+    "where": {
+     "ft": [
+      0.8,
+      1.2
+     ],
+     "h": [
+      0.02,
+      0.085
+     ]
+    }
+   },
+   {
+    "step": "pattern",
+    "type": "drips",
+    "colours": [
+     "#e8e5dc"
+    ],
+    "base": 0.03,
+    "height": 0.045
+   },
+   {
+    "step": "distress",
+    "type": "crumple",
+    "depth": 0.0012,
+    "freq": 34
    }
   ]
  },

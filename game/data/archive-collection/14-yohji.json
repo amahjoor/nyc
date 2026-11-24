@@ -3543,5 +3543,768 @@
     "raise": 0.0007
    }
   ]
+ },
+ {
+  "n": 277,
+  "id": "yohji-y-three-qasa-high",
+  "designer": "Yohji Yamamoto × Adidas Y-3",
+  "name": "Y-3 Qasa High Sneakers",
+  "season": "SS2013",
+  "price": 450,
+  "slot": "shoes",
+  "colour": "#19191b",
+  "finish": {
+   "roughness": 0.75
+  },
+  "pack": "shoes01",
+  "source": "toigo_ankle_boots_male",
+  "shape": [
+   {
+    "op": "platform",
+    "height": 0.03
+   },
+   {
+    "op": "wide",
+    "by": 0.08,
+    "below": 0.05
+   },
+   {
+    "op": "shaft",
+    "add": 0.05,
+    "from": 0.08
+   },
+   {
+    "op": "toe",
+    "bulb": 0.2
+   }
+  ],
+  "note": "A neoprene sock wrapped in elastic straps on a ribbed tube sole.",
+  "paint": [
+   {
+    "step": "fabric",
+    "type": "rubber"
+   },
+   {
+    "step": "panel",
+    "colour": "#141416",
+    "where": {
+     "h": [
+      0.045,
+      1
+     ]
+    }
+   },
+   {
+    "step": "fabric",
+    "type": "nylon",
+    "where": {
+     "h": [
+      0.045,
+      1
+     ]
+    }
+   },
+   {
+    "step": "panel",
+    "colour": "#e8e5dc",
+    "where": {
+     "h": [
+      -1,
+      0.045
+     ]
+    }
+   },
+   {
+    "step": "line",
+    "frame": "sides",
+    "pts": [
+     [
+      0.04,
+      0
+     ],
+     [
+      0.04,
+      0.045
+     ]
+    ],
+    "style": "groove",
+    "width": 0.006,
+    "depth": 0.003
+   },
+   {
+    "step": "line",
+    "frame": "sides",
+    "pts": [
+     [
+      0.075,
+      0
+     ],
+     [
+      0.075,
+      0.045
+     ]
+    ],
+    "style": "groove",
+    "width": 0.006,
+    "depth": 0.003
+   },
+   {
+    "step": "line",
+    "frame": "sides",
+    "pts": [
+     [
+      0.11,
+      0
+     ],
+     [
+      0.11,
+      0.045
+     ]
+    ],
+    "style": "groove",
+    "width": 0.006,
+    "depth": 0.003
+   },
+   {
+    "step": "line",
+    "frame": "sides",
+    "pts": [
+     [
+      0.145,
+      0
+     ],
+     [
+      0.145,
+      0.045
+     ]
+    ],
+    "style": "groove",
+    "width": 0.006,
+    "depth": 0.003
+   },
+   {
+    "step": "line",
+    "frame": "sides",
+    "pts": [
+     [
+      0.18,
+      0
+     ],
+     [
+      0.18,
+      0.045
+     ]
+    ],
+    "style": "groove",
+    "width": 0.006,
+    "depth": 0.003
+   },
+   {
+    "step": "line",
+    "frame": "sides",
+    "pts": [
+     [
+      0.215,
+      0
+     ],
+     [
+      0.215,
+      0.045
+     ]
+    ],
+    "style": "groove",
+    "width": 0.006,
+    "depth": 0.003
+   },
+   {
+    "step": "line",
+    "frame": "sides",
+    "pts": [
+     [
+      0.03,
+      0.16
+     ],
+     [
+      0.2,
+      0.07
+     ]
+    ],
+    "style": "tape",
+    "width": 0.022,
+    "colour": "#2a2a2e",
+    "raise": 0.0006
+   },
+   {
+    "step": "line",
+    "frame": "sides",
+    "pts": [
+     [
+      0.03,
+      0.1
+     ],
+     [
+      0.16,
+      0.16
+     ]
+    ],
+    "style": "tape",
+    "width": 0.022,
+    "colour": "#2a2a2e",
+    "raise": 0.0006
+   },
+   {
+    "step": "line",
+    "frame": "sides",
+    "pts": [
+     [
+      0.06,
+      0.22
+     ],
+     [
+      0.2,
+      0.12
+     ]
+    ],
+    "style": "tape",
+    "width": 0.022,
+    "colour": "#2a2a2e",
+    "raise": 0.0006
+   },
+   {
+    "step": "line",
+    "frame": "shaft",
+    "pts": [
+     [
+      -1,
+      0.19
+     ],
+     [
+      1,
+      0.19
+     ]
+    ],
+    "style": "strap",
+    "width": 0.02,
+    "colour": "#2a2a2e"
+   }
+  ]
+ },
+ {
+  "n": 278,
+  "id": "yohji-y-three-kaiwa",
+  "designer": "Yohji Yamamoto × Adidas Y-3",
+  "name": "Y-3 Kaiwa Sneakers",
+  "season": "SS2018",
+  "price": 350,
+  "slot": "shoes",
+  "colour": "#e8e5dc",
+  "finish": {
+   "roughness": 0.6
+  },
+  "pack": "shoes01",
+  "source": "toigo_ankle_boots_female",
+  "shape": [
+   {
+    "op": "platform",
+    "height": 0.042,
+    "from": 0.02
+   },
+   {
+    "op": "wide",
+    "by": 0.12
+   },
+   {
+    "op": "toe",
+    "bulb": 0.3
+   }
+  ],
+  "paint": [
+   {
+    "step": "fabric",
+    "type": "leather"
+   },
+   {
+    "step": "panel",
+    "colour": "#f1efe9",
+    "where": {
+     "h": [
+      -1,
+      0.058
+     ]
+    }
+   },
+   {
+    "step": "line",
+    "frame": "shaft",
+    "pts": [
+     [
+      -1,
+      0.03
+     ],
+     [
+      1,
+      0.03
+     ]
+    ],
+    "style": "groove",
+    "width": 0.004,
+    "depth": 0.002
+   },
+   {
+    "step": "line",
+    "frame": "shaft",
+    "pts": [
+     [
+      -1,
+      0.045
+     ],
+     [
+      1,
+      0.045
+     ]
+    ],
+    "style": "groove",
+    "width": 0.003,
+    "depth": 0.0015
+   },
+   {
+    "step": "panel",
+    "colour": "#19191b",
+    "where": {
+     "ft": [
+      -1,
+      0.3
+     ],
+     "h": [
+      -1,
+      0.03
+     ]
+    }
+   },
+   {
+    "step": "panel",
+    "colour": "#19191b",
+    "where": {
+     "ft": [
+      -1,
+      0.2
+     ],
+     "h": [
+      0.058,
+      0.2
+     ]
+    }
+   },
+   {
+    "step": "fabric",
+    "type": "nylon",
+    "colour": "#d9d6cc",
+    "where": {
+     "ft": [
+      0.3,
+      0.8
+     ],
+     "h": [
+      0.058,
+      0.12
+     ]
+    }
+   },
+   {
+    "step": "laces",
+    "frame": "vamp",
+    "from": [
+     0,
+     0.11
+    ],
+    "to": [
+     0,
+     0.185
+    ],
+    "rows": 5,
+    "width": 0.034,
+    "colour": "#19191b",
+    "thick": 0.004
+   },
+   {
+    "step": "line",
+    "frame": "sides",
+    "pts": [
+     [
+      0.1,
+      0.062
+     ],
+     [
+      0.125,
+      0.1
+     ]
+    ],
+    "style": "tape",
+    "width": 0.006,
+    "colour": "#19191b",
+    "raise": 0.0006
+   },
+   {
+    "step": "line",
+    "frame": "sides",
+    "pts": [
+     [
+      0.116,
+      0.062
+     ],
+     [
+      0.14100000000000001,
+      0.1
+     ]
+    ],
+    "style": "tape",
+    "width": 0.006,
+    "colour": "#19191b",
+    "raise": 0.0006
+   },
+   {
+    "step": "line",
+    "frame": "sides",
+    "pts": [
+     [
+      0.132,
+      0.062
+     ],
+     [
+      0.157,
+      0.1
+     ]
+    ],
+    "style": "tape",
+    "width": 0.006,
+    "colour": "#19191b",
+    "raise": 0.0006
+   }
+  ]
+ },
+ {
+  "n": 279,
+  "id": "yohji-y-three-boxing",
+  "designer": "Yohji Yamamoto × Adidas Y-3",
+  "name": "Y-3 Boxing Sneakers",
+  "season": "FW2005",
+  "price": 400,
+  "slot": "shoes",
+  "colour": "#19191b",
+  "finish": {
+   "roughness": 0.5
+  },
+  "pack": "shoes01",
+  "source": "toigo_ankle_boots_male",
+  "shape": [
+   {
+    "op": "shaft",
+    "add": 0.09,
+    "from": 0.08
+   },
+   {
+    "op": "platform",
+    "height": 0.01
+   }
+  ],
+  "paint": [
+   {
+    "step": "fabric",
+    "type": "leather"
+   },
+   {
+    "step": "panel",
+    "colour": "#e8e5dc",
+    "where": {
+     "h": [
+      -1,
+      0.02
+     ]
+    }
+   },
+   {
+    "step": "laces",
+    "frame": "vamp",
+    "from": [
+     0,
+     0.13
+    ],
+    "to": [
+     0,
+     0.21
+    ],
+    "rows": 9,
+    "width": 0.03,
+    "colour": "#e8e5dc",
+    "thick": 0.0045,
+    "eyelets": "#b9babd"
+   },
+   {
+    "step": "laces",
+    "frame": "toe",
+    "from": [
+     0,
+     0.08
+    ],
+    "to": [
+     0,
+     0.26
+    ],
+    "rows": 9,
+    "width": 0.03,
+    "colour": "#e8e5dc",
+    "thick": 0.0045,
+    "eyelets": "#b9babd"
+   },
+   {
+    "step": "line",
+    "frame": "sides",
+    "pts": [
+     [
+      0.08,
+      0.03
+     ],
+     [
+      0.115,
+      0.09
+     ]
+    ],
+    "style": "tape",
+    "width": 0.006,
+    "colour": "#e8e5dc",
+    "raise": 0.0006
+   },
+   {
+    "step": "line",
+    "frame": "sides",
+    "pts": [
+     [
+      0.096,
+      0.03
+     ],
+     [
+      0.131,
+      0.09
+     ]
+    ],
+    "style": "tape",
+    "width": 0.006,
+    "colour": "#e8e5dc",
+    "raise": 0.0006
+   },
+   {
+    "step": "line",
+    "frame": "sides",
+    "pts": [
+     [
+      0.112,
+      0.03
+     ],
+     [
+      0.14700000000000002,
+      0.09
+     ]
+    ],
+    "style": "tape",
+    "width": 0.006,
+    "colour": "#e8e5dc",
+    "raise": 0.0006
+   },
+   {
+    "step": "line",
+    "frame": "shaft",
+    "pts": [
+     [
+      -1,
+      0.27
+     ],
+     [
+      1,
+      0.27
+     ]
+    ],
+    "style": "strap",
+    "width": 0.018,
+    "colour": "#e8e5dc"
+   },
+   {
+    "step": "rect",
+    "frame": "heel",
+    "at": [
+     0,
+     0.06
+    ],
+    "size": [
+     0.016,
+     0.04
+    ],
+    "style": "patch",
+    "colour": "#e8e5dc",
+    "stitch": false
+   }
+  ]
+ },
+ {
+  "n": 280,
+  "id": "yohji-pour-homme-combat-boots",
+  "designer": "Yohji Yamamoto",
+  "name": "Pour Homme Runway Combat Boots",
+  "season": "FW2013",
+  "price": 800,
+  "slot": "shoes",
+  "colour": "#161617",
+  "finish": {
+   "roughness": 0.45
+  },
+  "pack": "shoes01",
+  "source": "culturalibre_heroine_boots_3",
+  "shape": [
+   {
+    "op": "platform",
+    "height": 0.02
+   },
+   {
+    "op": "arch",
+    "depth": 0.008,
+    "from": 0.36,
+    "to": 0.6
+   },
+   {
+    "op": "wide",
+    "by": 0.05,
+    "below": 0.06
+   },
+   {
+    "op": "toe",
+    "bulb": 0.25
+   }
+  ],
+  "paint": [
+   {
+    "step": "fabric",
+    "type": "leather"
+   },
+   {
+    "step": "panel",
+    "colour": "#0c0c0d",
+    "where": {
+     "h": [
+      -1,
+      0.03
+     ]
+    }
+   },
+   {
+    "step": "line",
+    "frame": "shaft",
+    "pts": [
+     [
+      -1,
+      0.033
+     ],
+     [
+      1,
+      0.033
+     ]
+    ],
+    "style": "stitch",
+    "colour": "#6a6258",
+    "width": 0.0012
+   },
+   {
+    "step": "panel",
+    "colour": "#101011",
+    "where": {
+     "ft": [
+      0.8,
+      1.2
+     ],
+     "h": [
+      0.03,
+      0.09
+     ]
+    }
+   },
+   {
+    "step": "line",
+    "frame": "vamp",
+    "pts": [
+     [
+      -0.04,
+      0.215
+     ],
+     [
+      0,
+      0.225
+     ],
+     [
+      0.04,
+      0.215
+     ]
+    ],
+    "style": "seam"
+   },
+   {
+    "step": "laces",
+    "frame": "vamp",
+    "from": [
+     0,
+     0.13
+    ],
+    "to": [
+     0,
+     0.2
+    ],
+    "rows": 4,
+    "width": 0.03,
+    "colour": "#1c1c1e",
+    "eyelets": "#55555a"
+   },
+   {
+    "step": "laces",
+    "frame": "toe",
+    "from": [
+     0,
+     0.075
+    ],
+    "to": [
+     0,
+     0.3
+    ],
+    "rows": 11,
+    "width": 0.034,
+    "colour": "#1c1c1e",
+    "eyelets": "#55555a"
+   },
+   {
+    "step": "line",
+    "frame": "inner",
+    "pts": [
+     [
+      0.1,
+      0.04
+     ],
+     [
+      0.1,
+      0.3
+     ]
+    ],
+    "style": "zip",
+    "width": 0.003,
+    "colour": "#8a8b8e"
+   },
+   {
+    "step": "distress",
+    "type": "crumple",
+    "depth": 0.0014,
+    "freq": 34,
+    "where": {
+     "h": [
+      0.07,
+      0.16
+     ]
+    }
+   }
+  ]
  }
 ]

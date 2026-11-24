@@ -1784,6 +1784,241 @@
   ]
  },
  {
+  "n": 331,
+  "id": "vw-pirate-boots",
+  "designer": "Vivienne Westwood",
+  "name": "Pirate Boots",
+  "season": "FW1981",
+  "price": 1100,
+  "slot": "shoes",
+  "colour": "#6b4a2c",
+  "finish": {
+   "roughness": 0.6
+  },
+  "pack": "shoes01",
+  "source": "culturalibre_heroine_boots_3",
+  "shape": [
+   {
+    "op": "platform",
+    "height": 0.014
+   },
+   {
+    "op": "wide",
+    "by": 0.1
+   },
+   {
+    "op": "shaft",
+    "add": 0.0,
+    "flare": 0.3
+   },
+   {
+    "op": "toe",
+    "square": 0.4
+   }
+  ],
+  "note": "Slouched boots wrapped in five buckled straps.",
+  "paint": [
+   {
+    "step": "fabric",
+    "type": "leather"
+   },
+   {
+    "step": "panel",
+    "colour": "#2a1c12",
+    "where": {
+     "h": [
+      -1,
+      0.02
+     ]
+    }
+   },
+   {
+    "step": "line",
+    "frame": "shaft",
+    "pts": [
+     [
+      -1,
+      0.023
+     ],
+     [
+      1,
+      0.023
+     ]
+    ],
+    "style": "stitch",
+    "colour": "#c9a86a",
+    "width": 0.0012
+   },
+   {
+    "step": "line",
+    "frame": "shaft",
+    "pts": [
+     [
+      -1,
+      0.07
+     ],
+     [
+      1,
+      0.07
+     ]
+    ],
+    "style": "strap",
+    "width": 0.022,
+    "colour": "#3a2414"
+   },
+   {
+    "step": "rect",
+    "frame": "outer",
+    "at": [
+     0.11,
+     0.07
+    ],
+    "size": [
+     0.026,
+     0.028
+    ],
+    "style": "buckle",
+    "colour": "#b9a05a"
+   },
+   {
+    "step": "line",
+    "frame": "shaft",
+    "pts": [
+     [
+      -1,
+      0.13
+     ],
+     [
+      1,
+      0.13
+     ]
+    ],
+    "style": "strap",
+    "width": 0.022,
+    "colour": "#3a2414"
+   },
+   {
+    "step": "rect",
+    "frame": "outer",
+    "at": [
+     0.11,
+     0.13
+    ],
+    "size": [
+     0.026,
+     0.028
+    ],
+    "style": "buckle",
+    "colour": "#b9a05a"
+   },
+   {
+    "step": "line",
+    "frame": "shaft",
+    "pts": [
+     [
+      -1,
+      0.19
+     ],
+     [
+      1,
+      0.19
+     ]
+    ],
+    "style": "strap",
+    "width": 0.022,
+    "colour": "#3a2414"
+   },
+   {
+    "step": "rect",
+    "frame": "outer",
+    "at": [
+     0.11,
+     0.19
+    ],
+    "size": [
+     0.026,
+     0.028
+    ],
+    "style": "buckle",
+    "colour": "#b9a05a"
+   },
+   {
+    "step": "line",
+    "frame": "shaft",
+    "pts": [
+     [
+      -1,
+      0.25
+     ],
+     [
+      1,
+      0.25
+     ]
+    ],
+    "style": "strap",
+    "width": 0.022,
+    "colour": "#3a2414"
+   },
+   {
+    "step": "rect",
+    "frame": "outer",
+    "at": [
+     0.11,
+     0.25
+    ],
+    "size": [
+     0.026,
+     0.028
+    ],
+    "style": "buckle",
+    "colour": "#b9a05a"
+   },
+   {
+    "step": "line",
+    "frame": "shaft",
+    "pts": [
+     [
+      -1,
+      0.31
+     ],
+     [
+      1,
+      0.31
+     ]
+    ],
+    "style": "strap",
+    "width": 0.022,
+    "colour": "#3a2414"
+   },
+   {
+    "step": "rect",
+    "frame": "outer",
+    "at": [
+     0.11,
+     0.31
+    ],
+    "size": [
+     0.026,
+     0.028
+    ],
+    "style": "buckle",
+    "colour": "#b9a05a"
+   },
+   {
+    "step": "distress",
+    "type": "crumple",
+    "depth": 0.002,
+    "freq": 22
+   },
+   {
+    "step": "distress",
+    "type": "edges",
+    "amount": 0.35,
+    "colour": "#a8845a"
+   }
+  ]
+ },
+ {
   "n": 332,
   "id": "vw-pirate-jacket",
   "designer": "Vivienne Westwood",
@@ -1987,6 +2222,18 @@
     }
    }
   ]
+ },
+ {
+  "n": 333,
+  "id": "vw-buffalo-hat",
+  "designer": "Vivienne Westwood",
+  "name": "Buffalo Hat",
+  "season": "FW1982",
+  "price": 900,
+  "slot": "bag",
+  "bag": "buffalo hat",
+  "colour": "#6b4a2c",
+  "note": "The tall dented crown and wide brim of the Buffalo Girls show. Not a cut garment: it is built in dist/archive-accessories.js and worn in the bag's place."
  },
  {
   "n": 334,
@@ -2680,5 +2927,329 @@
     "colour2": "#111113"
    }
   ]
+ },
+ {
+  "n": 338,
+  "id": "vw-rocking-horse-shoes",
+  "designer": "Vivienne Westwood",
+  "name": "Rocking Horse Shoes",
+  "season": "SS1985",
+  "price": 700,
+  "slot": "shoes",
+  "colour": "#161617",
+  "finish": {
+   "roughness": 0.42
+  },
+  "pack": "shoes01",
+  "source": "toigo_ankle_boots_female",
+  "shape": [
+   {
+    "op": "platform",
+    "height": 0.075
+   },
+   {
+    "op": "arch",
+    "depth": 0.02,
+    "from": 0.05,
+    "to": 0.3
+   },
+   {
+    "op": "toe",
+    "bulb": 0.2
+   }
+  ],
+  "note": "A wooden rocker sole under a ballerina strapped up the ankle with ribbon, over white socks.",
+  "paint": [
+   {
+    "step": "fabric",
+    "type": "leather"
+   },
+   {
+    "step": "panel",
+    "colour": "#e8e5dc",
+    "where": {
+     "h": [
+      0.16,
+      1
+     ]
+    }
+   },
+   {
+    "step": "rib",
+    "where": {
+     "h": [
+      0.16,
+      1
+     ]
+    },
+    "gauge": 0.003,
+    "depth": 0.0004
+   },
+   {
+    "step": "panel",
+    "colour": "#161617",
+    "where": {
+     "ft": [
+      0.55,
+      1.2
+     ],
+     "h": [
+      0.07,
+      0.16
+     ]
+    }
+   },
+   {
+    "step": "panel",
+    "colour": "#161617",
+    "where": {
+     "ft": [
+      -1,
+      0.2
+     ],
+     "h": [
+      0.07,
+      0.17
+     ]
+    }
+   },
+   {
+    "step": "fabric",
+    "type": "wood",
+    "where": {
+     "h": [
+      -1,
+      0.082
+     ]
+    }
+   },
+   {
+    "step": "line",
+    "frame": "shaft",
+    "pts": [
+     [
+      -1,
+      0.084
+     ],
+     [
+      1,
+      0.084
+     ]
+    ],
+    "style": "groove",
+    "width": 0.002
+   },
+   {
+    "step": "line",
+    "frame": "sides",
+    "pts": [
+     [
+      0.02,
+      0.15
+     ],
+     [
+      0.12,
+      0.2
+     ],
+     [
+      0.2,
+      0.15
+     ]
+    ],
+    "style": "tape",
+    "width": 0.012,
+    "colour": "#161617"
+   },
+   {
+    "step": "line",
+    "frame": "shaft",
+    "pts": [
+     [
+      -1,
+      0.2
+     ],
+     [
+      1,
+      0.2
+     ]
+    ],
+    "style": "tape",
+    "width": 0.012,
+    "colour": "#161617"
+   },
+   {
+    "step": "line",
+    "frame": "shaft",
+    "pts": [
+     [
+      -1,
+      0.24
+     ],
+     [
+      1,
+      0.23
+     ]
+    ],
+    "style": "tape",
+    "width": 0.012,
+    "colour": "#161617"
+   }
+  ]
+ },
+ {
+  "n": 339,
+  "id": "vw-elevated-ghillie-platforms",
+  "designer": "Vivienne Westwood",
+  "name": "Super Elevated Ghillie Platforms",
+  "season": "FW1993",
+  "price": 9000,
+  "slot": "shoes",
+  "colour": "#2f4a8c",
+  "finish": {
+   "roughness": 0.3
+  },
+  "pack": "shoes01",
+  "source": "toigo_ankle_boots_male",
+  "shape": [
+   {
+    "op": "platform",
+    "height": 0.15,
+    "from": 0.03
+   },
+   {
+    "op": "arch",
+    "depth": 0.11,
+    "from": 0.3,
+    "to": 0.6
+   },
+   {
+    "op": "toe",
+    "bulb": 0.25
+   }
+  ],
+  "note": "Blue mock-crocodile on a nine-inch heel and four-inch platform, laced up the ankle in ribbon: the pair a model famously fell off.",
+  "paint": [
+   {
+    "step": "fabric",
+    "type": "leather"
+   },
+   {
+    "step": "pattern",
+    "type": "scales",
+    "colours": [
+     "#1f3366"
+    ],
+    "size": 0.012,
+    "where": {
+     "h": [
+      0.14,
+      1
+     ]
+    }
+   },
+   {
+    "step": "panel",
+    "colour": "#1f3366",
+    "where": {
+     "h": [
+      -1,
+      0.008
+     ]
+    }
+   },
+   {
+    "step": "panel",
+    "colour": "#e8e5dc",
+    "where": {
+     "h": [
+      0.26,
+      1
+     ]
+    }
+   },
+   {
+    "step": "rib",
+    "where": {
+     "h": [
+      0.26,
+      1
+     ]
+    },
+    "gauge": 0.003,
+    "depth": 0.0004
+   },
+   {
+    "step": "panel",
+    "colour": "#2f4a8c",
+    "where": {
+     "ft": [
+      0.55,
+      1.2
+     ],
+     "h": [
+      0.14,
+      0.25
+     ]
+    }
+   },
+   {
+    "step": "panel",
+    "colour": "#2f4a8c",
+    "where": {
+     "ft": [
+      -1,
+      0.25
+     ],
+     "h": [
+      0.14,
+      0.27
+     ]
+    }
+   },
+   {
+    "step": "laces",
+    "frame": "vamp",
+    "from": [
+     0,
+     0.14
+    ],
+    "to": [
+     0,
+     0.2
+    ],
+    "rows": 4,
+    "width": 0.04,
+    "colour": "#e3b21c",
+    "thick": 0.005
+   },
+   {
+    "step": "laces",
+    "frame": "toe",
+    "from": [
+     0,
+     0.2
+    ],
+    "to": [
+     0,
+     0.34
+    ],
+    "rows": 5,
+    "width": 0.05,
+    "colour": "#e3b21c",
+    "thick": 0.005
+   }
+  ]
+ },
+ {
+  "n": 340,
+  "id": "vw-armour-ring",
+  "designer": "Vivienne Westwood",
+  "name": "Armour Ring",
+  "season": "1990s",
+  "price": 350,
+  "slot": "bag",
+  "bag": "armour ring",
+  "colour": "#c9cacd",
+  "note": "Three jointed silver plates covering the middle finger of the left hand. Not a cut garment: it is built in dist/archive-accessories.js and worn in the bag's place."
  }
 ]

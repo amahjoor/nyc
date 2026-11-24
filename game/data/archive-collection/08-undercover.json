@@ -4486,5 +4486,179 @@
     "style": "seam"
    }
   ]
+ },
+ {
+  "n": 160,
+  "id": "uc-nike-react-element-sneakers",
+  "designer": "Undercover × Nike",
+  "name": "React Element 87 Sneakers",
+  "season": "2018",
+  "price": 350,
+  "slot": "shoes",
+  "colour": "#c9cdc4",
+  "finish": {
+   "roughness": 0.6
+  },
+  "pack": "shoes01",
+  "source": "toigo_ankle_boots_female",
+  "shape": [
+   {
+    "op": "platform",
+    "height": 0.02
+   },
+   {
+    "op": "wide",
+    "by": 0.06
+   },
+   {
+    "op": "toe",
+    "bulb": 0.2
+   }
+  ],
+  "paint": [
+   {
+    "step": "fabric",
+    "type": "nylon"
+   },
+   {
+    "step": "panel",
+    "colour": "#e8e5dc",
+    "where": {
+     "h": [
+      -1,
+      0.034
+     ]
+    }
+   },
+   {
+    "step": "pattern",
+    "type": "speckle",
+    "colours": [
+     "#8a6a4a",
+     "#19191b",
+     "#c2261c"
+    ],
+    "freq": 500,
+    "density": 0.12,
+    "where": {
+     "h": [
+      -1,
+      0.034
+     ]
+    }
+   },
+   {
+    "step": "panel",
+    "colour": "#19191b",
+    "where": {
+     "ft": [
+      0.3,
+      0.7
+     ],
+     "h": [
+      -1,
+      0.012
+     ]
+    }
+   },
+   {
+    "step": "panel",
+    "colour": "#19191b",
+    "where": {
+     "ft": [
+      -1,
+      0.22
+     ],
+     "h": [
+      0.034,
+      0.2
+     ]
+    }
+   },
+   {
+    "step": "panel",
+    "colour": "#9aa39a",
+    "where": {
+     "ft": [
+      0.82,
+      1.2
+     ],
+     "h": [
+      0.03,
+      0.1
+     ]
+    }
+   },
+   {
+    "step": "line",
+    "frame": "sides",
+    "pts": [
+     [
+      0.05,
+      0.1
+     ],
+     [
+      0.12,
+      0.055
+     ],
+     [
+      0.19,
+      0.08
+     ]
+    ],
+    "style": "tape",
+    "width": 0.009,
+    "colour": "#c9d62a",
+    "raise": 0.0006
+   },
+   {
+    "step": "laces",
+    "frame": "vamp",
+    "from": [
+     0,
+     0.105
+    ],
+    "to": [
+     0,
+     0.175
+    ],
+    "rows": 5,
+    "width": 0.03,
+    "colour": "#c9d62a",
+    "thick": 0.004
+   },
+   {
+    "step": "rect",
+    "frame": "heel",
+    "at": [
+     0,
+     0.09
+    ],
+    "size": [
+     0.02,
+     0.03
+    ],
+    "style": "patch",
+    "colour": "#c2261c",
+    "stitch": false
+   },
+   {
+    "step": "line",
+    "frame": "shaft",
+    "pts": [
+     [
+      -1,
+      0.036
+     ],
+     [
+      1,
+      0.036
+     ]
+    ],
+    "style": "stitch",
+    "colour": "#b9b6ae",
+    "width": 0.0012
+   }
+  ]
  }
 ]
