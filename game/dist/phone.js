@@ -468,7 +468,8 @@ export function createPhone({ $, canUse = () => true, isClosed, places = () => [
       eta.textContent=trip.phase==='waiting'?'Arrived':seconds<60?seconds+' sec':Math.ceil(seconds/60)+' min';
       $('phone-driver-name').textContent=trip.driver.name;
       $('phone-driver-rating').textContent='★ '+trip.driver.rating;
-      $('phone-driver-vehicle').textContent=model?'Yellow '+model:'Yellow cab';
+      const color=trip.car.color===GREEN_CAB?'Green':'Yellow';
+      $('phone-driver-vehicle').textContent=color+' '+(model || 'cab');
       $('phone-driver-photo').setAttribute('src','./assets/rides/driver-'+trip.driver.member+'.webp');
       $('phone-ride-map').setAttribute('aria-label','Driver at '+(trip.car._edge?.road?.name || trip.pickupName || 'pickup')+' · '+eta.textContent);
     } else $('phone-ride-map').setAttribute('aria-label','Current pickup location');

@@ -474,7 +474,7 @@ export class Simulation {
     const taxi = this._random() < this._trafficMix.taxis;
     car.id = `traffic-${this._trafficSerial = (this._trafficSerial || 100) + 1}`;
     car._lookAgain=0; car._noticedCar=null; car.onPhone=false;
-    car.driverAppearance=null; car.provokedAt=null; car.blockedForHorn=0; car.hornUntil=0; car.errand=null; car.finishedErrand=false;
+    car.rideDriver=null; car.driverAppearance=null; car.provokedAt=null; car.blockedForHorn=0; car.hornUntil=0; car.errand=null; car.finishedErrand=false;
     repairVehicle(car);
     car.mods = car.handling = undefined; car.driverEjected = car._driven = car._jacked = car.resprays = false;
     // Another car altogether: its own wheels again, and the next number.
@@ -1518,7 +1518,7 @@ export class Simulation {
     if (this.health <= 0) this._downed = cause;
   }
 
-  interact() {
+  interact(targetCar=null) {
     const player = this.player;
     if (this.ending || player.reaction) return false;
     if (player.mode === 'skate') return this.toggleSkateboard();
@@ -1527,10 +1527,10 @@ export class Simulation {
     if (player.mode === 'walk') {
       if (this.seat) return this.stand();
       if (this.room) return false;
-      const ride = this._entering ? null : this.transport?.nearby();
+      const ride = this._entering || targetCar ? null : this.transport?.nearby();
       if (ride) return this.transport.board(ride);
-      const car = this._entering || this.getNearbyCar();
-      const bike = this._entering ? null : this.getNearbyBike(car);
+      const car = this._entering || targetCar || this.getNearbyCar();
+      const bike = this._entering || targetCar ? null : this.getNearbyBike(car);
       if (bike) {
         if(bike.owner){
           if(!this.bikeTraffic.take(bike))return false;

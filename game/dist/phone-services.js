@@ -1,4 +1,6 @@
 import { listingBySymbol, portfolio, sharePrice, restoreHoldings } from './market.js';
+import { hasDriver } from './vehicle-damage.js';
+import { vehicleTravelSpeed } from './vehicle-dynamics.js';
 import { RideRoute } from './ride-route.js';
 import { vehicleHandling } from './garage.js';
 import { roadFigures, MPS_PER_MPH } from './vehicle-performance.js';
@@ -163,21 +165,62 @@ export class CityRides {
     this.sim=sim; this.planner=planner; this.paid=paid;
     this.trip=null; this.receipt=''; this.bookings=0;
   }
+  get choosing(){return this.trip?.phase==='choosing';}
+  nearbyCab() {
+    const s=this.sim,p=s.player;
+    if(p.mode!=='walk' || p.move || p.reaction || s.ending || s.seat || s.room)return null;
+    if(this.canBoard())return this.trip.car;
+    const car=s.getNearbyCar();
+    if(car?.type!=='taxi' || !hasDriver(car) || !car._edge || s.transport?.nearby() || s.getNearbyBike(car))return null;
+    return car;
+  }
+  boardStreetCab(car) {
+    const s=this.sim;
+    if(car!==this.nearbyCab() || !car)return false;
+    if(this.trip){s._say('You already have a ride booked.');return false;}
+    if(vehicleTravelSpeed(car)>4){s._say('Wait for the cab to slow down.');return false;}
+    if(s.mission.phase==='active'){s._say('Finish your active delivery before taking a ride.');return false;}
+    const driver=car.rideDriver || drivers[this.bookings++ % drivers.length];
+    const pickup={x:car.x,z:car.z};
+    this.trip={phase:'choosing',car,driver,pickup,stop:{point:pickup,edge:car._edge},cruise:car._cruise,remaining:0,fare:0};
+    this.receipt='';
+    Object.assign(car,{rideDriver:driver,hired:true,parked:true,speed:0,velocityX:0,velocityZ:0,_turn:null,
+      passengerSeat:{side:nearestPassengerSeat(car,s.player).side,along:-.76}});
+    this.seatPassenger(car);
+    return true;
+  }
+  seatPassenger(car) {
+    const s=this.sim;
+    Object.assign(s.player,{mode:'passenger',vehicleId:car.id,standing:null,move:null,armed:false,grounded:true});
+    s.updateGrounding();
+  }
+  releaseBooking(car) {
+    if(this.trip?.car===car && this.trip.phase==='waiting'){
+      car.hired=false;this.trip=null;this.receipt='Pickup canceled. No fare charged.';
+    }
+  }
   async quote(destination) {
+    const streetTrip=this.choosing?this.trip:null;
     const planner=await this.planner();
     const pickup={x:this.sim.player.x,z:this.sim.player.z};
     const route=planner?.plan(pickup,destination);
     if(!route?.ok) throw new Error('No street route to this destination.');
     if(route.distance<50) throw new Error('This destination is within walking distance.');
-    return {destination,pickup,planner,distance:route.distance,fare:Math.max(7,Math.ceil(4+route.distance*.0024))};
+    return {destination,pickup,planner,streetTrip,distance:route.distance,fare:Math.max(7,Math.ceil(4+route.distance*.0024))};
   }
   pickupChanged(quote){return gap(this.sim.player,quote.pickup)>5;}
   request(quote) {
     const s=this.sim;
-    if(this.trip) return 'You already have a ride.';
+    if((quote?.streetTrip || null)!==(this.choosing?this.trip:null))return 'Choose a destination for your current pickup.';
+    if(this.trip && !this.choosing) return 'You already have a ride.';
     if(!quote || this.pickupChanged(quote)) return 'Updating the fare from your current location.';
     if(s.cash<quote.fare) return 'Your cash balance is too low for this fare.';
     if(s.mission.phase==='active') return 'Finish your active delivery before taking a ride.';
+    if(this.choosing){
+      const {planner,destination,distance,fare}=quote;
+      Object.assign(this.trip,{planner,destination,distance,fare});
+      return this.startTrip(this.trip);
+    }
     const pickup={x:s.player.x,z:s.player.z}, stop=s._pinTaxiPlacement(pickup,null);
     const approach=stop && findApproach(s,stop);
     if(!approach) return 'No driver can reach this pickup. Try a different street.';
@@ -201,7 +244,7 @@ export class CityRides {
   update() {
     const t=this.trip, s=this.sim;
     if(!t)return;
-    if(t.phase==='traveling'){this.updatePassenger(t);return;}
+    if(t.phase==='traveling' || this.choosing){this.updatePassenger(t);return;}
     const {car,stop}=t;
     if(s.ending || gap(s.player,t.pickup)>220 || !s.cars.includes(car) || car.destroyed || car.burningSince!=null || car.driverEjected){
       this.cancel('Pickup canceled. No fare charged.'); return;
@@ -228,11 +271,11 @@ export class CityRides {
   }
   canBoard() {
     const s=this.sim,t=this.trip;
-    return t?.phase==='waiting' && s.player.mode==='walk' && !s.player.move && !s.player.reaction && !s.ending && !s.seat && !s.room &&
+    return t?.phase==='waiting' && s.cars.includes(t.car) && !t.car.destroyed && !t.car.driverEjected && t.car.burningSince==null && s.player.mode==='walk' && !s.player.move && !s.player.reaction && !s.ending && !s.seat && !s.room &&
       Math.hypot(s.player.x-t.car.x,s.player.z-t.car.z)<6 && Math.abs((s.player.y||0)-(t.car.y||0))<3;
   }
   cancel(message='Ride canceled. No fare charged.') {
-    if(!this.trip || this.trip.phase==='traveling') return;
+    if(!this.trip || this.trip.phase==='traveling' || this.choosing) return;
     this.removeCar(); this.trip=null; this.receipt=message;
   }
   removeCar() {
@@ -247,22 +290,23 @@ export class CityRides {
     // this block, continue to its junction before making that turn.
     let route=t.planner.plan(car,t.destination,{startRoadId:edge.road.id});
     const first=route.legs?.[0]?.points;
-    if(!first){this.cancel('No route from this curb. No fare charged.');s._say(this.receipt);return false;}
+    if(!first || first.length<2)return 'No route from this curb. No fare charged.';
     const backwards=(first[1][0]-first[0][0])*Math.sin(edge.angle)+(first[1][1]-first[0][1])*Math.cos(edge.angle)<0;
     if(backwards)route=t.planner.plan(edge.to,t.destination,{startRoadId:edge.road.id});
-    if(!route.legs?.length){this.cancel('No route from this curb. No fare charged.');s._say(this.receipt);return false;}
+    if(!route.legs?.length)return 'No route from this curb. No fare charged.';
     t.itinerary=new RideRoute(route.legs);
+    car._route=[];
     t.itinerary.fill(s,car);
     car._edge=backwards?edge:car._route.shift();
-    if(!car._edge){this.cancel();return false;}
-    Object.assign(car,{passengerSeat:nearestPassengerSeat(car,s.player),parked:false,_cruise:t.cruise,_wait:0,_turn:null});
+    if(!car._edge)return 'No route from this curb. No fare charged.';
+    Object.assign(car,{passengerSeat:car.passengerSeat || nearestPassengerSeat(car,s.player),parked:false,_cruise:t.cruise,_wait:0,_turn:null});
     t.fastSpeed=roadFigures(vehicleHandling(car)).topSpeed*MPS_PER_MPH;
     t.phase='traveling';t.remaining=route.distance;t.lastProgress=s.elapsed;t.best=Infinity;
     s.rideHoldCents=cents(t.fare);
     Object.assign(s.player,{mode:'passenger',vehicleId:car.id,standing:null,move:null,armed:false,grounded:true});
     s.updateGrounding();this.updatePassenger(t);
     s._say('Riding with '+t.driver.name+'.',6);
-    return true;
+    return '';
   }
 
   toggleHurry() {
@@ -273,6 +317,7 @@ export class CityRides {
   }
 
   stopEarly() {
+    if(this.choosing){this.trip.stopping=true;this.updatePassenger(this.trip);return;}
     if(this.trip?.phase==='traveling' && !this.trip.stopping){
       this.trip.stopping=true;this.trip.requestedStop=true;
       this.sim._say('Driver is stopping here. You pay for the distance ridden.');
@@ -282,8 +327,9 @@ export class CityRides {
   updatePassenger(t) {
     const s=this.sim,car=t.car;
     const aboard=s.player.mode==='passenger' && s.player.vehicleId===car.id;
-    const interrupted=!aboard || !car._edge || !s.cars.includes(car) || s.ending || car.destroyed || car.burningSince!=null || car.driverEjected;
-    if(!interrupted){
+    const interrupted=!aboard || (!this.choosing && !car._edge) || !s.cars.includes(car) || s.ending || car.destroyed || car.burningSince!=null || car.driverEjected;
+    if(this.choosing && !interrupted && !t.stopping)return;
+    if(!this.choosing && !interrupted){
       t.itinerary.fill(s,car);
       const end=s._lanePoint(car._edge,1,car._lane||0);
       const final=t.itinerary.next===t.itinerary.legs.length && !car._route.length;

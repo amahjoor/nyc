@@ -975,15 +975,20 @@ function action(name,event) {
   if(name==='skate'){if(!mapOpen&&sim.toggleSkateboard()){input.skating=sim.player.mode==='skate';headAnchor=undefined;snapChase=true;}return;}
   if(name==='cash'){hud.showStatus(sim.cash);return;}
   if(name==='interact' && sim.player.mode==='drive' && event && !tripAction(sim) && !sim.canDropPaper()){action('horn');return;}
-  if(name==='vehicle' || name==='interact'){
-    const vehicleOnly=name==='vehicle';
+  if(['vehicle','interact','boardCab','takeCab'].includes(name)){
+    const vehicleOnly=name!=='interact', resolving=name==='boardCab' || name==='takeCab';
     if(vehicleOnly && (sim.room || sim.seat))return;
     currentInteractPrompt=null;
     if(!vehicleOnly && (interactWithTrip(sim) || sim.dropPaper()))return;
     if(sim.player.mode==='skate'){sim.toggleSkateboard();return;}
     if(sim.player.mode==='passenger'){cityRides.stopEarly();return;}
 
-    if(cityRides?.canBoard()){cityRides.board();return;}
+    const cab=cityRides?.nearbyCab();
+    if(resolving && (!cab || cab!==event.car))return;
+    if(cab && name==='vehicle' && (event?.code==='KeyF' || event?.fromPad)){
+      input.startCabPress(cab,event);return;
+    }
+    if(name!=='takeCab' && cityRides?.canBoard()){cityRides.board();return;}
     if(!vehicleOnly){
       if(sim.seat){sim.stand();return;}
       if(sim.player.mode==='walk'&&!sim.room&&!stairHere&&stopHere){
@@ -1009,7 +1014,12 @@ function action(name,event) {
       if(standHere || shopHere || crowd?.closest(sim.player.x,sim.player.z))action('shop');
       return;
     }
-    const changed=sim.interact();
+    if(cab && name!=='takeCab'){
+      if(cityRides.boardStreetCab(cab))phone.openRidePicker();
+      return;
+    }
+    const changed=sim.interact(name==='takeCab'?cab:null);
+    if(changed && name==='takeCab')cityRides.releaseBooking(cab);
     if(changed&&sim.player.mode==='drive'){
       // A walking camera can face the cab's nose. Start behind the newly
       // entered vehicle so its forward gear immediately reads as forward.
@@ -1265,7 +1275,33 @@ $('map-button').addEventListener('click',()=>action('map'));
 $('touch-skate')?.addEventListener('click',()=>action('skate'));
 $('ride-speed').addEventListener('click',()=>action('driverSpeed'));
 $('touch-shop').addEventListener('click',()=>action('shop'));
-$('touch-enter').addEventListener('click',()=>action(currentInteractPrompt?.key==='CLICK'?'fight':'interact'));
+const touchEnter=$('touch-enter');
+let cabPointer=null, handledCabTouch=false;
+touchEnter.addEventListener('pointerdown',event=>{
+  if(event.isPrimary===false)return;
+  handledCabTouch=false;
+  if(!streetControls() || interactionPrompt()?.key!=='F')return;
+  const cab=cityRides?.nearbyCab();
+  if(!cab)return;
+  handledCabTouch=true;cabPointer=event.pointerId;
+  touchEnter.setPointerCapture(event.pointerId);
+  input.startCabPress(cab,event,'touch');
+});
+touchEnter.addEventListener('pointerup',event=>{
+  if(event.pointerId!==cabPointer)return;
+  cabPointer=null;
+  if(input.cabPress?.source==='touch')input.updateCabPress(false,0,event.timeStamp);
+});
+for(const type of ['lostpointercapture','pointercancel'])touchEnter.addEventListener(type,event=>{
+  if(event.pointerId!==cabPointer)return;
+  cabPointer=null;
+  if(input.cabPress?.source==='touch')input.cabPress=null;
+});
+touchEnter.addEventListener('click',event=>{
+  if(handledCabTouch && event.detail!==0){handledCabTouch=false;return;}
+  const key=currentInteractPrompt?.key;
+  action(key==='CLICK'?'fight':key==='F'?'vehicle':'interact');
+});
 $('touch-horn').addEventListener('click',()=>action('horn'));
 $('touch-equip').addEventListener('click',()=>action('draw'));
 $('touch-aim').addEventListener('click',()=>{
@@ -2555,7 +2591,7 @@ function updateFirstPerson(look,vertical,dt){
   }else if(driving){
     headTurn=clamp(headTurn+look,-2.8,2.8);
     yaw=p.angle+headTurn;
-    placeDriverCamera(camera,carModels.get(p.vehicleId),headTurn,headPitch,p.mode==='passenger' && cityRides?.trip?.car.passengerSeat);
+    placeDriverCamera(camera,carModels.get(p.vehicleId),headTurn,headPitch,p.mode==='passenger' && cityRides?.trip?.car.passengerSeat,p.duckAmount);
   }else if(ride){
     const [height,forward]=ride.spec.eye;
     headTurn=clamp(headTurn+look,-2.2,2.2);yaw=p.angle+headTurn;
@@ -2915,22 +2951,15 @@ function transportExitLabel(ride) {
 }
 
 function interactionPrompt() {
-  const p=sim.player, trip=tripAction(sim), ride=sim.transport.active;
-  const hint=(label,at=null,lift=0,touch='ENTER')=>({label,at,lift,touch});
-  const vehicleHint=(...args)=>({...hint(...args),key:'F'});
-  // Keep the same priority as the interact control when targets overlap.
-  if(trip){
-    const mission=sim.mission;
-    if(sim.room)return hint(trip,{...sim.doorway.clerk,y:sim.doorway.floor},1.8,'COLLECT');
-    if(mission.kind==='driver'&&mission.stage==='dropoff')return hint(trip,null,0,'CONFIRM');
-    return hint(trip,mission.target,1.8,'CONFIRM');
-  }
-  if(sim.canDropPaper())return hint('LEAVE PAPER BUNDLE',sim.mission.target,1.2,'DELIVER');
-  if(p.mode==='skate')return hint('STEP OFF BOARD',null,0,'EXIT');
-  if(p.mode==='passenger')return vehicleHint('ASK TO PULL OVER',null,0,'STOP');
-  if(cityRides?.canBoard())return vehicleHint('BOARD RIDE',cityRides.trip.car,2.05,'BOARD');
-  if(sim.seat)return hint('STAND',null,0,'STAND');
-  if(p.mode==='walk'&&!sim.room&&!stairHere&&stopHere)return hint('BUS DEPARTURES',stopHere,2.3,'BUS');
+  const p=sim.player, trip=tripAction(sim);
+  const interact=touch=>({touch}), vehicle=touch=>({key:'F',touch});
+  if(trip)return interact(sim.room?'COLLECT':'CONFIRM');
+  if(sim.canDropPaper())return interact('DELIVER');
+  if(p.mode==='skate')return interact('EXIT');
+  if(p.mode==='passenger')return vehicle(cityRides?.choosing?'EXIT':'STOP');
+  if(cityRides?.canBoard())return vehicle('BOARD');
+  if(sim.seat)return interact('STAND');
+  if(p.mode==='walk'&&!sim.room&&!stairHere&&stopHere)return interact('BUS');
   if(sim.doorway?.take)return null;
   if(nearbyATM())return interact('ATM');
   if(registerAction(sim))return interact('TAKE');

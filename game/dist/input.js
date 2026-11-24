@@ -62,6 +62,10 @@ export class Input {
     });
     window.addEventListener('keyup', e => {
       this.keys.delete(e.code);
+      if(e.code==='KeyF' && this.cabPress?.source==='keyboard'){
+        if(textEntry(e) || browserModifier(e))this.cabPress=null;
+        else this.updateCabPress(false,0,e.timeStamp);
+      }
       if(e.code==='ControlLeft' && this.stealthPending){
         this.stealthPending=false;if(!textEntry(e) && this.context()==='walk')action('stealth');
       }
@@ -206,8 +210,23 @@ export class Input {
     this.releasingLook=true;
     document.exitPointerLock?.();
   }
+  startCabPress(car,event,source=event.fromPad?'pad':'keyboard') {
+    if(this.cabPress)return;
+    this.cabPress={car,id:car.id,source,context:this.context(),at:event.timeStamp,elapsed:0};
+  }
+  updateCabPress(down,dt,timeStamp) {
+    const press=this.cabPress;
+    if(!press)return;
+    if(this.context()!==press.context || press.car.id!==press.id){this.cabPress=null;return;}
+    press.elapsed+=dt;
+    const held=Math.max(press.elapsed,Number.isFinite(timeStamp-press.at)?(timeStamp-press.at)/1000:0);
+    if(down && held<CAB_TAKEOVER_HOLD)return;
+    this.cabPress=null;
+    this.action(held>=CAB_TAKEOVER_HOLD?'takeCab':'boardCab',{car:press.car});
+  }
   clear() {
-    this.cancelPointer();this.stealthPending=false;
+    this.cabPress=null;
+    this.psControls.reset();this.cancelPointer();this.stealthPending=false;
     this.releaseLook();
     if (this.keyWheel || this.padWheel) this.action('weaponCancel');
     this.keyWheel=this.padWheel=false;this.viewPress=null;this.padLookBack=false;
@@ -219,13 +238,7 @@ export class Input {
   }
   sample(cameraYaw, dt, onFoot = true, skating = false) {
     if(this.context()==='menu')this.releaseLook();
-    if (this.viewHold!==null) {
-      this.viewHold+=dt;
-      if (this.viewHold>=CITY_VIEW_HOLD) {
-        this.viewHold=null;
-        this.action('viewCity');
-      }
-    }
+    if(this.cabPress && this.cabPress.source!=='pad')this.updateCabPress(true,dt);
     if(!skating){this.stick={};this.nextTrick=null;this.spaceDown=null;this.finger=null;this.spaceTrick=false;}
     this.skating=skating;this.sampledMode=skating?'skate':onFoot?'walk':'drive';
     let manual=0, grab=0, load=0, pushFoot=1;
@@ -237,10 +250,31 @@ export class Input {
     let handbrake = has('Space') || this.touch.has('brake');
     let run = has('ShiftLeft','ShiftRight') || this.touch.has('run');
     const cycling=this.context()==='bike';
-    if(cycling){handbrake ||= has('KeyQ','KeyS');run ||= has('CapsLock');}
-    let climb = has('Space') || this.touch.has('climb'), descend = run || this.touch.has('descend');
-    const pad = Array.from(navigator.getGamepads?.() || []).find(Boolean);
-    this.padAim=false;
+    let handbrake=(cycling?has('KeyQ','KeyS'):has('Space')) || this.touch.has('brake');
+    let run=(cycling?has('CapsLock'):has('ShiftLeft','ShiftRight')) || this.touch.has('run');
+    let climb=this.touch.has('climb'), descend=this.touch.has('descend');
+    if(activity==='rotor'){climb ||= has('KeyW');descend ||= has('KeyS');}
+    else if(activity==='plane'){climb ||= pitchInput>0;descend ||= pitchInput<0;}
+    else {climb ||= has('Space');descend ||= run;}
+    const pads=Array.from(navigator.getGamepads?.() || []).filter(Boolean);
+    let pad=pads[0];
+    if(pads.length>1){
+      const active=p=>p.buttons.some(b=>b?.pressed || b?.value>.25) || p.axes.some(axis=>Math.abs(axis)>.22);
+      const current=pads.find(p=>p.index===this.padIndex);
+      pad=current && active(current) ? current : pads.find(active) || current || pads.find(dualSense) || pad;
+    }
+    this.padIndex=pad?.index;
+    const ps5=this.controllerLayout==='ps5' || this.controllerLayout==='auto' && dualSense(pad);
+    const device=pad ? [pad.index,pad.id,ps5].join('/') : null;
+    if(device!==this.padDevice){
+      if(this.cabPress?.source==='pad')this.cabPress=null;
+      if(this.padWheel)this.action('weaponCancel');
+      this.padWheel=false;this.padButtons=[];this.viewPress=null;this.psControls.reset();
+      this.padPace=this.tapWindow=this.sprintWindow=0;this.padLookBack=false;
+      this.padDevice=device;
+    }
+    this.ps5=ps5;this.padAim=false;this.padGrapple=false;
+    let padLift=0;
     if (pad) {
       // Remap the usable stick range continuously. Returning the raw axis
       // after the deadzone used to jump straight from zero to 16% steering.
@@ -311,6 +345,7 @@ export class Input {
         if(!down && i===4 && this.padWheel){this.padWheel=false;this.action('weaponClose');}
         this.padButtons[i]=down;
       }
+      if(this.cabPress?.source==='pad')this.updateCabPress(pressed(3),dt);
       if(this.padWheel && Math.abs(pad.axes[2]||0)>.45)this.action(pad.axes[2]>0?'wheelPistol':'wheelUnarmed');
     } else {if(this.padWheel)this.action('weaponCancel');this.padWheel=false;this.viewPress=null;this.padLookBack=false;this.padButtons=[];this.stick={};this.padPace=this.tapWindow=this.sprintWindow=0;}
     if (!cycling && (!onFoot || Math.hypot(walkForward, turn) < .01)) {this.jogging=false;this.tapWindow=this.sprintWindow=0;}

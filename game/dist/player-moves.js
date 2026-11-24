@@ -186,7 +186,7 @@ export function beginEntry(sim, car) {
   const player = sim.player;
   if (player.move) return true;
   player.armed = false;
-  const driven = car._driven || car.id === sim._lastVehicleId || car.id === 'player-taxi', occupied = !driven && Boolean(car._edge) && !car.parked && !car._kerb && car.type !== 'police';
+  const driven = car._driven || car.id === sim._lastVehicleId || car.id === 'player-taxi', occupied = !driven && (car.hired || Boolean(car._edge) && !car.parked && !car._kerb) && car.type !== 'police';
   // Use the driver’s door to remove an occupant. For an empty car either side works.
   const side = { x: Math.cos(car.angle), z: -Math.sin(car.angle) };
   const forward = { x: Math.sin(car.angle), z: Math.cos(car.angle) };
