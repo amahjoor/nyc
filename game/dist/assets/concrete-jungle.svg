@@ -1,0 +1,40 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" role="img" aria-labelledby="title desc">
+  <title id="title">Concrete Jungle</title>
+  <desc id="desc">A spreading banyan tree pushes its roots through a split concrete slab in front of a copper sun.</desc>
+
+  <circle cx="187" cy="47" r="39" fill="#fa9658"/>
+
+  <!-- The two broken faces share a perspective, but the lifted left slab sits higher. -->
+  <g stroke="#172c2b" stroke-width="4.5" stroke-linejoin="round">
+    <path fill="#81918b" d="m17 184 72-31 51 20-27 11 8 9-32 9 9 11-12 6-69-22z"/>
+    <path fill="#c9c9b4" d="m17 184 72-31 51 20-27 11 8 9-32 9 9 11z"/>
+    <path fill="#677e79" d="m105 217 10-14-7-5 27-8-6-9 26-9 83 19v15l-85 36-48-13z"/>
+    <path fill="#dbd8bf" d="m105 217 10-14-7-5 27-8-6-9 26-9 83 19-85 36z"/>
+  </g>
+  <path fill="#76847e" d="m36 181 27-9-7 5 15 3-20-1zm134 25 15-7 12 2-13 1zm-29 12 10-4 8 1-7 3z"/>
+
+  <!-- One continuous trunk flares into buttress roots at the fracture. -->
+  <path fill="#264640" stroke="#172c2b" stroke-width="5.5" stroke-linejoin="round" d="
+    M121 147c2-15-2-24-14-34L75 91l9-6 28 16-12-25 11-4 19 31
+    7-36 11 1-5 39 27-22 10 6-30 31c-9 10-14 24-13 38
+    0 8 4 14 13 18l18 6-24-2 9 9-21-10-8 4-11 11 5-13-19 5
+    13-10-29 1 22-7c9-5 14-13 15-25Z"/>
+  <path fill="#bd9665" d="M128 123c6-8 12-14 20-18-10 13-15 24-17 38-2 14-4 23-14 30l-13 4c15-11 19-22 20-34l-1-18-11-13z"/>
+  <path fill="#172c2b" d="M72 89c4 12 1 23-4 33 2-15 1-22-4-30zm105 3c-4 15 1 24 6 30-2-11 0-19 2-28z"/>
+
+  <!-- Broad, tiered boughs give the crown its umbrella silhouette. -->
+  <path fill="#317362" stroke="#172c2b" stroke-width="6" stroke-linejoin="round" d="
+    M12 98c4-15 15-27 33-31-2-7 8-14 18-15 5-11 16-16 31-16
+    9-14 21-18 36-16 9-8 26-8 37 0 15-1 26 7 31 19 12 1 21 8 25 18
+    13 4 21 15 22 27-12-5-20-5-30-1l9 5c-16 0-25 3-34 9l10 1
+    c-15 7-31 7-43 2l-13-8-12 5-16-7-19 8-19-3-14 7-13-3
+    c-11 6-21 8-32 7l9-10z"/>
+  <path fill="#69ac78" d="M19 93c10-14 24-21 42-21l-7 6c16-2 26-8 37-18
+    11-9 25-12 38-10l-11 7c21-5 42-4 61 4-6-12-19-20-32-23l13-2
+    c-13-10-27-10-44-5l7-7c-12 0-20 6-26 15-16-1-25 5-31 17
+    -11 1-17 7-17 14-12 4-23 12-30 23z"/>
+  <path fill="#a5c882" d="M73 56c4-10 15-16 27-15 5-8 13-13 21-14l-8 8 13-2
+    c-12 5-19 10-25 17l3-7c-12 2-21 6-31 13z"/>
+  <path fill="#468d70" d="M161 25c13-1 25 5 31 17 12 1 21 9 25 18 8 2 15 7 19 14
+    -11-6-23-8-37-5l7-6c-9-5-18-6-28-5l8-5c-5-12-14-21-25-28z"/>
+</svg>
