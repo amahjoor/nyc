@@ -65,6 +65,8 @@ export const castWalkStyle = id => walkStyles[id] ?? 'natural';
 
 // Deal outfits across the existing adult cast, independently of their face,
 // ancestry and walk cycle. A returning customer keeps the same garments.
+// The full skirt was on every third person behind a counter. A skirt is now for women, and the full one for one woman in three.
+const wearsSkirt = (id, look) => !/skirt|mini/.test(look.clothes.bottom || '') || (memberInfo(id).woman && (!/bias-full-skirt/.test(look.clothes.bottom) || id % 3 === 0));
 const streetLooks=new Map(), deal=mulberry(0x5b0f2179);
 for(const occasion of ['casual','business','athletic']){
   const members=Array.from({length:OFFICERS[0]},(_,id)=>id).filter(id=>{
@@ -76,7 +78,12 @@ for(const occasion of ['casual','business','athletic']){
     [members[i],members[j]]=[members[j],members[i]];
   }
   const looks=FASHION_LOOKS.filter(look=>look.occasion===occasion);
-  members.slice(0,Math.ceil(members.length*.68)).forEach((id,i)=>streetLooks.set(id,looks[i%looks.length]));
+  const count=Math.max(looks.length,Math.ceil(members.length*.68));
+  for(let i=0;i<count;i++){
+    const look=looks[i%looks.length];
+    const at=members.findIndex(id=>wearsSkirt(id,look));
+    if(at>=0)streetLooks.set(members.splice(at,1)[0],look);
+  }
 }
 export const fashionForMember=id=>streetLooks.get(id);
 
@@ -110,8 +117,6 @@ export const archiveForMember=id=>archiveLooks.get(id);
 // with the trousers and shoes of another. That is dozens apiece. A figure is drawn for a member in one outfit, and is
 // known by the member's number plus VARIANT_STEP for each step along their list.
 export const VARIANT_STEP = 1000;
-// The full skirt was on every third person behind a counter. A skirt is now for women, and the full one for one woman in three.
-const wearsSkirt = (id, look) => !/skirt|mini/.test(look.clothes.bottom || '') || (memberInfo(id).woman && (!/bias-full-skirt/.test(look.clothes.bottom) || id % 3 === 0));
 const MIXED = 36;
 const wardrobesOf = new Map();
 for (let id = 0; id < OFFICERS[0]; id++) {

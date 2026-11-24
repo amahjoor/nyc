@@ -42,7 +42,8 @@ const archive=Object.entries(archivePrices).flatMap(([slot,prices])=>Object.entr
   const dye=slot==='shoes'?'shoeColour':slot+'Colour';
   const firstLook=FASHION_LOOKS.find(look=>look.clothes[slot]===id);
   const name=id[0].toUpperCase()+id.slice(1).replaceAll('-',' ');
-  return {sku:id,name,price,slot,design:{[slot]:id,[dye]:firstLook.clothes[dye]}};
+  const color=firstLook.clothes[dye] ?? (slot==='shoes' ? '#464246' : null);
+  return {sku:id,name,price,slot,color,design:{[slot]:id,[dye]:firstLook.clothes[dye]}};
 }));
 const stock={clothes:[...shirts,...archive],department:[...shirts,...sneakers,...archive],shoes:sneakers,barber:haircuts,salon:haircuts,phones,jewelry:jewels,music:instruments};
 const dyed=(base,sku,name,price,topColour)=>({...base,sku,name,price,design:{...base.design,topColour}});
