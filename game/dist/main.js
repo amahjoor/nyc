@@ -2751,7 +2751,7 @@ function blendShoulderCamera(p,dt){
 function updateShoulderCamera(p){
   const sin=Math.sin(yaw),cos=Math.cos(yaw);
   const distance=THREE.MathUtils.lerp(4.1,2.45,shoulderFocus);
-  const side=THREE.MathUtils.lerp(.78,.67,shoulderFocus);
+  const side=shoulderSide*THREE.MathUtils.lerp(.78,.67,shoulderFocus);
   const back=distance*Math.cos(shoulderPitch);
   const height=(playerBody?.rig.height??PLAYER_LOOK.height)*.86;
   camera.position.set(p.x-sin*back-cos*side,p.y+height+Math.sin(shoulderPitch)*distance+.14,p.z-cos*back+sin*side);
