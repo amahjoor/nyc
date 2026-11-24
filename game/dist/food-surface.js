@@ -21,7 +21,7 @@ export function ingredientMap(){
 // A gallery still is captured once, so its printed surfaces must finish loading first.
 export function readyIngredientMap(){ingredientMap();return ready || Promise.resolve(null);}
 export function servingMaterial(){
-  const material=new T.MeshStandardMaterial({map:ingredientMap(),vertexColors:true,roughness:.7,side:T.DoubleSide,transparent:true});
+  const material=new T.MeshStandardMaterial({map:ingredientMap(),vertexColors:true,roughness:.7,side:T.DoubleSide,transparent:true,forceSinglePass:true});
   material.onBeforeCompile=shader=>{
     shader.vertexShader='attribute float gloss;\nvarying float vGloss;\n'+shader.vertexShader.replace('#include <begin_vertex>','#include <begin_vertex>\nvGloss=gloss;');
     shader.fragmentShader='varying float vGloss;\n'+shader.fragmentShader.replace('#include <roughnessmap_fragment>','#include <roughnessmap_fragment>\nroughnessFactor=clamp(1.-vGloss,.06,1.);');

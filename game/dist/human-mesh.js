@@ -72,7 +72,7 @@ export function materialFor(piece, look = {}) {
   if (kind === 'teeth') return new THREE.MeshStandardMaterial({ map: picture(piece.map), roughness: .35 });
   if (kind === 'hair') return tinted(new THREE.MeshStandardMaterial({ map: picture(piece.map), color: hex(look.hair || '#2a211c'), roughness: .86, envMapIntensity:.32, alphaTest: .32, alphaToCoverage:true, side: THREE.DoubleSide }), piece.shade);
   if (kind === 'brows' || kind === 'lashes') {
-    const material = tinted(new THREE.MeshStandardMaterial({ map: picture(piece.map), color: hex(kind === 'brows' ? look.brows || look.hair || '#2a211c' : '#120d0b'), roughness: .8, transparent: true, alphaTest: .04, depthWrite: false, side: THREE.DoubleSide }), piece.shade);
+    const material = tinted(new THREE.MeshStandardMaterial({ map: picture(piece.map), color: hex(kind === 'brows' ? look.brows || look.hair || '#2a211c' : '#120d0b'), roughness: .8, transparent: true, alphaTest: .04, depthWrite: false, side: THREE.DoubleSide, forceSinglePass: true }), piece.shade);
     material.polygonOffset = true; material.polygonOffsetFactor = -2; material.polygonOffsetUnits = -2;
     return material;
   }

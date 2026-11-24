@@ -117,6 +117,8 @@ function makeBatch(data, compact, material, depth, capacity) {
   };
   const mesh = new THREE.InstancedMesh(geometry,material,capacity);
   mesh.count=0; mesh.frustumCulled=false; mesh.castShadow=true; mesh.receiveShadow=true; mesh.customDepthMaterial=depth;
+  // The batch itself never moves, only the people in it: its own matrix need not be worked out again each frame.
+  mesh.matrixAutoUpdate=false;
   mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
   return {mesh,anim:instance('aAnim'),top:instance('aTop'),bottom:instance('aBottom')};
 }
@@ -136,6 +138,7 @@ export function createFigures({motion, grow, capacity=320, scene=null, layer=0, 
   let fallCount=0;
   const fallSample=motion.newPose(),fitted={q:[],pelvis:[0,0,0]},world=[];
   const group = new THREE.Group(), types = new Map(), props = carriedItems(capacity);
+  group.matrixAutoUpdate=false;
   group.name='People'; group.add(props.group); props.group.traverse(part=>layers.forEach(l=>part.layers.enable(l))); scene?.add(group);
   const queue = new Map();
   let loading=0, disposed=false;
@@ -293,11 +296,9 @@ export function createFigures({motion, grow, capacity=320, scene=null, layer=0, 
       return true;
     },
     end(){
-      if(fallCount){
-        falls.clearUpdateRanges();
-        for(let row=0;row<fallCount;row++)falls.addUpdateRange(row*stride,stride);
-        falls.needsUpdate=true;
-      }
+      // Sent whole: three's way of sending rows first asks the card for three of its settings, and each answer waits
+      // for the card to finish everything it has been handed.
+      if(fallCount)falls.needsUpdate=true;
       // A mesh nobody is drawn from this frame is not handed to the renderer at all: there are three for each of a
       // hundred kinds of people, and each would be set up for every pass only to draw nothing.
       // With dozens of outfits to each of a hundred people, figures are kept only while they are being seen: past KEPT of
@@ -314,7 +315,10 @@ export function createFigures({motion, grow, capacity=320, scene=null, layer=0, 
       }
       for(const entry of types.values()) if(entry?.near) for(const to of levels(entry)) {
         to.mesh.visible=to.mesh.count>0;
-        if(to.mesh.count) for(const attr of [to.anim,to.top,to.bottom,to.mesh.instanceMatrix])attr.needsUpdate=true;
+        // Only the people drawn are sent: a batch has room for hundreds and usually holds a handful.
+        if(to.mesh.count) for(const attr of [to.anim,to.top,to.bottom,to.mesh.instanceMatrix]){
+          attr.clearUpdateRanges();attr.addUpdateRange(0,to.mesh.count*attr.itemSize);attr.needsUpdate=true;
+        }
       }},
     dispose(){
       disposed=true;falls.dispose();queue.clear();props.dispose();

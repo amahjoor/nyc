@@ -383,7 +383,10 @@ test('street LODs share the textured cast, colours, fitted pose frames and the g
     const shader={uniforms:{},vertexShader:'',fragmentShader:''};
     type.material.onBeforeCompile(shader);
     const palette=shader.uniforms.uNycFalls.value, rowSize=palette.image.width*4;
-    assert.deepEqual(palette.updateRanges,[{start:0,count:rowSize},{start:rowSize,count:rowSize}]);
+    assert.deepEqual(palette.updateRanges,[],'the fitted rows are sent whole: sending them row by row makes three ask the card for its settings and wait');
+    assert.ok(palette.version>0);
+    assert.deepEqual(type.near.anim.updateRanges,[{start:0,count:type.near.mesh.count*3}],'only the people drawn are sent, not the batch\'s whole capacity');
+    assert.deepEqual(type.near.mesh.instanceMatrix.updateRanges,[{start:0,count:type.near.mesh.count*16}]);
     assert.notDeepEqual(palette.image.data.subarray(0,rowSize),palette.image.data.subarray(rowSize,rowSize*2));
     assert.equal(type.far.anim.getX(0),-2);
     assert.equal(type.near.anim.getX(0),-1,'the falling citizen draws their own simulated joint matrices');

@@ -541,7 +541,7 @@ export function buildRoom(room, y = 0, { streetView = false } = {}) {
       if(uv){
         g.setAttribute('uv',new THREE.Float32BufferAttribute(uv,2));
         if(!foodMaterial){
-          foodMaterial=new THREE.MeshBasicMaterial({map:ingredientMap(),vertexColors:true,transparent:true,fog:false,side:THREE.DoubleSide});
+          foodMaterial=new THREE.MeshBasicMaterial({map:ingredientMap(),vertexColors:true,transparent:true,fog:false,side:THREE.DoubleSide,forceSinglePass:true});
           if(windowMask)foodMaterial.onBeforeCompile=windowMask;
           lightRoomSurface(foodMaterial,room,y,true);
         }

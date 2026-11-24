@@ -109,7 +109,7 @@ export const SETBACK = { basket: .6, shelter: 1.25 };
 export function createStreetProps({ scene = null, heightAt = () => 0, data = null, range = 170, capacity = 220, physics = null } = {}) {
   const group = new THREE.Group(); group.name = 'Litter baskets and bus shelters'; scene?.add(group);
   const paint = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: .6, metalness: .35, side: THREE.DoubleSide }); paint.name = 'Street furniture';
-  const glass = new THREE.MeshStandardMaterial({ color: 0xbfd3d8, roughness: .08, metalness: .1, transparent: true, opacity: .28, depthWrite: false, side: THREE.DoubleSide }); glass.name = 'Shelter glass';
+  const glass = new THREE.MeshStandardMaterial({ color: 0xbfd3d8, roughness: .08, metalness: .1, transparent: true, opacity: .28, depthWrite: false, side: THREE.DoubleSide, forceSinglePass: true }); glass.name = 'Shelter glass';
   // The advertising panel is lit from inside, day and night.
   const advert = new THREE.MeshBasicMaterial({ color: 0xffffff, toneMapped: false, side: THREE.DoubleSide }); advert.name = 'Shelter advertising panel';
   const make = (name, geometry, material, count) => { const mesh = new THREE.InstancedMesh(geometry, material, count); mesh.name = name; mesh.count = 0; mesh.frustumCulled = false; group.add(mesh); return mesh; };

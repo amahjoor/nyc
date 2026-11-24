@@ -40,7 +40,7 @@ export function fitAccessories(built,look,bones,inverses){
       const lens=new THREE.Shape(rim.map(v=>new THREE.Vector2(v.x-eye.x,v.y-eye.y)));
       const glass=new THREE.ShapeGeometry(lens);
       glass.rotateY(sign*.12); glass.translate(eye.x,eye.y,lensZ);
-      attach('Head','Glasses lens',glass,{color:dark?0x222835:0xb3d4ce,transparent:true,opacity:dark?.86:.13,depthWrite:false,side:THREE.DoubleSide,roughness:.2});
+      attach('Head','Glasses lens',glass,{color:dark?0x222835:0xb3d4ce,transparent:true,opacity:dark?.86:.13,depthWrite:false,side:THREE.DoubleSide,forceSinglePass:true,roughness:.2});
       attach('Head','Glasses temple',tube([point(sign*w,0,-w*.12),point(sign*gap*.62,.002,-gap*.40),
         point(sign*gap*.70,.003,-gap*1.4),point(sign*gap*.68,-gap*.13,-gap*1.65)],gap*.03),frame);
     }
