@@ -21,7 +21,7 @@ Repeat the smoke test with `CJ_STEAM_RUNTIME` set to the absolute path of the Va
 ```sh
 mkdir -p output/steam/handoff
 tar -czf output/steam/handoff/linux-x64.tar.gz -C output/steam/depots linux
-tar -czf output/steam/handoff/lobby-linux.tar.gz game/lobby/package.json game/lobby/package-lock.json game/lobby/server.mjs game/lobby/README.md game/lobby/concrete-jungle-lobby.service game/dist/lobby-protocol.js
+tar -czf output/steam/handoff/lobby-linux.tar.gz game/lobby/package.json game/lobby/package-lock.json game/lobby/server.mjs game/lobby/README.md game/lobby/concrete-jungle-lobby.service game/dist/lobby-protocol.js game/dist/shared-scene.js
 (cd output/steam/handoff && sha256sum linux-x64.tar.gz lobby-linux.tar.gz > SHA256SUMS && sha256sum -c SHA256SUMS)
 ```
 

@@ -8,7 +8,7 @@ The publisher can use the copy and media below to fill out the partner dashboard
 | --- | --- |
 | Product type and name | Game · Concrete Jungle (working title pending publisher clearance) |
 | Short description and About This Game | Paste the two paragraphs and short copy from the [store draft](README.md#store-page-draft). |
-| Features and language | Single-player, online multiplayer, English interface. The lobby shares player presence, signals and a three-checkpoint race. Each player has local inventory and city simulation. |
+| Features and language | Single-player, online multiplayer, English interface. Nearby players share character appearance, traffic, pedestrians and police. The lobby also offers signals and a three-checkpoint race. Inventory and mission progress stay with each player. |
 | Candidate tags | Open World, Exploration, Sandbox, Driving. Confirm their ordering in the tag wizard. |
 | Store capsules | [Header](artwork/header.png), [small](artwork/small.png), [main](artwork/main.png), [vertical](artwork/vertical.png) |
 | Library art | [Capsule](artwork/library-capsule.png), [hero](artwork/library-hero.png), [logo](artwork/library-logo.png), [header](artwork/header.png). Preview logo placement at desktop and handheld widths. |
@@ -57,7 +57,7 @@ Use after checking these steps on the actual submitted BuildID and production lo
 
 > Launch from your Steam library and select Explore New York. Search for SoHo, choose the destination and spawn. Walk with WASD. Open the map with M, change the zoom and return to the street. An Internet connection supplies detailed city geometry and aerial imagery.
 >
-> For multiplayer, select Play with friends at the title screen. You will spawn at Broadway & Spring and join the prefilled lobby. From an existing session, use Pause → Map → Online lobby. A second player can join on another supported desktop platform. Use Meet at Broadway & Spring, send a signal, then start the Broadway sprint to see the first checkpoint on the map. Characters, inventories and civilian traffic are local to each player.
+> For multiplayer, select Play with friends at the title screen. You will spawn at Broadway & Spring and join the prefilled lobby. From an existing session, use Pause → Map → Online lobby. A second player can join on another supported desktop platform. Use Meet at Broadway & Spring, send a signal, then start the Broadway sprint to see the first checkpoint on the map. Compare outfits, then watch the same patrol and civilian cars pass the intersection. Each player keeps their own inventory.
 >
 > Under Pause → Settings, change Interface sounds, choose Quit to desktop, then launch again to check the saved preference. No separate game account is required.
 

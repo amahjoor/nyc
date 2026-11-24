@@ -2,7 +2,7 @@
 
 The pilot uses one DigitalOcean Basic Droplet in NYC1, Ubuntu 24.04 x64, a single Node process and Caddy for HTTPS and WebSockets. The selected $6/month plan includes one shared vCPU, 1 GiB RAM, 25 GiB SSD and 1,000 GiB outbound transfer. Additional transfer is currently $0.01/GiB. Start with 16 players until tests on this host justify raising the limit. The Node process keeps the lobby in memory. A restart disconnects players and clears race records. [Droplet prices](https://www.digitalocean.com/pricing/droplets) · [Transfer billing](https://docs.digitalocean.com/products/droplets/details/pricing/)
 
-The friends playtest runs at [Concrete Jungle NYC](https://concrete-jungle.159-65-216-109.sslip.io/). Share that link and choose **Play with friends** to meet at Broadway & Spring. On November 24, 2026, two separate desktop browser profiles joined over the public TLS endpoint, saw a nearby peer and started a Broadway sprint. The host caps the playtest at 16 concurrent players.
+The friends playtest runs at [Concrete Jungle NYC](https://concrete-jungle.159-65-216-109.sslip.io/). Share that link and choose **Play with friends** to meet at Broadway & Spring. On November 24, 2026, two separate desktop browser profiles joined over the public TLS endpoint, saw a nearby peer and started a Broadway sprint. On the shared-world build, two public browser sessions rendered different customized characters and compared a snapshot with 137 cars, including three patrol cars, and 130 street figures. The host caps the playtest at 16 concurrent players.
 
 ## Create and deploy
 
@@ -24,7 +24,7 @@ The friends playtest runs at [Concrete Jungle NYC](https://concrete-jungle.159-6
    remote="root@$CJ_IP"
    python3 game/steam/build.py --platform linux --lobby-url "wss://$CJ_HOST/lobby"
    mkdir -p output/steam/handoff
-   tar -czf output/steam/handoff/lobby-linux.tar.gz game/lobby/package.json game/lobby/package-lock.json game/lobby/server.mjs game/lobby/README.md game/lobby/concrete-jungle-lobby.service game/dist/lobby-protocol.js
+   tar -czf output/steam/handoff/lobby-linux.tar.gz game/lobby/package.json game/lobby/package-lock.json game/lobby/server.mjs game/lobby/README.md game/lobby/concrete-jungle-lobby.service game/dist/lobby-protocol.js game/dist/shared-scene.js
    tar -czf output/steam/handoff/web.tar.gz -C output/steam web
    digest=$(sha256sum output/steam/handoff/lobby-linux.tar.gz | cut -d' ' -f1)
    web_digest=$(sha256sum output/steam/handoff/web.tar.gz | cut -d' ' -f1)
@@ -51,6 +51,12 @@ The friends playtest runs at [Concrete Jungle NYC](https://concrete-jungle.159-6
    ```
 
 4. Visit the HTTPS root in a WebGL2 browser, select **Play with friends** and wait for the street to appear. Open **Pause → Map → Online lobby** for the player list and sprint. Have a second person join from another network, meet at Broadway & Spring and exchange a signal. A successful WebSocket probe verifies the route and protocol. Record the two-player experience separately.
+
+## Two-player street check
+
+Choose different outfits and hairstyles before joining. Meet at Broadway & Spring and confirm each player sees the other's choices while walking and turning. Pick one moving car and follow its color, direction and position at the next intersection. During a pursuit, compare the patrol vehicles and helicopter on both screens. Have the first player leave, watch traffic continue, then have them rejoin and describe the same block.
+
+A loopback test of the NYC pilot configuration connected 16 simulated clients. With 137 cars and 160 street figures in a recorded neighborhood, each of the 15 observers received all 16 published frames. This checks relay delivery. GPU frame rate and Internet performance depend on the playing devices and their networks.
 
 ## Operate and scale
 
