@@ -1,13 +1,14 @@
+import { messageWindow } from './phone-relationships.js';
 import { CALL_OUT, DELIVERY } from './garage.js';
 import { formatMoney } from './money.js';
 
 const oldScriptedReply = row => row.who==='them' && (row.source==='scripted' || row.source!=='model' &&
   /^(wait, what do you mean\?|i think i missed something\. what are you talking about\?|where for what\?)$/i.test(row.text));
 
-export async function requestMayaReply(rows,context,signal) {
-  const response = await fetch('./api/phone/maya',{
+export async function requestContactReply(rows,context,signal) {
+  const response = await fetch(context.contact ? './api/phone/contact' : './api/phone/maya',{
     method:'POST',headers:{'Content-Type':'application/json'},signal,
-    body:JSON.stringify({rows:rows.slice(-14).filter(row=>!oldScriptedReply(row)).map(({who,text})=>({who,text})),context}),
+    body:JSON.stringify({rows:rows.slice(-messageWindow).filter(row=>!oldScriptedReply(row)).map(({who,text})=>({who,text})),context}),
   });
   if(!response.ok)return '';
   return await response.json();

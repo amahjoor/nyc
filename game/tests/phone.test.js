@@ -6,7 +6,8 @@ import { Readable } from 'node:stream';
 import { EventEmitter } from 'node:events';
 import { KIND } from '../dist/places.js';
 import { createPhone, listPlaces, describePlace, formatDistance, CATEGORIES, ROWS } from '../dist/phone.js';
-import { handleMayaChat } from '../scripts/phone-chat.mjs';
+import { advanceRelationship, readRelationship, relationshipContext } from '../dist/phone-relationships.js';
+import { handlePhoneChat } from '../scripts/phone-chat.mjs';
 
 const html = readFileSync(new URL('../dist/index.html', import.meta.url), 'utf8');
 const place = (name, kind, x, z, extra = {}) => ({ id: name, kind, group: KIND[kind].group, name, x, z, bin: 0, area: 0, grade: '', ...extra });
@@ -31,6 +32,14 @@ function page() {
       elements.set(id, { id, hidden: false, disabled: false, textContent: '', value: '0', attributes, setAttribute: (name, value) => { attributes[name] = value; }, getAttribute: name => attributes[name],
         addEventListener: (name, listener) => { (listeners[name] ||= []).push(listener); }, fire: name => (listeners[name] || []).forEach(listener => listener({})) });
       const element=elements.get(id);
+      if(id==='phone-map-pins' || id==='phone-met-contacts'){
+        element.children=[];
+        element.append=node=>{node.parent=element;element.children.push(node);};
+        element.ownerDocument={createTextNode:text=>({textContent:text}),createElement:()=>{
+          const button=Object.assign(messageNode(),{style:{},addEventListener(type,fn){this[type]=fn;}});
+          return button;
+        }};
+      }
       if(id==='phone-thread-log')Object.defineProperties(element,Object.getOwnPropertyDescriptors(messageNode()));
       if(id==='phone-thread-log')element.ownerDocument={createElement:messageNode};
       if(id==='phone-thread-scroll'){
@@ -80,7 +89,7 @@ test('every part of the phone the game fills in is on the page', () => {
   for (const id of ids) assert.equal(html.split(`id="${id}"`).length, 2, `${id} appears once`);
   for (const category of CATEGORIES) assert.match(html, new RegExp(`id="phone-chip-${category.id}">${category.label}<`));
   assert.match(html, /<section id="phone" class="phone" hidden/);
-  assert.match(html, /Open phone<\/span><kbd>↑ \/ MIDDLE CLICK<\/kbd>/);
+  assert.match(html, /Open phone<\/span><kbd>↑ \/ MIDDLE CLICK OUTSIDE WEAPON AIM<\/kbd>/);
 });
 
 test('the phone opens on its home screen, lists what is nearby, and sends the player to a place', () => {
@@ -643,27 +652,32 @@ test('the phone tries its own Maya endpoint on non-localhost game URLs',async t=
   assert.equal($('phone-thread-log').children.at(-1).title,'Local model · local-test');
 });
 
+async function postPhone(input) {
+  const req=Readable.from([Buffer.from(JSON.stringify(input))]);
+  Object.assign(req,{method:'POST',headers:{'content-type':'application/json'}});
+  const res=new EventEmitter();
+  res.writeHead=status=>{res.status=status;};
+  res.end=body=>{res.body=JSON.parse(body);};
+  await handlePhoneChat(req,res);
+  return res;
+}
+
 test('Maya sends texts as distinct conversation turns and reports the model that replied',async t=>{
   const rows = [
     {who:'me',text:'wanna hang'},
     {who:'them',text:'maybe later. what part of town are you in?'},
     {who:'me',text:'mulberry st'},
   ];
-  let payload, response;
+  let payload;
   t.mock.method(globalThis,'fetch',async (_url,options)=>{
     payload=JSON.parse(options.body);
-    return {ok:true,json:async()=>({model:'local-test',message:{content:'oh nice, you gonna be there long?'}})};
+    return {ok:true,json:async()=>({model:'local-test',message:{content:JSON.stringify({text:'oh nice, you gonna be there long?',event:'ordinary',remember:0,memoryKey:''})}})};
   });
-  const req = Readable.from([Buffer.from(JSON.stringify({rows,context:{street:'Mulberry St'}}))]);
-  Object.assign(req,{method:'POST',headers:{'content-type':'application/json'}});
-  const res = new EventEmitter();
-  res.writeHead = status => {res.statusCode=status;};
-  res.end = body => {response=JSON.parse(body);};
-  await handleMayaChat(req,res);
-  assert.equal(res.statusCode,200);
+  const {status,body}=await postPhone({rows,context:{street:'Mulberry St'}});
+  assert.equal(status,200);
   assert.match(payload.messages[0].content,/Mulberry St/);
   assert.deepEqual(payload.messages.slice(1),rows.map(row=>({role:row.who==='me'?'user':'assistant',content:row.text})));
-  assert.deepEqual(response,{text:'oh nice, you gonna be there long?',model:'local-test'});
+  assert.deepEqual(body,{text:'oh nice, you gonna be there long?',model:'local-test',event:'ordinary'});
 });
 
 test('the camera stores a street photo and a selfie, and deleting one leaves the other',async()=>{
@@ -733,6 +747,32 @@ test('third-person phone controls act immediately without reaching for the scree
   assert.equal(actions,1);assert.equal(touch.phase,'idle');
 });
 
+test('phone map pins survive walking past other businesses and wide zoom groups keep their members',()=>{
+  const ui=page(),shops=Array.from({length:25},(_,i)=>place('Cafe '+i,'coffee',(i%5-2)*63,(Math.floor(i/5)-2)*60));
+  let x=0;
+  const phone=createPhone({$:ui.$,places:()=>shops,state:()=>({x,z:0,hours:12})});
+  const layer=ui.$('phone-map-pins'),find=name=>layer.children.find(b=>b.attributes['aria-label']===name);
+  phone.setOpen(true);ui.click('phone-app-map');
+  assert.equal(layer.children.length,25);
+  const cafe=find('Cafe 12'),left=cafe.style.left;
+  x=28;phone.update(3);
+  assert.equal(layer.children.length,25);
+  assert.equal(find('Cafe 12'),cafe);
+  assert.notEqual(cafe.style.left,left);
+  ui.click('map-zoom-out');ui.click('map-zoom-out');
+  const group=layer.children.find(button=>button.className==='map-pin-group');
+  assert.ok(group);
+  const count=group.textContent;
+  x=36;phone.update(6);
+  assert.ok(layer.children.includes(group));
+  assert.equal(group.textContent,count);
+  group.click({});
+  assert.ok(find('Cafe 12'));
+  assert.ok(!layer.children.includes(group));
+  find('Cafe 12').click({});
+  assert.equal(ui.$('phone-place-name').textContent,'Cafe 12');
+});
+
 test('Maps pins open their branch, with stable visitor reviews and branch-specific contact details',async()=>{
   const {matchBranch,mapsURL,contactLinks}=await import('../dist/place-guide.js');
   const {placeReviews}=await import('../dist/place-reviews.js');
@@ -753,7 +793,7 @@ test('Maps pins open their branch, with stable visitor reviews and branch-specif
   assert.equal(new Set(reviews.notes.map(n=>n.author)).size,3);
   assert.ok(menu.includes(reviews.featured));
   const ui=page(),phone=createPhone({$:ui.$,places:()=>[katz,other],state:()=>({x:1195,z:112,hours:12})});
-  phone.toggle();ui.click('phone-app-map');ui.click('map-pin-0');
+  phone.toggle();ui.click('phone-app-map');ui.$('phone-map-pins').children[0].click({});
   assert.equal(ui.$('phone-place-name').textContent,katz.name);
   ui.click('phone-back');assert.equal(phone.screen,'maps');
 });
@@ -817,4 +857,105 @@ test('death and arrest take carried cash and a capped, cent-rounded checking fee
       assert.deepEqual(restored.entries.filter(e=>e.account==='Checking').map(e=>e.amount),fee?[-fee]:[]);
     }
   }
+});
+
+test('mutual interest, conflict, repair and breakups carry between exchanges',()=>{
+  let state=readRelationship(null);
+  function send(event,text){
+    state=advanceRelationship(state,{event,text:'reply'},[{who:'me',text}]);
+    return relationshipContext(state);
+  }
+  assert.equal(send('start_dating','be my girlfriend?').bond,'Friends');
+  send('connection','you really came through for me');
+  send('mutual_flirt','still thinking about your smile');
+  assert.equal(send('mutual_flirt','you looked cute too').openToDating,true);
+  assert.equal(send('start_dating','want to make this official?').bond,'Dating');
+  send('hurt','I lied to you.');
+  assert.equal(send('ordinary','hey').unresolvedConflict,'I lied to you.');
+  assert.equal(send('repair','sorry I lied').mood,'Cooling off');
+  assert.equal(send('repair','sorry I lied').mood,'Cooling off');
+  assert.equal(send('repair','you deserved the truth').unresolvedConflict,'');
+  assert.notEqual(send('break_up','I want to break up').bond,'Dating');
+  assert.equal(relationshipContext(state).mutualInterest,false);
+});
+
+test('a new street contact keeps their own meeting and corrected memories through a reload and thread rollover',async()=>{
+  const storage=memory(), ui=page(), requests=[];
+  const options={storage,generateContact:async(rows,context)=>{
+    requests.push(context);
+    const latest=rows.at(-1).text;
+    return {model:'local-test',text:'heard you '+latest,event:'ordinary',memory:latest.includes('sister')?{key:'sister',quote:latest,who:'me'}:null};
+  }};
+  const phone=createPhone({$:ui.$,...options});
+  const npc={key:'resident/71',name:'Jules',story:['I sketch buildings.','Especially fire escapes.']};
+  const entry={rows:[{who:'them',text:'I drew that fire escape.'}]};
+  phone.exchangeNumbers(npc,entry,'Mulberry St');
+  phone.exchangeNumbers(npc,entry,'Mulberry St');
+  assert.equal(ui.$('phone-met-contacts').children.length,1);
+  phone.setOpen(true);ui.click('phone-app-contacts');
+  ui.$('phone-met-contacts').children[0].click({});
+  assert.equal(ui.$('phone-contact-role').textContent,'Acquaintances');
+  ui.click('phone-contact-message');
+  let time=0;
+  async function send(text){
+    ui.$('phone-thread-draft').value=text;ui.click('phone-thread-send');phone.update(time+=4);
+    await new Promise(resolve=>setImmediate(resolve));
+  }
+  await send('my sister is Lea');
+  await send('my sister spells it Lia');
+  assert.equal(requests[1].contact.name,'Jules');
+  assert.deepEqual(requests[1].contact.meeting,entry.rows);
+  for(let i=0;i<22;i++)await send('conversation '+i);
+  const restoredUI=page(),restored=createPhone({$:restoredUI.$,...options});
+  const history=restored.contactHistory(npc.key);
+  assert.deepEqual(history.memories,[{key:'sister',who:'me',quote:'my sister spells it Lia'}]);
+  assert.deepEqual(restored.contactHistory('maya').memories,[]);
+  const saved=JSON.parse(storage.getItem('nyc-phone-messages'));
+  assert.equal(saved[npc.key].rows.length,40);
+  assert.ok(saved[npc.key].rows.every(row=>!row.text.includes('sister')));
+  restored.setOpen(true);restoredUI.click('phone-app-messages');restoredUI.click('phone-inbox-0');
+  assert.equal(restoredUI.$('phone-title').textContent,'Jules');
+});
+
+test('a repeated model reply gets one rewrite and memory is taken from the actual text',async t=>{
+  const rows=[{who:'them',text:'Where did you end up?'},{who:'me',text:'at my sister’s diner'}];
+  const outputs=[
+    {text:'where did you end up!',remember:0,event:'ordinary',memoryKey:''},
+    {text:'wait, your sister owns a diner?',remember:1,event:'ordinary',memoryKey:'sister'},
+  ];
+  const calls=[];
+  t.mock.method(globalThis,'fetch',async (_url,init)=>{
+    const payload=JSON.parse(init.body);calls.push(payload);
+    return Response.json({model:payload.model,message:{content:JSON.stringify(outputs.shift())}});
+  });
+  const res=await postPhone({rows,context:{contact:{name:'Jules',background:'I like drawing.'}}});
+  assert.equal(calls.length,2);assert.equal(res.status,200);
+  assert.match(calls[0].messages[0].content,/You are Jules/);
+  assert.doesNotMatch(calls[0].messages[0].content,/You are Maya/);
+  assert.match(calls[1].messages[0].content,/fresh reply/);
+  assert.deepEqual(res.body.memory,{key:'sister',who:'me',quote:'at my sister’s diner'});
+});
+
+
+test('brief answers to a location question leave the bond alone',()=>{
+  const old=readRelationship(null);
+  const rows=[{who:'them',text:'what part of town are you in?'},{who:'me',text:'mulberry st'},{who:'me',text:'chinatown'}];
+  const next=advanceRelationship(old,{event:'connection'},rows);
+  assert.equal(next.closeness,old.closeness);
+  assert.equal(relationshipContext(next,next.lastExchangeAt+7*86400000).lastTexted,'7 days ago');
+});
+
+test('the default can use the installed smaller model when 4B is absent', {
+  skip:Boolean(process.env.NYC_PHONE_MODEL || process.env.NYC_MAYA_MODEL),
+},async t=>{
+  const models=[];
+  t.mock.method(globalThis,'fetch',async (_url,init)=>{
+    const payload=JSON.parse(init.body);models.push(payload.model);
+    if(models.length===1)return new Response('model not found',{status:404});
+    return Response.json({model:payload.model,message:{content:JSON.stringify({text:'hey, how’s work?',event:'ordinary',remember:0,memoryKey:''})}});
+  });
+  const res=await postPhone({rows:[{who:'me',text:'hey'}]});
+  assert.equal(res.status,200);
+  assert.deepEqual(models,['qwen3.5:4b-q4_K_M','qwen3.5:2b-q4_K_M']);
+  assert.equal(res.body.model,models[1]);
 });

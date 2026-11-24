@@ -4097,7 +4097,7 @@ async function boot() {
       else canvas.focus();
     },
   });
-  phone=createPhone({$,canUse:()=>!atmTerminal.active && !sim.ending && !traveling,rides:cityRides,showTap:firstPersonActive,onTap:(x,y,instant)=>phoneHand.tap(x,y,instant),onSound:cue=>audio.interfaceCue(cue),roads:()=>sim.city.roads,destinations:()=>roadIndex.places.filter(place=>Math.hypot(place.x-sim.player.x,place.z-sim.player.z)>50),searchCity:findLocally,
+  phone=createPhone({$,streetMemory:key=>work.record.conversations.find(entry=>entry.key===key),canUse:()=>!atmTerminal.active && !sim.ending && !traveling,rides:cityRides,showTap:firstPersonActive,onTap:(x,y,instant)=>phoneHand.tap(x,y,instant),onSound:cue=>audio.interfaceCue(cue),roads:()=>sim.city.roads,destinations:()=>roadIndex.places.filter(place=>Math.hypot(place.x-sim.player.x,place.z-sim.player.z)>50),searchCity:findLocally,
     worldMap:()=>gameMap,loadMapPlaces:loadPlaceNames,
     searchMapPlaces:async query=>{
       await loadPlaceNames();

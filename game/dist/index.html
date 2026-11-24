@@ -251,6 +251,8 @@
         <small class="section-letter" id="phone-letter-M">M</small>
         <button class="contact-row" id="phone-contact-maya"><i class="monogram maya">M</i>Maya<span aria-hidden="true">›</span></button>
         <button class="contact-row" id="phone-contact-mechanic"><i class="monogram mechanic">M</i>Mechanic<span aria-hidden="true">›</span></button>
+        <small class="section-letter" id="phone-met-label" hidden>Met in the city</small>
+        <div id="phone-met-contacts"></div>
         <p id="phone-contact-empty" class="phone-empty" hidden>No matching contacts.</p>
       </div>
       <div id="phone-contact" class="phone-screen" hidden>
@@ -489,15 +491,19 @@
           <button id="phone-inbox-4" class="phone-row" hidden><b id="phone-inbox-4-name"></b><span id="phone-inbox-4-note"></span></button>
           <button id="phone-inbox-5" class="phone-row" hidden><b id="phone-inbox-5-name"></b><span id="phone-inbox-5-note"></span></button>
         </div>
+        <div id="phone-inbox-pages" hidden><button class="phone-action" id="phone-inbox-newer">Newer conversations</button><button class="phone-action" id="phone-inbox-older">Older conversations</button></div>
         <p id="phone-messages-empty" class="phone-empty" hidden>No messages.</p>
       </div>
       <div id="phone-thread" class="phone-screen" hidden>
         <button id="phone-thread-call" class="phone-action">Call</button>
         <div id="phone-thread-scroll" class="thread-scroll" tabindex="0" aria-label="Message history">
           <div id="phone-thread-log" class="thread-log" role="log" aria-label="Messages"></div>
-          <p id="phone-thread-typing" role="status" hidden>Typing…</p>
+          <div id="phone-thread-typing" role="status" hidden>
+            <span class="typing-label">Typing…</span>
+            <span class="typing-dots" aria-hidden="true"><i></i><i></i><i></i></span>
+          </div>
           <div id="phone-thread-reply-error" hidden>
-            <span role="status">Maya’s local model couldn’t reply.</span>
+            <span role="status">The local text model couldn’t reply.</span>
             <button id="phone-thread-retry" class="phone-action">Retry</button>
           </div>
         </div>

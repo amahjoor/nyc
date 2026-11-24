@@ -8,7 +8,8 @@ import { createPlaceSheet } from './phone-place.js';
 import { drawPhoneMap } from './phone-map.js';
 import { searchDestinations } from './geocoder.js';
 import { formatMoney } from './money.js';
-import { mechanicReply, requestMayaReply } from './phone-messages.js';
+import { advanceRelationship, messageWindow, readRelationship, relationshipContext } from './phone-relationships.js';
+import { mechanicReply, requestContactReply } from './phone-messages.js';
 // The in-game handset shares places, jobs, transport and balances with the world.
 //
 // It is a panel of the page, built in index.html; this module fills it in and
@@ -58,7 +59,7 @@ export function listPlaces(places, { category = 'all', query = '', x = 0, z = 0,
  * the places within reach. The live state supplies the clock, location and
  * wallet and checking balances. App actions go back to the game.
  */
-export function createPhone({ $, canUse = () => true, isClosed, places = () => [], state = () => ({}), onDirections = () => {}, onTransport = () => {}, onWork = () => {}, onDrive = () => {}, onMap = () => {}, onOpenChange = () => {}, onTap = () => {}, onSound = () => {}, showTap = () => true, onMechanic = () => {}, mechanicQuote = () => null, onCab = () => {}, searchMapPlaces, worldMap, loadMapPlaces, previewScene, onCapture = () => '', onTrade = () => '', onPaymentPreference = () => {}, generateMaya, rides, roads = () => [], storage, destinations = () => [], searchCity = async () => [] } = {}) {
+export function createPhone({ $, canUse = () => true, isClosed, places = () => [], state = () => ({}), onDirections = () => {}, onTransport = () => {}, onWork = () => {}, onDrive = () => {}, onMap = () => {}, onOpenChange = () => {}, onTap = () => {}, onSound = () => {}, showTap = () => true, onMechanic = () => {}, mechanicQuote = () => null, onCab = () => {}, searchMapPlaces, worldMap, loadMapPlaces, previewScene, onCapture = () => '', onTrade = () => '', onPaymentPreference = () => {}, generateMaya, generateContact, streetMemory = () => null, rides, roads = () => [], storage, destinations = () => [], searchCity = async () => [] } = {}) {
   const titles = {home:'Home', nearby:'Nearby', place:'Place', contacts:'Contacts', contact:'Contact', messages:'Messages', thread:'Message', call:'Call', camera:'Camera', gallery:'Gallery', photo:'Photo', bank:'Bank', market:'Stocks', order:'Stock detail', list:'Work', maps:'Maps', rides:'D Ride', settings:'Settings', wallpaper:'Wallpaper'};
   // Contacts is the address book. Calls start from a person, or from their
   // texts. Messages is the inbox. There is no keypad: these are the only numbers.
@@ -66,11 +67,11 @@ export function createPhone({ $, canUse = () => true, isClosed, places = () => [
     {id:'mechanic',name:'Mechanic',initials:'M',role:'Roadside assistance',note:'Repair your current car or a nearby burned-out cab. $'+CALL_OUT+' call-out plus repairs.',call:onMechanic,
       seed:[`Hey, got your number. Call-out is ${formatMoney(CALL_OUT)} if you ever get stuck. Text me what's wrong first.`],
       reply:rows=>mechanicReply(rows,mechanicQuote())},
-    {id:'maya',name:'Maya',initials:'M',role:'Friend',note:'Friend from the city',seed:['hey you still in the city?'],seedRead:true},
+    {id:'maya',name:'Maya',initials:'M',role:'Friend',note:'Friend from the city',social:true,seed:['hey you still in the city?'],seedRead:true},
   ];
   let listing=null, listPage=0, visibleJobs=[], mine=false, contact=null;
   const messagesKey='nyc-phone-messages', photosKey='nyc-phone-photos', SHOTS=8;
-  const threads=new Map(), seen=new Map(), replies=new Map(), activity=new Map(), inbox=[];
+  const relationships=new Map(), threads=new Map(), seen=new Map(), replies=new Map(), activity=new Map(), inbox=[];
   let messageClock=0, messageSerial=0;
   let call=null, facing='rear', photos=[], photoSerial=0, shot=null;
   let renderedThread=null, renderedMessage=null;
@@ -81,7 +82,8 @@ export function createPhone({ $, canUse = () => true, isClosed, places = () => [
   let destinationRows=[], quote=null, rideMessage='', searchRevision=0, quoteRevision=0, quoting=false;
   let open = false, screen = 'home', category = 'all', page = 0, rows = [], chosen = null, listed = -Infinity;
   const handset = $('phone');
-  const mayaModel = generateMaya ?? requestMayaReply;
+  const socialModel = generateContact ?? generateMaya ?? requestContactReply;
+  let inboxPage=0;
   const papers = ['earth', 'soho', 'tide', 'six-seven', 'charles'];
   const paperKey = 'nyc-phone-wallpaper', settingsKey = 'nyc-phone-preferences';
   const prefs = {dark:false, large:false, motion:false, clock:false};
@@ -103,18 +105,31 @@ export function createPhone({ $, canUse = () => true, isClosed, places = () => [
     for(const key of Object.keys(prefs))$('phone-pref-'+key).setAttribute('aria-checked',String(prefs[key]));
   }
   applyPreferences();
+  function streetContact(key,profile) {
+    if(!/^(resident|walker)\/.{1,100}$/.test(key) || typeof profile?.name!=='string' || !profile.name.trim())return null;
+    const name=profile.name.trim().slice(0,32);
+    const background=typeof profile.background==='string'?profile.background.slice(0,240):'';
+    const meeting=Array.isArray(profile.meeting)?profile.meeting.slice(-4).filter(row=>['me','them'].includes(row?.who) && typeof row.text==='string').map(({who,text})=>({who,text:text.slice(0,160)})):[];
+    const street=typeof profile.street==='string'?profile.street.slice(0,80):'';
+    return {id:key,name,initials:name[0],social:true,role:'Acquaintance',note:street?'Met on '+street:'Met in the city',profile:{name,background,meeting,street}};
+  }
   function loadPhoneMemory(){
     let saved=null, shots=null;
     try { saved=JSON.parse(storage?.getItem(messagesKey)||'null'); } catch {}
     try { shots=JSON.parse(storage?.getItem(photosKey)||'null'); } catch {}
+    for(const [key,record] of Object.entries(saved || {})){
+      const person=streetContact(key,record?.profile);
+      if(person)contacts.push(person);
+    }
     for(const person of contacts){
       const record=saved?.[person.id];
+      if(person.social)relationships.set(person.id,readRelationship(record?.relationship ?? (person.profile?{closeness:2}:null)));
       const rows=Array.isArray(record)?record:Array.isArray(record?.rows)?record.rows:[];
       const clean=rows.filter(row=>row&&(row.who==='me'||row.who==='them')&&typeof row.text==='string').slice(-40);
       threads.set(person.id, clean.length?clean:(person.seed||[]).map(text=>({who:'them',text,time:''})));
       seen.set(person.id, Number.isInteger(record?.seen)?record.seen:person.seedRead?threads.get(person.id).length:0);
       if(record?.pending===true && clean.at(-1)?.who==='me')
-        replies.set(person.id,{until:1.3,failed:person.id==='maya' && record.failed===true});
+        replies.set(person.id,{until:1.3,failed:person.social && record.failed===true});
       const order=Number.isSafeInteger(record?.activity)?record.activity:0;
       activity.set(person.id,order);
       messageSerial=Math.max(messageSerial,order);
@@ -126,8 +141,8 @@ export function createPhone({ $, canUse = () => true, isClosed, places = () => [
     const data={};
     for(const person of contacts){
       const pending=replies.get(person.id);
-      data[person.id]={seen:seen.get(person.id)||0,rows:threads.get(person.id)||[],pending:Boolean(pending),
-        failed:pending?.failed===true,activity:activity.get(person.id)};
+      data[person.id]={profile:person.profile,seen:seen.get(person.id)||0,rows:threads.get(person.id)||[],pending:Boolean(pending),
+        relationship:relationships.get(person.id),failed:pending?.failed===true,activity:activity.get(person.id)};
     }
     try{storage?.setItem(messagesKey,JSON.stringify(data));}catch{}
   }
@@ -212,8 +227,9 @@ export function createPhone({ $, canUse = () => true, isClosed, places = () => [
     }
     return rows;
   }
-  function deliverReply(person,pending,reply){
+  function deliverReply(person,pending,reply,interpretation){
     if(replies.get(person.id)!==pending)return;
+    if(person.social)relationships.set(person.id,advanceRelationship(relationships.get(person.id),interpretation,threads.get(person.id)));
     const reading=open && screen==='thread' && contact===person && atLatest();
     const message=typeof reply==='string'?{text:reply}:reply;
     const rows=appendMessage(person,{...message,who:'them',time:state().clock||''});
@@ -227,13 +243,14 @@ export function createPhone({ $, canUse = () => true, isClosed, places = () => [
     for(const [id,pending] of replies){
       if(time<pending.until || pending.controller || pending.failed)continue;
       const person=contacts.find(item=>item.id===id),rows=threads.get(id),now=state();
-      if(id==='maya')receiveMaya(person,pending,rows,now);
+      if(person.social)receiveSocialReply(person,pending,rows,now);
       else deliverReply(person,pending,person.reply(rows,now));
     }
   }
-  async function receiveMaya(person,pending,rows,now){
+  async function receiveSocialReply(person,pending,rows,now){
     pending.controller=new AbortController();
-    const transcript=rows.slice(-14);
+    const transcript=rows.slice(-messageWindow);
+    const relationship=relationshipContext(relationships.get(person.id));
     const previous=transcript.findLast(row=>row.who==='them' && row.placeId!=null);
     const nearby=[];
     const addSpot=(kind,id)=>{
@@ -243,7 +260,12 @@ export function createPhone({ $, canUse = () => true, isClosed, places = () => [
     if(previous && ['food','coffee','pizza'].includes(previous.topic))addSpot(previous.topic,previous.placeId);
     for(const kind of ['pizza','coffee','food'])addSpot(kind);
     try {
-      const answer=await mayaModel(transcript,{clock:now.clock,street:now.street,onShift:now.jobActive,nearby},pending.controller.signal);
+      const context={clock:now.clock,street:now.street,onShift:now.jobActive,nearby,relationship};
+      if(person.profile){
+        const encounter=streetMemory(person.id);
+        context.contact={...person.profile,meeting:encounter?.rows?.slice(-4) ?? person.profile.meeting,playerName:encounter?.playerName};
+      }
+      const answer=await socialModel(transcript,context,pending.controller.signal);
       const content=typeof answer==='string'?answer:answer?.text;
       const text=typeof content==='string'?content.trim():'';
       if(text && text.length<=240){
@@ -251,7 +273,7 @@ export function createPhone({ $, canUse = () => true, isClosed, places = () => [
         const model=typeof answer?.model==='string'?answer.model.slice(0,100):null;
         const reply={text,source:'model',model,topic:spot?.kind||'chat'};
         if(spot)reply.placeId=spot.id;
-        deliverReply(person,pending,reply);
+        deliverReply(person,pending,reply,answer);
         return;
       }
     } catch {}
@@ -260,13 +282,13 @@ export function createPhone({ $, canUse = () => true, isClosed, places = () => [
     saveThreads();
     if(open)render();
   }
-  function retryMaya(){
-    if(screen!=='thread' || contact?.id!=='maya' || !replies.get('maya')?.failed)return;
+  function retrySocialReply(){
+    if(screen!=='thread' || !contact?.social || !replies.get(contact.id)?.failed)return;
     const pending={until:messageClock};
-    replies.set('maya',pending);
+    replies.set(contact.id,pending);
     saveThreads();
     render();
-    receiveMaya(contact,pending,threads.get('maya'),state());
+    receiveSocialReply(contact,pending,threads.get(contact.id),state());
   }
   history.addEventListener('scroll',readVisibleThread);
   function nearbyFood(kind,now,id){
@@ -587,19 +609,21 @@ export function createPhone({ $, canUse = () => true, isClosed, places = () => [
     if (screen === 'contacts') {
       const term=$('phone-contact-search').value.trim().toLowerCase();
       const found=contacts.filter(c=>(c.name+' '+c.role).toLowerCase().includes(term));
-      for(const c of contacts)$('phone-contact-'+c.id).hidden=!found.includes(c);
-      for(const letter of ['M'])$('phone-letter-'+letter).hidden=!found.some(c=>c.name[0]===letter);
+      for(const c of contacts)(c.button ?? $('phone-contact-'+c.id)).hidden=!found.includes(c);
+      for(const letter of ['M'])$('phone-letter-'+letter).hidden=!found.some(c=>!c.profile && c.name[0]===letter);
+      $('phone-met-label').hidden=!found.some(c=>c.profile);
       $('phone-contact-empty').hidden=Boolean(found.length);
     }
     if(screen==='contact' && contact){
       $('phone-contact-avatar').textContent=contact.initials;
       $('phone-contact-avatar').setAttribute('class','monogram '+contact.id);
       $('phone-contact-name').textContent=contact.name;
-      $('phone-contact-role').textContent=contact.role;
-      $('phone-contact-note').textContent=contact.note;
+      const social=contact.social && relationshipContext(relationships.get(contact.id));
+      $('phone-contact-role').textContent=social ? social.bond : contact.role;
+      $('phone-contact-note').textContent=social && social.mood!=='At ease' ? contact.note+' · '+social.mood : contact.note;
       $('phone-contact-call').textContent='Call '+contact.name;
       $('phone-contact-call').hidden=!contact.call;
-      $('phone-contact-message').hidden=!contact.reply;
+      $('phone-contact-message').hidden=!(contact.social || contact.reply);
       $('phone-cab-delivery').hidden=contact.id!=='mechanic';
       $('phone-cab-delivery').textContent='Deliver my cab · '+formatMoney(DELIVERY);
     }
@@ -608,7 +632,7 @@ export function createPhone({ $, canUse = () => true, isClosed, places = () => [
       for(const person of contacts)if((threads.get(person.id)||[]).length)inbox.push(person);
       inbox.sort((a,b)=>activity.get(b.id)-activity.get(a.id));
       for(let i=0;i<ROWS;i++){
-        const person=inbox[i], id='phone-inbox-'+i;
+        const person=inbox[inboxPage*ROWS+i], id='phone-inbox-'+i;
         $(id).hidden=!person;
         if(!person)continue;
         const rows=threads.get(person.id), last=rows[rows.length-1];
@@ -617,6 +641,9 @@ export function createPhone({ $, canUse = () => true, isClosed, places = () => [
         $(id).setAttribute('data-unread',String(rows.length>(seen.get(person.id)||0)));
       }
       $('phone-messages-empty').hidden=inbox.length>0;
+      $('phone-inbox-pages').hidden=inbox.length<=ROWS;
+      $('phone-inbox-older').disabled=(inboxPage+1)*ROWS>=inbox.length;
+      $('phone-inbox-newer').disabled=inboxPage===0;
     }
     if(screen==='thread' && contact){
       renderThread();
@@ -723,8 +750,8 @@ export function createPhone({ $, canUse = () => true, isClosed, places = () => [
       action();
     });
   }
-  const click = (id, action) => {
-    const button=$(id);
+  const click = (control, action) => {
+    const button=typeof control==='string'?$(control):control;
     button.addEventListener('click',event=>activate(button,event,action));
   };
   const home=()=>screen==='home'?setOpen(false):show('home',true);
@@ -799,13 +826,40 @@ export function createPhone({ $, canUse = () => true, isClosed, places = () => [
   click('phone-directions', () => { if (chosen) { onDirections(chosen); setOpen(false); } });
   for (let i = 0; i < ROWS; i++) click(`phone-ride-${i}`, () => { const row = visibleJobs[listPage * ROWS + i]; if (open && screen === 'list' && row) { const pick = listing.onPick; if (!listing.keepOpen) setOpen(false); pick(row); } });
   click('phone-ride-prev', () => { listPage--; render(); }); click('phone-ride-next', () => { listPage++; render(); });
-  for(const c of contacts)click('phone-contact-'+c.id,()=>{contact=c;show('contact');});
+  function bindContact(c) {
+    if(c.profile) {
+      const list=$('phone-met-contacts'), doc=list.ownerDocument;
+      const button=doc.createElement('button'), icon=doc.createElement('i'), arrow=doc.createElement('span');
+      button.className='contact-row';icon.className='monogram';icon.textContent=c.initials;
+      arrow.setAttribute('aria-hidden','true');arrow.textContent='›';
+      const label=doc.createTextNode(c.name);
+      button.append(icon,label,arrow);list.append(button);c.button=button;
+    }
+    click(c.button ?? 'phone-contact-'+c.id,()=>{contact=c;show('contact');});
+  }
+  for(const c of contacts)bindContact(c);
+  function exchangeNumbers(identity,entry,street) {
+    if(threads.has(identity.key))return;
+    const person=streetContact(identity.key,{name:identity.name,background:identity.story.slice(0,2).join(' '),meeting:entry.rows,street});
+    if(!person)return;
+    contacts.push(person);threads.set(person.id,[]);seen.set(person.id,0);
+    relationships.set(person.id,readRelationship({closeness:2}));
+    bindContact(person);saveThreads();
+    if(open)render();
+  }
+  function contactHistory(key){
+    if(!relationships.has(key))return null;
+    const {bond,mood,unresolvedConflict,memories}=relationshipContext(relationships.get(key));
+    return {bond,mood,unresolvedConflict,memories,recentTexts:threads.get(key).slice(-4).map(({who,text})=>({who,text}))};
+  }
   click('phone-contact-call',beginCall);
   click('phone-contact-message',()=>openThread());
-  click('phone-app-messages',()=>show('messages'));
-  for(let i=0;i<ROWS;i++)click('phone-inbox-'+i,()=>{const person=inbox[i];if(person)openThread(person);});
+  click('phone-app-messages',()=>{inboxPage=0;show('messages');});
+  click('phone-inbox-older',()=>{inboxPage++;render();});
+  click('phone-inbox-newer',()=>{inboxPage--;render();});
+  for(let i=0;i<ROWS;i++)click('phone-inbox-'+i,()=>{const person=inbox[inboxPage*ROWS+i];if(person)openThread(person);});
   click('phone-thread-send',sendThread);
-  click('phone-thread-retry',retryMaya);
+  click('phone-thread-retry',retrySocialReply);
   $('phone-thread-draft').addEventListener('keydown',event=>{
     if(event.key==='Enter' && !event.isComposing){event.preventDefault();activate($('phone-thread-send'),event,sendThread);}
   });
@@ -843,7 +897,7 @@ export function createPhone({ $, canUse = () => true, isClosed, places = () => [
     get pressPhase() { return touch.phase; },
     get screen() { return screen; },
     get facing() { return facing; },
-    setOpen, openRidePicker, handleKey, handlePad, focus:()=>focusScreen(true), toggle: navigation => setOpen(!open,navigation),
+    exchangeNumbers, contactHistory, setOpen, openRidePicker, handleKey, handlePad, focus:()=>focusScreen(true), toggle: navigation => setOpen(!open,navigation),
     /** Show a list to choose from: `rows` of { name, note }; `onPick(row)` is told which. */
     openList(title, rows, onPick, { message = '', keepOpen = false, app = 'work', board = false, refresh = null, onBack = null } = {}) {
       if(!setOpen(true))return;
