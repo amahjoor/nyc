@@ -2594,6 +2594,33 @@ test('inventory shows icons for saved groceries, meals, legacy drinks and leftov
   }finally{app.close();}
 });
 
+test('tap U takes a sip and holding the touch action finishes only the held serving',async()=>{
+  const app=await bootHarness({coarsePointer:true});
+  try{
+    app.click('start-button');app.click('view-button');app.frames();
+    const bag=app.simulation().shopping;
+    bag.receive('meal-coffee-coffee');bag.receive('meal-coffee-coffee');
+    app.key('KeyU');app.key('KeyU',false);
+    app.frames(25,60);
+    assert.equal(bag.held,'partial-3-meal-coffee-coffee');
+    const use=app.elements.get('touch-use');
+    assert.equal(use.hidden,false);
+    use.dispatch('pointerdown',{pointerId:1});
+    app.frames(14,50);
+    assert.equal(bag.eating.finish,true);
+    use.dispatch('pointerup',{pointerId:1});app.frames(65,60);
+    assert.equal(bag.held,'empty-meal-coffee-coffee');
+    assert.equal(bag.inventory['meal-coffee-coffee'],1);
+    app.key('KeyU');app.frames(12,50);app.key('KeyU',false);
+    assert.equal(bag.eating,null);
+    bag.receive('meal-donuts-glazed-doughnut');app.frames(4,60);
+    assert.match(app.elements.get('use-item-hint').textContent,/bite/);
+    app.key('KeyU');app.frames(85,60);app.key('KeyU',false);
+    assert.equal(bag.held,'empty-meal-donuts-glazed-doughnut');
+    assert.equal(bag.inventory['meal-coffee-coffee'],1);
+  }finally{app.close();}
+});
+
 test('the interaction menu opens the shop’s fitting catalog from the sales floor and Escape leaves the balance intact', async () => {
   const app=await bootHarness();
   try{

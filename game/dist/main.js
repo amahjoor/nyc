@@ -805,11 +805,36 @@ function enterSubwayOnFoot(controls){
   }
 }
 
+let usePress=null;
+function canUseServing(){
+  const p=sim?.player;
+  return streetControls() && p.mode==='walk' && !p.armed && !p.move && !p.reaction && !p.swing &&
+    !sim.seat?.leaving && !courierBag(sim.mission) && !document.hidden;
+}
+function updateUsePress(){
+  if(!usePress)return;
+  const {meal,touch}=usePress;
+  const held=touch?input.touch.has('useItem'):input.keys.has('KeyU');
+  if(!held || !canUseServing() || sim.shopping.eating!==meal){usePress=null;return;}
+  if(performance.now()-usePress.start>=400){
+    sim.shopping.finishServing(meal);usePress=null;saveProgress();
+  }
+}
+
 function action(name,event) {
   if(name==='hornRelease'){audio.releaseHorn();return;}
   if(!sim)return;
   if(atmTerminal?.active){
     if(name==='pause')atmTerminal.close();
+    return;
+  }
+  if(name==='useItem'){
+    usePress=null;
+    if(!canUseServing())return;
+    const serving=sim.shopping.usableServing((place,amount,tender)=>work.sale(place,amount,tender));
+    if(serving?.start()){
+      usePress={meal:sim.shopping.eating,touch:event?.pointerId!=null,start:performance.now()};saveProgress();
+    }
     return;
   }
   if(name==='weaponSlot'){
@@ -1419,6 +1444,8 @@ touchHorn.addEventListener('pointerdown',event=>{
 for(const type of ['pointerup','pointercancel','lostpointercapture'])
   touchHorn.addEventListener(type,event=>input.releaseHorn('pointer'+event.pointerId));
 touchHorn.addEventListener('click',event=>{if(!event.detail)action('horn');});
+$('touch-use').addEventListener('pointerdown',event=>{if(event.button===0)action('useItem',event);});
+$('touch-use').addEventListener('click',event=>{if(event.detail===0)action('useItem');});
 $('touch-equip').addEventListener('click',()=>action('draw'));
 $('touch-aim').addEventListener('click',()=>{
   if(!weaponControls())return;
@@ -3150,6 +3177,7 @@ function frame(now) {
   const frameSeconds=Math.min(.25,elapsedSeconds);
   const dt=frameSeconds*(sim?.ending ? .36 : 1);lastFrame=now;
   frameCalm.note(elapsedSeconds);
+  updateUsePress();
   if(openingVeiled)showOpening(now);
   if(sim)sim.paintedCrossings=streetscape?.paintedCrossings(sim.junctions);
   let controls={forward:0,turn:0,brake:false,run:false,moveX:0,moveZ:0};
@@ -3277,6 +3305,15 @@ function frame(now) {
   });
   hudTime+=dt;const updateHUD=hudTime>.075;
   if(updateHUD){
+    const canUse=canUseServing(), serving=canUse?sim.shopping.usableServing():null;
+    $('touch-use').hidden=!serving && !(canUse && sim.shopping.eating);
+    $('use-item-hint').hidden=!serving;
+    if(serving){
+      const verb=serving.drink?'Sip':'Bite';
+      hud.text('touch-use',verb.toUpperCase());
+      const key=matchMedia('(pointer:coarse)').matches?verb.toUpperCase():'U';
+      hud.text('use-item-hint',serving.name+' · Tap '+key+' to '+verb.toLowerCase()+' · Hold to finish');
+    }
     // Retain nearby streets if the optional citywide route download fails.
     if(!routePlanner&&gameMap.roads!==sim.city.roads)gameMap.setRoads(sim.city.roads);
     sim.threats=crowd?.threats||[];

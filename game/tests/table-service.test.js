@@ -164,6 +164,28 @@ test('a guest with no cash can order and leave an unfinished serving on the tabl
   }finally{view.group.userData.dispose();}
 });
 
+test('the use-item control takes a single table bite or finishes the same course, then offers the drink',()=>{
+  const {view,sim,bag,tick,sitAt,seats,ui,ctx}=store('italian');
+  try{
+    sitAt(seats()[0]);openTableService(ctx);const ticket=bag.order;
+    assert.equal(bag.usableServing(),null);
+    tick(90,()=>ui.open);ui.pick('I am ready');
+    const menu=tableMenu(view.plan.place),dish=menu.find(d=>!d.drink),drink=menu.find(d=>d.drink);
+    ui.pick(dish.item.name);ui.pick(drink.item.name);
+    assert.ok(tick(300,()=>ticket.stage==='dining'));
+    const due=ticket.due(),seat=sim.seat;
+    sim.seat=null;assert.equal(bag.usableServing(),null);sim.seat=seat;
+    assert.equal(bag.usableServing().name,dish.food.name);
+    assert.ok(bag.usableServing().start());tick(5,()=>!bag.eating);
+    const plate=ticket.items.find(d=>!d.drink);
+    assert.equal(plate.state,'table');assert.equal(plate.remaining,2);
+    assert.ok(bag.usableServing().start());
+    assert.ok(bag.finishServing(bag.eating));tick(5,()=>!bag.eating);
+    assert.equal(plate.state,'eaten');assert.equal(bag.usableServing().name,drink.food.name);
+    assert.equal(ticket.due(),due);
+  }finally{view.group.userData.dispose();}
+});
+
 test('walking out on a served meal is reported by staff who see it; standing up before anything arrives only cancels',()=>{
   const fled=store('american');
   try{

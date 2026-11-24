@@ -203,6 +203,27 @@ export class Shopping{
     const order=this.order;if(!order)return;
     this.order=null;order.release?.();this.revision++;
   }
+  usableServing(sale) {
+    const {sim,order}=this, view=sim.doorway, carry=sim.player.carry;
+    if(this.eating || this.payment || sim.player.armed)return null;
+    const held=this.held && this.inventory[this.held] && pantryItem(this.held);
+    if(held && !['empty','pantry'].includes(held.effect) && (carry===heldFood(held) || carry==='takeout'))
+      return {name:held.name,drink:beverage(held),start:()=>this.consume(held.id,view,false)};
+    if(carry && this.basket?.shop===sim.room?.place.id && this.basket?.units.some(unit=>unit.id===carry)){
+      const food=groceries[carry];
+      if(food && food.effect!=='pantry')return {name:food.name,drink:beverage(food),start:()=>this.eatFromBasket(carry,view,false,sale)};
+    }
+    if(!order?.dineIn || view!==order.view || diningTable(sim,view)!==order.table)return null;
+    // Use the plated course first when food and drink are both on this table.
+    const ready=order.items.find(d=>d.state==='table' && !d.drink) || order.items.find(d=>d.state==='table');
+    return ready?{name:ready.food.name,drink:ready.drink,start:()=>order.consume(ready,false)}:null;
+  }
+  finishServing(meal) {
+    if(!meal || meal!==this.eating || meal.finish)return false;
+    // Extend the bite already in progress, keeping its portion count and table ticket.
+    meal.finish=true;meal.until=meal.start+meal.duration*meal.initial;
+    return true;
+  }
   consume(id,view=null,finish=true){
     if(this.eating || !this.inventory[id])return false;
     const item=pantryItem(id);if(!item || ['pantry','empty'].includes(item.effect))return false;

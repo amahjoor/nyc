@@ -95,6 +95,7 @@ Keyboard and mouse follow GTA V. On the same PC, a connected DualSense uses GTA 
 | Lock on / dodge or hold guard | Right mouse / Space | LT / X | L2 / Cross |
 | Take / leave cover | Q near cover | RB | R1 |
 | Light / heavy melee | R / Q | B / A while locked on | Tap / hold Square |
+| Eat or drink in hand or at your table | Tap U for one bite or sip, hold U to finish that serving | | |
 | Weapon slots / holster | 1–9 in pickup order, 0 for fists, or scroll to cycle | Right stick or D-pad left/right in weapon wheel | Right stick or D-pad left/right in loadout |
 | Hold focused aim on foot | Right mouse and drag to aim | Left trigger and right stick to aim | L2 and right stick |
 | Attack / fire | Left click | RT | Square unarmed / R2 armed |
