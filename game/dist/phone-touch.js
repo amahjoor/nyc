@@ -49,13 +49,14 @@ export function createThumbPress(handset, layer, onTap, reducedMotion, showTap =
     const clientY = pointer ? Math.max(rect.top, Math.min(rect.bottom, event.clientY)) : rect.top + rect.height / 2;
     const x = (clientX - frame.left) / frame.width, y = (clientY - frame.top) / frame.height;
     if (!showTap()) return false;
-    onTap(x, y, reducedMotion());
+    const instant=reducedMotion();
+    const reachMs=onTap(x,y,instant);
     if (!canDraw) return false;
 
     cancel();
     button=control;
     control.setAttribute('data-pressing','');
-    const duration = reducedMotion() ? 0 : 85;
+    const duration = instant ? 0 : (reachMs ?? 85);
     contactTime = performance.now() + duration;
     if (duration) {
       contactTimer = setTimeout(() => layer.setAttribute('data-pose', 'press'), duration);

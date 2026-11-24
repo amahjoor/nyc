@@ -90,25 +90,5 @@ export function viewHand(side='l'){
     }
     return true;
   }
-  // A distant touch can fully extend the thumb while the grip stays anchored.
-  const tipOffset=new T.Vector3(),tip=new T.Vector3(),aim=new T.Vector3();
-  const turn=new T.Quaternion(),identity=new T.Quaternion();
-  function reachThumb(target){
-    const {rig,remap}=current,chain=[];
-    for(const [i,q] of fingerPose(rig,'phone',side)){
-      if(!rig.bones[i].name.startsWith('thumb_'))continue;
-      const bone=bones[remap.get(i)];bone.quaternion.fromArray(q);chain.push(bone);
-    }
-    const end=chain[2],rest=rig.bones[rig.index.get('thumb_03_'+side)];
-    tipOffset.copy(end.position).applyQuaternion(turn.fromArray(rest.q).invert()).multiplyScalar(.74);
-    for(let pass=0;pass<8;pass++)for(const joint of chain){
-      joint.worldToLocal(end.localToWorld(tip.copy(tipOffset))).normalize();
-      joint.worldToLocal(aim.copy(target)).normalize();
-      turn.setFromUnitVectors(tip,aim);
-      const angle=identity.angleTo(turn);
-      if(angle>.17)turn.slerp(identity,1-.17/angle);
-      joint.quaternion.multiply(turn);
-    }
-  }
-  return {group,pose,reachThumb,dispose(){mesh?.skeleton.dispose();}};
+  return {group,pose,dispose(){mesh?.skeleton.dispose();}};
 }

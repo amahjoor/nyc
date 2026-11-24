@@ -628,31 +628,39 @@ test('cycling keeps the rider on the saddle with grips on the bars and shoes on 
   }
 });
 
-test('a held touch moves the thumb while the wrist and support fingers stay anchored',async()=>{
+test('the phone grip places the skinned thumb on the glass across hand sizes and regrips for high taps',async()=>{
   const {setHandSource,viewHand}=await import('../dist/view-hand.js');
-  const {Group,Quaternion,MeshStandardMaterial}=await import('../dist/vendor/three.module.min.js');
+  const {createScreenGrip}=await import('../dist/phone-hand.js');
+  const {MeshStandardMaterial}=await import('../dist/vendor/three.module.min.js');
   const asset=name=>readFileSync(new URL('../dist/human/'+name,import.meta.url));
   const human=createHuman(JSON.parse(asset('human.json')),Uint8Array.from(asset('body.bin')).buffer,
     Uint8Array.from(asset('parts.bin')).buffer,meta);
-  const built=human.build({height:1.66},{detail:'close'}),material=new MeshStandardMaterial();
-  setHandSource(built,built.pieces.map(p=>({name:p.kind+'/'+p.id,material})));
-  const hand=viewHand('r'),parent=new Group();
-  parent.rotation.y=.37;parent.add(hand.group);
-  hand.pose('phone');
-  const end=hand.group.getObjectByName('thumb_03_r');
-  const rest=built.rig.bones[built.rig.index.get(end.name)];
-  const pad=end.position.clone().applyQuaternion(new Quaternion(...rest.q).invert()).multiplyScalar(.74);
-  const origin=end.localToWorld(pad.clone());
-  const held=['hand_r','index_02_r','middle_02_r','ring_02_r','pinky_02_r'].map(name=>hand.group.getObjectByName(name));
-  const anchors=held.map(bone=>bone.getWorldPosition(new Vector3()));
-  for(const x of [-.038,.038])for(const y of [-.072,.072]){
-    const target=new Vector3(x,y,.011);
-    hand.reachThumb(target);
-    const tip=end.localToWorld(pad.clone());
-    assert.ok(tip.distanceTo(target)<origin.distanceTo(target));
-    for(let i=0;i<held.length;i++)assert.ok(held[i].getWorldPosition(new Vector3()).distanceTo(anchors[i])<1e-8);
-    hand.reachThumb(target);
-    assert.ok(end.localToWorld(pad.clone()).distanceTo(tip)<1e-8);
+  for(const height of [1.1,1.55,1.76,1.95,2.15]){
+    const built=human.build({height},{detail:'close'}),material=new MeshStandardMaterial();
+    setHandSource(built,built.pieces.map(p=>({name:p.kind+'/'+p.id,material})));
+    const hand=viewHand('r'),place=createScreenGrip(hand);
+    place(.032,-.035);
+    const lowerGrip=hand.group.position.y,mesh=hand.group.children[0];
+    const ids=mesh.geometry.attributes.skinIndex, vertex=new Vector3();
+    for(const x of [-.038,0,.038])for(const y of [-.072,0,.072]){
+      place(x,y);
+      const grip=hand.group.position.clone();
+      if(y>0)assert.ok(grip.y-lowerGrip>.04,'the hand slides up the case');
+      const target=new Vector3(x,y,.006);
+      hand.group.updateMatrixWorld(true);
+      let closest=Infinity;
+      for(let i=0;i<ids.count;i++){
+        const name=mesh.skeleton.bones[ids.getX(i)].name;
+        if(!name.startsWith('thumb_'))continue;
+        mesh.getVertexPosition(i,vertex).applyMatrix4(mesh.matrixWorld);
+        if(name==='thumb_03_r')closest=Math.min(closest,vertex.distanceTo(target));
+        if(Math.abs(vertex.x)<.038 && Math.abs(vertex.y)<.072)
+          assert.ok(vertex.z>=.0058,'thumb skin clears the glass');
+      }
+      assert.ok(closest<.0035,'the pad lands within 3.5 mm of the target');
+      place(x,y);
+      assert.ok(hand.group.position.distanceTo(grip)<1e-8,'holding a target keeps the grip steady');
+    }
+    hand.dispose();material.dispose();
   }
-  hand.dispose();material.dispose();
 });
