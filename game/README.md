@@ -21,7 +21,9 @@ cd game
 npm run dev
 ```
 
-Maya’s default text model is `qwen3.5:2b-q4_K_M`. Install it with `ollama pull qwen3.5:2b-q4_K_M` and keep `ollama serve` running alongside the game. The development server sends recent texts and a few game facts to its local Ollama process. Set `NYC_MAYA_MODEL` when launching the game server to use another installed model. Hover over a new Maya reply to see its model. If generation fails, use **Retry** below the conversation to request a reply to the same text. [Model download](https://ollama.com/library/qwen3.5:2b-q4_K_M)
+Phone conversations run on the game server’s local Ollama. Install the default with `ollama pull qwen3.5:4b-q4_K_M` and run `ollama serve` alongside the game. For a lower-memory laptop, use `ollama pull qwen3.5:2b-q4_K_M`. The game tries the installed 2B model if the default is missing or Ollama reports insufficient memory. Set `NYC_PHONE_MODEL` when starting the game server to pin any installed texting model, including a larger one. The existing `NYC_MAYA_MODEL` setting also works. Hover over a reply to see which model wrote it. [Qwen3.5 model downloads](https://ollama.com/library/qwen3.5/tags) · [Ollama structured replies](https://docs.ollama.com/capabilities/structured-outputs)
+
+Text Maya from Contacts or exchange numbers during a street conversation. After a pedestrian agrees, choose **Save** and open their contact card. Each social contact has their own thread, remembers up to twelve details in the original speaker’s words, and can grow closer, flirt, argue, reconcile, date or break up across sessions. Their contact card reflects the relationship. Pedestrians you meet again can draw on your texts. The mechanic handles vehicle-service questions separately. If generation fails, **Retry** requests a new reply to the same text.
 
 Open [Render Atlas](http://localhost:5173/render-lab/) to inspect the live models independently of gameplay. Search by item, shop, model ID or renderer. Select a serving state, footprint, storefront or vehicle year in the inspector. The Archive fashion section holds the hundred archive pieces in the order of the list, each shown alone, worn and walking. Flags and review notes are saved in the current browser. Each selected model and state has a copyable URL. To build the standalone gallery from the current game assets, run `node scripts/build-render-atlas.mjs` from `game/`. It writes the static site to `game/render-atlas-site/dist/`.
 
@@ -37,7 +39,7 @@ Choose **Pause → Map → Open map** for a street map centered on your neighbor
 
 On the street, press **F** to enter a nearby car, then choose **M → Delivery job** to take a delivery. Stop inside the orange destination ring before the timer expires. Earnings and completed delivery count save in browser storage on this device. City sound starts when you select **Explore New York**. Change it under **Escape → Settings → City sound**. While driving, press **E**, click the **left stick**, or tap **Horn** to honk.
 
-Walk up to a pedestrian and choose **M → Nearby interactions → Say hello** to hear their voice. The city draws from 904 English speakers. Each passerby keeps their voice through greetings, coffee orders and reactions. Returning residents keep theirs across visits. The common street greeting has a recording for every voice. Other lines use a local speech model that warms up as you approach pedestrians with city sound enabled. [Hear three NPC voices](docs/npc-voices.mp3)
+Walk up to a pedestrian, press **G**, and choose **Say hello** to hear their voice. The city draws from 904 English speakers. Each passerby keeps their voice through greetings, coffee orders and reactions. Returning residents keep theirs across visits. The common street greeting has a recording for every voice. Other lines use a local speech model that warms up as you approach pedestrians with city sound enabled. [Hear three NPC voices](docs/npc-voices.mp3)
 
 Choose **Talk for a while** to have a conversation with that pedestrian. They stop and turn toward you. Type a line and press **Enter**, or select a suggested follow-up. Ask where to get a slice to get a nearby open pizzeria when one is mapped. Selecting the map suggestion pins it. Coffee sales and spare-change requests use the same inventory and transaction rules as the street menu. The save keeps the last ten lines for each of the 32 most recently remembered pedestrians, along with an introduced name and the latest street transaction. **Esc** ends the conversation.
 
@@ -51,18 +53,18 @@ The in-game reviews are fictional. Visitor photos use the same signs, rooms, ven
 
 Choose **Meadow Lake road reconstruction** in the city picker and select **Spawn here** to visit the reconstructed road and parking loop. Enter a street vehicle with **F**, or call the mechanic for cab delivery. While nearby, **Show aerial / Show reconstruction** compares the original photograph with source-sampled pavement and reviewed paint. Both modes share the same measured driving surface. The patch loads only when visited; the rest of NYC keeps its existing rendering.
 
-Keyboard and mouse follow GTA V. On the same PC, a connected DualSense uses GTA VI’s default PS5 layout for supported actions. Under **Pause → Settings → Controller layout**, choose **PS5** if your browser or adapter reports a generic device. **Classic** selects the Xbox-style layout. J and U are this game’s keyboard equivalents for grapple and shoulder switching. [GTA V controls](https://docs.fivem.net/docs/game-references/controls/) · [GTA VI control screens](https://www.gtabase.com/articles/gta-6/gta-6-controls-guide-ps5-xbox-button-layout)
+Keyboard and mouse follow GTA V. On the same PC, a connected DualSense uses GTA VI’s default PS5 layout for supported actions. Under **Pause → Settings → Controller layout**, choose **PS5** if your browser or adapter reports a generic device. **Classic** selects the Xbox-style layout. J grabs an opponent, and clicking the mouse wheel while aiming switches shoulders. [GTA V controls](https://docs.fivem.net/docs/game-references/controls/) · [GTA VI control screens](https://www.gtabase.com/articles/gta-6/gta-6-controls-guide-ps5-xbox-button-layout)
 
 | Action | GTA V-style keyboard / mouse | Classic controller | GTA VI-style PS5 |
 | --- | --- | --- | --- |
 | Walk / steer | WASD | Left stick | Left stick |
 | Accelerate / brake then reverse | W / S | Right / left trigger | R2 / L2 |
 | Enter / exit car or bicycle | F | Y | Triangle |
-| Ring bicycle bell / sound car horn | E | Click left stick | L3 |
+| Ring bicycle bell / hold car horn | E | Click left stick | L3 |
 | Ride in an occupied cab / take the driver’s seat | Tap / hold F | Tap / hold Y | Tap / hold Triangle |
 | Pedal / sprint / brake on a bicycle | W / W + Caps Lock / Q or S | Hold A / tap A / LT or RT | R2 / R2 + Cross / L2 |
 | Jog while moving / sprint | Tap Shift / hold Shift | Hold A to jog and tap A repeatedly to sprint. Settings also offers hold-to-sprint. | Click L3 while moving, click again to sprint |
-| Take out / put away skateboard | M → Skateboard | Interaction menu | Interaction menu |
+| Take out / put away skateboard | K | Interaction menu | Interaction menu |
 | Push / footbrake / carve or spin | W / S / A or D | A or X (right or left foot) / B / left stick | Cross or Square / Circle / left stick |
 | Ollie / nollie | Hold and release Space / 4 | Load right stick down then flick up / reverse the gesture | Right stick |
 | Kickflip / heelflip | 1 / 2 | Load down, flick diagonally up-left / up-right | Right stick |
@@ -71,16 +73,17 @@ Keyboard and mouse follow GTA V. On the same PC, a connected DualSense uses GTA 
 | Melon / indy grab | Hold J / L in the air | LT / RT | L2 / R2 |
 | Handbrake | Space | RB | Cross |
 | Show cash and health / expand radar | Z | D-pad down | D-pad down |
-| Open phone | Up arrow / middle click | D-pad up | D-pad up |
+| Open phone | Up arrow / middle click outside weapon aim | D-pad up | D-pad up |
 | Delivery job (Phone → Work) | M → Delivery job | Interaction menu | Interaction menu |
 | Look around | Mouse (click the street to capture, or drag) | Right stick | Right stick |
 | Open / close street map | Pause → Map | Pause → Map | Touchpad (Create if the browser omits touchpad click) |
 | Pause | Escape / P | Start | Options |
 | Cycle close chase / wide chase / first person | V | View / Back | Interaction menu → Camera perspective |
 | Look behind | Hold C | Hold R3 | Hold R3 |
-| Skip to the next time of day | Pause → Time of day | | Pause menu |
-| Character / aerial view | Pause → Settings → View | Interaction menu | Interaction menu |
-| Full-city view | Pause → All five boroughs | Interaction menu | Pause menu → City |
+| Skip to the next time of day | Pause → Map → Time of day | | Pause menu |
+| Cycle street / aerial / full-city view | F6 | Pause → Settings → View | Pause → Settings → View |
+| Talk or shop nearby | G | Interaction menu | Interaction menu |
+| Open inventory | I | Interaction menu | Interaction menu |
 | Interaction menu | M | Hold View / Back | Hold D-pad down |
 | Aerial zoom | Scroll or + / − in aerial view | | — |
 | City orbit / zoom | Drag / scroll in city view | | — |
@@ -100,8 +103,8 @@ Keyboard and mouse follow GTA V. On the same PC, a connected DualSense uses GTA 
 | Recover to starting street | Recover in the pause menu | | Pause menu |
 | Duck in car | Hold X | — | Hold Circle |
 | Vehicle controls | M → Vehicle controls | Interaction menu | Hold D-pad left |
-| Grapple a nearby pedestrian | M → Grab nearby pedestrian, E to release | — | Hold R2 while unarmed |
-| Switch aiming shoulder | M → Switch aiming shoulder | — | D-pad left while aiming |
+| Grapple a nearby pedestrian | Hold J while unarmed | — | Hold R2 while unarmed |
+| Switch aiming shoulder | Middle click while aiming | — | D-pad left while aiming |
 
 In a fistfight, hold the right mouse button, L2 on PS5, or LT on a classic controller to lock onto the person in front of you. A small ring shows who you are facing. The main attack picks a punch or kick by distance. A close heavy attack can be a body shot, and a heavy attack from farther out uses the leg. Tap dodge with a direction to slip sideways, or dodge from a standstill to step back. Keeping the button held guards against blows from the front.
 
