@@ -38,7 +38,7 @@ const sources=[
   ['retail',state+'9a8c-vfzj',{$where:box,$select:'dba_name,entity_name,georeference,street_number,street_name,city,zip_code'},r=>[r.dba_name || r.entity_name,r.georeference?.coordinates,{address:address(street(r.street_number,r.street_name),r.city,r.zip_code)}]],
   ['beauty',state+'y3u4-jbgh',{$where:box+" AND license_type in('DOSAEBUSINESS','DOSBARSHOPOWNER')",$select:'business_name,georeference,business_address_1,business_city,business_zip'},r=>[r.business_name,r.georeference?.coordinates,{address:address(r.business_address_1,r.business_city,r.business_zip)}]],
   ['liquor',state+'9s3h-dpkz',{$where:box,$select:'dba,legalname,georeference,actualaddressofpremises,city,zipcode'},r=>[r.dba || r.legalname,r.georeference?.coordinates,{address:address(r.actualaddressofpremises,r.city,r.zipcode)}]],
-  ['licenses',city+'w7w3-xahh',{$where:"license_status='Active' AND latitude IS NOT NULL AND license_type='Business'",$select:'dba_trade_name,business_name,longitude,latitude,address_building,address_street_name,address_city,address_zip,contact_phone'},r=>[r.dba_trade_name || r.business_name,[r.longitude,r.latitude],{address:address(street(r.address_building,r.address_street_name),r.address_city,r.address_zip),phone:r.contact_phone}]],
+  ['licenses',city+'w7w3-xahh',{$where:"license_status='Active' AND latitude IS NOT NULL AND license_type='Premises'",$select:'dba_trade_name,business_name,longitude,latitude,address_building,address_street_name,address_city,address_zip,contact_phone'},r=>[r.dba_trade_name || r.business_name,[r.longitude,r.latitude],{address:address(street(r.address_building,r.address_street_name),r.address_city,r.address_zip),phone:r.contact_phone}]],
   ['motor',state+'nhjr-rpi2',{$where:box,$select:'facility_name,facility_name_overflow,georeference,facility_street,facility_city,facility_zip_code'},r=>[street(r.facility_name,r.facility_name_overflow),r.georeference?.coordinates,{address:address(r.facility_street,r.facility_city,r.facility_zip_code)}]],
   ['facilities',city+'ji82-xba5',{$where:'latitude IS NOT NULL',$select:'facname,longitude,latitude,address,boro,zipcode'},r=>[r.facname,[r.longitude,r.latitude],{address:address(r.address,r.boro,r.zipcode)}]]
 ];
@@ -63,10 +63,20 @@ for(const node of osm.elements){
   join(t.name||t.brand,[p.lon,p.lat],'osm',{address:address(t['addr:full'] || (t['addr:housenumber'] && street(t['addr:housenumber'],t['addr:street'])),t['addr:city'],t['addr:postcode']),
     phone:t['contact:phone']||t.phone,website:t['contact:website']||t.website||t.url,hours:t.opening_hours});
 }
+// Official branch pages supplement records that omit the venue's website.
+for(const [name,x,z,website,hours,entrance] of [
+  ['FANELLI CAFE',236,-131,'https://fanellicafe.nyc/','11 am until late'],
+  ["KATZ'S DELICATESSEN",1197,111,'https://katzsdelicatessen.com/location'],
+  ["LOMBARDI'S",492,202,'https://www.firstpizza.com/contact-us','Sun–Thu 11:30 am–10 pm · Fri–Sat 11:30 am–midnight','30 Spring Street, New York, NY 10012'],
+  ["MCSORLEY'S OLD ALE HOUSE",1008,-565,'https://mcsorleysoldalehouse.nyc/','Mon–Sat 11 am–1 am · Sun noon–1 am']
+]){
+  const row=records.get(JSON.stringify([name,x,z]));
+  if(row){row.website=website;if(hours)row.hours=hours;if(entrance)row.address=entrance;row.sources.push('business');}
+}
 await mkdir(out,{recursive:true});
 const cells=new Map();
 for(const row of records.values()){
-  const cell=Math.floor(row.x/5000)+'_'+Math.floor(row.z/5000);
+  const cell=Math.floor(row.x/2500)+'_'+Math.floor(row.z/2500);
   if(!cells.has(cell))cells.set(cell,[]);cells.get(cell).push(row);
 }
 for(const [cell,data] of cells)await writeFile(new URL(cell+'.json',out),JSON.stringify(data)+'\n');
