@@ -160,11 +160,11 @@ export function callServer(sim,view,{sale}={}) {
     if(!server)return;
     say(server,voice.hello(room.name),6);
     for(;;){
-      const reply=yield* listen(server,'greeting',staffName(view,server)+' is waiting for your order · G to answer');
+      const reply=yield* listen(server,'greeting',staffName(view,server)+' is waiting for your order');
       if(reply?.items?.length){yield* round(server,reply.items);break;}
       // No answer, or a minute asked for: the server goes back to work until waved over again.
       say(server,'Take your time. Wave when you are ready.',4);
-      done(o);o.stage='seated';o.phase='G to call your server back';o.wish=null;
+      done(o);o.stage='seated';o.phase='Your server is available';o.wish=null;
       while(o.wish!=='hail')yield idle();
       o.wish=null;o.stage='hailed';
       server=yield* come('Your server is on the way');
@@ -175,7 +175,7 @@ export function callServer(sim,view,{sale}={}) {
       o.stage='dining';o.wish=null;
       while(!o.wish){
         const waiting=o.items.filter(d=>d.state==='table');
-        o.phase=bag.eating?'Enjoying your '+lower(bag.eating.item.name):waiting.length?'G to '+(waiting[0].drink?'drink':'eat'):'G for more or the check';
+        o.phase=bag.eating?'Enjoying your '+lower(bag.eating.item.name):waiting.length?(waiting[0].drink?'Drinks served':'Food served'):'Ready for more or the check';
         yield idle();
       }
       const want=o.wish;o.wish=null;
@@ -184,7 +184,7 @@ export function callServer(sim,view,{sale}={}) {
       server=yield* come('Your server is on the way');
       if(!server)return;
       say(server,'What else can I get you?',5);
-      const reply=yield* listen(server,'greeting',staffName(view,server)+' is waiting for your order · G to answer');
+      const reply=yield* listen(server,'greeting',staffName(view,server)+' is waiting for your order');
       if(reply?.items?.length)yield* round(server,reply.items);
       else{say(server,'No problem.',3);done(o);}
     }
@@ -196,7 +196,7 @@ export function callServer(sim,view,{sale}={}) {
     // The check stays on the table until it is paid: nobody stands over a guest for it.
     yield pause(server,staffName(view,server)+' leaves the check',.9,table,'reach');
     done(o);
-    o.talk={kind:'check',server};o.phase='Your check is '+money(o.due())+' · G to pay';
+    o.talk={kind:'check',server};o.phase='Your check is '+money(o.due());
     while(!o.paid)yield idle();
     o.talk=null;
     server=yield* come('Your server is collecting the check');

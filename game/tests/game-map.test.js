@@ -194,7 +194,8 @@ test('keyboard closing restores focus and disposing removes all event listeners'
   document.fire('keydown', { code: 'F7', repeat: true });assert.equal(map.open, true);
   document.fire('keydown', { key: 'Tab' });assert.equal(document.activeElement, canvas);
   document.fire('keydown', { key: 'Escape' });assert.equal(map.open, false);assert.equal(document.activeElement, before);
-  map.setOpen(true);document.fire('keydown', { code: 'F7' });assert.equal(map.open, false);
+  map.setOpen(true);document.fire('keydown', { code: 'F7' });assert.equal(map.open, true);
+  document.fire('keydown', { key: 'Escape' });assert.equal(map.open,false);
   map.dispose();assert.equal([...document.listeners.values()].reduce((n, list) => n + list.size, 0), 0);
   assert.equal([...canvas.listeners.values()].reduce((n, list) => n + list.size, 0), 0);
 });

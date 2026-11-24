@@ -87,7 +87,7 @@ export class GameMap {
       if (!this.open) return;
       const key = event.key || event.code;
       const typing = document.activeElement === byId('game-map-address');
-      if (key === 'Escape' || (!typing && key === 'F7')) {
+      if (key === 'Escape') {
         event.preventDefault();event.stopImmediatePropagation();if (!event.repeat) this.setOpen(false);
       } else if (key === 'Tab') {
         // Keep keyboard focus inside this modal without relying on a native

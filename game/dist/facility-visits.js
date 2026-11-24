@@ -671,7 +671,7 @@ export function startCounterOrder(sim,view,{item,basket=false,sale}){
       yield pause(server,'Handing over your order',.70,floorAt(view,sim.player),'reach');
     }
     o.ready=true;o.phase=o.table?'Your order is on the table':o.counterOnly?'Your order is up at the counter':'The clerk is holding your order';
-    sim._say(o.phase+'. Press G to collect.',5);
+    sim._say(o.phase+'.',5);
   }
   function tableEdge(){
     const at=roomLocal(room,sim.player.x,sim.player.z),nodes=shopAisle(view).nodes.filter(n=>dist(n,at)>.65 && dist(n,o.table)<1.45);
@@ -692,7 +692,7 @@ export function startCounterOrder(sim,view,{item,basket=false,sale}){
   }
   o.deliverToSeat=seat=>{
     o.table=seat;view.claims.set(seat,o);o.ready=false;o.task=null;
-    o.script=(function*(){yield* tableDelivery(o.employee);o.ready=true;o.phase=o.table?'Your order is on the table':'Your order is up at the counter';sim._say(o.phase+'. Press G to collect.',5);})();
+    o.script=(function*(){yield* tableDelivery(o.employee);o.ready=true;o.phase=o.table?'Your order is on the table':'Your order is up at the counter';sim._say(o.phase+'.',5);})();
   };
   if(!basket && !slot && !drink)o.pack=()=>{
     if(!o.ready || o.table || o.packed || !o.employee)return;
@@ -700,7 +700,7 @@ export function startCounterOrder(sim,view,{item,basket=false,sale}){
     o.script=(function*(){
       yield pause(o.employee,'Packing your order to go',1.4,room.register,'pickUp');
       o.employee.carry='takeout';o.packed=true;o.ready=true;o.phase='Your takeaway is ready';
-      sim._say('Your takeaway is ready. Press G to collect.',5);
+      sim._say('Your takeaway is ready.',5);
     })();
   };
   function clearPass(){

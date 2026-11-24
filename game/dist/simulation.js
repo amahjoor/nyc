@@ -650,7 +650,6 @@ export class Simulation {
     Object.assign(cab,stop.point,{y:undefined,transportId:null,angle:stop.angle,parked:true,_edge:null,_loose:0});
     if(!this.cars.includes(cab))this.cars.push(cab);
     resetVehicleDynamics(cab);this.updateGrounding();
-    this.cash-=DELIVERY;
     this._say(`Your cab is waiting on ${stop.edge.road.name || 'the street'}. $${DELIVERY}.`,6);
     return true;
   }
@@ -1561,7 +1560,6 @@ export class Simulation {
       resetVehicleDynamics(car, car.speed);
       Object.assign(player, { mode: 'drive', vehicleId: car.id, x: car.x, z: car.z, angle: car.angle, speed: car.speed, velocityX: car.velocityX, velocityZ: car.velocityZ, vy: 0, grounded: true, slide: 0, swing: 0, reaction:null, standing:null });
       this.updateGrounding();
-      this._say('W accelerate. S brake / reverse. A / D steer. Space handbrake.');
       return true;
     }
     const car = this.cars.find(item => item.id === player.vehicleId);
@@ -1620,7 +1618,6 @@ export class Simulation {
         Object.assign(player,from);
         player.angle = Math.atan2(spot.x-from.x,spot.z-from.z);
       }
-      this._say('On foot. Shift runs. Space jumps. F punches.');
     }
     this.updateGrounding();
     return true;
@@ -3055,7 +3052,7 @@ export class Simulation {
       this.mission.phase = 'complete';
       this.mission.payout = payout;
       this._say(this.mission.meal ? `Food delivered. +$${payout} including a $${bonus} tip.` :
-        `Delivery complete. +$${payout}. Press N for your next job.`, 7);
+        `Delivery complete. +$${payout}.`, 7);
     }
   }
 }

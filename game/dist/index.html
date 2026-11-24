@@ -19,7 +19,6 @@
 <body>
   <div id="melee-lock" hidden aria-hidden="true"></div>
   <div id="aim-dot" hidden aria-hidden="true"></div>
-  <div id="world-interact-prompt" class="interact-prompt" hidden><kbd>E</kbd><span></span></div>
   <div id="vehicle-title" hidden role="status"></div>
   <canvas id="world" tabindex="-1" aria-label="Playable 3D New York City, all five boroughs"></canvas>
   <section id="atm-screen" role="dialog" aria-modal="true" aria-label="ATM touchscreen" hidden>
@@ -103,7 +102,7 @@
       </button>
       <div class="map-footer"><span id="street-name">Greene Street</span></div>
     </section>
-    <div class="center-hud"><div id="route-guide" class="route-guide" hidden><span class="route-label">DIRECTIONS</span><span id="route-instruction"></span></div><div id="toast" class="toast" role="status"></div><div id="place-hint" class="place-hint" hidden></div><button type="button" id="ride-speed" class="interact-prompt" aria-keyshortcuts="G" hidden><kbd>G / D-pad →</kbd><span id="ride-speed-label">ASK DRIVER TO HURRY</span></button> <div id="interact-prompt" class="interact-prompt" hidden><kbd>E</kbd><span></span></div></div>
+    <div class="center-hud"><div id="route-guide" class="route-guide" hidden><span class="route-label">DIRECTIONS</span><span id="route-instruction"></span></div><div id="toast" class="toast" role="status"></div><div id="place-hint" class="place-hint" hidden></div><button type="button" id="ride-speed" class="interact-prompt" hidden><kbd>D-pad →</kbd><span id="ride-speed-label">ASK DRIVER TO HURRY</span></button></div>
     <div id="health-display" class="health-display" hidden>
       <label for="health-bar">Health</label><strong id="health-number" aria-hidden="true">100%</strong>
       <meter id="health-bar" min="0" max="100" value="100"></meter>
@@ -116,7 +115,7 @@
   </div>
   <section id="subway-status" hidden aria-label="Subway journey"><strong id="subway-location"></strong><span id="subway-service"></span><span id="subway-action"></span></section>
   <section id="interaction" class="interaction" hidden aria-labelledby="interaction-title">
-    <header><h2 id="interaction-title"></h2><strong id="interaction-balance" aria-label="Cash on hand" hidden></strong></header>
+    <header><h2 id="interaction-title"></h2><strong id="interaction-balance" hidden></strong></header>
     <p id="interaction-message" hidden></p>
     <div id="work-slip" hidden>
       <small id="work-slip-from"></small>
@@ -224,11 +223,21 @@
         <p id="phone-place-note" aria-label="In-game distance and status"></p>
         <button id="phone-directions" class="phone-action">Get directions</button>
         <nav class="place-tabs" aria-label="Place details"><button id="place-tab-overview">Overview</button><button id="place-tab-photos">Photos</button><button id="place-tab-reviews">Reviews</button></nav>
-        <div id="place-overview"><strong id="place-address"></strong><p id="place-cuisine"></p><a id="place-city-source" href="https://data.cityofnewyork.us/d/43nn-pn8j" target="_blank" rel="noopener noreferrer" hidden>NYC restaurant inspection records</a><p id="place-game-stock"></p></div>
+        <div id="place-overview"><p id="place-summary-rating"></p><dl class="place-details">
+          <div><dt id="place-address-label">Address</dt><dd id="place-address"></dd></div>
+          <div id="place-phone-row" hidden><dt>Phone</dt><dd><a id="place-number"></a></dd></div>
+          <div id="place-web-row" hidden><dt>Website</dt><dd><a id="place-website" target="_blank" rel="noopener noreferrer"></a></dd></div>
+          <div id="place-hours-row" hidden><dt>Listed hours</dt><dd id="place-hours"></dd></div>
+          <div id="place-cuisine-row" hidden><dt>Cuisine</dt><dd id="place-cuisine"></dd></div>
+        </dl><p id="place-sources"></p><p id="place-game-stock"></p></div>
         <div id="place-photos" hidden><div class="place-pager"><button id="place-photo-prev" aria-label="Previous photo">‹</button><span id="place-photo-count" role="status"></span><button id="place-photo-next" aria-label="Next photo">›</button></div></div>
         <div id="place-reviews" hidden>
           <div class="place-review-heading"><strong>In-game reviews</strong><span id="place-rating"></span></div>
-          <div id="place-visitor-reviews"></div>
+          <div id="place-visitor-reviews">
+            <article class="visitor-review"><div><b id="visitor-0-name"></b><span id="visitor-0-stars"></span></div><p id="visitor-0-text"></p><button id="visitor-0-open" hidden><img id="visitor-0-photo" alt=""></button></article>
+            <article class="visitor-review"><div><b id="visitor-1-name"></b><span id="visitor-1-stars"></span></div><p id="visitor-1-text"></p><button id="visitor-1-open" hidden><img id="visitor-1-photo" alt=""></button></article>
+            <article class="visitor-review"><div><b id="visitor-2-name"></b><span id="visitor-2-stars"></span></div><p id="visitor-2-text"></p><button id="visitor-2-open" hidden><img id="visitor-2-photo" alt=""></button></article>
+          </div>
           <article id="place-own-review" hidden><b id="place-own-stars"></b><p id="place-own-text"></p><img id="place-own-photo" alt="Photo from your visit" hidden></article>
           <button id="place-write" class="phone-action">Review your visit</button>
           <div id="place-editor" hidden><label>Rating<select id="place-stars"><option value="5">5 stars</option><option value="4">4 stars</option><option value="3">3 stars</option><option value="2">2 stars</option><option value="1">1 star</option></select></label>
@@ -302,10 +311,11 @@
           <div class="bank-axis" aria-hidden="true"><span id="phone-bank-chart-start"></span><span>Now</span></div>
         </figure>
         <div class="bank-accounts">
-          <div class="bank-account"><span>Checking</span><strong id="phone-bank-balance"></strong></div>
-          <div class="bank-account"><span>Cash on hand</span><strong id="phone-bank-cash"></strong></div>
+          <div class="bank-account"><span>Checking<small>Death or arrest fee · 1%, up to $25</small></span><strong id="phone-bank-balance"></strong></div>
+          <div class="bank-account"><span>Cash on hand<small>Lost on death or arrest</small></span><strong id="phone-bank-cash"></strong></div>
           <button id="phone-bank-invest" class="bank-account"><span>Investments<small>Market value</small></span><strong id="phone-bank-invested"></strong><i aria-hidden="true">›</i></button>
         </div>
+        <button id="phone-bank-payment" class="bank-account bank-payment"><span>Preferred payment<small>Uses the other balance if needed</small></span><strong id="phone-bank-preference">Debit card first</strong><i aria-hidden="true">⇄</i></button>
         <button id="phone-bank-locate" class="bank-action">Find a bank ATM</button>
         <h3>Recent activity</h3>
         <div class="bank-activity">
@@ -431,12 +441,15 @@
         <p class="stock-caption">Simulated prices update every 30 seconds.</p>
       </div>
       <div id="phone-maps" class="phone-screen" hidden>
-        <div class="maps-explore"><canvas id="phone-map-preview" width="510" height="344" aria-label="Map around your current location"></canvas>
-        <div class="map-pins"><button id="map-pin-0" hidden></button><button id="map-pin-1" hidden></button><button id="map-pin-2" hidden></button></div>
-        <button id="phone-map-nearby" class="maps-search">Search Maps</button></div>
-        <h3 id="phone-map-street"></h3>
-        <div class="maps-shortcuts"><button id="map-eat">Restaurants</button><button id="map-coffee">Coffee</button><button id="map-hair">Hair</button></div>
-        <p class="section-letter">Around you</p><div id="map-discover"><button id="map-pick-0" class="phone-row" hidden><b id="map-pick-0-name"></b><span id="map-pick-0-note"></span></button><button id="map-pick-1" class="phone-row" hidden><b id="map-pick-1-name"></b><span id="map-pick-1-note"></span></button><button id="map-pick-2" class="phone-row" hidden><b id="map-pick-2-name"></b><span id="map-pick-2-note"></span></button></div>
+        <button id="phone-map-nearby" class="maps-search">Search NYC places</button>
+        <div class="maps-explore"><div id="map-touch"><canvas id="phone-map-preview" width="510" height="410" aria-label="New York street map. Drag to pan or pinch to zoom."></canvas>
+          <div class="map-pins"><button id="map-pin-0" hidden></button><button id="map-pin-1" hidden></button><button id="map-pin-2" hidden></button><button id="map-pin-3" hidden></button><button id="map-pin-4" hidden></button><button id="map-pin-5" hidden></button><button id="map-pin-6" hidden></button><button id="map-pin-7" hidden></button><button id="map-pin-8" hidden></button><button id="map-pin-9" hidden></button><button id="map-pin-10" hidden></button><button id="map-pin-11" hidden></button></div></div>
+          <span class="map-north" aria-label="North up">N ↑</span><span id="map-scale" aria-label="Map width"></span>
+          <div class="phone-map-tools"><button id="map-recenter" aria-label="Center on player" title="Center on player">◎</button><button id="map-zoom-in" aria-label="Zoom in">+</button><button id="map-zoom-out" aria-label="Zoom out">−</button></div>
+        </div><div class="phone-map-key"><button id="map-key-toggle" aria-controls="map-key-options" aria-expanded="false">Map key</button>
+        <div id="map-key-options" hidden><button id="mobile-key-all">All places</button><button id="mobile-key-eat">Restaurants</button><button id="mobile-key-coffee">Coffee & bakeries</button><button id="mobile-key-grocery">Groceries</button><button id="mobile-key-drinks">Bars & liquor</button><button id="mobile-key-barber">Barbers</button><button id="mobile-key-beauty">Hair & nails</button><button id="mobile-key-clothes">Clothes & shoes</button><button id="mobile-key-bank">Banks</button><button id="mobile-key-laundry">Laundry</button><button id="mobile-key-health">Health</button><button id="mobile-key-cars">Cars & parking</button><button id="mobile-key-stay">Hotels & shows</button><button id="mobile-key-public">Public places</button><button id="mobile-key-shops">Other shops</button></div></div>
+        <h3 id="phone-map-street"></h3><p id="map-no-results" hidden>No matching places in this view.</p>
+        <div id="map-discover"><button id="map-pick-0" class="phone-row" hidden><b id="map-pick-0-name"></b><span id="map-pick-0-note"></span></button><button id="map-pick-1" class="phone-row" hidden><b id="map-pick-1-name"></b><span id="map-pick-1-note"></span></button><button id="map-pick-2" class="phone-row" hidden><b id="map-pick-2-name"></b><span id="map-pick-2-note"></span></button></div>
         <button id="phone-map-full" class="phone-action">Open street map</button>
         <button id="phone-map-stops" class="phone-action">Stations, docks & runways</button>
       </div>
@@ -483,6 +496,10 @@
         <div id="phone-thread-scroll" class="thread-scroll" tabindex="0" aria-label="Message history">
           <div id="phone-thread-log" class="thread-log" role="log" aria-label="Messages"></div>
           <p id="phone-thread-typing" role="status" hidden>Typing…</p>
+          <div id="phone-thread-reply-error" hidden>
+            <span role="status">Maya’s local model couldn’t reply.</span>
+            <button id="phone-thread-retry" class="phone-action">Retry</button>
+          </div>
         </div>
         <div class="compose">
           <input id="phone-thread-draft" type="text" maxlength="140" placeholder="Message" autocomplete="off" aria-label="Message">
@@ -578,7 +595,7 @@
       <button id="pause-tab-map" type="button" role="tab" aria-controls="pause-map" aria-selected="true">Map</button><button id="pause-tab-player" type="button" role="tab" aria-controls="pause-player" aria-selected="false" tabindex="-1">Player</button><button id="pause-tab-settings" type="button" role="tab" aria-controls="pause-settings" aria-selected="false" tabindex="-1">Settings</button><button id="pause-tab-controls" type="button" role="tab" aria-controls="pause-controls" aria-selected="false" tabindex="-1">Controls</button><button id="pause-tab-about" type="button" role="tab" aria-controls="pause-about" aria-selected="false" tabindex="-1">About</button>
     </nav>
     <section id="pause-map" class="pause-panel pause-split" role="tabpanel" aria-labelledby="pause-tab-map">
-      <button id="open-map-button" type="button" class="pause-map-view" aria-controls="game-map" aria-expanded="false"><canvas id="pause-map-canvas" width="440" height="440" aria-hidden="true"></canvas><span>Open map <kbd>F7</kbd></span></button>
+      <button id="open-map-button" type="button" class="pause-map-view" aria-controls="game-map" aria-expanded="false"><canvas id="pause-map-canvas" width="440" height="440" aria-hidden="true"></canvas><span>Open map</span></button>
       <div class="pause-column">
         <div class="pause-where"><strong id="pause-street"></strong><span id="pause-coordinates"></span></div>
         <div class="pause-list">
@@ -597,7 +614,7 @@
         </dl>
         <section id="pause-car" class="pause-card" hidden><p class="pause-kicker">Vehicle</p><h3 id="pause-car-name"></h3><dl class="car-stats" id="pause-car-stats"></dl></section>
         <div class="pause-list">
-          <button id="inventory-button" type="button" class="pause-option"><span>Inventory</span><kbd>I</kbd></button>
+          <button id="inventory-button" type="button" class="pause-option"><span>Inventory</span></button>
           <button id="recover-button" type="button" class="pause-option"><span>Recover to start</span></button>
         </div>
       </div>
@@ -609,8 +626,8 @@
         <button id="quality-button" type="button" class="pause-option" data-help="High draws sharper shadows at full resolution. Balanced keeps the frame rate up."><span>Graphics quality</span><b id="quality-value">BALANCED</b></button>
         <button id="shadows-button" type="button" class="pause-option" aria-pressed="true" data-help="Simulated sun shadows. Shadows photographed in the aerial imagery stay."><span>Shadows</span><b id="shadows-value">ON</b></button>
         <p class="pause-group">Camera</p>
-        <button id="first-person-button" type="button" class="pause-option" data-help="Switch between first and third person. Shortcut: B or R3."><span>Perspective</span><b id="perspective-value">THIRD PERSON</b></button>
-        <button id="view-button" type="button" class="pause-option" data-help="Cycle gameplay cameras with V or View. Tap F6 to switch between character and aerial views, or hold F6 for the full-city view."><span>View</span><b id="view-value">STREET</b></button>
+        <button id="first-person-button" type="button" class="pause-option" data-help="Switch between first and third person. Use V to cycle gameplay cameras."><span>Perspective</span><b id="perspective-value">THIRD PERSON</b></button>
+        <button id="view-button" type="button" class="pause-option" data-help="Cycle gameplay cameras with V. Use View to cycle street, aerial and full-city views."><span>View</span><b id="view-value">STREET</b></button>
         <p class="pause-group">City</p>
         <button id="hours-button" type="button" class="pause-option" aria-pressed="false" data-help="Always open: every shop, bar and service can be used at any hour. Actual hours: each keeps the hours its kind of place really keeps, and Maps shows what is open now."><span>Opening hours</span><b id="hours-value">ALWAYS OPEN</b></button>
         <p class="pause-group">Audio &amp; input</p>
