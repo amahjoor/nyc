@@ -11,7 +11,6 @@
 //   top, bottom, shoes, hat: what they wear, and topColour, bottomColour.
 //
 // No DOM and no three.js here.
-import { ARCHIVE } from './archive-collection.js';
 
 const clamp = (value, low, high) => Math.max(low, Math.min(high, value));
 const srgb = hex => { const n = typeof hex === 'number' ? hex : parseInt(String(hex).replace('#', ''), 16); return [n >> 16 & 255, n >> 8 & 255, n & 255].map(v => { const c = v / 255; return c <= .04045 ? c / 12.92 : ((c + .055) / 1.055) ** 2.4; }); };
@@ -23,7 +22,7 @@ const blend = (colours, shares) => { const out = [0, 0, 0]; colours.forEach((col
 const TONE = { african: '#6a4027', asian: '#dfb690', european: '#e8c2a4', southAsian: '#a8754c', arab: '#c99c74', indigenous: '#b98558' };
 export const HAIR_COLOURS = { black: '#15110f', darkBrown: '#2c1f17', brown: '#4d3423', chestnut: '#6d4429', auburn: '#7d3b22', red: '#a04a25', darkBlond: '#96744a', blond: '#c9a66b', grey: '#8f8f8f', white: '#d9d6cf', pink: '#c9609a', blue: '#3f6fb5' };
 /** Bags worn on this body that the older figure never had. */
-export const ARCHIVE_BAGS = ARCHIVE.filter(piece => piece.bag).map(piece => piece.bag);
+export const ARCHIVE_BAGS = ['nylon backpack'];
 export const EYES = ['brown', 'brownlight', 'green', 'grey', 'blue', 'bluegreen', 'lightblue', 'deepblue', 'ice'];
 export const TOP_COLOURS = ['#f2f0ea', '#1b1c1f', '#7d8288', '#22304f', '#8c2b2b', '#2f5b3c', '#d9b24a', '#3e6ea8', '#b65c2f', '#5d3a6e', '#d98ca0', '#3a7f86', '#c9c2b0', '#40454d'];
 export const BOTTOM_COLOURS = [null, null, null, '#1a1b1e', '#2a2f3a', '#6f6a5c', '#a59676', '#4a4f57', '#3a4636', '#22304f'];

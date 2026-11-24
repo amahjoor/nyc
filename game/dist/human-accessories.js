@@ -1,5 +1,4 @@
 import * as THREE from './vendor/three.module.min.js';
-import { ARCHIVE_ACCESSORIES } from './archive-accessories.js';
 
 // Accessory geometry is measured in the character's fitted bind pose. Applying
 // the inverse bind matrix once lets a rigid frame or strap follow its own bone.
@@ -135,9 +134,6 @@ export function fitAccessories(built,look,bones,inverses){
       const strap=tube([start,rear,top,chestFront,lower,end],.012*s);strap.scale(1,1,1);
       attach('spine_03','Bag strap',strap,nylon);
     }
-  }else if(ARCHIVE_ACCESSORIES[look.bag]){
-    // The archive collection's other bags, its hat, its necklaces and its rings (archive-accessories.js).
-    ARCHIVE_ACCESSORIES[look.bag]({built,look,rig,marks,attach,at,s:rig.height/1.76});
   }else if(look.bag && look.bag!=='none'){
     const chest=at('spine_03'),hip=at('pelvis'),lh=at('upperarm_l'),rh=at('upperarm_r');
     const s=rig.height/1.76, half=lh.distanceTo(rh)/2, backpack=look.bag==='backpack', tote=look.bag==='tote';

@@ -1082,15 +1082,16 @@
    "ease": {
     "shoulder": 0.0036,
     "chest": 0.0072,
-    "waist": 0.014,
-    "hip": 0.05,
-    "hem": 0.085,
+    "waist": 0.012,
+    "hip": 0.015,
+    "hem": 0.02,
     "sleeve": 0.006,
     "cuff": 0.006
    },
    "hem": "ankle+0.04",
    "sleeve": 1,
-   "hang": 0.9,
+   "hug": 0.6,
+   "hang": 0.3,
    "neck": {
     "depth": 0.03,
     "round": 0.09
@@ -1316,14 +1317,14 @@
     "shoulder": 0.0054,
     "chest": 0.0108,
     "waist": 0.018,
-    "hip": 0.035,
-    "hem": 0.075,
+    "hip": 0.0225,
+    "hem": 0.04,
     "sleeve": 0.012,
     "cuff": 0.012
    },
    "hem": "calf+0.02",
    "sleeve": 1,
-   "hang": 0.95,
+   "hang": 0.6,
    "neck": {
     "depth": 0.05
    },
@@ -1971,18 +1972,6 @@
     "depth": 0.002
    }
   ]
- },
- {
-  "n": 376,
-  "id": "issey-bao-bao-geometric-bag",
-  "designer": "Issey Miyake",
-  "name": "BAO BAO Geometric Bag",
-  "season": "2010",
-  "price": 700,
-  "slot": "bag",
-  "bag": "prism tote",
-  "colour": "#b9babd",
-  "note": "A tote of silver triangular tiles, carried from the shoulder. Not a cut garment: it is built in dist/archive-accessories.js and worn in the bag's place."
  },
  {
   "n": 377,

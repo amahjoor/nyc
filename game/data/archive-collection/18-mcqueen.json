@@ -1300,15 +1300,16 @@
    "ease": {
     "shoulder": 0.003,
     "chest": 0.006,
-    "waist": 0.014,
-    "hip": 0.05,
-    "hem": 0.085,
+    "waist": 0.01,
+    "hip": 0.0125,
+    "hem": 0.03,
     "sleeve": 0.005,
     "cuff": 0.005
    },
    "hem": "ankle+0.02",
    "sleeve": 1,
-   "hang": 0.9,
+   "hug": 0.8,
+   "hang": 0.3,
    "neck": {
     "y": 0.04,
     "depth": 0.01,
@@ -1538,141 +1539,6 @@
     "type": "folds",
     "freq": 8,
     "depth": 0.006
-   }
-  ]
- },
- {
-  "n": 350,
-  "id": "mcq-wooden-prosthetic-leg-boots",
-  "designer": "Alexander McQueen",
-  "name": "No. 13 Wooden Prosthetic-Leg Boots",
-  "season": "SS1999",
-  "price": 300000,
-  "slot": "shoes",
-  "colour": "#8a6a42",
-  "finish": {
-   "roughness": 0.5
-  },
-  "pack": "shoes01",
-  "source": "culturalibre_heroine_boots_3",
-  "shape": [
-   {
-    "op": "platform",
-    "height": 0.07
-   },
-   {
-    "op": "arch",
-    "depth": 0.055,
-    "from": 0.32,
-    "to": 0.62
-   },
-   {
-    "op": "toe",
-    "square": 0.5
-   }
-  ],
-  "note": "Carved from elm with vines and magnolias for a model who wore them as her legs; here they are boots. One pair exists.",
-  "paint": [
-   {
-    "step": "fabric",
-    "type": "wood"
-   },
-   {
-    "step": "pattern",
-    "type": "tapestry",
-    "colours": [
-     "#5c4020",
-     "#a8845a",
-     "#3a2814"
-    ],
-    "scale": 0.6
-   },
-   {
-    "step": "quilt",
-    "type": "box",
-    "size": 0.03,
-    "size2": 0.03,
-    "puff": 0.002
-   },
-   {
-    "step": "line",
-    "frame": "shaft",
-    "pts": [
-     [
-      -1,
-      0.075
-     ],
-     [
-      1,
-      0.075
-     ]
-    ],
-    "style": "groove",
-    "width": 0.004,
-    "depth": 0.002
-   },
-   {
-    "step": "line",
-    "frame": "sides",
-    "pts": [
-     [
-      0.05,
-      0.09
-     ],
-     [
-      0.07,
-      0.2
-     ],
-     [
-      0.04,
-      0.32
-     ]
-    ],
-    "style": "groove",
-    "width": 0.005,
-    "depth": 0.003
-   },
-   {
-    "step": "line",
-    "frame": "sides",
-    "pts": [
-     [
-      0.12,
-      0.09
-     ],
-     [
-      0.13999999999999999,
-      0.2
-     ],
-     [
-      0.11,
-      0.32
-     ]
-    ],
-    "style": "groove",
-    "width": 0.005,
-    "depth": 0.003
-   },
-   {
-    "step": "line",
-    "frame": "sides",
-    "pts": [
-     [
-      0.19,
-      0.09
-     ],
-     [
-      0.21,
-      0.2
-     ],
-     [
-      0.18,
-      0.32
-     ]
-    ],
-    "style": "groove",
-    "width": 0.005,
-    "depth": 0.003
    }
   ]
  },
@@ -2904,18 +2770,6 @@
   ]
  },
  {
-  "n": 358,
-  "id": "mcq-widows-of-culloden-horned-headpiece",
-  "designer": "Alexander McQueen",
-  "name": "Widows of Culloden Horned Headpiece",
-  "season": "FW2006",
-  "price": 60000,
-  "slot": "bag",
-  "bag": "horned headpiece",
-  "colour": "#d9cdb3",
-  "note": "A pair of antlers on a band; the lace veil that hung over them in the show is not made. Not a cut garment: it is built in dist/archive-accessories.js and worn in the bag's place."
- },
- {
   "n": 359,
   "id": "mcq-platos-atlantis-digital-print-dress",
   "designer": "Alexander McQueen",
@@ -3043,107 +2897,6 @@
     ],
     "style": "seam",
     "mirror": true
-   }
-  ]
- },
- {
-  "n": 360,
-  "id": "mcq-armadillo-boots-black",
-  "designer": "Alexander McQueen",
-  "name": "Plato's Atlantis Armadillo Boots (Black)",
-  "season": "SS2010",
-  "price": 100000,
-  "slot": "shoes",
-  "colour": "#17171a",
-  "finish": {
-   "roughness": 0.25,
-   "metalness": 0.3
-  },
-  "pack": "shoes01",
-  "source": "toigo_ankle_boots_male",
-  "shape": [
-   {
-    "op": "wide",
-    "by": 0.26,
-    "long": 0.4
-   },
-   {
-    "op": "toe",
-    "bulb": 1.3,
-    "from": 0.45
-   },
-   {
-    "op": "platform",
-    "height": 0.13,
-    "from": 0.07
-   },
-   {
-    "op": "shaft",
-    "add": 0.04,
-    "from": 0.2
-   }
-  ],
-  "clear": true,
-  "note": "The black python pair; the iridescent green one is earlier in the list.",
-  "paint": [
-   {
-    "step": "fabric",
-    "type": "leather"
-   },
-   {
-    "step": "pattern",
-    "type": "snake",
-    "colours": [
-     "#3a3a40",
-     "#0c0c0d"
-    ]
-   },
-   {
-    "step": "quilt",
-    "type": "box",
-    "size": 0.018,
-    "size2": 0.009,
-    "puff": 0.0016
-   },
-   {
-    "step": "panel",
-    "colour": "#0f0f10",
-    "where": {
-     "ft": [
-      -1,
-      0.13
-     ],
-     "h": [
-      -1,
-      0.19
-     ]
-    }
-   },
-   {
-    "step": "cut",
-    "arch": [
-     0.1,
-     0.5,
-     0.19
-    ],
-    "round": 0.45
-   },
-   {
-    "step": "cut",
-    "where": {
-     "ft": [
-      -1,
-      0.2
-     ],
-     "h": [
-      -1,
-      0.17
-     ],
-     "afx": [
-      0.011,
-      1
-     ]
-    }
    }
   ]
  }

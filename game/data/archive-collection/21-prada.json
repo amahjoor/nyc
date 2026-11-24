@@ -1,175 +1,5 @@
 [
  {
-  "n": 401,
-  "id": "prada-americas-cup-sneakers",
-  "designer": "Prada Sport",
-  "name": "America's Cup Sneakers",
-  "season": "1997",
-  "price": 600,
-  "slot": "shoes",
-  "colour": "#d9dadd",
-  "finish": {
-   "roughness": 0.28,
-   "metalness": 0.35
-  },
-  "pack": "shoes01",
-  "source": "toigo_ankle_boots_female",
-  "shape": [
-   {
-    "op": "platform",
-    "height": 0.018
-   },
-   {
-    "op": "wide",
-    "by": 0.05
-   },
-   {
-    "op": "toe",
-    "bulb": 0.15
-   }
-  ],
-  "note": "Silver patent leather and mesh, with the red line on the tongue and heel.",
-  "paint": [
-   {
-    "step": "fabric",
-    "type": "leather"
-   },
-   {
-    "step": "fabric",
-    "type": "mesh",
-    "colour": "#b9babd",
-    "where": {
-     "ft": [
-      0.28,
-      0.8
-     ],
-     "h": [
-      0.03,
-      0.11
-     ]
-    }
-   },
-   {
-    "step": "panel",
-    "colour": "#b9babd",
-    "where": {
-     "ft": [
-      0.28,
-      0.8
-     ],
-     "h": [
-      0.03,
-      0.11
-     ]
-    },
-    "amount": 0.85
-   },
-   {
-    "step": "panel",
-    "colour": "#e8e5dc",
-    "where": {
-     "h": [
-      -1,
-      0.03
-     ]
-    }
-   },
-   {
-    "step": "panel",
-    "colour": "#55565a",
-    "where": {
-     "ft": [
-      -1,
-      0.4
-     ],
-     "h": [
-      -1,
-      0.014
-     ]
-    }
-   },
-   {
-    "step": "panel",
-    "colour": "#f1f1f3",
-    "where": {
-     "ft": [
-      0.8,
-      1.2
-     ],
-     "h": [
-      0.03,
-      0.085
-     ]
-    }
-   },
-   {
-    "step": "line",
-    "frame": "sides",
-    "pts": [
-     [
-      0.04,
-      0.05
-     ],
-     [
-      0.1,
-      0.1
-     ],
-     [
-      0.2,
-      0.05
-     ]
-    ],
-    "style": "ridge",
-    "width": 0.004,
-    "colour": "#f1f1f3"
-   },
-   {
-    "step": "laces",
-    "frame": "vamp",
-    "from": [
-     0,
-     0.105
-    ],
-    "to": [
-     0,
-     0.175
-    ],
-    "rows": 5,
-    "width": 0.03,
-    "colour": "#e8e5dc",
-    "thick": 0.004
-   },
-   {
-    "step": "rect",
-    "frame": "heel",
-    "at": [
-     0,
-     0.085
-    ],
-    "size": [
-     0.03,
-     0.008
-    ],
-    "style": "fill",
-    "colour": "#c2261c"
-   },
-   {
-    "step": "rect",
-    "frame": "vamp",
-    "at": [
-     0,
-     0.18
-    ],
-    "size": [
-     0.026,
-     0.007
-    ],
-    "style": "fill",
-    "colour": "#c2261c"
-   }
-  ]
- },
- {
   "n": 402,
   "id": "prada-sport-technical-nylon-jacket",
   "designer": "Prada Sport",
@@ -1134,18 +964,6 @@
     "raise": 0.0008
    }
   ]
- },
- {
-  "n": 408,
-  "id": "prada-sport-technical-backpack",
-  "designer": "Prada Sport",
-  "name": "Technical Backpack",
-  "season": "FW1999",
-  "price": 550,
-  "slot": "bag",
-  "bag": "sport backpack",
-  "colour": "#17171a",
-  "note": "A slim black pack with a moulded panel and the red line. Not a cut garment: it is built in dist/archive-accessories.js and worn in the bag's place."
  },
  {
   "n": 409,
@@ -3032,22 +2850,19 @@
   "under": {
    "colour": "#b3261e",
    "cut": {
-    "like": "tee",
-    "hem": "hip+0.03",
+    "like": "longsleeve",
+    "hem": "hip+0.02",
     "overWaist": false,
-    "ease": {
-     "shoulder": 0.004,
-     "chest": 0.01,
-     "waist": 0.016,
-     "hip": 0.016,
-     "sleeve": 0.012,
-     "cuff": 0.014
+    "neck": {
+     "y": 0.012,
+     "depth": 0.02,
+     "round": 0.075
     }
    },
    "paint": [
     {
      "step": "fabric",
-     "type": "jersey"
+     "type": "knit"
     }
    ]
   },
