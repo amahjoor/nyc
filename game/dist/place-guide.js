@@ -77,9 +77,9 @@ export async function resolveMapPlace(place,signal){
       if(!response.ok)return null;
       const data=await response.json();
       for(const [i,row] of data.places.entries()){
-        if(row[0]!==place.x || row[1]!==place.z || row[3]!==place.name)continue;
+        if(row[0]!==place.x || row[1]!==place.z)continue;
         const full=unpackPlace(row,(folder==='shops'?'o':'')+cell+':'+i);
-        if(full?.kind===place.kind)return full;
+        if(full?.kind===place.kind && full.name===place.name)return full;
       }
     }catch{}
     return null;

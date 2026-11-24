@@ -117,7 +117,9 @@ function clubOf(name) {
 }
 
 function gym(r, prop) {
-  const name = placeName(r.place), club = Object.hasOwn(CLUBS,r.place.discipline) ? r.place.discipline : clubOf(name), design = CLUBS[club];
+  const name = placeName(r.place), club = Object.hasOwn(CLUBS,r.place.discipline) ? r.place.discipline : clubOf(r.place.registeredName ?? name), design = r.place.registeredName !== undefined && CHAINS[brandKey(r.place.registeredName)]
+    ? { ...CLUBS[club], feature:'#295d55', wall:'#d6daca', ink:'#fff5da', accent:'#d68156', frame:'#516961' }
+    : CLUBS[club];
   const lounge = club === 'lifetime', dark = club === 'equinox', studio = ['yoga', 'pilates', 'cycling'].includes(club);
   const narrow=r.width<4.8;
   const side = lounge ? 1 : -1, desk = side * (r.half - (narrow?.73:.93));
@@ -125,7 +127,7 @@ function gym(r, prop) {
   r.light = { color: lounge || studio ? 0xffead4 : 0xf2f4ff, power: 72,
     ceiling: dark || club === 'cycling' ? '#383b3b' : '#dedcd4', strip: lounge || club === 'pilates' ? '#fff0ce' : '#fff9ed' };
   r.finish = { floor: studio && club !== 'cycling' ? 'wood' : 'rubber', entry: design.entry, entryDepth: lounge ? 3.2 : 2.3,
-    feature: design.feature, ink: design.ink, accent: design.accent, title: design.title || name, line: design.line,
+    feature: design.feature, ink: design.ink, accent: design.accent, title: r.place.registeredName !== undefined ? name : design.title || name, line: design.line,
     slats: lounge || club === 'pilates', mirror: dark || studio,
     zones: club === 'strength' ? ['FREE WEIGHTS', 'LIFTING PLATFORMS'] : lounge ? ['CYCLE', 'PILATES'] : studio ? ['CHECK-IN', design.line] : ['STRENGTH', 'CARDIO'] };
 

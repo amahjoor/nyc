@@ -15,6 +15,7 @@
 import * as THREE from './vendor/three.module.min.js';
 import { shared } from './gfx-common.js';
 import { ATLAS_CELL_HEIGHT } from './facade.js';
+import { punMode } from './business-puns.js';
 import { isOpen, signFor, brandKey, placeName } from './places.js';
 import { bankIdentity, drawBankName } from './bank.js';
 import { roomPoint } from './room.js';
@@ -243,6 +244,7 @@ export function createStorefronts({ createCanvas = () => document.createElement(
   const state = {
     textures: { map, table, atlas },
     /** How many places have a front in the map, and how many of those are lettered. */
+    fictionalSigns: punMode,
     get counts() { return { fronts: shown.length, lettered }; },
     /** The fronts in the table, row 1 first. */
     get fronts() { return shown; },
@@ -320,7 +322,7 @@ export function createStorefronts({ createCanvas = () => document.createElement(
         let free = 1, drawn = false;
         tableData.fill(0); lettered = 0;
         faces.forEach((front, i) => {
-          const logo = logos.get(brandKey(placeName(front.place))) || null;
+          const logo = !punMode && logos.get(brandKey(placeName(front.place))) || null;
           const identity = !logo && front.place.kind === 'bank' ? bankIdentity(front.place) : null;
           const wordmark = identity?.key === 'bank-of-america' || identity?.key === 'chase-bank';
           const sign = signFor(front.place, front.language || null), o = (i + 1) * ROW_SIZE, [br, bg, bb] = linear(logo ? logo.background : sign.background), [lr, lg, lb] = linear(sign.lettering);

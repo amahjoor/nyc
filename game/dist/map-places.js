@@ -1,7 +1,8 @@
 // What is where, on the street map: the bundled places drawn by kind.
 //
 // Each enabled place keeps its geographic position at every zoom level.
-import { KIND, KINDS, facilityIndex, isOpen } from './places.js';
+import { punMode } from './business-puns.js';
+import { aliasForPlace, KIND, KINDS, facilityIndex, isOpen } from './places.js';
 
 /** The kinds of place the map can show, each a set of kinds or groups from places.js and a colour. */
 export const MAP_CATEGORIES = [
@@ -38,12 +39,13 @@ export function createPlaceLayer(data = null) {
   const grid = new Map();
   let doors = null, linked = [], localOnly = [], merged = new Map();
   let count = 0;
-  for (const [name, x, z, recorded] of data?.places || []) {
-    const kind = facilityIndex(recorded, name, data.kinds);
+  for (const [raw, x, z, recorded] of data?.places || []) {
+    const kind = facilityIndex(recorded, raw, data.kinds);
     const label = data.kinds[kind];
     const category = CATEGORY_BY_LABEL.get(label) ?? CATEGORY_OF[kind];
     if (category === undefined || category < 0) continue;
     const kindId = CATEGORY_BY_LABEL.has(label) ? MAP_CATEGORIES[category].id : KINDS[kind]?.id;
+    const name = punMode && KINDS[kind]?.label === label ? aliasForPlace(raw,KINDS[kind],x,z) : raw;
     const place = { name, x, z, kind: label || '', kindId, category };
     count++;
     members.get(MAP_CATEGORIES[category].id).push(place);

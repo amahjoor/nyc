@@ -72,7 +72,7 @@ export const ownedWearables=sim=>Object.keys(sim.purchases||{}).filter(sku=>sim.
 export const wearing=(look,item)=>Boolean(look && item?.design) && Object.entries(item.design).every(([key,value])=>(look[key]??null)===(value??null));
 
 export function fittingStock(place) {
-  const kind=typeof place==='string'?place:place.kind, name=place.name || '';
+  const kind=typeof place==='string'?place:place.kind, name=place.registeredName ?? place.name ?? '';
   const chain=(kind==='clothes' || kind==='department') && (/\bold navy\b/i.test(name)?oldNavy:/\bt\.?\s*j\.?\s*maxx\b/i.test(name)?tjMaxx:null);
   const own=chain || stock[kind] || [];
   // A house's own shop and the resale shops sell only the archive collection; every other clothing shop has some of it beside its own lines.

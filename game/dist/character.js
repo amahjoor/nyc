@@ -1,4 +1,6 @@
 // The character page: the player's design, every dial of it, and the body it makes.
+import { punMode, parodyLabel } from './business-puns.js';
+import { archiveName, archivePiece, ARCHIVE_PIECES } from './archive-stock.js';
 import * as THREE from './vendor/three.module.min.js';
 import { createHumanShop } from './human-shop.js';
 import { createHumanMesh } from './human-mesh.js';
@@ -117,6 +119,12 @@ const catalog = await (await fetch('./human/human.json')).json();
 const {dials} = catalog.body;
 const list = (kind, slot) => ['none', ...catalog.parts.filter(p => p.kind === kind && (!slot || p.slot === slot && !/\d$/.test(p.id))).map(p => p.id)];
 const labelOf = name => name.replace(/_/g,' ').replace(/([a-z])(\d+)/g,'$1 $2').replace(/-/g,' ').replace(/^./, c=>c.toUpperCase());
+const accessoriesByName = new Map(ARCHIVE_PIECES.filter(piece => piece.bag).map(piece => [piece.bag, piece]));
+function choiceLabel(value) {
+  if (!punMode) return labelOf(value);
+  const piece = archivePiece(value) || accessoriesByName.get(value);
+  return piece ? archiveName(piece) : parodyLabel(labelOf(value));
+}
 const FIELDS = [
   {group:'Frame', choices:[['walkStyle','Walking style',WALK_STYLES]], sliders:[['sex','Masculine to feminine',0,1,.01],['age','Age',6,95,1],['height','Height (m)',1.1,2.15,.01],
     ['weight','Build',-1,1,.01],['muscle','Muscle',-1,1,.01],['chest','Bust',-1,1,.01],['firm','Firmness',-1,1,.01],
@@ -165,7 +173,7 @@ function build() {
     }
     for (const [key, text, list] of choices) {
       const label = document.createElement('label'); label.className = 'pick'; label.append(text);
-      const select = document.createElement('select'); for (const option of list) select.append(new Option(labelOf(option), option));
+      const select = document.createElement('select'); for (const option of list) select.append(new Option(choiceLabel(option), option));
       select.value = design[key]; select.addEventListener('change', () => { design[key] = select.value;
         if(key==='walkStyle'){movement='walk';el('movement').value='walk';frozen=null;}
         changed(false); }); label.append(select); section.append(label);

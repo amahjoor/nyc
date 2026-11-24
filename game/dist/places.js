@@ -11,6 +11,8 @@
  * the register gives no trade name. `group` gathers kinds that look alike
  * from the street.
  */
+import { businessPun, punMode } from './business-puns.js';
+
 export const KINDS = [
   // Food and drink, from the health department's restaurant inspections.
   ['pizza', 'Pizza', 'food'], ['chinese', 'Chinese Restaurant', 'food'], ['coffee', 'Coffee', 'cafe'], ['bakery', 'Bakery', 'cafe'], ['donuts', 'Donuts', 'cafe'],
@@ -210,13 +212,19 @@ export function mergePlaces(entries) {
 
 /** A place as it is stored: [x, z, kind index, name, building number, floor area in square feet, inspection grade]. */
 export const packPlace = place => {
-  const row = [Math.round(place.x), Math.round(place.z), KIND[place.kind].index, place.name || '', place.bin || 0, Math.round(place.area || 0), place.grade || ''];
+  const row = [Math.round(place.x), Math.round(place.z), KIND[place.kind].index, place.registeredName ?? place.name ?? '', place.bin || 0, Math.round(place.area || 0), place.grade || ''];
   if (place.discipline) row.push(place.discipline);
   return row;
 };
-export function unpackPlace(row, id) {
+export function aliasForPlace(name, kind, x, z) {
+  return businessPun(name, kind?.id, kind?.group, x, z, brandKey(name));
+}
+
+export function unpackPlace(row, id, usePuns = punMode) {
   const recorded = KINDS[row[2]], kind = recorded && KIND[facilityKind(recorded.id, row[3])];
-  return kind ? { id, x: row[0], z: row[1], kind: kind.id, group: kind.group, name: row[3] || '', bin: row[4] || 0, area: row[5] || 0, grade: kind.id === 'gym' ? '' : row[6] || '', ...(kind.id === 'gym' && row[7] ? { discipline: row[7] } : {}) } : null;
+  return kind ? { id, x: row[0], z: row[1], kind: kind.id, group: kind.group, ...(usePuns && kind.group !== 'public'
+    ? {name:aliasForPlace(row[3] || '',kind,row[0],row[1]), registeredName:row[3] || ''}
+    : {name:row[3] || ''}), bin: row[4] || 0, area: row[5] || 0, grade: kind.id === 'gym' ? '' : row[6] || '', ...(kind.id === 'gym' && row[7] ? { discipline: row[7] } : {}) } : null;
 }
 
 // ---------------------------------------------------------------------------
@@ -599,12 +607,12 @@ export const brandNames = () => [...new Map(BRANDS.filter(entry => entry[3]).map
 export const brandOf = name => { const found = findBrand(name); return found ? [found[1], found[2]] : null; };
 
 export function signFor(place, language = null) {
-  const name = placeName(place), brand = brandOf(name), schemes = KIND_SCHEMES[place.kind] || SCHEMES[KIND[place.kind]?.group] || SCHEMES.shop;
+  const name = placeName(place), brand = place.registeredName === undefined && brandOf(name), schemes = KIND_SCHEMES[place.kind] || SCHEMES[KIND[place.kind]?.group] || SCHEMES.shop;
   const [background, lettering] = brand || schemes[hashText(`${name}|${place.x}|${place.z}`) % schemes.length];
   // A chain's sign is its name and nothing more.
   if (brand) return { name, tagline: '', background, lettering };
   // A sign does not say the same thing twice: words already in the name are left out of the line under it.
-  const said = new Set(name.split(/[^A-Z]+/)), tagline = (TAGLINES[place.kind] || '').split(/ {2,}/).filter(item => item && !item.split(' ').some(word => said.has(word) || said.has(`${word}S`) || said.has(word.replace(/S$/, '')))).join('  ');
+  const said = new Set(name.toUpperCase().split(/[^A-Z]+/)), tagline = (TAGLINES[place.kind] || '').split(/ {2,}/).filter(item => item && !item.split(' ').some(word => said.has(word) || said.has(`${word}S`) || said.has(word.replace(/S$/, '')))).join('  ');
   // Where many of the neighbours speak another language at home, the sign says what the place is in it too.
   const word = language ? localWord(place, language) : '';
   return { name, tagline: word ? (tagline ? `${word}  ${tagline}` : word) : tagline, background, lettering };

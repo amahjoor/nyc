@@ -8,7 +8,8 @@
 // Each is reduced to the same three parts: a compass direction if it leads
 // the name, the name itself with numbers as digits, and the kind of street.
 
-import { facilityIndex, KINDS } from './places.js';
+import { punMode } from './business-puns.js';
+import { aliasForPlace, facilityIndex, KINDS } from './places.js';
 
 const UNITS = { ZERO: 0, ONE: 1, TWO: 2, THREE: 3, FOUR: 4, FIVE: 5, SIX: 6, SEVEN: 7, EIGHT: 8, NINE: 9, TEN: 10, ELEVEN: 11, TWELVE: 12, THIRTEEN: 13, FOURTEEN: 14, FIFTEEN: 15, SIXTEEN: 16, SEVENTEEN: 17, EIGHTEEN: 18, NINETEEN: 19,
   FIRST: 1, SECOND: 2, THIRD: 3, FOURTH: 4, FIFTH: 5, SIXTH: 6, SEVENTH: 7, EIGHTH: 8, NINTH: 9, TENTH: 10, ELEVENTH: 11, TWELFTH: 12, THIRTEENTH: 13, FOURTEENTH: 14, FIFTEENTH: 15, SIXTEENTH: 16, SEVENTEENTH: 17, EIGHTEENTH: 18, NINETEENTH: 19 };
@@ -207,8 +208,10 @@ export function parseQuery(text) {
  * `data` is place-names.json: { kinds, places: [[name, x, z, kind, borough]] }.
  */
 export function createPlaceIndex(data = null) {
-  const places = (data?.places || []).map(([name,x,z,kind,borough])=>{
-    const kindIndex=facilityIndex(kind,name,data.kinds);
+  const places = (data?.places || []).map(([raw,x,z,kind,borough])=>{
+    const kindIndex=facilityIndex(kind,raw,data.kinds);
+    const known = KINDS[kindIndex];
+    const name = punMode && known?.label === data.kinds[kindIndex] ? aliasForPlace(raw,known,x,z) : raw;
     return {name,x,z,kindIndex,kind:data.kinds[kindIndex] || '',borough:BOROUGH_NAMES[borough] || '',order:borough,words:plain(name).split(' ')};
   });
   const facilities = {

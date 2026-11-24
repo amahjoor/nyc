@@ -1,5 +1,6 @@
 import * as THREE from './vendor/three.module.min.js';
-import { ARCHIVE_ACCESSORIES } from './archive-accessories.js';
+import { punMode } from './business-puns.js';
+import { ARCHIVE_ACCESSORIES, fitPlainJewelry } from './archive-accessories.js';
 
 // Accessory geometry is measured in the character's fitted bind pose. Applying
 // the inverse bind matrix once lets a rigid frame or strap follow its own bone.
@@ -89,6 +90,8 @@ export function fitAccessories(built,look,bones,inverses){
       attach('Head','Facial hair',hair,{color,vertexColors:true,roughness:1,transparent:true,alphaTest:.015,depthWrite:false,opacity:style==='stubble'?.52:.94});
     }
   }
+  if (punMode && /backpack|rucksack/.test(look.bag)) look = {...look, bag:'backpack'};
+  if (punMode && ['prism tote', 'city bag'].includes(look.bag)) look = {...look, bag:'tote'};
   if(look.bag==='nylon backpack'){
     // A small black nylon rucksack: a soft body gathered under a flap, two buckled pockets, and a triangle of enamel on the flap.
     const chest=at('spine_03'),lh=at('upperarm_l'),rh=at('upperarm_r'),s=rig.height/1.76,half=lh.distanceTo(rh)/2;
@@ -137,7 +140,8 @@ export function fitAccessories(built,look,bones,inverses){
     }
   }else if(ARCHIVE_ACCESSORIES[look.bag]){
     // The archive collection's other bags, its hat, its necklaces and its rings (archive-accessories.js).
-    ARCHIVE_ACCESSORIES[look.bag]({built,look,rig,marks,attach,at,s:rig.height/1.76});
+    const wearer = {built,look,rig,marks,attach,at,s:rig.height/1.76};
+    if (!punMode || !fitPlainJewelry(look.bag, wearer)) ARCHIVE_ACCESSORIES[look.bag](wearer);
   }else if(look.bag && look.bag!=='none'){
     const chest=at('spine_03'),hip=at('pelvis'),lh=at('upperarm_l'),rh=at('upperarm_r');
     const s=rig.height/1.76, half=lh.distanceTo(rh)/2, backpack=look.bag==='backpack', tote=look.bag==='tote';

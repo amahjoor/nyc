@@ -101,6 +101,13 @@ function crossShape(size, flare = .42, depth = .0012) {
   const g = new THREE.ExtrudeGeometry(shape, { depth, bevelEnabled: false }); g.rotateX(-Math.PI / 2); return g;
 }
 
+export function fitPlainJewelry(item, wearer) {
+  if (item.endsWith('ring')) ring(wearer, 'ring', 'r', {material:SILVER});
+  else if (/necklace|pendant/.test(item)) necklace(wearer, {material:SILVER});
+  else return false;
+  return true;
+}
+
 export const ARCHIVE_ACCESSORIES = {
   // Raf Simons × Eastpak: an outsized top-loading pack with a suede base and a square front pocket.
   'eastpak backpack'(c) {

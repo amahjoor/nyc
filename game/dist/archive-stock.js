@@ -4,13 +4,19 @@
 // a house's own store carries that house's pieces, a few multi-brand stores
 // carry the designers they are known for, the resale shops carry a changing
 // handful of everything, and any other clothing shop keeps a rail of them. Prices are what an original sells for now.
+import { parodyLabel, punMode } from './business-puns.js';
 import { ARCHIVE } from './archive-collection.js';
 
 const byId = new Map(ARCHIVE.map(piece => [piece.id, piece]));
 /** The pieces sold, in list order: a suit's trousers come with its jacket and are not sold alone. */
 export const ARCHIVE_PIECES = ARCHIVE.filter(piece => !piece.part);
 export const archivePiece = id => byId.get(id);
-export const archiveName = piece => piece.designer + ' · ' + piece.name;
+export function archiveName(piece, usePuns = punMode) {
+  const label = piece.designer + ' · ' + piece.name;
+  if (!usePuns) return label;
+  if (piece.id === 'supreme-box-logo-hoodie') return 'Subordinate · Name Badge Hoodie';
+  return parodyLabel(label).replace('Mickey Mouse Graphic Tee', 'Matinee Tee').replace('Box Logo Hoodie', 'Panel Hoodie');
+}
 
 /** A piece as a shop sells it: what buying it puts on. */
 export function archiveItem(piece) {
@@ -89,7 +95,7 @@ const chosen = (name, pieces, count) => pieces.map(piece => [hash(name.toLowerCa
  * `only` is true where they are all it sells (a house's own shop, a dealer in the archive).
  */
 export function archiveStock(place) {
-  const name = typeof place === 'string' ? '' : place?.name || '', kind = typeof place === 'string' ? place : place?.kind;
+  const name = typeof place === 'string' ? '' : (place?.registeredName ?? place?.name ?? ''), kind = typeof place === 'string' ? place : place?.kind;
   if (!name || !['clothes', 'department', 'shoes', 'secondhand', 'bags'].includes(kind)) return null;
   if (SNEAKERS.test(name)) {
     const sneakers = ARCHIVE_PIECES.filter(piece => piece.slot === 'shoes' && /sneaker|dunk|trainer|geobasket|ramones|bape sta|foamposite/i.test(piece.name));

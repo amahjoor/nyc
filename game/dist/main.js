@@ -4148,7 +4148,7 @@ async function boot() {
     isClosed:closedAfterIncident,policeUsing:view=>sim.police.searchRoom===view || sim.police.officers.some(officer=>officer.room===view) ||
       sim.police.calls.some(call=>call.view===view) || sim.shopping.basket?.roomView===view,
     populate:view=>populateShop(view,(x,z)=>demographics.tracts?demographics.tonesAt(x,z,.35):null)});
-  loadLogos().then(logos=>{if(logos.size)storefronts.setLogos(logos);}).catch(()=>{});
+  if(!storefronts.fictionalSigns)loadLogos().then(logos=>{if(logos.size)storefronts.setLogos(logos);}).catch(()=>{});
   // The registers' places, and the shops they do not list (OpenStreetMap), read as one.
   const registerPlaces=createPlaceSource({load:url=>loadData(url.replace(/^\.\//,''))}),otherShops=createPlaceSource({load:url=>loadData(url.replace(/^\.\//,'')),prefix:'o'});
   placeSource=joinPlaceSources(registerPlaces,otherShops);

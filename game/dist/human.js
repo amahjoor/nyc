@@ -18,6 +18,7 @@
 //
 // No DOM and no three.js here: this runs in a worker (body-worker.js).
 import { qmul, qinv, qrot, restWorld } from './body.js';
+import { punMode, parodyFabric } from './business-puns.js';
 import { fitPatrolUniform } from './patrol-uniform.js';
 import { easeOverWaist, coveredShaft } from './garment-fit.js';
 
@@ -76,6 +77,7 @@ export function statureOf(design) {
  * @param {(name: string) => Promise<ArrayBuffer>} [fetchBin] gives dist/human/<name>.bin, for the parts that lie in a bin of their own
  */
 export function createHuman(meta, bodyBin, partsBin, motion, fetchBin = null) {
+  if(punMode) meta = {...meta,parts:meta.parts.map(parodyFabric)};
   const B = meta.body, N = B.points;
   const from = (buffer, [at, count], Type) => new Type(buffer, at, count);
   const basePosition = from(bodyBin, B.position, Float32Array), baseIndex = from(bodyBin, B.skinIndex, Uint8Array), baseWeight = from(bodyBin, B.skinWeight, Uint8Array);

@@ -1,3 +1,4 @@
+import { punMode } from './business-puns.js';
 import { bundledContact, cityRecord, contactLinks, resolveMapPlace } from './place-guide.js';
 import { worldToGeographic } from './city-ground.js';
 import { menuFor } from './menu.js';
@@ -92,7 +93,7 @@ export function createPlaceSheet({$,click,storage,roll,previewScene,onResolved})
   async function open(next){
     close();place=next;request=new AbortController();
     const active=request;
-    key=JSON.stringify([place.name,place.kind,place.x,place.z]);
+    key=JSON.stringify([place.registeredName ?? place.name,place.kind,place.x,place.z]);
     record=null;index=0;photos=[];tab='overview';$('phone-place').scrollTop=0;syncVisitPhoto();
     element('editor').hidden=true;
     if(document?.defaultView && String(next.id).startsWith('map/')){
@@ -101,14 +102,14 @@ export function createPlaceSheet({$,click,storage,roll,previewScene,onResolved})
       overview();changeTab('overview');
       next=await resolveMapPlace(next,active.signal);
       if(active.signal.aborted)return;
-      place=next;onResolved(next);
+      place=next;key=JSON.stringify([place.registeredName ?? place.name,place.kind,place.x,place.z]);syncVisitPhoto();onResolved(next);
     }
     element('visitor-reviews').hidden=false;
     const stock=menuFor(place),visits=placeReviews(place,stock);
     notes=visits.notes;
     overview();visitors();changeTab(tab);
     if(!document?.defaultView)return;
-    (async()=>{
+    if(!punMode || next.group==='public') (async()=>{
       let value=await bundledContact(next);
       if(active.signal.aborted)return;
       if(!value)value=await cityRecord(next,active.signal);

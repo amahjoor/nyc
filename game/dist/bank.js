@@ -12,9 +12,10 @@ const brands = {
 };
 
 export function bankIdentity(place) {
-  const name = placeName(place), key = /^wells fargo/i.test(name) ? 'wells-fargo' : brandKey(name);
+  const name = place.registeredName ?? placeName(place), key = /^wells fargo/i.test(name) ? 'wells-fargo' : brandKey(name);
   if (brands[key]) {
     const [title, ink, accent] = brands[key];
+    if(place.registeredName !== undefined) return {title:place.name,key:'fictional-bank',ink:'#243e41',accent:'#bf8b52'};
     return { title, key, ink, accent };
   }
   return null;
