@@ -274,31 +274,42 @@ export class WorldSounds {
     this.nextBump = now + 1.4;
     this.say(actor, line, true);
   }
-  say(actor, line, deliberate = false) {
-    if (!this.playing || !actor || !this.listener) return;
-    if (typeof line === 'string') line = dialogue.indexOf(line);
-    if (!Number.isInteger(line) || !dialogue[line] || (this.c.currentTime < this.nextVoice && !deliberate)) return;
+  say(actor, line, deliberate = false, phones, signal) {
+    if (!this.playing || !actor || !this.listener || signal?.aborted) return;
+    if (phones) {
+      const ids=phones;
+      if (this.synthesis.failed || typeof line!=='string' ||
+          !Array.isArray(ids) || ids.length>2048 || ids[0]!==1 || ids.at(-1)!==2 ||
+          !ids.every(id=>Number.isInteger(id) && id>=0 && id<256)) return;
+    } else {
+      if (typeof line === 'string') line = dialogue.indexOf(line);
+      if (!Number.isInteger(line) || !dialogue[line]) return;
+    }
+    if (this.c.currentTime < this.nextVoice && !deliberate) return;
     const speaker = this.speakerFor(actor);
     if (!deliberate && this.c.currentTime - speaker.last < 17) return;
     if (speaker.line === line && this.c.currentTime - speaker.last < 1.2) return;
     if (!deliberate && this.pendingSpeech?.deliberate) return;
     if (speaker.voice >= recordedSpeakers.length) this.synthesis.warm();
     const id = this.synthesis.failed && speaker.voice >= recordedSpeakers.length ? speaker.fallback : speaker.voice;
-    const name = 'line' + line + '-' + id;
+    const name = (phones ? 'conversation-' : 'line') + line + '-' + id;
     const extended = id >= recordedSpeakers.length;
     const greetingPack = 'hello/' + Math.floor((id - recordedSpeakers.length) / 32);
     const greeting = extended && line === 0 && this.c.currentTime >= (this.voiceRetries.get(greetingPack) || 0);
-    const synthesize = extended && !greeting;
+    const synthesize = Boolean(phones) || (extended && !greeting);
     const bankKey = greeting ? greetingPack : id;
     const bank = synthesize ? this.spokenLines.get(name) : this.voiceBanks.get(bankKey);
-    if (!bank && (extended || (id >= 2 && this.c.currentTime >= (this.voiceRetries.get(id) || 0)))) {
+    if (!bank && (phones || extended || (id >= 2 && this.c.currentTime >= (this.voiceRetries.get(id) || 0)))) {
       const pending = this.pendingSpeech;
       if (pending && (!deliberate || (pending.actor === actor && pending.line === line && pending.deliberate))) return;
       const request = this.pendingSpeech = {actor, line, deliberate, time: this.c.currentTime};
       const ready = synthesize
-        ? this.synthesis.render(modelSpeakers[id], dialogue[line])
+        ? this.synthesis.render(modelSpeakers[id], phones ? line : dialogue[line], phones)
         : this.loadVoice(bankKey, greeting ? 'mp3' : 'flac');
+      const cancel=()=>{if(this.pendingSpeech===request)this.pendingSpeech=null;};
+      signal?.addEventListener('abort',cancel,{once:true});
       ready.then(pcm => {
+        signal?.removeEventListener('abort',cancel);
         if (this.pendingSpeech !== request) return;
         this.pendingSpeech = null;
         if (synthesize && pcm) {
@@ -308,7 +319,7 @@ export class WorldSounds {
           if (this.spokenLines.size > 32) this.spokenLines.delete(this.spokenLines.keys().next().value);
         }
         if (this.playing && !actor.gone && (deliberate || this.c.currentTime - request.time < 1.5)) {
-          this.say(actor, line, deliberate);
+          this.say(actor, line, deliberate, phones, signal);
         }
       });
       return;
@@ -330,6 +341,11 @@ export class WorldSounds {
     this.voiceOutside = !deliberate;
     this.voice = voice;
     this.talker = actor;
+    signal?.addEventListener('abort',()=>{
+      if (this.voice!==voice || this.c.currentTime>=this.voiceEnd) return;
+      voice.gain.gain.setTargetAtTime(0,this.c.currentTime,.015);
+      voice.source.stop(this.c.currentTime+.06);this.voiceEnd=this.c.currentTime;this.nextVoice=this.voiceEnd;
+    },{once:true});
     this.voiceEnd = this.c.currentTime + (bank?.regions || this.regions)[clip][1] / speaker.rate;
     this.nextVoice = this.voiceEnd + 3;
     speaker.last = this.c.currentTime;

@@ -69,9 +69,9 @@ self.onmessage = async ({data}) => {
   try {
     const [session, pronunciations] = await engine;
     while (next) {
-      const {ticket, text, speaker} = next;
+      const {ticket, text, speaker, phones} = next;
       next = null;
-      const pcm = await speak(session, pronunciations[text], speaker);
+      const pcm = await speak(session, phones ?? pronunciations[text], speaker);
       self.postMessage({ticket, pcm}, [pcm.buffer]);
     }
   } catch {

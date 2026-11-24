@@ -22,13 +22,13 @@ export class VoiceSynthesis {
     this.finish?.(null);
     this.finish = null;
   }
-  render(speaker,text) {
+  render(speaker,text,phones) {
     this.warm();
     if (this.failed) return Promise.resolve(null);
     this.finish?.(null);
     return new Promise(resolve => {
       this.finish = resolve;
-      try { this.worker.postMessage({ticket:++this.ticket,speaker,text}); }
+      try { this.worker.postMessage({ticket:++this.ticket,speaker,text,phones}); }
       catch { this.fail(); }
     });
   }

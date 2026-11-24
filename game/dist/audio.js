@@ -331,7 +331,7 @@ export class CityAudio {
   effect(family, actor, level, range, exterior = false) {
     if (this.enabled) this.world?.effect(family, actor, level, range, exterior);
   }
-  reply(actor, text) {
-    if (this.enabled) this.world?.say(actor, text, true);
+  reply(actor, text, phones, signal) {
+    if (this.enabled) this.world?.say(actor, text, true, phones, signal);
   }
 }
