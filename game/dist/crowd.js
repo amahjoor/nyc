@@ -1130,7 +1130,8 @@ export function createCrowd({ scene = null, life, boroughs = [], heightAt = () =
     if (person.once) { person.time += dt; if (person.time < lengthOf(person.clip) - .02) return; person.once = false; }
     const speed = person.gaitSpeed ?? person.walkSpeed ?? person.look.pace;
     let clip = 'walk', rate = speed / (WALK_CLIP_SPEED * strideFactor(castWalkStyle(memberOf(person.look))) * ((person.look.height || 1.76)/1.76));
-    if (person.airborne) {clip='fall';rate=1;}
+    if(person.grappled){clip='guard';rate=1;}
+    else if (person.airborne) {clip='fall';rate=1;}
     else if (person.state === 'down') { clip = 'lying'; rate = 1; }
     else if (person.robbery?.blocked || (person.escape && !person.escape.path)) { clip = 'cower'; rate = 1; }
     else if (person.state === 'fight') { clip = 'guard'; rate = 1; }
@@ -1481,7 +1482,9 @@ export function createCrowd({ scene = null, life, boroughs = [], heightAt = () =
           else {person.visit.view.occupied?.delete(person.visit.spot);person.visit.view.visitor=null;}
           person.sitting=false; person.seat=null; person.visit=null; }
         const fighting = person.reaction || person.state === 'fight' || person.state === 'down' || person.state === 'flee' || person.state === 'cower';
-        if (person.visit && !fighting) {
+        if(person.grappled && !person.reaction && person.state!=='down'){
+          person.strikeDue=null;
+        }else if (person.visit && !fighting) {
           if (person.driverCar?.errand) person.driverCar.errand.phase='visiting';
           person.visit.step(person, dt, context.time, player);
           if (!person.visit && !person.run && !person.robbery && !person.driverCar) { if (nearestRun(person.x, person.z)) rejoin(person); else person.gone = true; }

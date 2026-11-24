@@ -118,6 +118,9 @@ export function writeMovements(motion) {
     '+thigh_l': ['x', -30], '+thigh_r': ['x', -30], '+calf_l': ['x', 42], '+calf_r': ['x', 42],
     '+foot_l': ['x', -12], '+foot_r': ['x', -12], '+upperarm_l': ['x', -18], '+upperarm_r': ['x', -18] }]] });
   // Squared up to fight: the stance a jab starts from, breathing.
+  motion.define('clinch',{seconds:.65,loop:true,base:'jab',keys:[
+    [0,{'+spine_01':['x',9],upperarm_l:['z',-65,'y',-55],upperarm_r:['z',65,'y',55],lowerarm_l:['y',-55],lowerarm_r:['y',55]}],
+    [.32,{'+spine_01':['x',11],upperarm_l:['z',-67,'y',-56],upperarm_r:['z',67,'y',56],lowerarm_l:['y',-52],lowerarm_r:['y',52]}]]});
   motion.define('guard', { seconds: 1.1, loop: true, base: 'jab', keys: [[0, {}], [.55, { pelvis: [0, -.012, 0], '+spine_02': ['x', 1.5] }]] });
   // A kick with the back leg, straight out to the front.
   const chamber = { '+hips': ['x', -6], thigh_r: ['x', -92, 'z', -4], calf_r: ['x', 112], foot_r: ['x', 20], '+spine_01': ['x', -4], '+thigh_l': ['x', 4], '+upperarm_r': ['z', -12] };

@@ -677,6 +677,7 @@ function resolveMelee(event) {
   if (!low && sim.strikeVehicle(event,kick?5:3)) audio.effect('roofHit',event,.55,19);
   else if (!kick) sim._say('You swing at the air.');
 }
+let grabbedPerson=null, menuGrapple=false, shoulderSide=1;
 let lockedPerson=null, queuedStrike=null, wheelSelection=null, wheelOpened=0, wheelChanged=false;
 function streetControls(){
   return Boolean(started && bootReady && sim && !paused && !traveling && !cityView && !aerialView && !mapOpen &&
@@ -815,10 +816,14 @@ function action(name,event) {
   if(name==='unarmed' || name==='pistol'){selectLoadout(name==='pistol');return;}
   if(name==='interactionMenu'){
     if(interaction?.open){interaction.close();return;}
-    if(mapOpen || cityView){action('map');return;}
-    if(!streetControls())return;
-    const entries=[['Map','map'],['Inventory','inventory'],['Nearby interactions','shop'],['Delivery job','job'],['Skateboard','skate'],['City views','view']];
-    interaction.openList('Interaction menu',entries.map(([name,id])=>({name,id})),row=>action(row.id));
+    if(!streetControls(true))return;
+    const entries=[['Map','map'],['Inventory','inventory'],['Nearby interactions','shop'],['Delivery job','job'],['Skateboard','skate'],['Camera perspective','nextCamera'],['City views','view']];
+    if(sim.player.mode==='walk' && !phone?.open && !sim.room && !sim.seat){
+      if(sim.player.armed)entries.push(['Switch aiming shoulder','shoulder']);
+      else if(meleeTarget())entries.push(['Grab nearby pedestrian','grapple']);
+    }
+    if(sim.player.mode==='drive')entries.splice(1,0,['Vehicle controls','vehicleMenu']);
+    interaction.openList('Interaction menu',entries.map(([name,id])=>({name,id})),row=>action(row.id,{fromMenu:true}));
     return;
   }
   if(mapOpen && name==='nextCamera'){action('map');return;}
@@ -918,6 +923,25 @@ function action(name,event) {
     return;
   }
   if(name==='phone') { if(started&&!paused&&!traveling&&bootReady&&!cityView&&!mapOpen)phone?.toggle(event?.fromPad || event?.code || event?.detail===0 ? 'keys' : 'pointer');return; }
+  if(name==='shoulder'){
+    if(weaponControls() && (event?.fromMenu || focusedAim()))shoulderSide*=-1;
+    return;
+  }
+  if(name==='grapple'){
+    if(grabbedPerson || !streetControls())return;
+    const p=sim.player,target=lockedPerson || meleeTarget();
+    if(sim.ending || sim.room || sim.seat || p.mode!=='walk' || p.armed || p.move || p.swing || p.reaction || !p.grounded || p.water ||
+       !target || !crowd?.people.includes(target) || target.reaction || target.gone || target.dead || target.sitting || target.visit ||
+       target.state==='down' || Math.hypot(target.x-p.x,target.z-p.z)>.95 || !sim._hasSight(p,target) ||
+       !sim.clearStrikePath({limb:'hand'},{x:target.x,y:(target.y??p.y)+1.25,z:target.z}))return;
+    menuGrapple=Boolean(event?.fromMenu);grabbedPerson=target;target.grappled=true;target.strikeDue=null;target.once=false;
+    p.cover=null;p.velocityX=p.velocityZ=p.speed=0;
+    sim.assault(target.x,target.z);
+    return;
+  }
+  if(name==='interact' && grabbedPerson && menuGrapple){
+    grabbedPerson.grappled=false;grabbedPerson=null;return;
+  }
   if(name==='reload'){if(weaponControls())sim.reload();return;}
   if(name==='fire' || (name==='fight' && sim.player.armed)){
     if(weaponControls() && !(sim.player.reloading>0) && !(sim.player.fireWait>0))fireRequested=true;
@@ -926,12 +950,13 @@ function action(name,event) {
   if(name==='fight' || name==='light' || name==='heavy' || name==='cover') {
     if(sim.doorway?.take)return;
     if(!streetControls() || sim.seat || sim.room)return;
-    const target=lockedPerson || meleeTarget();
+    const target=grabbedPerson || lockedPerson || meleeTarget();
     if(name==='cover' || name==='heavy' && (!target && !input.focusing || sim.player.armed || sim.player.cover)){
       if(sim.toggleCover() || name==='cover' || sim.player.armed)return;
     }
     if(!sim.player.armed){
-      const p=sim.player,style=name==='heavy'?'heavy':name==='light'?'light':'alternate';
+      if(grabbedPerson){grabbedPerson.grappled=false;grabbedPerson=null;}
+      const p=sim.player,style=(name==='heavy'||name==='heavyMelee')?'heavy':name==='light'?'light':'alternate';
       if(sim.fight(target,style))queuedStrike=null;
       else if(sim.meleeAction && !p.reaction){
         const recovery=p.move ? p.move.T-p.move.t : p.swing;
@@ -1682,8 +1707,9 @@ function showPlayer(dt,p,floor,eyeView,riding) {
   if(!mesh.visible && !lensActive && !(eyeView && (p.reaction || traversing)))return;
   mesh.position.set(p.x,floor+(p.lift||0)+(riding?.25:0),p.z);mesh.rotation.set(0,p.angle,0);
   const payment=sim.shopping.payment;
-  const carry=!p.reaction && p.mode==='walk' && !held && !take && !armed && !p.move && !p.swing ? (payment?'cash':courierBag(sim.mission) || p.carry) : null;
-  if((p.cover || p.stealth && p.speed<.12) && !p.move && !p.reaction && !(p.swing>0) && !gunRaised())moves.sample('crouch',sim.elapsed,pose);
+  const carry=!p.reaction && p.mode==='walk' && !held && !take && !armed && !p.move && !p.swing ? (payment?payment.tender || 'cash':courierBag(sim.mission) || p.carry) : null;
+  if(grabbedPerson && !p.reaction)moves.sample('clinch',sim.elapsed,pose);
+  else if((p.cover || p.stealth && p.speed<.12) && !p.move && !p.reaction && !(p.swing>0) && !gunRaised())moves.sample('crouch',sim.elapsed,pose);
   else if(p.reaction && !ending)moves.sample(p.reaction.clip,p.reaction.time,pose);
   else if(p.mode==='bike'){
     moves.sample(p.speed<.18?'cycleStop':'cycle',bikePedal,pose);
@@ -1732,6 +1758,17 @@ function showPlayer(dt,p,floor,eyeView,riding) {
   if(p.reaction?.fall && !ending)fitFallPose(playerBody.rig,playerFitted,p.reaction,p.angle);
   playerBody.pose(playerFitted);
   fitStrikeContact(playerBody,sim.meleeAction);
+  if(grabbedPerson){
+    const sin=Math.sin(p.angle),cos=Math.cos(p.angle);
+    const target=grabbedPerson;
+    if(!figures?.contactJoint?.(target,'spine_03',receiverJoint))
+      receiverJoint.set(target.x,target.y+(target.look.height||1.75)*.73,target.z);
+    for(const side of ['l','r']){
+      const across=side==='l'?.13:-.13;
+      strikeGoal.copy(receiverJoint);strikeGoal.x+=across*cos-.14*sin;strikeGoal.z-=across*sin+.14*cos;
+      reachWithHand(playerBody,side,jointOrigin,strikeGoal);
+    }
+  }
   plantStrideFeet(playerBody, animator.strideCycle, striding && !p.standing ? p : null);
   if((shoulderActive || ownBody) && gunRaised() && playerGun?.visible && !p.reaction && !p.water && !(p.reloading>0)){
     const sinceShot=sim.elapsed-(p.firedAt??-Infinity),recoil=sinceShot<.5?Math.exp(-sinceShot/.07)*.15:0;
@@ -1860,7 +1897,7 @@ function reachJointChain(shoulder,elbow,hand,offset,target,bendHint=null,bendWei
 const strikeAim=new THREE.Vector3(), strikeGoal=new THREE.Vector3(), strikeMarker=new THREE.Vector3();
 const strikeOffset=new THREE.Vector3(), receiverJoint=new THREE.Vector3();
 function fitStrikeContact(body,action) {
-  figures?.trackContact?.(action?.target);
+  figures?.trackContact?.(grabbedPerson || action?.target);
   if (!action?.point || sim.player.reaction) return;
   const {profile,point,target,timing}=action;
   const age=sim.elapsed-action.started, impactFrame=action.committed && !action.presented;
@@ -3063,7 +3100,7 @@ function frame(now) {
       if(!streetControls() || sim.player.mode!=='walk')action('weaponCancel');
       input.lookDelta=input.lookVertical=0;controls={};
     }
-    meleeFocus(controls);
+    if(grabbedPerson){lockedPerson=grabbedPerson;controls.aimYaw=yaw=sim.player.angle;}else meleeFocus(controls);
     if(queuedStrike){
       const p=sim.player;
       if(!streetControls() || p.armed || p.mode!=='walk' || p.reaction || sim.room || sim.seat || wheelSelection!==null || sim.elapsed>queuedStrike.expires)queuedStrike=null;
