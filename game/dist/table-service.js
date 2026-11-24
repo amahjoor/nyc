@@ -7,7 +7,7 @@ import { diningTable, foodId, pantryItem, heldFood, beverage, servingSize } from
 import { floorAt, facePoint, shopAisle } from './room-walk.js';
 import { roomLocal, roomPoint } from './room.js';
 import { menuFor, carriedOrder } from './menu.js';
-import { servingFor } from './food-catalog.js';
+import { servingFor, portionKey } from './food-catalog.js';
 import { foodPreviewOptions } from './food-counter.js';
 
 const money=n=>'$'+n.toFixed(2);
@@ -255,8 +255,10 @@ export function callServer(sim,view,{sale}={}) {
       if(d.portion){clearPlate(o,d.portion);d.portion=null;}
       if(d.state==='table'){
         // What is left on the table is cleared like any other plate.
-        if(d.drink){view.group?.userData.drinkAt?.(d.spot,'mug',false);const mug={...d.spot};view.group?.userData.drinkAt?.(mug,'mug',true,d.food,d.remaining?1:2);view.cleanups.push({table,mug,emptyCarry:servingFor(d.food,true),server:null,left:1.2});}
-        else view.cleanups.push({table,mug:null,emptyCarry:servingFor(d.food,true),server:null,left:1.2});
+      const level=2*(d.remaining??servingSize(d.food))/servingSize(d.food);
+      const carry=portionKey(servingFor(d.food,true),level);
+      if(d.drink){view.group?.userData.drinkAt?.(d.spot,'mug',false);const mug={...d.spot};view.group?.userData.drinkAt?.(mug,'mug',true,d.food,level);view.cleanups.push({table,mug,emptyCarry:carry,server:null,left:1.2});}
+      else view.cleanups.push({table,mug:null,emptyCarry:carry,server:null,left:1.2});
         d.state='left';
       }
     }

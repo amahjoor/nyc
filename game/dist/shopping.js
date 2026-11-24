@@ -39,10 +39,11 @@ export function foodId(place,item){
 }
 export const beverage=item=>groceries[item.source||item.id]?item.effect==='pep':carriedOrder(item)==='cup';
 export const servingSize=item=>beverage(item)?4:3;
+const servingLevel=(item,remaining)=>2*remaining/servingSize(item);
 const portionId=(item,remaining)=>remaining===0?'empty-'+item.id:remaining===servingSize(item)?item.id:'partial-'+remaining+'-'+item.id;
 export function heldFood(item){
   if(item.effect==='empty')return portionKey(heldFood(pantryItem(item.source)),0);
-  if(item.remaining)return portionKey(heldFood(pantryItem(item.source)),1);
+  if(item.remaining)return portionKey(heldFood(pantryItem(item.source)),servingLevel(item,item.remaining));
   return groceries[item.id]?item.id:servingFor(item);
 }
 
@@ -207,7 +208,7 @@ export class Shopping{
   beginEating(item,view,progress=0,{finish=true,remaining=item.remaining||servingSize(item),onRemaining=null}={}){
     if(item.source)item=pantryItem(item.source);
     const seatTable=diningTable(this.sim,view),table=seatTable && !groceries[item.id] && !view.claims.has(seatTable)?seatTable:null,drink=beverage(item);
-    const level=remaining===servingSize(item)?2:1, duration=drink?1.05:1.4;
+    const level=servingLevel(item,remaining), duration=drink?1.05:1.4;
     if(table){
       view.claims.set(table,this);
       if(!drink)view.group?.userData.mealAt?.(table,true,item,level);
@@ -269,7 +270,7 @@ export class Shopping{
         e.remaining=e.initial-bites;
         const fraction=(servingSize(e.item)-e.remaining)/servingSize(e.item);
         sim.pep=e.item.effect==='drink'?0:Math.max(sim.pep||0,(PEP[e.item.effect]||PEP.pep)*fraction);
-        this.portion(e,e.remaining?1:0);this.revision++;
+        this.portion(e,servingLevel(e.item,e.remaining));this.revision++;
       }
       if(sim.elapsed>=e.until)this.clearEating();
     }

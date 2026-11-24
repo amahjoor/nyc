@@ -8,6 +8,7 @@ import { Shopping,diningTable } from '../dist/shopping.js';
 import { roomPoint,ShopDoor } from '../dist/room.js';
 import { groceries } from '../dist/grocery-stock.js';
 import { fittingStock,purchaseStock } from '../dist/shop-stock.js';
+import { portionKey } from '../dist/food-catalog.js';
 
 function store(kind,width=6,deep=9,name=kind){
   const place={id:kind+'-'+width,name,kind,x:0,z:0};
@@ -149,18 +150,20 @@ test('a requested takeaway is packed by the server and opens as the same dish fr
   }finally{view.group.userData.dispose();}
 });
 
-test('spring rolls go from the Chinese kitchen to a half portion and a cleared dish across save and reload',()=>{
+test('spring rolls keep the current portion across save and reload',()=>{
   const {bag,sim,room,view,checkout,placeOrder,tick}=store('chinese',7);
   try{
     checkout();const rolls=menuFor(room.place).find(i=>i.name==='Spring rolls');
     assert.ok(placeOrder(rolls));const ticket=bag.order;tick(90,()=>ticket.ready);
     assert.equal(ticket.employee.carry,'plate-spring-rolls');assert.ok(bag.accept(ticket));
     assert.ok(bag.consume(ticket.food.id));assert.equal(sim.player.carry,'plate-spring-rolls');
-    tick(1.5);assert.equal(sim.player.carry,'plate-spring-rolls@1');
-    assert.equal(bag.setHand(null),false);bag.leave(view);assert.equal(sim.player.carry,'plate-spring-rolls@1');
+    const twoBites=portionKey('plate-spring-rolls',4/3);
+    tick(1.5);assert.equal(sim.player.carry,twoBites);
+    assert.equal(bag.setHand(null),false);bag.leave(view);assert.equal(sim.player.carry,twoBites);
     const save=JSON.parse(JSON.stringify(bag.record()));sim.elapsed=0;
-    const loaded=sim.shopping=new Shopping(sim);loaded.restore(save);assert.equal(sim.player.carry,'plate-spring-rolls@1');
-    tick(2.2);assert.equal(sim.player.carry,'plate-spring-rolls@0');tick(1);
+    const loaded=sim.shopping=new Shopping(sim);loaded.restore(save);assert.equal(sim.player.carry,twoBites);
+    tick(.8);assert.equal(sim.player.carry,portionKey('plate-spring-rolls',2/3));
+    tick(1.4);assert.equal(sim.player.carry,'plate-spring-rolls@0');tick(1);
     const empty='empty-'+ticket.food.id;assert.equal(loaded.held,empty);assert.equal(loaded.inventory[empty],1);
     assert.equal(loaded.consume(empty),false);assert.ok(loaded.discard(empty));assert.equal(sim.player.carry,null);
     assert.equal(loaded.discard(empty),false);assert.equal(sim.cash,100-rolls.price);
@@ -175,8 +178,11 @@ test('a seated meal changes on the actual table when eaten and stays empty when 
     assert.ok(placeOrder(item));const ticket=bag.order;tick(90,()=>ticket.ready);
     assert.ok(bag.accept(ticket));assert.ok(bag.consume(ticket.food.id,view));assert.equal(sim.player.carry,'fork');
     const plate=()=>view.group.children.find(c=>c.name==='Served plate' && c.visible);
-    assert.equal(plate().userData.level,2);tick(1.5);assert.equal(plate().userData.level,1);
-    tick(2.2);assert.equal(plate().userData.level,0);tick(1);assert.equal(sim.player.carry,null);
+    const served=plate(),full=served.geometry;
+    assert.equal(plate().userData.level,2);tick(1.5);assert.equal(plate().userData.level,4/3);
+    assert.equal(plate(),served);assert.notEqual(served.geometry,full);
+    tick(.8);assert.equal(plate().userData.level,2/3);
+    tick(1.4);assert.equal(plate().userData.level,0);tick(1);assert.equal(sim.player.carry,null);
     assert.equal(bag.inventory['empty-'+ticket.food.id],undefined);
     tick(40,()=>view.cleanups.some(j=>j.cleared));
     assert.ok(view.actors.some(a=>a.carry==='plate-pasta@0'));assert.equal(plate(),undefined);
@@ -195,10 +201,11 @@ test('an opened drink stays partial across saves and finishing makes an empty co
     assert.equal(bag.inventory[partial],1);
     const saved=JSON.parse(JSON.stringify(bag.record()));
     const loaded=sim.shopping=new Shopping(sim);loaded.restore(saved);
-    assert.equal(sim.player.carry,id+'@1');
+    assert.equal(sim.player.carry,id+'@1.5');
     assert.ok(loaded.consume(partial,null,true));
     tick(.8);loaded.clearEating();
     assert.equal(loaded.inventory['partial-2-'+id],1);
+    assert.equal(sim.player.carry,id+'@1');
     assert.ok(loaded.consume('partial-2-'+id));
     tick(3);
     assert.equal(loaded.inventory['empty-'+id],1);
