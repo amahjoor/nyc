@@ -154,10 +154,16 @@ function planEscape(view, actor, blocker) {
       (!crossesFixture(at,at,t,BODY_RADIUS) || crossesFixture(node,node,t,BODY_RADIUS)));
   };
   function landing(nodes) {
-    let nearest, best = 1.5;
+    let nearest, best = Infinity;
     for (const node of nodes) {
       const d = Math.hypot(node.a-at.a,node.b-at.b);
-      if (d < best && canLand(node)) { nearest = node; best = d; }
+      if(d>=1.5)continue;
+      // Guests stand on the aisle side of their chair. The closest free tile
+      // can be a pocket behind a table that two diners cannot both leave.
+      let score=d;
+      if(actor.sitting)for(let step=node;step.prev;step=step.prev)
+        score+=.2*Math.hypot(step.a-step.prev.a,step.b-step.prev.b);
+      if(score<best && canLand(node)){nearest=node;best=score;}
     }
     return nearest;
   }

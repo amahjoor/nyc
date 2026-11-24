@@ -156,6 +156,8 @@ test('a café alarm interrupts drink preparation and diners react at different t
   const f=fixture('coffee');
   try {
     const {view,sim}=f, {clerk}=view;
+    // Put the barista in the active service pose. Between orders they idle.
+    clerk.serviceOwner={};clerk.clip='reach';
     f.side(1); f.tick(.1);
     assert.equal(clerk.machine.shape,'espresso');
     assert.equal(clerk.clip,'reach');

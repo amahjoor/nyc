@@ -283,7 +283,7 @@ function* jeweler(v) {
     yield pause(jeweler,'lifting ring from case',.75,display,'pickUp');
     view.group?.userData.sampleAt?.(display,false);jeweler.carry='jewel';
     yield pause(jeweler,'showing ring',2.3,floorAt(view,person));
-    if(pass){pay(v);person.carry='jewelBag';}
+    if(pass){pay(v);v.purchaseCarry='jewelBag';person.carry=v.purchaseCarry;}
     else yield pause(jeweler,'returning ring',.85,display);
     if(pass) {
       // The selected piece leaves with the buyer. A replacement comes from stock.
@@ -483,7 +483,7 @@ function bail(v) {
     v.seat.leaving=true;v.seat.progress=0;person.sitting=false;person.seat=null;person.spot=null;
     v.view.occupied.delete(v.spot);v.spot=null;
   }
-  person.carry=null;
+  person.carry=v.purchaseCarry??null;
   if(v.employee?.serviceOwner===v)done(v);
   if(v.request){v.request.requests=v.request.requests.filter(req=>req!==v);v.request=null;}
   leaveQueue(v);
@@ -515,6 +515,7 @@ function tick(v,dt,time) {
     v.wait=Math.max(.01,task.time);
     task.time-=dt;if(task.time>0)return;
   }
+  if(v.prepTask===task)clearWare(v);
   v.task=null;
 }
 
