@@ -63,6 +63,24 @@ test('the full map stays outside the HUD hidden by city view', () => {
   assert.ok(ancestors);assert.ok(!ancestors.includes('hud'));assert.ok(!ancestors.includes('city-navigation'));
 });
 
+test('the phone preview excludes pursuit overlays while the game radar and pause preview show them', t => {
+  const {map,byId}=fixture(t);
+  const player={x:0,z:0,angle:.4},unit={x:20,z:10};
+  map.update({player,heat:2,elapsed:1,cars:[{...unit,type:'police'}],police:{
+    state:'search',lastKnown:player,searchRadius:75,officers:[unit],helicopter:{...unit,light:unit}
+  }});
+  const phone=byId('phone-map-preview'),pause=byId('pause-map-canvas');
+  map.drawPreview(phone,520,player,{phone:true});
+  map.drawPreview(pause,520);
+  for(const color of ['#ff5d3c1c','#7ec8ff30','#fff6c038','#7ec8ff']){
+    const painted=canvas=>canvas.calls.some(call=>call.key==='fill' && call.fillStyle===color);
+    assert.equal(painted(phone),false,color);
+    assert.equal(painted(pause),true,color);
+    assert.equal(painted(byId('minimap')),true,color);
+  }
+  assert.ok(!phone.calls.some(call=>call.key==='fill' && call.fillStyle==='#f8f2df'));
+});
+
 test('opening shows the local player neighborhood, not the whole city, and emits freeze transitions once', t => {
   const changes = [], { map, byId } = fixture(t, { onOpenChange: open => changes.push(open) });
   map.setPlayer({ x: 2200, z: -3600, angle: .2 });map.setOpen(true);map.setOpen(true);

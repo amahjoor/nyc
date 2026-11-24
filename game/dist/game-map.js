@@ -610,7 +610,7 @@ export class GameMap {
     this.paint(context, this.view, false);this.dirty = false;
     this.byId('game-map-scale').textContent = `${distanceText(this.view.span)} across · NORTH ↑`;
   }
-  drawPreview(canvas, span = 1400, center = this.player, showPlaces = true) {
+  drawPreview(canvas, span = 1400, center = this.player, options = {}) {
     if (this.disposed || !this.player) return;
     const rect = canvas.getBoundingClientRect(), width = Math.max(1, rect.width || 640), height = Math.max(1, rect.height || 420);
     const ratio = Math.min(2, globalThis.devicePixelRatio || 1);
@@ -618,7 +618,7 @@ export class GameMap {
     if(canvas.height!==Math.round(height*ratio))canvas.height=Math.round(height*ratio);
     const context = canvas.getContext('2d');context.setTransform(ratio, 0, 0, ratio, 0, 0);
     const view={x:center.x,z:center.z,width,height,span};
-    this.paint(context,view,false,showPlaces);return view;
+    this.paint(context,view,false,typeof options === 'boolean' ? {showPlaces:options} : options);return view;
   }
   drawMini(span = 300) {
     if (!this.mini || this.disposed) return;
@@ -636,7 +636,7 @@ export class GameMap {
     context.strokeStyle = '#20171a';context.lineWidth = 3;context.stroke();
     context.fillStyle = '#ff9fa0';context.fill();
   }
-  paint(context, view, mini, showPlaces = true) {
+  paint(context, view, mini, {phone = false, showPlaces = !phone} = {}) {
     const bounds = viewBounds(view), xy = point => mapWorldToScreen({ x: point[0], z: point[1] }, view);
     const chain = points => { points.forEach((point, i) => { const p = xy(point);i ? context.lineTo(p.x, p.y) : context.moveTo(p.x, p.y); }); };
     context.save();if (mini) this.paintMiniLand(context, view);else this.paintLand(context, view);
@@ -707,6 +707,8 @@ export class GameMap {
     }
     const pin = this.drag?.preview || this.pin || (this.sim?.mission?.phase === 'active' ? this.sim.mission.target : null);
     if (pin) { const p = mapWorldToScreen(pin, view), x = mini ? clamp(p.x, 12, view.width - 12) : p.x, y = mini ? clamp(p.y, 12, view.height - 12) : p.y;context.fillStyle = '#ff9369';context.strokeStyle = '#1b2529';context.lineWidth = 3;context.beginPath();context.arc(x, y, mini ? 7 : 9, 0, Math.PI * 2);context.fill();context.stroke(); }
+    // Phone Maps places its own location marker above its tappable business pins.
+    if (phone) { context.restore();return; }
     // Civilian traffic stays off the map. Police show once you are wanted, held
     // to the edge of the minimap the way a radar keeps a chase in view, and a
     // fight shows only the person you are actually fighting.
