@@ -1,0 +1,18 @@
+[Unit]
+Description=Concrete Jungle multiplayer lobby
+After=network.target
+
+[Service]
+DynamicUser=yes
+WorkingDirectory=/opt/concrete-jungle/game/lobby
+ExecStart=/usr/bin/env node server.mjs
+Environment=HOST=127.0.0.1 PORT=8787 LOBBY_CAPACITY=512
+EnvironmentFile=-/etc/concrete-jungle/lobby.env
+Restart=on-failure
+RestartSec=3
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+
+[Install]
+WantedBy=multi-user.target
