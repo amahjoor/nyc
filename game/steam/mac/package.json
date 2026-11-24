@@ -1,0 +1,8 @@
+{
+  "name": "concrete-jungle-mac-signing",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "@electron/osx-sign": "2.7.2"
+  }
+}
