@@ -22,60 +22,66 @@
   right: max(clamp(15px, 3vw, 32px), env(safe-area-inset-right));
   max-width: calc(100vw - 30px);
   display: flex;
-  align-items: flex-start;
-  gap: 12px;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 5px;
 }
 .hud-status:has(#cash-gain:not([hidden])){z-index:8}
 #hud[hidden] + .hud-status :is(#wanted,#weapon-status),
 #hud[hidden] + .hud-status:not(:has(#cash-gain:not([hidden]))),
 #hud.switch-shot + .hud-status,
 body:is(.ending-wasted,.ending-busted) .hud-status{visibility:hidden}
-.cash-display{display:grid;justify-items:end;gap:2px;text-shadow:0 2px 4px #000,0 0 10px #000b}
-.cash-display{grid-template-columns:auto auto;column-gap:14px;font-variant-numeric:tabular-nums}
-.cash-display>div{display:grid;justify-items:end;gap:3px}
-.cash-display #hud-checking{color:#c1e2ed}
-.cash-display #cash-gain{grid-column:1;grid-row:2}
-.cash-display span{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:1px}
-.cash-display strong{
-  font:900 clamp(26px,3.4vw,42px)/.9 "Passion One",var(--heading);
-  letter-spacing:.015em;
-  color:#b9e1a7;
+.cash-display {
+  display:grid;
+  justify-items:end;
+  gap:2px;
+  color:#f6f7f2;
+  font:700 clamp(23px,2.4vw,34px)/1 "Barlow Condensed","Arial Narrow",sans-serif;
+  font-variant-numeric:tabular-nums;
+  text-shadow:0 1px 2px #000;
   paint-order:stroke fill;
-  -webkit-text-stroke:.08em #142017;
+  -webkit-text-stroke:2px #151817;
 }
-#cash-gain{
-  font:900 clamp(20px,2.5vw,30px)/1 "Passion One",var(--heading);
-  color:#8ee788;paint-order:stroke fill;-webkit-text-stroke:.08em #142017;
-  font-variant-numeric:tabular-nums;transition:opacity .35s ease-out;
+.cash-display>div { display:flex; align-items:baseline; gap:8px; }
+.cash-display span { font-size:11px; letter-spacing:.08em; text-transform:uppercase; }
+.cash-display strong { font-weight:inherit; }
+#cash { color:#c6e6b1; }
+#cash-gain { color:#86df81; font-size:.78em; transition:opacity .35s ease-out; }
+#cash-gain.fading { opacity:0; }
+
+/* Leave room for the balance rows when a menu or job card shares this corner. */
+body:has(.cash-display:not([hidden])) {
+  --money-clearance:calc(max(18px,env(safe-area-inset-top)) + clamp(80px,7.8vw,114px) + 16px);
 }
-#cash-gain.fading{opacity:0}
+body:has(#wanted:not(.calm):not([hidden])):has(.cash-display:not([hidden])) {
+  --money-clearance:calc(max(18px,env(safe-area-inset-top)) + clamp(80px,7.8vw,114px) + 68px);
+}
+body:has(.cash-display:not([hidden])) .mission-panel { top:var(--money-clearance); }
+
 .health-display {
-  position: fixed;
-  top: max(18px, env(safe-area-inset-top));
-  left: max(clamp(15px, 3vw, 32px), env(safe-area-inset-left));
-  width: clamp(122px, 16vw, 180px);
-  display: grid;
-  grid-template-columns: 1fr auto;
-  align-items: baseline;
-  gap: 4px 8px;
-  padding: 6px 9px 8px;
-  background: #17191edb;
-  border-left: 2px solid var(--brand-red);
-  font-size: 11px;
-  line-height: 1.2;
+  position:fixed;
+  top:max(18px,env(safe-area-inset-top));
+  left:max(clamp(15px,3vw,32px),env(safe-area-inset-left));
+  display:flex;
+  align-items:center;
+  gap:5px;
+  color:#ff9eb2;
+  filter:drop-shadow(0 1px 1px #151119);
 }
-.health-display label { font-weight: 700; letter-spacing: .08em; text-transform: uppercase; }
-.health-display strong { font-variant-numeric: tabular-nums; }
+.health-heart { font:16px/1 Arial,sans-serif; }
 .health-display meter {
-  appearance: none;
-  grid-column: 1 / -1;
-  width: 100%;
-  height: 5px;
-  background: #ffffff38;
+  appearance:none;
+  display:block;
+  width:clamp(84px,10vw,132px);
+  height:5px;
+  border:0;
+  border-radius:2px;
+  background:#29262ad9;
+  overflow:hidden;
 }
-.health-display meter::-webkit-meter-bar { background: transparent; border: 0; border-radius: 0; }
-.health-display meter::-webkit-meter-optimum-value { background: var(--brand-blush); }
-.health-display meter::-moz-meter-bar { background: var(--brand-blush); }
+.health-display meter::-webkit-meter-bar { height:100%; border:0; border-radius:0; background:transparent; }
+.health-display meter::-webkit-meter-optimum-value { background:#ff9eb2; }
+.health-display meter::-moz-meter-bar { background:#ff9eb2; }
 /* The street map is a sibling of the HUD so it also opens from city view. */
 .game-map{position:fixed;inset:0;z-index:30;background:#121b20f5;display:flex;flex-direction:column;gap:10px;padding:12px;color:var(--paper)}
 .game-map-toolbar{display:flex;align-items:center;justify-content:space-between;gap:12px}

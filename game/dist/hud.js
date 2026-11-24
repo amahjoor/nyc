@@ -83,7 +83,6 @@ export class HUD {
     const value = Math.round(health);
     this.lastHealth = health;
     $('health-bar').value = value;
-    this.text('health-number', value+'%');
     display.hidden = false;
     clearTimeout(this.healthTimer);
     this.healthTimer = setTimeout(() => { display.hidden = true; }, 4000);
