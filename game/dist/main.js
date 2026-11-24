@@ -4216,7 +4216,7 @@ async function boot() {
     hud.showCashGain(cents,balance,phoneBank.checking/100);
     audio.interfaceCue('cash');
   };
-  gameMap=new GameMap({city,loadTransit:loadTransitNetwork,getPresets:cityPresets,searchLocal:findLocally,onPlacesWanted:loadPlaceNames,onPin:requestDirections,onCue:cue=>audio.interfaceCue(cue),onZoom:inward=>audio.sceneCue(inward?'zoomIn':'zoomOut',.42),
+  gameMap=new GameMap({city,loadTransit:loadTransitNetwork,getPresets:cityPresets,searchLocal:findLocally,onPlacesWanted:loadPlaceNames,onPin:requestDirections,onCue:cue=>audio.interfaceCue(cue),onZoom:inward=>audio.mapZoomCue(inward),
     onSpawn:pin=>travel({...pin,exact:true}),
     onOpenChange:open=>{if(open)interaction?.close();mapOpen=open;input.clear();input.lookDelta=0;input.lookVertical=0;if(!open){canvas.focus();input.resumeLook();}markDoors();}});
   hud.attachMap(gameMap);

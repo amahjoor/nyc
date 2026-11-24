@@ -202,6 +202,21 @@ export class CityAudio {
     source.onended=()=>{source.disconnect();gain.disconnect();if(this.sceneVoice?.source===source)this.sceneVoice=null;};
     source.start(now);
   }
+  /** One step of the map's zoom. A tick of its own: the camera's rise and fall is far too long to repeat at a wheel's pace. */
+  mapZoomCue(inward) {
+    if (!this.enabled || !this.master) return;
+    const c=this.ctx, now=c.currentTime;
+    if (now < (this.endingCueUntil || 0) || now-(this.mapZoomAt ?? -Infinity) < .06) return;
+    this.mapZoomAt=now;
+    const kind=inward ? 'mapZoomIn' : 'mapZoomOut';
+    if(!this.sceneBuffers.has(kind))this.sceneBuffers.set(kind,renderSceneCue(c,kind));
+    const source=c.createBufferSource(),gain=c.createGain();
+    source.buffer=this.sceneBuffers.get(kind);
+    gain.gain.value=.5;
+    source.connect(gain).connect(this.master);
+    source.onended=()=>{source.disconnect();gain.disconnect();};
+    source.start(now);
+  }
   cameraStep(stage, level) {
     const cue=stage==='rise'?'zoomOut':stage==='fall'||stage==='land'?'zoomIn':null;
     const step=cue?stage+level:null;

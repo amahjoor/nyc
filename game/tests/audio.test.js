@@ -330,6 +330,35 @@ test('sidewalk contact uses distinct replies for brushes, shoves and repeat bump
   assert.ok(!world.voiceBanks.has(3));
 });
 
+test('each step of the map zoom is a short tick of its own, higher going in than coming out', async t => {
+  const audio=useAudio(t);
+  await audio.setEnabled(true);
+  const {ctx}=audio;
+  const count=()=>ctx.clips.length;
+  const before=count();
+  audio.mapZoomCue(true);assert.equal(count(),before+1);
+  ctx.currentTime=.03;audio.mapZoomCue(true);assert.equal(count(),before+1,'a wheel faster than the tick does not stack them');
+  ctx.currentTime=.1;audio.mapZoomCue(false);assert.equal(count(),before+2);
+  const inward=ctx.clips.at(-2).buffer,outward=ctx.clips.at(-1).buffer;
+  assert.notEqual(inward,outward);
+  // Upward crossings of zero in the voiced part: more of them when the tick climbs.
+  const crossings=buffer=>{const s=buffer.getChannelData(0);let n=0;for(let i=Math.round(s.length*.3);i<s.length-1;i++)if(s[i]<=0&&s[i+1]>0)n++;return n;};
+  assert.ok(crossings(inward)>crossings(outward)*1.3,'going in ends higher than coming out');
+  for(const buffer of [inward,outward]){
+    assert.ok(buffer.duration<.12,'a tick, not a sweep');
+    const samples=buffer.getChannelData(0);
+    assert.equal(Math.abs(samples[0]),0);
+    assert.equal(Math.abs(samples.at(-1)),0);
+    const peak=Math.max(...samples.map(Math.abs));
+    assert.ok(peak>.25 && peak<.9,'audible, with headroom');
+  }
+  ctx.currentTime=.5;audio.cameraStep('rise',1);
+  assert.ok(ctx.clips.at(-1).buffer.duration>inward.duration*4,'the camera keeps its own longer cue');
+  ctx.currentTime=1;audio.sceneCue('wasted');const wasted=count();
+  audio.mapZoomCue(true);assert.equal(count(),wasted,'nothing ticks over an ending');
+  ctx.currentTime=4;await audio.setEnabled(false);const muted=count();audio.mapZoomCue(false);assert.equal(count(),muted);
+});
+
 test('ending and camera cues play during transitions and match the direction of each zoom step', async t => {
   const audio=useAudio(t);
   await audio.setEnabled(true);

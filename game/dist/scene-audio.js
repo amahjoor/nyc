@@ -43,9 +43,38 @@ function renderZoomCue(context, inward) {
   return buffer;
 }
 
+// One step of the map's zoom: a short, dry tick with a small voiced body, the kind a console map makes for each notch.
+// It climbs going in and drops going out, so the direction is heard without looking. Unlike the camera's rise and fall
+// it has no air and no tail: a wheel can step the map a dozen times a second.
+function renderMapZoomCue(context, inward) {
+  const duration = .085;
+  const buffer = context.createBuffer(1, Math.round(duration * rate), rate);
+  const samples = buffer.getChannelData(0);
+  let seed = 90317, soft = 0, phase = 0;
+  for (let i = 0; i < samples.length; i++) {
+    const t = i / rate;
+    seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0;
+    const noise = seed / 2147483648 - 1;
+    // The contact: a few milliseconds of bright noise.
+    soft += (noise - soft) * .34;
+    const contact = .2 * (noise - soft) * Math.exp(-t * 620);
+    // The body: a rounded tone that settles a fourth up going in, a fourth down going out.
+    const glide = 1 - Math.exp(-t * 58);
+    const hz = inward ? 590 + 290 * glide : 740 - 280 * glide;
+    phase += tau * hz / rate;
+    const voiced = (1 - Math.exp(-t * 1100)) * Math.exp(-t * (inward ? 54 : 46));
+    const body = voiced * (.46 * Math.sin(phase) + .13 * Math.sin(2 * phase + .4));
+    // A little weight under it, so it reads as a notch and not a beep.
+    const weight = .17 * Math.sin(tau * 148 * t) * Math.exp(-t * 85);
+    samples[i] = (contact + body + weight) * Math.min(1, t / .0012, (samples.length - 1 - i) / (.012 * rate));
+  }
+  return buffer;
+}
+
 // Original short score cues. Render once per context so camera cuts can start on the same frame.
 export function renderSceneCue(context, kind) {
   if (kind === 'zoomIn' || kind === 'zoomOut') return renderZoomCue(context, kind === 'zoomIn');
+  if (kind === 'mapZoomIn' || kind === 'mapZoomOut') return renderMapZoomCue(context, kind === 'mapZoomIn');
   const duration = kind === 'wasted' ? 1.95 : 1.25;
   const buffer = context.createBuffer(1, Math.ceil(duration * rate), rate);
   const samples = buffer.getChannelData(0);
